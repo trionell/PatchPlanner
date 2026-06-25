@@ -34,8 +34,8 @@ func main() {
 	})
 	r.Mount("/api/v1", api.NewRouter(database))
 
-	logger.Info("starting server", slog.String("addr", ":8080"))
-	if err := http.ListenAndServe(":8080", r); err != nil {
+	logger.Info("starting server", slog.String("addr", ":7331"))
+	if err := http.ListenAndServe(":7331", r); err != nil {
 		logger.Error("server stopped", slog.Any("error", err))
 		os.Exit(1)
 	}

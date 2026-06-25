@@ -42,7 +42,7 @@ go run ./cmd/main.go
 ```
 
 The backend:
-- Starts on **http://localhost:8080**
+- Starts on **http://localhost:7331**
 - Creates `backend/patcherplanner.db` (SQLite) on first run
 - Runs all database migrations automatically
 
@@ -63,7 +63,7 @@ The frontend opens on **http://localhost:5173**
 Once the backend is running, import the equipment catalog from `LL.xlsx`:
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/inventory/import-xlsx
+curl -X POST http://localhost:7331/api/v1/inventory/import-xlsx
 ```
 
 Or click **"Import from LL.xlsx"** on the Inventory page in the UI.
@@ -160,7 +160,7 @@ The **Rental Order** tab shows a summary of all inventory items referenced acros
 ```
 patcherPlanner/
 ├── backend/
-│   ├── cmd/main.go                  # Entry point — starts server on :8080
+│   ├── cmd/main.go                  # Entry point — starts server on :7331
 │   ├── internal/
 │   │   ├── api/                     # HTTP handlers (one file per resource)
 │   │   ├── db/                      # SQLite query functions
@@ -189,7 +189,7 @@ patcherPlanner/
 
 ## API Reference
 
-Base URL: `http://localhost:8080/api/v1`
+Base URL: `http://localhost:7331/api/v1`
 
 | Method | Path | Description |
 |--------|------|-------------|
