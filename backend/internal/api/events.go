@@ -1,0 +1,119 @@
+package api
+
+import (
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"strconv"
+
+	"github.com/go-chi/chi/v5"
+	dbstore "github.com/trionell/patcherplanner/internal/db"
+	"github.com/trionell/patcherplanner/internal/domain"
+)
+
+type EventsHandler struct {
+	DB *sql.DB
+}
+
+func (h EventsHandler) Register(r chi.Router) {
+	r.Route("/events", func(r chi.Router) {
+		r.Get("/", h.list)
+		r.Post("/", h.create)
+		r.Route("/{eventID}", func(r chi.Router) {
+			r.Get("/", h.get)
+			r.Patch("/", h.update)
+			r.Delete("/", h.delete)
+		})
+	})
+}
+
+func (h EventsHandler) list(w http.ResponseWriter, r *http.Request) {
+	events, err := dbstore.ListEvents(h.DB)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if events == nil {
+		events = []domain.Event{}
+	}
+	writeJSON(w, http.StatusOK, events)
+}
+
+func (h EventsHandler) get(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
+	event, err := dbstore.GetEvent(h.DB, eventID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "event not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, event)
+}
+
+func (h EventsHandler) create(w http.ResponseWriter, r *http.Request) {
+	var event domain.Event
+	if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if event.Name == "" {
+		writeError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	created, err := dbstore.CreateEvent(h.DB, event)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusCreated, created)
+}
+
+func (h EventsHandler) update(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
+	var event domain.Event
+	if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if event.Name == "" {
+		writeError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	updated, err := dbstore.UpdateEvent(h.DB, eventID, event)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
+}
+
+func (h EventsHandler) delete(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
+	if err := dbstore.DeleteEvent(h.DB, eventID); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func parseID(w http.ResponseWriter, raw string) (int64, bool) {
+	id, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid id")
+		return 0, false
+	}
+	return id, true
+}
