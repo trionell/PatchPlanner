@@ -15,12 +15,47 @@ import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table'
 import { Tab, TabList, TabPanel, Tabs } from '../components/ui/Tabs'
-import type { AudioPatchInput, AudioPatchOutput, LightingFixture } from '../types'
+import type { AudioPatchInput, AudioPatchOutput, InventoryItem, LightingFixture } from '../types'
 
 const signalTypes = ['mic', 'line', 'di', 'return', 'aux'] as const
 const stands = ['', 'straight', 'boom', 'low', 'desk', 'clip', 'none'] as const
 const outputTypes = ['foh', 'monitor', 'sub', 'aux', 'matrix', 'stereo', 'iem'] as const
 const destinationTypes = ['local', 'stagebox', 'stage_multi'] as const
+
+const preampConnectors = [
+  { value: 'xlr', label: 'XLR' },
+  { value: 'jack_ts', label: 'Jack TS' },
+  { value: 'jack_trs', label: 'Jack TRS' },
+  { value: 'rca', label: 'RCA' },
+  { value: 'combo', label: 'Combo' },
+  { value: 'usb', label: 'USB' },
+]
+
+const signalCableTypes = [
+  { value: 'xlr', label: 'XLR' },
+  { value: 'jack_ts', label: 'Jack TS' },
+  { value: 'jack_trs', label: 'Jack TRS' },
+  { value: 'rca', label: 'RCA' },
+  { value: 'combo', label: 'Combo' },
+]
+
+const speakerCableTypes = [
+  { value: 'xlr', label: 'XLR' },
+  { value: 'nl4', label: 'NL4 (Speakon)' },
+  { value: 'nl8', label: 'NL8 (Speakon)' },
+  { value: 'jack_ts', label: 'Jack TS' },
+]
+
+const powerConnectors = [
+  { value: 'schuko', label: 'Schuko' },
+  { value: 'cee16', label: 'CEE 16A (1-fas)' },
+  { value: 'cee32', label: 'CEE 32A (1-fas)' },
+  { value: 'cee16_3ph', label: 'CEE 16A (3-fas)' },
+  { value: 'cee32_3ph', label: 'CEE 32A (3-fas)' },
+  { value: 'powercon', label: 'PowerCon' },
+  { value: 'powercon_true1', label: 'PowerCon TRUE1' },
+  { value: 'iec', label: 'IEC C13' },
+]
 
 export function EventDetailPage() {
   const params = useParams()
@@ -31,7 +66,7 @@ export function EventDetailPage() {
   const audioQuery = useQuery({ queryKey: ['audio-patch', eventId], queryFn: () => getAudioPatch(eventId), enabled: Number.isFinite(eventId) })
   const lightingQuery = useQuery({ queryKey: ['lighting-rig', eventId], queryFn: () => getLightingRig(eventId), enabled: Number.isFinite(eventId) })
   const rentalQuery = useQuery({ queryKey: ['rental-summary', eventId], queryFn: () => getRentalSummary(eventId), enabled: Number.isFinite(eventId) })
-  const inventoryQuery = useQuery({ queryKey: ['inventory-items'], queryFn: () => listInventoryItems() })
+  const inventoryQuery = useQuery({ queryKey: ['inventory-audio-items'], queryFn: () => listInventoryItems({ categoryType: 'audio' }) })
   const lightingInventoryQuery = useQuery({ queryKey: ['inventory-lighting'], queryFn: () => listInventoryItems({ categoryType: 'lighting' }) })
 
   const [overview, setOverview] = useState({ name: '', date: '', venue: '', notes: '' })
@@ -124,8 +159,14 @@ export function EventDetailPage() {
     onSuccess: async () => queryClient.invalidateQueries({ queryKey: ['lighting-rig', eventId] }),
   })
 
-  const inventoryOptions = useMemo(() => (inventoryQuery.data ?? []).map((item) => ({ label: item.name, value: item.id })), [inventoryQuery.data])
   const lightingOptions = useMemo(() => (lightingInventoryQuery.data ?? []).map((item) => ({ label: item.name, value: item.id })), [lightingInventoryQuery.data])
+
+  const allAudioItems: InventoryItem[] = inventoryQuery.data ?? []
+  const micItems = useMemo(() => allAudioItems.filter(i => i.category_name?.toLowerCase().startsWith('mikrofon')), [allAudioItems])
+  const diItems = useMemo(() => allAudioItems.filter(i => i.category_name?.toLowerCase().includes('linebox')), [allAudioItems])
+  const iemItems = useMemo(() => allAudioItems.filter(i => i.category_name?.toLowerCase() === 'iem'), [allAudioItems])
+  const ampItems = useMemo(() => allAudioItems.filter(i => i.category_name?.toLowerCase().includes('slutsteg')), [allAudioItems])
+  const speakerItems = useMemo(() => allAudioItems.filter(i => i.category_name?.toLowerCase().includes('högtalare')), [allAudioItems])
 
   if (!Number.isFinite(eventId)) return <p className="text-sm text-red-400">Invalid event id.</p>
   if (eventQuery.isLoading) return <p className="text-sm text-zinc-400">Loading event...</p>
@@ -252,13 +293,22 @@ export function EventDetailPage() {
                             </Select>
                           </div>
                         </TableCell>
-                        <TableCell><Input value={row.preamp_connector} onChange={(e) => updateInputDraft(index, 'preamp_connector', e.target.value)} onBlur={() => persistInput(inputs[index])} className="min-w-24" /></TableCell>
-                        <TableCell><Input type="number" value={row.stagebox_id ?? ''} onChange={(e) => updateInputDraft(index, 'stagebox_id', toOptionalNumber(e.target.value))} onBlur={() => persistInput(inputs[index])} className="min-w-20" /></TableCell>
+                        <TableCell><Select value={row.preamp_connector} onChange={(e) => updateInputDraft(index, 'preamp_connector', e.target.value)} onBlur={() => persistInput(inputs[index])} className="min-w-28">{preampConnectors.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</Select></TableCell>
+                        <TableCell><Select value={row.stagebox_id ?? ''} onChange={(e) => updateInputDraft(index, 'stagebox_id', toOptionalNumber(e.target.value))} onBlur={() => persistInput(inputs[index])} className="min-w-36"><option value="">—</option>{(audioQuery.data?.stageboxes ?? []).map((sb) => <option key={sb.id} value={sb.id}>{sb.name}</option>)}</Select></TableCell>
                         <TableCell><Input type="number" value={row.stagebox_channel ?? ''} onChange={(e) => updateInputDraft(index, 'stagebox_channel', toOptionalNumber(e.target.value))} onBlur={() => persistInput(inputs[index])} className="min-w-20" /></TableCell>
-                        <TableCell><Input type="number" value={row.stage_multi_id ?? ''} onChange={(e) => updateInputDraft(index, 'stage_multi_id', toOptionalNumber(e.target.value))} onBlur={() => persistInput(inputs[index])} className="min-w-20" /></TableCell>
+                        <TableCell><Select value={row.stage_multi_id ?? ''} onChange={(e) => updateInputDraft(index, 'stage_multi_id', toOptionalNumber(e.target.value))} onBlur={() => persistInput(inputs[index])} className="min-w-36"><option value="">—</option>{(audioQuery.data?.stage_multis ?? []).map((sm) => <option key={sm.id} value={sm.id}>{sm.name}</option>)}</Select></TableCell>
                         <TableCell><Input type="number" value={row.stage_multi_channel ?? ''} onChange={(e) => updateInputDraft(index, 'stage_multi_channel', toOptionalNumber(e.target.value))} onBlur={() => persistInput(inputs[index])} className="min-w-20" /></TableCell>
-                        <TableCell><Input value={row.mic_model ?? ''} onChange={(e) => updateInputDraft(index, 'mic_model', e.target.value)} onBlur={() => persistInput(inputs[index])} className="min-w-32" /></TableCell>
-                        <TableCell><Input value={row.cable_type} onChange={(e) => updateInputDraft(index, 'cable_type', e.target.value)} onBlur={() => persistInput(inputs[index])} className="min-w-24" /></TableCell>
+                        <TableCell>
+                          {getMicItemsForSignalType(row.signal_type, micItems, diItems, iemItems).length > 0 ? (
+                            <Select value={row.mic_model ?? ''} onChange={(e) => updateInputDraft(index, 'mic_model', e.target.value)} onBlur={() => persistInput(inputs[index])} className="min-w-48">
+                              <option value="">—</option>
+                              {getMicItemsForSignalType(row.signal_type, micItems, diItems, iemItems).map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
+                            </Select>
+                          ) : (
+                            <span className="px-2 text-xs text-zinc-500">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell><Select value={row.cable_type} onChange={(e) => updateInputDraft(index, 'cable_type', e.target.value)} onBlur={() => persistInput(inputs[index])} className="min-w-28">{signalCableTypes.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</Select></TableCell>
                         <TableCell><Input type="number" step="0.5" value={row.cable_length_m} onChange={(e) => updateInputDraft(index, 'cable_length_m', Number(e.target.value))} onBlur={() => persistInput(inputs[index])} className="min-w-20" /></TableCell>
                         <TableCell><Select value={row.mic_stand ?? ''} onChange={(e) => updateInputDraft(index, 'mic_stand', e.target.value as AudioPatchInput['mic_stand'])} onBlur={() => persistInput(inputs[index])} className="min-w-28">{stands.map((value) => <option key={value} value={value}>{value || '—'}</option>)}</Select></TableCell>
                         <TableCell><input type="checkbox" checked={row.phantom_power} onChange={(e) => { updateInputDraft(index, 'phantom_power', e.target.checked); void persistInput({ ...inputs[index], phantom_power: e.target.checked }) }} className="h-4 w-4 accent-amber-500" /></TableCell>
@@ -295,13 +345,13 @@ export function EventDetailPage() {
                         <TableCell><Input value={row.output_name ?? ''} onChange={(e) => updateOutputDraft(index, 'output_name', e.target.value)} onBlur={() => persistOutput(outputs[index])} className="min-w-36" /></TableCell>
                         <TableCell><div className="space-y-2 min-w-28"><Badge variant={row.output_type === 'aux' ? 'warning' : row.output_type}>{row.output_type}</Badge><Select value={row.output_type} onChange={(e) => updateOutputDraft(index, 'output_type', e.target.value as AudioPatchOutput['output_type'])} onBlur={() => persistOutput(outputs[index])}>{outputTypes.map((value) => <option key={value} value={value}>{value}</option>)}</Select></div></TableCell>
                         <TableCell><Select value={row.destination_type} onChange={(e) => updateOutputDraft(index, 'destination_type', e.target.value as AudioPatchOutput['destination_type'])} onBlur={() => persistOutput(outputs[index])} className="min-w-28">{destinationTypes.map((value) => <option key={value} value={value}>{value}</option>)}</Select></TableCell>
-                        <TableCell><Input type="number" value={row.stagebox_id ?? ''} onChange={(e) => updateOutputDraft(index, 'stagebox_id', toOptionalNumber(e.target.value))} onBlur={() => persistOutput(outputs[index])} className="min-w-20" /></TableCell>
+                        <TableCell><Select value={row.stagebox_id ?? ''} onChange={(e) => updateOutputDraft(index, 'stagebox_id', toOptionalNumber(e.target.value))} onBlur={() => persistOutput(outputs[index])} className="min-w-36"><option value="">—</option>{(audioQuery.data?.stageboxes ?? []).map((sb) => <option key={sb.id} value={sb.id}>{sb.name}</option>)}</Select></TableCell>
                         <TableCell><Input type="number" value={row.stagebox_channel ?? ''} onChange={(e) => updateOutputDraft(index, 'stagebox_channel', toOptionalNumber(e.target.value))} onBlur={() => persistOutput(outputs[index])} className="min-w-20" /></TableCell>
-                        <TableCell><Input type="number" value={row.stage_multi_id ?? ''} onChange={(e) => updateOutputDraft(index, 'stage_multi_id', toOptionalNumber(e.target.value))} onBlur={() => persistOutput(outputs[index])} className="min-w-20" /></TableCell>
+                        <TableCell><Select value={row.stage_multi_id ?? ''} onChange={(e) => updateOutputDraft(index, 'stage_multi_id', toOptionalNumber(e.target.value))} onBlur={() => persistOutput(outputs[index])} className="min-w-36"><option value="">—</option>{(audioQuery.data?.stage_multis ?? []).map((sm) => <option key={sm.id} value={sm.id}>{sm.name}</option>)}</Select></TableCell>
                         <TableCell><Input type="number" value={row.stage_multi_channel ?? ''} onChange={(e) => updateOutputDraft(index, 'stage_multi_channel', toOptionalNumber(e.target.value))} onBlur={() => persistOutput(outputs[index])} className="min-w-20" /></TableCell>
-                        <TableCell><Select value={row.amplifier_item_id ?? ''} onChange={(e) => updateOutputDraft(index, 'amplifier_item_id', toOptionalNumber(e.target.value))} onBlur={() => persistOutput(outputs[index])} className="min-w-40"><option value="">—</option>{inventoryOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</Select></TableCell>
-                        <TableCell><Select value={row.speaker_item_id ?? ''} onChange={(e) => updateOutputDraft(index, 'speaker_item_id', toOptionalNumber(e.target.value))} onBlur={() => persistOutput(outputs[index])} className="min-w-40"><option value="">—</option>{inventoryOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</Select></TableCell>
-                        <TableCell><Input value={row.cable_type} onChange={(e) => updateOutputDraft(index, 'cable_type', e.target.value)} onBlur={() => persistOutput(outputs[index])} className="min-w-24" /></TableCell>
+                        <TableCell><Select value={row.amplifier_item_id ?? ''} onChange={(e) => updateOutputDraft(index, 'amplifier_item_id', toOptionalNumber(e.target.value))} onBlur={() => persistOutput(outputs[index])} className="min-w-44"><option value="">—</option>{ampItems.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></TableCell>
+                        <TableCell><Select value={row.speaker_item_id ?? ''} onChange={(e) => updateOutputDraft(index, 'speaker_item_id', toOptionalNumber(e.target.value))} onBlur={() => persistOutput(outputs[index])} className="min-w-44"><option value="">—</option>{speakerItems.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></TableCell>
+                        <TableCell><Select value={row.cable_type} onChange={(e) => updateOutputDraft(index, 'cable_type', e.target.value)} onBlur={() => persistOutput(outputs[index])} className="min-w-32">{speakerCableTypes.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</Select></TableCell>
                         <TableCell><Input type="number" step="0.5" value={row.cable_length_m} onChange={(e) => updateOutputDraft(index, 'cable_length_m', Number(e.target.value))} onBlur={() => persistOutput(outputs[index])} className="min-w-20" /></TableCell>
                         <TableCell><Input value={row.notes ?? ''} onChange={(e) => updateOutputDraft(index, 'notes', e.target.value)} onBlur={() => persistOutput(outputs[index])} className="min-w-36" /></TableCell>
                         <TableCell><Button size="sm" variant="ghost" onClick={() => deleteOutputMutation.mutate(row.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
@@ -344,7 +394,7 @@ export function EventDetailPage() {
                         <TableCell><Input value={fixture.truss_section_name ?? ''} disabled className="min-w-24 opacity-70" /></TableCell>
                         <TableCell><Input type="number" value={fixture.position_index} onChange={(e) => updateFixtureDraft(index, 'position_index', Number(e.target.value))} onBlur={() => persistFixture(fixtures[index])} className="min-w-20" /></TableCell>
                         <TableCell><div className="flex items-center gap-2"><Select value={fixture.power_connection} onChange={(e) => updateFixtureDraft(index, 'power_connection', e.target.value as LightingFixture['power_connection'])} onBlur={() => persistFixture(fixtures[index])} className="min-w-24"><option value="grid">grid</option><option value="chain">chain</option></Select>{fixture.power_connection === 'chain' && <Link2 className="h-4 w-4 text-amber-400" />}</div></TableCell>
-                        <TableCell><Input value={fixture.power_connector_in} onChange={(e) => updateFixtureDraft(index, 'power_connector_in', e.target.value)} onBlur={() => persistFixture(fixtures[index])} className="min-w-24" /></TableCell>
+                        <TableCell><Select value={fixture.power_connector_in} onChange={(e) => updateFixtureDraft(index, 'power_connector_in', e.target.value)} onBlur={() => persistFixture(fixtures[index])} className="min-w-44">{powerConnectors.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</Select></TableCell>
                         <TableCell><Input type="number" value={fixture.dmx_universe} onChange={(e) => updateFixtureDraft(index, 'dmx_universe', Number(e.target.value))} onBlur={() => persistFixture(fixtures[index])} className="min-w-20" /></TableCell>
                         <TableCell className="min-w-24">{formatDMXRange(fixture.dmx_start_address, fixture.dmx_channel_count)}</TableCell>
                         <TableCell><Input value={fixture.dmx_channel_mode ?? ''} onChange={(e) => updateFixtureDraft(index, 'dmx_channel_mode', e.target.value)} onBlur={() => persistFixture(fixtures[index])} className="min-w-24" /></TableCell>
@@ -495,6 +545,20 @@ function sanitizeOutput(row: AudioPatchOutput): Omit<AudioPatchOutput, 'id'> {
 
 function sanitizeFixture(row: LightingFixture): Omit<LightingFixture, 'id'> {
   return { ...row }
+}
+
+function getMicItemsForSignalType(
+  signalType: AudioPatchInput['signal_type'],
+  micItems: InventoryItem[],
+  diItems: InventoryItem[],
+  iemItems: InventoryItem[],
+): InventoryItem[] {
+  switch (signalType) {
+    case 'mic': return micItems
+    case 'di': return diItems
+    case 'return': return iemItems
+    default: return []
+  }
 }
 
 function MiniStat({ label, value }: { label: string; value: string }) {
