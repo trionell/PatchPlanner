@@ -1,22 +1,24 @@
 package domain
 
 type Stagebox struct {
-	ID             int64  `json:"id"`
-	EventID        int64  `json:"event_id"`
-	Name           string `json:"name"`
-	Model          string `json:"model,omitempty"`
-	InputCount     int    `json:"input_count"`
-	OutputCount    int    `json:"output_count"`
-	ConnectionType string `json:"connection_type"`
+	ID              int64  `json:"id"`
+	EventID         int64  `json:"event_id"`
+	Name            string `json:"name"`
+	Model           string `json:"model,omitempty"`
+	InputCount      int    `json:"input_count"`
+	OutputCount     int    `json:"output_count"`
+	ConnectionType  string `json:"connection_type"`
+	InventoryItemID *int64 `json:"inventory_item_id,omitempty"`
 }
 
 type StageMulti struct {
-	ID            int64   `json:"id"`
-	EventID       int64   `json:"event_id"`
-	Name          string  `json:"name"`
-	LengthM       float64 `json:"length_m"`
-	Channels      int     `json:"channels"`
-	ConnectorType string  `json:"connector_type"`
+	ID              int64   `json:"id"`
+	EventID         int64   `json:"event_id"`
+	Name            string  `json:"name"`
+	LengthM         float64 `json:"length_m"`
+	Channels        int     `json:"channels"`
+	ConnectorType   string  `json:"connector_type"`
+	InventoryItemID *int64  `json:"inventory_item_id,omitempty"`
 }
 
 type AudioPatchInput struct {

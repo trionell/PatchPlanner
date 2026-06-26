@@ -36,6 +36,7 @@ export interface Stagebox {
   input_count: number
   output_count: number
   connection_type: string
+  inventory_item_id?: number
 }
 
 export interface StageMulti {
@@ -45,6 +46,7 @@ export interface StageMulti {
   length_m: number
   channels: number
   connector_type: string
+  inventory_item_id?: number
 }
 
 export interface AudioPatchInput {

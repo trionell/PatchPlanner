@@ -23,9 +23,19 @@ type audioPatchResponse struct {
 
 func (h AudioPatchHandler) Register(r chi.Router) {
 	r.Get("/events/{eventID}/audio-patch", h.getAudioPatch)
+	// Stageboxes
+	r.Post("/events/{eventID}/stageboxes", h.createStagebox)
+	r.Patch("/events/{eventID}/stageboxes/{sbID}", h.updateStagebox)
+	r.Delete("/events/{eventID}/stageboxes/{sbID}", h.deleteStagebox)
+	// Stage multis
+	r.Post("/events/{eventID}/stage-multis", h.createStageMulti)
+	r.Patch("/events/{eventID}/stage-multis/{smID}", h.updateStageMulti)
+	r.Delete("/events/{eventID}/stage-multis/{smID}", h.deleteStageMulti)
+	// Inputs
 	r.Post("/events/{eventID}/audio-inputs", h.createInput)
 	r.Patch("/events/{eventID}/audio-inputs/{inputID}", h.updateInput)
 	r.Delete("/events/{eventID}/audio-inputs/{inputID}", h.deleteInput)
+	// Outputs
 	r.Post("/events/{eventID}/audio-outputs", h.createOutput)
 	r.Patch("/events/{eventID}/audio-outputs/{outputID}", h.updateOutput)
 	r.Delete("/events/{eventID}/audio-outputs/{outputID}", h.deleteOutput)
@@ -69,6 +79,113 @@ func (h AudioPatchHandler) getAudioPatch(w http.ResponseWriter, r *http.Request)
 		outputs = []domain.AudioPatchOutput{}
 	}
 	writeJSON(w, http.StatusOK, audioPatchResponse{Stageboxes: stageboxes, StageMultis: stageMultis, Inputs: inputs, Outputs: outputs})
+}
+
+func (h AudioPatchHandler) createStagebox(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
+	var payload domain.Stagebox
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	payload.EventID = eventID
+	if payload.ConnectionType == "" {
+		payload.ConnectionType = "analog"
+	}
+	created, err := dbstore.CreateStagebox(h.DB, payload)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusCreated, created)
+}
+
+func (h AudioPatchHandler) updateStagebox(w http.ResponseWriter, r *http.Request) {
+	sbID, ok := parseID(w, chi.URLParam(r, "sbID"))
+	if !ok {
+		return
+	}
+	var payload domain.Stagebox
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	updated, err := dbstore.UpdateStagebox(h.DB, sbID, payload)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
+}
+
+func (h AudioPatchHandler) deleteStagebox(w http.ResponseWriter, r *http.Request) {
+	sbID, ok := parseID(w, chi.URLParam(r, "sbID"))
+	if !ok {
+		return
+	}
+	if err := dbstore.DeleteStagebox(h.DB, sbID); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h AudioPatchHandler) createStageMulti(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
+	var payload domain.StageMulti
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	payload.EventID = eventID
+	if payload.ConnectorType == "" {
+		payload.ConnectorType = "xlr"
+	}
+	if payload.Channels == 0 {
+		payload.Channels = 24
+	}
+	created, err := dbstore.CreateStageMulti(h.DB, payload)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusCreated, created)
+}
+
+func (h AudioPatchHandler) updateStageMulti(w http.ResponseWriter, r *http.Request) {
+	smID, ok := parseID(w, chi.URLParam(r, "smID"))
+	if !ok {
+		return
+	}
+	var payload domain.StageMulti
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	updated, err := dbstore.UpdateStageMulti(h.DB, smID, payload)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
+}
+
+func (h AudioPatchHandler) deleteStageMulti(w http.ResponseWriter, r *http.Request) {
+	smID, ok := parseID(w, chi.URLParam(r, "smID"))
+	if !ok {
+		return
+	}
+	if err := dbstore.DeleteStageMulti(h.DB, smID); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h AudioPatchHandler) createInput(w http.ResponseWriter, r *http.Request) {

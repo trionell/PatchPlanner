@@ -8,7 +8,7 @@ import (
 )
 
 func ListStageboxes(db *sql.DB, eventID int64) ([]domain.Stagebox, error) {
-	rows, err := db.Query(`SELECT id, event_id, name, COALESCE(model, ''), COALESCE(input_count, 0), COALESCE(output_count, 0), COALESCE(connection_type, 'analog') FROM stageboxes WHERE event_id = ? ORDER BY id ASC`, eventID)
+	rows, err := db.Query(`SELECT id, event_id, name, COALESCE(model, ''), COALESCE(input_count, 0), COALESCE(output_count, 0), COALESCE(connection_type, 'analog'), inventory_item_id FROM stageboxes WHERE event_id = ? ORDER BY id ASC`, eventID)
 	if err != nil {
 		return nil, fmt.Errorf("list stageboxes: %w", err)
 	}
@@ -16,16 +16,59 @@ func ListStageboxes(db *sql.DB, eventID int64) ([]domain.Stagebox, error) {
 	items := make([]domain.Stagebox, 0)
 	for rows.Next() {
 		var item domain.Stagebox
-		if err := rows.Scan(&item.ID, &item.EventID, &item.Name, &item.Model, &item.InputCount, &item.OutputCount, &item.ConnectionType); err != nil {
+		var invID sql.NullInt64
+		if err := rows.Scan(&item.ID, &item.EventID, &item.Name, &item.Model, &item.InputCount, &item.OutputCount, &item.ConnectionType, &invID); err != nil {
 			return nil, fmt.Errorf("scan stagebox: %w", err)
+		}
+		if invID.Valid {
+			v := invID.Int64
+			item.InventoryItemID = &v
 		}
 		items = append(items, item)
 	}
 	return items, rows.Err()
 }
 
+func GetStagebox(db *sql.DB, id int64) (domain.Stagebox, error) {
+	row := db.QueryRow(`SELECT id, event_id, name, COALESCE(model, ''), COALESCE(input_count, 0), COALESCE(output_count, 0), COALESCE(connection_type, 'analog'), inventory_item_id FROM stageboxes WHERE id = ?`, id)
+	var item domain.Stagebox
+	var invID sql.NullInt64
+	if err := row.Scan(&item.ID, &item.EventID, &item.Name, &item.Model, &item.InputCount, &item.OutputCount, &item.ConnectionType, &invID); err != nil {
+		return domain.Stagebox{}, fmt.Errorf("get stagebox: %w", err)
+	}
+	if invID.Valid {
+		v := invID.Int64
+		item.InventoryItemID = &v
+	}
+	return item, nil
+}
+
+func CreateStagebox(db *sql.DB, sb domain.Stagebox) (domain.Stagebox, error) {
+	result, err := db.Exec(`INSERT INTO stageboxes (event_id, name, model, input_count, output_count, connection_type, inventory_item_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		sb.EventID, sb.Name, nullString(sb.Model), sb.InputCount, sb.OutputCount, sb.ConnectionType, nullInt64(sb.InventoryItemID))
+	if err != nil {
+		return domain.Stagebox{}, fmt.Errorf("create stagebox: %w", err)
+	}
+	id, _ := result.LastInsertId()
+	return GetStagebox(db, id)
+}
+
+func UpdateStagebox(db *sql.DB, id int64, sb domain.Stagebox) (domain.Stagebox, error) {
+	_, err := db.Exec(`UPDATE stageboxes SET name = ?, model = ?, input_count = ?, output_count = ?, connection_type = ?, inventory_item_id = ? WHERE id = ?`,
+		sb.Name, nullString(sb.Model), sb.InputCount, sb.OutputCount, sb.ConnectionType, nullInt64(sb.InventoryItemID), id)
+	if err != nil {
+		return domain.Stagebox{}, fmt.Errorf("update stagebox: %w", err)
+	}
+	return GetStagebox(db, id)
+}
+
+func DeleteStagebox(db *sql.DB, id int64) error {
+	_, err := db.Exec(`DELETE FROM stageboxes WHERE id = ?`, id)
+	return err
+}
+
 func ListStageMultis(db *sql.DB, eventID int64) ([]domain.StageMulti, error) {
-	rows, err := db.Query(`SELECT id, event_id, name, COALESCE(length_m, 0), COALESCE(channels, 24), COALESCE(connector_type, 'xlr') FROM stage_multis WHERE event_id = ? ORDER BY id ASC`, eventID)
+	rows, err := db.Query(`SELECT id, event_id, name, COALESCE(length_m, 0), COALESCE(channels, 24), COALESCE(connector_type, 'xlr'), inventory_item_id FROM stage_multis WHERE event_id = ? ORDER BY id ASC`, eventID)
 	if err != nil {
 		return nil, fmt.Errorf("list stage multis: %w", err)
 	}
@@ -33,12 +76,55 @@ func ListStageMultis(db *sql.DB, eventID int64) ([]domain.StageMulti, error) {
 	items := make([]domain.StageMulti, 0)
 	for rows.Next() {
 		var item domain.StageMulti
-		if err := rows.Scan(&item.ID, &item.EventID, &item.Name, &item.LengthM, &item.Channels, &item.ConnectorType); err != nil {
+		var invID sql.NullInt64
+		if err := rows.Scan(&item.ID, &item.EventID, &item.Name, &item.LengthM, &item.Channels, &item.ConnectorType, &invID); err != nil {
 			return nil, fmt.Errorf("scan stage multi: %w", err)
+		}
+		if invID.Valid {
+			v := invID.Int64
+			item.InventoryItemID = &v
 		}
 		items = append(items, item)
 	}
 	return items, rows.Err()
+}
+
+func GetStageMulti(db *sql.DB, id int64) (domain.StageMulti, error) {
+	row := db.QueryRow(`SELECT id, event_id, name, COALESCE(length_m, 0), COALESCE(channels, 24), COALESCE(connector_type, 'xlr'), inventory_item_id FROM stage_multis WHERE id = ?`, id)
+	var item domain.StageMulti
+	var invID sql.NullInt64
+	if err := row.Scan(&item.ID, &item.EventID, &item.Name, &item.LengthM, &item.Channels, &item.ConnectorType, &invID); err != nil {
+		return domain.StageMulti{}, fmt.Errorf("get stage multi: %w", err)
+	}
+	if invID.Valid {
+		v := invID.Int64
+		item.InventoryItemID = &v
+	}
+	return item, nil
+}
+
+func CreateStageMulti(db *sql.DB, sm domain.StageMulti) (domain.StageMulti, error) {
+	result, err := db.Exec(`INSERT INTO stage_multis (event_id, name, length_m, channels, connector_type, inventory_item_id) VALUES (?, ?, ?, ?, ?, ?)`,
+		sm.EventID, sm.Name, sm.LengthM, sm.Channels, sm.ConnectorType, nullInt64(sm.InventoryItemID))
+	if err != nil {
+		return domain.StageMulti{}, fmt.Errorf("create stage multi: %w", err)
+	}
+	id, _ := result.LastInsertId()
+	return GetStageMulti(db, id)
+}
+
+func UpdateStageMulti(db *sql.DB, id int64, sm domain.StageMulti) (domain.StageMulti, error) {
+	_, err := db.Exec(`UPDATE stage_multis SET name = ?, length_m = ?, channels = ?, connector_type = ?, inventory_item_id = ? WHERE id = ?`,
+		sm.Name, sm.LengthM, sm.Channels, sm.ConnectorType, nullInt64(sm.InventoryItemID), id)
+	if err != nil {
+		return domain.StageMulti{}, fmt.Errorf("update stage multi: %w", err)
+	}
+	return GetStageMulti(db, id)
+}
+
+func DeleteStageMulti(db *sql.DB, id int64) error {
+	_, err := db.Exec(`DELETE FROM stage_multis WHERE id = ?`, id)
+	return err
 }
 
 func ListAudioPatchInputs(db *sql.DB, eventID int64) ([]domain.AudioPatchInput, error) {
