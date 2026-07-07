@@ -24,9 +24,9 @@ func (s InventoryService) ImportFromXLSX(path string) (domain.InventoryImportRes
 
 	// Raw cell values: the price columns are number-formatted ("550.0 kr",
 	// "1,750.0 kr"), which formatted reads turn into unparseable strings.
-	rows, err := file.GetRows("Prislista LL", excelize.Options{RawCellValue: true})
+	rows, err := file.GetRows(priceListSheet, excelize.Options{RawCellValue: true})
 	if err != nil {
-		return domain.InventoryImportResult{}, fmt.Errorf("read Prislista LL sheet: %w", err)
+		return domain.InventoryImportResult{}, fmt.Errorf("read %s sheet: %w", priceListSheet, err)
 	}
 
 	categories := make([]domain.InventoryCategory, 0)

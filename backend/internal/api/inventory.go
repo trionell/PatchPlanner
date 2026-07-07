@@ -58,12 +58,17 @@ func (h InventoryHandler) listItems(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, items)
 }
 
-func (h InventoryHandler) importXLSX(w http.ResponseWriter, r *http.Request) {
-	path := os.Getenv("INVENTORY_PATH")
-	if path == "" {
-		path = "../LL.xlsx"
+// inventoryFilePath resolves the renter's price-list file, shared by the
+// import and rental-export endpoints.
+func inventoryFilePath() string {
+	if path := os.Getenv("INVENTORY_PATH"); path != "" {
+		return path
 	}
-	result, err := service.InventoryService{DB: h.DB}.ImportFromXLSX(path)
+	return "../LL.xlsx"
+}
+
+func (h InventoryHandler) importXLSX(w http.ResponseWriter, r *http.Request) {
+	result, err := service.InventoryService{DB: h.DB}.ImportFromXLSX(inventoryFilePath())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

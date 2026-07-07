@@ -4,11 +4,16 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	dbstore "github.com/trionell/patchplanner/internal/db"
 	"github.com/trionell/patchplanner/internal/domain"
+	"github.com/trionell/patchplanner/internal/service"
+	"github.com/xuri/excelize/v2"
 )
 
 type RentalHandler struct {
@@ -19,6 +24,64 @@ func (h RentalHandler) Register(r chi.Router) {
 	r.Get("/events/{eventID}/rentals", h.getSummary)
 	r.Put("/events/{eventID}/rentals/manual/{itemID}", h.putManualLine)
 	r.Delete("/events/{eventID}/rentals/manual/{itemID}", h.deleteManualLine)
+	r.Get("/events/{eventID}/rental-export", h.exportFile)
+	r.Get("/events/{eventID}/rental-export/report", h.exportReport)
+}
+
+const xlsxContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+func (h RentalHandler) exportFile(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
+	file, report, ok := h.buildExport(w, eventID)
+	if !ok {
+		return
+	}
+	defer func() { _ = file.Close() }()
+
+	asciiName := strings.Map(func(r rune) rune {
+		if r < 0x20 || r > 0x7e || r == '"' {
+			return '_'
+		}
+		return r
+	}, report.Filename)
+	w.Header().Set("Content-Type", xlsxContentType)
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"; filename*=UTF-8''%s`, asciiName, url.PathEscape(report.Filename)))
+	if err := file.Write(w); err != nil {
+		// Headers are already sent; nothing sensible left to do but log-free
+		// abort — the client sees a truncated download.
+		return
+	}
+}
+
+func (h RentalHandler) exportReport(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
+	file, report, ok := h.buildExport(w, eventID)
+	if !ok {
+		return
+	}
+	_ = file.Close()
+	writeJSON(w, http.StatusOK, report)
+}
+
+// buildExport runs the export writer and maps its errors onto HTTP
+// responses. Returns ok=false when a response has already been written.
+func (h RentalHandler) buildExport(w http.ResponseWriter, eventID int64) (*excelize.File, domain.RentalExportReport, bool) {
+	file, report, err := service.ExportService{DB: h.DB}.BuildRentalExport(eventID, inventoryFilePath())
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "event not found")
+			return nil, domain.RentalExportReport{}, false
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return nil, domain.RentalExportReport{}, false
+	}
+	return file, report, true
 }
 
 func (h RentalHandler) getSummary(w http.ResponseWriter, r *http.Request) {

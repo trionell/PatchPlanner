@@ -1,4 +1,5 @@
-const BASE = 'http://localhost:7331/api/v1'
+export const API_BASE = 'http://localhost:7331/api/v1'
+const BASE = API_BASE
 
 async function parseResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {

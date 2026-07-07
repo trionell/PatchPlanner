@@ -11,6 +11,7 @@ An AVL (Audio, Video, Lighting) event planning tool for live productions. Plan p
 - **Audio Patch (Outputs)** — Map outputs to destinations (local, stagebox, stage-multi), assign amplifiers and speakers, document cable runs
 - **Lighting Rig** — Add fixtures, assign them to truss sections, configure power connections (grid or daisy-chain), set DMX universe/address and channel mode, auto-assign DMX addresses in sequence
 - **Rental Order** — Per-event summary of all rented equipment, derived automatically from the plan (mics, DI/IEM, stageboxes, multicores, amplifiers, speakers, fixtures) plus manual line items for anything else; flags lines that exceed the renter's stock
+- **Excel Export** — One click produces a copy of LL.xlsx with the order quantities filled into the *Antal Ljud* / *Antal Ljus* columns at the right rows, ready to send to the renter unmodified; lines that can't be placed are reported, never silently dropped
 - **Inventory** — Full catalog imported directly from the LL.xlsx price list (308 items across 27 categories: audio, lighting, rigging)
 
 ---
@@ -232,6 +233,8 @@ Base URL: `http://localhost:7331/api/v1`
 | GET | `/events/:id/rentals` | Rental order summary (with stock validation flags) |
 | PUT | `/events/:id/rentals/manual/:itemId` | Create/update a manual rental line |
 | DELETE | `/events/:id/rentals/manual/:itemId` | Remove a manual rental line |
+| GET | `/events/:id/rental-export` | Download the order as a filled-in copy of LL.xlsx |
+| GET | `/events/:id/rental-export/report` | Export dry-run: filename + lines that cannot be placed |
 
 Health check: `GET http://localhost:7331/health` (outside `/api/v1`).
 

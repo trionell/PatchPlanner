@@ -34,3 +34,28 @@ type ManualRentalRequest struct {
 	QuantityLighting int    `json:"quantity_lighting"`
 	Notes            string `json:"notes,omitempty"`
 }
+
+// Unplaced-line reasons for the rental export report.
+const (
+	UnplacedDiscontinued = "discontinued" // item vanished from the latest price list
+	UnplacedRowMismatch  = "row_mismatch" // the item's sheet row now holds different equipment
+	UnplacedNoRow        = "no_row"       // item has no recorded sheet position
+)
+
+// UnplacedLine is a rental order line that could not be written into the
+// price-list file; it is surfaced for manual follow-up instead of being
+// silently dropped.
+type UnplacedLine struct {
+	InventoryItemID   int64  `json:"inventory_item_id"`
+	InventoryItemName string `json:"inventory_item_name"`
+	QuantityAudio     int    `json:"quantity_audio"`
+	QuantityLighting  int    `json:"quantity_lighting"`
+	Reason            string `json:"reason"`
+}
+
+// RentalExportReport describes the outcome of building an export file.
+type RentalExportReport struct {
+	Filename      string         `json:"filename"`
+	PlacedLines   int            `json:"placed_lines"`
+	UnplacedLines []UnplacedLine `json:"unplaced_lines"`
+}

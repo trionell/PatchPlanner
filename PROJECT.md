@@ -140,11 +140,9 @@ Per-event rental summary, derived automatically from the planning data.
 
 ## 3. Planned / Not Yet Implemented
 
-### 3.1 Excel Rental Order Export
+### 3.1 Excel Rental Order Export — ✅ implemented (2026-07-07)
 
-**The most pressing missing feature.** The rental order currently exists only as an in-app view. The actual workflow requires exporting this data back into the `LL.xlsx` template in the exact format the renter expects — specifically writing quantities into the `Antal Ljud` and `Antal Ljus` columns at the correct row positions so the file can be submitted directly without reformatting.
-
-The architecture and inventory row index data (`xlsx_row` field) are already in place; only the export writer is missing.
+Shipped as the `002-xlsx-rental-export` feature: the Rental Order tab exports a copy of `LL.xlsx` with quantities written into the `Antal Ljud` / `Antal Ljus` columns at each item's row. The writer locates the columns by header text, clears stale quantities left in the template, verifies the equipment name at every target row before writing, and reports unplaceable lines (discontinued items, drifted rows) instead of dropping them. The source file on disk is never modified, and re-importing an exported file leaves the catalog unchanged.
 
 ### 3.2 Rigging and Miscellaneous Equipment Tracking
 

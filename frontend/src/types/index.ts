@@ -157,6 +157,20 @@ export interface RentalSummary {
   has_over_stock: boolean
 }
 
+export interface UnplacedLine {
+  inventory_item_id: number
+  inventory_item_name: string
+  quantity_audio: number
+  quantity_lighting: number
+  reason: 'discontinued' | 'row_mismatch' | 'no_row'
+}
+
+export interface RentalExportReport {
+  filename: string
+  placed_lines: number
+  unplaced_lines: UnplacedLine[]
+}
+
 export interface AudioPatchResponse {
   stageboxes: Stagebox[]
   stage_multis: StageMulti[]

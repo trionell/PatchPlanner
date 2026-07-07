@@ -60,17 +60,20 @@ are never counted.
   `quantity_available`, in both API response and UI.
 - Tests: rental aggregation, xlsx import, patch CRUD (httptest).
 
-## Slice 2 — Excel rental order export (spec: `xlsx-rental-export`)
+## Slice 2 — Excel rental order export (spec: `xlsx-rental-export`) ✅ done 2026-07-07
 
 The most pressing missing feature (§3.1). Depends on Slice 1 for correct
 quantities.
 
-- Write quantities into a copy of `LL.xlsx` at the stored `xlsx_row` positions,
-  columns `Antal Ljud` / `Antal Ljus`, leaving everything else untouched so the
-  file can be submitted unmodified (Constitution IV).
-- `GET /api/v1/events/{id}/rental-export` returning the `.xlsx` download;
-  Export button on the Rental Order tab (currently a "coming soon" toast).
-- Round-trip test: import → plan → export → re-parse and assert quantities.
+- [x] Quantities written into a copy of `LL.xlsx` at the stored `xlsx_row`
+      positions, columns located by header text; stale template quantities
+      cleared; name-at-row verified before every write; everything else
+      untouched (Constitution IV).
+- [x] `GET /api/v1/events/{id}/rental-export` (download) +
+      `/rental-export/report` (unplaced-lines preflight); Export button wired
+      with notices for unplaceable lines.
+- [x] Round-trip test: import → plan → export → re-import leaves the catalog
+      unchanged; 7 writer/endpoint tests total.
 
 ## Slice 3 — Equipment lists: rigging, misc & owned gear (spec: `equipment-lists`)
 

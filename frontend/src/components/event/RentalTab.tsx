@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Cable, Plus, Trash2 } from 'lucide-react'
 import { listInventoryItems } from '../../api/inventory'
-import { deleteManualRental, getRentalSummary, putManualRental } from '../../api/rentals'
-import type { ManualRentalRequest } from '../../types'
+import { deleteManualRental, getRentalExportReport, getRentalSummary, putManualRental, rentalExportUrl } from '../../api/rentals'
+import type { ManualRentalRequest, UnplacedLine } from '../../types'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
@@ -19,7 +19,8 @@ export function RentalTab({ eventId }: { eventId: number }) {
   const allInventoryQuery = useQuery({ queryKey: ['inventory-all-items'], queryFn: () => listInventoryItems() })
 
   const [manualDraft, setManualDraft] = useState(emptyManualDraft)
-  const [toast, setToast] = useState('')
+  const [unplacedLines, setUnplacedLines] = useState<UnplacedLine[]>([])
+  const [exportError, setExportError] = useState('')
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['rental-summary', eventId] })
   const manualPutMutation = useMutation({
@@ -34,18 +35,50 @@ export function RentalTab({ eventId }: { eventId: number }) {
     onSuccess: invalidate,
   })
 
+  const exportMutation = useMutation({
+    mutationFn: () => getRentalExportReport(eventId),
+    onSuccess: (report) => {
+      setExportError('')
+      setUnplacedLines(report.unplaced_lines)
+      // The browser handles the download natively via the attachment URL.
+      window.location.assign(rentalExportUrl(eventId))
+    },
+    onError: (error) => {
+      setUnplacedLines([])
+      setExportError(error.message)
+    },
+  })
+
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Rental order</CardTitle>
-        <Button variant="secondary" size="sm" onClick={() => { setToast('Export coming soon'); window.setTimeout(() => setToast(''), 2200) }}>
-          <Cable className="mr-2 h-4 w-4" />Export
+        <Button variant="secondary" size="sm" onClick={() => exportMutation.mutate()} disabled={exportMutation.isPending}>
+          <Cable className="mr-2 h-4 w-4" />{exportMutation.isPending ? 'Exporting…' : 'Export LL.xlsx'}
         </Button>
       </CardHeader>
       <CardContent>
         {rentalQuery.data?.has_over_stock && (
           <div className="mb-4 rounded-md border border-red-800 bg-red-950/50 px-4 py-3 text-sm text-red-300">
             Some lines exceed the renter's available stock or reference items no longer in the price list. Resolve them before submitting the order.
+          </div>
+        )}
+        {exportError && (
+          <div className="mb-4 rounded-md border border-red-800 bg-red-950/50 px-4 py-3 text-sm text-red-300">
+            Export failed: {exportError}
+          </div>
+        )}
+        {unplacedLines.length > 0 && (
+          <div className="mb-4 rounded-md border border-amber-800 bg-amber-950/40 px-4 py-3 text-sm text-amber-200">
+            <p className="font-medium">The exported file is missing {unplacedLines.length} line{unplacedLines.length > 1 ? 's' : ''} — add these to the order manually:</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              {unplacedLines.map((line) => (
+                <li key={line.inventory_item_id}>
+                  {line.inventory_item_name} — audio {line.quantity_audio}, lighting {line.quantity_lighting}{' '}
+                  <span className="text-amber-400/80">({line.reason === 'discontinued' ? 'no longer in the price list' : 'price-list row changed since last import'})</span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
         <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
@@ -146,7 +179,6 @@ export function RentalTab({ eventId }: { eventId: number }) {
           </Table>
         </div>
       </CardContent>
-      {toast && <div className="fixed bottom-6 right-6 rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-100 shadow-xl">{toast}</div>}
     </Card>
   )
 }
