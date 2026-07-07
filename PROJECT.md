@@ -144,9 +144,9 @@ Per-event rental summary, derived automatically from the planning data.
 
 Shipped as the `002-xlsx-rental-export` feature: the Rental Order tab exports a copy of `LL.xlsx` with quantities written into the `Antal Ljud` / `Antal Ljus` columns at each item's row. The writer locates the columns by header text, clears stale quantities left in the template, verifies the equipment name at every target row before writing, and reports unplaceable lines (discontinued items, drifted rows) instead of dropping them. The source file on disk is never modified, and re-importing an exported file leaves the catalog unchanged.
 
-### 3.2 Rigging and Miscellaneous Equipment Tracking
+### 3.2 Rigging and Miscellaneous Equipment Tracking — ✅ implemented (2026-07-07)
 
-The original brief explicitly includes tracking rigging hardware (shackles, slings, motors, truss bolts, safety cables, etc.) and generic miscellaneous items. The inventory already classifies these items as type `rigging`, but there is no dedicated planning view or rental-order integration for them. A generic "equipment list" section per event would cover this.
+Covered by two features: rented rigging/misc gear is ordered via manual rental lines on the Rental Order tab (001), and the per-event **Equipment** tab (003) shows the full extras picture — owned gear plus rented extras — in one place.
 
 ### 3.3 Video Equipment
 
@@ -172,9 +172,9 @@ A common workflow is to print the input patch list and distribute it to the stag
 
 The constitution requires the final production deployment to be a **single Go binary** that serves the compiled frontend as embedded static files. Currently the frontend must be served separately (Vite dev server in development, or a separate static file server). Embedding the Vite build output using Go's `embed` package is planned but not implemented.
 
-### 3.9 Owned / Non-Rental Equipment
+### 3.9 Owned / Non-Rental Equipment — ✅ implemented (2026-07-07)
 
-The constitution distinguishes between rented inventory items (from the supplier catalog) and owned or generic equipment. There is currently no mechanism to add gear that is not in the rental catalog to a plan without it appearing incorrectly on the rental order. A separate "owned gear" catalog would resolve this.
+Shipped as the `003-equipment-lists` feature: a separate owned-gear catalog (Inventory page → Owned gear) with per-event planning lines on the Equipment tab. Owned gear lives in its own tables, so it can never appear on the rental order or in the export — isolation is guaranteed by construction and locked in by tests. Over-planned lines (more than you own) are flagged.
 
 ### 3.10 Multi-Event and Tour Planning
 

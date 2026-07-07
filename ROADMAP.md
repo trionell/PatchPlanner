@@ -75,16 +75,18 @@ quantities.
 - [x] Round-trip test: import → plan → export → re-import leaves the catalog
       unchanged; 7 writer/endpoint tests total.
 
-## Slice 3 — Equipment lists: rigging, misc & owned gear (spec: `equipment-lists`)
+## Slice 3 — Equipment lists: rigging, misc & owned gear (spec: `equipment-lists`) ✅ done 2026-07-07
 
 §3.2 + §3.9. A generic per-event equipment list for anything that isn't an
 audio-patch row or lighting fixture.
 
-- Per-event equipment list referencing inventory items (rigging hardware,
-  smoke machines, cables bought in bulk, …) with quantity + audio/lighting
-  split; feeds `event_rentals` so it lands in the summary and export.
-- Owned-gear catalog: items not in the rental catalog, attachable to plans,
-  excluded from the rental order and export.
+- [x] Rented extras (rigging hardware, smoke machines, bulk cables, …) were
+      already covered by Slice 1's manual rental lines; the Equipment tab now
+      surfaces and edits them alongside owned gear.
+- [x] Owned-gear catalog (`owned_items`, Inventory page tab) with per-event
+      lines (`event_owned_equipment`, Equipment tab): quantity + note,
+      over-owned flagging, cascade deletes, and tested isolation — owned gear
+      can never reach the rental order or the export.
 
 ## Slice 4 — Configurable reference data (spec: `reference-data`)
 

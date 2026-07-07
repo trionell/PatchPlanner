@@ -12,6 +12,7 @@ An AVL (Audio, Video, Lighting) event planning tool for live productions. Plan p
 - **Lighting Rig** — Add fixtures, assign them to truss sections, configure power connections (grid or daisy-chain), set DMX universe/address and channel mode, auto-assign DMX addresses in sequence
 - **Rental Order** — Per-event summary of all rented equipment, derived automatically from the plan (mics, DI/IEM, stageboxes, multicores, amplifiers, speakers, fixtures) plus manual line items for anything else; flags lines that exceed the renter's stock
 - **Excel Export** — One click produces a copy of LL.xlsx with the order quantities filled into the *Antal Ljud* / *Antal Ljus* columns at the right rows, ready to send to the renter unmodified; lines that can't be placed are reported, never silently dropped
+- **Owned Gear & Equipment Lists** — A personal catalog of equipment you own (never on the rental order), plannable per event with quantities and notes; the Equipment tab shows everything beyond the patch and rig: owned gear plus rented extras
 - **Inventory** — Full catalog imported directly from the LL.xlsx price list (308 items across 27 categories: audio, lighting, rigging)
 
 ---
@@ -235,6 +236,13 @@ Base URL: `http://localhost:7331/api/v1`
 | DELETE | `/events/:id/rentals/manual/:itemId` | Remove a manual rental line |
 | GET | `/events/:id/rental-export` | Download the order as a filled-in copy of LL.xlsx |
 | GET | `/events/:id/rental-export/report` | Export dry-run: filename + lines that cannot be placed |
+| GET | `/owned-items` | List the owned-gear catalog |
+| POST | `/owned-items` | Add an owned item |
+| PATCH | `/owned-items/:itemId` | Update an owned item |
+| DELETE | `/owned-items/:itemId` | Delete an owned item (removes it from all event plans) |
+| GET | `/events/:id/owned-equipment` | List the event's owned-gear lines |
+| PUT | `/events/:id/owned-equipment/:itemId` | Create/update an owned-gear line (quantity 0 removes) |
+| DELETE | `/events/:id/owned-equipment/:itemId` | Remove an owned-gear line |
 
 Health check: `GET http://localhost:7331/health` (outside `/api/v1`).
 

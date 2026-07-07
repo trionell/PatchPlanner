@@ -12,8 +12,8 @@
 
 ## Phase 1: Setup / Foundational
 
-- [ ] T001 [P] Migrations backend/migrations/011_owned_items.{up,down}.sql and 012_event_owned_equipment.{up,down}.sql per data-model.md (one statement per file; FKs with ON DELETE CASCADE; UNIQUE(event_id, owned_item_id))
-- [ ] T002 [P] Domain types OwnedItem (with PlannedOnEvents) and EventOwnedEquipment (with OwnedItemName, CategoryType, QuantityOwned, IsOverOwned) in backend/internal/domain/owned.go
+- [X] T001 [P] Migrations backend/migrations/011_owned_items.{up,down}.sql and 012_event_owned_equipment.{up,down}.sql per data-model.md (one statement per file; FKs with ON DELETE CASCADE; UNIQUE(event_id, owned_item_id))
+- [X] T002 [P] Domain types OwnedItem (with PlannedOnEvents) and EventOwnedEquipment (with OwnedItemName, CategoryType, QuantityOwned, IsOverOwned) in backend/internal/domain/owned.go
 
 **Checkpoint**: Schema + types ready.
 
@@ -25,12 +25,12 @@
 
 **Independent Test**: quickstart.md "Verify: owned catalog".
 
-- [ ] T003 [US1] Failing tests in backend/internal/db/owned_test.go: create/list (with planned_on_events count)/update/delete owned items; category_type CHECK rejected for invalid values; price-list import (UpsertInventory) leaves owned items untouched
-- [ ] T004 [US1] Implement List/Create/Update/DeleteOwnedItem in backend/internal/db/owned.go; make T003 pass
-- [ ] T005 [US1] OwnedHandler in backend/internal/api/owned.go: GET/POST /owned-items, PATCH/DELETE /owned-items/{itemID} per contracts (400 empty name/invalid type, 404 unknown id); register in backend/internal/api/router.go
-- [ ] T006 [US1] Endpoint tests in backend/internal/api/owned_test.go: CRUD round-trip, validation errors, 404s
-- [ ] T007 [P] [US1] Frontend: OwnedItem type in frontend/src/types/index.ts; typed calls in frontend/src/api/owned.ts
-- [ ] T008 [US1] Owned gear management UI: frontend/src/components/OwnedGearManager.tsx (add form: name/type/quantity/notes; list with inline edit + delete with confirm showing planned_on_events); Inventory page tabs "Rental catalog" | "Owned gear" in frontend/src/pages/Inventory.tsx
+- [X] T003 [US1] Failing tests in backend/internal/db/owned_test.go: create/list (with planned_on_events count)/update/delete owned items; category_type CHECK rejected for invalid values; price-list import (UpsertInventory) leaves owned items untouched
+- [X] T004 [US1] Implement List/Create/Update/DeleteOwnedItem in backend/internal/db/owned.go; make T003 pass
+- [X] T005 [US1] OwnedHandler in backend/internal/api/owned.go: GET/POST /owned-items, PATCH/DELETE /owned-items/{itemID} per contracts (400 empty name/invalid type, 404 unknown id); register in backend/internal/api/router.go
+- [X] T006 [US1] Endpoint tests in backend/internal/api/owned_test.go: CRUD round-trip, validation errors, 404s
+- [X] T007 [P] [US1] Frontend: OwnedItem type in frontend/src/types/index.ts; typed calls in frontend/src/api/owned.ts
+- [X] T008 [US1] Owned gear management UI: frontend/src/components/OwnedGearManager.tsx (add form: name/type/quantity/notes; list with inline edit + delete with confirm showing planned_on_events); Inventory page tabs "Rental catalog" | "Owned gear" in frontend/src/pages/Inventory.tsx
 
 **Checkpoint**: MVP — owned catalog usable end-to-end.
 
@@ -42,11 +42,11 @@
 
 **Independent Test**: quickstart.md "Verify: plan owned gear".
 
-- [ ] T009 [US2] Failing tests in backend/internal/db/owned_test.go: upsert line (unique per item), quantity-0 removes, list joins name/type/owned-qty and computes is_over_owned, owned-item delete cascades lines, event delete cascades lines; **isolation**: an event with owned lines has an unchanged rental summary, and BuildRentalExport places nothing for them
-- [ ] T010 [US2] Implement ListEventOwnedEquipment/UpsertEventOwnedEquipment/DeleteEventOwnedEquipment in backend/internal/db/owned.go; make T009 pass
-- [ ] T011 [US2] Endpoints GET /events/{eventID}/owned-equipment, PUT/DELETE /events/{eventID}/owned-equipment/{ownedItemID} in backend/internal/api/owned.go per contracts (404 event/item, 400 negative quantity); endpoint tests in backend/internal/api/owned_test.go
-- [ ] T012 [P] [US2] Frontend: EventOwnedEquipment type + api calls in frontend/src/api/owned.ts
-- [ ] T013 [US2] EquipmentTab (owned section) in frontend/src/components/event/EquipmentTab.tsx: picker over owned catalog + quantity + note, list with edit/remove, red flag "exceeds owned (N)"; add Equipment tab to frontend/src/pages/EventDetail.tsx
+- [X] T009 [US2] Failing tests in backend/internal/db/owned_test.go: upsert line (unique per item), quantity-0 removes, list joins name/type/owned-qty and computes is_over_owned, owned-item delete cascades lines, event delete cascades lines; **isolation**: an event with owned lines has an unchanged rental summary, and BuildRentalExport places nothing for them
+- [X] T010 [US2] Implement ListEventOwnedEquipment/UpsertEventOwnedEquipment/DeleteEventOwnedEquipment in backend/internal/db/owned.go; make T009 pass
+- [X] T011 [US2] Endpoints GET /events/{eventID}/owned-equipment, PUT/DELETE /events/{eventID}/owned-equipment/{ownedItemID} in backend/internal/api/owned.go per contracts (404 event/item, 400 negative quantity); endpoint tests in backend/internal/api/owned_test.go
+- [X] T012 [P] [US2] Frontend: EventOwnedEquipment type + api calls in frontend/src/api/owned.ts
+- [X] T013 [US2] EquipmentTab (owned section) in frontend/src/components/event/EquipmentTab.tsx: picker over owned catalog + quantity + note, list with edit/remove, red flag "exceeds owned (N)"; add Equipment tab to frontend/src/pages/EventDetail.tsx
 
 **Checkpoint**: Owned gear plannable; order/export provably clean.
 
@@ -58,7 +58,7 @@
 
 **Independent Test**: quickstart.md "Verify: unified extras".
 
-- [ ] T014 [US3] Rented-extras section in frontend/src/components/event/EquipmentTab.tsx: manual-share lines from the rental summary (['rental-summary', eventId] query), compact add/edit/remove reusing putManualRental/deleteManualRental; mutations invalidate the shared query key so the Rental Order tab stays in sync
+- [X] T014 [US3] Rented-extras section in frontend/src/components/event/EquipmentTab.tsx: manual-share lines from the rental summary (['rental-summary', eventId] query), compact add/edit/remove reusing putManualRental/deleteManualRental; mutations invalidate the shared query key so the Rental Order tab stays in sync
 
 **Checkpoint**: One tab shows everything beyond patch + rig.
 
@@ -66,9 +66,9 @@
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] T015 [P] Docs: README.md features bullet + API table (owned-items, owned-equipment endpoints); PROJECT.md §3.2/§3.9 marked implemented; ROADMAP.md Slice 3 checked off
-- [ ] T016 Run quickstart.md end-to-end against the live app (catalog CRUD, event lines, order/export isolation, re-import isolation)
-- [ ] T017 Gate: backend vet/test/golangci-lint; frontend lint/typecheck/test/build
+- [X] T015 [P] Docs: README.md features bullet + API table (owned-items, owned-equipment endpoints); PROJECT.md §3.2/§3.9 marked implemented; ROADMAP.md Slice 3 checked off
+- [X] T016 Run quickstart.md end-to-end against the live app (catalog CRUD, event lines, order/export isolation, re-import isolation)
+- [X] T017 Gate: backend vet/test/golangci-lint; frontend lint/typecheck/test/build
 
 ---
 

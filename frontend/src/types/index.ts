@@ -157,6 +157,32 @@ export interface RentalSummary {
   has_over_stock: boolean
 }
 
+export interface OwnedItem {
+  id: number
+  name: string
+  description?: string
+  category_type: 'audio' | 'lighting' | 'rigging' | 'video' | 'misc'
+  quantity_owned: number
+  notes?: string
+  planned_on_events: number
+  created_at?: string
+}
+
+export interface EventOwnedEquipment {
+  owned_item_id: number
+  owned_item_name: string
+  category_type: string
+  quantity: number
+  quantity_owned: number
+  is_over_owned: boolean
+  notes?: string
+}
+
+export interface OwnedEquipmentRequest {
+  quantity: number
+  notes?: string
+}
+
 export interface UnplacedLine {
   inventory_item_id: number
   inventory_item_name: string

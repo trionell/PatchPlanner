@@ -1,12 +1,27 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { importInventory, listInventoryCategories, listInventoryItems } from '../api/inventory'
+import { OwnedGearManager } from '../components/OwnedGearManager'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table'
+import { Tab, TabList, TabPanel, Tabs } from '../components/ui/Tabs'
 
 export function InventoryPage() {
+  return (
+    <Tabs defaultValue="rental">
+      <TabList>
+        <Tab value="rental">Rental catalog</Tab>
+        <Tab value="owned">Owned gear</Tab>
+      </TabList>
+      <TabPanel value="rental"><RentalCatalog /></TabPanel>
+      <TabPanel value="owned"><OwnedGearManager /></TabPanel>
+    </Tabs>
+  )
+}
+
+function RentalCatalog() {
   const queryClient = useQueryClient()
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>()
   const [message, setMessage] = useState('')

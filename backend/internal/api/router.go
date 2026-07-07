@@ -14,5 +14,6 @@ func NewRouter(db *sql.DB) http.Handler {
 	AudioPatchHandler{DB: db}.Register(r)
 	LightingHandler{DB: db}.Register(r)
 	RentalHandler{DB: db}.Register(r)
+	OwnedHandler{DB: db}.Register(r)
 	return r
 }

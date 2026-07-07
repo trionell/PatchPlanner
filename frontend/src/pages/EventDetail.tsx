@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { getEvent } from '../api/events'
 import { AudioInputsTab } from '../components/event/AudioInputsTab'
 import { AudioOutputsTab } from '../components/event/AudioOutputsTab'
+import { EquipmentTab } from '../components/event/EquipmentTab'
 import { LightingTab } from '../components/event/LightingTab'
 import { OverviewTab } from '../components/event/OverviewTab'
 import { RentalTab } from '../components/event/RentalTab'
@@ -33,6 +34,7 @@ export function EventDetailPage() {
           <Tab value="audio-inputs">Audio Inputs</Tab>
           <Tab value="audio-outputs">Audio Outputs</Tab>
           <Tab value="lighting-rig">Lighting Rig</Tab>
+          <Tab value="equipment">Equipment</Tab>
           <Tab value="rentals">Rental Order</Tab>
         </TabList>
 
@@ -40,6 +42,7 @@ export function EventDetailPage() {
         <TabPanel value="audio-inputs"><AudioInputsTab eventId={eventId} /></TabPanel>
         <TabPanel value="audio-outputs"><AudioOutputsTab eventId={eventId} /></TabPanel>
         <TabPanel value="lighting-rig"><LightingTab eventId={eventId} /></TabPanel>
+        <TabPanel value="equipment"><EquipmentTab eventId={eventId} /></TabPanel>
         <TabPanel value="rentals"><RentalTab eventId={eventId} /></TabPanel>
       </Tabs>
     </div>
