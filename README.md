@@ -10,8 +10,8 @@ An AVL (Audio, Video, Lighting) event planning tool for live productions. Plan p
 - **Audio Patch (Inputs)** — Build full input patch lists: channel number, name, signal type, preamp connector, stagebox routing, stage multicore, microphone model, cable type/length, mic stand, 48V phantom power, and DCA/group assignments
 - **Audio Patch (Outputs)** — Map outputs to destinations (local, stagebox, stage-multi), assign amplifiers and speakers, document cable runs
 - **Lighting Rig** — Add fixtures, assign them to truss sections, configure power connections (grid or daisy-chain), set DMX universe/address and channel mode, auto-assign DMX addresses in sequence
-- **Rental Order** — Per-event summary of all rented equipment with quantities and pricing, ready to submit to your renter
-- **Inventory** — Full catalog imported directly from the LL.xlsx price list (299 items across 26 categories: audio, lighting, rigging)
+- **Rental Order** — Per-event summary of all rented equipment, derived automatically from the plan (mics, DI/IEM, stageboxes, multicores, amplifiers, speakers, fixtures) plus manual line items for anything else; flags lines that exceed the renter's stock
+- **Inventory** — Full catalog imported directly from the LL.xlsx price list (308 items across 27 categories: audio, lighting, rigging)
 
 ---
 
@@ -68,9 +68,9 @@ curl -X POST http://localhost:7331/api/v1/inventory/import-xlsx
 
 Or click **"Import from LL.xlsx"** on the Inventory page in the UI.
 
-This imports **299 items** across **26 categories** (speakers, microphones, mixers, stageboxes, lighting fixtures, truss, cables, power distribution, and more).
+This imports **308 items** across **27 categories** (speakers, microphones, mixers, stageboxes, lighting fixtures, truss, cables, power distribution, and more).
 
-> Re-running the import replaces the catalog — existing event data is not affected.
+> Re-running the import updates the catalog in place: matched items keep their identity (and every plan reference to them), prices and stock counts are refreshed, and items that disappeared from the price list are marked *discontinued* rather than deleted. Event data is never touched by an import.
 
 ---
 
@@ -196,26 +196,34 @@ Base URL: `http://localhost:7331/api/v1`
 | GET | `/events` | List all events |
 | POST | `/events` | Create an event |
 | GET | `/events/:id` | Get a single event |
-| PUT | `/events/:id` | Update an event |
+| PATCH | `/events/:id` | Update an event |
 | DELETE | `/events/:id` | Delete an event |
 | GET | `/inventory/categories` | List inventory categories |
-| GET | `/inventory/items` | List inventory items (filter: `?category_type=lighting`) |
-| POST | `/inventory/import-xlsx` | Re-import catalog from LL.xlsx |
-| GET | `/events/:id/audio-patch/inputs` | Get audio input patch |
-| POST | `/events/:id/audio-patch/inputs` | Add an input |
-| PATCH | `/events/:id/audio-patch/inputs/:inputId` | Update an input |
-| DELETE | `/events/:id/audio-patch/inputs/:inputId` | Delete an input |
-| GET | `/events/:id/audio-patch/outputs` | Get audio output patch |
-| POST | `/events/:id/audio-patch/outputs` | Add an output |
-| PATCH | `/events/:id/audio-patch/outputs/:outputId` | Update an output |
-| DELETE | `/events/:id/audio-patch/outputs/:outputId` | Delete an output |
-| GET | `/events/:id/lighting-rigs/:rigId/fixtures` | List fixtures in a rig |
+| GET | `/inventory/items` | List inventory items (filters: `?category_type=lighting`, `?category_id=1`, `?include_discontinued=true`) |
+| POST | `/inventory/import-xlsx` | Re-import catalog from LL.xlsx (non-destructive upsert) |
+| GET | `/events/:id/audio-patch` | Full audio patch: stageboxes, stage multis, inputs, outputs |
+| POST | `/events/:id/stageboxes` | Add a stagebox |
+| PATCH | `/events/:id/stageboxes/:sbId` | Update a stagebox |
+| DELETE | `/events/:id/stageboxes/:sbId` | Delete a stagebox |
+| POST | `/events/:id/stage-multis` | Add a stage multicore |
+| PATCH | `/events/:id/stage-multis/:smId` | Update a stage multicore |
+| DELETE | `/events/:id/stage-multis/:smId` | Delete a stage multicore |
+| POST | `/events/:id/audio-inputs` | Add an input row |
+| PATCH | `/events/:id/audio-inputs/:inputId` | Update an input row |
+| DELETE | `/events/:id/audio-inputs/:inputId` | Delete an input row |
+| POST | `/events/:id/audio-outputs` | Add an output row |
+| PATCH | `/events/:id/audio-outputs/:outputId` | Update an output row |
+| DELETE | `/events/:id/audio-outputs/:outputId` | Delete an output row |
+| GET | `/events/:id/lighting-rigs` | Get the rig with truss sections and fixtures |
 | POST | `/events/:id/lighting-rigs/:rigId/fixtures` | Add a fixture |
 | PATCH | `/events/:id/lighting-rigs/:rigId/fixtures/:fixtureId` | Update a fixture |
 | DELETE | `/events/:id/lighting-rigs/:rigId/fixtures/:fixtureId` | Delete a fixture |
 | POST | `/events/:id/lighting-rigs/:rigId/fixtures/auto-assign-dmx` | Auto-assign DMX addresses |
-| GET | `/events/:id/rental-order` | Get rental order summary |
-| GET | `/health` | Health check |
+| GET | `/events/:id/rentals` | Rental order summary (with stock validation flags) |
+| PUT | `/events/:id/rentals/manual/:itemId` | Create/update a manual rental line |
+| DELETE | `/events/:id/rentals/manual/:itemId` | Remove a manual rental line |
+
+Health check: `GET http://localhost:7331/health` (outside `/api/v1`).
 
 ---
 

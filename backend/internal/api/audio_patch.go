@@ -3,6 +3,7 @@ package api
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -199,6 +200,9 @@ func (h AudioPatchHandler) createInput(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	payload.EventID = eventID
+	if !h.validMicItem(w, payload.MicItemID) {
+		return
+	}
 	created, err := dbstore.CreateAudioPatchInput(h.DB, payload)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -215,6 +219,9 @@ func (h AudioPatchHandler) updateInput(w http.ResponseWriter, r *http.Request) {
 	var payload domain.AudioPatchInput
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if !h.validMicItem(w, payload.MicItemID) {
 		return
 	}
 	updated, err := dbstore.UpdateAudioPatchInput(h.DB, inputID, payload)
@@ -272,6 +279,23 @@ func (h AudioPatchHandler) updateOutput(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeJSON(w, http.StatusOK, updated)
+}
+
+// validMicItem writes a 400/500 response and returns false when a non-nil
+// mic item reference does not resolve to an inventory item.
+func (h AudioPatchHandler) validMicItem(w http.ResponseWriter, micItemID *int64) bool {
+	if micItemID == nil {
+		return true
+	}
+	if _, err := dbstore.GetInventoryItem(h.DB, *micItemID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusBadRequest, "mic_item_id references an unknown inventory item")
+			return false
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return false
+	}
+	return true
 }
 
 func (h AudioPatchHandler) deleteOutput(w http.ResponseWriter, r *http.Request) {

@@ -1,0 +1,1 @@
+ALTER TABLE inventory_items ADD COLUMN discontinued INTEGER NOT NULL DEFAULT 0

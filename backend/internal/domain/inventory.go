@@ -17,7 +17,11 @@ type InventoryItem struct {
 	QuantityAvailable int     `json:"quantity_available"`
 	PriceExVAT        float64 `json:"price_ex_vat"`
 	XLSXRow           int     `json:"xlsx_row,omitempty"`
-	CreatedAt         string  `json:"created_at,omitempty"`
+	// Discontinued marks items that disappeared from the most recent price
+	// list import. They are hidden from planning dropdowns but never
+	// deleted, so existing plan references keep resolving.
+	Discontinued bool   `json:"discontinued"`
+	CreatedAt    string `json:"created_at,omitempty"`
 }
 
 type InventoryImportResult struct {

@@ -7,31 +7,54 @@ import (
 	"github.com/trionell/patchplanner/internal/domain"
 )
 
+// rentalSummaryQuery derives the full rental order for one event. Every
+// planning surface that can reference a catalog item contributes one arm of
+// the CTE; manual event_rentals lines are both merged into the totals and
+// re-joined so their share stays editable. Takes the event id 8 times.
+const rentalSummaryQuery = `
+	WITH combined AS (
+		SELECT mic_item_id AS inventory_item_id, 1 AS quantity_audio, 0 AS quantity_lighting
+		FROM audio_patch_inputs
+		WHERE event_id = ? AND mic_item_id IS NOT NULL
+		UNION ALL
+		SELECT inventory_item_id, 1, 0
+		FROM stageboxes
+		WHERE event_id = ? AND inventory_item_id IS NOT NULL
+		UNION ALL
+		SELECT inventory_item_id, 1, 0
+		FROM stage_multis
+		WHERE event_id = ? AND inventory_item_id IS NOT NULL
+		UNION ALL
+		SELECT amplifier_item_id, 1, 0
+		FROM audio_patch_outputs
+		WHERE event_id = ? AND amplifier_item_id IS NOT NULL
+		UNION ALL
+		SELECT speaker_item_id, 1, 0
+		FROM audio_patch_outputs
+		WHERE event_id = ? AND speaker_item_id IS NOT NULL
+		UNION ALL
+		SELECT lf.inventory_item_id, 0, 1
+		FROM lighting_fixtures lf
+		JOIN lighting_rigs lr ON lr.id = lf.rig_id
+		WHERE lr.event_id = ? AND lf.inventory_item_id IS NOT NULL
+		UNION ALL
+		SELECT inventory_item_id, quantity_audio, quantity_lighting
+		FROM event_rentals
+		WHERE event_id = ?
+	)
+	SELECT i.id, i.name, COALESCE(i.description, ''),
+		COALESCE(SUM(c.quantity_audio), 0), COALESCE(SUM(c.quantity_lighting), 0),
+		COALESCE(er.quantity_audio, 0), COALESCE(er.quantity_lighting, 0), COALESCE(er.notes, ''),
+		COALESCE(i.price_ex_vat, 0), COALESCE(i.quantity_available, 0), i.discontinued
+	FROM combined c
+	JOIN inventory_items i ON i.id = c.inventory_item_id
+	LEFT JOIN event_rentals er ON er.event_id = ? AND er.inventory_item_id = i.id
+	GROUP BY i.id, i.name, i.description, er.quantity_audio, er.quantity_lighting, er.notes, i.price_ex_vat, i.quantity_available, i.discontinued
+	ORDER BY i.name ASC, i.id ASC`
+
 func GetRentalSummary(db *sql.DB, eventID int64) (domain.RentalSummary, error) {
-	rows, err := db.Query(`
-		WITH combined AS (
-			SELECT amplifier_item_id AS inventory_item_id, 1 AS quantity_audio, 0 AS quantity_lighting
-			FROM audio_patch_outputs
-			WHERE event_id = ? AND amplifier_item_id IS NOT NULL
-			UNION ALL
-			SELECT speaker_item_id AS inventory_item_id, 1 AS quantity_audio, 0 AS quantity_lighting
-			FROM audio_patch_outputs
-			WHERE event_id = ? AND speaker_item_id IS NOT NULL
-			UNION ALL
-			SELECT inventory_item_id, 0 AS quantity_audio, 1 AS quantity_lighting
-			FROM lighting_fixtures lf
-			JOIN lighting_rigs lr ON lr.id = lf.rig_id
-			WHERE lr.event_id = ? AND inventory_item_id IS NOT NULL
-			UNION ALL
-			SELECT inventory_item_id, quantity_audio, quantity_lighting
-			FROM event_rentals
-			WHERE event_id = ?
-		)
-		SELECT i.id, i.name, COALESCE(i.description, ''), COALESCE(SUM(c.quantity_audio), 0), COALESCE(SUM(c.quantity_lighting), 0), COALESCE(i.price_ex_vat, 0)
-		FROM combined c
-		JOIN inventory_items i ON i.id = c.inventory_item_id
-		GROUP BY i.id, i.name, i.description, i.price_ex_vat
-		ORDER BY i.name ASC`, eventID, eventID, eventID, eventID)
+	rows, err := db.Query(rentalSummaryQuery,
+		eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID)
 	if err != nil {
 		return domain.RentalSummary{}, fmt.Errorf("get rental summary: %w", err)
 	}
@@ -40,11 +63,20 @@ func GetRentalSummary(db *sql.DB, eventID int64) (domain.RentalSummary, error) {
 	summary := domain.RentalSummary{Items: make([]domain.EventRental, 0)}
 	for rows.Next() {
 		var item domain.EventRental
-		if err := rows.Scan(&item.InventoryItemID, &item.InventoryItemName, &item.Description, &item.QuantityAudio, &item.QuantityLighting, &item.PriceExVAT); err != nil {
+		var discontinued int
+		if err := rows.Scan(&item.InventoryItemID, &item.InventoryItemName, &item.Description,
+			&item.QuantityAudio, &item.QuantityLighting,
+			&item.ManualQuantityAudio, &item.ManualQuantityLighting, &item.ManualNotes,
+			&item.PriceExVAT, &item.QuantityAvailable, &discontinued); err != nil {
 			return domain.RentalSummary{}, fmt.Errorf("scan rental summary row: %w", err)
 		}
 		item.TotalQuantity = item.QuantityAudio + item.QuantityLighting
 		item.SubtotalExVAT = float64(item.TotalQuantity) * item.PriceExVAT
+		item.IsOverStock = item.TotalQuantity > item.QuantityAvailable
+		item.IsDiscontinued = discontinued == 1
+		if item.IsOverStock || item.IsDiscontinued {
+			summary.HasOverStock = true
+		}
 		summary.TotalItems++
 		summary.TotalQuantity += item.TotalQuantity
 		summary.TotalExVAT += item.SubtotalExVAT
@@ -54,4 +86,59 @@ func GetRentalSummary(db *sql.DB, eventID int64) (domain.RentalSummary, error) {
 		return domain.RentalSummary{}, err
 	}
 	return summary, nil
+}
+
+// GetRentalLine returns the summary line for one catalog item, or a zeroed
+// line describing the item if the event no longer references it (e.g. right
+// after its manual line was removed). Returns sql.ErrNoRows (wrapped) if the
+// item does not exist.
+func GetRentalLine(db *sql.DB, eventID, itemID int64) (domain.EventRental, error) {
+	summary, err := GetRentalSummary(db, eventID)
+	if err != nil {
+		return domain.EventRental{}, err
+	}
+	for _, line := range summary.Items {
+		if line.InventoryItemID == itemID {
+			return line, nil
+		}
+	}
+	item, err := GetInventoryItem(db, itemID)
+	if err != nil {
+		return domain.EventRental{}, err
+	}
+	return domain.EventRental{
+		InventoryItemID:   item.ID,
+		InventoryItemName: item.Name,
+		Description:       item.Description,
+		PriceExVAT:        item.PriceExVAT,
+		QuantityAvailable: item.QuantityAvailable,
+		IsDiscontinued:    item.Discontinued,
+	}, nil
+}
+
+// UpsertManualRental sets the manual rental line for an item on an event.
+// Setting both quantities to zero removes the line (idempotent with delete).
+func UpsertManualRental(db *sql.DB, eventID, itemID int64, req domain.ManualRentalRequest) error {
+	if req.QuantityAudio == 0 && req.QuantityLighting == 0 {
+		return DeleteManualRental(db, eventID, itemID)
+	}
+	_, err := db.Exec(`INSERT INTO event_rentals (event_id, inventory_item_id, quantity_audio, quantity_lighting, notes)
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(event_id, inventory_item_id) DO UPDATE SET
+			quantity_audio = excluded.quantity_audio,
+			quantity_lighting = excluded.quantity_lighting,
+			notes = excluded.notes`,
+		eventID, itemID, req.QuantityAudio, req.QuantityLighting, nullString(req.Notes))
+	if err != nil {
+		return fmt.Errorf("upsert manual rental: %w", err)
+	}
+	return nil
+}
+
+func DeleteManualRental(db *sql.DB, eventID, itemID int64) error {
+	_, err := db.Exec(`DELETE FROM event_rentals WHERE event_id = ? AND inventory_item_id = ?`, eventID, itemID)
+	if err != nil {
+		return fmt.Errorf("delete manual rental: %w", err)
+	}
+	return nil
 }

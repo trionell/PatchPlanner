@@ -127,8 +127,10 @@ func DeleteStageMulti(db *sql.DB, id int64) error {
 	return err
 }
 
+const audioInputColumns = `id, event_id, channel_number, COALESCE(channel_name, ''), COALESCE(signal_type, 'mic'), COALESCE(preamp_connector, 'xlr'), stagebox_id, stagebox_channel, stage_multi_id, stage_multi_channel, mic_item_id, COALESCE(mic_model, ''), COALESCE(cable_type, 'xlr'), COALESCE(cable_length_m, 0), COALESCE(mic_stand, ''), COALESCE(phantom_power, 0), COALESCE(dca_groups, ''), COALESCE(notes, '')`
+
 func ListAudioPatchInputs(db *sql.DB, eventID int64) ([]domain.AudioPatchInput, error) {
-	rows, err := db.Query(`SELECT id, event_id, channel_number, COALESCE(channel_name, ''), COALESCE(signal_type, 'mic'), COALESCE(preamp_connector, 'xlr'), stagebox_id, stagebox_channel, stage_multi_id, stage_multi_channel, COALESCE(mic_model, ''), COALESCE(cable_type, 'xlr'), COALESCE(cable_length_m, 0), COALESCE(mic_stand, ''), COALESCE(phantom_power, 0), COALESCE(dca_groups, ''), COALESCE(notes, '') FROM audio_patch_inputs WHERE event_id = ? ORDER BY channel_number ASC, id ASC`, eventID)
+	rows, err := db.Query(`SELECT `+audioInputColumns+` FROM audio_patch_inputs WHERE event_id = ? ORDER BY channel_number ASC, id ASC`, eventID)
 	if err != nil {
 		return nil, fmt.Errorf("list audio inputs: %w", err)
 	}
@@ -145,12 +147,14 @@ func ListAudioPatchInputs(db *sql.DB, eventID int64) ([]domain.AudioPatchInput, 
 }
 
 func GetAudioPatchInput(db *sql.DB, id int64) (domain.AudioPatchInput, error) {
-	row := db.QueryRow(`SELECT id, event_id, channel_number, COALESCE(channel_name, ''), COALESCE(signal_type, 'mic'), COALESCE(preamp_connector, 'xlr'), stagebox_id, stagebox_channel, stage_multi_id, stage_multi_channel, COALESCE(mic_model, ''), COALESCE(cable_type, 'xlr'), COALESCE(cable_length_m, 0), COALESCE(mic_stand, ''), COALESCE(phantom_power, 0), COALESCE(dca_groups, ''), COALESCE(notes, '') FROM audio_patch_inputs WHERE id = ?`, id)
+	row := db.QueryRow(`SELECT `+audioInputColumns+` FROM audio_patch_inputs WHERE id = ?`, id)
 	return scanAudioInput(row)
 }
 
 func CreateAudioPatchInput(db *sql.DB, input domain.AudioPatchInput) (domain.AudioPatchInput, error) {
-	result, err := db.Exec(`INSERT INTO audio_patch_inputs (event_id, channel_number, channel_name, signal_type, preamp_connector, stagebox_id, stagebox_channel, stage_multi_id, stage_multi_channel, mic_model, cable_type, cable_length_m, mic_stand, phantom_power, dca_groups, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, input.EventID, input.ChannelNumber, nullString(input.ChannelName), input.SignalType, input.PreampConnector, nullInt64(input.StageboxID), nullInt(input.StageboxChannel), nullInt64(input.StageMultiID), nullInt(input.StageMultiChannel), nullString(input.MicModel), input.CableType, nullFloat64(input.CableLengthM), nullString(input.MicStand), boolToInt(input.PhantomPower), nullString(input.DCAGroups), nullString(input.Notes))
+	// mic_model (the legacy label) is intentionally never written for new
+	// rows; it only exists for pre-009 data that matched no catalog item.
+	result, err := db.Exec(`INSERT INTO audio_patch_inputs (event_id, channel_number, channel_name, signal_type, preamp_connector, stagebox_id, stagebox_channel, stage_multi_id, stage_multi_channel, mic_item_id, cable_type, cable_length_m, mic_stand, phantom_power, dca_groups, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, input.EventID, input.ChannelNumber, nullString(input.ChannelName), input.SignalType, input.PreampConnector, nullInt64(input.StageboxID), nullInt(input.StageboxChannel), nullInt64(input.StageMultiID), nullInt(input.StageMultiChannel), nullInt64(input.MicItemID), input.CableType, nullFloat64(input.CableLengthM), nullString(input.MicStand), boolToInt(input.PhantomPower), nullString(input.DCAGroups), nullString(input.Notes))
 	if err != nil {
 		return domain.AudioPatchInput{}, fmt.Errorf("create audio input: %w", err)
 	}
@@ -159,7 +163,9 @@ func CreateAudioPatchInput(db *sql.DB, input domain.AudioPatchInput) (domain.Aud
 }
 
 func UpdateAudioPatchInput(db *sql.DB, id int64, input domain.AudioPatchInput) (domain.AudioPatchInput, error) {
-	_, err := db.Exec(`UPDATE audio_patch_inputs SET channel_number = ?, channel_name = ?, signal_type = ?, preamp_connector = ?, stagebox_id = ?, stagebox_channel = ?, stage_multi_id = ?, stage_multi_channel = ?, mic_model = ?, cable_type = ?, cable_length_m = ?, mic_stand = ?, phantom_power = ?, dca_groups = ?, notes = ? WHERE id = ?`, input.ChannelNumber, nullString(input.ChannelName), input.SignalType, input.PreampConnector, nullInt64(input.StageboxID), nullInt(input.StageboxChannel), nullInt64(input.StageMultiID), nullInt(input.StageMultiChannel), nullString(input.MicModel), input.CableType, nullFloat64(input.CableLengthM), nullString(input.MicStand), boolToInt(input.PhantomPower), nullString(input.DCAGroups), nullString(input.Notes), id)
+	// The legacy label is preserved as-is until the row gets a real catalog
+	// reference, at which point it is cleared for good.
+	_, err := db.Exec(`UPDATE audio_patch_inputs SET channel_number = ?, channel_name = ?, signal_type = ?, preamp_connector = ?, stagebox_id = ?, stagebox_channel = ?, stage_multi_id = ?, stage_multi_channel = ?, mic_item_id = ?, mic_model = CASE WHEN ? IS NOT NULL THEN NULL ELSE mic_model END, cable_type = ?, cable_length_m = ?, mic_stand = ?, phantom_power = ?, dca_groups = ?, notes = ? WHERE id = ?`, input.ChannelNumber, nullString(input.ChannelName), input.SignalType, input.PreampConnector, nullInt64(input.StageboxID), nullInt(input.StageboxChannel), nullInt64(input.StageMultiID), nullInt(input.StageMultiChannel), nullInt64(input.MicItemID), nullInt64(input.MicItemID), input.CableType, nullFloat64(input.CableLengthM), nullString(input.MicStand), boolToInt(input.PhantomPower), nullString(input.DCAGroups), nullString(input.Notes), id)
 	if err != nil {
 		return domain.AudioPatchInput{}, fmt.Errorf("update audio input: %w", err)
 	}
@@ -227,11 +233,15 @@ type scanner interface {
 
 func scanAudioInput(row scanner) (domain.AudioPatchInput, error) {
 	var item domain.AudioPatchInput
-	var stageboxID, stageboxChannel, stageMultiID, stageMultiChannel sql.NullInt64
+	var stageboxID, stageboxChannel, stageMultiID, stageMultiChannel, micItemID sql.NullInt64
 	var cableLength sql.NullFloat64
 	var phantom int
-	if err := row.Scan(&item.ID, &item.EventID, &item.ChannelNumber, &item.ChannelName, &item.SignalType, &item.PreampConnector, &stageboxID, &stageboxChannel, &stageMultiID, &stageMultiChannel, &item.MicModel, &item.CableType, &cableLength, &item.MicStand, &phantom, &item.DCAGroups, &item.Notes); err != nil {
+	if err := row.Scan(&item.ID, &item.EventID, &item.ChannelNumber, &item.ChannelName, &item.SignalType, &item.PreampConnector, &stageboxID, &stageboxChannel, &stageMultiID, &stageMultiChannel, &micItemID, &item.MicLabel, &item.CableType, &cableLength, &item.MicStand, &phantom, &item.DCAGroups, &item.Notes); err != nil {
 		return domain.AudioPatchInput{}, fmt.Errorf("scan audio input: %w", err)
+	}
+	if micItemID.Valid {
+		v := micItemID.Int64
+		item.MicItemID = &v
 	}
 	if stageboxID.Valid {
 		v := stageboxID.Int64

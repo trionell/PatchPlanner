@@ -22,23 +22,28 @@ type StageMulti struct {
 }
 
 type AudioPatchInput struct {
-	ID                int64   `json:"id"`
-	EventID           int64   `json:"event_id"`
-	ChannelNumber     int     `json:"channel_number"`
-	ChannelName       string  `json:"channel_name,omitempty"`
-	SignalType        string  `json:"signal_type"`
-	PreampConnector   string  `json:"preamp_connector"`
-	StageboxID        *int64  `json:"stagebox_id,omitempty"`
-	StageboxChannel   *int    `json:"stagebox_channel,omitempty"`
-	StageMultiID      *int64  `json:"stage_multi_id,omitempty"`
-	StageMultiChannel *int    `json:"stage_multi_channel,omitempty"`
-	MicModel          string  `json:"mic_model,omitempty"`
-	CableType         string  `json:"cable_type"`
-	CableLengthM      float64 `json:"cable_length_m"`
-	MicStand          string  `json:"mic_stand,omitempty"`
-	PhantomPower      bool    `json:"phantom_power"`
-	DCAGroups         string  `json:"dca_groups,omitempty"`
-	Notes             string  `json:"notes,omitempty"`
+	ID                int64  `json:"id"`
+	EventID           int64  `json:"event_id"`
+	ChannelNumber     int    `json:"channel_number"`
+	ChannelName       string `json:"channel_name,omitempty"`
+	SignalType        string `json:"signal_type"`
+	PreampConnector   string `json:"preamp_connector"`
+	StageboxID        *int64 `json:"stagebox_id,omitempty"`
+	StageboxChannel   *int   `json:"stagebox_channel,omitempty"`
+	StageMultiID      *int64 `json:"stage_multi_id,omitempty"`
+	StageMultiChannel *int   `json:"stage_multi_channel,omitempty"`
+	MicItemID         *int64 `json:"mic_item_id,omitempty"`
+	// MicLabel is the legacy free-text mic name kept for rows whose text
+	// matched no inventory item during the 009 backfill. Read-only: the
+	// server never writes it from payloads and clears it once MicItemID
+	// is set.
+	MicLabel     string  `json:"mic_label,omitempty"`
+	CableType    string  `json:"cable_type"`
+	CableLengthM float64 `json:"cable_length_m"`
+	MicStand     string  `json:"mic_stand,omitempty"`
+	PhantomPower bool    `json:"phantom_power"`
+	DCAGroups    string  `json:"dca_groups,omitempty"`
+	Notes        string  `json:"notes,omitempty"`
 }
 
 type AudioPatchOutput struct {

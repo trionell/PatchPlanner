@@ -17,8 +17,8 @@
 
 **Purpose**: Test harness — the repo has zero tests today; every story's tests depend on this.
 
-- [ ] T001 Create test DB helper in backend/internal/db/testutil_test.go: open SQLite in t.TempDir(), run real migrations from backend/migrations (resolve path relative to package), seed a minimal inventory fixture (2 categories, ~6 items incl. a mic named "Shure SM58", a stagebox model, a multi, an amp, a speaker, a fixture)
-- [ ] T002 [P] Create API test helper in backend/internal/api/testutil_test.go: httptest.NewServer(api.NewRouter(db)) wrapper + JSON request/decode helpers
+- [X] T001 Create test DB helper in backend/internal/db/testutil_test.go: open SQLite in t.TempDir(), run real migrations from backend/migrations (resolve path relative to package), seed a minimal inventory fixture (2 categories, ~6 items incl. a mic named "Shure SM58", a stagebox model, a multi, an amp, a speaker, a fixture)
+- [X] T002 [P] Create API test helper in backend/internal/api/testutil_test.go: httptest.NewServer(api.NewRouter(db)) wrapper + JSON request/decode helpers
 
 ---
 
@@ -28,12 +28,12 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T003 [P] Migration backend/migrations/008_input_mic_item.up.sql (+ .down.sql): ALTER TABLE audio_patch_inputs ADD COLUMN mic_item_id INTEGER REFERENCES inventory_items(id); down drops via column rename-free strategy consistent with existing down files
-- [ ] T004 [P] Migration backend/migrations/009_input_mic_backfill.up.sql (+ .down.sql): single UPDATE linking mic_item_id by LOWER(name) match per research.md R5; down sets mic_item_id = NULL
-- [ ] T005 [P] Migration backend/migrations/010_inventory_discontinued.up.sql (+ .down.sql): ALTER TABLE inventory_items ADD COLUMN discontinued INTEGER NOT NULL DEFAULT 0
-- [ ] T006 Update domain structs: MicItemID *int64 + MicLabel (JSON mic_label, was mic_model) in backend/internal/domain/audio.go; Discontinued bool in backend/internal/domain/inventory.go; extend EventRental/RentalSummary in backend/internal/domain/rental.go with ManualQuantityAudio, ManualQuantityLighting, ManualNotes, QuantityAvailable, IsOverStock, IsDiscontinued, HasOverStock
-- [ ] T007 Update input scan/insert/update for mic_item_id + mic_label in backend/internal/db/audio_patch.go (scanAudioInput, Create/Update/List/Get queries); server clears stored label when a non-null mic_item_id is written
-- [ ] T008 Verify migrations run clean on a fresh DB and on a copy of an existing pre-feature DB (manual: cd backend && go run ./cmd/main.go against both)
+- [X] T003 [P] Migration backend/migrations/008_input_mic_item.up.sql (+ .down.sql): ALTER TABLE audio_patch_inputs ADD COLUMN mic_item_id INTEGER REFERENCES inventory_items(id); down drops via column rename-free strategy consistent with existing down files
+- [X] T004 [P] Migration backend/migrations/009_input_mic_backfill.up.sql (+ .down.sql): single UPDATE linking mic_item_id by LOWER(name) match per research.md R5; down sets mic_item_id = NULL
+- [X] T005 [P] Migration backend/migrations/010_inventory_discontinued.up.sql (+ .down.sql): ALTER TABLE inventory_items ADD COLUMN discontinued INTEGER NOT NULL DEFAULT 0
+- [X] T006 Update domain structs: MicItemID *int64 + MicLabel (JSON mic_label, was mic_model) in backend/internal/domain/audio.go; Discontinued bool in backend/internal/domain/inventory.go; extend EventRental/RentalSummary in backend/internal/domain/rental.go with ManualQuantityAudio, ManualQuantityLighting, ManualNotes, QuantityAvailable, IsOverStock, IsDiscontinued, HasOverStock
+- [X] T007 Update input scan/insert/update for mic_item_id + mic_label in backend/internal/db/audio_patch.go (scanAudioInput, Create/Update/List/Get queries); server clears stored label when a non-null mic_item_id is written
+- [X] T008 Verify migrations run clean on a fresh DB and on a copy of an existing pre-feature DB (manual: cd backend && go run ./cmd/main.go against both)
 
 **Checkpoint**: Schema + domain ready — user stories can begin.
 
@@ -47,16 +47,16 @@
 
 ### Tests for User Story 1
 
-- [ ] T009 [US1] Failing test in backend/internal/db/rental_test.go: seed an event touching every source (inputs with mic_item_id, stagebox, multi, amp, speaker, fixture) and assert GetRentalSummary returns one merged line per item with correct audio/lighting quantities and totals
-- [ ] T010 [P] [US1] Failing test in backend/internal/db/rental_test.go: backfill semantics — row with matching mic_model text gets linked by migration 009; non-matching text stays NULL and contributes nothing to the summary
+- [X] T009 [US1] Failing test in backend/internal/db/rental_test.go: seed an event touching every source (inputs with mic_item_id, stagebox, multi, amp, speaker, fixture) and assert GetRentalSummary returns one merged line per item with correct audio/lighting quantities and totals
+- [X] T010 [P] [US1] Failing test in backend/internal/db/rental_test.go: backfill semantics — row with matching mic_model text gets linked by migration 009; non-matching text stays NULL and contributes nothing to the summary
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Extend the rental CTE in backend/internal/db/rental.go with three UNION ALL arms (audio_patch_inputs.mic_item_id, stageboxes.inventory_item_id, stage_multis.inventory_item_id per data-model.md quantity rules); make T009/T010 pass
-- [ ] T012 [US1] Accept/return mic_item_id and mic_label on input endpoints in backend/internal/api/audio_patch.go; 400 when mic_item_id references a missing item
-- [ ] T013 [P] [US1] Update frontend types in frontend/src/types/index.ts: AudioPatchInput.mic_item_id (number|null) + mic_label (string, read-only); RentalItem stock/manual/discontinued fields; RentalSummary.has_over_stock
-- [ ] T014 [US1] Rebind the mic/DI/IEM cell in frontend/src/pages/EventDetail.tsx: Select binds mic_item_id (option value = item.id), filtered by signal type as today; when mic_item_id is null and mic_label non-empty render the label with an "unlinked" badge
-- [ ] T015 [US1] Verify acceptance scenarios 1–5 of US1 in the running app per quickstart.md (rental order reflects add/change/remove of every source)
+- [X] T011 [US1] Extend the rental CTE in backend/internal/db/rental.go with three UNION ALL arms (audio_patch_inputs.mic_item_id, stageboxes.inventory_item_id, stage_multis.inventory_item_id per data-model.md quantity rules); make T009/T010 pass
+- [X] T012 [US1] Accept/return mic_item_id and mic_label on input endpoints in backend/internal/api/audio_patch.go; 400 when mic_item_id references a missing item
+- [X] T013 [P] [US1] Update frontend types in frontend/src/types/index.ts: AudioPatchInput.mic_item_id (number|null) + mic_label (string, read-only); RentalItem stock/manual/discontinued fields; RentalSummary.has_over_stock
+- [X] T014 [US1] Rebind the mic/DI/IEM cell in frontend/src/pages/EventDetail.tsx: Select binds mic_item_id (option value = item.id), filtered by signal type as today; when mic_item_id is null and mic_label non-empty render the label with an "unlinked" badge
+- [X] T015 [US1] Verify acceptance scenarios 1–5 of US1 in the running app per quickstart.md (rental order reflects add/change/remove of every source)
 
 **Checkpoint**: MVP — the core value proposition ("no manual counting") is true.
 
@@ -70,16 +70,16 @@
 
 ### Tests for User Story 2
 
-- [ ] T016 [US2] Failing tests in backend/internal/db/inventory_test.go: (a) upsert preserves item ids for same-named items and updates price/qty/xlsx_row; (b) items absent from the new list get discontinued=1 and their FK references survive; (c) duplicate names match by list position; (d) reappearing item flips back to discontinued=0; (e) failed import (constraint violation mid-batch) leaves DB unchanged
-- [ ] T017 [P] [US2] Failing round-trip test in backend/internal/service/inventory_import_test.go: import fixture xlsx → create plan rows referencing items → re-import same file → all references resolve to identical item ids
+- [X] T016 [US2] Failing tests in backend/internal/db/inventory_test.go: (a) upsert preserves item ids for same-named items and updates price/qty/xlsx_row; (b) items absent from the new list get discontinued=1 and their FK references survive; (c) duplicate names match by list position; (d) reappearing item flips back to discontinued=0; (e) failed import (constraint violation mid-batch) leaves DB unchanged
+- [X] T017 [P] [US2] Failing round-trip test in backend/internal/service/inventory_import_test.go: import fixture xlsx → create plan rows referencing items → re-import same file → all references resolve to identical item ids
 
 ### Implementation for User Story 2
 
-- [ ] T018 [US2] Replace ReplaceInventory with UpsertInventory in backend/internal/db/inventory.go per research.md R2 (name-match with list-position fallback, update-in-place, discontinued flagging, single transaction, NO deletes of planning data); make T016/T017 pass
-- [ ] T019 [US2] Exclude discontinued items from ListInventoryItems by default and add includeDiscontinued parameter in backend/internal/db/inventory.go; wire ?include_discontinued=true in backend/internal/api/inventory.go per contracts/rental-api.md
-- [ ] T020 [P] [US2] Surface is_discontinued on rental lines: include discontinued in the summary SELECT in backend/internal/db/rental.go and mark referenced-but-discontinued lines; roll into has_over_stock summary flag
-- [ ] T021 [P] [US2] Show a "discontinued" badge on affected rental lines in frontend/src/pages/EventDetail.tsx and pass include_discontinued=false default through frontend/src/api/inventory.ts
-- [ ] T022 [US2] Fix README.md import note ("existing event data is not affected" — now actually true) and document discontinued behavior
+- [X] T018 [US2] Replace ReplaceInventory with UpsertInventory in backend/internal/db/inventory.go per research.md R2 (name-match with list-position fallback, update-in-place, discontinued flagging, single transaction, NO deletes of planning data); make T016/T017 pass
+- [X] T019 [US2] Exclude discontinued items from ListInventoryItems by default and add includeDiscontinued parameter in backend/internal/db/inventory.go; wire ?include_discontinued=true in backend/internal/api/inventory.go per contracts/rental-api.md
+- [X] T020 [P] [US2] Surface is_discontinued on rental lines: include discontinued in the summary SELECT in backend/internal/db/rental.go and mark referenced-but-discontinued lines; roll into has_over_stock summary flag
+- [X] T021 [P] [US2] Show a "discontinued" badge on affected rental lines in frontend/src/pages/EventDetail.tsx and pass include_discontinued=false default through frontend/src/api/inventory.ts
+- [X] T022 [US2] Fix README.md import note ("existing event data is not affected" — now actually true) and document discontinued behavior
 
 **Checkpoint**: Re-import is safe; US1 and US2 independently verifiable.
 
@@ -93,14 +93,14 @@
 
 ### Tests for User Story 3
 
-- [ ] T023 [US3] Failing tests in backend/internal/api/rental_test.go: PUT /events/{id}/rentals/manual/{itemID} creates then updates a line (upsert), quantities <0 → 400, unknown item → 404, both-zero PUT removes the line, DELETE idempotent 204, summary merges manual + derived quantities for the same item and exposes manual_* fields
+- [X] T023 [US3] Failing tests in backend/internal/api/rental_test.go: PUT /events/{id}/rentals/manual/{itemID} creates then updates a line (upsert), quantities <0 → 400, unknown item → 404, both-zero PUT removes the line, DELETE idempotent 204, summary merges manual + derived quantities for the same item and exposes manual_* fields
 
 ### Implementation for User Story 3
 
-- [ ] T024 [US3] Add UpsertManualRental + DeleteManualRental in backend/internal/db/rental.go (INSERT ... ON CONFLICT(event_id, inventory_item_id) DO UPDATE; delete when both quantities zero) and add manual_quantity_audio/lighting/notes columns to the summary query
-- [ ] T025 [US3] Register PUT/DELETE /events/{eventID}/rentals/manual/{itemID} handlers in backend/internal/api/rental.go per contracts/rental-api.md (validation, 200-with-line / 204 responses); make T023 pass
-- [ ] T026 [P] [US3] Add putManualRental/deleteManualRental to frontend/src/api/rentals.ts
-- [ ] T027 [US3] Manual-line editor on the Rental Order tab in frontend/src/pages/EventDetail.tsx: searchable full-catalog item select, audio + lighting quantity inputs, note field; inline edit/delete on lines with a manual share; mutations invalidate ['rental-summary', eventId]
+- [X] T024 [US3] Add UpsertManualRental + DeleteManualRental in backend/internal/db/rental.go (INSERT ... ON CONFLICT(event_id, inventory_item_id) DO UPDATE; delete when both quantities zero) and add manual_quantity_audio/lighting/notes columns to the summary query
+- [X] T025 [US3] Register PUT/DELETE /events/{eventID}/rentals/manual/{itemID} handlers in backend/internal/api/rental.go per contracts/rental-api.md (validation, 200-with-line / 204 responses); make T023 pass
+- [X] T026 [P] [US3] Add putManualRental/deleteManualRental to frontend/src/api/rentals.ts
+- [X] T027 [US3] Manual-line editor on the Rental Order tab in frontend/src/pages/EventDetail.tsx: searchable full-catalog item select, audio + lighting quantity inputs, note field; inline edit/delete on lines with a manual share; mutations invalidate ['rental-summary', eventId]
 
 **Checkpoint**: Order is complete end-to-end including gear with no planning view.
 
@@ -114,12 +114,12 @@
 
 ### Tests for User Story 4
 
-- [ ] T028 [US4] Failing test in backend/internal/db/rental_test.go: line with total_quantity > quantity_available has is_over_stock=true and summary has_over_stock=true; within-stock event has no flags; zero-stock item planned once is flagged
+- [X] T028 [US4] Failing test in backend/internal/db/rental_test.go: line with total_quantity > quantity_available has is_over_stock=true and summary has_over_stock=true; within-stock event has no flags; zero-stock item planned once is flagged
 
 ### Implementation for User Story 4
 
-- [ ] T029 [US4] Join quantity_available into the summary query and compute is_over_stock per line + has_over_stock on the summary in backend/internal/db/rental.go; make T028 pass
-- [ ] T030 [US4] Rental Order tab UI in frontend/src/pages/EventDetail.tsx: stock column ("planned / available"), red highlight + "exceeds stock (N available)" on flagged lines, warning banner when has_over_stock
+- [X] T029 [US4] Join quantity_available into the summary query and compute is_over_stock per line + has_over_stock on the summary in backend/internal/db/rental.go; make T028 pass
+- [X] T030 [US4] Rental Order tab UI in frontend/src/pages/EventDetail.tsx: stock column ("planned / available"), red highlight + "exceeds stock (N available)" on flagged lines, warning banner when has_over_stock
 
 **Checkpoint**: All four stories independently functional.
 
@@ -127,9 +127,9 @@
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T031 [P] Sync README.md API reference with the endpoints actually registered (audio-inputs/audio-outputs/rentals/lighting-rigs paths + new manual-line endpoints per contracts/rental-api.md)
-- [ ] T032 Run full quickstart.md validation end-to-end (all five verify sections) against a fresh DB and against a migrated pre-feature DB
-- [ ] T033 Gate check: cd backend && go vet ./... && go test ./...; cd frontend && npx tsc --noEmit
+- [X] T031 [P] Sync README.md API reference with the endpoints actually registered (audio-inputs/audio-outputs/rentals/lighting-rigs paths + new manual-line endpoints per contracts/rental-api.md)
+- [X] T032 Run full quickstart.md validation end-to-end (all five verify sections) against a fresh DB and against a migrated pre-feature DB
+- [X] T033 Gate check: cd backend && go vet ./... && go test ./...; cd frontend && npx tsc --noEmit
 
 ---
 

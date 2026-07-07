@@ -46,7 +46,8 @@ func (h InventoryHandler) listItems(w http.ResponseWriter, r *http.Request) {
 		}
 		categoryID = &parsed
 	}
-	items, err := dbstore.ListInventoryItems(h.DB, categoryID, r.URL.Query().Get("category_type"))
+	includeDiscontinued := r.URL.Query().Get("include_discontinued") == "true"
+	items, err := dbstore.ListInventoryItems(h.DB, categoryID, r.URL.Query().Get("category_type"), includeDiscontinued)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

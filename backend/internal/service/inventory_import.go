@@ -22,7 +22,9 @@ func (s InventoryService) ImportFromXLSX(path string) (domain.InventoryImportRes
 	}
 	defer file.Close()
 
-	rows, err := file.GetRows("Prislista LL")
+	// Raw cell values: the price columns are number-formatted ("550.0 kr",
+	// "1,750.0 kr"), which formatted reads turn into unparseable strings.
+	rows, err := file.GetRows("Prislista LL", excelize.Options{RawCellValue: true})
 	if err != nil {
 		return domain.InventoryImportResult{}, fmt.Errorf("read Prislista LL sheet: %w", err)
 	}
@@ -66,19 +68,23 @@ func (s InventoryService) ImportFromXLSX(path string) (domain.InventoryImportRes
 		})
 	}
 
-	if err := db.ReplaceInventory(s.DB, categories, items); err != nil {
+	if err := db.UpsertInventory(s.DB, categories, items); err != nil {
 		return domain.InventoryImportResult{}, err
 	}
 
 	return domain.InventoryImportResult{CategoriesImported: len(categories), ItemsImported: len(items)}, nil
 }
 
+// isCategoryHeader recognizes rows like "Mikrofoner:" — a name ending in a
+// colon with no description, stock count, or prices (columns B–E). Columns F
+// onward are the order-quantity columns, which may hold leftover values from
+// a previously submitted order, so they are deliberately ignored.
 func isCategoryHeader(row []string) bool {
 	if strings.TrimSpace(cell(row, 0)) == "" || !strings.HasSuffix(strings.TrimSpace(cell(row, 0)), ":") {
 		return false
 	}
-	for idx := 1; idx < len(row); idx++ {
-		if strings.TrimSpace(row[idx]) != "" {
+	for idx := 1; idx <= 4; idx++ {
+		if strings.TrimSpace(cell(row, idx)) != "" {
 			return false
 		}
 	}
@@ -123,8 +129,21 @@ func atoi(value string) int {
 	return int(f)
 }
 
+// atof parses price cells defensively: raw values are plain numbers, but
+// stray text cells may carry currency suffixes ("550 kr", "550:-"), spaces
+// (including non-breaking), or a comma decimal separator.
 func atof(value string) float64 {
-	value = strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(value, " ", ""), ",", "."))
+	value = strings.ToLower(strings.TrimSpace(value))
+	for _, junk := range []string{"kr", ":-", " ", " "} {
+		value = strings.ReplaceAll(value, junk, "")
+	}
+	// A comma alongside a dot is a thousands separator; a lone comma is a
+	// decimal separator.
+	if strings.Contains(value, ",") && strings.Contains(value, ".") {
+		value = strings.ReplaceAll(value, ",", "")
+	} else {
+		value = strings.ReplaceAll(value, ",", ".")
+	}
 	if value == "" {
 		return 0
 	}

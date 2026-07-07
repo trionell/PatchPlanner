@@ -44,8 +44,8 @@ The top-level organizing unit. Each event represents a single production (gig, s
 
 The equipment catalog is sourced directly from the renter's `LL.xlsx` price list.
 
-- **Import**: A single API call (or button click) parses the `"Prislista LL"` sheet and upserts all items into the local database.
-- **299 items** across **26 categories** are imported: microphones, line boxes, IEM systems, mixers, amplifiers, speakers, stageboxes, stage multicores, cables, lighting fixtures, dimmers, DMX equipment, smoke machines, truss, rigging hardware, power distribution, and more.
+- **Import**: A single API call (or button click) parses the `"Prislista LL"` sheet and upserts all items into the local database. The import is non-destructive: matched items keep their identity (and all plan references), items missing from the new list are flagged *discontinued* rather than deleted, and a failed import rolls back completely.
+- **308 items** across **27 categories** are imported: microphones, line boxes, IEM systems, mixers, amplifiers, speakers, stageboxes, stage multicores, cables, lighting fixtures, dimmers, DMX equipment, smoke machines, truss, rigging hardware, power distribution, and more.
 - Categories are classified by type (`audio`, `lighting`, `rigging`) using keyword matching on the category name.
 - Each item carries: name, description, available quantity, and ex-VAT price.
 - The inventory page allows browsing all categories and items with type filtering.
@@ -128,7 +128,9 @@ Fixture-level lighting documentation covering hang position, power, and DMX.
 
 Per-event rental summary, derived automatically from the planning data.
 
-- Aggregates all inventory items referenced across the event's audio patch (mic models, amplifiers, speakers, stagebox models, multicore cables) and lighting rig (fixture inventory items).
+- Aggregates all inventory items referenced across the event's audio patch (mic/DI/IEM references, amplifiers, speakers, stagebox models, multicore cables) and lighting rig (fixture inventory items).
+- Manual line items: any catalog item (spare cables, rigging, smoke machines, …) can be added to the order with its own audio/lighting quantities and a note; manual quantities merge with the derived ones.
+- Stock validation: every line shows the renter's available stock; lines whose planned quantity exceeds it are flagged, with an order-level warning.
 - Shows quantity split by audio vs. lighting use.
 - Displays unit price (ex-VAT) and line subtotal for each item.
 - Grand total ex-VAT for the entire event.
@@ -160,9 +162,9 @@ The data model already captures the full input signal chain (mic → cable → s
 
 Currently, DMX channel modes (e.g. "Basic 3ch", "Extended 16ch") are free-text strings. The constitution calls for them to be stored as configurable records per fixture model — so that selecting a mode auto-fills the channel count, and a dropdown can be offered instead of free text. This requires a `fixture_modes` table linked to inventory items.
 
-### 3.6 Stock / Quantity Validation
+### 3.6 Stock / Quantity Validation — ✅ implemented (2026-07-07)
 
-The inventory carries `quantity_available` for each item. A rental summary currently does not warn when the planned quantity of an item exceeds what the renter stocks. Adding a validation pass that highlights over-booked items would prevent surprises when submitting the rental order.
+Shipped as part of the `001-rental-order-correctness` feature: every rental line carries the renter's available stock, over-booked lines are flagged in the API and highlighted in the UI, and the order shows an overall warning.
 
 ### 3.7 Print-Friendly / Shareable Patch Sheets
 

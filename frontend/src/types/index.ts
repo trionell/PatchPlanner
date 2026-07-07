@@ -25,6 +25,7 @@ export interface InventoryItem {
   quantity_available: number
   price_ex_vat: number
   xlsx_row?: number
+  discontinued: boolean
   created_at?: string
 }
 
@@ -60,7 +61,9 @@ export interface AudioPatchInput {
   stagebox_channel?: number
   stage_multi_id?: number
   stage_multi_channel?: number
-  mic_model?: string
+  mic_item_id?: number
+  /** Legacy free-text mic name for rows whose text matched no catalog item. Read-only. */
+  mic_label?: string
   cable_type: string
   cable_length_m: number
   mic_stand?: 'straight' | 'boom' | 'low' | 'desk' | 'clip' | 'none' | ''
@@ -124,16 +127,25 @@ export interface LightingFixture {
 }
 
 export interface EventRental {
-  id: number
-  event_id: number
   inventory_item_id: number
   inventory_item_name?: string
   description?: string
   quantity_audio: number
   quantity_lighting: number
   total_quantity: number
+  manual_quantity_audio: number
+  manual_quantity_lighting: number
+  manual_notes?: string
   price_ex_vat: number
   subtotal_ex_vat: number
+  quantity_available: number
+  is_over_stock: boolean
+  is_discontinued: boolean
+}
+
+export interface ManualRentalRequest {
+  quantity_audio: number
+  quantity_lighting: number
   notes?: string
 }
 
@@ -142,6 +154,7 @@ export interface RentalSummary {
   total_items: number
   total_quantity: number
   total_ex_vat: number
+  has_over_stock: boolean
 }
 
 export interface AudioPatchResponse {
