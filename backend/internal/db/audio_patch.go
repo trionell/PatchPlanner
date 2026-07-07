@@ -62,9 +62,23 @@ func UpdateStagebox(db *sql.DB, id int64, sb domain.Stagebox) (domain.Stagebox, 
 	return GetStagebox(db, id)
 }
 
+// DeleteStagebox clears every patch-row reference to the stagebox before
+// removing it, so the patch stays consistent and the FK constraint holds.
 func DeleteStagebox(db *sql.DB, id int64) error {
-	_, err := db.Exec(`DELETE FROM stageboxes WHERE id = ?`, id)
-	return err
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("delete stagebox: %w", err)
+	}
+	defer tx.Rollback()
+	for _, table := range []string{"audio_patch_inputs", "audio_patch_outputs"} {
+		if _, err := tx.Exec(`UPDATE `+table+` SET stagebox_id = NULL, stagebox_channel = NULL WHERE stagebox_id = ?`, id); err != nil {
+			return fmt.Errorf("clear stagebox references: %w", err)
+		}
+	}
+	if _, err := tx.Exec(`DELETE FROM stageboxes WHERE id = ?`, id); err != nil {
+		return fmt.Errorf("delete stagebox: %w", err)
+	}
+	return tx.Commit()
 }
 
 func ListStageMultis(db *sql.DB, eventID int64) ([]domain.StageMulti, error) {
@@ -122,9 +136,23 @@ func UpdateStageMulti(db *sql.DB, id int64, sm domain.StageMulti) (domain.StageM
 	return GetStageMulti(db, id)
 }
 
+// DeleteStageMulti clears every patch-row reference to the multicore before
+// removing it, so the patch stays consistent and the FK constraint holds.
 func DeleteStageMulti(db *sql.DB, id int64) error {
-	_, err := db.Exec(`DELETE FROM stage_multis WHERE id = ?`, id)
-	return err
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("delete stage multi: %w", err)
+	}
+	defer tx.Rollback()
+	for _, table := range []string{"audio_patch_inputs", "audio_patch_outputs"} {
+		if _, err := tx.Exec(`UPDATE `+table+` SET stage_multi_id = NULL, stage_multi_channel = NULL WHERE stage_multi_id = ?`, id); err != nil {
+			return fmt.Errorf("clear stage multi references: %w", err)
+		}
+	}
+	if _, err := tx.Exec(`DELETE FROM stage_multis WHERE id = ?`, id); err != nil {
+		return fmt.Errorf("delete stage multi: %w", err)
+	}
+	return tx.Commit()
 }
 
 const audioInputColumns = `id, event_id, channel_number, COALESCE(channel_name, ''), COALESCE(signal_type, 'mic'), COALESCE(preamp_connector, 'xlr'), stagebox_id, stagebox_channel, stage_multi_id, stage_multi_channel, mic_item_id, COALESCE(mic_model, ''), COALESCE(cable_type, 'xlr'), COALESCE(cable_length_m, 0), COALESCE(mic_stand, ''), COALESCE(phantom_power, 0), COALESCE(dca_groups, ''), COALESCE(notes, '')`

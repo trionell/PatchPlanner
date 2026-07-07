@@ -18,26 +18,29 @@ Decisions baked into this roadmap (2026-07-07):
 - **All PROJECT.md §3 groups are in scope** except video equipment (§3.3) and
   multi-event/tour planning (§3.10), which remain post-v1.
 
-## Slice 0 — Hardening & tooling (no spec needed; bug fixes)
+## Slice 0 — Hardening & tooling (no spec needed; bug fixes) ✅ done 2026-07-07
 
 Direct fixes on `main`, no Spec-Kit ceremony:
 
-- [ ] Enforce SQLite foreign keys on every pooled connection (DSN pragma, not
-      a one-off `db.Exec` in `internal/db/db.go`).
-- [ ] Fix `AutoAssignDMX` to respect each fixture's assigned universe instead
-      of re-packing everything from universe 1 (`internal/db/lighting.go`).
-- [ ] Add truss section CRUD endpoints + UI (table and FK already exist; the
-      UI field is currently disabled/dead).
-- [ ] Split `frontend/src/pages/EventDetail.tsx` (665 lines) into per-tab
-      components (`AudioInputsTab`, `AudioOutputsTab`, `LightingTab`,
-      `RentalTab`, `OverviewTab`).
-- [ ] Add `golangci-lint` config + `go test` scaffolding; add ESLint + Vitest
-      to the frontend; wire both into a CI workflow.
-- [ ] Sync README API reference with actual routes (`/audio-inputs`,
-      `/rentals`, `/lighting-rigs`, …) and fix the migration-rule claim
-      (001–005 are multi-statement).
-- [ ] Make DB path, migrations path, and `LL.xlsx` path configurable via
-      flags/env instead of CWD-relative literals.
+- [x] Enforce SQLite foreign keys on every pooled connection (DSN pragma, not
+      a one-off `db.Exec` in `internal/db/db.go`). Deletes of stageboxes,
+      multis, fixtures, and truss sections now clear referencing rows first;
+      event deletion actually cascades.
+- [x] Fix `AutoAssignDMX` to respect each fixture's assigned universe instead
+      of re-packing everything from universe 1; >512-channel universes now
+      fail with a 409 instead of silently spilling over.
+- [x] Add truss section CRUD endpoints + UI (manager panel on the Lighting
+      tab; fixture rows assign sections from a dropdown).
+- [x] Split `frontend/src/pages/EventDetail.tsx` (800+ lines) into per-tab
+      components under `components/event/` plus shared `lib/constants.ts` and
+      a `useDraftState` hook.
+- [x] Add `golangci-lint` config + ESLint (flat config) + Vitest; CI workflow
+      at `.github/workflows/ci.yml` runs vet/test/lint on both sides.
+- [x] Sync README API reference with actual routes and fix the
+      migration-rule claim (multi-statement files apply fully; single-statement
+      is kept as a convention).
+- [x] Make listen address, DB path, migrations path, CORS origin, and
+      `LL.xlsx` path configurable via environment variables.
 
 ## Slice 1 — Rental order correctness (spec: `rental-order-correctness`)
 

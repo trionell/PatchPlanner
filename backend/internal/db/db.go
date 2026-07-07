@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
 	migratesqlite "github.com/golang-migrate/migrate/v4/database/sqlite"
@@ -12,13 +13,23 @@ import (
 )
 
 func Open(databasePath string, migrationsPath string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", databasePath)
+	// Foreign keys must be enabled via the DSN: database/sql pools
+	// connections, and a plain `PRAGMA foreign_keys = ON` would only apply
+	// to whichever single connection happened to execute it.
+	dsn := databasePath
+	if !strings.HasPrefix(dsn, "file:") {
+		dsn = "file:" + dsn
+	}
+	if strings.Contains(dsn, "?") {
+		dsn += "&"
+	} else {
+		dsn += "?"
+	}
+	dsn += "_pragma=foreign_keys(1)"
+
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite database: %w", err)
-	}
-
-	if _, err := db.Exec(`PRAGMA foreign_keys = ON;`); err != nil {
-		return nil, fmt.Errorf("enable foreign keys: %w", err)
 	}
 
 	if err := runMigrations(db, migrationsPath); err != nil {

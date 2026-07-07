@@ -1,26 +1,10 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react'
+import { parseChannels, parseInOut } from '../lib/utils'
 import type { InventoryItem, Stagebox, StageMulti } from '../types'
 import { Button } from './ui/Button'
 import { Input } from './ui/Input'
 import { Select } from './ui/Select'
-
-// ─── Utility: parse "12/6" or "16/8" from an inventory item description ───────
-export function parseInOut(description: string): { inputs: number; outputs: number } | null {
-  const match = description.match(/(\d+)\s*\/\s*(\d+)/)
-  if (match) return { inputs: parseInt(match[1]), outputs: parseInt(match[2]) }
-  return null
-}
-
-export function parseChannels(description: string): number | null {
-  // Prefer explicit "N/M" → take the larger as channel count
-  const inOut = parseInOut(description)
-  if (inOut) return Math.max(inOut.inputs, inOut.outputs) || inOut.inputs
-  // Fallback: look for a standalone number followed by "ch" or "kanal"
-  const chMatch = description.match(/(\d+)\s*(?:ch|kanal)/i)
-  if (chMatch) return parseInt(chMatch[1])
-  return null
-}
 
 // ─── Connector options ────────────────────────────────────────────────────────
 const connectionTypes = ['analog', 'aes', 'dante', 'madi', 'ethersound', 'avb']

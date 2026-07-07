@@ -46,6 +46,16 @@ The backend:
 - Creates `backend/patchplanner.db` (SQLite) on first run
 - Runs all database migrations automatically
 
+Configuration (all optional, via environment variables):
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `PATCHPLANNER_ADDR` | `:7331` | HTTP listen address |
+| `PATCHPLANNER_DB` | `./patchplanner.db` | SQLite database file |
+| `PATCHPLANNER_MIGRATIONS` | `./migrations` | Migrations directory |
+| `PATCHPLANNER_CORS_ORIGIN` | `http://localhost:5173` | Allowed dev-server origin |
+| `INVENTORY_PATH` | `../LL.xlsx` | Price list used by the import endpoint |
+
 ### 3. Start the frontend
 
 In a second terminal:

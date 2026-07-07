@@ -1,0 +1,21 @@
+version: "2"
+
+linters:
+  default: standard
+  settings:
+    staticcheck:
+      checks: ["all", "-ST1000"]
+    errcheck:
+      # Deferred cleanup where the error is deliberately ignored (idiomatic Go).
+      exclude-functions:
+        - (*database/sql.Rows).Close
+        - (*database/sql.Tx).Rollback
+        - (*github.com/xuri/excelize/v2.File).Close
+
+formatters:
+  enable:
+    - gofmt
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

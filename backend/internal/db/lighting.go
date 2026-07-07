@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/trionell/patchplanner/internal/domain"
@@ -112,38 +113,115 @@ func UpdateLightingFixture(db *sql.DB, id int64, fixture domain.LightingFixture)
 	return GetLightingFixture(db, id)
 }
 
+// DeleteLightingFixture detaches any fixtures chained off this one (power and
+// DMX) before removing it, so chains stay valid and the FK constraints hold.
 func DeleteLightingFixture(db *sql.DB, id int64) error {
-	_, err := db.Exec(`DELETE FROM lighting_fixtures WHERE id = ?`, id)
+	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("delete lighting fixture: %w", err)
 	}
-	return nil
+	defer tx.Rollback()
+	if _, err := tx.Exec(`UPDATE lighting_fixtures SET power_chain_parent_id = NULL WHERE power_chain_parent_id = ?`, id); err != nil {
+		return fmt.Errorf("clear power chain references: %w", err)
+	}
+	if _, err := tx.Exec(`UPDATE lighting_fixtures SET dmx_chain_parent_id = NULL WHERE dmx_chain_parent_id = ?`, id); err != nil {
+		return fmt.Errorf("clear dmx chain references: %w", err)
+	}
+	if _, err := tx.Exec(`DELETE FROM lighting_fixtures WHERE id = ?`, id); err != nil {
+		return fmt.Errorf("delete lighting fixture: %w", err)
+	}
+	return tx.Commit()
 }
 
+// ErrUniverseFull is returned by AutoAssignDMX when the fixtures assigned to
+// one universe need more than the 512 available DMX channels.
+var ErrUniverseFull = errors.New("dmx universe exceeds 512 channels")
+
+// AutoAssignDMX assigns sequential start addresses per universe: fixtures
+// keep the universe they are assigned to, and within each universe addresses
+// run from 1 in position-index order.
 func AutoAssignDMX(db *sql.DB, rigID int64) ([]domain.LightingFixture, error) {
 	fixtures, err := ListLightingFixtures(db, rigID)
 	if err != nil {
 		return nil, err
 	}
-	currentUniverse := 1
-	currentAddress := 1
+	tx, err := db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("auto assign dmx: %w", err)
+	}
+	defer tx.Rollback()
+
+	nextAddress := make(map[int]int)
 	for _, fixture := range fixtures {
+		universe := fixture.DMXUniverse
+		if universe < 1 {
+			universe = 1
+		}
 		channelCount := fixture.DMXChannelCount
 		if channelCount <= 0 {
 			channelCount = 1
 		}
-		if currentAddress+channelCount-1 > 512 {
-			currentUniverse++
-			currentAddress = 1
+		start, seen := nextAddress[universe]
+		if !seen {
+			start = 1
 		}
-		start := currentAddress
-		_, err := db.Exec(`UPDATE lighting_fixtures SET dmx_universe = ?, dmx_start_address = ? WHERE id = ?`, currentUniverse, start, fixture.ID)
-		if err != nil {
+		if start+channelCount-1 > 512 {
+			return nil, fmt.Errorf("%w: universe %d", ErrUniverseFull, universe)
+		}
+		if _, err := tx.Exec(`UPDATE lighting_fixtures SET dmx_universe = ?, dmx_start_address = ? WHERE id = ?`, universe, start, fixture.ID); err != nil {
 			return nil, fmt.Errorf("auto assign dmx: %w", err)
 		}
-		currentAddress += channelCount
+		nextAddress[universe] = start + channelCount
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("auto assign dmx: %w", err)
 	}
 	return ListLightingFixtures(db, rigID)
+}
+
+func GetTrussSection(db *sql.DB, id int64) (domain.TrussSection, error) {
+	row := db.QueryRow(`SELECT id, rig_id, name, COALESCE(length_m, 0), COALESCE(truss_type, 'box') FROM truss_sections WHERE id = ?`, id)
+	var item domain.TrussSection
+	if err := row.Scan(&item.ID, &item.RigID, &item.Name, &item.LengthM, &item.TrussType); err != nil {
+		return domain.TrussSection{}, fmt.Errorf("get truss section: %w", err)
+	}
+	return item, nil
+}
+
+func CreateTrussSection(db *sql.DB, section domain.TrussSection) (domain.TrussSection, error) {
+	result, err := db.Exec(`INSERT INTO truss_sections (rig_id, name, length_m, truss_type) VALUES (?, ?, ?, ?)`,
+		section.RigID, section.Name, section.LengthM, section.TrussType)
+	if err != nil {
+		return domain.TrussSection{}, fmt.Errorf("create truss section: %w", err)
+	}
+	id, _ := result.LastInsertId()
+	return GetTrussSection(db, id)
+}
+
+func UpdateTrussSection(db *sql.DB, id int64, section domain.TrussSection) (domain.TrussSection, error) {
+	_, err := db.Exec(`UPDATE truss_sections SET name = ?, length_m = ?, truss_type = ? WHERE id = ?`,
+		section.Name, section.LengthM, section.TrussType, id)
+	if err != nil {
+		return domain.TrussSection{}, fmt.Errorf("update truss section: %w", err)
+	}
+	return GetTrussSection(db, id)
+}
+
+// DeleteTrussSection unassigns any fixtures hanging on the section before
+// removing it.
+func DeleteTrussSection(db *sql.DB, id int64) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("delete truss section: %w", err)
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`UPDATE lighting_fixtures SET truss_section_id = NULL WHERE truss_section_id = ?`, id); err != nil {
+		return fmt.Errorf("clear truss references: %w", err)
+	}
+	if _, err := tx.Exec(`DELETE FROM truss_sections WHERE id = ?`, id); err != nil {
+		return fmt.Errorf("delete truss section: %w", err)
+	}
+	return tx.Commit()
 }
 
 func scanLightingFixture(row scanner) (domain.LightingFixture, error) {

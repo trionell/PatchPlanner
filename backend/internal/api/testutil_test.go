@@ -55,7 +55,7 @@ func doJSON(t *testing.T, method, url string, payload any) (int, []byte) {
 	if err != nil {
 		t.Fatalf("%s %s: %v", method, url, err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	raw, err := io.ReadAll(response.Body)
 	if err != nil {
 		t.Fatalf("read response body: %v", err)

@@ -231,6 +231,6 @@ For recurring productions or multi-day tours using the same rig, there is no way
 
 **Inline-edit UX (blur-to-save):** Patch sheets can have 40–80 rows with 12–15 columns each. A row-level "Save" button would create excessive friction. Saving on field blur keeps the experience close to working in a spreadsheet while ensuring data is persisted incrementally.
 
-**One-migration-per-statement rule:** `golang-migrate`'s SQLite driver executes one SQL statement per migration file. Multi-statement migration files silently execute only the first statement. All migration files in this project contain exactly one statement to avoid this footgun.
+**Migration style:** Migrations 001–005 contain multiple statements per file and apply fully with the `modernc.org/sqlite`-backed golang-migrate driver (verified by the test suite, which builds every schema from these files). Migrations from 006 onward follow a one-statement-per-file convention anyway — smaller files are easier to review and to write correct `.down.sql` counterparts for.
 
 **Inventory-filtered dropdowns:** Rather than allowing free text for equipment fields (mic model, amplifier, speaker, stagebox model), dropdowns are populated from the live inventory catalog and filtered by category type. This enforces that planned equipment is always traceable to a real rental item, which is a prerequisite for a correct rental order.

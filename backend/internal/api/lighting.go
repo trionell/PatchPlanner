@@ -3,6 +3,7 @@ package api
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -26,6 +27,9 @@ func (h LightingHandler) Register(r chi.Router) {
 	r.Patch("/events/{eventID}/lighting-rigs/{rigID}/fixtures/{fixtureID}", h.updateFixture)
 	r.Delete("/events/{eventID}/lighting-rigs/{rigID}/fixtures/{fixtureID}", h.deleteFixture)
 	r.Post("/events/{eventID}/lighting-rigs/{rigID}/fixtures/auto-assign-dmx", h.autoAssignDMX)
+	r.Post("/events/{eventID}/lighting-rigs/{rigID}/truss-sections", h.createTrussSection)
+	r.Patch("/events/{eventID}/lighting-rigs/{rigID}/truss-sections/{sectionID}", h.updateTrussSection)
+	r.Delete("/events/{eventID}/lighting-rigs/{rigID}/truss-sections/{sectionID}", h.deleteTrussSection)
 }
 
 func (h LightingHandler) getLightingRig(w http.ResponseWriter, r *http.Request) {
@@ -113,6 +117,10 @@ func (h LightingHandler) autoAssignDMX(w http.ResponseWriter, r *http.Request) {
 	}
 	fixtures, err := dbstore.AutoAssignDMX(h.DB, rigID)
 	if err != nil {
+		if errors.Is(err, dbstore.ErrUniverseFull) {
+			writeError(w, http.StatusConflict, err.Error())
+			return
+		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -120,4 +128,63 @@ func (h LightingHandler) autoAssignDMX(w http.ResponseWriter, r *http.Request) {
 		fixtures = []domain.LightingFixture{}
 	}
 	writeJSON(w, http.StatusOK, fixtures)
+}
+
+func (h LightingHandler) createTrussSection(w http.ResponseWriter, r *http.Request) {
+	rigID, ok := parseID(w, chi.URLParam(r, "rigID"))
+	if !ok {
+		return
+	}
+	var payload domain.TrussSection
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if payload.Name == "" {
+		writeError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	payload.RigID = rigID
+	if payload.TrussType == "" {
+		payload.TrussType = "box"
+	}
+	created, err := dbstore.CreateTrussSection(h.DB, payload)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusCreated, created)
+}
+
+func (h LightingHandler) updateTrussSection(w http.ResponseWriter, r *http.Request) {
+	sectionID, ok := parseID(w, chi.URLParam(r, "sectionID"))
+	if !ok {
+		return
+	}
+	var payload domain.TrussSection
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if payload.TrussType == "" {
+		payload.TrussType = "box"
+	}
+	updated, err := dbstore.UpdateTrussSection(h.DB, sectionID, payload)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
+}
+
+func (h LightingHandler) deleteTrussSection(w http.ResponseWriter, r *http.Request) {
+	sectionID, ok := parseID(w, chi.URLParam(r, "sectionID"))
+	if !ok {
+		return
+	}
+	if err := dbstore.DeleteTrussSection(h.DB, sectionID); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
