@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/trionell/patcherplanner/internal/db"
-	"github.com/trionell/patcherplanner/internal/domain"
+	"github.com/trionell/patchplanner/internal/db"
+	"github.com/trionell/patchplanner/internal/domain"
 	"github.com/xuri/excelize/v2"
 )
 

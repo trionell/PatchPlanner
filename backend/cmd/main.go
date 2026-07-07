@@ -7,13 +7,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
-	"github.com/trionell/patcherplanner/internal/api"
-	"github.com/trionell/patcherplanner/internal/db"
+	"github.com/trionell/patchplanner/internal/api"
+	"github.com/trionell/patchplanner/internal/db"
 )
 
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	database, err := db.Open("./patcherplanner.db", "./migrations")
+	database, err := db.Open("./patchplanner.db", "./migrations")
 	if err != nil {
 		logger.Error("failed to initialize database", slog.Any("error", err))
 		os.Exit(1)

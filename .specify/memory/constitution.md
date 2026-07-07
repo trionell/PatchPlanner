@@ -12,7 +12,7 @@ Templates updated:
 Deferred TODOs: none
 -->
 
-# PatcherPlanner Constitution
+# PatchPlanner Constitution
 
 ## Core Principles
 

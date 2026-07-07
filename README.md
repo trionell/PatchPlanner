@@ -1,4 +1,4 @@
-# PatcherPlanner
+# PatchPlanner
 
 An AVL (Audio, Video, Lighting) event planning tool for live productions. Plan patch lists, lighting rigs, DMX assignments, and generate rental orders — all in one place.
 
@@ -43,7 +43,7 @@ go run ./cmd/main.go
 
 The backend:
 - Starts on **http://localhost:7331**
-- Creates `backend/patcherplanner.db` (SQLite) on first run
+- Creates `backend/patchplanner.db` (SQLite) on first run
 - Runs all database migrations automatically
 
 ### 3. Start the frontend
@@ -168,7 +168,7 @@ patcherPlanner/
 │   │   └── service/                 # Business logic (inventory import)
 │   ├── migrations/                  # Versioned SQL migration files
 │   ├── go.mod
-│   └── patcherplanner.db            # Created at runtime (gitignored)
+│   └── patchplanner.db            # Created at runtime (gitignored)
 │
 ├── frontend/
 │   ├── src/

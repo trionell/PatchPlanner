@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/trionell/patcherplanner/internal/domain"
+	"github.com/trionell/patchplanner/internal/domain"
 )
 
 func ListInventoryCategories(db *sql.DB) ([]domain.InventoryCategory, error) {

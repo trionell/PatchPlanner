@@ -1,4 +1,4 @@
-module github.com/trionell/patcherplanner
+module github.com/trionell/patchplanner
 
 go 1.25.0
 

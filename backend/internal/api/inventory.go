@@ -7,9 +7,9 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	dbstore "github.com/trionell/patcherplanner/internal/db"
-	"github.com/trionell/patcherplanner/internal/domain"
-	"github.com/trionell/patcherplanner/internal/service"
+	dbstore "github.com/trionell/patchplanner/internal/db"
+	"github.com/trionell/patchplanner/internal/domain"
+	"github.com/trionell/patchplanner/internal/service"
 )
 
 type InventoryHandler struct {

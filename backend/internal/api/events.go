@@ -8,8 +8,8 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	dbstore "github.com/trionell/patcherplanner/internal/db"
-	"github.com/trionell/patcherplanner/internal/domain"
+	dbstore "github.com/trionell/patchplanner/internal/db"
+	"github.com/trionell/patchplanner/internal/domain"
 )
 
 type EventsHandler struct {

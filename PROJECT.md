@@ -1,8 +1,8 @@
-# PatcherPlanner — Project Description
+# PatchPlanner — Project Description
 
 ---
 
-## 1. What Is PatcherPlanner?
+## 1. What Is PatchPlanner?
 
 ### The Problem Space
 
@@ -17,11 +17,11 @@ Today, most working technicians solve this with a combination of spreadsheets, h
 
 ### Who It Is For
 
-PatcherPlanner is built for **freelance and small-team AVL technicians** who plan and execute live events — concerts, corporate productions, theatre, festivals — and who regularly rent equipment from the same supplier. The initial target is a single technician who rents from a specific Swedish supplier whose inventory is provided as an Excel price list (`LL.xlsx`).
+PatchPlanner is built for **freelance and small-team AVL technicians** who plan and execute live events — concerts, corporate productions, theatre, festivals — and who regularly rent equipment from the same supplier. The initial target is a single technician who rents from a specific Swedish supplier whose inventory is provided as an Excel price list (`LL.xlsx`).
 
 ### The Core Value Proposition
 
-PatcherPlanner replaces isolated spreadsheets with a **connected, structured planning environment** where:
+PatchPlanner replaces isolated spreadsheets with a **connected, structured planning environment** where:
 
 - Every channel, fixture, and cable run references real inventory items, so what you plan is what gets ordered.
 - Routing is modeled as relationships (mic → cable → stagebox port → multicore channel → mixer channel), not as free-text fields.

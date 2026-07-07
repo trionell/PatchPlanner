@@ -11,7 +11,7 @@ const navItems = [
 function getPageTitle(pathname: string) {
   if (pathname.startsWith('/events/') && pathname !== '/events') return 'Event Detail'
   const item = navItems.find((entry) => entry.to === pathname)
-  return item?.label ?? 'PatcherPlanner'
+  return item?.label ?? 'PatchPlanner'
 }
 
 export function Layout() {
@@ -26,7 +26,7 @@ export function Layout() {
             <Cable className="h-5 w-5" />
           </div>
           <div>
-            <div className="font-semibold text-zinc-100">PatcherPlanner</div>
+            <div className="font-semibold text-zinc-100">PatchPlanner</div>
             <div className="text-xs text-zinc-400">AVL event planning</div>
           </div>
         </div>
