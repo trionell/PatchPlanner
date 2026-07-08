@@ -13,6 +13,7 @@ An AVL (Audio, Video, Lighting) event planning tool for live productions. Plan p
 - **Rental Order** — Per-event summary of all rented equipment, derived automatically from the plan (mics, DI/IEM, stageboxes, multicores, amplifiers, speakers, fixtures) plus manual line items for anything else; flags lines that exceed the renter's stock
 - **Excel Export** — One click produces a copy of LL.xlsx with the order quantities filled into the *Antal Ljud* / *Antal Ljus* columns at the right rows, ready to send to the renter unmodified; lines that can't be placed are reported, never silently dropped
 - **Owned Gear & Equipment Lists** — A personal catalog of equipment you own (never on the rental order), plannable per event with quantities and notes; the Equipment tab shows everything beyond the patch and rig: owned gear plus rented extras
+- **Configurable Reference Data** — Every planning vocabulary (signal types, preamp connectors, signal/speaker cable types, output types, mic stands, power connectors, truss types) is stored data, editable on the Settings page: add values for new gear, rename labels, delete unused ones (values in use by a plan are protected). Lighting fixture models carry DMX mode definitions (name + channel count) that auto-fill the channel count when patching
 - **Inventory** — Full catalog imported directly from the LL.xlsx price list (308 items across 27 categories: audio, lighting, rigging)
 
 ---
@@ -153,7 +154,7 @@ For each fixture in the table you can set:
 - **Power** — `grid` (direct mains) or `chain` (daisy-chained from another fixture)
 - **Power connector** — Schuko, CEE16, CEE32, PowerCon, PowerCon TRUE1, IEC
 - **DMX universe** and **start address**
-- **Channel mode** — the fixture's DMX personality (e.g. "Extended 16ch")
+- **Channel mode** — the fixture's DMX personality (e.g. "Extended 16ch"); when the fixture's catalog model has defined modes (managed from the Inventory page), picking one auto-fills the channel count — mode edits later never rewrite already-patched rigs
 - **DMX chain** — parent fixture in the DMX daisy-chain
 - **Notes**
 
@@ -243,6 +244,14 @@ Base URL: `http://localhost:7331/api/v1`
 | GET | `/events/:id/owned-equipment` | List the event's owned-gear lines |
 | PUT | `/events/:id/owned-equipment/:itemId` | Create/update an owned-gear line (quantity 0 removes) |
 | DELETE | `/events/:id/owned-equipment/:itemId` | Remove an owned-gear line |
+| GET | `/reference-data` | All planning vocabularies with their values (drives every dropdown) |
+| POST | `/reference-data/:vocabulary/values` | Add a vocabulary value (409 on duplicates) |
+| PATCH | `/reference-data/:vocabulary/values/:valueId` | Rename a value's display label (the stored value is immutable) |
+| DELETE | `/reference-data/:vocabulary/values/:valueId` | Delete a value (409 while any planning row uses it) |
+| GET | `/inventory/items/:itemId/fixture-modes` | List a fixture model's DMX modes |
+| POST | `/inventory/items/:itemId/fixture-modes` | Add a DMX mode (name + channel count) |
+| PATCH | `/fixture-modes/:modeId` | Update a mode (patched fixtures keep their copied values) |
+| DELETE | `/fixture-modes/:modeId` | Delete a mode |
 
 Health check: `GET http://localhost:7331/health` (outside `/api/v1`).
 

@@ -88,18 +88,26 @@ audio-patch row or lighting fixture.
       over-owned flagging, cascade deletes, and tested isolation — owned gear
       can never reach the rental order or the export.
 
-## Slice 4 — Configurable reference data (spec: `reference-data`)
+## Slice 4 — Configurable reference data (spec: `reference-data`) ✅ done 2026-07-08
 
 Full Principle II compliance + §3.5.
 
-- Lookup tables (with seed migrations) for: preamp/cable connector types,
-  cable types, signal types, output types, mic stand types, power connector
-  types, truss types.
-- Drop the corresponding CHECK constraints; drive all frontend dropdowns from
-  a `/api/v1/reference-data` endpoint instead of hard-coded arrays.
-- `fixture_modes` table linked to inventory items: selecting a DMX mode
-  auto-fills the channel count; modes editable per fixture model.
-- Minimal admin UI (settings page) for adding values.
+- [x] `reference_values` lookup table seeded with all eight vocabularies
+      (signal types, preamp connectors, signal/speaker cable types, output
+      types, mic stands, power connectors, truss types); values stored as
+      text on planning rows, so the upgrade changed zero rows.
+- [x] CHECK constraints on signal_type/mic_stand/output_type/truss_type
+      dropped via table rebuilds (see research.md R1 for the deferred-FK
+      subtleties); destination_type and power_connection stay structural.
+- [x] All frontend dropdowns driven by `GET /api/v1/reference-data`
+      (`useReferenceData` hook, legacy values merged per row); the
+      hard-coded arrays in `lib/constants.ts` are gone.
+- [x] `fixture_modes` table + per-model editor on the Inventory page;
+      picking a mode copy-fills name and channel count on the rig fixture
+      (copy-on-pick — mode edits never rewrite rigs); re-import leaves
+      vocabularies and modes untouched (tested).
+- [x] Settings page: add / rename-label / delete with duplicate rejection
+      and in-use delete protection (409 with usage count).
 
 ## Slice 5 — Print & signal flow (spec: `print-and-signal-flow`)
 

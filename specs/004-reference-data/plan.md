@@ -107,13 +107,14 @@ adds one page, one hook, one component, and rewires existing tabs.
 ## Design Decisions (from research.md)
 
 - **R1 — Dropping CHECK constraints**: SQLite cannot `ALTER` a CHECK away; the
-  affected tables are rebuilt (create new → copy → drop old → rename). The
-  migrate driver wraps each migration in a transaction on the FK-enabled pool,
-  where `PRAGMA foreign_keys=OFF` is a silent no-op — so rebuilds use
-  `PRAGMA defer_foreign_keys=ON`, which is legal inside a transaction and
-  defers enforcement to COMMIT (by which point `lighting_fixtures` rows again
-  resolve `truss_sections`). Verified against golang-migrate's sqlite driver
-  source (tx-wrap default on).
+  affected tables are rebuilt. The migrate driver wraps each migration in a
+  transaction on the FK-enabled pool, where `PRAGMA foreign_keys=OFF` is a
+  silent no-op — rebuilds run under `PRAGMA defer_foreign_keys=ON` instead.
+  For the unreferenced tables (016/017) that makes create→copy→drop→rename
+  work directly. For `truss_sections` (referenced by `lighting_fixtures`)
+  even deferral cannot survive dropping the parent — see the amendment in
+  research.md R1 — so 018 stashes both tables in FK-free backup copies,
+  drops child then parent, and recreates them under their final names.
 - **R2 — One table, values as text**: `reference_values(vocabulary, value,
   label)` with `UNIQUE(vocabulary, value)`. Planning rows keep their existing
   text columns — no FK ids, no data rewrite, FR-007 (legacy values) free.

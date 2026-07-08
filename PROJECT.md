@@ -156,9 +156,9 @@ Video was listed in the original scope (cameras, screens, matrix switchers, cabl
 
 The data model already captures the full input signal chain (mic → cable → stagebox port → multicore channel → mixer channel). A read-only visual signal flow diagram — even a simple text-based one — would make it much faster to catch patching errors before load-in. Not yet implemented.
 
-### 3.5 DMX Channel Modes as Inventory Data
+### 3.5 DMX Channel Modes as Inventory Data — ✅ implemented (2026-07-08)
 
-Currently, DMX channel modes (e.g. "Basic 3ch", "Extended 16ch") are free-text strings. The constitution calls for them to be stored as configurable records per fixture model — so that selecting a mode auto-fills the channel count, and a dropdown can be offered instead of free text. This requires a `fixture_modes` table linked to inventory items.
+Shipped as part of the `004-reference-data` feature: a `fixture_modes` table linked to inventory items stores each fixture model's DMX modes (name + channel count), editable from the Inventory page. Picking a mode on a rig fixture copies name and channel count onto the fixture (so later mode edits never rewrite existing rigs); manual entry remains available for models without defined modes. The same feature completed constitution Principle II across the board: all eight planning vocabularies (signal types, preamp connectors, signal/speaker cable types, output types, mic stands, power connectors, truss types) moved from code enums and CHECK constraints into an editable `reference_values` table with a Settings page, seeded with the previous values so existing plans are untouched.
 
 ### 3.6 Stock / Quantity Validation — ✅ implemented (2026-07-07)
 

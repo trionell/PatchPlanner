@@ -28,17 +28,29 @@ Two environment facts constrain how:
 
 `PRAGMA defer_foreign_keys = ON` is explicitly designed to be used inside a
 transaction: it defers all FK checking to COMMIT and resets itself
-automatically. For `truss_sections` (referenced by
-`lighting_fixtures.truss_section_id`, plain NO ACTION FK) the intermediate
-states (old table dropped, new one not yet renamed) would otherwise fail; at
-COMMIT the name `truss_sections` resolves to the rebuilt table with identical
-ids, so deferred checks pass. `audio_patch_inputs`/`audio_patch_outputs` have
-no inbound FKs, but get the same pragma for uniformity.
+automatically. For `audio_patch_inputs`/`audio_patch_outputs` (no inbound
+FKs) the plain create→copy→drop→rename sequence then works as-is.
 
-Rename direction matters: only the *new* table is ever renamed
+**Amendment (found by the T005 stepwise test)**: for `truss_sections`
+(referenced by `lighting_fixtures.truss_section_id`) deferral is *not*
+enough. Dropping a referenced parent increments SQLite's deferred FK
+violation counter once per referencing row, and renaming a replacement
+table into place never unwinds the counter — COMMIT fails with
+`FOREIGN KEY constraint failed`. The `legacy_alter_table` rename idiom also
+fails inside the tx-wrapped migration (the old table's rename drags the
+fixtures' FK clause along). Migration 018 therefore uses a rename-free
+sequence: stash `truss_sections` and `lighting_fixtures` rows in plain
+backup tables (`CREATE TABLE … AS SELECT` carries no FK clauses), drop child
+then parent (no FK reference survives to be violated), recreate both under
+their final names (fixtures with their original DDL, truss without the
+CHECK), copy back, drop the backups. Ids are copied explicitly, so
+`truss_section_id`/chain-parent references stay valid; the T005 test
+asserts row fidelity plus a clean `PRAGMA foreign_key_check`.
+
+Rename direction matters in 016/017: only the *new* table is ever renamed
 (`…_new` → original). The original is dropped, never renamed, so SQLite's
 rename-time rewriting of FK references in other tables' schemas can never
-retarget `lighting_fixtures` at a `…_new` name.
+retarget anything at a `…_new` name.
 
 Down migrations rebuild in reverse (re-adding the CHECKs); rows with custom
 values added since would violate the CHECK on downgrade — acceptable and

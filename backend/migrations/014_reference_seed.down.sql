@@ -1,0 +1,23 @@
+DELETE FROM reference_values WHERE (vocabulary, value) IN (
+  ('signal_types', 'mic'), ('signal_types', 'line'), ('signal_types', 'di'),
+  ('signal_types', 'return'), ('signal_types', 'aux'),
+  ('preamp_connectors', 'xlr'), ('preamp_connectors', 'jack_ts'),
+  ('preamp_connectors', 'jack_trs'), ('preamp_connectors', 'rca'),
+  ('preamp_connectors', 'combo'), ('preamp_connectors', 'usb'),
+  ('signal_cable_types', 'xlr'), ('signal_cable_types', 'jack_ts'),
+  ('signal_cable_types', 'jack_trs'), ('signal_cable_types', 'rca'),
+  ('signal_cable_types', 'combo'),
+  ('speaker_cable_types', 'xlr'), ('speaker_cable_types', 'nl4'),
+  ('speaker_cable_types', 'nl8'), ('speaker_cable_types', 'jack_ts'),
+  ('output_types', 'foh'), ('output_types', 'monitor'), ('output_types', 'sub'),
+  ('output_types', 'aux'), ('output_types', 'matrix'), ('output_types', 'stereo'),
+  ('output_types', 'iem'),
+  ('mic_stands', 'straight'), ('mic_stands', 'boom'), ('mic_stands', 'low'),
+  ('mic_stands', 'desk'), ('mic_stands', 'clip'), ('mic_stands', 'none'),
+  ('power_connectors', 'schuko'), ('power_connectors', 'cee16'),
+  ('power_connectors', 'cee32'), ('power_connectors', 'cee16_3ph'),
+  ('power_connectors', 'cee32_3ph'), ('power_connectors', 'powercon'),
+  ('power_connectors', 'powercon_true1'), ('power_connectors', 'iec'),
+  ('truss_types', 'box'), ('truss_types', 'ladder'), ('truss_types', 'circle'),
+  ('truss_types', 'straight'), ('truss_types', 'none')
+)

@@ -56,14 +56,19 @@ remains the field being empty/NULL, not a vocabulary value.
 ## Rebuilt tables (migrations 016–018) — schema deltas only
 
 Each rebuild recreates the table **identically except** for the removed
-CHECKs, copies all rows column-for-column, drops the old table, renames the
-new one. First statement in each file: `PRAGMA defer_foreign_keys = ON` (R1).
+CHECKs and copies all rows column-for-column under
+`PRAGMA defer_foreign_keys = ON` (R1). 016/017 use
+create-new→copy→drop-old→rename. 018 cannot (its table is referenced by
+`lighting_fixtures` — see research.md R1 amendment): it stashes
+`truss_sections` *and* `lighting_fixtures` in FK-free backup tables, drops
+child then parent, recreates both under their final names (fixtures with
+unchanged DDL), and copies back with explicit ids.
 
 | Migration | Table | Removed | Kept |
 |---|---|---|---|
 | 016 | audio_patch_inputs | CHECK on `signal_type`, CHECK on `mic_stand` | all columns, defaults, FKs (events, stageboxes, stage_multis, inventory_items via mic_item_id) |
 | 017 | audio_patch_outputs | CHECK on `output_type` | CHECK on `destination_type` (structural), all columns, defaults, FKs |
-| 018 | truss_sections | CHECK on `truss_type` | all columns, defaults, FK to lighting_rigs |
+| 018 | truss_sections (+ lighting_fixtures recreated verbatim) | CHECK on `truss_type` | all columns, defaults, FK to lighting_rigs; lighting_fixtures schema byte-identical incl. `power_connection` CHECK |
 
 Note: 016/017 must reproduce the tables' *current* schema including columns
 added later (`mic_item_id` from 008); copy lists are written explicitly, not
