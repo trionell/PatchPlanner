@@ -5,6 +5,7 @@ import { DashboardPage } from './pages/Dashboard'
 import { EventDetailPage } from './pages/EventDetail'
 import { EventsPage } from './pages/Events'
 import { InventoryPage } from './pages/Inventory'
+import { SettingsPage } from './pages/Settings'
 
 const queryClient = new QueryClient()
 
@@ -18,6 +19,7 @@ export default function App() {
             <Route path="events" element={<EventsPage />} />
             <Route path="events/:id" element={<EventDetailPage />} />
             <Route path="inventory" element={<InventoryPage />} />
+            <Route path="settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

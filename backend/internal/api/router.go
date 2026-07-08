@@ -15,5 +15,6 @@ func NewRouter(db *sql.DB) http.Handler {
 	LightingHandler{DB: db}.Register(r)
 	RentalHandler{DB: db}.Register(r)
 	OwnedHandler{DB: db}.Register(r)
+	ReferenceHandler{DB: db}.Register(r)
 	return r
 }

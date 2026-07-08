@@ -11,10 +11,11 @@ import {
   getLightingRig,
   updateLightingFixture,
 } from '../../api/lighting'
+import { listFixtureModes } from '../../api/reference'
 import { useDraftState } from '../../hooks/useDraftState'
-import { powerConnectors, trussTypes } from '../../lib/constants'
+import { useReferenceData } from '../../hooks/useReferenceData'
 import { formatDMXRange, toOptionalNumber } from '../../lib/utils'
-import type { LightingFixture, TrussSection } from '../../types'
+import type { FixtureMode, LightingFixture } from '../../types'
 import { Button } from '../ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
 import { Dialog } from '../ui/Dialog'
@@ -22,13 +23,14 @@ import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table'
 
-const emptyTrussDraft = { name: '', length_m: '', truss_type: 'box' as TrussSection['truss_type'] }
+const emptyTrussDraft = { name: '', length_m: '', truss_type: 'box' }
 const emptyFixtureDraft = { inventory_item_id: '', custom_name: '', dmx_channel_mode: 'Basic', dmx_channel_count: 8 }
 
 export function LightingTab({ eventId }: { eventId: number }) {
   const queryClient = useQueryClient()
   const lightingQuery = useQuery({ queryKey: ['lighting-rig', eventId], queryFn: () => getLightingRig(eventId) })
   const lightingInventoryQuery = useQuery({ queryKey: ['inventory-lighting'], queryFn: () => listInventoryItems({ categoryType: 'lighting' }) })
+  const { options } = useReferenceData()
 
   const [fixtures, setFixtures] = useDraftState(lightingQuery.data, (data) => data.fixtures, [] as LightingFixture[])
   const [fixtureDialogOpen, setFixtureDialogOpen] = useState(false)
@@ -111,8 +113,8 @@ export function LightingTab({ eventId }: { eventId: number }) {
             </div>
             <div>
               <label className="mb-1 block text-sm text-zinc-300">Type</label>
-              <Select value={trussDraft.truss_type} onChange={(e) => setTrussDraft((prev) => ({ ...prev, truss_type: e.target.value as TrussSection['truss_type'] }))}>
-                {trussTypes.map((value) => <option key={value} value={value}>{value}</option>)}
+              <Select value={trussDraft.truss_type} onChange={(e) => setTrussDraft((prev) => ({ ...prev, truss_type: e.target.value }))}>
+                {options('truss_types', trussDraft.truss_type).map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
               </Select>
             </div>
             <Button size="sm" disabled={!trussDraft.name.trim() || !rigId || addTrussMutation.isPending} onClick={() => addTrussMutation.mutate()}>
@@ -176,10 +178,21 @@ export function LightingTab({ eventId }: { eventId: number }) {
                     </TableCell>
                     <TableCell><Input type="number" value={fixture.position_index} onChange={(e) => updateDraft(index, 'position_index', Number(e.target.value))} onBlur={() => persist(fixtures[index])} className="min-w-20" /></TableCell>
                     <TableCell><div className="flex items-center gap-2"><Select value={fixture.power_connection} onChange={(e) => updateDraft(index, 'power_connection', e.target.value as LightingFixture['power_connection'])} onBlur={() => persist(fixtures[index])} className="min-w-24"><option value="grid">grid</option><option value="chain">chain</option></Select>{fixture.power_connection === 'chain' && <Link2 className="h-4 w-4 text-amber-400" />}</div></TableCell>
-                    <TableCell><Select value={fixture.power_connector_in} onChange={(e) => updateDraft(index, 'power_connector_in', e.target.value)} onBlur={() => persist(fixtures[index])} className="min-w-44">{powerConnectors.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</Select></TableCell>
+                    <TableCell><Select value={fixture.power_connector_in} onChange={(e) => updateDraft(index, 'power_connector_in', e.target.value)} onBlur={() => persist(fixtures[index])} className="min-w-44">{options('power_connectors', fixture.power_connector_in).map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</Select></TableCell>
                     <TableCell><Input type="number" value={fixture.dmx_universe} onChange={(e) => updateDraft(index, 'dmx_universe', Number(e.target.value))} onBlur={() => persist(fixtures[index])} className="min-w-20" /></TableCell>
                     <TableCell className="min-w-24">{formatDMXRange(fixture.dmx_start_address, fixture.dmx_channel_count)}</TableCell>
-                    <TableCell><Input value={fixture.dmx_channel_mode ?? ''} onChange={(e) => updateDraft(index, 'dmx_channel_mode', e.target.value)} onBlur={() => persist(fixtures[index])} className="min-w-24" /></TableCell>
+                    <TableCell>
+                      <FixtureModeCell
+                        fixture={fixture}
+                        onApply={(mode) => {
+                          updateDraft(index, 'dmx_channel_mode', mode.name)
+                          updateDraft(index, 'dmx_channel_count', mode.channel_count)
+                          void persist({ ...fixtures[index], dmx_channel_mode: mode.name, dmx_channel_count: mode.channel_count })
+                        }}
+                        onModeText={(value) => updateDraft(index, 'dmx_channel_mode', value)}
+                        onPersist={() => persist(fixtures[index])}
+                      />
+                    </TableCell>
                     <TableCell><Input type="number" value={fixture.dmx_channel_count} onChange={(e) => updateDraft(index, 'dmx_channel_count', Number(e.target.value))} onBlur={() => persist(fixtures[index])} className="min-w-20" /></TableCell>
                     <TableCell>{fixture.dmx_chain_parent_id ?? '—'}</TableCell>
                     <TableCell><Input value={fixture.notes ?? ''} onChange={(e) => updateDraft(index, 'notes', e.target.value)} onBlur={() => persist(fixtures[index])} className="min-w-36" /></TableCell>
@@ -240,5 +253,50 @@ export function LightingTab({ eventId }: { eventId: number }) {
         </div>
       </Dialog>
     </>
+  )
+}
+
+/**
+ * Mode cell: when the fixture's catalog model has defined DMX modes, offer
+ * them in a picker that copies name + channel count onto the fixture
+ * (copy-on-pick — later mode edits never rewrite the rig). Manual mode text
+ * stays available either way.
+ */
+function FixtureModeCell({
+  fixture,
+  onApply,
+  onModeText,
+  onPersist,
+}: {
+  fixture: LightingFixture
+  onApply: (mode: FixtureMode) => void
+  onModeText: (value: string) => void
+  onPersist: () => void
+}) {
+  const itemId = fixture.inventory_item_id
+  const modesQuery = useQuery({
+    queryKey: ['fixture-modes', itemId],
+    queryFn: () => listFixtureModes(itemId!),
+    enabled: !!itemId,
+  })
+  const modes = modesQuery.data ?? []
+  const selected = modes.find((m) => m.name === fixture.dmx_channel_mode && m.channel_count === fixture.dmx_channel_count)
+
+  return (
+    <div className="min-w-32 space-y-1">
+      {modes.length > 0 && (
+        <Select
+          value={selected?.id ?? ''}
+          onChange={(e) => {
+            const mode = modes.find((m) => m.id === Number(e.target.value))
+            if (mode) onApply(mode)
+          }}
+        >
+          <option value="">custom…</option>
+          {modes.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.channel_count} ch)</option>)}
+        </Select>
+      )}
+      <Input value={fixture.dmx_channel_mode ?? ''} onChange={(e) => onModeText(e.target.value)} onBlur={onPersist} className="min-w-24" />
+    </div>
   )
 }

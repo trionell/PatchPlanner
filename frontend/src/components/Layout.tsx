@@ -1,4 +1,4 @@
-import { Cable, CalendarRange, LayoutDashboard, Package2 } from 'lucide-react'
+import { Cable, CalendarRange, LayoutDashboard, Package2, Settings } from 'lucide-react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { cn } from '../lib/utils'
 
@@ -6,6 +6,7 @@ const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/events', label: 'Events', icon: CalendarRange },
   { to: '/inventory', label: 'Inventory', icon: Package2 },
+  { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
 function getPageTitle(pathname: string) {

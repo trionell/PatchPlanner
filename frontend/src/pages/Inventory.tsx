@@ -1,12 +1,16 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { SlidersHorizontal } from 'lucide-react'
 import { importInventory, listInventoryCategories, listInventoryItems } from '../api/inventory'
+import { FixtureModeManager } from '../components/FixtureModeManager'
 import { OwnedGearManager } from '../components/OwnedGearManager'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
+import { Dialog } from '../components/ui/Dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table'
 import { Tab, TabList, TabPanel, Tabs } from '../components/ui/Tabs'
+import type { InventoryItem } from '../types'
 
 export function InventoryPage() {
   return (
@@ -25,6 +29,7 @@ function RentalCatalog() {
   const queryClient = useQueryClient()
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>()
   const [message, setMessage] = useState('')
+  const [modesItem, setModesItem] = useState<InventoryItem | null>(null)
 
   const categoriesQuery = useQuery({ queryKey: ['inventory-categories'], queryFn: listInventoryCategories })
   const itemsQuery = useQuery({
@@ -101,6 +106,7 @@ function RentalCatalog() {
                     <TableHead>Qty</TableHead>
                     <TableHead>Price ex VAT</TableHead>
                     <TableHead>Category</TableHead>
+                    <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -111,6 +117,13 @@ function RentalCatalog() {
                       <TableCell>{item.quantity_available}</TableCell>
                       <TableCell>{item.price_ex_vat.toFixed(2)}</TableCell>
                       <TableCell>{item.category_name}</TableCell>
+                      <TableCell>
+                        {item.category_type === 'lighting' && (
+                          <Button size="sm" variant="ghost" title="DMX modes" onClick={() => setModesItem(item)}>
+                            <SlidersHorizontal className="mr-1 h-4 w-4" />Modes
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -119,6 +132,10 @@ function RentalCatalog() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={modesItem !== null} onClose={() => setModesItem(null)} title={`DMX modes — ${modesItem?.name ?? ''}`}>
+        {modesItem && <FixtureModeManager itemId={modesItem.id} />}
+      </Dialog>
     </div>
   )
 }

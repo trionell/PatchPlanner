@@ -55,7 +55,8 @@ export interface AudioPatchInput {
   event_id: number
   channel_number: number
   channel_name?: string
-  signal_type: 'mic' | 'line' | 'di' | 'return' | 'aux'
+  /** Vocabulary value from reference data (signal_types). */
+  signal_type: string
   preamp_connector: string
   stagebox_id?: number
   stagebox_channel?: number
@@ -66,7 +67,8 @@ export interface AudioPatchInput {
   mic_label?: string
   cable_type: string
   cable_length_m: number
-  mic_stand?: 'straight' | 'boom' | 'low' | 'desk' | 'clip' | 'none' | ''
+  /** Vocabulary value from reference data (mic_stands); '' = no stand. */
+  mic_stand?: string
   phantom_power: boolean
   dca_groups?: string
   notes?: string
@@ -77,7 +79,8 @@ export interface AudioPatchOutput {
   event_id: number
   output_number: number
   output_name?: string
-  output_type: 'foh' | 'monitor' | 'sub' | 'aux' | 'matrix' | 'stereo' | 'iem'
+  /** Vocabulary value from reference data (output_types). */
+  output_type: string
   destination_type: 'local' | 'stagebox' | 'stage_multi'
   stagebox_id?: number
   stagebox_channel?: number
@@ -102,7 +105,8 @@ export interface TrussSection {
   rig_id: number
   name: string
   length_m: number
-  truss_type: 'box' | 'ladder' | 'circle' | 'straight' | 'none'
+  /** Vocabulary value from reference data (truss_types). */
+  truss_type: string
 }
 
 export interface LightingFixture {
@@ -195,6 +199,22 @@ export interface RentalExportReport {
   filename: string
   placed_lines: number
   unplaced_lines: UnplacedLine[]
+}
+
+export interface ReferenceValue {
+  id: number
+  vocabulary: string
+  value: string
+  label: string
+}
+
+export type ReferenceData = Record<string, ReferenceValue[]>
+
+export interface FixtureMode {
+  id: number
+  inventory_item_id: number
+  name: string
+  channel_count: number
 }
 
 export interface AudioPatchResponse {
