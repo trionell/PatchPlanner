@@ -120,7 +120,7 @@ describe('LightingRigSheet', () => {
       <LightingRigSheet
         eventId={1}
         fixtures={[
-          { ...base, id: 11, position_index: 1, inventory_item_name: 'ADJ Encore', truss_section_id: 9, dmx_start_address: 1 },
+          { ...base, id: 11, position_index: 1, inventory_item_name: 'ADJ Encore', truss_section_id: 9, dmx_start_address: 1, fixture_number: 101 },
           { ...base, id: 12, position_index: 2, custom_name: 'House blinder', power_connection: 'chain', power_chain_parent_id: 11, dmx_start_address: 17 },
         ]}
         sections={sections}
@@ -129,6 +129,9 @@ describe('LightingRigSheet', () => {
     expect(html).toContain('ADJ Encore')
     expect(html).toContain('House blinder')
     expect(html).toContain('Front Truss')
+    // FID column: printed when set, empty cell when not.
+    expect(html).toContain('FID')
+    expect(html).toContain('101')
     expect(html).toContain('1–16')
     expect(html).toContain('grid schuko')
     expect(html).toContain('chain ← #1')

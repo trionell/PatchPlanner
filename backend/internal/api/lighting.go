@@ -26,6 +26,7 @@ func (h LightingHandler) Register(r chi.Router) {
 	r.Post("/events/{eventID}/lighting-rigs/{rigID}/fixtures", h.createFixture)
 	r.Patch("/events/{eventID}/lighting-rigs/{rigID}/fixtures/{fixtureID}", h.updateFixture)
 	r.Delete("/events/{eventID}/lighting-rigs/{rigID}/fixtures/{fixtureID}", h.deleteFixture)
+	r.Post("/events/{eventID}/lighting-rigs/{rigID}/fixtures/bulk", h.bulkCreateFixtures)
 	r.Post("/events/{eventID}/lighting-rigs/{rigID}/fixtures/auto-assign-dmx", h.autoAssignDMX)
 	r.Post("/events/{eventID}/lighting-rigs/{rigID}/truss-sections", h.createTrussSection)
 	r.Patch("/events/{eventID}/lighting-rigs/{rigID}/truss-sections/{sectionID}", h.updateTrussSection)
@@ -72,6 +73,9 @@ func (h LightingHandler) createFixture(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	payload.RigID = rigID
+	if !validFixtureNumber(w, payload.FixtureNumber) {
+		return
+	}
 	created, err := dbstore.CreateLightingFixture(h.DB, payload)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -88,6 +92,9 @@ func (h LightingHandler) updateFixture(w http.ResponseWriter, r *http.Request) {
 	var payload domain.LightingFixture
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if !validFixtureNumber(w, payload.FixtureNumber) {
 		return
 	}
 	updated, err := dbstore.UpdateLightingFixture(h.DB, fixtureID, payload)
@@ -108,6 +115,70 @@ func (h LightingHandler) deleteFixture(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// bulkCreateFixtures creates one batch of identical fixtures — see the
+// slice 7 contract: shared settings, incrementing fixture numbers, positions
+// and DMX addresses appended, all-or-nothing.
+func (h LightingHandler) bulkCreateFixtures(w http.ResponseWriter, r *http.Request) {
+	rigID, ok := parseID(w, chi.URLParam(r, "rigID"))
+	if !ok {
+		return
+	}
+	var payload domain.BulkFixtureRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if payload.Quantity < 1 || payload.Quantity > 100 {
+		writeError(w, http.StatusBadRequest, "quantity must be between 1 and 100")
+		return
+	}
+	if payload.DMXChannelCount < 1 {
+		writeError(w, http.StatusBadRequest, "dmx_channel_count must be at least 1")
+		return
+	}
+	if !validFixtureNumber(w, payload.FixtureNumberStart) {
+		return
+	}
+	if _, err := dbstore.GetInventoryItem(h.DB, payload.InventoryItemID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusBadRequest, "inventory_item_id references an unknown inventory item")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if payload.TrussSectionID != nil {
+		section, err := dbstore.GetTrussSection(h.DB, *payload.TrussSectionID)
+		if err != nil || section.RigID != rigID {
+			writeError(w, http.StatusBadRequest, "truss_section_id does not belong to this rig")
+			return
+		}
+	}
+	fixtures, err := dbstore.BulkCreateLightingFixtures(h.DB, rigID, payload)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			writeError(w, http.StatusNotFound, "lighting rig not found")
+		case errors.Is(err, dbstore.ErrUniverseFull):
+			writeError(w, http.StatusConflict, err.Error())
+		default:
+			writeError(w, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, fixtures)
+}
+
+// validFixtureNumber writes a 400 and returns false for non-positive
+// console fixture IDs (nil is fine — the number is optional).
+func validFixtureNumber(w http.ResponseWriter, number *int) bool {
+	if number != nil && *number <= 0 {
+		writeError(w, http.StatusBadRequest, "fixture_number must be a positive integer")
+		return false
+	}
+	return true
 }
 
 func (h LightingHandler) autoAssignDMX(w http.ResponseWriter, r *http.Request) {

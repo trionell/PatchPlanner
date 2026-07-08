@@ -3,7 +3,7 @@ import { formatDMXRange } from '../../lib/utils'
 import type { LightingFixture, TrussSection } from '../../types'
 import { PrintSheet, sheetTd, sheetTh } from './PrintSheet'
 
-const columns = ['#', 'Fixture', 'Truss', 'Universe', 'Address', 'Mode', 'Ch', 'Power', 'Notes']
+const columns = ['FID', '#', 'Fixture', 'Truss', 'Universe', 'Address', 'Mode', 'Ch', 'Power', 'Notes']
 
 /** Paper rendering of the lighting rig (hidden on screen, shown in print). */
 export function LightingRigSheet({
@@ -37,6 +37,7 @@ export function LightingRigSheet({
         <tbody>
           {rows.map((fixture, index) => (
             <tr key={fixture.id}>
+              <td className={sheetTd}>{fixture.fixture_number ?? ''}</td>
               <td className={sheetTd}>{index + 1}</td>
               <td className={sheetTd}>{fixture.inventory_item_name || fixture.custom_name || 'Unnamed fixture'}</td>
               <td className={sheetTd}>{fixture.truss_section_name ?? sections.find((section) => section.id === fixture.truss_section_id)?.name ?? ''}</td>

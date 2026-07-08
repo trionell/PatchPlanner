@@ -65,7 +65,7 @@ func ListTrussSections(db *sql.DB, rigID int64) ([]domain.TrussSection, error) {
 
 func ListLightingFixtures(db *sql.DB, rigID int64) ([]domain.LightingFixture, error) {
 	rows, err := db.Query(`
-		SELECT f.id, f.rig_id, f.truss_section_id, f.inventory_item_id, COALESCE(i.name, ''), COALESCE(f.custom_name, ''), COALESCE(f.position_index, 0), COALESCE(f.power_connection, 'grid'), f.power_chain_parent_id, COALESCE(f.power_connector_in, 'schuko'), COALESCE(f.power_connector_out, ''), COALESCE(f.dmx_universe, 1), f.dmx_start_address, COALESCE(f.dmx_channel_mode, ''), COALESCE(f.dmx_channel_count, 0), f.dmx_chain_parent_id, COALESCE(f.notes, ''), COALESCE(t.name, '')
+		SELECT f.id, f.rig_id, f.fixture_number, f.truss_section_id, f.inventory_item_id, COALESCE(i.name, ''), COALESCE(f.custom_name, ''), COALESCE(f.position_index, 0), COALESCE(f.power_connection, 'grid'), f.power_chain_parent_id, COALESCE(f.power_connector_in, 'schuko'), COALESCE(f.power_connector_out, ''), COALESCE(f.dmx_universe, 1), f.dmx_start_address, COALESCE(f.dmx_channel_mode, ''), COALESCE(f.dmx_channel_count, 0), f.dmx_chain_parent_id, COALESCE(f.notes, ''), COALESCE(t.name, '')
 		FROM lighting_fixtures f
 		LEFT JOIN inventory_items i ON i.id = f.inventory_item_id
 		LEFT JOIN truss_sections t ON t.id = f.truss_section_id
@@ -88,7 +88,7 @@ func ListLightingFixtures(db *sql.DB, rigID int64) ([]domain.LightingFixture, er
 
 func GetLightingFixture(db *sql.DB, id int64) (domain.LightingFixture, error) {
 	row := db.QueryRow(`
-		SELECT f.id, f.rig_id, f.truss_section_id, f.inventory_item_id, COALESCE(i.name, ''), COALESCE(f.custom_name, ''), COALESCE(f.position_index, 0), COALESCE(f.power_connection, 'grid'), f.power_chain_parent_id, COALESCE(f.power_connector_in, 'schuko'), COALESCE(f.power_connector_out, ''), COALESCE(f.dmx_universe, 1), f.dmx_start_address, COALESCE(f.dmx_channel_mode, ''), COALESCE(f.dmx_channel_count, 0), f.dmx_chain_parent_id, COALESCE(f.notes, ''), COALESCE(t.name, '')
+		SELECT f.id, f.rig_id, f.fixture_number, f.truss_section_id, f.inventory_item_id, COALESCE(i.name, ''), COALESCE(f.custom_name, ''), COALESCE(f.position_index, 0), COALESCE(f.power_connection, 'grid'), f.power_chain_parent_id, COALESCE(f.power_connector_in, 'schuko'), COALESCE(f.power_connector_out, ''), COALESCE(f.dmx_universe, 1), f.dmx_start_address, COALESCE(f.dmx_channel_mode, ''), COALESCE(f.dmx_channel_count, 0), f.dmx_chain_parent_id, COALESCE(f.notes, ''), COALESCE(t.name, '')
 		FROM lighting_fixtures f
 		LEFT JOIN inventory_items i ON i.id = f.inventory_item_id
 		LEFT JOIN truss_sections t ON t.id = f.truss_section_id
@@ -97,7 +97,7 @@ func GetLightingFixture(db *sql.DB, id int64) (domain.LightingFixture, error) {
 }
 
 func CreateLightingFixture(db *sql.DB, fixture domain.LightingFixture) (domain.LightingFixture, error) {
-	result, err := db.Exec(`INSERT INTO lighting_fixtures (rig_id, truss_section_id, inventory_item_id, custom_name, position_index, power_connection, power_chain_parent_id, power_connector_in, power_connector_out, dmx_universe, dmx_start_address, dmx_channel_mode, dmx_channel_count, dmx_chain_parent_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, fixture.RigID, nullInt64(fixture.TrussSectionID), nullInt64(fixture.InventoryItemID), nullString(fixture.CustomName), fixture.PositionIndex, fixture.PowerConnection, nullInt64(fixture.PowerChainParentID), fixture.PowerConnectorIn, nullString(fixture.PowerConnectorOut), fixture.DMXUniverse, nullInt(fixture.DMXStartAddress), nullString(fixture.DMXChannelMode), fixture.DMXChannelCount, nullInt64(fixture.DMXChainParentID), nullString(fixture.Notes))
+	result, err := db.Exec(`INSERT INTO lighting_fixtures (rig_id, fixture_number, truss_section_id, inventory_item_id, custom_name, position_index, power_connection, power_chain_parent_id, power_connector_in, power_connector_out, dmx_universe, dmx_start_address, dmx_channel_mode, dmx_channel_count, dmx_chain_parent_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, fixture.RigID, nullInt(fixture.FixtureNumber), nullInt64(fixture.TrussSectionID), nullInt64(fixture.InventoryItemID), nullString(fixture.CustomName), fixture.PositionIndex, fixture.PowerConnection, nullInt64(fixture.PowerChainParentID), fixture.PowerConnectorIn, nullString(fixture.PowerConnectorOut), fixture.DMXUniverse, nullInt(fixture.DMXStartAddress), nullString(fixture.DMXChannelMode), fixture.DMXChannelCount, nullInt64(fixture.DMXChainParentID), nullString(fixture.Notes))
 	if err != nil {
 		return domain.LightingFixture{}, fmt.Errorf("create lighting fixture: %w", err)
 	}
@@ -106,7 +106,7 @@ func CreateLightingFixture(db *sql.DB, fixture domain.LightingFixture) (domain.L
 }
 
 func UpdateLightingFixture(db *sql.DB, id int64, fixture domain.LightingFixture) (domain.LightingFixture, error) {
-	_, err := db.Exec(`UPDATE lighting_fixtures SET truss_section_id = ?, inventory_item_id = ?, custom_name = ?, position_index = ?, power_connection = ?, power_chain_parent_id = ?, power_connector_in = ?, power_connector_out = ?, dmx_universe = ?, dmx_start_address = ?, dmx_channel_mode = ?, dmx_channel_count = ?, dmx_chain_parent_id = ?, notes = ? WHERE id = ?`, nullInt64(fixture.TrussSectionID), nullInt64(fixture.InventoryItemID), nullString(fixture.CustomName), fixture.PositionIndex, fixture.PowerConnection, nullInt64(fixture.PowerChainParentID), fixture.PowerConnectorIn, nullString(fixture.PowerConnectorOut), fixture.DMXUniverse, nullInt(fixture.DMXStartAddress), nullString(fixture.DMXChannelMode), fixture.DMXChannelCount, nullInt64(fixture.DMXChainParentID), nullString(fixture.Notes), id)
+	_, err := db.Exec(`UPDATE lighting_fixtures SET fixture_number = ?, truss_section_id = ?, inventory_item_id = ?, custom_name = ?, position_index = ?, power_connection = ?, power_chain_parent_id = ?, power_connector_in = ?, power_connector_out = ?, dmx_universe = ?, dmx_start_address = ?, dmx_channel_mode = ?, dmx_channel_count = ?, dmx_chain_parent_id = ?, notes = ? WHERE id = ?`, nullInt(fixture.FixtureNumber), nullInt64(fixture.TrussSectionID), nullInt64(fixture.InventoryItemID), nullString(fixture.CustomName), fixture.PositionIndex, fixture.PowerConnection, nullInt64(fixture.PowerChainParentID), fixture.PowerConnectorIn, nullString(fixture.PowerConnectorOut), fixture.DMXUniverse, nullInt(fixture.DMXStartAddress), nullString(fixture.DMXChannelMode), fixture.DMXChannelCount, nullInt64(fixture.DMXChainParentID), nullString(fixture.Notes), id)
 	if err != nil {
 		return domain.LightingFixture{}, fmt.Errorf("update lighting fixture: %w", err)
 	}
@@ -226,9 +226,13 @@ func DeleteTrussSection(db *sql.DB, id int64) error {
 
 func scanLightingFixture(row scanner) (domain.LightingFixture, error) {
 	var fixture domain.LightingFixture
-	var trussSectionID, inventoryItemID, powerChainParentID, dmxStartAddress, dmxChainParentID sql.NullInt64
-	if err := row.Scan(&fixture.ID, &fixture.RigID, &trussSectionID, &inventoryItemID, &fixture.InventoryItemName, &fixture.CustomName, &fixture.PositionIndex, &fixture.PowerConnection, &powerChainParentID, &fixture.PowerConnectorIn, &fixture.PowerConnectorOut, &fixture.DMXUniverse, &dmxStartAddress, &fixture.DMXChannelMode, &fixture.DMXChannelCount, &dmxChainParentID, &fixture.Notes, &fixture.TrussSectionName); err != nil {
+	var fixtureNumber, trussSectionID, inventoryItemID, powerChainParentID, dmxStartAddress, dmxChainParentID sql.NullInt64
+	if err := row.Scan(&fixture.ID, &fixture.RigID, &fixtureNumber, &trussSectionID, &inventoryItemID, &fixture.InventoryItemName, &fixture.CustomName, &fixture.PositionIndex, &fixture.PowerConnection, &powerChainParentID, &fixture.PowerConnectorIn, &fixture.PowerConnectorOut, &fixture.DMXUniverse, &dmxStartAddress, &fixture.DMXChannelMode, &fixture.DMXChannelCount, &dmxChainParentID, &fixture.Notes, &fixture.TrussSectionName); err != nil {
 		return domain.LightingFixture{}, fmt.Errorf("scan lighting fixture: %w", err)
+	}
+	if fixtureNumber.Valid {
+		v := int(fixtureNumber.Int64)
+		fixture.FixtureNumber = &v
 	}
 	if trussSectionID.Valid {
 		v := trussSectionID.Int64
@@ -251,4 +255,63 @@ func scanLightingFixture(row scanner) (domain.LightingFixture, error) {
 		fixture.DMXChainParentID = &v
 	}
 	return fixture, nil
+}
+
+// BulkCreateLightingFixtures creates one batch of identical fixtures in a
+// single transaction: positions appended after the rig's highest, DMX start
+// addresses appended after the chosen universe's occupied range (existing
+// fixtures are never touched — re-running AutoAssignDMX stays a separate
+// operation), fixture numbers incrementing from the optional start.
+// All-or-nothing: ErrUniverseFull (or any failure) creates zero fixtures.
+// Returns sql.ErrNoRows (wrapped) when the rig does not exist.
+func BulkCreateLightingFixtures(db *sql.DB, rigID int64, req domain.BulkFixtureRequest) ([]domain.LightingFixture, error) {
+	universe := req.DMXUniverse
+	if universe < 1 {
+		universe = 1
+	}
+	channelCount := req.DMXChannelCount
+	if channelCount < 1 {
+		channelCount = 1
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("bulk create fixtures: %w", err)
+	}
+	defer tx.Rollback()
+
+	var exists int64
+	if err := tx.QueryRow(`SELECT id FROM lighting_rigs WHERE id = ?`, rigID).Scan(&exists); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("lighting rig %d: %w", rigID, sql.ErrNoRows)
+		}
+		return nil, fmt.Errorf("bulk create fixtures: %w", err)
+	}
+
+	var nextPosition, nextAddress int
+	if err := tx.QueryRow(`SELECT COALESCE(MAX(position_index), 0) + 1 FROM lighting_fixtures WHERE rig_id = ?`, rigID).Scan(&nextPosition); err != nil {
+		return nil, fmt.Errorf("bulk create fixtures: %w", err)
+	}
+	if err := tx.QueryRow(`SELECT COALESCE(MAX(dmx_start_address + dmx_channel_count), 1) FROM lighting_fixtures WHERE rig_id = ? AND dmx_universe = ? AND dmx_start_address IS NOT NULL`, rigID, universe).Scan(&nextAddress); err != nil {
+		return nil, fmt.Errorf("bulk create fixtures: %w", err)
+	}
+	if nextAddress+req.Quantity*channelCount-1 > 512 {
+		return nil, fmt.Errorf("%w: universe %d", ErrUniverseFull, universe)
+	}
+
+	for i := 0; i < req.Quantity; i++ {
+		var number *int
+		if req.FixtureNumberStart != nil {
+			v := *req.FixtureNumberStart + i
+			number = &v
+		}
+		if _, err := tx.Exec(`INSERT INTO lighting_fixtures (rig_id, fixture_number, truss_section_id, inventory_item_id, position_index, power_connection, power_connector_in, dmx_universe, dmx_start_address, dmx_channel_mode, dmx_channel_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			rigID, nullInt(number), nullInt64(req.TrussSectionID), req.InventoryItemID, nextPosition+i, req.PowerConnection, req.PowerConnectorIn, universe, nextAddress+i*channelCount, nullString(req.DMXChannelMode), channelCount); err != nil {
+			return nil, fmt.Errorf("bulk create fixtures: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("bulk create fixtures: %w", err)
+	}
+	return ListLightingFixtures(db, rigID)
 }

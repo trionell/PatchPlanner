@@ -15,9 +15,26 @@ type TrussSection struct {
 	TrussType string  `json:"truss_type"`
 }
 
+// BulkFixtureRequest expands into N ordinary fixtures of one catalog model
+// with shared settings; fixture numbers increment from the optional start.
+type BulkFixtureRequest struct {
+	InventoryItemID    int64  `json:"inventory_item_id"`
+	Quantity           int    `json:"quantity"`
+	FixtureNumberStart *int   `json:"fixture_number_start,omitempty"`
+	DMXChannelMode     string `json:"dmx_channel_mode,omitempty"`
+	DMXChannelCount    int    `json:"dmx_channel_count"`
+	TrussSectionID     *int64 `json:"truss_section_id,omitempty"`
+	DMXUniverse        int    `json:"dmx_universe"`
+	PowerConnection    string `json:"power_connection"`
+	PowerConnectorIn   string `json:"power_connector_in"`
+}
+
 type LightingFixture struct {
-	ID                 int64  `json:"id"`
-	RigID              int64  `json:"rig_id"`
+	ID    int64 `json:"id"`
+	RigID int64 `json:"rig_id"`
+	// FixtureNumber is the console (GrandMA) fixture ID — optional planning
+	// data, duplicates allowed (the UI flags them).
+	FixtureNumber      *int   `json:"fixture_number,omitempty"`
 	TrussSectionID     *int64 `json:"truss_section_id,omitempty"`
 	InventoryItemID    *int64 `json:"inventory_item_id,omitempty"`
 	InventoryItemName  string `json:"inventory_item_name,omitempty"`
