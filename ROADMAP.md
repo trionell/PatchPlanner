@@ -18,6 +18,16 @@ Decisions baked into this roadmap (2026-07-07):
 - **All PROJECT.md §3 groups are in scope** except video equipment (§3.3) and
   multi-event/tour planning (§3.10), which remain post-v1.
 
+Revised 2026-07-08 after field feedback on slices 0–5: five new slices
+(6–10) cover rental completeness for cables & stands, lighting-rig workflow,
+mixer groups & DCAs, mono/stereo channels & DI cabling, and detailed output
+signal chains. Production packaging (the old Slice 6) is dropped from the
+roadmap — not of interest (2026-07-08 decision). Standing invariant from
+Slice 6 onward: **every planned item that exists in the price list appears
+on the rental order and in the Excel export** — any later slice that adds a
+new place where equipment is selected must extend the rental aggregation in
+the same slice.
+
 ## Slice 0 — Hardening & tooling (no spec needed; bug fixes) ✅ done 2026-07-07
 
 Direct fixes on `main`, no Spec-Kit ceremony:
@@ -123,24 +133,106 @@ Full Principle II compliance + §3.5.
       links flagged and counted, direct-to-console shown without false gaps;
       the view prints like the sheets. No graph library, no new endpoints.
 
-## Slice 6 — Production packaging (spec: `production-binary`)
+## Slice 6 — Rental completeness: cables & stands (spec: `rental-cables-stands`)
 
-§3.8, constitution Principle III. Ships v1.
+Feedback item 3. Cables and mic stands are selected on patch rows today but
+never reach the rental order or the Excel export — a 4 m XLR or a boom stand
+should count like any other rented item. The available cables (type **and**
+length) and stands already live in the inventory; the patch rows just don't
+point at it: cable length is a free-typed number and stand types are a
+vocabulary disconnected from the price list.
 
-- `go:embed` the Vite build output; serve SPA with fallback routing from the
-  Go binary.
-- Embed migrations via `iofs` source so the binary runs from any directory.
-- Build script / Makefile producing the single binary; document the release
-  flow in README.
-- Final pass: `go vet`, `golangci-lint`, `tsc --noEmit`, ESLint, full test
-  suite green.
+- Cable selection on inputs/outputs becomes a pick from **inventory cable
+  items** (`cable_item_id REFERENCES inventory_items`), the same pattern as
+  `mic_item_id` — the item encodes type + length ("XLR-kabel 4m"), so the
+  free-number `cable_length_m` and the cable-type vocabularies stop driving
+  the choice. Migration backfills by matching type + length to catalog
+  items; unmatched rows keep a read-only legacy label (the `mic_label`
+  pattern).
+- Mic stand likewise becomes a pick from inventory stand items
+  (`stand_item_id`), replacing the disconnected `mic_stands` vocabulary.
+- Rental aggregation counts cable and stand items directly by item id; they
+  flow into the Excel export through the existing rental lines (no writer
+  changes expected).
+- Print sheets and signal flow show the picked item names.
+- This establishes the standing invariant (see intro); slices 9 and 10 must
+  extend the count for the cable pickers they add.
+
+## Slice 7 — Lighting rig workflow (spec: `lighting-fixture-workflow`)
+
+Feedback items 5–7. Independent of the audio slices.
+
+- New `fixture_id` attribute on rig fixtures (integer used as the GrandMA
+  fixture ID): editable in the table, shown on the print sheet.
+- Bugfix: the Add Fixture dialog offers the selected catalog model's DMX
+  modes (reuse the `FixtureModeCell` picker) instead of a free-text mode
+  input — modes currently only appear after the fixture is added.
+- Bulk-add fixtures: pick model, quantity, and shared values (mode, truss
+  section, universe); fixture ID auto-increments from a provided start;
+  DMX addresses assigned sequentially (or left to Auto-assign).
+
+## Slice 8 — Mixer buses: groups & DCAs (spec: `groups-dcas`)
+
+Feedback items 8–9. Replaces free-text bus routing with managed entities.
+
+- Per-event **groups**: created/renamed/deleted in their own manager (like
+  stageboxes); `LR` is always present as a built-in group and is the default
+  routing for new channels. Each input channel selects the set of groups it
+  routes to.
+- Per-event **DCAs**: same management pattern; the channel's DCA becomes a
+  select over the event's DCAs instead of today's `dca_groups` string
+  (existing strings migrated where they parse, kept as legacy labels
+  otherwise).
+- Input patch print sheet and Signal Flow tab show group/DCA assignments.
+
+## Slice 9 — Mono/stereo channels & DI cabling (spec: `stereo-di`)
+
+Feedback items 1–2. Data-model change on both patch directions.
+
+- Channel width **mono | stereo** on inputs and outputs. A stereo channel
+  always has two physical preamps/line inputs; per-channel choice of mixer
+  behavior: *stereo channel* (occupies one mixer channel) vs *linked
+  channels* (occupies two). Channel numbering, sheets, and signal flow
+  understand both.
+- DI cabling: a DI needs **two** cables — XLR (DI → preamp) plus a line
+  cable (source → DI), not just the XLR as today. Dual-channel DI support:
+  one DI feeding two physical inputs, with either two line cables **or** a
+  single 3.5 mm TRS → 2×TS cable on the source side.
+- Rental aggregation extended: stereo pairs count double where physical,
+  and DI line/TRS cables are picked from inventory and counted like all
+  cables (Slice 6 pattern).
+
+## Slice 10 — Output signal chains (spec: `output-chains`)
+
+Feedback item 4, the deepest model change — depends on Slices 6 and 9.
+Today an output is just source + destination; real rigs are multi-hop
+chains that branch.
+
+- Per-output **chain of hops**, e.g. mixer → stagebox output → controller →
+  amplifier → sub 1 → sub 2 (chained) → speaker top; or the trivial
+  mixer local out → active speaker; or IEM paths: stagebox (×2 outputs for
+  a stereo bus) → multichannel headphone amp → stage multi → bodypack →
+  headphones.
+- Branching: one source/bus can fan out to multiple stageboxes/chains, and
+  shared devices (a multichannel headphone amp) are declared once and
+  referenced by several output channels.
+- Each hop selects its device (inventory or owned gear) and the cable into
+  it (an inventory cable item, Slice 6 pattern) — all counted on the rental
+  order.
+- Stereo LR chains reuse Slice 9's stereo semantics (declare once as a
+  stereo output).
+- Signal Flow tab and output print sheet render the full chains; gap
+  flagging extends to incomplete hops.
 
 ## Dependency graph
 
 ```
-Slice 0 ─→ Slice 1 ─→ Slice 2 ─→ Slice 6
-              │           ↑
-              └→ Slice 3 ─┘
-Slice 4 (independent, any time after 0)
-Slice 5 (independent, any time after 0)
+Slices 0–5 ✅ done
+Slice 6 (rental: cables & stands) ──┬──→ Slice 10 (output chains)
+Slice 9 (stereo & DI) ──────────────┘
+Slice 7 (lighting workflow)   — independent
+Slice 8 (groups & DCAs)       — independent
 ```
+
+Suggested order: 6 (restores the core "rental order is derived
+automatically" promise) → 7 (small, quick wins) → 8 → 9 → 10.
