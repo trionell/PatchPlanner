@@ -87,6 +87,30 @@ func seedItem(t *testing.T, database *sql.DB, name string, quantity int, price f
 	return id
 }
 
+// seedRoleItem inserts an item under a category carrying a picker_role
+// ('cable' or 'stand'), reusing the category on repeated calls.
+func seedRoleItem(t *testing.T, database *sql.DB, role, name, description string, quantity int, price float64) int64 {
+	t.Helper()
+	categoryName := role + " kategori"
+	var categoryID int64
+	err := database.QueryRow(`SELECT id FROM inventory_categories WHERE name = ?`, categoryName).Scan(&categoryID)
+	if err == sql.ErrNoRows {
+		result, insertErr := database.Exec(`INSERT INTO inventory_categories (name, category_type, picker_role) VALUES (?, 'audio', ?)`, categoryName, role)
+		if insertErr != nil {
+			t.Fatalf("insert role category: %v", insertErr)
+		}
+		categoryID, _ = result.LastInsertId()
+	} else if err != nil {
+		t.Fatalf("find role category: %v", err)
+	}
+	result, err := database.Exec(`INSERT INTO inventory_items (category_id, name, description, quantity_available, price_ex_vat) VALUES (?, ?, ?, ?, ?)`, categoryID, name, description, quantity, price)
+	if err != nil {
+		t.Fatalf("insert role item: %v", err)
+	}
+	id, _ := result.LastInsertId()
+	return id
+}
+
 func seedEvent(t *testing.T, serverURL string) int64 {
 	t.Helper()
 	status, raw := doJSON(t, http.MethodPost, serverURL+"/events", map[string]string{"name": "API Test Event"})

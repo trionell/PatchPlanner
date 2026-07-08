@@ -10,12 +10,20 @@ import (
 // rentalSummaryQuery derives the full rental order for one event. Every
 // planning surface that can reference a catalog item contributes one arm of
 // the CTE; manual event_rentals lines are both merged into the totals and
-// re-joined so their share stays editable. Takes the event id 8 times.
+// re-joined so their share stays editable. Takes the event id 11 times.
 const rentalSummaryQuery = `
 	WITH combined AS (
 		SELECT mic_item_id AS inventory_item_id, 1 AS quantity_audio, 0 AS quantity_lighting
 		FROM audio_patch_inputs
 		WHERE event_id = ? AND mic_item_id IS NOT NULL
+		UNION ALL
+		SELECT cable_item_id, 1, 0
+		FROM audio_patch_inputs
+		WHERE event_id = ? AND cable_item_id IS NOT NULL
+		UNION ALL
+		SELECT stand_item_id, 1, 0
+		FROM audio_patch_inputs
+		WHERE event_id = ? AND stand_item_id IS NOT NULL
 		UNION ALL
 		SELECT inventory_item_id, 1, 0
 		FROM stageboxes
@@ -32,6 +40,10 @@ const rentalSummaryQuery = `
 		SELECT speaker_item_id, 1, 0
 		FROM audio_patch_outputs
 		WHERE event_id = ? AND speaker_item_id IS NOT NULL
+		UNION ALL
+		SELECT cable_item_id, 1, 0
+		FROM audio_patch_outputs
+		WHERE event_id = ? AND cable_item_id IS NOT NULL
 		UNION ALL
 		SELECT lf.inventory_item_id, 0, 1
 		FROM lighting_fixtures lf
@@ -54,7 +66,7 @@ const rentalSummaryQuery = `
 
 func GetRentalSummary(db *sql.DB, eventID int64) (domain.RentalSummary, error) {
 	rows, err := db.Query(rentalSummaryQuery,
-		eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID)
+		eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID)
 	if err != nil {
 		return domain.RentalSummary{}, fmt.Errorf("get rental summary: %w", err)
 	}

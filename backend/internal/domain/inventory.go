@@ -4,7 +4,11 @@ type InventoryCategory struct {
 	ID           int64  `json:"id"`
 	Name         string `json:"name"`
 	CategoryType string `json:"category_type"`
-	ItemCount    int    `json:"item_count,omitempty"`
+	// PickerRole marks the category as a source for planning pickers:
+	// 'cable' or 'stand' (empty = not a picker source). Set by the 019
+	// seed and editable via PATCH; the xlsx import never touches it.
+	PickerRole string `json:"picker_role,omitempty"`
+	ItemCount  int    `json:"item_count,omitempty"`
 }
 
 type InventoryItem struct {

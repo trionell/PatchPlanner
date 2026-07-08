@@ -12,6 +12,7 @@ const context: FlowContext = {
   stageboxes,
   stageMultis,
   micNameById: new Map([[42, 'Shure SM58']]),
+  cableLabelById: new Map([[7, 'Mikrofonkabel — 4m']]),
   cableLabel: (value) => (value === 'xlr' ? 'XLR' : value),
 }
 
@@ -37,6 +38,24 @@ describe('buildChannelFlow', () => {
     expect(flow.cable.label).toBe('XLR')
     expect(flow.cable.detail).toBe('10 m')
     expect(flow.path).toEqual({ label: 'SB SB Stage L · ch 12', kind: 'stagebox', missing: false })
+    expect(flow.hasGap).toBe(false)
+  })
+
+  it('labels a picked catalog cable and ignores legacy fields', () => {
+    const flow = buildChannelFlow(input({ mic_item_id: 42, cable_item_id: 7, cable_type: undefined, cable_length_m: undefined }), context)
+    expect(flow.cable).toEqual({ label: 'Mikrofonkabel — 4m', kind: 'cable', missing: false })
+    expect(flow.hasGap).toBe(false)
+  })
+
+  it('falls back to an item reference for an unknown cable item', () => {
+    const flow = buildChannelFlow(input({ mic_item_id: 42, cable_item_id: 99 }), context)
+    expect(flow.cable.label).toBe('Item #99')
+    expect(flow.cable.missing).toBe(false)
+  })
+
+  it('renders an empty cable hop without a gap when no cable is set', () => {
+    const flow = buildChannelFlow(input({ mic_item_id: 42, cable_type: undefined, cable_length_m: undefined }), context)
+    expect(flow.cable).toEqual({ label: '—', kind: 'cable', missing: false, detail: undefined })
     expect(flow.hasGap).toBe(false)
   })
 

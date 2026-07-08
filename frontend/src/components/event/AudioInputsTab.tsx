@@ -5,7 +5,7 @@ import { createAudioInput, deleteAudioInput, getAudioPatch, updateAudioInput } f
 import { listInventoryItems } from '../../api/inventory'
 import { useDraftState } from '../../hooks/useDraftState'
 import { useReferenceData } from '../../hooks/useReferenceData'
-import { toOptionalNumber } from '../../lib/utils'
+import { itemLabel, legacyCableText, toOptionalNumber } from '../../lib/utils'
 import type { AudioPatchInput, InventoryItem } from '../../types'
 import { InputPatchSheet } from '../print/InputPatchSheet'
 import { PrintButton } from '../print/PrintButton'
@@ -21,7 +21,9 @@ export function AudioInputsTab({ eventId }: { eventId: number }) {
   const queryClient = useQueryClient()
   const audioQuery = useQuery({ queryKey: ['audio-patch', eventId], queryFn: () => getAudioPatch(eventId) })
   const inventoryQuery = useQuery({ queryKey: ['inventory-audio-items'], queryFn: () => listInventoryItems({ categoryType: 'audio' }) })
-  const { options } = useReferenceData()
+  const cableQuery = useQuery({ queryKey: ['inventory-items', 'role', 'cable'], queryFn: () => listInventoryItems({ role: 'cable' }) })
+  const standQuery = useQuery({ queryKey: ['inventory-items', 'role', 'stand'], queryFn: () => listInventoryItems({ role: 'stand' }) })
+  const { options, label } = useReferenceData()
 
   const [inputs, setInputs] = useDraftState(audioQuery.data, (data) => data.inputs, [] as AudioPatchInput[])
 
@@ -34,6 +36,8 @@ export function AudioInputsTab({ eventId }: { eventId: number }) {
   const deleteMutation = useMutation({ mutationFn: (id: number) => deleteAudioInput(eventId, id), onSuccess: invalidate })
 
   const allAudioItems: InventoryItem[] = useMemo(() => inventoryQuery.data ?? [], [inventoryQuery.data])
+  const cableItems: InventoryItem[] = useMemo(() => cableQuery.data ?? [], [cableQuery.data])
+  const standItems: InventoryItem[] = useMemo(() => standQuery.data ?? [], [standQuery.data])
   const micItems = useMemo(() => allAudioItems.filter((i) => i.category_name?.toLowerCase().startsWith('mikrofon')), [allAudioItems])
   const diItems = useMemo(() => allAudioItems.filter((i) => i.category_name?.toLowerCase().includes('linebox')), [allAudioItems])
   const iemItems = useMemo(() => allAudioItems.filter((i) => i.category_name?.toLowerCase() === 'iem'), [allAudioItems])
@@ -54,16 +58,16 @@ export function AudioInputsTab({ eventId }: { eventId: number }) {
       channel_name: '',
       signal_type: 'mic',
       preamp_connector: 'xlr',
-      cable_type: 'xlr',
-      cable_length_m: 0,
-      mic_stand: '',
       phantom_power: false,
       dca_groups: '',
       notes: '',
     })
   }
 
-  const itemNameById = useMemo(() => new Map(allAudioItems.map((item) => [item.id, item.name])), [allAudioItems])
+  const itemLabelById = useMemo(
+    () => new Map([...allAudioItems, ...cableItems, ...standItems].map((item) => [item.id, itemLabel(item)])),
+    [allAudioItems, cableItems, standItems],
+  )
 
   return (
     <>
@@ -87,7 +91,7 @@ export function AudioInputsTab({ eventId }: { eventId: number }) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {['Ch#','Name','Type','Connector','Stagebox','SB Ch','Multi','Multi Ch','Mic Model','Cable','Length','Stand','48V','DCA','Notes',''].map((label) => <TableHead key={label}>{label}</TableHead>)}
+                    {['Ch#','Name','Type','Connector','Stagebox','SB Ch','Multi','Multi Ch','Mic Model','Cable','Stand','48V','DCA','Notes',''].map((heading) => <TableHead key={heading}>{heading}</TableHead>)}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -150,9 +154,34 @@ export function AudioInputsTab({ eventId }: { eventId: number }) {
                             <span className="px-2 text-xs text-zinc-500">—</span>
                           )}
                         </TableCell>
-                        <TableCell><Select value={row.cable_type} onChange={(e) => updateDraft(index, 'cable_type', e.target.value)} onBlur={() => persist(inputs[index])} className="min-w-28">{options('signal_cable_types', row.cable_type).map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</Select></TableCell>
-                        <TableCell><Input type="number" step="0.5" value={row.cable_length_m} onChange={(e) => updateDraft(index, 'cable_length_m', Number(e.target.value))} onBlur={() => persist(inputs[index])} className="min-w-20" /></TableCell>
-                        <TableCell><Select value={row.mic_stand ?? ''} onChange={(e) => updateDraft(index, 'mic_stand', e.target.value)} onBlur={() => persist(inputs[index])} className="min-w-28"><option value="">—</option>{options('mic_stands', row.mic_stand || undefined).map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}</Select></TableCell>
+                        <TableCell>
+                          <div className="min-w-48 space-y-1">
+                            <Select value={row.cable_item_id ?? ''} onChange={(e) => updateDraft(index, 'cable_item_id', toOptionalNumber(e.target.value))} onBlur={() => persist(inputs[index])}>
+                              <option value="">—</option>
+                              {cableItems.map((item) => <option key={item.id} value={item.id}>{itemLabel(item)}</option>)}
+                            </Select>
+                            {!row.cable_item_id && row.cable_type && (
+                              <div className="flex items-center gap-1 text-xs text-zinc-500">
+                                <span className="truncate">{legacyCableText(row.cable_type, row.cable_length_m, (value) => label('signal_cable_types', value))}</span>
+                                <Badge variant="warning">unlinked</Badge>
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="min-w-44 space-y-1">
+                            <Select value={row.stand_item_id ?? ''} onChange={(e) => updateDraft(index, 'stand_item_id', toOptionalNumber(e.target.value))} onBlur={() => persist(inputs[index])}>
+                              <option value="">—</option>
+                              {standItems.map((item) => <option key={item.id} value={item.id}>{itemLabel(item)}</option>)}
+                            </Select>
+                            {!row.stand_item_id && row.mic_stand && (
+                              <div className="flex items-center gap-1 text-xs text-zinc-500">
+                                <span className="truncate">{label('mic_stands', row.mic_stand)}</span>
+                                <Badge variant="warning">unlinked</Badge>
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell><input type="checkbox" checked={row.phantom_power} onChange={(e) => { updateDraft(index, 'phantom_power', e.target.checked); void persist({ ...inputs[index], phantom_power: e.target.checked }) }} className="h-4 w-4 accent-amber-500" /></TableCell>
                         <TableCell><Input value={row.dca_groups ?? ''} onChange={(e) => updateDraft(index, 'dca_groups', e.target.value)} onBlur={() => persist(inputs[index])} className="min-w-24" /></TableCell>
                         <TableCell><Input value={row.notes ?? ''} onChange={(e) => updateDraft(index, 'notes', e.target.value)} onBlur={() => persist(inputs[index])} className="min-w-36" /></TableCell>
@@ -171,7 +200,7 @@ export function AudioInputsTab({ eventId }: { eventId: number }) {
         inputs={inputs}
         stageboxes={audioQuery.data?.stageboxes ?? []}
         stageMultis={audioQuery.data?.stage_multis ?? []}
-        itemNameById={itemNameById}
+        itemLabelById={itemLabelById}
       />
     </>
   )

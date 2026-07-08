@@ -35,3 +35,17 @@ export function parseChannels(description: string): number | null {
   if (chMatch) return parseInt(chMatch[1])
   return null
 }
+
+/**
+ * Display label for a catalog item: name plus the distinguishing
+ * description ("Mikrofonkabel — 4m") — many items share a bare name.
+ */
+export function itemLabel(item: { name: string; description?: string }): string {
+  return item.description ? `${item.name} — ${item.description}` : item.name
+}
+
+/** Legacy pre-catalog cable display: vocabulary label plus typed length. */
+export function legacyCableText(cableType: string, lengthM: number | undefined, labelFor: (value: string) => string): string {
+  const base = labelFor(cableType)
+  return lengthM && lengthM > 0 ? `${base} ${lengthM} m` : base
+}

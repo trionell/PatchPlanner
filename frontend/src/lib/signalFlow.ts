@@ -25,7 +25,9 @@ export interface FlowContext {
   stageMultis: StageMulti[]
   /** Inventory item names, for resolving mic_item_id. */
   micNameById: Map<number, string>
-  /** Display label for a cable type value (defaults to the raw value). */
+  /** Catalog cable item labels (name — description), for resolving cable_item_id. */
+  cableLabelById?: Map<number, string>
+  /** Display label for a legacy cable type value (defaults to the raw value). */
   cableLabel?: (value: string) => string
 }
 
@@ -38,7 +40,7 @@ export interface FlowContext {
  */
 export function buildChannelFlow(input: AudioPatchInput, context: FlowContext): ChannelFlow {
   const source = sourceHop(input, context.micNameById)
-  const cable = cableHop(input, context.cableLabel ?? ((value) => value))
+  const cable = cableHop(input, context)
   const path = pathHop(input, context)
   return {
     channelNumber: input.channel_number,
@@ -68,12 +70,19 @@ function sourceHop(input: AudioPatchInput, micNameById: Map<number, string>): Fl
   return { label: 'No source picked', kind: 'source', missing: true }
 }
 
-function cableHop(input: AudioPatchInput, cableLabel: (value: string) => string): FlowHop {
+// A channel without a cable (no pick, no legacy value) renders as an empty
+// hop, not a gap — a cable is optional (wireless receivers, local patches).
+function cableHop(input: AudioPatchInput, context: FlowContext): FlowHop {
+  if (input.cable_item_id) {
+    const name = context.cableLabelById?.get(input.cable_item_id) ?? `Item #${input.cable_item_id}`
+    return { label: name, kind: 'cable', missing: false }
+  }
+  const cableLabel = context.cableLabel ?? ((value) => value)
   return {
     label: input.cable_type ? cableLabel(input.cable_type) : '—',
     kind: 'cable',
     missing: false,
-    detail: input.cable_length_m > 0 ? `${input.cable_length_m} m` : undefined,
+    detail: (input.cable_length_m ?? 0) > 0 ? `${input.cable_length_m} m` : undefined,
   }
 }
 

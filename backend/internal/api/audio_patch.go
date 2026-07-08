@@ -200,7 +200,9 @@ func (h AudioPatchHandler) createInput(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	payload.EventID = eventID
-	if !h.validMicItem(w, payload.MicItemID) {
+	if !h.validItemRef(w, "mic_item_id", payload.MicItemID) ||
+		!h.validItemRef(w, "cable_item_id", payload.CableItemID) ||
+		!h.validItemRef(w, "stand_item_id", payload.StandItemID) {
 		return
 	}
 	created, err := dbstore.CreateAudioPatchInput(h.DB, payload)
@@ -221,7 +223,9 @@ func (h AudioPatchHandler) updateInput(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid json body")
 		return
 	}
-	if !h.validMicItem(w, payload.MicItemID) {
+	if !h.validItemRef(w, "mic_item_id", payload.MicItemID) ||
+		!h.validItemRef(w, "cable_item_id", payload.CableItemID) ||
+		!h.validItemRef(w, "stand_item_id", payload.StandItemID) {
 		return
 	}
 	updated, err := dbstore.UpdateAudioPatchInput(h.DB, inputID, payload)
@@ -255,6 +259,9 @@ func (h AudioPatchHandler) createOutput(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	payload.EventID = eventID
+	if !h.validItemRef(w, "cable_item_id", payload.CableItemID) {
+		return
+	}
 	created, err := dbstore.CreateAudioPatchOutput(h.DB, payload)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -273,6 +280,9 @@ func (h AudioPatchHandler) updateOutput(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadRequest, "invalid json body")
 		return
 	}
+	if !h.validItemRef(w, "cable_item_id", payload.CableItemID) {
+		return
+	}
 	updated, err := dbstore.UpdateAudioPatchOutput(h.DB, outputID, payload)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -281,15 +291,15 @@ func (h AudioPatchHandler) updateOutput(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, updated)
 }
 
-// validMicItem writes a 400/500 response and returns false when a non-nil
-// mic item reference does not resolve to an inventory item.
-func (h AudioPatchHandler) validMicItem(w http.ResponseWriter, micItemID *int64) bool {
-	if micItemID == nil {
+// validItemRef writes a 400/500 response and returns false when a non-nil
+// inventory item reference does not resolve to a catalog item.
+func (h AudioPatchHandler) validItemRef(w http.ResponseWriter, field string, itemID *int64) bool {
+	if itemID == nil {
 		return true
 	}
-	if _, err := dbstore.GetInventoryItem(h.DB, *micItemID); err != nil {
+	if _, err := dbstore.GetInventoryItem(h.DB, *itemID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			writeError(w, http.StatusBadRequest, "mic_item_id references an unknown inventory item")
+			writeError(w, http.StatusBadRequest, field+" references an unknown inventory item")
 			return false
 		}
 		writeError(w, http.StatusInternalServerError, err.Error())

@@ -114,3 +114,140 @@ func TestAudioInputMicValidation(t *testing.T) {
 		t.Errorf("created input mic_item_id=%v, want %d", input.MicItemID, micID)
 	}
 }
+
+// TestRentalSummaryCountsInputCables covers the slice-6 aggregation arm:
+// cable picks on input rows become priced, stock-validated rental lines.
+func TestRentalSummaryCountsInputCables(t *testing.T) {
+	server, database := newTestServer(t)
+	eventID := seedEvent(t, server.URL)
+	cable4m := seedRoleItem(t, database, "cable", "Mikrofonkabel", "4m", 2, 7)
+	cable10m := seedRoleItem(t, database, "cable", "Mikrofonkabel", "10m", 8, 8)
+	inputsURL := fmt.Sprintf("%s/events/%d/audio-inputs", server.URL, eventID)
+
+	for channel, cableID := range map[int]int64{1: cable4m, 2: cable4m, 3: cable10m} {
+		status, raw := doJSON(t, http.MethodPost, inputsURL, map[string]any{
+			"channel_number": channel, "signal_type": "mic", "cable_item_id": cableID,
+		})
+		if status != http.StatusCreated {
+			t.Fatalf("POST input ch %d: status %d body %s", channel, status, raw)
+		}
+	}
+	// A channel without a cable contributes nothing.
+	if status, raw := doJSON(t, http.MethodPost, inputsURL, map[string]any{
+		"channel_number": 4, "signal_type": "mic",
+	}); status != http.StatusCreated {
+		t.Fatalf("POST bare input: status %d body %s", status, raw)
+	}
+	// Manual share on the same item merges into one line.
+	status, raw := doJSON(t, http.MethodPut, fmt.Sprintf("%s/events/%d/rentals/manual/%d", server.URL, eventID, cable4m),
+		domain.ManualRentalRequest{QuantityAudio: 1, Notes: "spare"})
+	if status != http.StatusOK {
+		t.Fatalf("PUT manual cable line: status %d body %s", status, raw)
+	}
+
+	status, raw = doJSON(t, http.MethodGet, fmt.Sprintf("%s/events/%d/rentals", server.URL, eventID), nil)
+	if status != http.StatusOK {
+		t.Fatalf("GET summary: status %d body %s", status, raw)
+	}
+	summary := decodeJSON[domain.RentalSummary](t, raw)
+	byID := map[int64]domain.EventRental{}
+	for _, line := range summary.Items {
+		byID[line.InventoryItemID] = line
+	}
+	if len(summary.Items) != 2 {
+		t.Fatalf("summary has %d lines, want 2 (4m + 10m cables): %+v", len(summary.Items), summary.Items)
+	}
+	line4m := byID[cable4m]
+	// 2 picked + 1 manual = 3 of 2 in stock: merged and over stock.
+	if line4m.QuantityAudio != 3 || line4m.ManualQuantityAudio != 1 || !line4m.IsOverStock {
+		t.Errorf("4m line audio=%d manual=%d over_stock=%v, want 3/1/true", line4m.QuantityAudio, line4m.ManualQuantityAudio, line4m.IsOverStock)
+	}
+	if line4m.SubtotalExVAT != 21 {
+		t.Errorf("4m line subtotal=%v, want 21 (3 × 7)", line4m.SubtotalExVAT)
+	}
+	line10m := byID[cable10m]
+	if line10m.QuantityAudio != 1 || line10m.IsOverStock {
+		t.Errorf("10m line audio=%d over_stock=%v, want 1/false", line10m.QuantityAudio, line10m.IsOverStock)
+	}
+}
+
+// TestRentalSummaryCountsStands covers the stand_item_id aggregation arm.
+func TestRentalSummaryCountsStands(t *testing.T) {
+	server, database := newTestServer(t)
+	eventID := seedEvent(t, server.URL)
+	boomStand := seedRoleItem(t, database, "stand", "Mikrofonstativ Med bom", "", 16, 20)
+	drumStand := seedRoleItem(t, database, "stand", "Mikrofonstativ till trummor", "", 4, 20)
+	inputsURL := fmt.Sprintf("%s/events/%d/audio-inputs", server.URL, eventID)
+
+	for channel, standID := range map[int]int64{1: boomStand, 2: boomStand, 3: boomStand, 4: drumStand} {
+		status, raw := doJSON(t, http.MethodPost, inputsURL, map[string]any{
+			"channel_number": channel, "signal_type": "mic", "stand_item_id": standID,
+		})
+		if status != http.StatusCreated {
+			t.Fatalf("POST input ch %d: status %d body %s", channel, status, raw)
+		}
+	}
+
+	status, raw := doJSON(t, http.MethodGet, fmt.Sprintf("%s/events/%d/rentals", server.URL, eventID), nil)
+	if status != http.StatusOK {
+		t.Fatalf("GET summary: status %d body %s", status, raw)
+	}
+	summary := decodeJSON[domain.RentalSummary](t, raw)
+	byID := map[int64]domain.EventRental{}
+	for _, line := range summary.Items {
+		byID[line.InventoryItemID] = line
+	}
+	if len(summary.Items) != 2 {
+		t.Fatalf("summary has %d lines, want 2 stand lines: %+v", len(summary.Items), summary.Items)
+	}
+	if line := byID[boomStand]; line.QuantityAudio != 3 || line.IsOverStock {
+		t.Errorf("boom stand line audio=%d over_stock=%v, want 3/false", line.QuantityAudio, line.IsOverStock)
+	}
+	if line := byID[drumStand]; line.QuantityAudio != 1 {
+		t.Errorf("drum stand line audio=%d, want 1", line.QuantityAudio)
+	}
+}
+
+// TestRentalSummaryCountsOutputCables covers the output cable_item_id arm,
+// mixed with input picks of the same item.
+func TestRentalSummaryCountsOutputCables(t *testing.T) {
+	server, database := newTestServer(t)
+	eventID := seedEvent(t, server.URL)
+	speakonCable := seedRoleItem(t, database, "cable", "Högtalarkabel Speakon 2x2,5", "10m", 6, 12)
+	outputsURL := fmt.Sprintf("%s/events/%d/audio-outputs", server.URL, eventID)
+
+	for outputNumber := 1; outputNumber <= 2; outputNumber++ {
+		status, raw := doJSON(t, http.MethodPost, outputsURL, map[string]any{
+			"output_number": outputNumber, "output_type": "foh", "destination_type": "local", "cable_item_id": speakonCable,
+		})
+		if status != http.StatusCreated {
+			t.Fatalf("POST output %d: status %d body %s", outputNumber, status, raw)
+		}
+	}
+	// The same cable picked on an input merges into the one line.
+	status, raw := doJSON(t, http.MethodPost, fmt.Sprintf("%s/events/%d/audio-inputs", server.URL, eventID), map[string]any{
+		"channel_number": 1, "signal_type": "line", "cable_item_id": speakonCable,
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("POST input: status %d body %s", status, raw)
+	}
+
+	status, raw = doJSON(t, http.MethodGet, fmt.Sprintf("%s/events/%d/rentals", server.URL, eventID), nil)
+	if status != http.StatusOK {
+		t.Fatalf("GET summary: status %d body %s", status, raw)
+	}
+	summary := decodeJSON[domain.RentalSummary](t, raw)
+	if len(summary.Items) != 1 {
+		t.Fatalf("summary has %d lines, want 1 merged cable line: %+v", len(summary.Items), summary.Items)
+	}
+	if line := summary.Items[0]; line.InventoryItemID != speakonCable || line.QuantityAudio != 3 {
+		t.Errorf("cable line item=%d audio=%d, want %d/3", line.InventoryItemID, line.QuantityAudio, speakonCable)
+	}
+
+	// Dangling cable reference on an output is rejected up front.
+	if status, raw = doJSON(t, http.MethodPost, outputsURL, map[string]any{
+		"output_number": 3, "output_type": "foh", "destination_type": "local", "cable_item_id": 99999,
+	}); status != http.StatusBadRequest {
+		t.Errorf("dangling output cable_item_id: status %d body %s, want 400", status, raw)
+	}
+}

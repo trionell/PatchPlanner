@@ -10,10 +10,10 @@ import (
 
 func ListInventoryCategories(db *sql.DB) ([]domain.InventoryCategory, error) {
 	rows, err := db.Query(`
-		SELECT c.id, c.name, c.category_type, COUNT(i.id) AS item_count
+		SELECT c.id, c.name, c.category_type, COALESCE(c.picker_role, ''), COUNT(i.id) AS item_count
 		FROM inventory_categories c
 		LEFT JOIN inventory_items i ON i.category_id = c.id AND i.discontinued = 0
-		GROUP BY c.id, c.name, c.category_type
+		GROUP BY c.id, c.name, c.category_type, c.picker_role
 		ORDER BY c.name ASC`)
 	if err != nil {
 		return nil, fmt.Errorf("list inventory categories: %w", err)
@@ -23,7 +23,7 @@ func ListInventoryCategories(db *sql.DB) ([]domain.InventoryCategory, error) {
 	categories := make([]domain.InventoryCategory, 0)
 	for rows.Next() {
 		var category domain.InventoryCategory
-		if err := rows.Scan(&category.ID, &category.Name, &category.CategoryType, &category.ItemCount); err != nil {
+		if err := rows.Scan(&category.ID, &category.Name, &category.CategoryType, &category.PickerRole, &category.ItemCount); err != nil {
 			return nil, fmt.Errorf("scan inventory category: %w", err)
 		}
 		categories = append(categories, category)
@@ -31,9 +31,31 @@ func ListInventoryCategories(db *sql.DB) ([]domain.InventoryCategory, error) {
 	return categories, rows.Err()
 }
 
+// UpdateCategoryPickerRole sets or clears (empty role) a category's picker
+// role and returns the updated category. Returns sql.ErrNoRows if the
+// category does not exist.
+func UpdateCategoryPickerRole(db *sql.DB, id int64, role string) (domain.InventoryCategory, error) {
+	result, err := db.Exec(`UPDATE inventory_categories SET picker_role = ? WHERE id = ?`, nullString(role), id)
+	if err != nil {
+		return domain.InventoryCategory{}, fmt.Errorf("update category picker role: %w", err)
+	}
+	if affected, _ := result.RowsAffected(); affected == 0 {
+		return domain.InventoryCategory{}, sql.ErrNoRows
+	}
+	row := db.QueryRow(`
+		SELECT c.id, c.name, c.category_type, COALESCE(c.picker_role, ''),
+			(SELECT COUNT(*) FROM inventory_items i WHERE i.category_id = c.id AND i.discontinued = 0)
+		FROM inventory_categories c WHERE c.id = ?`, id)
+	var category domain.InventoryCategory
+	if err := row.Scan(&category.ID, &category.Name, &category.CategoryType, &category.PickerRole, &category.ItemCount); err != nil {
+		return domain.InventoryCategory{}, fmt.Errorf("get inventory category: %w", err)
+	}
+	return category, nil
+}
+
 const inventoryItemColumns = `i.id, COALESCE(i.category_id, 0), COALESCE(c.name, ''), COALESCE(c.category_type, ''), i.name, COALESCE(i.description, ''), COALESCE(i.quantity_available, 0), COALESCE(i.price_ex_vat, 0), COALESCE(i.xlsx_row, 0), i.discontinued, COALESCE(i.created_at, '')`
 
-func ListInventoryItems(db *sql.DB, categoryID *int64, categoryType string, includeDiscontinued bool) ([]domain.InventoryItem, error) {
+func ListInventoryItems(db *sql.DB, categoryID *int64, categoryType, pickerRole string, includeDiscontinued bool) ([]domain.InventoryItem, error) {
 	query := `
 		SELECT ` + inventoryItemColumns + `
 		FROM inventory_items i
@@ -47,6 +69,10 @@ func ListInventoryItems(db *sql.DB, categoryID *int64, categoryType string, incl
 	if categoryType != "" {
 		conditions = append(conditions, "c.category_type = ?")
 		args = append(args, categoryType)
+	}
+	if pickerRole != "" {
+		conditions = append(conditions, "c.picker_role = ?")
+		args = append(args, pickerRole)
 	}
 	if !includeDiscontinued {
 		conditions = append(conditions, "i.discontinued = 0")

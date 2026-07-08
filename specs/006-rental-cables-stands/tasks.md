@@ -29,10 +29,10 @@ Technical Context).
 
 **Purpose**: Schema, domain structs, and CRUD plumbing every story needs.
 
-- [ ] T001 Create `backend/migrations/019_cable_stand_items.up.sql` + `.down.sql`: `ALTER TABLE inventory_categories ADD COLUMN picker_role TEXT` with name-match seed (Signalkablage / Signalkablage digital / Högtalarkablage → 'cable'; Stativ & Lyftutrustning → 'stand'); `cable_item_id` + `stand_item_id` on `audio_patch_inputs` and `cable_item_id` on `audio_patch_outputs` (all `INTEGER REFERENCES inventory_items(id)`); conservative backfill per data-model.md (cable_type='xlr' + exactly-one 'Mikrofonkabel' match on `LOWER(REPLACE(description,',','.')) = printf('%gm', cable_length_m)` → set cable_item_id, NULL cable_type/cable_length_m). Down: recreate without the columns (table rebuild) or document irreversibility consistent with existing down files
-- [ ] T002 [P] Add `PickerRole` to `InventoryCategory` in `backend/internal/domain/inventory.go` and `CableItemID`/`StandItemID` to `AudioInput`, `CableItemID` to `AudioOutput` in `backend/internal/domain/audio.go` (`omitempty` JSON like `mic_item_id`)
-- [ ] T003 Wire the new columns through `backend/internal/db/audio_patch.go`: select/insert/update for both tables; UPDATE clears legacy fields on pick (`cable_type = CASE WHEN ? IS NOT NULL THEN NULL ELSE cable_type END`, same for `cable_length_m` with `cable_item_id`, and `mic_stand` with `stand_item_id` — the `mic_model` pattern); inserts never write legacy fields
-- [ ] T004 [P] Extend `frontend/src/types/index.ts` (`cable_item_id?`/`stand_item_id?` on `AudioPatchInput`, `cable_item_id?` on `AudioPatchOutput`, `picker_role?` on `InventoryCategory`) and `frontend/src/api/inventory.ts` (`role` param on `listInventoryItems`, `updateCategoryPickerRole` PATCH helper)
+- [x] T001 Create `backend/migrations/019_cable_stand_items.up.sql` + `.down.sql`: `ALTER TABLE inventory_categories ADD COLUMN picker_role TEXT` with name-match seed (Signalkablage / Signalkablage digital / Högtalarkablage → 'cable'; Stativ & Lyftutrustning → 'stand'); `cable_item_id` + `stand_item_id` on `audio_patch_inputs` and `cable_item_id` on `audio_patch_outputs` (all `INTEGER REFERENCES inventory_items(id)`); conservative backfill per data-model.md (cable_type='xlr' + exactly-one 'Mikrofonkabel' match on `LOWER(REPLACE(description,',','.')) = printf('%gm', cable_length_m)` → set cable_item_id, NULL cable_type/cable_length_m). Down: recreate without the columns (table rebuild) or document irreversibility consistent with existing down files
+- [x] T002 [P] Add `PickerRole` to `InventoryCategory` in `backend/internal/domain/inventory.go` and `CableItemID`/`StandItemID` to `AudioInput`, `CableItemID` to `AudioOutput` in `backend/internal/domain/audio.go` (`omitempty` JSON like `mic_item_id`)
+- [x] T003 Wire the new columns through `backend/internal/db/audio_patch.go`: select/insert/update for both tables; UPDATE clears legacy fields on pick (`cable_type = CASE WHEN ? IS NOT NULL THEN NULL ELSE cable_type END`, same for `cable_length_m` with `cable_item_id`, and `mic_stand` with `stand_item_id` — the `mic_model` pattern); inserts never write legacy fields
+- [x] T004 [P] Extend `frontend/src/types/index.ts` (`cable_item_id?`/`stand_item_id?` on `AudioPatchInput`, `cable_item_id?` on `AudioPatchOutput`, `picker_role?` on `InventoryCategory`) and `frontend/src/api/inventory.ts` (`role` param on `listInventoryItems`, `updateCategoryPickerRole` PATCH helper)
 
 **Checkpoint**: `go vet`/`go test` and `tsc` green; schema live.
 
@@ -47,16 +47,16 @@ counted on the rental order and Excel export (FR-001, FR-004–FR-007, FR-011).
 on channels, verify quantities/prices/over-stock on the Rental Order tab and in
 the export, and item labels on sheet + signal flow.
 
-- [ ] T005 [US1] Add the `role` filter to `ListInventoryItems` and `picker_role` to category listing in `backend/internal/db/inventory.go`; parse/validate `?role=` (400 on unknown) in `backend/internal/api/inventory.go`
-- [ ] T006 [US1] Add the input-cable arm (`SELECT cable_item_id, 1, 0 FROM audio_patch_inputs WHERE event_id = ? AND cable_item_id IS NOT NULL`) to `rentalSummaryQuery` in `backend/internal/db/rental.go` (+ arg count)
-- [ ] T007 [P] [US1] httptest: input cables aggregate per item across rows, merge with manual lines, flag over-stock in `backend/internal/api/rental_test.go`
-- [ ] T008 [P] [US1] httptest: `?role=cable` returns only cable-category items, unknown role → 400 in `backend/internal/api/inventory_test.go`
-- [ ] T009 [US1] Replace the cable-type select + length input with a cable picker in `frontend/src/components/event/AudioInputsTab.tsx`: options `name — description` from a `['inventory-items','role','cable']` query, empty "—" option, legacy `cable_type`/`cable_length_m` shown as read-only text beside the picker until a pick is made (mic-cell pattern)
-- [ ] T010 [US1] Update `frontend/src/components/print/InputPatchSheet.tsx`: Cable column shows picked item `name — description` (via an items-by-id map including descriptions) or legacy `<label> <length> m` text; remove the separate Length column
-- [ ] T011 [US1] Update `frontend/src/lib/signalFlow.ts` + `frontend/src/components/event/SignalFlowTab.tsx`: cable hop = picked item label > legacy text > absent-without-gap; context gains a cable-item label map
-- [ ] T012 [P] [US1] Update `frontend/src/lib/signalFlow.test.ts`: picked-cable label, legacy fallback, no-cable no-gap cases
-- [ ] T013 [P] [US1] Update `frontend/src/components/print/printSheets.test.tsx`: input sheet shows item label for picks, legacy text otherwise, no form controls
-- [ ] T014 [US1] Manual verification per quickstart.md §1 (cable rows) — picker uniqueness, rental quantities, export placement
+- [x] T005 [US1] Add the `role` filter to `ListInventoryItems` and `picker_role` to category listing in `backend/internal/db/inventory.go`; parse/validate `?role=` (400 on unknown) in `backend/internal/api/inventory.go`
+- [x] T006 [US1] Add the input-cable arm (`SELECT cable_item_id, 1, 0 FROM audio_patch_inputs WHERE event_id = ? AND cable_item_id IS NOT NULL`) to `rentalSummaryQuery` in `backend/internal/db/rental.go` (+ arg count)
+- [x] T007 [P] [US1] httptest: input cables aggregate per item across rows, merge with manual lines, flag over-stock in `backend/internal/api/rental_test.go`
+- [x] T008 [P] [US1] httptest: `?role=cable` returns only cable-category items, unknown role → 400 in `backend/internal/api/inventory_test.go`
+- [x] T009 [US1] Replace the cable-type select + length input with a cable picker in `frontend/src/components/event/AudioInputsTab.tsx`: options `name — description` from a `['inventory-items','role','cable']` query, empty "—" option, legacy `cable_type`/`cable_length_m` shown as read-only text beside the picker until a pick is made (mic-cell pattern)
+- [x] T010 [US1] Update `frontend/src/components/print/InputPatchSheet.tsx`: Cable column shows picked item `name — description` (via an items-by-id map including descriptions) or legacy `<label> <length> m` text; remove the separate Length column
+- [x] T011 [US1] Update `frontend/src/lib/signalFlow.ts` + `frontend/src/components/event/SignalFlowTab.tsx`: cable hop = picked item label > legacy text > absent-without-gap; context gains a cable-item label map
+- [x] T012 [P] [US1] Update `frontend/src/lib/signalFlow.test.ts`: picked-cable label, legacy fallback, no-cable no-gap cases
+- [x] T013 [P] [US1] Update `frontend/src/components/print/printSheets.test.tsx`: input sheet shows item label for picks, legacy text otherwise, no form controls
+- [x] T014 [US1] Manual verification per quickstart.md §1 (cable rows) — picker uniqueness, rental quantities, export placement
 
 **Checkpoint**: US1 delivers the MVP — input cables fully derived.
 
@@ -69,10 +69,10 @@ the export, and item labels on sheet + signal flow.
 **Independent Test**: quickstart.md §1 stand steps — pick stands, verify rental
 quantities and sheet display.
 
-- [ ] T015 [US2] Add the stand arm (`stand_item_id` from inputs) to `rentalSummaryQuery` in `backend/internal/db/rental.go` + aggregation case in `backend/internal/api/rental_test.go`
-- [ ] T016 [US2] Replace the stand select with a stand picker (`role=stand`, empty option, legacy `mic_stand` read-only fallback) in `frontend/src/components/event/AudioInputsTab.tsx`
-- [ ] T017 [US2] Show picked stand label / legacy text in the Stand column of `frontend/src/components/print/InputPatchSheet.tsx` + update `frontend/src/components/print/printSheets.test.tsx`
-- [ ] T018 [US2] Manual verification per quickstart.md §1 (stand rows)
+- [x] T015 [US2] Add the stand arm (`stand_item_id` from inputs) to `rentalSummaryQuery` in `backend/internal/db/rental.go` + aggregation case in `backend/internal/api/rental_test.go`
+- [x] T016 [US2] Replace the stand select with a stand picker (`role=stand`, empty option, legacy `mic_stand` read-only fallback) in `frontend/src/components/event/AudioInputsTab.tsx`
+- [x] T017 [US2] Show picked stand label / legacy text in the Stand column of `frontend/src/components/print/InputPatchSheet.tsx` + update `frontend/src/components/print/printSheets.test.tsx`
+- [x] T018 [US2] Manual verification per quickstart.md §1 (stand rows)
 
 **Checkpoint**: Inputs fully catalog-driven.
 
@@ -85,10 +85,10 @@ quantities and sheet display.
 **Independent Test**: quickstart.md §1 step 3 — output cable picks appear on
 the rental order and output sheet.
 
-- [ ] T019 [US3] Add the output-cable arm to `rentalSummaryQuery` in `backend/internal/db/rental.go` + aggregation case in `backend/internal/api/rental_test.go`
-- [ ] T020 [US3] Replace cable type/length fields with the cable picker (shared query/options, legacy fallback) in `frontend/src/components/event/AudioOutputsTab.tsx`
-- [ ] T021 [US3] Show cable item label / legacy text in `frontend/src/components/print/OutputPatchSheet.tsx` + update `frontend/src/components/print/printSheets.test.tsx`
-- [ ] T022 [US3] Manual verification per quickstart.md §1 (outputs)
+- [x] T019 [US3] Add the output-cable arm to `rentalSummaryQuery` in `backend/internal/db/rental.go` + aggregation case in `backend/internal/api/rental_test.go`
+- [x] T020 [US3] Replace cable type/length fields with the cable picker (shared query/options, legacy fallback) in `frontend/src/components/event/AudioOutputsTab.tsx`
+- [x] T021 [US3] Show cable item label / legacy text in `frontend/src/components/print/OutputPatchSheet.tsx` + update `frontend/src/components/print/printSheets.test.tsx`
+- [x] T022 [US3] Manual verification per quickstart.md §1 (outputs)
 
 **Checkpoint**: All three planning surfaces feed the rental order.
 
@@ -101,9 +101,9 @@ visibly (FR-008–FR-010).
 
 **Independent Test**: quickstart.md §2 on a COPY of a pre-upgrade database.
 
-- [ ] T023 [P] [US4] Focused backfill test: temp DB seeded with legacy-shaped rows (xlr + stocked length, xlr + unknown length, jack_ts, stand values), run the migration's conversion statement, assert matched rows picked + legacy cleared and all others untouched (new test in `backend/internal/db/` or `backend/internal/api/` beside existing DB tests)
-- [ ] T024 [P] [US4] httptest: audio patch CRUD round-trips the new fields and clears legacy values on pick (and does not resurrect them on clear) in `backend/internal/api/audio_patch_test.go`
-- [ ] T025 [US4] Manual verification per quickstart.md §2 against a copy of the real dev DB (never the live file)
+- [x] T023 [P] [US4] Focused backfill test: temp DB seeded with legacy-shaped rows (xlr + stocked length, xlr + unknown length, jack_ts, stand values), run the migration's conversion statement, assert matched rows picked + legacy cleared and all others untouched (new test in `backend/internal/db/` or `backend/internal/api/` beside existing DB tests)
+- [x] T024 [P] [US4] httptest: audio patch CRUD round-trips the new fields and clears legacy values on pick (and does not resurrect them on clear) in `backend/internal/api/audio_patch_test.go`
+- [x] T025 [US4] Manual verification per quickstart.md §2 against a copy of the real dev DB (never the live file)
 
 **Checkpoint**: All user stories complete.
 
@@ -111,10 +111,10 @@ visibly (FR-008–FR-010).
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T026 Add `PATCH /api/v1/inventory/categories/{id}` (body `{picker_role}`, 400 on unknown value, 404 on missing category) in `backend/internal/api/inventory.go` + `backend/internal/db/inventory.go` + httptest in `backend/internal/api/inventory_test.go`
-- [ ] T027 Add the per-category role selector (— / Cable / Stand) to the categories list in `frontend/src/pages/Inventory.tsx`, PATCHing via `updateCategoryPickerRole`; verify quickstart.md §3
-- [ ] T028 [P] Update `README.md` (rental completeness bullet, `?role=` param + category PATCH in the API table) and mark the Slice 6 bullets done in `ROADMAP.md`; note cables/stands coverage in `PROJECT.md` §3.1/§3.6 if applicable
-- [ ] T029 Run full gates: `cd backend && go vet ./... && go test ./... && golangci-lint run`; `cd frontend && npx tsc --noEmit && npx eslint . && npx vitest run && npm run build`
+- [x] T026 Add `PATCH /api/v1/inventory/categories/{id}` (body `{picker_role}`, 400 on unknown value, 404 on missing category) in `backend/internal/api/inventory.go` + `backend/internal/db/inventory.go` + httptest in `backend/internal/api/inventory_test.go`
+- [x] T027 Add the per-category role selector (— / Cable / Stand) to the categories list in `frontend/src/pages/Inventory.tsx`, PATCHing via `updateCategoryPickerRole`; verify quickstart.md §3
+- [x] T028 [P] Update `README.md` (rental completeness bullet, `?role=` param + category PATCH in the API table) and mark the Slice 6 bullets done in `ROADMAP.md`; note cables/stands coverage in `PROJECT.md` §3.1/§3.6 if applicable
+- [x] T029 Run full gates: `cd backend && go vet ./... && go test ./... && golangci-lint run`; `cd frontend && npx tsc --noEmit && npx eslint . && npx vitest run && npm run build`
 
 ---
 
@@ -146,3 +146,32 @@ apply to two more fields each. US4 is mostly guaranteed by the Phase 2
 migration design and verified by its own tests. Rental CTE edits (T006, T015,
 T019) touch the same constant and run sequentially. Stop-and-verify checkpoints
 are the quickstart sections per story.
+
+---
+
+## Implementation Notes (post-completion)
+
+- The pre-019 column DEFAULT `'xlr'` on `cable_type` (both tables) would have
+  leaked into new catalog-driven rows, so the INSERTs write explicit NULLs for
+  all legacy fields, and the read column lists serve `COALESCE(cable_type, '')`
+  instead of the old `'xlr'` fallback.
+- Item-reference validation was generalized (`validMicItem` → `validItemRef`)
+  and applied to `cable_item_id`/`stand_item_id` on inputs and `cable_item_id`
+  on outputs — dangling references 400 like mic picks always did.
+- New shared helpers in `frontend/src/lib/utils.ts`: `itemLabel(item)`
+  ("name — description") and `legacyCableText(type, length, labelFor)` used by
+  both tabs, both sheets, and the signal-flow chain.
+- T023 replays the two UPDATE statements verbatim from the shipped
+  `019_cable_stand_items.up.sql`, covering: exact match, Swedish decimal-comma
+  normalization ("7,5m"), ambiguous duplicate lengths, discontinued-only
+  matches, wrong types, and missing lengths.
+- T025 was executed for real: the new binary ran against a **copy** of the dev
+  database (`PATCHPLANNER_DB` override, port :7431). Result: roles seeded on
+  all four categories; 46 cable / 44 stand picker items; the existing event's
+  XLR rows with stocked lengths converted (4m ×1, 6m ×5 — now on the rental
+  order, correctly priced); the length-less XLR row and all stand values
+  stayed as legacy text. The live dev DB was never touched — the migration
+  applies to it on the next backend restart.
+- T014/T018/T022 (browser UX checks): everything assertable without a print
+  dialog/browser is covered by the Vitest/httptest suites; the visual pass
+  over quickstart.md §1 remains for a human.

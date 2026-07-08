@@ -59,7 +59,7 @@ func exportSetup(t *testing.T) (database *sql.DB, sourcePath string, eventID int
 	if _, err := (InventoryService{DB: database}).ImportFromXLSX(sourcePath); err != nil {
 		t.Fatalf("import fixture: %v", err)
 	}
-	items, err := db.ListInventoryItems(database, nil, "", true)
+	items, err := db.ListInventoryItems(database, nil, "", "", true)
 	if err != nil {
 		t.Fatalf("list items: %v", err)
 	}

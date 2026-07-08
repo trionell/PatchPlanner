@@ -79,7 +79,7 @@ func TestImportRoundTripPreservesReferences(t *testing.T) {
 		t.Fatalf("imported %d categories / %d items, want 2 / 3", result.CategoriesImported, result.ItemsImported)
 	}
 
-	items, err := db.ListInventoryItems(database, nil, "", false)
+	items, err := db.ListInventoryItems(database, nil, "", "", false)
 	if err != nil {
 		t.Fatalf("list items: %v", err)
 	}
