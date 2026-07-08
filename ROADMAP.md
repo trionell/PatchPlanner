@@ -133,28 +133,25 @@ Full Principle II compliance + §3.5.
       links flagged and counted, direct-to-console shown without false gaps;
       the view prints like the sheets. No graph library, no new endpoints.
 
-## Slice 6 — Rental completeness: cables & stands (spec: `rental-cables-stands`)
+## Slice 6 — Rental completeness: cables & stands (spec: `rental-cables-stands`) ✅ done 2026-07-09
 
-Feedback item 3. Cables and mic stands are selected on patch rows today but
-never reach the rental order or the Excel export — a 4 m XLR or a boom stand
-should count like any other rented item. The available cables (type **and**
-length) and stands already live in the inventory; the patch rows just don't
-point at it: cable length is a free-typed number and stand types are a
-vocabulary disconnected from the price list.
+Feedback item 3. Cables and mic stands were selected on patch rows but never
+reached the rental order or the Excel export.
 
-- Cable selection on inputs/outputs becomes a pick from **inventory cable
-  items** (`cable_item_id REFERENCES inventory_items`), the same pattern as
-  `mic_item_id` — the item encodes type + length ("XLR-kabel 4m"), so the
-  free-number `cable_length_m` and the cable-type vocabularies stop driving
-  the choice. Migration backfills by matching type + length to catalog
-  items; unmatched rows keep a read-only legacy label (the `mic_label`
-  pattern).
-- Mic stand likewise becomes a pick from inventory stand items
-  (`stand_item_id`), replacing the disconnected `mic_stands` vocabulary.
-- Rental aggregation counts cable and stand items directly by item id; they
-  flow into the Excel export through the existing rental lines (no writer
-  changes expected).
-- Print sheets and signal flow show the picked item names.
+- [x] Cable selection on inputs/outputs is a pick from inventory cable items
+      (`cable_item_id`, the `mic_item_id` pattern) — the item encodes type +
+      length ("Mikrofonkabel — 4m"); mic stand likewise (`stand_item_id`).
+      Which categories feed each picker is data: `picker_role` on
+      `inventory_categories`, seeded by migration, import-safe, editable per
+      category on the Inventory page.
+- [x] Conservative 019 backfill: only XLR + exact-length rows with a unique
+      catalog match convert; everything else (other types, output cables,
+      stands) keeps read-only legacy text until re-picked — verified against
+      a copy of the real dev DB.
+- [x] Rental aggregation counts cable/stand picks by item id (three new CTE
+      arms); pricing, over-stock and discontinued flagging, manual-line
+      merging, and the Excel export all apply unchanged. Print sheets and
+      signal flow show the picked item labels.
 - This establishes the standing invariant (see intro); slices 9 and 10 must
   extend the count for the cable pickers they add.
 

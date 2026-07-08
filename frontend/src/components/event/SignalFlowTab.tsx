@@ -5,7 +5,7 @@ import { getAudioPatch } from '../../api/audioPatch'
 import { listInventoryItems } from '../../api/inventory'
 import { useReferenceData } from '../../hooks/useReferenceData'
 import { buildChannelFlows, type FlowHop } from '../../lib/signalFlow'
-import { cn } from '../../lib/utils'
+import { cn, itemLabel } from '../../lib/utils'
 import { PrintButton } from '../print/PrintButton'
 import { PrintSheet } from '../print/PrintSheet'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
@@ -19,16 +19,22 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 export function SignalFlowTab({ eventId }: { eventId: number }) {
   const audioQuery = useQuery({ queryKey: ['audio-patch', eventId], queryFn: () => getAudioPatch(eventId) })
   const inventoryQuery = useQuery({ queryKey: ['inventory-audio-items'], queryFn: () => listInventoryItems({ categoryType: 'audio' }) })
+  const cableQuery = useQuery({ queryKey: ['inventory-items', 'role', 'cable'], queryFn: () => listInventoryItems({ role: 'cable' }) })
   const { label } = useReferenceData()
 
   const micNameById = useMemo(
     () => new Map((inventoryQuery.data ?? []).map((item) => [item.id, item.name])),
     [inventoryQuery.data],
   )
+  const cableLabelById = useMemo(
+    () => new Map((cableQuery.data ?? []).map((item) => [item.id, itemLabel(item)])),
+    [cableQuery.data],
+  )
   const flows = buildChannelFlows(audioQuery.data?.inputs ?? [], {
     stageboxes: audioQuery.data?.stageboxes ?? [],
     stageMultis: audioQuery.data?.stage_multis ?? [],
     micNameById,
+    cableLabelById,
     cableLabel: (value) => label('signal_cable_types', value),
   })
   const gapCount = flows.filter((flow) => flow.hasGap).length

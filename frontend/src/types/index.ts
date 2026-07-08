@@ -12,6 +12,8 @@ export interface InventoryCategory {
   id: number
   name: string
   category_type: 'audio' | 'lighting' | 'misc' | 'video' | 'rigging'
+  /** Marks the category as a planning-picker source; absent = not offered. */
+  picker_role?: 'cable' | 'stand'
   item_count?: number
 }
 
@@ -65,9 +67,12 @@ export interface AudioPatchInput {
   mic_item_id?: number
   /** Legacy free-text mic name for rows whose text matched no catalog item. Read-only. */
   mic_label?: string
-  cable_type: string
-  cable_length_m: number
-  /** Vocabulary value from reference data (mic_stands); '' = no stand. */
+  cable_item_id?: number
+  stand_item_id?: number
+  /** Legacy pre-019 cable values; read-only display until a cable is picked. */
+  cable_type?: string
+  cable_length_m?: number
+  /** Legacy pre-019 stand vocabulary value; read-only display until a stand is picked. */
   mic_stand?: string
   phantom_power: boolean
   dca_groups?: string
@@ -88,8 +93,10 @@ export interface AudioPatchOutput {
   stage_multi_channel?: number
   amplifier_item_id?: number
   speaker_item_id?: number
-  cable_type: string
-  cable_length_m: number
+  cable_item_id?: number
+  /** Legacy pre-019 cable values; read-only display until a cable is picked. */
+  cable_type?: string
+  cable_length_m?: number
   notes?: string
 }
 

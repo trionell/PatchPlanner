@@ -7,10 +7,10 @@ An AVL (Audio, Video, Lighting) event planning tool for live productions. Plan p
 ## Features
 
 - **Events** — Create and manage events with date, venue, and notes
-- **Audio Patch (Inputs)** — Build full input patch lists: channel number, name, signal type, preamp connector, stagebox routing, stage multicore, microphone model, cable type/length, mic stand, 48V phantom power, and DCA/group assignments
-- **Audio Patch (Outputs)** — Map outputs to destinations (local, stagebox, stage-multi), assign amplifiers and speakers, document cable runs
+- **Audio Patch (Inputs)** — Build full input patch lists: channel number, name, signal type, preamp connector, stagebox routing, stage multicore, microphone model, cable and mic stand picked straight from the rental catalog (concrete items with lengths, e.g. "Mikrofonkabel — 4m"), 48V phantom power, and DCA/group assignments
+- **Audio Patch (Outputs)** — Map outputs to destinations (local, stagebox, stage-multi), assign amplifiers and speakers, pick the cable run from the catalog
 - **Lighting Rig** — Add fixtures, assign them to truss sections, configure power connections (grid or daisy-chain), set DMX universe/address and channel mode, auto-assign DMX addresses in sequence
-- **Rental Order** — Per-event summary of all rented equipment, derived automatically from the plan (mics, DI/IEM, stageboxes, multicores, amplifiers, speakers, fixtures) plus manual line items for anything else; flags lines that exceed the renter's stock
+- **Rental Order** — Per-event summary of all rented equipment, derived automatically from the plan (mics, DI/IEM, stageboxes, multicores, amplifiers, speakers, cables, mic stands, fixtures) plus manual line items for anything else; flags lines that exceed the renter's stock. Which catalog categories feed the cable/stand pickers is itself data: each category on the Inventory page carries an editable picker role
 - **Excel Export** — One click produces a copy of LL.xlsx with the order quantities filled into the *Antal Ljud* / *Antal Ljus* columns at the right rows, ready to send to the renter unmodified; lines that can't be placed are reported, never silently dropped
 - **Owned Gear & Equipment Lists** — A personal catalog of equipment you own (never on the rental order), plannable per event with quantities and notes; the Equipment tab shows everything beyond the patch and rig: owned gear plus rented extras
 - **Configurable Reference Data** — Every planning vocabulary (signal types, preamp connectors, signal/speaker cable types, output types, mic stands, power connectors, truss types) is stored data, editable on the Settings page: add values for new gear, rename labels, delete unused ones (values in use by a plan are protected). Lighting fixture models carry DMX mode definitions (name + channel count) that auto-fill the channel count when patching
@@ -119,9 +119,8 @@ Open an event and navigate to the **Audio Inputs** or **Audio Outputs** tab.
 | Multi | Which stage multicore cable |
 | Multi Ch | Multicore channel number |
 | Mic Model | Microphone model (e.g. "SM58") |
-| Cable | Cable type (XLR, Jack, etc.) |
-| Length | Cable length in metres |
-| Stand | Mic stand type (straight, boom, low, desk, clip, none) |
+| Cable | Cable from the rental catalog (item + length, e.g. "Mikrofonkabel — 4m"); pre-upgrade type/length values show as read-only legacy text until re-picked |
+| Stand | Mic stand from the rental catalog; legacy stand-type values show as read-only text until re-picked |
 | 48V | Phantom power on/off |
 | DCA | DCA or group assignments |
 | Notes | Free-text notes |
@@ -137,8 +136,7 @@ Open an event and navigate to the **Audio Inputs** or **Audio Outputs** tab.
 | Multi / Multi Ch | Multicore and channel (if destination = stage-multi) |
 | Amplifier | Amplifier from inventory |
 | Speaker | Speaker from inventory |
-| Cable | Cable type |
-| Length | Cable length in metres |
+| Cable | Cable from the rental catalog (item + length); legacy type/length values show as read-only text until re-picked |
 | Notes | Free-text notes |
 
 ### Building a lighting rig
@@ -166,7 +164,7 @@ Click **Auto-assign DMX** to automatically fill in sequential addresses for all 
 
 ### Viewing the rental order
 
-The **Rental Order** tab shows a summary of all inventory items referenced across the event (from both the audio patch and lighting rig), with quantities split by audio and lighting use, pricing per unit, and a total.
+The **Rental Order** tab shows a summary of all inventory items referenced across the event (from both the audio patch and lighting rig — including every picked cable and mic stand), with quantities split by audio and lighting use, pricing per unit, and a total.
 
 ---
 
@@ -213,9 +211,10 @@ Base URL: `http://localhost:7331/api/v1`
 | GET | `/events/:id` | Get a single event |
 | PATCH | `/events/:id` | Update an event |
 | DELETE | `/events/:id` | Delete an event |
-| GET | `/inventory/categories` | List inventory categories |
-| GET | `/inventory/items` | List inventory items (filters: `?category_type=lighting`, `?category_id=1`, `?include_discontinued=true`) |
-| POST | `/inventory/import-xlsx` | Re-import catalog from LL.xlsx (non-destructive upsert) |
+| GET | `/inventory/categories` | List inventory categories (incl. `picker_role`) |
+| PATCH | `/inventory/categories/:id` | Set or clear a category's picker role (`{"picker_role": "cable" \| "stand" \| null}`) |
+| GET | `/inventory/items` | List inventory items (filters: `?category_type=lighting`, `?category_id=1`, `?role=cable`, `?include_discontinued=true`) |
+| POST | `/inventory/import-xlsx` | Re-import catalog from LL.xlsx (non-destructive upsert; picker roles survive) |
 | GET | `/events/:id/audio-patch` | Full audio patch: stageboxes, stage multis, inputs, outputs |
 | POST | `/events/:id/stageboxes` | Add a stagebox |
 | PATCH | `/events/:id/stageboxes/:sbId` | Update a stagebox |

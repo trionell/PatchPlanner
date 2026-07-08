@@ -144,6 +144,8 @@ Per-event rental summary, derived automatically from the planning data.
 
 Shipped as the `002-xlsx-rental-export` feature: the Rental Order tab exports a copy of `LL.xlsx` with quantities written into the `Antal Ljud` / `Antal Ljus` columns at each item's row. The writer locates the columns by header text, clears stale quantities left in the template, verifies the equipment name at every target row before writing, and reports unplaceable lines (discontinued items, drifted rows) instead of dropping them. The source file on disk is never modified, and re-importing an exported file leaves the catalog unchanged.
 
+Extended 2026-07-09 (`006-rental-cables-stands`): cables and mic stands are now picked as concrete catalog items on patch rows (type + length encoded in the item, e.g. "Mikrofonkabel — 4m"), so they appear on the rental order and in the export like every other rented item. Pre-existing rows were conservatively migrated (only unambiguous XLR + length matches converted; everything else shows read-only legacy text until re-picked).
+
 ### 3.2 Rigging and Miscellaneous Equipment Tracking — ✅ implemented (2026-07-07)
 
 Covered by two features: rented rigging/misc gear is ordered via manual rental lines on the Rental Order tab (001), and the per-event **Equipment** tab (003) shows the full extras picture — owned gear plus rented extras — in one place.
@@ -162,7 +164,7 @@ Shipped as part of the `004-reference-data` feature: a `fixture_modes` table lin
 
 ### 3.6 Stock / Quantity Validation — ✅ implemented (2026-07-07)
 
-Shipped as part of the `001-rental-order-correctness` feature: every rental line carries the renter's available stock, over-booked lines are flagged in the API and highlighted in the UI, and the order shows an overall warning.
+Shipped as part of the `001-rental-order-correctness` feature: every rental line carries the renter's available stock, over-booked lines are flagged in the API and highlighted in the UI, and the order shows an overall warning. Since 2026-07-09 this covers cable and stand picks too (`006-rental-cables-stands`).
 
 ### 3.7 Print-Friendly / Shareable Patch Sheets — ✅ implemented (2026-07-08, print views)
 

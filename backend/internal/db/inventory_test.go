@@ -23,7 +23,7 @@ func importFixture() ([]domain.InventoryCategory, []domain.InventoryItem) {
 
 func allItemsByName(t *testing.T, database *sql.DB) map[string][]domain.InventoryItem {
 	t.Helper()
-	items, err := ListInventoryItems(database, nil, "", true)
+	items, err := ListInventoryItems(database, nil, "", "", true)
 	if err != nil {
 		t.Fatalf("list inventory items: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestUpsertInventoryPreservesIdentity(t *testing.T) {
 	}
 
 	// Discontinued items are hidden from default listings.
-	visible, err := ListInventoryItems(database, nil, "", false)
+	visible, err := ListInventoryItems(database, nil, "", "", false)
 	if err != nil {
 		t.Fatalf("list visible items: %v", err)
 	}
@@ -160,7 +160,7 @@ func TestUpsertInventoryRollsBackOnFailure(t *testing.T) {
 		t.Fatalf("import with invalid category type succeeded, want error")
 	}
 
-	items2, err := ListInventoryItems(database, nil, "", false)
+	items2, err := ListInventoryItems(database, nil, "", "", false)
 	if err != nil {
 		t.Fatalf("list items after failed import: %v", err)
 	}

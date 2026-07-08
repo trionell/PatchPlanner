@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { SlidersHorizontal } from 'lucide-react'
-import { importInventory, listInventoryCategories, listInventoryItems } from '../api/inventory'
+import { importInventory, listInventoryCategories, listInventoryItems, updateCategoryPickerRole } from '../api/inventory'
 import { FixtureModeManager } from '../components/FixtureModeManager'
 import { OwnedGearManager } from '../components/OwnedGearManager'
 import { Badge } from '../components/ui/Badge'
@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Dialog } from '../components/ui/Dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table'
 import { Tab, TabList, TabPanel, Tabs } from '../components/ui/Tabs'
-import type { InventoryItem } from '../types'
+import type { InventoryCategory, InventoryItem } from '../types'
 
 export function InventoryPage() {
   return (
@@ -47,6 +47,15 @@ function RentalCatalog() {
       ])
     },
   })
+  const roleMutation = useMutation({
+    mutationFn: ({ categoryId, role }: { categoryId: number; role: 'cable' | 'stand' | null }) => updateCategoryPickerRole(categoryId, role),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['inventory-categories'] }),
+        queryClient.invalidateQueries({ queryKey: ['inventory-items'] }),
+      ])
+    },
+  })
 
   const selectedCategory = useMemo(
     () => categoriesQuery.data?.find((category) => category.id === selectedCategoryId),
@@ -72,22 +81,36 @@ function RentalCatalog() {
           </CardHeader>
           <CardContent className="space-y-2">
             {(categoriesQuery.data ?? []).map((category) => (
-              <button
+              <div
                 key={category.id}
-                type="button"
-                onClick={() => setSelectedCategoryId(category.id === selectedCategoryId ? undefined : category.id)}
-                className={`flex w-full items-center justify-between rounded-lg border px-3 py-3 text-left text-sm ${
+                className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-3 text-sm ${
                   category.id === selectedCategoryId
                     ? 'border-amber-500 bg-amber-500/10 text-amber-300'
                     : 'border-zinc-800 bg-zinc-900 text-zinc-200 hover:border-zinc-700'
                 }`}
               >
-                <div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategoryId(category.id === selectedCategoryId ? undefined : category.id)}
+                  className="flex-1 text-left"
+                >
                   <div className="font-medium">{category.name}</div>
                   <div className="text-xs text-zinc-500">{category.category_type}</div>
+                </button>
+                <div className="flex flex-col items-end gap-1">
+                  <Badge>{category.item_count ?? 0}</Badge>
+                  <select
+                    value={category.picker_role ?? ''}
+                    onChange={(e) => roleMutation.mutate({ categoryId: category.id, role: (e.target.value || null) as InventoryCategory['picker_role'] | null })}
+                    title="Planning picker role: which patch-row picker this category's items appear in"
+                    className="rounded border border-zinc-700 bg-zinc-900 px-1 py-0.5 text-xs text-zinc-400"
+                  >
+                    <option value="">no picker</option>
+                    <option value="cable">Cable</option>
+                    <option value="stand">Stand</option>
+                  </select>
                 </div>
-                <Badge>{category.item_count ?? 0}</Badge>
-              </button>
+              </div>
             ))}
           </CardContent>
         </Card>
