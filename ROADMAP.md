@@ -155,18 +155,21 @@ reached the rental order or the Excel export.
 - This establishes the standing invariant (see intro); slices 9 and 10 must
   extend the count for the cable pickers they add.
 
-## Slice 7 — Lighting rig workflow (spec: `lighting-fixture-workflow`)
+## Slice 7 — Lighting rig workflow (spec: `lighting-fixture-workflow`) ✅ done 2026-07-09
 
 Feedback items 5–7. Independent of the audio slices.
 
-- New `fixture_id` attribute on rig fixtures (integer used as the GrandMA
-  fixture ID): editable in the table, shown on the print sheet.
-- Bugfix: the Add Fixture dialog offers the selected catalog model's DMX
-  modes (reuse the `FixtureModeCell` picker) instead of a free-text mode
-  input — modes currently only appear after the fixture is added.
-- Bulk-add fixtures: pick model, quantity, and shared values (mode, truss
-  section, universe); fixture ID auto-increments from a provided start;
-  DMX addresses assigned sequentially (or left to Auto-assign).
+- [x] `fixture_number` attribute on rig fixtures (the GrandMA fixture ID,
+      shown as "FID"): editable in the table, duplicates flagged (never
+      blocked), printed as the sheet's first column.
+- [x] Bugfix: the Add Fixture dialog offers the selected catalog model's
+      DMX modes (same cached query as the table cell, copy-on-pick, reset
+      on model switch) instead of only free text.
+- [x] Bulk-add fixtures: model + quantity + shared values (mode, truss
+      section, universe, power) with fixture IDs incrementing from a
+      suggested start; transactional endpoint appends positions and DMX
+      addresses after the universe's occupied range (all-or-nothing,
+      409 on overflow); existing fixtures never touched.
 
 ## Slice 8 — Mixer buses: groups & DCAs (spec: `groups-dcas`)
 

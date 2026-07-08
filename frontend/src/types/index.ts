@@ -119,6 +119,8 @@ export interface TrussSection {
 export interface LightingFixture {
   id: number
   rig_id: number
+  /** Console (GrandMA) fixture ID; optional, duplicates flagged in the UI. */
+  fixture_number?: number
   truss_section_id?: number
   inventory_item_id?: number
   inventory_item_name?: string
@@ -135,6 +137,19 @@ export interface LightingFixture {
   dmx_chain_parent_id?: number
   notes?: string
   truss_section_name?: string
+}
+
+/** One bulk-add batch: N identical fixtures with shared settings. */
+export interface BulkFixtureRequest {
+  inventory_item_id: number
+  quantity: number
+  fixture_number_start?: number
+  dmx_channel_mode?: string
+  dmx_channel_count: number
+  truss_section_id?: number
+  dmx_universe: number
+  power_connection: 'grid' | 'chain'
+  power_connector_in: string
 }
 
 export interface EventRental {

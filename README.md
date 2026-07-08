@@ -9,7 +9,7 @@ An AVL (Audio, Video, Lighting) event planning tool for live productions. Plan p
 - **Events** — Create and manage events with date, venue, and notes
 - **Audio Patch (Inputs)** — Build full input patch lists: channel number, name, signal type, preamp connector, stagebox routing, stage multicore, microphone model, cable and mic stand picked straight from the rental catalog (concrete items with lengths, e.g. "Mikrofonkabel — 4m"), 48V phantom power, and DCA/group assignments
 - **Audio Patch (Outputs)** — Map outputs to destinations (local, stagebox, stage-multi), assign amplifiers and speakers, pick the cable run from the catalog
-- **Lighting Rig** — Add fixtures, assign them to truss sections, configure power connections (grid or daisy-chain), set DMX universe/address and channel mode, auto-assign DMX addresses in sequence
+- **Lighting Rig** — Add fixtures (one by one or in bulk batches with shared settings, auto-incrementing console fixture IDs, and sequential DMX addresses), assign them to truss sections, configure power connections (grid or daisy-chain), set DMX universe/address and channel mode (catalog-defined modes are offered right in the add dialog), give every fixture its GrandMA fixture ID (duplicates flagged), auto-assign DMX addresses in sequence
 - **Rental Order** — Per-event summary of all rented equipment, derived automatically from the plan (mics, DI/IEM, stageboxes, multicores, amplifiers, speakers, cables, mic stands, fixtures) plus manual line items for anything else; flags lines that exceed the renter's stock. Which catalog categories feed the cable/stand pickers is itself data: each category on the Inventory page carries an editable picker role
 - **Excel Export** — One click produces a copy of LL.xlsx with the order quantities filled into the *Antal Ljud* / *Antal Ljus* columns at the right rows, ready to send to the renter unmodified; lines that can't be placed are reported, never silently dropped
 - **Owned Gear & Equipment Lists** — A personal catalog of equipment you own (never on the rental order), plannable per event with quantities and notes; the Equipment tab shows everything beyond the patch and rig: owned gear plus rented extras
@@ -149,6 +149,7 @@ Open an event and go to the **Lighting Rig** tab.
 4. Click **Add**
 
 For each fixture in the table you can set:
+- **Fixture ID (FID)** — the console (GrandMA) patch number; optional, duplicates are flagged in the table but never blocked
 - **Truss section** — which truss or position the fixture hangs on
 - **Position** — index along the truss (for ordering)
 - **Power** — `grid` (direct mains) or `chain` (daisy-chained from another fixture)
@@ -230,6 +231,7 @@ Base URL: `http://localhost:7331/api/v1`
 | DELETE | `/events/:id/audio-outputs/:outputId` | Delete an output row |
 | GET | `/events/:id/lighting-rigs` | Get the rig with truss sections and fixtures |
 | POST | `/events/:id/lighting-rigs/:rigId/fixtures` | Add a fixture |
+| POST | `/events/:id/lighting-rigs/:rigId/fixtures/bulk` | Bulk-add N identical fixtures (shared settings, incrementing fixture IDs, appended DMX addresses; all-or-nothing) |
 | PATCH | `/events/:id/lighting-rigs/:rigId/fixtures/:fixtureId` | Update a fixture |
 | DELETE | `/events/:id/lighting-rigs/:rigId/fixtures/:fixtureId` | Delete a fixture |
 | POST | `/events/:id/lighting-rigs/:rigId/fixtures/auto-assign-dmx` | Auto-assign DMX addresses |
