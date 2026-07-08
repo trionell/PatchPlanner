@@ -109,15 +109,19 @@ Full Principle II compliance + §3.5.
 - [x] Settings page: add / rename-label / delete with duplicate rejection
       and in-use delete protection (409 with usage count).
 
-## Slice 5 — Print & signal flow (spec: `print-and-signal-flow`)
+## Slice 5 — Print & signal flow (spec: `print-signal-flow`) ✅ done 2026-07-08
 
 §3.7 + §3.4.
 
-- Print-friendly views (CSS print stylesheets) for input patch, output patch,
-  and lighting rig; per-tab Print button.
-- Read-only signal-flow view per input channel
-  (mic → cable → stagebox/multi channel → mixer channel) to catch patching
-  errors; text/table-based first, no graph library.
+- [x] Print-friendly views (print-only sheet components + CSS print rules)
+      for input patch, output patch, and lighting rig; per-tab Print button
+      opens the browser dialog (paper or save-as-PDF) with event header,
+      black-on-white tables, repeating column headers, and no UI chrome.
+- [x] Read-only Signal Flow tab per input channel
+      (source → cable → stagebox/multi channel → console) built from the
+      existing audio-patch response by a unit-tested pure function; missing
+      links flagged and counted, direct-to-console shown without false gaps;
+      the view prints like the sheets. No graph library, no new endpoints.
 
 ## Slice 6 — Production packaging (spec: `production-binary`)
 

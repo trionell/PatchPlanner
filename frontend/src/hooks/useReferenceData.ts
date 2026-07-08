@@ -25,5 +25,14 @@ export function useReferenceData() {
     return values
   }
 
-  return { ...query, options }
+  /**
+   * Display label for one stored value, falling back to the raw value for
+   * legacy/custom entries — the same text the dropdowns show.
+   */
+  const label = (vocabulary: string, value: string | undefined): string => {
+    if (!value) return ''
+    return query.data?.[vocabulary]?.find((v) => v.value === value)?.label ?? value
+  }
+
+  return { ...query, options, label }
 }

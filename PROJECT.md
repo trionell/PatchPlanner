@@ -152,9 +152,9 @@ Covered by two features: rented rigging/misc gear is ordered via manual rental l
 
 Video was listed in the original scope (cameras, screens, matrix switchers, cabling) but has not been started. Given the extensibility-by-design principle, a video section should largely reuse the same inventory-reference and rental-order patterns as audio and lighting.
 
-### 3.4 Signal Flow Visualization
+### 3.4 Signal Flow Visualization — ✅ implemented (2026-07-08)
 
-The data model already captures the full input signal chain (mic → cable → stagebox port → multicore channel → mixer channel). A read-only visual signal flow diagram — even a simple text-based one — would make it much faster to catch patching errors before load-in. Not yet implemented.
+Shipped as part of the `005-print-signal-flow` feature: a read-only Signal Flow tab on the event page traces every input channel's chain (source → cable → stagebox port or multi channel → console channel) as a text/table view. Incomplete links (no source picked, routing half-assigned) are flagged and counted, while direct-to-console channels render without false gaps; the view is printable like the patch sheets. A graphical node diagram remains a possible future refinement.
 
 ### 3.5 DMX Channel Modes as Inventory Data — ✅ implemented (2026-07-08)
 
@@ -164,9 +164,9 @@ Shipped as part of the `004-reference-data` feature: a `fixture_modes` table lin
 
 Shipped as part of the `001-rental-order-correctness` feature: every rental line carries the renter's available stock, over-booked lines are flagged in the API and highlighted in the UI, and the order shows an overall warning.
 
-### 3.7 Print-Friendly / Shareable Patch Sheets
+### 3.7 Print-Friendly / Shareable Patch Sheets — ✅ implemented (2026-07-08, print views)
 
-A common workflow is to print the input patch list and distribute it to the stage crew and FOH engineer, or export it as a PDF. No print view or export-to-PDF functionality exists yet. Similarly, a sharable read-only link to a patch sheet would be useful for remote collaboration.
+Shipped as part of the `005-print-signal-flow` feature: the input patch, output patch, and lighting rig tabs each have a Print button that opens the browser print dialog on a dedicated paper-friendly sheet — event header, black-on-white static table (no form controls or app chrome), column headers repeating on every page. Save-as-PDF is covered by the same dialog. A shareable read-only web link for remote collaboration remains post-v1.
 
 ### 3.8 Production Binary (Frontend Embedded in Backend)
 

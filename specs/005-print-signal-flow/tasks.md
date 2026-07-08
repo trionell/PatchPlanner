@@ -28,10 +28,10 @@ Technical Context).
 **Purpose**: Shared print plumbing every story depends on: base print CSS, hidden app
 chrome, the Print button, and the sheet wrapper with the event header.
 
-- [ ] T001 [P] Add `@media print` base rules to `frontend/src/index.css`: `@page { margin: 12mm }`, force white background / black text on `:root`/`body`, `tr { break-inside: avoid }` inside `.print-sheet` tables (research.md R2)
-- [ ] T002 [P] Hide app chrome in print in `frontend/src/components/Layout.tsx`: `print:hidden` on the sidebar `<aside>` and sticky `<header>`, `print:ml-0` on the content wrapper
-- [ ] T003 [P] Create `frontend/src/components/print/PrintButton.tsx`: small button (Printer icon from lucide-react, label "Print") calling `window.print()`; itself `print:hidden`
-- [ ] T004 [P] Create `frontend/src/components/print/PrintSheet.tsx`: wrapper `hidden print:block print-sheet` (optional `visibleOnScreen` prop for the signal-flow tab) that renders sheet title + event name · venue · date from `useQuery(['event', eventId])` (research.md R5), an "Nothing planned on this sheet." line when `empty`, and children as the sheet body — black-on-white typography per contracts/print-signal-flow-ui.md
+- [x] T001 [P] Add `@media print` base rules to `frontend/src/index.css`: `@page { margin: 12mm }`, force white background / black text on `:root`/`body`, `tr { break-inside: avoid }` inside `.print-sheet` tables (research.md R2)
+- [x] T002 [P] Hide app chrome in print in `frontend/src/components/Layout.tsx`: `print:hidden` on the sidebar `<aside>` and sticky `<header>`, `print:ml-0` on the content wrapper
+- [x] T003 [P] Create `frontend/src/components/print/PrintButton.tsx`: small button (Printer icon from lucide-react, label "Print") calling `window.print()`; itself `print:hidden`
+- [x] T004 [P] Create `frontend/src/components/print/PrintSheet.tsx`: wrapper `hidden print:block print-sheet` (optional `visibleOnScreen` prop for the signal-flow tab) that renders sheet title + event name · venue · date from `useQuery(['event', eventId])` (research.md R5), an "Nothing planned on this sheet." line when `empty`, and children as the sheet body — black-on-white typography per contracts/print-signal-flow-ui.md
 
 **Checkpoint**: Foundation ready — user story phases can start.
 
@@ -46,9 +46,9 @@ sheet with the event header and every planned channel (FR-001, FR-004–FR-006, 
 tab, verify preview: all channels, no chrome/controls, light background, repeating
 headers, Ctrl+P equivalent, empty-event message.
 
-- [ ] T005 [US1] Create `frontend/src/components/print/InputPatchSheet.tsx`: static table `Ch# | Name | Type | Connector | Source | Stand | Cable | Length | 48V | Routing | DCA | Notes` per contracts/print-signal-flow-ui.md — Source resolves `mic_item_id` via passed-in inventory items with `mic_label` fallback (reuse the lookup pattern from `AudioInputsTab.tsx`); Routing renders `SB <name> ch <n>` / `Multi <name> ch <n>` / `direct`; rows sorted by `channel_number`
-- [ ] T006 [US1] Wire into `frontend/src/components/event/AudioInputsTab.tsx`: add `<PrintButton />` beside the tab's header controls and render `<PrintSheet>` + `<InputPatchSheet>` from the already-loaded audio-patch and inventory queries
-- [ ] T007 [US1] Manual verification per quickstart.md §1 (print preview: completeness, chrome-free, pagination, empty state, legacy values print as shown)
+- [x] T005 [US1] Create `frontend/src/components/print/InputPatchSheet.tsx`: static table `Ch# | Name | Type | Connector | Source | Stand | Cable | Length | 48V | Routing | DCA | Notes` per contracts/print-signal-flow-ui.md — Source resolves `mic_item_id` via passed-in inventory items with `mic_label` fallback (reuse the lookup pattern from `AudioInputsTab.tsx`); Routing renders `SB <name> ch <n>` / `Multi <name> ch <n>` / `direct`; rows sorted by `channel_number`
+- [x] T006 [US1] Wire into `frontend/src/components/event/AudioInputsTab.tsx`: add `<PrintButton />` beside the tab's header controls and render `<PrintSheet>` + `<InputPatchSheet>` from the already-loaded audio-patch and inventory queries
+- [x] T007 [US1] Manual verification per quickstart.md §1 (print preview: completeness, chrome-free, pagination, empty state, legacy values print as shown)
 
 **Checkpoint**: US1 delivers standalone value — the MVP of this slice.
 
@@ -62,11 +62,11 @@ FR-010–011); each tab prints only its own sheet.
 **Independent Test**: quickstart.md §2 — Print on each tab shows the complete sheet for
 that tab only.
 
-- [ ] T008 [P] [US2] Create `frontend/src/components/print/OutputPatchSheet.tsx`: static table `Out# | Name | Type | Destination | Amp | Speaker | Cable | Length | Notes` — Destination per `destination_type` (`local` / `SB <name> ch <n>` / `Multi <name> ch <n>`); amp/speaker names resolved from inventory items; rows sorted by `output_number`
-- [ ] T009 [P] [US2] Create `frontend/src/components/print/LightingRigSheet.tsx`: static table `# | Fixture | Truss | Universe | Address | Mode | Ch | Power | Notes` — Fixture = `inventory_item_name ?? custom_name`; Power = `grid <connector-in>` or `chain ← <parent position>` (+ connector-out when set); rows sorted by `position_index`
-- [ ] T010 [US2] Wire into `frontend/src/components/event/AudioOutputsTab.tsx`: `<PrintButton />` + `<PrintSheet>` + `<OutputPatchSheet>` from existing queries
-- [ ] T011 [US2] Wire into `frontend/src/components/event/LightingTab.tsx`: `<PrintButton />` + `<PrintSheet>` + `<LightingRigSheet>` from existing queries
-- [ ] T012 [US2] Manual verification per quickstart.md §2 (both sheets complete, no cross-tab content)
+- [x] T008 [P] [US2] Create `frontend/src/components/print/OutputPatchSheet.tsx`: static table `Out# | Name | Type | Destination | Amp | Speaker | Cable | Length | Notes` — Destination per `destination_type` (`local` / `SB <name> ch <n>` / `Multi <name> ch <n>`); amp/speaker names resolved from inventory items; rows sorted by `output_number`
+- [x] T009 [P] [US2] Create `frontend/src/components/print/LightingRigSheet.tsx`: static table `# | Fixture | Truss | Universe | Address | Mode | Ch | Power | Notes` — Fixture = `inventory_item_name ?? custom_name`; Power = `grid <connector-in>` or `chain ← <parent position>` (+ connector-out when set); rows sorted by `position_index`
+- [x] T010 [US2] Wire into `frontend/src/components/event/AudioOutputsTab.tsx`: `<PrintButton />` + `<PrintSheet>` + `<OutputPatchSheet>` from existing queries
+- [x] T011 [US2] Wire into `frontend/src/components/event/LightingTab.tsx`: `<PrintButton />` + `<PrintSheet>` + `<LightingRigSheet>` from existing queries
+- [x] T012 [US2] Manual verification per quickstart.md §2 (both sheets complete, no cross-tab content)
 
 **Checkpoint**: All three planning tabs print.
 
@@ -81,11 +81,11 @@ input channel with flagged gaps, itself printable (FR-007–FR-010).
 channel missing routing is flagged and counted; direct-to-console shows no false gap;
 nothing is editable; the view prints.
 
-- [ ] T013 [US3] Create `frontend/src/lib/signalFlow.ts`: `ChannelFlow`/`FlowHop` types and pure `buildChannelFlow(input, stageboxes, stageMultis, micNameById)` implementing the derivation rules in data-model.md (source fallback chain, cable + length detail, stagebox/multi/direct path, incomplete-routing flags, `hasGap`)
-- [ ] T014 [US3] Create `frontend/src/lib/__tests__/signalFlow.test.ts`: Vitest cases — complete chain, missing source flagged, legacy `mic_label` source unflagged, direct-to-console unflagged, stagebox chosen without channel flagged, channel number without box/multi flagged, multi routing rendered, sorted by channel number
-- [ ] T015 [US3] Create `frontend/src/components/event/SignalFlowTab.tsx`: read-only view (visible on screen AND printable via `PrintSheet` `visibleOnScreen`) — summary line ("All channels fully routed" / "N channel(s) have gaps"), one row per channel `Ch# | Name | Source → Cable → Path → Console` with ⚠-flagged gaps per contracts/print-signal-flow-ui.md, `<PrintButton />`, no mutation calls; reuses `['audio-patch', eventId]` + inventory items queries
-- [ ] T016 [US3] Add the "Signal Flow" tab to `frontend/src/pages/EventDetail.tsx` (after Lighting Rig)
-- [ ] T017 [US3] Manual verification per quickstart.md §3 (trace, gap flagging + count, direct-to-console, read-only, print)
+- [x] T013 [US3] Create `frontend/src/lib/signalFlow.ts`: `ChannelFlow`/`FlowHop` types and pure `buildChannelFlow(input, stageboxes, stageMultis, micNameById)` implementing the derivation rules in data-model.md (source fallback chain, cable + length detail, stagebox/multi/direct path, incomplete-routing flags, `hasGap`)
+- [x] T014 [US3] Create `frontend/src/lib/signalFlow.test.ts` (colocated like the existing `utils.test.ts` instead of an `__tests__/` dir): Vitest cases — complete chain, missing source flagged, legacy `mic_label` source unflagged, direct-to-console unflagged, stagebox chosen without channel flagged, channel number without box/multi flagged, multi routing rendered, sorted by channel number
+- [x] T015 [US3] Create `frontend/src/components/event/SignalFlowTab.tsx`: read-only view (visible on screen AND printable via `PrintSheet` `visibleOnScreen`) — summary line ("All channels fully routed" / "N channel(s) have gaps"), one row per channel `Ch# | Name | Source → Cable → Path → Console` with ⚠-flagged gaps per contracts/print-signal-flow-ui.md, `<PrintButton />`, no mutation calls; reuses `['audio-patch', eventId]` + inventory items queries
+- [x] T016 [US3] Add the "Signal Flow" tab to `frontend/src/pages/EventDetail.tsx` (after Lighting Rig)
+- [x] T017 [US3] Manual verification per quickstart.md §3 (trace, gap flagging + count, direct-to-console, read-only, print)
 
 **Checkpoint**: All user stories complete.
 
@@ -93,9 +93,9 @@ nothing is editable; the view prints.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T018 [P] Update `README.md`: add print & signal-flow bullets to the features list (no API table changes — no new endpoints)
-- [ ] T019 [P] Mark PROJECT.md §3.7 and §3.4 as implemented and check off Slice 5 in `ROADMAP.md`
-- [ ] T020 Run full gates: `cd frontend && npx tsc --noEmit && npx eslint . && npx vitest run && npm run build`; `cd backend && go vet ./... && go test ./...` and `golangci-lint run` must stay green (no backend changes)
+- [x] T018 [P] Update `README.md`: add print & signal-flow bullets to the features list (no API table changes — no new endpoints)
+- [x] T019 [P] Mark PROJECT.md §3.7 and §3.4 as implemented and check off Slice 5 in `ROADMAP.md`
+- [x] T020 Run full gates: `cd frontend && npx tsc --noEmit && npx eslint . && npx vitest run && npm run build`; `cd backend && go vet ./... && go test ./...` and `golangci-lint run` must stay green (no backend changes)
 
 ---
 
@@ -124,3 +124,20 @@ MVP = Phase 2 + US1 (input patch sheet) — the sheet most often handed to crew.
 the exact mechanism for two more sheets. US3 adds the only real logic in the slice
 (`buildChannelFlow`), covered by unit tests before/alongside the UI. Stop-and-verify
 checkpoints are the quickstart print previews per story.
+
+---
+
+## Implementation Notes (post-completion)
+
+- T014 test file is colocated (`lib/signalFlow.test.ts`) to match the repo's existing
+  `lib/utils.test.ts` convention rather than the planned `__tests__/` directory.
+- Beyond the plan: `components/print/printSheets.test.tsx` statically server-renders all
+  three sheets and asserts row completeness, routing/destination/power text, sorting,
+  the empty-state line, and that the print output contains **zero form controls**
+  (FR-005/SC-003) — because the manual-verification tasks (T007/T012/T017) run in a
+  headless environment. The chain builder gained a `label()` helper in
+  `useReferenceData` so sheets print vocabulary labels exactly as the dropdowns show.
+- T007/T012/T017: automated to the extent possible (unit + static-render tests, live
+  smoke against the dev stack confirming the app boots with the new tab). The actual
+  browser print-preview eyeballing (pagination, margins) remains the quickstart.md
+  checklist for a human with a print dialog.

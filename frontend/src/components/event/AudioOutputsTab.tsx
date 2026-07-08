@@ -8,6 +8,8 @@ import { useReferenceData } from '../../hooks/useReferenceData'
 import { destinationTypes } from '../../lib/constants'
 import { toOptionalNumber } from '../../lib/utils'
 import type { AudioPatchOutput, InventoryItem } from '../../types'
+import { OutputPatchSheet } from '../print/OutputPatchSheet'
+import { PrintButton } from '../print/PrintButton'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
@@ -58,75 +60,89 @@ export function AudioOutputsTab({ eventId }: { eventId: number }) {
     })
   }
 
+  const itemNameById = useMemo(() => new Map(allAudioItems.map((item) => [item.id, item.name])), [allAudioItems])
+
   return (
     <>
-      <StageboxMultiSection
+      <div className="print:hidden">
+        <StageboxMultiSection
+          eventId={eventId}
+          stageboxes={audioQuery.data?.stageboxes ?? []}
+          stageMultis={audioQuery.data?.stage_multis ?? []}
+          audioItems={allAudioItems}
+        />
+        <Card>
+          <CardHeader className="flex-row items-center justify-between">
+            <CardTitle>Audio outputs</CardTitle>
+            <div className="flex gap-2">
+              <PrintButton />
+              <Button size="sm" onClick={addRow}><Plus className="mr-2 h-4 w-4" />Add Row</Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {['Out#','Name','Type','Destination','SB','SB Ch','Multi','Multi Ch','Amplifier','Speaker','Cable','Length','Notes',''].map((label) => <TableHead key={label}>{label}</TableHead>)}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {outputs.map((row, index) => {
+                    const selSb = (audioQuery.data?.stageboxes ?? []).find((sb) => sb.id === row.stagebox_id)
+                    const sbMax = selSb?.output_count ?? 0
+                    const selSm = (audioQuery.data?.stage_multis ?? []).find((sm) => sm.id === row.stage_multi_id)
+                    const smMax = selSm?.channels ?? 0
+                    return (
+                      <TableRow key={row.id}>
+                        <TableCell><Input type="number" value={row.output_number} onChange={(e) => updateDraft(index, 'output_number', Number(e.target.value))} onBlur={() => persist(outputs[index])} className="min-w-16" /></TableCell>
+                        <TableCell><Input value={row.output_name ?? ''} onChange={(e) => updateDraft(index, 'output_name', e.target.value)} onBlur={() => persist(outputs[index])} className="min-w-36" /></TableCell>
+                        <TableCell><div className="space-y-2 min-w-28"><Badge variant={row.output_type === 'aux' ? 'warning' : row.output_type}>{row.output_type}</Badge><Select value={row.output_type} onChange={(e) => updateDraft(index, 'output_type', e.target.value)} onBlur={() => persist(outputs[index])}>{options('output_types', row.output_type).map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}</Select></div></TableCell>
+                        <TableCell><Select value={row.destination_type} onChange={(e) => updateDraft(index, 'destination_type', e.target.value as AudioPatchOutput['destination_type'])} onBlur={() => persist(outputs[index])} className="min-w-28">{destinationTypes.map((value) => <option key={value} value={value}>{value}</option>)}</Select></TableCell>
+                        <TableCell><Select value={row.stagebox_id ?? ''} onChange={(e) => { updateDraft(index, 'stagebox_id', toOptionalNumber(e.target.value)); updateDraft(index, 'stagebox_channel', undefined) }} onBlur={() => persist(outputs[index])} className="min-w-36"><option value="">—</option>{(audioQuery.data?.stageboxes ?? []).map((sb) => <option key={sb.id} value={sb.id}>{sb.name}</option>)}</Select></TableCell>
+                        <TableCell>
+                          {sbMax > 0 ? (
+                            <Select value={row.stagebox_channel ?? ''} onChange={(e) => updateDraft(index, 'stagebox_channel', toOptionalNumber(e.target.value))} onBlur={() => persist(outputs[index])} className="min-w-20">
+                              <option value="">—</option>
+                              {Array.from({ length: sbMax }, (_, i) => i + 1).map((ch) => <option key={ch} value={ch}>{ch}</option>)}
+                            </Select>
+                          ) : (
+                            <Input type="number" min={1} value={row.stagebox_channel ?? ''} onChange={(e) => updateDraft(index, 'stagebox_channel', toOptionalNumber(e.target.value))} onBlur={() => persist(outputs[index])} className="min-w-20" disabled={!row.stagebox_id} />
+                          )}
+                        </TableCell>
+                        <TableCell><Select value={row.stage_multi_id ?? ''} onChange={(e) => { updateDraft(index, 'stage_multi_id', toOptionalNumber(e.target.value)); updateDraft(index, 'stage_multi_channel', undefined) }} onBlur={() => persist(outputs[index])} className="min-w-36"><option value="">—</option>{(audioQuery.data?.stage_multis ?? []).map((sm) => <option key={sm.id} value={sm.id}>{sm.name}</option>)}</Select></TableCell>
+                        <TableCell>
+                          {smMax > 0 ? (
+                            <Select value={row.stage_multi_channel ?? ''} onChange={(e) => updateDraft(index, 'stage_multi_channel', toOptionalNumber(e.target.value))} onBlur={() => persist(outputs[index])} className="min-w-20">
+                              <option value="">—</option>
+                              {Array.from({ length: smMax }, (_, i) => i + 1).map((ch) => <option key={ch} value={ch}>{ch}</option>)}
+                            </Select>
+                          ) : (
+                            <Input type="number" min={1} value={row.stage_multi_channel ?? ''} onChange={(e) => updateDraft(index, 'stage_multi_channel', toOptionalNumber(e.target.value))} onBlur={() => persist(outputs[index])} className="min-w-20" disabled={!row.stage_multi_id} />
+                          )}
+                        </TableCell>
+                        <TableCell><Select value={row.amplifier_item_id ?? ''} onChange={(e) => updateDraft(index, 'amplifier_item_id', toOptionalNumber(e.target.value))} onBlur={() => persist(outputs[index])} className="min-w-44"><option value="">—</option>{ampItems.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></TableCell>
+                        <TableCell><Select value={row.speaker_item_id ?? ''} onChange={(e) => updateDraft(index, 'speaker_item_id', toOptionalNumber(e.target.value))} onBlur={() => persist(outputs[index])} className="min-w-44"><option value="">—</option>{speakerItems.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></TableCell>
+                        <TableCell><Select value={row.cable_type} onChange={(e) => updateDraft(index, 'cable_type', e.target.value)} onBlur={() => persist(outputs[index])} className="min-w-32">{options('speaker_cable_types', row.cable_type).map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</Select></TableCell>
+                        <TableCell><Input type="number" step="0.5" value={row.cable_length_m} onChange={(e) => updateDraft(index, 'cable_length_m', Number(e.target.value))} onBlur={() => persist(outputs[index])} className="min-w-20" /></TableCell>
+                        <TableCell><Input value={row.notes ?? ''} onChange={(e) => updateDraft(index, 'notes', e.target.value)} onBlur={() => persist(outputs[index])} className="min-w-36" /></TableCell>
+                        <TableCell><Button size="sm" variant="ghost" onClick={() => deleteMutation.mutate(row.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      <OutputPatchSheet
         eventId={eventId}
+        outputs={outputs}
         stageboxes={audioQuery.data?.stageboxes ?? []}
         stageMultis={audioQuery.data?.stage_multis ?? []}
-        audioItems={allAudioItems}
+        itemNameById={itemNameById}
       />
-      <Card>
-        <CardHeader className="flex-row items-center justify-between">
-          <CardTitle>Audio outputs</CardTitle>
-          <Button size="sm" onClick={addRow}><Plus className="mr-2 h-4 w-4" />Add Row</Button>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {['Out#','Name','Type','Destination','SB','SB Ch','Multi','Multi Ch','Amplifier','Speaker','Cable','Length','Notes',''].map((label) => <TableHead key={label}>{label}</TableHead>)}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {outputs.map((row, index) => {
-                  const selSb = (audioQuery.data?.stageboxes ?? []).find((sb) => sb.id === row.stagebox_id)
-                  const sbMax = selSb?.output_count ?? 0
-                  const selSm = (audioQuery.data?.stage_multis ?? []).find((sm) => sm.id === row.stage_multi_id)
-                  const smMax = selSm?.channels ?? 0
-                  return (
-                    <TableRow key={row.id}>
-                      <TableCell><Input type="number" value={row.output_number} onChange={(e) => updateDraft(index, 'output_number', Number(e.target.value))} onBlur={() => persist(outputs[index])} className="min-w-16" /></TableCell>
-                      <TableCell><Input value={row.output_name ?? ''} onChange={(e) => updateDraft(index, 'output_name', e.target.value)} onBlur={() => persist(outputs[index])} className="min-w-36" /></TableCell>
-                      <TableCell><div className="space-y-2 min-w-28"><Badge variant={row.output_type === 'aux' ? 'warning' : row.output_type}>{row.output_type}</Badge><Select value={row.output_type} onChange={(e) => updateDraft(index, 'output_type', e.target.value)} onBlur={() => persist(outputs[index])}>{options('output_types', row.output_type).map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}</Select></div></TableCell>
-                      <TableCell><Select value={row.destination_type} onChange={(e) => updateDraft(index, 'destination_type', e.target.value as AudioPatchOutput['destination_type'])} onBlur={() => persist(outputs[index])} className="min-w-28">{destinationTypes.map((value) => <option key={value} value={value}>{value}</option>)}</Select></TableCell>
-                      <TableCell><Select value={row.stagebox_id ?? ''} onChange={(e) => { updateDraft(index, 'stagebox_id', toOptionalNumber(e.target.value)); updateDraft(index, 'stagebox_channel', undefined) }} onBlur={() => persist(outputs[index])} className="min-w-36"><option value="">—</option>{(audioQuery.data?.stageboxes ?? []).map((sb) => <option key={sb.id} value={sb.id}>{sb.name}</option>)}</Select></TableCell>
-                      <TableCell>
-                        {sbMax > 0 ? (
-                          <Select value={row.stagebox_channel ?? ''} onChange={(e) => updateDraft(index, 'stagebox_channel', toOptionalNumber(e.target.value))} onBlur={() => persist(outputs[index])} className="min-w-20">
-                            <option value="">—</option>
-                            {Array.from({ length: sbMax }, (_, i) => i + 1).map((ch) => <option key={ch} value={ch}>{ch}</option>)}
-                          </Select>
-                        ) : (
-                          <Input type="number" min={1} value={row.stagebox_channel ?? ''} onChange={(e) => updateDraft(index, 'stagebox_channel', toOptionalNumber(e.target.value))} onBlur={() => persist(outputs[index])} className="min-w-20" disabled={!row.stagebox_id} />
-                        )}
-                      </TableCell>
-                      <TableCell><Select value={row.stage_multi_id ?? ''} onChange={(e) => { updateDraft(index, 'stage_multi_id', toOptionalNumber(e.target.value)); updateDraft(index, 'stage_multi_channel', undefined) }} onBlur={() => persist(outputs[index])} className="min-w-36"><option value="">—</option>{(audioQuery.data?.stage_multis ?? []).map((sm) => <option key={sm.id} value={sm.id}>{sm.name}</option>)}</Select></TableCell>
-                      <TableCell>
-                        {smMax > 0 ? (
-                          <Select value={row.stage_multi_channel ?? ''} onChange={(e) => updateDraft(index, 'stage_multi_channel', toOptionalNumber(e.target.value))} onBlur={() => persist(outputs[index])} className="min-w-20">
-                            <option value="">—</option>
-                            {Array.from({ length: smMax }, (_, i) => i + 1).map((ch) => <option key={ch} value={ch}>{ch}</option>)}
-                          </Select>
-                        ) : (
-                          <Input type="number" min={1} value={row.stage_multi_channel ?? ''} onChange={(e) => updateDraft(index, 'stage_multi_channel', toOptionalNumber(e.target.value))} onBlur={() => persist(outputs[index])} className="min-w-20" disabled={!row.stage_multi_id} />
-                        )}
-                      </TableCell>
-                      <TableCell><Select value={row.amplifier_item_id ?? ''} onChange={(e) => updateDraft(index, 'amplifier_item_id', toOptionalNumber(e.target.value))} onBlur={() => persist(outputs[index])} className="min-w-44"><option value="">—</option>{ampItems.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></TableCell>
-                      <TableCell><Select value={row.speaker_item_id ?? ''} onChange={(e) => updateDraft(index, 'speaker_item_id', toOptionalNumber(e.target.value))} onBlur={() => persist(outputs[index])} className="min-w-44"><option value="">—</option>{speakerItems.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></TableCell>
-                      <TableCell><Select value={row.cable_type} onChange={(e) => updateDraft(index, 'cable_type', e.target.value)} onBlur={() => persist(outputs[index])} className="min-w-32">{options('speaker_cable_types', row.cable_type).map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</Select></TableCell>
-                      <TableCell><Input type="number" step="0.5" value={row.cable_length_m} onChange={(e) => updateDraft(index, 'cable_length_m', Number(e.target.value))} onBlur={() => persist(outputs[index])} className="min-w-20" /></TableCell>
-                      <TableCell><Input value={row.notes ?? ''} onChange={(e) => updateDraft(index, 'notes', e.target.value)} onBlur={() => persist(outputs[index])} className="min-w-36" /></TableCell>
-                      <TableCell><Button size="sm" variant="ghost" onClick={() => deleteMutation.mutate(row.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
     </>
   )
 }

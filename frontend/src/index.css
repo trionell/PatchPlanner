@@ -30,3 +30,35 @@ textarea {
 #root {
   min-height: 100vh;
 }
+
+@page {
+  margin: 12mm;
+}
+
+/*
+ * Print sheets (.print-sheet): app chrome and editing UI are hidden with
+ * Tailwind print: variants; these rules force paper-friendly colors even on
+ * elements carrying dark-theme utility classes, hence the !important.
+ */
+@media print {
+  :root,
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  .print-sheet,
+  .print-sheet * {
+    color: #000 !important;
+    background: #fff !important;
+    border-color: #a1a1aa !important;
+  }
+
+  .print-sheet table {
+    font-size: 9pt;
+  }
+
+  .print-sheet tr {
+    break-inside: avoid;
+  }
+}

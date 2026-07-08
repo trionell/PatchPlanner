@@ -15,6 +15,8 @@ An AVL (Audio, Video, Lighting) event planning tool for live productions. Plan p
 - **Owned Gear & Equipment Lists** — A personal catalog of equipment you own (never on the rental order), plannable per event with quantities and notes; the Equipment tab shows everything beyond the patch and rig: owned gear plus rented extras
 - **Configurable Reference Data** — Every planning vocabulary (signal types, preamp connectors, signal/speaker cable types, output types, mic stands, power connectors, truss types) is stored data, editable on the Settings page: add values for new gear, rename labels, delete unused ones (values in use by a plan are protected). Lighting fixture models carry DMX mode definitions (name + channel count) that auto-fill the channel count when patching
 - **Inventory** — Full catalog imported directly from the LL.xlsx price list (308 items across 27 categories: audio, lighting, rigging)
+- **Print Sheets** — Every planning tab (input patch, output patch, lighting rig) has a Print button that produces a clean paper/PDF sheet via the browser print dialog: event header, black-on-white table, repeating column headers, no UI chrome
+- **Signal Flow** — A read-only per-channel trace (source → cable → stagebox/multi channel → console) on its own event tab; incomplete routing is flagged so patching errors are caught before load-in, and the view prints like the sheets
 
 ---
 

@@ -7,6 +7,7 @@ import { EquipmentTab } from '../components/event/EquipmentTab'
 import { LightingTab } from '../components/event/LightingTab'
 import { OverviewTab } from '../components/event/OverviewTab'
 import { RentalTab } from '../components/event/RentalTab'
+import { SignalFlowTab } from '../components/event/SignalFlowTab'
 import { Tab, TabList, TabPanel, Tabs } from '../components/ui/Tabs'
 
 export function EventDetailPage() {
@@ -20,7 +21,7 @@ export function EventDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-4 print:hidden">
         <div>
           <h2 className="text-xl font-semibold">{eventQuery.data.name}</h2>
           <p className="text-sm text-zinc-400">{eventQuery.data.venue || 'Venue TBD'} · {eventQuery.data.date || 'Date TBD'}</p>
@@ -29,11 +30,12 @@ export function EventDetailPage() {
       </div>
 
       <Tabs defaultValue="overview">
-        <TabList>
+        <TabList className="print:hidden">
           <Tab value="overview">Overview</Tab>
           <Tab value="audio-inputs">Audio Inputs</Tab>
           <Tab value="audio-outputs">Audio Outputs</Tab>
           <Tab value="lighting-rig">Lighting Rig</Tab>
+          <Tab value="signal-flow">Signal Flow</Tab>
           <Tab value="equipment">Equipment</Tab>
           <Tab value="rentals">Rental Order</Tab>
         </TabList>
@@ -42,6 +44,7 @@ export function EventDetailPage() {
         <TabPanel value="audio-inputs"><AudioInputsTab eventId={eventId} /></TabPanel>
         <TabPanel value="audio-outputs"><AudioOutputsTab eventId={eventId} /></TabPanel>
         <TabPanel value="lighting-rig"><LightingTab eventId={eventId} /></TabPanel>
+        <TabPanel value="signal-flow"><SignalFlowTab eventId={eventId} /></TabPanel>
         <TabPanel value="equipment"><EquipmentTab eventId={eventId} /></TabPanel>
         <TabPanel value="rentals"><RentalTab eventId={eventId} /></TabPanel>
       </Tabs>

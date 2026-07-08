@@ -21,7 +21,7 @@ export function Layout() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <aside className="fixed inset-y-0 left-0 w-60 border-r border-zinc-800 bg-zinc-900 px-4 py-6">
+      <aside className="fixed inset-y-0 left-0 w-60 border-r border-zinc-800 bg-zinc-900 px-4 py-6 print:hidden">
         <div className="mb-8 flex items-center gap-3 px-3">
           <div className="rounded-lg bg-amber-500/15 p-2 text-amber-400">
             <Cable className="h-5 w-5" />
@@ -55,11 +55,11 @@ export function Layout() {
           })}
         </nav>
       </aside>
-      <div className="ml-60 min-h-screen">
-        <header className="sticky top-0 z-20 border-b border-zinc-800 bg-zinc-950/95 px-8 py-5 backdrop-blur">
+      <div className="ml-60 min-h-screen print:ml-0">
+        <header className="sticky top-0 z-20 border-b border-zinc-800 bg-zinc-950/95 px-8 py-5 backdrop-blur print:hidden">
           <h1 className="text-2xl font-semibold text-zinc-100">{title}</h1>
         </header>
-        <main className="px-8 py-6">
+        <main className="px-8 py-6 print:p-0">
           <Outlet />
         </main>
       </div>
