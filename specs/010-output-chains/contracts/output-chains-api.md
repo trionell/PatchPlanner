@@ -54,9 +54,10 @@ Request/response body gains `chain`, an ordered array of hops:
 (A stagebox output feeding a shared multichannel headphone amp, onward
 over a stage multi to a bodypack — the IEM example from the spec.)
 
-- `chain` — optional on write; omitted means "no change" on update,
-  explicit `[]` means "clear the chain" (same semantics as `group_ids`
-  already uses). Always present in responses (`[]` when empty).
+- `chain` — replaced wholesale on every write (an omitted or empty `[]`
+  clears it — every PATCH is expected to carry the row's full current
+  state, matching how `group_ids`/`dca_ids` updates already work on
+  inputs). Always present in responses (`[]` when empty).
 - Every hop's `position` is assigned by the server as the array index —
   the client never sends `position`.
 - `hop_kind` — required per hop, `device` or `route`. `400` on any other
@@ -78,6 +79,12 @@ over a stage multi to a bodypack — the IEM example from the spec.)
   a pre-Slice-6 row that never got a catalog cable pick; the server never
   writes them from payloads and clears them once `cable_item_id` is set,
   same lifecycle as the pre-existing input/output legacy cable fields.
+- `cable_item_id_b` — optional, meaningful only when the output's `width`
+  is `"stereo"`; same validation as `cable_item_id`. Left unset,
+  `cable_item_id` doubles for both physical sides as before; set it when
+  the two sides need different cable lengths (e.g. an amplifier on one
+  side of the stage needs a shorter run to the near speaker) and each
+  side is counted independently instead.
 - The whole `chain` array is validated and replaced atomically; a `400`
   on any hop rejects the entire request, leaving the previous chain
   untouched.
@@ -117,9 +124,14 @@ the tabs need in one call" shape).
 
 No shape change — same `EventRental[]` response. Quantities now reflect:
 
-- A non-shared device hop's `inventory_item_id` and any hop's
-  `cable_item_id`: **×2** on a stereo output channel, **×1** on mono
-  (identical rule to today's speaker/cable doubling).
+- A non-shared device hop's `inventory_item_id`: **×2** on a stereo output
+  channel, **×1** on mono (identical rule to today's speaker doubling).
+- A hop's `cable_item_id`: **×2** on stereo when `cable_item_id_b` is
+  unset (the default); **×1** when `cable_item_id_b` is set (each side
+  now counts its own independent pick — see below). Always **×1** on
+  mono.
+- A hop's `cable_item_id_b`: **×1** on stereo when set, never counted on
+  mono (inert-not-lost).
 - A shared device hop's `output_device_id`: contributes nothing itself —
   the declaration in `output_devices` is what counts, always **×1**,
   regardless of how many chains/hops reference it.

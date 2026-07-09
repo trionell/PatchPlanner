@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { AudioPatchInput, StageMulti, Stagebox } from '../types'
-import { buildChannelFlow, buildChannelFlows, type FlowContext } from './signalFlow'
+import type { AudioPatchInput, AudioPatchOutput, OutputChainHop, StageMulti, Stagebox } from '../types'
+import type { HopLabelContext } from './outputChain'
+import { buildChannelFlow, buildChannelFlows, buildOutputChainFlow, buildOutputChainFlows, type FlowContext } from './signalFlow'
 
 const stageboxes: Stagebox[] = [
   { id: 1, event_id: 1, name: 'SB Stage L', model: '', input_count: 16, output_count: 8, connection_type: 'analog' },
@@ -161,5 +162,126 @@ describe('buildChannelFlows', () => {
       context,
     )
     expect(flows.map((flow) => flow.channelNumber)).toEqual([3, 12])
+  })
+})
+
+const outputContext: HopLabelContext = {
+  stageboxes,
+  stageMultis,
+  outputDevices: [{ id: 9, event_id: 1, name: 'IEM amp', inventory_item_id: 77 }],
+  itemLabelById: new Map([[77, 'Behringer P2'], [401, 'Speakon Cable — 10m']]),
+  ownedItemLabelById: new Map([[3, 'House sub']]),
+  cableLabel: (value) => (value === 'nl4' ? 'NL4' : value),
+}
+
+function output(overrides: Partial<AudioPatchOutput>): AudioPatchOutput {
+  return {
+    id: 1, event_id: 1, output_number: 1, output_name: 'Main', output_type: 'foh', width: 'mono', chain: [],
+    ...overrides,
+  }
+}
+
+function hop(overrides: Partial<OutputChainHop>): OutputChainHop {
+  return { position: 0, hop_kind: 'device', ...overrides }
+}
+
+describe('buildOutputChainFlow', () => {
+  it('renders one hop per chain entry in order, with device and cable labels', () => {
+    const flow = buildOutputChainFlow(
+      output({
+        chain: [
+          hop({ device_source: 'inventory', inventory_item_id: 77, cable_item_id: 401 }),
+          hop({ position: 1, hop_kind: 'route', stagebox_id: 1, stagebox_channel: 5 }),
+        ],
+      }),
+      outputContext,
+    )
+    expect(flow.hops).toHaveLength(2)
+    expect(flow.hops[0].device).toEqual({ label: 'Behringer P2', kind: 'device', missing: false })
+    expect(flow.hops[0].cable).toEqual({ label: 'Speakon Cable — 10m', kind: 'cable', missing: false })
+    expect(flow.hops[1].device).toEqual({ label: 'SB SB Stage L ch 5', kind: 'route', missing: false })
+    expect(flow.hasGap).toBe(false)
+  })
+
+  it('resolves a shared device hop via the declared device name', () => {
+    const flow = buildOutputChainFlow(output({ chain: [hop({ device_source: 'shared', output_device_id: 9 })] }), outputContext)
+    expect(flow.hops[0].device).toEqual({ label: 'IEM amp', kind: 'device', missing: false })
+  })
+
+  it('resolves an owned-gear device hop', () => {
+    const flow = buildOutputChainFlow(output({ chain: [hop({ device_source: 'owned', owned_item_id: 3 })] }), outputContext)
+    expect(flow.hops[0].device).toEqual({ label: 'House sub', kind: 'device', missing: false })
+  })
+
+  it('flags a device hop with no device picked yet as a gap', () => {
+    const flow = buildOutputChainFlow(output({ chain: [hop({})] }), outputContext)
+    expect(flow.hops[0].device.missing).toBe(true)
+    expect(flow.hasGap).toBe(true)
+  })
+
+  it('does not flag a missing cable as a gap', () => {
+    const flow = buildOutputChainFlow(output({ chain: [hop({ device_source: 'inventory', inventory_item_id: 77 })] }), outputContext)
+    expect(flow.hops[0].cable).toBeUndefined()
+    expect(flow.hasGap).toBe(false)
+  })
+
+  it('renders legacy cable text when no catalog pick exists', () => {
+    const flow = buildOutputChainFlow(
+      output({ chain: [hop({ device_source: 'inventory', inventory_item_id: 77, cable_type: 'nl4', cable_length_m: 5 })] }),
+      outputContext,
+    )
+    expect(flow.hops[0].cable).toEqual({ label: 'NL4 5 m', kind: 'cable', missing: false })
+  })
+
+  it('renders a route hop\'s independently-patched side B only on a stereo channel', () => {
+    const monoFlow = buildOutputChainFlow(
+      output({ width: 'mono', chain: [hop({ hop_kind: 'route', stage_multi_id: 5, stage_multi_channel: 1, stage_multi_id_b: 5, stage_multi_channel_b: 2 })] }),
+      outputContext,
+    )
+    expect(monoFlow.hops[0].sideB).toBeUndefined()
+
+    const stereoFlow = buildOutputChainFlow(
+      output({ width: 'stereo', chain: [hop({ hop_kind: 'route', stage_multi_id: 5, stage_multi_channel: 1, stage_multi_id_b: 5, stage_multi_channel_b: 2 })] }),
+      outputContext,
+    )
+    expect(stereoFlow.hops[0].sideB).toEqual({ label: 'Multi Multi A ch 2', kind: 'route', missing: false })
+  })
+
+  it('flags a route hop with neither stagebox nor stage-multi set', () => {
+    const flow = buildOutputChainFlow(output({ chain: [hop({ hop_kind: 'route' })] }), outputContext)
+    expect(flow.hops[0].device.missing).toBe(true)
+    expect(flow.hasGap).toBe(true)
+  })
+
+  it('omits cableB when unset, even on a stereo channel (default doubling, nothing extra to show)', () => {
+    const flow = buildOutputChainFlow(
+      output({ width: 'stereo', chain: [hop({ device_source: 'inventory', inventory_item_id: 77, cable_item_id: 401 })] }),
+      outputContext,
+    )
+    expect(flow.hops[0].cableB).toBeUndefined()
+  })
+
+  it('renders an independently-picked side-B cable only on a stereo channel', () => {
+    const monoFlow = buildOutputChainFlow(
+      output({ width: 'mono', chain: [hop({ device_source: 'inventory', inventory_item_id: 77, cable_item_id: 401, cable_item_id_b: 402 })] }),
+      { ...outputContext, itemLabelById: new Map([...outputContext.itemLabelById, [402, 'Speakon Cable — 5m']]) },
+    )
+    expect(monoFlow.hops[0].cableB).toBeUndefined()
+
+    const stereoFlow = buildOutputChainFlow(
+      output({ width: 'stereo', chain: [hop({ device_source: 'inventory', inventory_item_id: 77, cable_item_id: 401, cable_item_id_b: 402 })] }),
+      { ...outputContext, itemLabelById: new Map([...outputContext.itemLabelById, [402, 'Speakon Cable — 5m']]) },
+    )
+    expect(stereoFlow.hops[0].cableB).toEqual({ label: 'Speakon Cable — 5m', kind: 'cable', missing: false })
+  })
+})
+
+describe('buildOutputChainFlows', () => {
+  it('sorts by output number and maps every output', () => {
+    const flows = buildOutputChainFlows(
+      [output({ id: 2, output_number: 3 }), output({ id: 1, output_number: 1 })],
+      outputContext,
+    )
+    expect(flows.map((flow) => flow.outputNumber)).toEqual([1, 3])
   })
 })

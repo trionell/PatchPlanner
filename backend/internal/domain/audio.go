@@ -49,7 +49,78 @@ var (
 	ValidWidths         = []string{"mono", "stereo"}
 	ValidMixerBehaviors = []string{"stereo_channel", "linked_channels"}
 	ValidSourceCablings = []string{"two_cables", "splitter"}
+	// ValidHopKinds/ValidDeviceSources are OutputChainHop's Go-validated
+	// enums, same rationale as above: hop_kind/device_source select which
+	// FK columns are meaningful and drive rental-counting/gap-detection
+	// logic in code.
+	ValidHopKinds      = []string{"device", "route"}
+	ValidDeviceSources = []string{"inventory", "owned", "shared"}
 )
+
+// OutputDevice is a physical device declared once per event (Slice 10) and
+// referenced by position from any number of output channels' chain hops —
+// counted once on the rental order regardless of how many hops reference
+// it. Exactly one of InventoryItemID/OwnedItemID is set.
+type OutputDevice struct {
+	ID              int64  `json:"id"`
+	EventID         int64  `json:"event_id"`
+	Name            string `json:"name"`
+	InventoryItemID *int64 `json:"inventory_item_id,omitempty"`
+	OwnedItemID     *int64 `json:"owned_item_id,omitempty"`
+}
+
+// OutputChainHop is one step in an output channel's signal path (Slice 10).
+// HopKind "device" carries a device pick (DeviceSource selects which of
+// InventoryItemID/OwnedItemID/OutputDeviceID is meaningful); HopKind
+// "route" carries a stagebox/stage-multi hand-off instead, with an
+// independent side B for stereo channels (same semantics as Slice 9's
+// side-B columns, scoped per hop). CableItemID/CableType/CableLengthM are
+// meaningful on either hop kind.
+type OutputChainHop struct {
+	ID       int64  `json:"id"`
+	Position int    `json:"position"`
+	HopKind  string `json:"hop_kind"`
+
+	CableItemID *int64 `json:"cable_item_id,omitempty"`
+	// CableItemIDB is side B's own, independently-picked cable — meaningful
+	// only when the output's Width is "stereo". A stereo hop's two physical
+	// runs are not always the same length (e.g. an amplifier on one side of
+	// the stage needs a shorter cable to the near speaker than the far
+	// one): leaving this unset keeps today's convenience default (CableItemID
+	// doubles ×2); setting it makes both sides independently-picked and
+	// independently counted (research.md R3 addendum).
+	CableItemIDB *int64 `json:"cable_item_id_b,omitempty"`
+	// CableType/CableLengthM are legacy pre-Slice-6 text, kept for display
+	// on hops migrated from a row that never got a catalog cable pick. The
+	// UI never offers to author them, and the server always clears them
+	// when CableItemID is set on the same write (mirrors the read-only
+	// lifecycle inputs/outputs already have for their own legacy fields).
+	// Unlike those single-row fields, hops are replaced wholesale on every
+	// write (no per-hop identity to preserve across an edit) — carrying
+	// an untouched hop's legacy text forward is the caller's
+	// responsibility (round-trip what GET returned).
+	CableType    string  `json:"cable_type,omitempty"`
+	CableLengthM float64 `json:"cable_length_m,omitempty"`
+
+	// DeviceSource is "inventory", "owned", or "shared" (ValidDeviceSources),
+	// meaningful only when HopKind is "device"; selects which one FK below
+	// is set.
+	DeviceSource    string `json:"device_source,omitempty"`
+	InventoryItemID *int64 `json:"inventory_item_id,omitempty"`
+	OwnedItemID     *int64 `json:"owned_item_id,omitempty"`
+	OutputDeviceID  *int64 `json:"output_device_id,omitempty"`
+
+	// Route fields, meaningful only when HopKind is "route". Mutually
+	// exclusive: StageboxID or StageMultiID, not both.
+	StageboxID         *int64 `json:"stagebox_id,omitempty"`
+	StageboxChannel    *int   `json:"stagebox_channel,omitempty"`
+	StageboxIDB        *int64 `json:"stagebox_id_b,omitempty"`
+	StageboxChannelB   *int   `json:"stagebox_channel_b,omitempty"`
+	StageMultiID       *int64 `json:"stage_multi_id,omitempty"`
+	StageMultiChannel  *int   `json:"stage_multi_channel,omitempty"`
+	StageMultiIDB      *int64 `json:"stage_multi_id_b,omitempty"`
+	StageMultiChannelB *int   `json:"stage_multi_channel_b,omitempty"`
+}
 
 type AudioPatchInput struct {
 	ID                int64  `json:"id"`
@@ -110,30 +181,25 @@ type AudioPatchInput struct {
 	Notes         string `json:"notes,omitempty"`
 }
 
+// AudioPatchOutput is one output channel. Its old destination/amplifier/
+// speaker/cable fields (Slice 0-9's flat shape) were replaced in Slice 10
+// by an ordered Chain of hops — see OutputChainHop. Width stays: it's
+// still channel-level and drives per-hop stereo doubling.
 type AudioPatchOutput struct {
-	ID                int64  `json:"id"`
-	EventID           int64  `json:"event_id"`
-	OutputNumber      int    `json:"output_number"`
-	OutputName        string `json:"output_name,omitempty"`
-	OutputType        string `json:"output_type"`
-	DestinationType   string `json:"destination_type"`
-	StageboxID        *int64 `json:"stagebox_id,omitempty"`
-	StageboxChannel   *int   `json:"stagebox_channel,omitempty"`
-	StageMultiID      *int64 `json:"stage_multi_id,omitempty"`
-	StageMultiChannel *int   `json:"stage_multi_channel,omitempty"`
-	AmplifierItemID   *int64 `json:"amplifier_item_id,omitempty"`
-	SpeakerItemID     *int64 `json:"speaker_item_id,omitempty"`
-	CableItemID       *int64 `json:"cable_item_id,omitempty"`
-	// Legacy pre-019 values; same read-only lifecycle as on inputs.
-	CableType    string  `json:"cable_type,omitempty"`
-	CableLengthM float64 `json:"cable_length_m,omitempty"`
-	Color        string  `json:"color,omitempty"`
+	ID           int64  `json:"id"`
+	EventID      int64  `json:"event_id"`
+	OutputNumber int    `json:"output_number"`
+	OutputName   string `json:"output_name,omitempty"`
+	OutputType   string `json:"output_type"`
+	Color        string `json:"color,omitempty"`
 	// Width is "mono" or "stereo" (ValidWidths). No MixerBehavior equivalent
 	// exists for outputs — output numbering has no console-strip semantics.
-	Width              string `json:"width"`
-	StageboxIDB        *int64 `json:"stagebox_id_b,omitempty"`
-	StageboxChannelB   *int   `json:"stagebox_channel_b,omitempty"`
-	StageMultiIDB      *int64 `json:"stage_multi_id_b,omitempty"`
-	StageMultiChannelB *int   `json:"stage_multi_channel_b,omitempty"`
-	Notes              string `json:"notes,omitempty"`
+	Width string `json:"width"`
+	Notes string `json:"notes,omitempty"`
+	// Chain is the output's ordered signal path. Always present in
+	// responses ([] when empty); on write it is replaced wholesale (an
+	// omitted/empty payload clears it, same as GroupIDs/DCAIDs on inputs
+	// — every PATCH is expected to carry the row's full current state,
+	// research.md R5), never partially patched.
+	Chain []OutputChainHop `json:"chain"`
 }

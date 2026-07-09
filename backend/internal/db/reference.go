@@ -20,10 +20,13 @@ var ErrInUse = errors.New("in use")
 // its values. Delete protection probes exactly these columns; keep in sync
 // with data-model.md §Usage map.
 var vocabularyUsage = map[string][]struct{ table, column string }{
-	"signal_types":        {{"audio_patch_inputs", "signal_type"}},
-	"preamp_connectors":   {{"audio_patch_inputs", "preamp_connector"}},
-	"signal_cable_types":  {{"audio_patch_inputs", "cable_type"}},
-	"speaker_cable_types": {{"audio_patch_outputs", "cable_type"}},
+	"signal_types":       {{"audio_patch_inputs", "signal_type"}},
+	"preamp_connectors":  {{"audio_patch_inputs", "preamp_connector"}},
+	"signal_cable_types": {{"audio_patch_inputs", "cable_type"}},
+	// cable_type moved from audio_patch_outputs onto output_chain_hops in
+	// Slice 10 (the flat destination/amplifier/speaker/cable shape was
+	// replaced by an ordered chain of hops).
+	"speaker_cable_types": {{"output_chain_hops", "cable_type"}},
 	"output_types":        {{"audio_patch_outputs", "output_type"}},
 	"mic_stands":          {{"audio_patch_inputs", "mic_stand"}},
 	"power_connectors":    {{"lighting_fixtures", "power_connector_in"}, {"lighting_fixtures", "power_connector_out"}},

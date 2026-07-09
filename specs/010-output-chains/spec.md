@@ -129,6 +129,10 @@ as a gap.
   doubling works; a hop pointing at a *shared* device never doubles,
   regardless of the channel's width, because the shared device is one
   physical unit.
+- A stereo hop's two cable runs may need different lengths (an amplifier
+  positioned on one side of the stage needs a shorter cable to the near
+  speaker than the far one) — picking an independent side-B cable stops
+  that hop's cable from doubling and counts each side's pick on its own.
 - Deleting an output channel must remove its own chain's hops but must never
   delete a shared device that other channels' chains still reference.
 - A hop's device may come from either the rental catalog or the event's
@@ -175,6 +179,13 @@ as a gap.
   stereo speaker/cable doubling already works; a hop referencing a
   *shared* device MUST stay single-counted regardless of the channel's
   width.
+- **FR-009a**: A hop's two physical cable runs on a stereo channel are not
+  guaranteed to be the same length (e.g. an amplifier on one side of the
+  stage needs a shorter run to the near speaker than the far one). Users
+  MUST be able to pick side B's cable independently of side A's; left
+  unset, side A's cable pick continues to double for both sides (FR-009's
+  convenience default, no forced extra step); once picked, each side's
+  cable MUST be counted independently instead of doubled.
 - **FR-010**: Deleting a shared device MUST succeed and clear the reference
   on every hop that pointed at it (leaving those hops as an incomplete,
   gap-flagged device pick) rather than being blocked, consistent with how
@@ -189,8 +200,11 @@ as a gap.
   chain, hop by hop, in order, mirroring the input side's existing
   source → cable → stagebox/multi → console presentation.
 - **FR-013**: The Signal Flow tab and the output print sheet MUST flag any
-  hop that is missing its device or cable pick as a gap, and that gap MUST
-  be included in the existing gap count.
+  hop that has no device pick (device hops) or no stagebox/stage-multi
+  target (route hops) as a gap, and that gap MUST be included in the
+  existing gap count. A hop's cable is optional and never itself flagged
+  — matching how a missing (non-DI) cable already isn't a gap on the
+  input side today.
 - **FR-014**: The output print sheet MUST render the full chain per channel
   (not just start/end), including both sides of a stereo channel.
 - **FR-015**: Existing output rows (today's local/stagebox/stage_multi shape

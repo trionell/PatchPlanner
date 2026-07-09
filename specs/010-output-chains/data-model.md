@@ -39,8 +39,9 @@ output row; ordered within it.
 | `output_id` | INTEGER, NOT NULL | — | FK → `audio_patch_outputs(id)` ON DELETE CASCADE |
 | `position` | INTEGER, NOT NULL | — | 0-based order within the chain; consecutive, renumbered on every wholesale replace (R5) |
 | `hop_kind` | TEXT, NOT NULL | `'device'` | `device` \| `route` (Go-validated; selects which of the columns below are meaningful) |
-| `cable_item_id` | INTEGER, NULL | NULL | FK → `inventory_items(id)`. The cable feeding into this hop. Meaningful for either hop kind. Doubles unconditionally on a stereo channel (R3), same as today's `cable_item_id`. |
-| `cable_type` | TEXT, NULL | NULL | Legacy pre-Slice-6 free-text cable type, meaningful only when `cable_item_id IS NULL` — same read-only-until-repicked lifecycle as the pre-existing column it's migrated from (Slice 6 backfill was conservative; not every row got a catalog pick). Server never writes it from payloads. |
+| `cable_item_id` | INTEGER, NULL | NULL | FK → `inventory_items(id)`. The cable feeding into this hop (side A when stereo). Meaningful for either hop kind. Doubles on a stereo channel *unless* `cable_item_id_b` is set (R3 addendum below), same as today's `cable_item_id`. |
+| `cable_item_id_b` | INTEGER, NULL | NULL | FK → `inventory_items(id)`. Side B's own, independently-picked cable — meaningful only when the output's `width = 'stereo'`. Added post-implementation: a stereo hop's two physical runs are not always the same length (an amplifier on one side of the stage needs a shorter cable to the near speaker than the far one). Left unset, `cable_item_id` doubles as before (no forced extra step for the common case); set it and each side counts its own pick once. |
+| `cable_type` | TEXT, NULL | NULL | Legacy pre-Slice-6 free-text cable type, meaningful only when `cable_item_id IS NULL` — same read-only-until-repicked lifecycle as the pre-existing column it's migrated from (Slice 6 backfill was conservative; not every row got a catalog pick). Server never writes it from payloads. No legacy equivalent for side B — `cable_item_id_b` is new in this slice. |
 | `cable_length_m` | REAL, NULL | NULL | Legacy pre-Slice-6 free-text cable length, same lifecycle as `cable_type`. |
 | `device_source` | TEXT, NULL | NULL | `inventory` \| `owned` \| `shared` (Go-validated). Meaningful only when `hop_kind = 'device'`; selects which one of the three columns below is set. |
 | `inventory_item_id` | INTEGER, NULL | NULL | FK → `inventory_items(id)`. Set when `device_source = 'inventory'`. Doubles on a stereo channel (per-side item, R3). |
@@ -104,7 +105,7 @@ hop doubling, R3), `color`, `notes`.
 - `output_chain_hops.stagebox_id(_b)` → `stageboxes.id`,
   `output_chain_hops.stage_multi_id(_b)` → `stage_multis.id` (route hops
   only)
-- `output_chain_hops.{inventory_item_id,cable_item_id}` → `inventory_items.id`
+- `output_chain_hops.{inventory_item_id,cable_item_id,cable_item_id_b}` → `inventory_items.id`
 - `output_chain_hops.owned_item_id` → `owned_items.id`
 - `output_devices.event_id` → `events.id` (1 event : N shared devices,
   cascade delete)
@@ -114,15 +115,21 @@ hop doubling, R3), `color`, `notes`.
 ## Derived / computed values (not stored)
 
 - **Rental quantity per hop** (SQL, `output_chain_hops` CTE arms — see
-  research.md R7): a non-shared device hop and a hop's cable both use
-  `CASE WHEN width='stereo' THEN 2 ELSE 1 END`; a shared-device reference
-  contributes nothing directly (the declaration itself, in
-  `output_devices`, contributes a flat `1` independent of hop count).
+  research.md R7): a non-shared device hop uses
+  `CASE WHEN width='stereo' THEN 2 ELSE 1 END`; a hop's cable uses
+  `CASE WHEN width='stereo' AND cable_item_id_b IS NULL THEN 2 ELSE 1 END`
+  (doubles only when side B hasn't been given its own independent pick);
+  `cable_item_id_b`, when set, contributes its own flat `1` on a stereo
+  channel (never on mono — inert-not-lost, same as every other side-B
+  field); a shared-device reference contributes nothing directly (the
+  declaration itself, in `output_devices`, contributes a flat `1`
+  independent of hop count).
 - **Chain completeness / gap flag** (Signal Flow, mirrors the existing
   input-side missing-link logic): a hop is a gap if `hop_kind = 'device'`
-  and no device source is set, or if `cable_item_id` is unset, or if
-  `hop_kind = 'route'` and neither `stagebox_id` nor `stage_multi_id` is
-  set.
+  and no device source is set, or if `hop_kind = 'route'` and neither
+  `stagebox_id` nor `stage_multi_id` is set — a hop's cable (either side)
+  is optional and never itself a gap, matching how a missing non-DI
+  cable already isn't flagged on the input side (FR-013).
 
 ## State transitions
 

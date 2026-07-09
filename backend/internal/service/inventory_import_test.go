@@ -116,7 +116,10 @@ func TestImportRoundTripPreservesReferences(t *testing.T) {
 	if _, err := db.CreateAudioPatchInput(database, domain.AudioPatchInput{EventID: event.ID, ChannelNumber: 1, SignalType: "mic", MicItemID: &micID}); err != nil {
 		t.Fatalf("create input: %v", err)
 	}
-	if _, err := db.CreateAudioPatchOutput(database, domain.AudioPatchOutput{EventID: event.ID, OutputNumber: 1, OutputType: "foh", DestinationType: "local", SpeakerItemID: &speakerID}); err != nil {
+	if _, err := db.CreateAudioPatchOutput(database, domain.AudioPatchOutput{
+		EventID: event.ID, OutputNumber: 1, OutputType: "foh",
+		Chain: []domain.OutputChainHop{{HopKind: "device", DeviceSource: "inventory", InventoryItemID: &speakerID}},
+	}); err != nil {
 		t.Fatalf("create output: %v", err)
 	}
 
@@ -129,7 +132,7 @@ func TestImportRoundTripPreservesReferences(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list outputs: %v", err)
 	}
-	if len(outputs) != 1 || outputs[0].SpeakerItemID == nil || *outputs[0].SpeakerItemID != speakerID {
+	if len(outputs) != 1 || len(outputs[0].Chain) != 1 || outputs[0].Chain[0].InventoryItemID == nil || *outputs[0].Chain[0].InventoryItemID != speakerID {
 		t.Fatalf("output row lost or relinked by re-import: %+v", outputs)
 	}
 

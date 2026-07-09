@@ -40,3 +40,14 @@
   the fact. Flag any of these assumptions during `/speckit-plan` review if
   the intended shape differs.
 - All items pass on first validation pass.
+- **Post-implementation addition (FR-009a)**: live user feedback caught
+  that the stereo-doubling assumption ("both sides share one cable pick")
+  doesn't hold for real rigs where an amplifier positioned to one side of
+  the stage needs a shorter cable to the near speaker than the far one —
+  same category of correction as Slice 9's crowd-mic assumption fix.
+  Added `cable_item_id_b` as an optional independent pick, defaulting to
+  the existing doubling behavior when unset, so the common case needs no
+  extra step. All checklist items still hold — the addition doesn't
+  introduce implementation detail, is testable/measurable, and is
+  recorded as an assumption/FR pair like every other convenience default
+  in this spec.
