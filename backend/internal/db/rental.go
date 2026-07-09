@@ -10,20 +10,32 @@ import (
 // rentalSummaryQuery derives the full rental order for one event. Every
 // planning surface that can reference a catalog item contributes one arm of
 // the CTE; manual event_rentals lines are both merged into the totals and
-// re-joined so their share stays editable. Takes the event id 11 times.
+// re-joined so their share stays editable. Takes the event id 13 times.
+//
+// A stereo channel's per-side physical equipment doubles (CASE WHEN width =
+// 'stereo' ...); two-channel devices (the DI itself, an amplifier) stay
+// single-counted regardless of width. mic_item_id is overloaded — it also
+// stores the DI box on DI-type rows — so its doubling explicitly excludes
+// signal_type = 'di' or a stereo DI channel's own DI box would double.
 const rentalSummaryQuery = `
 	WITH combined AS (
-		SELECT mic_item_id AS inventory_item_id, 1 AS quantity_audio, 0 AS quantity_lighting
+		SELECT mic_item_id AS inventory_item_id,
+			CASE WHEN width = 'stereo' AND signal_type != 'di' THEN 2 ELSE 1 END AS quantity_audio,
+			0 AS quantity_lighting
 		FROM audio_patch_inputs
 		WHERE event_id = ? AND mic_item_id IS NOT NULL
 		UNION ALL
-		SELECT cable_item_id, 1, 0
+		SELECT cable_item_id, CASE WHEN width = 'stereo' THEN 2 ELSE 1 END, 0
 		FROM audio_patch_inputs
 		WHERE event_id = ? AND cable_item_id IS NOT NULL
 		UNION ALL
-		SELECT stand_item_id, 1, 0
+		SELECT stand_item_id, CASE WHEN width = 'stereo' THEN 2 ELSE 1 END, 0
 		FROM audio_patch_inputs
 		WHERE event_id = ? AND stand_item_id IS NOT NULL
+		UNION ALL
+		SELECT source_cable_item_id, CASE WHEN width = 'stereo' AND source_cabling = 'two_cables' THEN 2 ELSE 1 END, 0
+		FROM audio_patch_inputs
+		WHERE event_id = ? AND signal_type = 'di' AND source_cable_item_id IS NOT NULL
 		UNION ALL
 		SELECT inventory_item_id, 1, 0
 		FROM stageboxes
@@ -37,11 +49,11 @@ const rentalSummaryQuery = `
 		FROM audio_patch_outputs
 		WHERE event_id = ? AND amplifier_item_id IS NOT NULL
 		UNION ALL
-		SELECT speaker_item_id, 1, 0
+		SELECT speaker_item_id, CASE WHEN width = 'stereo' THEN 2 ELSE 1 END, 0
 		FROM audio_patch_outputs
 		WHERE event_id = ? AND speaker_item_id IS NOT NULL
 		UNION ALL
-		SELECT cable_item_id, 1, 0
+		SELECT cable_item_id, CASE WHEN width = 'stereo' THEN 2 ELSE 1 END, 0
 		FROM audio_patch_outputs
 		WHERE event_id = ? AND cable_item_id IS NOT NULL
 		UNION ALL
@@ -66,7 +78,7 @@ const rentalSummaryQuery = `
 
 func GetRentalSummary(db *sql.DB, eventID int64) (domain.RentalSummary, error) {
 	rows, err := db.Query(rentalSummaryQuery,
-		eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID)
+		eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID)
 	if err != nil {
 		return domain.RentalSummary{}, fmt.Errorf("get rental summary: %w", err)
 	}

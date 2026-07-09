@@ -107,6 +107,19 @@ export interface AudioPatchInput {
    */
   group_ids?: number[]
   dca_ids?: number[]
+  /** 'mono' (default) or 'stereo' — a stereo channel is two independently patchable physical inputs. */
+  width: 'mono' | 'stereo'
+  /** Meaningful only when width is 'stereo'; console-number display only, never affects routing/counting. */
+  mixer_behavior: 'stereo_channel' | 'linked_channels'
+  /** Side B's own stagebox/multi route — independent of side A, meaningful only when width is 'stereo'. */
+  stagebox_id_b?: number
+  stagebox_channel_b?: number
+  stage_multi_id_b?: number
+  stage_multi_channel_b?: number
+  /** Source→DI cable; meaningful only when signal_type is 'di'. */
+  source_cable_item_id?: number
+  /** 'two_cables' (default) or 'splitter'; meaningful only for a stereo DI channel. */
+  source_cabling: 'two_cables' | 'splitter'
   notes?: string
 }
 
@@ -130,6 +143,13 @@ export interface AudioPatchOutput {
   cable_length_m?: number
   /** channel_colors palette value; absent = uncolored. */
   color?: string
+  /** 'mono' (default) or 'stereo'. No mixer-behavior equivalent — outputs have no console-strip semantics. */
+  width: 'mono' | 'stereo'
+  /** Side B's own stagebox/multi route — independent of side A, meaningful only when width is 'stereo'. */
+  stagebox_id_b?: number
+  stagebox_channel_b?: number
+  stage_multi_id_b?: number
+  stage_multi_channel_b?: number
   notes?: string
 }
 

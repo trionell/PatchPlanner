@@ -113,3 +113,113 @@ func TestAudioPatchCableStandLifecycle(t *testing.T) {
 		t.Errorf("output after pick: %+v, want cable item %d and cleared legacy", output, cableID)
 	}
 }
+
+// TestStereoWidthRoundTrip covers slice-9 US1: width/mixer_behavior and
+// independently-patched side-B routing round-trip on create and update, and
+// enum/foreign-event validation rejects bad values up front.
+func TestStereoWidthRoundTrip(t *testing.T) {
+	server, _ := newTestServer(t)
+	eventID := seedEvent(t, server.URL)
+	otherEventID := seedEvent(t, server.URL)
+
+	status, raw := doJSON(t, http.MethodPost, fmt.Sprintf("%s/events/%d/stageboxes", server.URL, eventID), map[string]any{
+		"name": "SB A", "connection_type": "analog",
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("create stagebox: status %d body %s", status, raw)
+	}
+	sbID := decodeJSON[domain.Stagebox](t, raw).ID
+
+	status, raw = doJSON(t, http.MethodPost, fmt.Sprintf("%s/events/%d/stageboxes", server.URL, otherEventID), map[string]any{
+		"name": "SB Foreign", "connection_type": "analog",
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("create foreign stagebox: status %d body %s", status, raw)
+	}
+	foreignSbID := decodeJSON[domain.Stagebox](t, raw).ID
+
+	inputsURL := fmt.Sprintf("%s/events/%d/audio-inputs", server.URL, eventID)
+
+	// Create: stereo, linked channels, independently-patched side B.
+	status, raw = doJSON(t, http.MethodPost, inputsURL, map[string]any{
+		"channel_number": 5, "signal_type": "mic", "width": "stereo", "mixer_behavior": "linked_channels",
+		"stagebox_id": sbID, "stagebox_channel": 9, "stagebox_id_b": sbID, "stagebox_channel_b": 10,
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("POST stereo input: status %d body %s", status, raw)
+	}
+	created := decodeJSON[domain.AudioPatchInput](t, raw)
+	if created.Width != "stereo" || created.MixerBehavior != "linked_channels" {
+		t.Errorf("created width=%q mixer_behavior=%q, want stereo/linked_channels", created.Width, created.MixerBehavior)
+	}
+	if created.StageboxIDB == nil || *created.StageboxIDB != sbID || created.StageboxChannelB == nil || *created.StageboxChannelB != 10 {
+		t.Errorf("created side B: stagebox_id_b=%v stagebox_channel_b=%v, want %d/10", created.StageboxIDB, created.StageboxChannelB, sbID)
+	}
+
+	// Update: repatch side B independently, per the crowd-mic scenario —
+	// no requirement that it stay on the same stagebox as side A.
+	created.StageboxIDB = nil
+	created.StageboxChannelB = nil
+	updateURL := fmt.Sprintf("%s/%d", inputsURL, created.ID)
+	status, raw = doJSON(t, http.MethodPatch, updateURL, created)
+	if status != http.StatusOK {
+		t.Fatalf("PATCH clear side B: status %d body %s", status, raw)
+	}
+	updated := decodeJSON[domain.AudioPatchInput](t, raw)
+	if updated.StageboxIDB != nil || updated.StageboxChannelB != nil {
+		t.Errorf("after clearing side B: %+v, want nil", updated)
+	}
+
+	// Invalid enum values are rejected.
+	if status, raw = doJSON(t, http.MethodPost, inputsURL, map[string]any{
+		"channel_number": 6, "signal_type": "mic", "width": "quad",
+	}); status != http.StatusBadRequest {
+		t.Errorf("invalid width: status %d body %s, want 400", status, raw)
+	}
+	if status, raw = doJSON(t, http.MethodPost, inputsURL, map[string]any{
+		"channel_number": 6, "signal_type": "mic", "width": "stereo", "mixer_behavior": "ganged",
+	}); status != http.StatusBadRequest {
+		t.Errorf("invalid mixer_behavior: status %d body %s, want 400", status, raw)
+	}
+
+	// A side-B stagebox belonging to another event is rejected.
+	if status, raw = doJSON(t, http.MethodPost, inputsURL, map[string]any{
+		"channel_number": 6, "signal_type": "mic", "width": "stereo", "stagebox_id_b": foreignSbID,
+	}); status != http.StatusBadRequest {
+		t.Errorf("foreign stagebox_id_b: status %d body %s, want 400", status, raw)
+	}
+}
+
+// TestDISourceCableValidation covers slice-9 US2: source_cabling enum
+// validation, dangling source_cable_item_id rejection, and that a non-DI
+// row still accepts (and simply doesn't use for counting) a source cable
+// pick if one happens to be set — per FR-012/edge cases, values are inert
+// rather than rejected outside their signal type.
+func TestDISourceCableValidation(t *testing.T) {
+	server, database := newTestServer(t)
+	eventID := seedEvent(t, server.URL)
+	cableID := seedRoleItem(t, database, "cable", "Linekabel Tele-tele", "2m", 10, 15)
+	inputsURL := fmt.Sprintf("%s/events/%d/audio-inputs", server.URL, eventID)
+
+	if status, raw := doJSON(t, http.MethodPost, inputsURL, map[string]any{
+		"channel_number": 1, "signal_type": "di", "width": "stereo", "source_cabling": "half-and-half",
+	}); status != http.StatusBadRequest {
+		t.Errorf("invalid source_cabling: status %d body %s, want 400", status, raw)
+	}
+	if status, raw := doJSON(t, http.MethodPost, inputsURL, map[string]any{
+		"channel_number": 1, "signal_type": "di", "source_cable_item_id": 99999,
+	}); status != http.StatusBadRequest {
+		t.Errorf("dangling source_cable_item_id: status %d body %s, want 400", status, raw)
+	}
+
+	status, raw := doJSON(t, http.MethodPost, inputsURL, map[string]any{
+		"channel_number": 1, "signal_type": "mic", "source_cable_item_id": cableID,
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("POST non-DI with source cable: status %d body %s", status, raw)
+	}
+	created := decodeJSON[domain.AudioPatchInput](t, raw)
+	if created.SourceCableItemID == nil || *created.SourceCableItemID != cableID {
+		t.Errorf("non-DI row: source_cable_item_id=%v, want it stored (inert, not rejected)", created.SourceCableItemID)
+	}
+}

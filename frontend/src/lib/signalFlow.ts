@@ -17,6 +17,10 @@ export interface ChannelFlow {
   source: FlowHop
   cable: FlowHop
   path: FlowHop
+  /** Side B's own, independently-patched route — present only when width is 'stereo'. */
+  pathB?: FlowHop
+  /** The DI's source→DI cable — present only when signal_type is 'di'. */
+  sourceCable?: FlowHop
   hasGap: boolean
 }
 
@@ -29,6 +33,8 @@ export interface FlowContext {
   cableLabelById?: Map<number, string>
   /** Display label for a legacy cable type value (defaults to the raw value). */
   cableLabel?: (value: string) => string
+  /** Catalog cable item labels, for resolving a DI channel's source_cable_item_id. */
+  sourceCableLabelById?: Map<number, string>
 }
 
 /**
@@ -36,19 +42,26 @@ export interface FlowContext {
  * as-is (legacy values included) and never guesses intent — a channel with
  * no stagebox/multi routing is a legitimate "direct to console" run, not a
  * gap, while a half-assigned routing (box without channel, or channel
- * without box) is flagged.
+ * without box) is flagged. A stereo channel's side B and a DI channel's
+ * source cable are additional, independently-flagged hops.
  */
 export function buildChannelFlow(input: AudioPatchInput, context: FlowContext): ChannelFlow {
   const source = sourceHop(input, context.micNameById)
   const cable = cableHop(input, context)
-  const path = pathHop(input, context)
+  const path = pathHop(input.stagebox_id, input.stagebox_channel, input.stage_multi_id, input.stage_multi_channel, context)
+  const pathB = input.width === 'stereo'
+    ? pathHop(input.stagebox_id_b, input.stagebox_channel_b, input.stage_multi_id_b, input.stage_multi_channel_b, context)
+    : undefined
+  const sourceCable = input.signal_type === 'di' ? sourceCableHop(input, context) : undefined
   return {
     channelNumber: input.channel_number,
     channelName: input.channel_name ?? '',
     source,
     cable,
     path,
-    hasGap: source.missing || cable.missing || path.missing,
+    pathB,
+    sourceCable,
+    hasGap: source.missing || cable.missing || path.missing || (pathB?.missing ?? false) || (sourceCable?.missing ?? false),
   }
 }
 
@@ -86,26 +99,47 @@ function cableHop(input: AudioPatchInput, context: FlowContext): FlowHop {
   }
 }
 
-function pathHop(input: AudioPatchInput, context: FlowContext): FlowHop {
-  if (input.stagebox_id) {
-    const name = context.stageboxes.find((sb) => sb.id === input.stagebox_id)?.name ?? `Stagebox #${input.stagebox_id}`
-    if (!input.stagebox_channel) {
+/**
+ * Physical routing hop shared by side A and side B (an independently
+ * patched stereo channel reuses the exact same missing/present rules for
+ * its own route — see research.md R5).
+ */
+function pathHop(
+  stageboxId: number | undefined,
+  stageboxChannel: number | undefined,
+  stageMultiId: number | undefined,
+  stageMultiChannel: number | undefined,
+  context: FlowContext,
+): FlowHop {
+  if (stageboxId) {
+    const name = context.stageboxes.find((sb) => sb.id === stageboxId)?.name ?? `Stagebox #${stageboxId}`
+    if (!stageboxChannel) {
       return { label: `SB ${name} — no channel`, kind: 'stagebox', missing: true }
     }
-    return { label: `SB ${name} · ch ${input.stagebox_channel}`, kind: 'stagebox', missing: false }
+    return { label: `SB ${name} · ch ${stageboxChannel}`, kind: 'stagebox', missing: false }
   }
-  if (input.stage_multi_id) {
-    const name = context.stageMultis.find((sm) => sm.id === input.stage_multi_id)?.name ?? `Multi #${input.stage_multi_id}`
-    if (!input.stage_multi_channel) {
+  if (stageMultiId) {
+    const name = context.stageMultis.find((sm) => sm.id === stageMultiId)?.name ?? `Multi #${stageMultiId}`
+    if (!stageMultiChannel) {
       return { label: `Multi ${name} — no channel`, kind: 'multi', missing: true }
     }
-    return { label: `Multi ${name} · ch ${input.stage_multi_channel}`, kind: 'multi', missing: false }
+    return { label: `Multi ${name} · ch ${stageMultiChannel}`, kind: 'multi', missing: false }
   }
-  if (input.stagebox_channel) {
-    return { label: `ch ${input.stagebox_channel} — no stagebox picked`, kind: 'stagebox', missing: true }
+  if (stageboxChannel) {
+    return { label: `ch ${stageboxChannel} — no stagebox picked`, kind: 'stagebox', missing: true }
   }
-  if (input.stage_multi_channel) {
-    return { label: `ch ${input.stage_multi_channel} — no multi picked`, kind: 'multi', missing: true }
+  if (stageMultiChannel) {
+    return { label: `ch ${stageMultiChannel} — no multi picked`, kind: 'multi', missing: true }
   }
   return { label: 'Direct to console', kind: 'direct', missing: false }
+}
+
+// A DI channel with no source cable picked is a real gap (unlike the
+// optional console-side cable above) — FR-010 requires it be flagged.
+function sourceCableHop(input: AudioPatchInput, context: FlowContext): FlowHop {
+  if (input.source_cable_item_id) {
+    const name = context.sourceCableLabelById?.get(input.source_cable_item_id) ?? `Item #${input.source_cable_item_id}`
+    return { label: name, kind: 'cable', missing: false }
+  }
+  return { label: 'No source cable picked', kind: 'cable', missing: true }
 }

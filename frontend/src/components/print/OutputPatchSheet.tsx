@@ -35,7 +35,10 @@ export function OutputPatchSheet({
               <td className={sheetTd}><ColorSwatch color={row.color} />{row.output_number}</td>
               <td className={sheetTd}>{row.output_name || ''}</td>
               <td className={sheetTd}>{label('output_types', row.output_type)}</td>
-              <td className={sheetTd}>{destinationText(row, stageboxes, stageMultis)}</td>
+              <td className={sheetTd}>
+                <div>{destinationText(row, stageboxes, stageMultis)}</div>
+                {row.width === 'stereo' && <div>{destinationTextB(row, stageboxes, stageMultis)}</div>}
+              </td>
               <td className={sheetTd}>{row.amplifier_item_id ? itemLabelById.get(row.amplifier_item_id) ?? `#${row.amplifier_item_id}` : ''}</td>
               <td className={sheetTd}>{row.speaker_item_id ? itemLabelById.get(row.speaker_item_id) ?? `#${row.speaker_item_id}` : ''}</td>
               <td className={sheetTd}>{cableText(row, itemLabelById, label)}</td>
@@ -62,6 +65,19 @@ function destinationText(row: AudioPatchOutput, stageboxes: Stagebox[], stageMul
   if (row.destination_type === 'stage_multi') {
     const name = stageMultis.find((sm) => sm.id === row.stage_multi_id)?.name ?? (row.stage_multi_id ? `#${row.stage_multi_id}` : '—')
     return `Multi ${name} ch ${row.stage_multi_channel ?? '—'}`
+  }
+  return 'local'
+}
+
+/** Side B's own, independently-patched route, following the same destination_type as side A (stereo outputs only). */
+function destinationTextB(row: AudioPatchOutput, stageboxes: Stagebox[], stageMultis: StageMulti[]): string {
+  if (row.destination_type === 'stagebox') {
+    const name = stageboxes.find((sb) => sb.id === row.stagebox_id_b)?.name ?? (row.stagebox_id_b ? `#${row.stagebox_id_b}` : '—')
+    return `SB ${name} ch ${row.stagebox_channel_b ?? '—'}`
+  }
+  if (row.destination_type === 'stage_multi') {
+    const name = stageMultis.find((sm) => sm.id === row.stage_multi_id_b)?.name ?? (row.stage_multi_id_b ? `#${row.stage_multi_id_b}` : '—')
+    return `Multi ${name} ch ${row.stage_multi_channel_b ?? '—'}`
   }
   return 'local'
 }

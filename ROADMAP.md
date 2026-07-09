@@ -192,22 +192,39 @@ Feedback items 8–9 + channel-strip colors (added mid-slice).
 - [x] Input patch print sheet and Signal Flow tab show group/DCA
       assignments; no rental impact (verified unchanged on real data).
 
-## Slice 9 — Mono/stereo channels & DI cabling (spec: `stereo-di`)
+## Slice 9 — Mono/stereo channels & DI cabling (spec: `stereo-di`) ✅ done 2026-07-09
 
 Feedback items 1–2. Data-model change on both patch directions.
 
-- Channel width **mono | stereo** on inputs and outputs. A stereo channel
-  always has two physical preamps/line inputs; per-channel choice of mixer
-  behavior: *stereo channel* (occupies one mixer channel) vs *linked
-  channels* (occupies two). Channel numbering, sheets, and signal flow
-  understand both.
-- DI cabling: a DI needs **two** cables — XLR (DI → preamp) plus a line
-  cable (source → DI), not just the XLR as today. Dual-channel DI support:
-  one DI feeding two physical inputs, with either two line cables **or** a
-  single 3.5 mm TRS → 2×TS cable on the source side.
-- Rental aggregation extended: stereo pairs count double where physical,
-  and DI line/TRS cables are picked from inventory and counted like all
-  cables (Slice 6 pattern).
+- [x] Channel width **mono | stereo** on inputs and outputs. A stereo
+      channel's two physical connections are **independently patchable**
+      (own stagebox/multicore route each — not required to be neighboring
+      channels or even the same box, e.g. a crowd-mic pair on opposite
+      sides of the stage); flipping to stereo defaults side B to side A's
+      route at the next channel as a one-time convenience, never silently
+      reapplied. Input-only mixer behavior: *stereo channel* (one console
+      number) vs *linked channels* (its number and the next, e.g. "5–6");
+      suggested numbering for new rows skips occupied linked pairs.
+      Channel numbering, both patch tabs, print sheets, and Signal Flow all
+      show both sides.
+- [x] DI cabling: a DI-type channel picks a **source cable** (source → DI)
+      alongside the existing DI → preamp cable. A stereo DI channel chooses
+      *two individual cables* (source cable counted ×2) or *one splitter*
+      (3.5 mm TRS → 2×TS, counted ×1) — the DI box itself always counts
+      once (a dual-channel DI feeds both sides). Signal Flow traces the
+      full source → source cable → DI → XLR → console chain and flags a
+      missing source cable as a gap.
+- [x] Rental aggregation extended: stereo channels double per-side physical
+      equipment (mic/source item, cable, stand, and on outputs the
+      speaker); two-channel devices (the DI box, an amplifier) stay
+      single-counted regardless of width. DI source cables are picked from
+      the same cable catalog and counted like all cables (Slice 6
+      pattern) — closes the price-list leak verified against the real
+      reference event's DI channels (SC-002/SC-003).
+- [x] Purely additive migration (022): every pre-existing row defaults to
+      mono/stereo_channel/two_cables with no side-B routing and no source
+      cable — verified byte-for-byte unchanged rental totals on the real
+      reference event (SC-005).
 
 ## Slice 10 — Output signal chains (spec: `output-chains`)
 
@@ -234,12 +251,11 @@ chains that branch.
 ## Dependency graph
 
 ```
-Slices 0–5 ✅ done
+Slices 0–9 ✅ done
 Slice 6 (rental: cables & stands) ──┬──→ Slice 10 (output chains)
 Slice 9 (stereo & DI) ──────────────┘
-Slice 7 (lighting workflow)   — independent
-Slice 8 (groups & DCAs)       — independent
 ```
 
 Suggested order: 6 (restores the core "rental order is derived
-automatically" promise) → 7 (small, quick wins) → 8 → 9 → 10.
+automatically" promise) → 7 (small, quick wins) → 8 → 9 → 10 (only
+remaining slice, now unblocked).

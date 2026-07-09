@@ -40,6 +40,7 @@ function anInput(overrides: Partial<AudioPatchInput>): AudioPatchInput {
   return {
     id: 1, event_id: 1, channel_number: 1, channel_name: 'Vocal', signal_type: 'mic',
     preamp_connector: 'xlr', cable_type: 'xlr', cable_length_m: 10, phantom_power: true,
+    width: 'mono', mixer_behavior: 'stereo_channel', source_cabling: 'two_cables',
     ...overrides,
   }
 }
@@ -91,12 +92,53 @@ describe('InputPatchSheet', () => {
     expect(html).toContain('Nothing planned on this sheet.')
     expect(html).not.toContain('<table')
   })
+
+  it('shows a linked-channels stereo row\'s pair number and both independently-patched sides', () => {
+    const html = render(
+      <InputPatchSheet
+        eventId={1}
+        inputs={[
+          anInput({
+            channel_number: 5, channel_name: 'Crowd L/R', mixer_behavior: 'linked_channels', width: 'stereo',
+            stagebox_id: 1, stagebox_channel: 9, stage_multi_id_b: 5, stage_multi_channel_b: 3, mic_item_id: 42,
+          }),
+        ]}
+        stageboxes={stageboxes}
+        stageMultis={stageMultis}
+        groups={[]}
+        dcas={[]}
+        itemLabelById={itemLabelById}
+      />,
+    )
+    // Pair number and both sides' independent routes (side B needn't share
+    // side A's stagebox — the crowd-mic scenario).
+    expect(html).toContain('5–6')
+    expect(html).toContain('SB FOH Rack ch 9')
+    expect(html).toContain('Multi Multi A ch 3')
+  })
+
+  it('shows a DI row\'s source cable alongside its DI→preamp cable', () => {
+    const diLabelById = new Map([...itemLabelById, [502, 'Linekabel Tele-tele — 2m']])
+    const html = render(
+      <InputPatchSheet
+        eventId={1}
+        inputs={[anInput({ signal_type: 'di', mic_item_id: 42, cable_item_id: 201, cable_type: undefined, cable_length_m: undefined, source_cable_item_id: 502 })]}
+        stageboxes={stageboxes}
+        stageMultis={stageMultis}
+        groups={[]}
+        dcas={[]}
+        itemLabelById={diLabelById}
+      />,
+    )
+    expect(html).toContain('Mikrofonkabel — 4m')
+    expect(html).toContain('Src: Linekabel Tele-tele — 2m')
+  })
 })
 
 describe('OutputPatchSheet', () => {
   it('renders destinations per destination_type and cable picks', () => {
     const base: Omit<AudioPatchOutput, 'id' | 'output_number' | 'destination_type'> = {
-      event_id: 1, output_name: '', output_type: 'foh', cable_type: 'nl4', cable_length_m: 20,
+      event_id: 1, output_name: '', output_type: 'foh', cable_type: 'nl4', cable_length_m: 20, width: 'mono',
     }
     const outputLabels = new Map([...itemNameById, [401, 'Högtalarkabel Speakon 2x2,5 — 10m']])
     const html = render(
@@ -124,6 +166,24 @@ describe('OutputPatchSheet', () => {
     expect(html).toContain('background-color:#a855f7')
     expect((html.match(/data-testid="color-swatch"/g) ?? []).length).toBe(1)
     expect(html).not.toMatch(/<(input|select|button|textarea)\b/)
+  })
+
+  it('shows a stereo output\'s independently-patched second destination', () => {
+    const html = render(
+      <OutputPatchSheet
+        eventId={1}
+        outputs={[{
+          id: 4, output_number: 1, output_name: 'Main L/R', output_type: 'foh', destination_type: 'stage_multi',
+          stage_multi_id: 5, stage_multi_channel: 1, stage_multi_id_b: 5, stage_multi_channel_b: 2,
+          width: 'stereo', event_id: 1,
+        }]}
+        stageboxes={stageboxes}
+        stageMultis={stageMultis}
+        itemLabelById={new Map()}
+      />,
+    )
+    expect(html).toContain('Multi Multi A ch 1')
+    expect(html).toContain('Multi Multi A ch 2')
   })
 })
 

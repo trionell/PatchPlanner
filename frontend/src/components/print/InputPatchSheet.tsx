@@ -1,4 +1,5 @@
 import { useReferenceData } from '../../hooks/useReferenceData'
+import { channelNumberLabel } from '../../lib/channelWidth'
 import { legacyCableText } from '../../lib/utils'
 import type { AudioPatchInput, MixerDCA, MixerGroup, StageMulti, Stagebox } from '../../types'
 import { ColorSwatch, PrintSheet, sheetTd, sheetTh } from './PrintSheet'
@@ -36,15 +37,21 @@ export function InputPatchSheet({
         <tbody>
           {rows.map((row) => (
             <tr key={row.id}>
-              <td className={sheetTd}><ColorSwatch color={row.color} />{row.channel_number}</td>
+              <td className={sheetTd}><ColorSwatch color={row.color} />{channelNumberLabel(row.channel_number, row.mixer_behavior)}</td>
               <td className={sheetTd}>{row.channel_name || ''}</td>
               <td className={sheetTd}>{label('signal_types', row.signal_type)}</td>
               <td className={sheetTd}>{label('preamp_connectors', row.preamp_connector)}</td>
               <td className={sheetTd}>{sourceName(row, itemLabelById)}</td>
               <td className={sheetTd}>{standText(row, itemLabelById, label)}</td>
-              <td className={sheetTd}>{cableText(row, itemLabelById, label)}</td>
+              <td className={sheetTd}>
+                <div>{cableText(row, itemLabelById, label)}</div>
+                {row.signal_type === 'di' && <div>Src: {sourceCableText(row, itemLabelById)}</div>}
+              </td>
               <td className={sheetTd}>{row.phantom_power ? '✓' : ''}</td>
-              <td className={sheetTd}>{routingText(row, stageboxes, stageMultis)}</td>
+              <td className={sheetTd}>
+                <div>{routingText(row, stageboxes, stageMultis)}</div>
+                {row.width === 'stereo' && <div>{routingTextB(row, stageboxes, stageMultis)}</div>}
+              </td>
               <td className={sheetTd}><BusNames ids={row.group_ids} buses={groups} /></td>
               <td className={sheetTd}><BusNames ids={row.dca_ids} buses={dcas} /></td>
               <td className={sheetTd}>{row.notes || ''}</td>
@@ -90,6 +97,12 @@ function cableText(row: AudioPatchInput, itemLabelById: Map<number, string>, lab
   return ''
 }
 
+/** DI channels only: the source→DI cable, alongside the DI→preamp cable above. */
+function sourceCableText(row: AudioPatchInput, itemLabelById: Map<number, string>): string {
+  if (!row.source_cable_item_id) return '—'
+  return itemLabelById.get(row.source_cable_item_id) ?? `#${row.source_cable_item_id}`
+}
+
 function standText(row: AudioPatchInput, itemLabelById: Map<number, string>, label: (vocabulary: string, value?: string) => string): string {
   if (row.stand_item_id) return itemLabelById.get(row.stand_item_id) ?? `#${row.stand_item_id}`
   return label('mic_stands', row.mic_stand)
@@ -103,6 +116,19 @@ function routingText(row: AudioPatchInput, stageboxes: Stagebox[], stageMultis: 
   if (row.stage_multi_id) {
     const name = stageMultis.find((sm) => sm.id === row.stage_multi_id)?.name ?? `#${row.stage_multi_id}`
     return `Multi ${name} ch ${row.stage_multi_channel ?? '—'}`
+  }
+  return 'direct'
+}
+
+/** Side B's own, independently-patched route (stereo channels only). */
+function routingTextB(row: AudioPatchInput, stageboxes: Stagebox[], stageMultis: StageMulti[]): string {
+  if (row.stagebox_id_b) {
+    const name = stageboxes.find((sb) => sb.id === row.stagebox_id_b)?.name ?? `#${row.stagebox_id_b}`
+    return `SB ${name} ch ${row.stagebox_channel_b ?? '—'}`
+  }
+  if (row.stage_multi_id_b) {
+    const name = stageMultis.find((sm) => sm.id === row.stage_multi_id_b)?.name ?? `#${row.stage_multi_id_b}`
+    return `Multi ${name} ch ${row.stage_multi_channel_b ?? '—'}`
   }
   return 'direct'
 }
