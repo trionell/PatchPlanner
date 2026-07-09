@@ -108,12 +108,12 @@ new component file, to avoid unnecessary churn in
 
 ### Tests for User Story 3
 
-- [ ] T022 [P] [US3] In `frontend/src/lib/signalFlow.test.ts`: replace the Slice 10 `buildOutputChainFlow` tests with graph-walking equivalents — a multi-hop path through two devices, a path with a stage-multi hand-off in the middle (asserting no "gap" is flagged for its cable-less input side, only for a genuinely unconnected port), a stereo channel's two independent paths, and an unconnected port flagged as a gap and folded into `hasGap`.
+- [x] T022 [P] [US3] In `frontend/src/lib/signalFlow.test.ts`: replace the Slice 10 `buildOutputChainFlow` tests with graph-walking equivalents — a multi-hop path through two devices, a path with a stage-multi hand-off in the middle (asserting no "gap" is flagged for its cable-less input side, only for a genuinely unconnected port), a stereo channel's two independent paths, and an unconnected port flagged as a gap and folded into `hasGap`.
 
 ### Implementation for User Story 3
 
-- [ ] T023 [US3] Rewrite the output-flow half of `frontend/src/lib/signalFlow.ts`: starting from each mixer port, follow `to` → that node's other `from` ports (via T016's port helpers) until a dead end; a port with nothing attached is a gap unless it's a source's *output* side with genuinely nothing downstream (mirrors the existing "no routing = direct, not a gap" input-side rule, data-model.md's derived gap rule) — replaces `buildOutputChainFlow`/`buildOutputChainFlows` entirely.
-- [ ] T024 [US3] Update `frontend/src/components/event/SignalFlowTab.tsx`'s output section to consume the rewritten builder — same `Table`/`Hop`/`Arrow` components as before, now walking real graph edges instead of a flat `chain` array.
+- [x] T023 [US3] Rewrite the output-flow half of `frontend/src/lib/signalFlow.ts`: starting from each mixer port, follow `to` → that node's other `from` ports (via T016's port helpers) until a dead end; a port with nothing attached is a gap unless it's a source's *output* side with genuinely nothing downstream (mirrors the existing "no routing = direct, not a gap" input-side rule, data-model.md's derived gap rule) — replaces `buildOutputChainFlow`/`buildOutputChainFlows` entirely.
+- [x] T024 [US3] Update `frontend/src/components/event/SignalFlowTab.tsx`'s output section to consume the rewritten builder — same `Table`/`Hop`/`Arrow` components as before, now walking real graph edges instead of a flat `chain` array.
 
 **Checkpoint**: All three user stories are independently functional. Signal Flow and the print sheet describe the graph faithfully, including stage-multi hand-offs and stereo's two independent sides.
 
@@ -121,7 +121,7 @@ new component file, to avoid unnecessary churn in
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T025 [P] Extend `frontend/src/components/print/printSheets.test.tsx`: fixtures for a multi-hop graph-derived output sheet, a stage-multi hand-off, and a stereo channel's two paths (mirrors the fixture style already used since Slice 9).
+- [x] T025 [P] Extend `frontend/src/components/print/printSheets.test.tsx`: fixtures for a multi-hop graph-derived output sheet, a stage-multi hand-off, and a stereo channel's two paths (mirrors the fixture style already used since Slice 9).
 - [ ] T026 Run `gofmt -w`, `go vet ./...`, `golangci-lint run` (backend) and `tsc -p tsconfig.app.json --noEmit`, `eslint .` (frontend) from their respective directories; fix any findings. (`tsc -p tsconfig.app.json --noEmit`, not bare `tsc --noEmit` — documented false-positive from Slice 9.)
 - [ ] T027 Run the full test suite (`go test ./...` in `backend/`, `npx vitest run` in `frontend/`) and the frontend build (`npm run build`); confirm all green.
 - [ ] T028 Manually verify `specs/011-output-signal-graph/quickstart.md` end-to-end on a **copy** of the dev database (never the live file, with a fresh binary on a scratch port) — this project's standing DB-safety rule, restated with extra weight here since this is the first migration verified against data known to exist on the live database (Slice 10's chain editor, actively used). Confirm SC-004 (existing chains convert losslessly, including the two disclosed exceptions being reported rather than silently dropped) against the real reference event's actual "LR amplifier"/"LR splitter" rig.
