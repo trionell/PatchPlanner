@@ -68,7 +68,7 @@ new component file, to avoid unnecessary churn in
 
 ### Tests for User Story 1
 
-- [ ] T014 [P] [US1] Create `backend/internal/api/output_cables_test.go`: full cable round-trip through the real HTTP API — create a device, connect the mixer to it, connect it onward to a second device, assert the response and a `GET /events/{id}/audio-patch` both reflect the graph; assert `400`/`409` on: an out-of-bounds port index, a port already in use, a `to_kind` of `mixer`/`stagebox`, and a non-null `cable_item_id` against a `stage_multi` `to_kind`. Assert `PATCH` changes only `cable_item_id` and leaves the ports untouched.
+- [x] T014 [P] [US1] Create `backend/internal/api/output_cables_test.go`: full cable round-trip through the real HTTP API — create a device, connect the mixer to it, connect it onward to a second device, assert the response and a `GET /events/{id}/audio-patch` both reflect the graph; assert `400`/`409` on: an out-of-bounds port index, a port already in use, a `to_kind` of `mixer`/`stagebox`, and a non-null `cable_item_id` against a `stage_multi` `to_kind`. Assert `PATCH` changes only `cable_item_id` and leaves the ports untouched.
 
 ### Implementation for User Story 1
 
