@@ -73,9 +73,10 @@ reference it.
    **When** the rental order is generated, **Then** that device appears
    exactly once at quantity 1, not three times.
 3. **Given** a shared device is still referenced by at least one chain,
-   **When** the tech attempts to delete it, **Then** the system prevents the
-   deletion (or clearly explains what still depends on it), consistent with
-   how stageboxes and stage multis already behave.
+   **When** the tech deletes it, **Then** the deletion succeeds and every
+   hop that referenced it reverts to "device not yet picked" (a visible
+   gap), consistent with how deleting a stagebox or stage multi already
+   clears the routes that pointed at it instead of blocking the deletion.
 
 ---
 
@@ -174,9 +175,11 @@ as a gap.
   stereo speaker/cable doubling already works; a hop referencing a
   *shared* device MUST stay single-counted regardless of the channel's
   width.
-- **FR-010**: The system MUST prevent deleting a shared device that is still
-  referenced by at least one chain, consistent with how stageboxes and
-  stage multis already protect against orphaning references.
+- **FR-010**: Deleting a shared device MUST succeed and clear the reference
+  on every hop that pointed at it (leaving those hops as an incomplete,
+  gap-flagged device pick) rather than being blocked, consistent with how
+  deleting a stagebox or stage multi already clears the routes that
+  referenced it instead of preventing the deletion.
 - **FR-011**: A chain's terminal hop MUST be able to record a destination of
   "routed to a stagebox/stage-multi channel" (today's `stagebox`/
   `stage_multi` destination types) in addition to ending at a device, so the
