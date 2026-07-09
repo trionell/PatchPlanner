@@ -310,9 +310,15 @@ function OutputGraphCanvas({
     else portEls.current.delete(key)
   }
 
-  const sourceDevices = devices.filter((d) => nodeRole(d) === 'processing' || nodeRole(d) === 'source')
-  const destinationDevices = devices.filter((d) => nodeRole(d) === 'destination')
-  const middleDevices = devices.filter((d) => nodeRole(d) === 'processing')
+  // Filtered once per actual `devices` change, not per render — feeding
+  // these into layout's useMemo with brand-new array references every
+  // render (from an unmemoized .filter()) defeated its memoization
+  // entirely, which fed a new `layout` reference into the paths effect
+  // on every render, which called setState every render: an infinite
+  // update loop.
+  const sourceDevices = useMemo(() => devices.filter((d) => nodeRole(d) === 'processing' || nodeRole(d) === 'source'), [devices])
+  const destinationDevices = useMemo(() => devices.filter((d) => nodeRole(d) === 'destination'), [devices])
+  const middleDevices = useMemo(() => devices.filter((d) => nodeRole(d) === 'processing'), [devices])
 
   const layout = useMemo<NodeLayout[]>(() => {
     const nodes: NodeLayout[] = []
