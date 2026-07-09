@@ -15,6 +15,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table'
+import { BusMultiSelect } from './BusMultiSelect'
+import { BusSection } from './BusSection'
+import { ColorSelect } from './ColorSelect'
 import { StageboxMultiSection } from './StageboxMultiSection'
 
 export function AudioInputsTab({ eventId }: { eventId: number }) {
@@ -52,6 +55,7 @@ export function AudioInputsTab({ eventId }: { eventId: number }) {
 
   const addRow = () => {
     const lastNumber = inputs.at(-1)?.channel_number ?? 0
+    // group_ids intentionally omitted: the server routes new channels to LR.
     addMutation.mutate({
       event_id: eventId,
       channel_number: lastNumber + 1,
@@ -59,10 +63,12 @@ export function AudioInputsTab({ eventId }: { eventId: number }) {
       signal_type: 'mic',
       preamp_connector: 'xlr',
       phantom_power: false,
-      dca_groups: '',
       notes: '',
     })
   }
+
+  const groups = audioQuery.data?.groups ?? []
+  const dcas = audioQuery.data?.dcas ?? []
 
   const itemLabelById = useMemo(
     () => new Map([...allAudioItems, ...cableItems, ...standItems].map((item) => [item.id, itemLabel(item)])),
@@ -78,6 +84,7 @@ export function AudioInputsTab({ eventId }: { eventId: number }) {
           stageMultis={audioQuery.data?.stage_multis ?? []}
           audioItems={allAudioItems}
         />
+        <BusSection eventId={eventId} groups={groups} dcas={dcas} inputs={inputs} />
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle>Audio inputs</CardTitle>
@@ -91,7 +98,7 @@ export function AudioInputsTab({ eventId }: { eventId: number }) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {['Ch#','Name','Type','Connector','Stagebox','SB Ch','Multi','Multi Ch','Mic Model','Cable','Stand','48V','DCA','Notes',''].map((heading) => <TableHead key={heading}>{heading}</TableHead>)}
+                    {['Ch#','Name','Type','Connector','Stagebox','SB Ch','Multi','Multi Ch','Mic Model','Cable','Stand','48V','Groups','DCA','Color','Notes',''].map((heading) => <TableHead key={heading}>{heading}</TableHead>)}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -183,7 +190,26 @@ export function AudioInputsTab({ eventId }: { eventId: number }) {
                           </div>
                         </TableCell>
                         <TableCell><input type="checkbox" checked={row.phantom_power} onChange={(e) => { updateDraft(index, 'phantom_power', e.target.checked); void persist({ ...inputs[index], phantom_power: e.target.checked }) }} className="h-4 w-4 accent-amber-500" /></TableCell>
-                        <TableCell><Input value={row.dca_groups ?? ''} onChange={(e) => updateDraft(index, 'dca_groups', e.target.value)} onBlur={() => persist(inputs[index])} className="min-w-24" /></TableCell>
+                        <TableCell>
+                          <BusMultiSelect
+                            selected={row.group_ids ?? []}
+                            options={groups}
+                            onChange={(ids) => { updateDraft(index, 'group_ids', ids); void persist({ ...inputs[index], group_ids: ids }) }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <BusMultiSelect
+                            selected={row.dca_ids ?? []}
+                            options={dcas}
+                            onChange={(ids) => { updateDraft(index, 'dca_ids', ids); void persist({ ...inputs[index], dca_ids: ids }) }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <ColorSelect
+                            value={row.color}
+                            onChange={(color) => { updateDraft(index, 'color', color); void persist({ ...inputs[index], color }) }}
+                          />
+                        </TableCell>
                         <TableCell><Input value={row.notes ?? ''} onChange={(e) => updateDraft(index, 'notes', e.target.value)} onBlur={() => persist(inputs[index])} className="min-w-36" /></TableCell>
                         <TableCell><Button size="sm" variant="ghost" onClick={() => deleteMutation.mutate(row.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
                       </TableRow>
@@ -200,6 +226,8 @@ export function AudioInputsTab({ eventId }: { eventId: number }) {
         inputs={inputs}
         stageboxes={audioQuery.data?.stageboxes ?? []}
         stageMultis={audioQuery.data?.stage_multis ?? []}
+        groups={groups}
+        dcas={dcas}
         itemLabelById={itemLabelById}
       />
     </>

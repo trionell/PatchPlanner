@@ -52,6 +52,30 @@ export interface StageMulti {
   inventory_item_id?: number
 }
 
+/** A named mix bus of one event; LR is built-in (recolorable, never renamed/deleted). */
+export interface MixerGroup {
+  id: number
+  event_id: number
+  name: string
+  is_builtin: boolean
+  /** channel_colors palette value (CSS color); absent = uncolored. */
+  color?: string
+}
+
+/** A named DCA of one event. */
+export interface MixerDCA {
+  id: number
+  event_id: number
+  name: string
+  color?: string
+}
+
+/** POST/PATCH body for groups and DCAs. */
+export interface BusRequest {
+  name: string
+  color?: string
+}
+
 export interface AudioPatchInput {
   id: number
   event_id: number
@@ -75,7 +99,14 @@ export interface AudioPatchInput {
   /** Legacy pre-019 stand vocabulary value; read-only display until a stand is picked. */
   mic_stand?: string
   phantom_power: boolean
-  dca_groups?: string
+  /** channel_colors palette value; absent = uncolored. */
+  color?: string
+  /**
+   * Full bus membership sets. Omitting group_ids on create makes the server
+   * route the channel to LR; an explicit array (even []) is stored verbatim.
+   */
+  group_ids?: number[]
+  dca_ids?: number[]
   notes?: string
 }
 
@@ -97,6 +128,8 @@ export interface AudioPatchOutput {
   /** Legacy pre-019 cable values; read-only display until a cable is picked. */
   cable_type?: string
   cable_length_m?: number
+  /** channel_colors palette value; absent = uncolored. */
+  color?: string
   notes?: string
 }
 
@@ -242,6 +275,8 @@ export interface FixtureMode {
 export interface AudioPatchResponse {
   stageboxes: Stagebox[]
   stage_multis: StageMulti[]
+  groups: MixerGroup[]
+  dcas: MixerDCA[]
   inputs: AudioPatchInput[]
   outputs: AudioPatchOutput[]
 }

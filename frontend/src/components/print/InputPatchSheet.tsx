@@ -1,9 +1,9 @@
 import { useReferenceData } from '../../hooks/useReferenceData'
 import { legacyCableText } from '../../lib/utils'
-import type { AudioPatchInput, StageMulti, Stagebox } from '../../types'
-import { PrintSheet, sheetTd, sheetTh } from './PrintSheet'
+import type { AudioPatchInput, MixerDCA, MixerGroup, StageMulti, Stagebox } from '../../types'
+import { ColorSwatch, PrintSheet, sheetTd, sheetTh } from './PrintSheet'
 
-const columns = ['Ch#', 'Name', 'Type', 'Connector', 'Source', 'Stand', 'Cable', '48V', 'Routing', 'DCA', 'Notes']
+const columns = ['Ch#', 'Name', 'Type', 'Connector', 'Source', 'Stand', 'Cable', '48V', 'Routing', 'Groups', 'DCA', 'Notes']
 
 /** Paper rendering of the input patch (hidden on screen, shown in print). */
 export function InputPatchSheet({
@@ -11,12 +11,16 @@ export function InputPatchSheet({
   inputs,
   stageboxes,
   stageMultis,
+  groups,
+  dcas,
   itemLabelById,
 }: {
   eventId: number
   inputs: AudioPatchInput[]
   stageboxes: Stagebox[]
   stageMultis: StageMulti[]
+  groups: MixerGroup[]
+  dcas: MixerDCA[]
   /** Catalog item labels (name — description) for mic/cable/stand picks. */
   itemLabelById: Map<number, string>
 }) {
@@ -32,7 +36,7 @@ export function InputPatchSheet({
         <tbody>
           {rows.map((row) => (
             <tr key={row.id}>
-              <td className={sheetTd}>{row.channel_number}</td>
+              <td className={sheetTd}><ColorSwatch color={row.color} />{row.channel_number}</td>
               <td className={sheetTd}>{row.channel_name || ''}</td>
               <td className={sheetTd}>{label('signal_types', row.signal_type)}</td>
               <td className={sheetTd}>{label('preamp_connectors', row.preamp_connector)}</td>
@@ -41,13 +45,37 @@ export function InputPatchSheet({
               <td className={sheetTd}>{cableText(row, itemLabelById, label)}</td>
               <td className={sheetTd}>{row.phantom_power ? '✓' : ''}</td>
               <td className={sheetTd}>{routingText(row, stageboxes, stageMultis)}</td>
-              <td className={sheetTd}>{row.dca_groups || ''}</td>
+              <td className={sheetTd}><BusNames ids={row.group_ids} buses={groups} /></td>
+              <td className={sheetTd}><BusNames ids={row.dca_ids} buses={dcas} /></td>
               <td className={sheetTd}>{row.notes || ''}</td>
             </tr>
           ))}
         </tbody>
       </table>
     </PrintSheet>
+  )
+}
+
+/**
+ * Comma-separated bus names in the event's canonical order, each tinted by
+ * its bus color (kept in print via print-color-adjust). Empty membership
+ * renders an empty cell.
+ */
+function BusNames({ ids, buses }: { ids?: number[]; buses: { id: number; name: string; color?: string }[] }) {
+  const members = buses.filter((bus) => ids?.includes(bus.id))
+  return (
+    <>
+      {members.map((bus, index) => (
+        <span key={bus.id}>
+          <span
+            style={bus.color ? { backgroundColor: bus.color, printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact', padding: '0 2px', borderRadius: 2 } : undefined}
+          >
+            {bus.name}
+          </span>
+          {index < members.length - 1 ? ', ' : ''}
+        </span>
+      ))}
+    </>
   )
 }
 

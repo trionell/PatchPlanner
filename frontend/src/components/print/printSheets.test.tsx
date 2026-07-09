@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
-import type { AudioPatchInput, AudioPatchOutput, LightingFixture, StageMulti, Stagebox, TrussSection } from '../../types'
+import type { AudioPatchInput, AudioPatchOutput, LightingFixture, MixerDCA, MixerGroup, StageMulti, Stagebox, TrussSection } from '../../types'
 import { InputPatchSheet } from './InputPatchSheet'
 import { LightingRigSheet } from './LightingRigSheet'
 import { OutputPatchSheet } from './OutputPatchSheet'
@@ -25,6 +25,11 @@ const stageMultis: StageMulti[] = [
   { id: 5, event_id: 1, name: 'Multi A', length_m: 30, channels: 12, connector_type: 'harting' },
 ]
 const itemNameById = new Map([[42, 'Shure SM58'], [77, 'Amp X'], [78, 'Speaker Y']])
+const groups: MixerGroup[] = [
+  { id: 1, event_id: 1, name: 'LR', is_builtin: true },
+  { id: 7, event_id: 1, name: 'Trummor', is_builtin: false, color: '#ef4444' },
+]
+const dcas: MixerDCA[] = [{ id: 3, event_id: 1, name: 'Band', color: '#3b82f6' }]
 const itemLabelById = new Map([
   [42, 'Shure SM58'],
   [201, 'Mikrofonkabel — 4m'],
@@ -46,15 +51,25 @@ describe('InputPatchSheet', () => {
         eventId={1}
         inputs={[
           anInput({ id: 2, channel_number: 2, channel_name: 'Guitar', mic_label: 'Old DI', stage_multi_id: 5, stage_multi_channel: 4, phantom_power: false, mic_stand: 'boom' }),
-          anInput({ id: 1, mic_item_id: 42, stagebox_id: 1, stagebox_channel: 12, cable_item_id: 201, cable_type: undefined, cable_length_m: undefined, stand_item_id: 301 }),
-          anInput({ id: 3, channel_number: 3, channel_name: 'Playback L' }),
+          anInput({ id: 1, mic_item_id: 42, stagebox_id: 1, stagebox_channel: 12, cable_item_id: 201, cable_type: undefined, cable_length_m: undefined, stand_item_id: 301, group_ids: [1, 7], dca_ids: [3], color: '#22c55e' }),
+          anInput({ id: 3, channel_number: 3, channel_name: 'Playback L', group_ids: [] }),
         ]}
         stageboxes={stageboxes}
         stageMultis={stageMultis}
+        groups={groups}
+        dcas={dcas}
         itemLabelById={itemLabelById}
       />,
     )
     expect(html).toContain('Vocal')
+    // Bus membership: names in the event's canonical order, LR first; the
+    // colored group name is tinted and the channel swatch is printed.
+    expect(html).toContain('LR')
+    expect(html).toContain('Trummor')
+    expect(html).toContain('Band')
+    expect(html).toContain('background-color:#ef4444')
+    expect(html).toContain('background-color:#22c55e')
+    expect(html).toContain('data-testid="color-swatch"')
     expect(html).toContain('Shure SM58')
     expect(html).toContain('SB FOH Rack ch 12')
     expect(html).toContain('Old DI')
@@ -72,7 +87,7 @@ describe('InputPatchSheet', () => {
   })
 
   it('renders the empty-state line instead of a table', () => {
-    const html = render(<InputPatchSheet eventId={1} inputs={[]} stageboxes={[]} stageMultis={[]} itemLabelById={new Map()} />)
+    const html = render(<InputPatchSheet eventId={1} inputs={[]} stageboxes={[]} stageMultis={[]} groups={[]} dcas={[]} itemLabelById={new Map()} />)
     expect(html).toContain('Nothing planned on this sheet.')
     expect(html).not.toContain('<table')
   })
@@ -88,7 +103,7 @@ describe('OutputPatchSheet', () => {
       <OutputPatchSheet
         eventId={1}
         outputs={[
-          { id: 1, output_number: 1, destination_type: 'local', amplifier_item_id: 77, speaker_item_id: 78, ...base },
+          { id: 1, output_number: 1, destination_type: 'local', amplifier_item_id: 77, speaker_item_id: 78, color: '#a855f7', ...base },
           { id: 2, output_number: 2, destination_type: 'stagebox', stagebox_id: 1, stagebox_channel: 3, ...base, cable_item_id: 401, cable_type: undefined, cable_length_m: undefined },
           { id: 3, output_number: 3, destination_type: 'stage_multi', stage_multi_id: 5, stage_multi_channel: 8, ...base },
         ]}
@@ -105,6 +120,9 @@ describe('OutputPatchSheet', () => {
     // Picked cable shows the catalog label; legacy rows show type + typed length.
     expect(html).toContain('Högtalarkabel Speakon 2x2,5 — 10m')
     expect(html).toContain('nl4 20 m')
+    // Output channel color prints as a swatch; uncolored rows carry none.
+    expect(html).toContain('background-color:#a855f7')
+    expect((html.match(/data-testid="color-swatch"/g) ?? []).length).toBe(1)
     expect(html).not.toMatch(/<(input|select|button|textarea)\b/)
   })
 })

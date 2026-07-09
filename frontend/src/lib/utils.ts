@@ -49,3 +49,12 @@ export function legacyCableText(cableType: string, lengthM: number | undefined, 
   const base = labelFor(cableType)
   return lengthM && lengthM > 0 ? `${base} ${lengthM} m` : base
 }
+
+/**
+ * Inline style tinting a badge with a channel-strip color; undefined for
+ * uncolored so the element keeps its default look. Dark text keeps every
+ * palette color readable.
+ */
+export function busTint(color?: string): { backgroundColor: string; color: string } | undefined {
+  return color ? { backgroundColor: color, color: '#18181b' } : undefined
+}

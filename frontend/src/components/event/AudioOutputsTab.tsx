@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table'
+import { ColorSelect } from './ColorSelect'
 import { StageboxMultiSection } from './StageboxMultiSection'
 
 export function AudioOutputsTab({ eventId }: { eventId: number }) {
@@ -87,7 +88,7 @@ export function AudioOutputsTab({ eventId }: { eventId: number }) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {['Out#','Name','Type','Destination','SB','SB Ch','Multi','Multi Ch','Amplifier','Speaker','Cable','Notes',''].map((heading) => <TableHead key={heading}>{heading}</TableHead>)}
+                    {['Out#','Name','Type','Destination','SB','SB Ch','Multi','Multi Ch','Amplifier','Speaker','Cable','Color','Notes',''].map((heading) => <TableHead key={heading}>{heading}</TableHead>)}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -139,6 +140,12 @@ export function AudioOutputsTab({ eventId }: { eventId: number }) {
                               </div>
                             )}
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          <ColorSelect
+                            value={row.color}
+                            onChange={(color) => { updateDraft(index, 'color', color); void persist({ ...outputs[index], color }) }}
+                          />
                         </TableCell>
                         <TableCell><Input value={row.notes ?? ''} onChange={(e) => updateDraft(index, 'notes', e.target.value)} onBlur={() => persist(outputs[index])} className="min-w-36" /></TableCell>
                         <TableCell><Button size="sm" variant="ghost" onClick={() => deleteMutation.mutate(row.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>

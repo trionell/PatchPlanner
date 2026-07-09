@@ -5,9 +5,10 @@ import { getAudioPatch } from '../../api/audioPatch'
 import { listInventoryItems } from '../../api/inventory'
 import { useReferenceData } from '../../hooks/useReferenceData'
 import { buildChannelFlows, type FlowHop } from '../../lib/signalFlow'
-import { cn, itemLabel } from '../../lib/utils'
+import { busTint, cn, itemLabel } from '../../lib/utils'
 import { PrintButton } from '../print/PrintButton'
 import { PrintSheet } from '../print/PrintSheet'
+import { Badge } from '../ui/Badge'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table'
 
@@ -30,7 +31,14 @@ export function SignalFlowTab({ eventId }: { eventId: number }) {
     () => new Map((cableQuery.data ?? []).map((item) => [item.id, itemLabel(item)])),
     [cableQuery.data],
   )
-  const flows = buildChannelFlows(audioQuery.data?.inputs ?? [], {
+  // Sorted copy matching buildChannelFlows' internal order, so flows[i]
+  // and inputs[i] describe the same channel (bus membership isn't part of
+  // the chain view-model — memberships are not hops).
+  const inputs = useMemo(
+    () => [...(audioQuery.data?.inputs ?? [])].sort((a, b) => a.channel_number - b.channel_number),
+    [audioQuery.data],
+  )
+  const flows = buildChannelFlows(inputs, {
     stageboxes: audioQuery.data?.stageboxes ?? [],
     stageMultis: audioQuery.data?.stage_multis ?? [],
     micNameById,
@@ -38,6 +46,8 @@ export function SignalFlowTab({ eventId }: { eventId: number }) {
     cableLabel: (value) => label('signal_cable_types', value),
   })
   const gapCount = flows.filter((flow) => flow.hasGap).length
+  const groups = audioQuery.data?.groups ?? []
+  const dcas = audioQuery.data?.dcas ?? []
 
   return (
     <PrintSheet eventId={eventId} title="Signal Flow" empty={flows.length === 0} visibleOnScreen>
@@ -62,14 +72,18 @@ export function SignalFlowTab({ eventId }: { eventId: number }) {
               <TableRow>
                 <TableHead>Ch#</TableHead>
                 <TableHead>Name</TableHead>
+                <TableHead>Groups / DCA</TableHead>
                 <TableHead>Signal chain</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {flows.map((flow) => (
-                <TableRow key={`${flow.channelNumber}-${flow.channelName}`}>
+              {flows.map((flow, index) => (
+                <TableRow key={inputs[index]?.id ?? flow.channelNumber}>
                   <TableCell className="w-16">{flow.channelNumber}</TableCell>
                   <TableCell className="w-48">{flow.channelName || '—'}</TableCell>
+                  <TableCell className="w-56">
+                    <BusBadges input={inputs[index]} groups={groups} dcas={dcas} />
+                  </TableCell>
                   <TableCell>
                     <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                       <Hop hop={flow.source} />
@@ -88,6 +102,31 @@ export function SignalFlowTab({ eventId }: { eventId: number }) {
         </CardContent>
       </Card>
     </PrintSheet>
+  )
+}
+
+/** The channel's bus memberships as tinted badges; DCAs carry a muted prefix. */
+function BusBadges({
+  input,
+  groups,
+  dcas,
+}: {
+  input?: { group_ids?: number[]; dca_ids?: number[] }
+  groups: { id: number; name: string; color?: string }[]
+  dcas: { id: number; name: string; color?: string }[]
+}) {
+  const memberGroups = groups.filter((group) => input?.group_ids?.includes(group.id))
+  const memberDCAs = dcas.filter((dca) => input?.dca_ids?.includes(dca.id))
+  if (memberGroups.length === 0 && memberDCAs.length === 0) return <span className="text-zinc-500">—</span>
+  return (
+    <span className="flex flex-wrap items-center gap-1">
+      {memberGroups.map((group) => (
+        <Badge key={`g-${group.id}`} style={busTint(group.color)}>{group.name}</Badge>
+      ))}
+      {memberDCAs.map((dca) => (
+        <Badge key={`d-${dca.id}`} style={busTint(dca.color)}>DCA {dca.name}</Badge>
+      ))}
+    </span>
   )
 }
 

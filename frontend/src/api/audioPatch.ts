@@ -1,4 +1,4 @@
-import type { AudioPatchInput, AudioPatchOutput, AudioPatchResponse, Stagebox, StageMulti } from '../types'
+import type { AudioPatchInput, AudioPatchOutput, AudioPatchResponse, BusRequest, MixerDCA, MixerGroup, Stagebox, StageMulti } from '../types'
 import { request } from './client'
 
 export const getAudioPatch = (eventId: number) => request<AudioPatchResponse>(`/events/${eventId}/audio-patch`)
@@ -16,6 +16,20 @@ export const updateStageMulti = (eventId: number, smId: number, data: Omit<Stage
   request<StageMulti>(`/events/${eventId}/stage-multis/${smId}`, { method: 'PATCH', body: JSON.stringify(data) })
 export const deleteStageMulti = (eventId: number, smId: number) =>
   request<void>(`/events/${eventId}/stage-multis/${smId}`, { method: 'DELETE' })
+
+export const createGroup = (eventId: number, data: BusRequest) =>
+  request<MixerGroup>(`/events/${eventId}/groups`, { method: 'POST', body: JSON.stringify(data) })
+export const updateGroup = (eventId: number, groupId: number, data: BusRequest) =>
+  request<MixerGroup>(`/events/${eventId}/groups/${groupId}`, { method: 'PATCH', body: JSON.stringify(data) })
+export const deleteGroup = (eventId: number, groupId: number) =>
+  request<void>(`/events/${eventId}/groups/${groupId}`, { method: 'DELETE' })
+
+export const createDCA = (eventId: number, data: BusRequest) =>
+  request<MixerDCA>(`/events/${eventId}/dcas`, { method: 'POST', body: JSON.stringify(data) })
+export const updateDCA = (eventId: number, dcaId: number, data: BusRequest) =>
+  request<MixerDCA>(`/events/${eventId}/dcas/${dcaId}`, { method: 'PATCH', body: JSON.stringify(data) })
+export const deleteDCA = (eventId: number, dcaId: number) =>
+  request<void>(`/events/${eventId}/dcas/${dcaId}`, { method: 'DELETE' })
 
 export const createAudioInput = (eventId: number, data: Omit<AudioPatchInput, 'id'>) =>
   request<AudioPatchInput>(`/events/${eventId}/audio-inputs`, { method: 'POST', body: JSON.stringify(data) })

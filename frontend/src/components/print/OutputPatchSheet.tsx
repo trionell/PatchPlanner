@@ -1,7 +1,7 @@
 import { useReferenceData } from '../../hooks/useReferenceData'
 import { legacyCableText } from '../../lib/utils'
 import type { AudioPatchOutput, StageMulti, Stagebox } from '../../types'
-import { PrintSheet, sheetTd, sheetTh } from './PrintSheet'
+import { ColorSwatch, PrintSheet, sheetTd, sheetTh } from './PrintSheet'
 
 const columns = ['Out#', 'Name', 'Type', 'Destination', 'Amp', 'Speaker', 'Cable', 'Notes']
 
@@ -32,7 +32,7 @@ export function OutputPatchSheet({
         <tbody>
           {rows.map((row) => (
             <tr key={row.id}>
-              <td className={sheetTd}>{row.output_number}</td>
+              <td className={sheetTd}><ColorSwatch color={row.color} />{row.output_number}</td>
               <td className={sheetTd}>{row.output_name || ''}</td>
               <td className={sheetTd}>{label('output_types', row.output_type)}</td>
               <td className={sheetTd}>{destinationText(row, stageboxes, stageMultis)}</td>

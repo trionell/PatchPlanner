@@ -22,6 +22,7 @@ var seedCounts = map[string]int{
 	"mic_stands":          6,
 	"power_connectors":    8,
 	"truss_types":         5,
+	"channel_colors":      8,
 }
 
 func TestReferenceSeedAndListing(t *testing.T) {

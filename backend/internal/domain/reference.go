@@ -14,6 +14,7 @@ var Vocabularies = []string{
 	"mic_stands",
 	"power_connectors",
 	"truss_types",
+	"channel_colors",
 }
 
 // ReferenceValue is one choice within a vocabulary. Value is the stable

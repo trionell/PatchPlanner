@@ -36,13 +36,26 @@ func GetEvent(db *sql.DB, id int64) (domain.Event, error) {
 }
 
 func CreateEvent(db *sql.DB, event domain.Event) (domain.Event, error) {
-	result, err := db.Exec(`INSERT INTO events (name, date, venue, notes, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`, event.Name, nullString(event.Date), nullString(event.Venue), nullString(event.Notes))
+	tx, err := db.Begin()
+	if err != nil {
+		return domain.Event{}, fmt.Errorf("create event: %w", err)
+	}
+	defer tx.Rollback()
+
+	result, err := tx.Exec(`INSERT INTO events (name, date, venue, notes, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`, event.Name, nullString(event.Date), nullString(event.Venue), nullString(event.Notes))
 	if err != nil {
 		return domain.Event{}, fmt.Errorf("create event: %w", err)
 	}
 	id, err := result.LastInsertId()
 	if err != nil {
 		return domain.Event{}, fmt.Errorf("event last insert id: %w", err)
+	}
+	// Every event carries the built-in LR main group from birth.
+	if _, err := tx.Exec(`INSERT INTO mixer_groups (event_id, name, is_builtin) VALUES (?, 'LR', 1)`, id); err != nil {
+		return domain.Event{}, fmt.Errorf("seed LR group: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return domain.Event{}, fmt.Errorf("create event: %w", err)
 	}
 	return GetEvent(db, id)
 }

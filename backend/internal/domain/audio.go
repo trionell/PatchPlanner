@@ -21,6 +21,24 @@ type StageMulti struct {
 	InventoryItemID *int64  `json:"inventory_item_id,omitempty"`
 }
 
+// MixerGroup is a named mix bus of one event. The built-in LR main group
+// exists on every event and can be recolored but never renamed or deleted.
+type MixerGroup struct {
+	ID        int64  `json:"id"`
+	EventID   int64  `json:"event_id"`
+	Name      string `json:"name"`
+	IsBuiltin bool   `json:"is_builtin"`
+	Color     string `json:"color,omitempty"`
+}
+
+// MixerDCA is a named DCA of one event.
+type MixerDCA struct {
+	ID      int64  `json:"id"`
+	EventID int64  `json:"event_id"`
+	Name    string `json:"name"`
+	Color   string `json:"color,omitempty"`
+}
+
 type AudioPatchInput struct {
 	ID                int64  `json:"id"`
 	EventID           int64  `json:"event_id"`
@@ -48,8 +66,14 @@ type AudioPatchInput struct {
 	CableLengthM float64 `json:"cable_length_m,omitempty"`
 	MicStand     string  `json:"mic_stand,omitempty"`
 	PhantomPower bool    `json:"phantom_power"`
-	DCAGroups    string  `json:"dca_groups,omitempty"`
-	Notes        string  `json:"notes,omitempty"`
+	Color        string  `json:"color,omitempty"`
+	// GroupIDs/DCAIDs are the channel's full bus membership sets. On create,
+	// a nil GroupIDs (field absent from JSON) means "no opinion" and the
+	// server routes the channel to the event's LR group; an explicit array —
+	// including [] — is stored verbatim. Updates always replace wholesale.
+	GroupIDs []int64 `json:"group_ids"`
+	DCAIDs   []int64 `json:"dca_ids"`
+	Notes    string  `json:"notes,omitempty"`
 }
 
 type AudioPatchOutput struct {
@@ -69,5 +93,6 @@ type AudioPatchOutput struct {
 	// Legacy pre-019 values; same read-only lifecycle as on inputs.
 	CableType    string  `json:"cable_type,omitempty"`
 	CableLengthM float64 `json:"cable_length_m,omitempty"`
+	Color        string  `json:"color,omitempty"`
 	Notes        string  `json:"notes,omitempty"`
 }

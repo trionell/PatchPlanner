@@ -171,19 +171,26 @@ Feedback items 5–7. Independent of the audio slices.
       addresses after the universe's occupied range (all-or-nothing,
       409 on overflow); existing fixtures never touched.
 
-## Slice 8 — Mixer buses: groups & DCAs (spec: `groups-dcas`)
+## Slice 8 — Mixer buses: groups & DCAs (spec: `groups-dcas`) ✅ done 2026-07-09
 
-Feedback items 8–9. Replaces free-text bus routing with managed entities.
+Feedback items 8–9 + channel-strip colors (added mid-slice).
 
-- Per-event **groups**: created/renamed/deleted in their own manager (like
-  stageboxes); `LR` is always present as a built-in group and is the default
-  routing for new channels. Each input channel selects the set of groups it
-  routes to.
-- Per-event **DCAs**: same management pattern; the channel's DCA becomes a
-  select over the event's DCAs instead of today's `dca_groups` string
-  (existing strings migrated where they parse, kept as legacy labels
-  otherwise).
-- Input patch print sheet and Signal Flow tab show group/DCA assignments.
+- [x] Per-event **groups**: created/renamed/deleted in their own manager
+      (like stageboxes); `LR` is always present as a built-in group
+      (recolorable, never renamed/deleted) and is the default routing for
+      new and pre-existing channels. Each input channel selects the set of
+      groups it routes to (badge multi-select, explicit no-routing allowed).
+- [x] Per-event **DCAs**: same management pattern; the channel's DCA is a
+      multi-select over the event's DCAs instead of the old `dca_groups`
+      string — migration 021 converted every legacy value (comma-split,
+      whitespace-merged, per event) and dropped the column.
+- [x] **Colors**: groups, DCAs, input channels, and output channels each
+      carry an optional console channel-strip color from the
+      `channel_colors` reference vocabulary (8 seeded, Settings-editable);
+      shown in both patch tabs and printed on the input/output sheets
+      (swatch + tinted names, print-color-adjust).
+- [x] Input patch print sheet and Signal Flow tab show group/DCA
+      assignments; no rental impact (verified unchanged on real data).
 
 ## Slice 9 — Mono/stereo channels & DI cabling (spec: `stereo-di`)
 

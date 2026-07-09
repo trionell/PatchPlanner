@@ -8,6 +8,23 @@ export const sheetTh = 'border border-zinc-400 px-1.5 py-1 text-left align-botto
 export const sheetTd = 'border border-zinc-400 px-1.5 py-1 align-top'
 
 /**
+ * Channel-strip color swatch for print rows. print-color-adjust keeps the
+ * background in printed/PDF output even with default browser print settings;
+ * text stays black regardless, so an unsupported browser only loses the dot.
+ */
+export function ColorSwatch({ color }: { color?: string }) {
+  if (!color) return null
+  return (
+    <span
+      aria-hidden
+      data-testid="color-swatch"
+      className="mr-1 inline-block h-2.5 w-2.5 rounded-sm border border-zinc-400 align-middle"
+      style={{ backgroundColor: color, printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}
+    />
+  )
+}
+
+/**
  * Paper rendering wrapper for one planning tab. Hidden on screen (unless
  * `visibleOnScreen`, used by the read-only signal-flow view) and revealed by
  * the print stylesheet; the event header only ever shows in print, where the

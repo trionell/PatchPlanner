@@ -7,7 +7,7 @@ An AVL (Audio, Video, Lighting) event planning tool for live productions. Plan p
 ## Features
 
 - **Events** — Create and manage events with date, venue, and notes
-- **Audio Patch (Inputs)** — Build full input patch lists: channel number, name, signal type, preamp connector, stagebox routing, stage multicore, microphone model, cable and mic stand picked straight from the rental catalog (concrete items with lengths, e.g. "Mikrofonkabel — 4m"), 48V phantom power, and DCA/group assignments
+- **Audio Patch (Inputs)** — Build full input patch lists: channel number, name, signal type, preamp connector, stagebox routing, stage multicore, microphone model, cable and mic stand picked straight from the rental catalog (concrete items with lengths, e.g. "Mikrofonkabel — 4m"), 48V phantom power, mix-group routing (per-event groups with a built-in LR main, the default for new channels), DCA membership picked from per-event DCAs, and a console channel-strip color per channel — groups and DCAs carry colors too, all from a configurable palette
 - **Audio Patch (Outputs)** — Map outputs to destinations (local, stagebox, stage-multi), assign amplifiers and speakers, pick the cable run from the catalog
 - **Lighting Rig** — Add fixtures (one by one or in bulk batches with shared settings, auto-incrementing console fixture IDs, and sequential DMX addresses), assign them to truss sections, configure power connections (grid or daisy-chain), set DMX universe/address and channel mode (catalog-defined modes are offered right in the add dialog), give every fixture its GrandMA fixture ID (duplicates flagged), auto-assign DMX addresses in sequence
 - **Rental Order** — Per-event summary of all rented equipment, derived automatically from the plan (mics, DI/IEM, stageboxes, multicores, amplifiers, speakers, cables, mic stands, fixtures) plus manual line items for anything else; flags lines that exceed the renter's stock. Which catalog categories feed the cable/stand pickers is itself data: each category on the Inventory page carries an editable picker role
@@ -122,8 +122,16 @@ Open an event and navigate to the **Audio Inputs** or **Audio Outputs** tab.
 | Cable | Cable from the rental catalog (item + length, e.g. "Mikrofonkabel — 4m"); pre-upgrade type/length values show as read-only legacy text until re-picked |
 | Stand | Mic stand from the rental catalog; legacy stand-type values show as read-only text until re-picked |
 | 48V | Phantom power on/off |
-| DCA | DCA or group assignments |
+| Groups | Mix groups the channel routes to, picked from the event's groups (LR is built-in and the default; remove it per channel if needed) |
+| DCA | DCA membership, picked from the event's DCAs (a channel can be in several) |
+| Color | Console channel-strip color from the palette (Settings → channel_colors) |
 | Notes | Free-text notes |
+
+Groups and DCAs are managed in the two cards above the inputs table:
+create, rename, recolor, or delete them there. LR can be recolored but
+never renamed or deleted; deleting an assigned group/DCA asks for
+confirmation and then just clears those assignments. Pre-upgrade free-text
+DCA values were converted automatically into per-event DCAs.
 
 **Output columns:**
 | Column | Description |
@@ -137,7 +145,12 @@ Open an event and navigate to the **Audio Inputs** or **Audio Outputs** tab.
 | Amplifier | Amplifier from inventory |
 | Speaker | Speaker from inventory |
 | Cable | Cable from the rental catalog (item + length); legacy type/length values show as read-only text until re-picked |
+| Color | Console channel-strip color from the palette |
 | Notes | Free-text notes |
+
+Channel, group, and DCA colors show on the Audio Inputs/Outputs tabs, in
+the Signal Flow view, and on the printed sheets (as a swatch next to the
+channel number and tinted group/DCA names).
 
 ### Building a lighting rig
 
@@ -216,15 +229,21 @@ Base URL: `http://localhost:7331/api/v1`
 | PATCH | `/inventory/categories/:id` | Set or clear a category's picker role (`{"picker_role": "cable" \| "stand" \| null}`) |
 | GET | `/inventory/items` | List inventory items (filters: `?category_type=lighting`, `?category_id=1`, `?role=cable`, `?include_discontinued=true`) |
 | POST | `/inventory/import-xlsx` | Re-import catalog from LL.xlsx (non-destructive upsert; picker roles survive) |
-| GET | `/events/:id/audio-patch` | Full audio patch: stageboxes, stage multis, inputs, outputs |
+| GET | `/events/:id/audio-patch` | Full audio patch: stageboxes, stage multis, groups, DCAs, inputs, outputs |
+| POST | `/events/:id/groups` | Add a mix group (`{"name", "color"?}`; 409 on duplicate name) |
+| PATCH | `/events/:id/groups/:groupId` | Rename/recolor a group (LR: recolor only) |
+| DELETE | `/events/:id/groups/:groupId` | Delete a group and its channel assignments (LR protected) |
+| POST | `/events/:id/dcas` | Add a DCA (`{"name", "color"?}`) |
+| PATCH | `/events/:id/dcas/:dcaId` | Rename/recolor a DCA |
+| DELETE | `/events/:id/dcas/:dcaId` | Delete a DCA and its channel assignments |
 | POST | `/events/:id/stageboxes` | Add a stagebox |
 | PATCH | `/events/:id/stageboxes/:sbId` | Update a stagebox |
 | DELETE | `/events/:id/stageboxes/:sbId` | Delete a stagebox |
 | POST | `/events/:id/stage-multis` | Add a stage multicore |
 | PATCH | `/events/:id/stage-multis/:smId` | Update a stage multicore |
 | DELETE | `/events/:id/stage-multis/:smId` | Delete a stage multicore |
-| POST | `/events/:id/audio-inputs` | Add an input row |
-| PATCH | `/events/:id/audio-inputs/:inputId` | Update an input row |
+| POST | `/events/:id/audio-inputs` | Add an input row (omit `group_ids` to route to LR by default; the legacy `dca_groups` text field is gone — use `dca_ids`) |
+| PATCH | `/events/:id/audio-inputs/:inputId` | Update an input row (`group_ids`/`dca_ids` replace the sets wholesale) |
 | DELETE | `/events/:id/audio-inputs/:inputId` | Delete an input row |
 | POST | `/events/:id/audio-outputs` | Add an output row |
 | PATCH | `/events/:id/audio-outputs/:outputId` | Update an output row |
