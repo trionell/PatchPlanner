@@ -39,6 +39,18 @@ type MixerDCA struct {
 	Color   string `json:"color,omitempty"`
 }
 
+// Valid values for AudioPatchInput.Width / AudioPatchOutput.Width,
+// AudioPatchInput.MixerBehavior, and AudioPatchInput.SourceCabling. These are
+// Go-validated enums, not reference-data vocabularies: each value carries
+// counting/pairing/numbering semantics in code (rental doubling, console
+// pair display, splitter-vs-two-cables multiplier), so a user-added value
+// could not mean anything (see plan.md Constitution Check, Principle II).
+var (
+	ValidWidths         = []string{"mono", "stereo"}
+	ValidMixerBehaviors = []string{"stereo_channel", "linked_channels"}
+	ValidSourceCablings = []string{"two_cables", "splitter"}
+)
+
 type AudioPatchInput struct {
 	ID                int64  `json:"id"`
 	EventID           int64  `json:"event_id"`
@@ -73,7 +85,29 @@ type AudioPatchInput struct {
 	// including [] — is stored verbatim. Updates always replace wholesale.
 	GroupIDs []int64 `json:"group_ids"`
 	DCAIDs   []int64 `json:"dca_ids"`
-	Notes    string  `json:"notes,omitempty"`
+	// Width is "mono" or "stereo" (ValidWidths). A stereo channel represents
+	// two independently patchable physical connections; side B's routing
+	// (StageboxIDB etc.) is meaningful only when Width is "stereo" but is
+	// never cleared when switched back to mono (state is inert, not lost).
+	Width string `json:"width"`
+	// MixerBehavior is "stereo_channel" or "linked_channels" (ValidMixerBehaviors).
+	// Meaningful only when Width is "stereo"; purely a console-number
+	// display/numbering-suggestion attribute — never affects routing or
+	// rental counting.
+	MixerBehavior      string `json:"mixer_behavior"`
+	StageboxIDB        *int64 `json:"stagebox_id_b,omitempty"`
+	StageboxChannelB   *int   `json:"stagebox_channel_b,omitempty"`
+	StageMultiIDB      *int64 `json:"stage_multi_id_b,omitempty"`
+	StageMultiChannelB *int   `json:"stage_multi_channel_b,omitempty"`
+	// SourceCableItemID is the source→DI cable, meaningful only when
+	// SignalType is "di" (but not cleared when the signal type changes away
+	// from DI — same inert-not-lost pattern as Width/side B).
+	SourceCableItemID *int64 `json:"source_cable_item_id,omitempty"`
+	// SourceCabling is "two_cables" or "splitter" (ValidSourceCablings).
+	// Meaningful only when SignalType is "di" AND Width is "stereo";
+	// determines whether SourceCableItemID counts once or twice in rental.
+	SourceCabling string `json:"source_cabling"`
+	Notes         string `json:"notes,omitempty"`
 }
 
 type AudioPatchOutput struct {
@@ -94,5 +128,12 @@ type AudioPatchOutput struct {
 	CableType    string  `json:"cable_type,omitempty"`
 	CableLengthM float64 `json:"cable_length_m,omitempty"`
 	Color        string  `json:"color,omitempty"`
-	Notes        string  `json:"notes,omitempty"`
+	// Width is "mono" or "stereo" (ValidWidths). No MixerBehavior equivalent
+	// exists for outputs — output numbering has no console-strip semantics.
+	Width              string `json:"width"`
+	StageboxIDB        *int64 `json:"stagebox_id_b,omitempty"`
+	StageboxChannelB   *int   `json:"stagebox_channel_b,omitempty"`
+	StageMultiIDB      *int64 `json:"stage_multi_id_b,omitempty"`
+	StageMultiChannelB *int   `json:"stage_multi_channel_b,omitempty"`
+	Notes              string `json:"notes,omitempty"`
 }

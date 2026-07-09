@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -280,6 +281,80 @@ func (h AudioPatchHandler) validBusRefs(w http.ResponseWriter, eventID int64, in
 	return true
 }
 
+// defaultInputWidthFields fills empty Width/MixerBehavior/SourceCabling
+// (an omitted JSON field decodes to "") with their spec-mandated defaults,
+// mirroring the existing ConnectionType/ConnectorType defaulting on
+// stageboxes/stage multis below. Validation runs after this, so a caller
+// that never mentions these fields never sees a spurious 400.
+func defaultInputWidthFields(payload *domain.AudioPatchInput) {
+	if payload.Width == "" {
+		payload.Width = "mono"
+	}
+	if payload.MixerBehavior == "" {
+		payload.MixerBehavior = "stereo_channel"
+	}
+	if payload.SourceCabling == "" {
+		payload.SourceCabling = "two_cables"
+	}
+}
+
+// validWidth writes a 400 and returns false when value is not a recognized
+// AudioPatchInput/AudioPatchOutput width.
+func (h AudioPatchHandler) validWidth(w http.ResponseWriter, value string) bool {
+	if !slices.Contains(domain.ValidWidths, value) {
+		writeError(w, http.StatusBadRequest, "width must be one of: mono, stereo")
+		return false
+	}
+	return true
+}
+
+// validStereoEnums writes a 400 and returns false when the input's width,
+// mixer behavior, or source cabling is not a recognized value. Checked
+// unconditionally regardless of whether the field is currently meaningful
+// (e.g. mixer_behavior on a mono row) — see research.md R7.
+func (h AudioPatchHandler) validStereoEnums(w http.ResponseWriter, input domain.AudioPatchInput) bool {
+	if !h.validWidth(w, input.Width) {
+		return false
+	}
+	if !slices.Contains(domain.ValidMixerBehaviors, input.MixerBehavior) {
+		writeError(w, http.StatusBadRequest, "mixer_behavior must be one of: stereo_channel, linked_channels")
+		return false
+	}
+	if !slices.Contains(domain.ValidSourceCablings, input.SourceCabling) {
+		writeError(w, http.StatusBadRequest, "source_cabling must be one of: two_cables, splitter")
+		return false
+	}
+	return true
+}
+
+// validSideBRefs writes a 400/500 response and returns false when a side-B
+// stagebox or stage-multi id does not belong to the event. Unlike the
+// pre-existing side-A stagebox_id/stage_multi_id fields (never
+// event-scoped, an existing gap this slice does not retroactively fix),
+// side B is a field this slice introduces and validates from the start —
+// the same treatment slice 8 gave group_ids/dca_ids.
+func (h AudioPatchHandler) validSideBRefs(w http.ResponseWriter, eventID int64, stageboxIDB, stageMultiIDB *int64) bool {
+	if stageboxIDB != nil && !h.itemBelongsToEvent("stageboxes", eventID, *stageboxIDB) {
+		writeError(w, http.StatusBadRequest, "stagebox_id_b references a stagebox of another event")
+		return false
+	}
+	if stageMultiIDB != nil && !h.itemBelongsToEvent("stage_multis", eventID, *stageMultiIDB) {
+		writeError(w, http.StatusBadRequest, "stage_multi_id_b references a stage multi of another event")
+		return false
+	}
+	return true
+}
+
+// itemBelongsToEvent reports whether the given row of the table (stageboxes
+// or stage_multis) belongs to eventID. Errors are treated as "does not
+// belong" — the caller already resolved existence via Get*, so this only
+// ever narrows an already-successful lookup by event ownership.
+func (h AudioPatchHandler) itemBelongsToEvent(table string, eventID, id int64) bool {
+	var count int
+	err := h.DB.QueryRow(`SELECT COUNT(*) FROM `+table+` WHERE id = ? AND event_id = ?`, id, eventID).Scan(&count)
+	return err == nil && count == 1
+}
+
 func (h AudioPatchHandler) createStagebox(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
 	if !ok {
@@ -398,10 +473,14 @@ func (h AudioPatchHandler) createInput(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	payload.EventID = eventID
+	defaultInputWidthFields(&payload)
 	if !h.validItemRef(w, "mic_item_id", payload.MicItemID) ||
 		!h.validItemRef(w, "cable_item_id", payload.CableItemID) ||
 		!h.validItemRef(w, "stand_item_id", payload.StandItemID) ||
-		!h.validBusRefs(w, eventID, payload) {
+		!h.validItemRef(w, "source_cable_item_id", payload.SourceCableItemID) ||
+		!h.validBusRefs(w, eventID, payload) ||
+		!h.validStereoEnums(w, payload) ||
+		!h.validSideBRefs(w, eventID, payload.StageboxIDB, payload.StageMultiIDB) {
 		return
 	}
 	created, err := dbstore.CreateAudioPatchInput(h.DB, payload)
@@ -426,10 +505,14 @@ func (h AudioPatchHandler) updateInput(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid json body")
 		return
 	}
+	defaultInputWidthFields(&payload)
 	if !h.validItemRef(w, "mic_item_id", payload.MicItemID) ||
 		!h.validItemRef(w, "cable_item_id", payload.CableItemID) ||
 		!h.validItemRef(w, "stand_item_id", payload.StandItemID) ||
-		!h.validBusRefs(w, eventID, payload) {
+		!h.validItemRef(w, "source_cable_item_id", payload.SourceCableItemID) ||
+		!h.validBusRefs(w, eventID, payload) ||
+		!h.validStereoEnums(w, payload) ||
+		!h.validSideBRefs(w, eventID, payload.StageboxIDB, payload.StageMultiIDB) {
 		return
 	}
 	updated, err := dbstore.UpdateAudioPatchInput(h.DB, inputID, payload)
@@ -463,7 +546,12 @@ func (h AudioPatchHandler) createOutput(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	payload.EventID = eventID
-	if !h.validItemRef(w, "cable_item_id", payload.CableItemID) {
+	if payload.Width == "" {
+		payload.Width = "mono"
+	}
+	if !h.validItemRef(w, "cable_item_id", payload.CableItemID) ||
+		!h.validWidth(w, payload.Width) ||
+		!h.validSideBRefs(w, eventID, payload.StageboxIDB, payload.StageMultiIDB) {
 		return
 	}
 	created, err := dbstore.CreateAudioPatchOutput(h.DB, payload)
@@ -475,6 +563,10 @@ func (h AudioPatchHandler) createOutput(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h AudioPatchHandler) updateOutput(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	outputID, ok := parseID(w, chi.URLParam(r, "outputID"))
 	if !ok {
 		return
@@ -484,7 +576,12 @@ func (h AudioPatchHandler) updateOutput(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadRequest, "invalid json body")
 		return
 	}
-	if !h.validItemRef(w, "cable_item_id", payload.CableItemID) {
+	if payload.Width == "" {
+		payload.Width = "mono"
+	}
+	if !h.validItemRef(w, "cable_item_id", payload.CableItemID) ||
+		!h.validWidth(w, payload.Width) ||
+		!h.validSideBRefs(w, eventID, payload.StageboxIDB, payload.StageMultiIDB) {
 		return
 	}
 	updated, err := dbstore.UpdateAudioPatchOutput(h.DB, outputID, payload)

@@ -8,6 +8,8 @@ An AVL (Audio, Video, Lighting) event planning tool for live productions. Plan p
 
 - **Events** — Create and manage events with date, venue, and notes
 - **Audio Patch (Inputs)** — Build full input patch lists: channel number, name, signal type, preamp connector, stagebox routing, stage multicore, microphone model, cable and mic stand picked straight from the rental catalog (concrete items with lengths, e.g. "Mikrofonkabel — 4m"), 48V phantom power, mix-group routing (per-event groups with a built-in LR main, the default for new channels), DCA membership picked from per-event DCAs, and a console channel-strip color per channel — groups and DCAs carry colors too, all from a configurable palette
+- **Mono/Stereo Channels** — Any input or output can be marked stereo: a second, independently-patched physical connection (its own stagebox/multicore route — not required to be the neighboring channel or even the same box, e.g. a crowd-mic pair on opposite sides of the stage), with per-input mixer behavior (one console channel strip vs. two linked strips) and doubled rental counts for per-side equipment; two-channel devices (a DI box, an amplifier) stay single-counted
+- **DI Cabling** — DI-type channels pick a source cable (source → DI) alongside the existing DI → preamp cable, closing a rental-order gap; a stereo DI channel chooses between two individual source cables or one 3.5 mm TRS → 2×TS splitter, which changes whether that cable counts once or twice
 - **Audio Patch (Outputs)** — Map outputs to destinations (local, stagebox, stage-multi), assign amplifiers and speakers, pick the cable run from the catalog
 - **Lighting Rig** — Add fixtures (one by one or in bulk batches with shared settings, auto-incrementing console fixture IDs, and sequential DMX addresses), assign them to truss sections, configure power connections (grid or daisy-chain), set DMX universe/address and channel mode (catalog-defined modes are offered right in the add dialog), give every fixture its GrandMA fixture ID (duplicates flagged), auto-assign DMX addresses in sequence
 - **Rental Order** — Per-event summary of all rented equipment, derived automatically from the plan (mics, DI/IEM, stageboxes, multicores, amplifiers, speakers, cables, mic stands, fixtures) plus manual line items for anything else; flags lines that exceed the renter's stock. Which catalog categories feed the cable/stand pickers is itself data: each category on the Inventory page carries an editable picker role
@@ -120,8 +122,11 @@ Open an event and navigate to the **Audio Inputs** or **Audio Outputs** tab.
 | Multi Ch | Multicore channel number |
 | Mic Model | Microphone model (e.g. "SM58") |
 | Cable | Cable from the rental catalog (item + length, e.g. "Mikrofonkabel — 4m"); pre-upgrade type/length values show as read-only legacy text until re-picked |
+| Source Cable | DI channels only: the source → DI cable, picked from the same cable catalog; on a stereo DI channel a second select chooses "two cables" (counted ×2) or "splitter" (one TRS→2×TS cable, counted ×1) |
 | Stand | Mic stand from the rental catalog; legacy stand-type values show as read-only text until re-picked |
 | 48V | Phantom power on/off |
+| Width | Mono (default) or Stereo; a stereo input shows a second Mixer Behavior select — **Stereo channel** (one console number) or **Linked channels** (occupies its number and the next, e.g. "5–6") |
+| Side B | Stereo channels only: the second physical connection's own stagebox/multicore routing, independent of side A — flipping to stereo defaults it to side A's route at the next channel as a one-time convenience, but it can be repatched anywhere (e.g. a crowd-mic pair through separate multicores) |
 | Groups | Mix groups the channel routes to, picked from the event's groups (LR is built-in and the default; remove it per channel if needed) |
 | DCA | DCA membership, picked from the event's DCAs (a channel can be in several) |
 | Color | Console channel-strip color from the palette (Settings → channel_colors) |
@@ -145,12 +150,21 @@ DCA values were converted automatically into per-event DCAs.
 | Amplifier | Amplifier from inventory |
 | Speaker | Speaker from inventory |
 | Cable | Cable from the rental catalog (item + length); legacy type/length values show as read-only text until re-picked |
+| Width | Mono (default) or Stereo — outputs have no linked-channels concept, since output numbering carries no console-strip semantics |
+| Side B | Stereo outputs only: the second physical connection's own destination routing, independent of side A |
 | Color | Console channel-strip color from the palette |
 | Notes | Free-text notes |
 
 Channel, group, and DCA colors show on the Audio Inputs/Outputs tabs, in
 the Signal Flow view, and on the printed sheets (as a swatch next to the
 channel number and tinted group/DCA names).
+
+A stereo channel doubles the rental count of everything picked per side —
+microphone/source item, cable, stand, and (on outputs) speaker — while
+two-channel devices count once regardless of width: the DI box itself on a
+stereo DI channel, and the amplifier on a stereo output. A DI channel's
+source cable is counted once, or twice on a stereo DI channel using two
+individual cables (a splitter counts once either way).
 
 ### Building a lighting rig
 
@@ -242,10 +256,10 @@ Base URL: `http://localhost:7331/api/v1`
 | POST | `/events/:id/stage-multis` | Add a stage multicore |
 | PATCH | `/events/:id/stage-multis/:smId` | Update a stage multicore |
 | DELETE | `/events/:id/stage-multis/:smId` | Delete a stage multicore |
-| POST | `/events/:id/audio-inputs` | Add an input row (omit `group_ids` to route to LR by default; the legacy `dca_groups` text field is gone — use `dca_ids`) |
+| POST | `/events/:id/audio-inputs` | Add an input row (omit `group_ids` to route to LR by default; the legacy `dca_groups` text field is gone — use `dca_ids`). `width` (`mono`/`stereo`), `mixer_behavior` (`stereo_channel`/`linked_channels`), `source_cabling` (`two_cables`/`splitter`) default when omitted; `stagebox_id_b`/`stagebox_channel_b`/`stage_multi_id_b`/`stage_multi_channel_b` are the stereo channel's independently-patched second side, and `source_cable_item_id` is a DI channel's source→DI cable pick — both validated the same way as their side-A/`cable_item_id` counterparts |
 | PATCH | `/events/:id/audio-inputs/:inputId` | Update an input row (`group_ids`/`dca_ids` replace the sets wholesale) |
 | DELETE | `/events/:id/audio-inputs/:inputId` | Delete an input row |
-| POST | `/events/:id/audio-outputs` | Add an output row |
+| POST | `/events/:id/audio-outputs` | Add an output row. `width` defaults to `mono`; `stagebox_id_b`/`stagebox_channel_b`/`stage_multi_id_b`/`stage_multi_channel_b` are the stereo output's independently-patched second side |
 | PATCH | `/events/:id/audio-outputs/:outputId` | Update an output row |
 | DELETE | `/events/:id/audio-outputs/:outputId` | Delete an output row |
 | GET | `/events/:id/lighting-rigs` | Get the rig with truss sections and fixtures |

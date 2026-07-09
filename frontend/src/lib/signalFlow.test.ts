@@ -27,6 +27,9 @@ function input(overrides: Partial<AudioPatchInput>): AudioPatchInput {
     cable_type: 'xlr',
     cable_length_m: 10,
     phantom_power: false,
+    width: 'mono',
+    mixer_behavior: 'stereo_channel',
+    source_cabling: 'two_cables',
     ...overrides,
   }
 }
@@ -101,6 +104,50 @@ describe('buildChannelFlow', () => {
   it('falls back to an item reference when the inventory name is unknown', () => {
     const flow = buildChannelFlow(input({ mic_item_id: 999 }), context)
     expect(flow.source).toEqual({ label: 'Item #999', kind: 'source', missing: false })
+  })
+
+  it('omits pathB and sourceCable on an ordinary mono mic channel', () => {
+    const flow = buildChannelFlow(input({ mic_item_id: 42 }), context)
+    expect(flow.pathB).toBeUndefined()
+    expect(flow.sourceCable).toBeUndefined()
+    expect(flow.hasGap).toBe(false)
+  })
+
+  it('traces a stereo channel\'s independently-patched side B', () => {
+    const flow = buildChannelFlow(
+      input({ mic_item_id: 42, width: 'stereo', stage_multi_id_b: 5, stage_multi_channel_b: 9 }),
+      context,
+    )
+    expect(flow.pathB).toEqual({ label: 'Multi Multi A · ch 9', kind: 'multi', missing: false })
+    expect(flow.hasGap).toBe(false)
+  })
+
+  it('flags an incomplete side-B route the same way as side A', () => {
+    const flow = buildChannelFlow(input({ mic_item_id: 42, width: 'stereo', stagebox_id_b: 1 }), context)
+    expect(flow.pathB?.missing).toBe(true)
+    expect(flow.pathB?.label).toBe('SB SB Stage L — no channel')
+    expect(flow.hasGap).toBe(true)
+  })
+
+  it('treats stereo with no side-B routing as direct, not a gap', () => {
+    const flow = buildChannelFlow(input({ mic_item_id: 42, width: 'stereo' }), context)
+    expect(flow.pathB).toEqual({ label: 'Direct to console', kind: 'direct', missing: false })
+    expect(flow.hasGap).toBe(false)
+  })
+
+  it('resolves a DI channel\'s source cable', () => {
+    const flow = buildChannelFlow(
+      input({ signal_type: 'di', mic_item_id: 110, source_cable_item_id: 201 }),
+      { ...context, sourceCableLabelById: new Map([[201, 'Linekabel Tele-tele — 2m']]) },
+    )
+    expect(flow.sourceCable).toEqual({ label: 'Linekabel Tele-tele — 2m', kind: 'cable', missing: false })
+    expect(flow.hasGap).toBe(false)
+  })
+
+  it('flags a DI channel with no source cable picked', () => {
+    const flow = buildChannelFlow(input({ signal_type: 'di', mic_item_id: 110 }), context)
+    expect(flow.sourceCable).toEqual({ label: 'No source cable picked', kind: 'cable', missing: true })
+    expect(flow.hasGap).toBe(true)
   })
 })
 

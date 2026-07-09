@@ -221,6 +221,147 @@ func TestStockValidation(t *testing.T) {
 	}
 }
 
+// TestStereoRentalDoubling verifies FR-005/FR-008: a stereo channel doubles
+// its per-side physical equipment (mic/source item, cable, stand, speaker)
+// while two-channel devices (DI, amplifier) stay single-counted. The
+// stereo-mic case specifically guards against reintroducing the R4 bug,
+// where mic_item_id's doubling must exclude DI rows since that column also
+// stores the DI box itself on DI-type channels.
+func TestStereoRentalDoubling(t *testing.T) {
+	database := openTestDB(t)
+	cat := seedCatalog(t, database)
+	eventID := createTestEvent(t, database)
+	cable := insertItem(t, database, cat.AudioCategoryID, "Mikrofonkabel", 10, 20, 40)
+	stand := insertItem(t, database, cat.AudioCategoryID, "Mic Stand", 10, 30, 41)
+	outputCable := insertItem(t, database, cat.AudioCategoryID, "Speakon Cable", 10, 25, 42)
+
+	// Stereo MIC input: mic, cable, stand all picked — every per-side arm
+	// must double, including mic_item_id (non-DI row).
+	if _, err := CreateAudioPatchInput(database, domain.AudioPatchInput{
+		EventID: eventID, ChannelNumber: 1, SignalType: "mic", Width: "stereo",
+		MicItemID: &cat.Mic, CableItemID: &cable, StandItemID: &stand,
+	}); err != nil {
+		t.Fatalf("create stereo mic input: %v", err)
+	}
+
+	// Stereo output: cable, speaker, amplifier all picked — cable and
+	// speaker double, amplifier (two-channel device) stays single.
+	if _, err := CreateAudioPatchOutput(database, domain.AudioPatchOutput{
+		EventID: eventID, OutputNumber: 1, OutputType: "foh", DestinationType: "local", Width: "stereo",
+		AmplifierItemID: &cat.Amp, SpeakerItemID: &cat.Speaker, CableItemID: &outputCable,
+	}); err != nil {
+		t.Fatalf("create stereo output: %v", err)
+	}
+
+	summary, err := GetRentalSummary(database, eventID)
+	if err != nil {
+		t.Fatalf("get rental summary: %v", err)
+	}
+	byItem := summaryByItem(summary)
+
+	expect := []struct {
+		name   string
+		itemID int64
+		want   int
+	}{
+		{"stereo mic (per-side, doubled)", cat.Mic, 2},
+		{"stereo input cable (per-side, doubled)", cable, 2},
+		{"stereo stand (per-side, doubled)", stand, 2},
+		{"stereo output cable (per-side, doubled)", outputCable, 2},
+		{"stereo speaker (per-side, doubled)", cat.Speaker, 2},
+		{"stereo amplifier (two-channel device, single)", cat.Amp, 1},
+	}
+	for _, want := range expect {
+		line, ok := byItem[want.itemID]
+		if !ok {
+			t.Errorf("%s: missing from rental summary", want.name)
+			continue
+		}
+		if line.QuantityAudio != want.want {
+			t.Errorf("%s: quantity_audio=%d, want %d", want.name, line.QuantityAudio, want.want)
+		}
+	}
+}
+
+// TestDISourceCableCounting verifies FR-006/FR-007/FR-009: a DI channel's
+// source cable is counted (closing the price-list leak), once on a mono DI,
+// and once or twice on a stereo DI depending on the two_cables/splitter
+// choice — while the DI→preamp cable (cable_item_id) always doubles on a
+// stereo row regardless of that choice.
+func TestDISourceCableCounting(t *testing.T) {
+	database := openTestDB(t)
+	cat := seedCatalog(t, database)
+	sourceCable := insertItem(t, database, cat.AudioCategoryID, "Linekabel Tele-tele", 10, 15, 43)
+	splitterCable := insertItem(t, database, cat.AudioCategoryID, "TRS-2xTS Splitter", 10, 25, 44)
+
+	// Mono DI with a source cable: DI, its XLR (cable_item_id), and the
+	// source cable all count once.
+	monoEvent := createTestEvent(t, database)
+	if _, err := CreateAudioPatchInput(database, domain.AudioPatchInput{
+		EventID: monoEvent, ChannelNumber: 1, SignalType: "di", Width: "mono", SourceCabling: "two_cables",
+		MicItemID: &cat.DI, CableItemID: &cat.Mic, SourceCableItemID: &sourceCable,
+	}); err != nil {
+		t.Fatalf("create mono DI input: %v", err)
+	}
+	monoSummary, err := GetRentalSummary(database, monoEvent)
+	if err != nil {
+		t.Fatalf("get mono rental summary: %v", err)
+	}
+	monoByItem := summaryByItem(monoSummary)
+	if got := monoByItem[cat.DI].QuantityAudio; got != 1 {
+		t.Errorf("mono DI: quantity_audio=%d, want 1", got)
+	}
+	if got := monoByItem[sourceCable].QuantityAudio; got != 1 {
+		t.Errorf("mono DI source cable: quantity_audio=%d, want 1", got)
+	}
+
+	// Stereo DI with two_cables: DI stays 1 (two-channel device), its own
+	// DI→preamp cable doubles (physically two cables to two inputs), the
+	// source cable doubles too (two individual cables chosen).
+	twoCablesEvent := createTestEvent(t, database)
+	if _, err := CreateAudioPatchInput(database, domain.AudioPatchInput{
+		EventID: twoCablesEvent, ChannelNumber: 1, SignalType: "di", Width: "stereo", SourceCabling: "two_cables",
+		MicItemID: &cat.DI, CableItemID: &cat.Mic, SourceCableItemID: &sourceCable,
+	}); err != nil {
+		t.Fatalf("create stereo DI (two_cables) input: %v", err)
+	}
+	twoCablesSummary, err := GetRentalSummary(database, twoCablesEvent)
+	if err != nil {
+		t.Fatalf("get two_cables rental summary: %v", err)
+	}
+	twoCablesByItem := summaryByItem(twoCablesSummary)
+	if got := twoCablesByItem[cat.DI].QuantityAudio; got != 1 {
+		t.Errorf("stereo DI (two_cables): DI quantity_audio=%d, want 1", got)
+	}
+	if got := twoCablesByItem[cat.Mic].QuantityAudio; got != 2 {
+		t.Errorf("stereo DI (two_cables): DI->preamp cable quantity_audio=%d, want 2", got)
+	}
+	if got := twoCablesByItem[sourceCable].QuantityAudio; got != 2 {
+		t.Errorf("stereo DI (two_cables): source cable quantity_audio=%d, want 2", got)
+	}
+
+	// Stereo DI with a splitter: the source cable (now the splitter item)
+	// counts once — one splitter feeds both physical inputs.
+	splitterEvent := createTestEvent(t, database)
+	if _, err := CreateAudioPatchInput(database, domain.AudioPatchInput{
+		EventID: splitterEvent, ChannelNumber: 1, SignalType: "di", Width: "stereo", SourceCabling: "splitter",
+		MicItemID: &cat.DI, CableItemID: &cat.Mic, SourceCableItemID: &splitterCable,
+	}); err != nil {
+		t.Fatalf("create stereo DI (splitter) input: %v", err)
+	}
+	splitterSummary, err := GetRentalSummary(database, splitterEvent)
+	if err != nil {
+		t.Fatalf("get splitter rental summary: %v", err)
+	}
+	splitterByItem := summaryByItem(splitterSummary)
+	if got := splitterByItem[cat.DI].QuantityAudio; got != 1 {
+		t.Errorf("stereo DI (splitter): DI quantity_audio=%d, want 1", got)
+	}
+	if got := splitterByItem[splitterCable].QuantityAudio; got != 1 {
+		t.Errorf("stereo DI (splitter): source cable quantity_audio=%d, want 1", got)
+	}
+}
+
 func rentalLine(t *testing.T, database *sql.DB, eventID, itemID int64) domain.EventRental {
 	t.Helper()
 	line, err := GetRentalLine(database, eventID, itemID)

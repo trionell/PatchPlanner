@@ -49,6 +49,30 @@ export function AudioOutputsTab({ eventId }: { eventId: number }) {
     await saveMutation.mutateAsync({ id: row.id, payload: row })
   }
 
+  /** Merges a partial patch into one row and persists it immediately (the ColorSelect pattern — no onBlur wait). */
+  function updateAndPersist(index: number, patch: Partial<AudioPatchOutput>) {
+    const updated = { ...outputs[index], ...patch }
+    setOutputs((current) => current.map((row, rowIndex) => (rowIndex === index ? updated : row)))
+    void persist(updated)
+  }
+
+  /** Flipping to stereo defaults side B to side A's route at the next channel — same one-time fill as inputs. */
+  function handleWidthChange(index: number, width: AudioPatchOutput['width']) {
+    const row = outputs[index]
+    const patch: Partial<AudioPatchOutput> = { width }
+    const hasSideB = row.stagebox_id_b != null || row.stage_multi_id_b != null
+    if (width === 'stereo' && !hasSideB) {
+      if (row.stagebox_id) {
+        patch.stagebox_id_b = row.stagebox_id
+        patch.stagebox_channel_b = (row.stagebox_channel ?? 0) + 1
+      } else if (row.stage_multi_id) {
+        patch.stage_multi_id_b = row.stage_multi_id
+        patch.stage_multi_channel_b = (row.stage_multi_channel ?? 0) + 1
+      }
+    }
+    updateAndPersist(index, patch)
+  }
+
   const addRow = () => {
     const lastNumber = outputs.at(-1)?.output_number ?? 0
     addMutation.mutate({
@@ -57,6 +81,7 @@ export function AudioOutputsTab({ eventId }: { eventId: number }) {
       output_name: '',
       output_type: 'foh',
       destination_type: 'local',
+      width: 'mono',
       notes: '',
     })
   }
@@ -88,7 +113,7 @@ export function AudioOutputsTab({ eventId }: { eventId: number }) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {['Out#','Name','Type','Destination','SB','SB Ch','Multi','Multi Ch','Amplifier','Speaker','Cable','Color','Notes',''].map((heading) => <TableHead key={heading}>{heading}</TableHead>)}
+                    {['Out#','Name','Type','Destination','SB','SB Ch','Multi','Multi Ch','Amplifier','Speaker','Cable','Width','Side B','Color','Notes',''].map((heading) => <TableHead key={heading}>{heading}</TableHead>)}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -97,6 +122,10 @@ export function AudioOutputsTab({ eventId }: { eventId: number }) {
                     const sbMax = selSb?.output_count ?? 0
                     const selSm = (audioQuery.data?.stage_multis ?? []).find((sm) => sm.id === row.stage_multi_id)
                     const smMax = selSm?.channels ?? 0
+                    const selSbB = (audioQuery.data?.stageboxes ?? []).find((sb) => sb.id === row.stagebox_id_b)
+                    const sbMaxB = selSbB?.output_count ?? 0
+                    const selSmB = (audioQuery.data?.stage_multis ?? []).find((sm) => sm.id === row.stage_multi_id_b)
+                    const smMaxB = selSmB?.channels ?? 0
                     return (
                       <TableRow key={row.id}>
                         <TableCell><Input type="number" value={row.output_number} onChange={(e) => updateDraft(index, 'output_number', Number(e.target.value))} onBlur={() => persist(outputs[index])} className="min-w-16" /></TableCell>
@@ -140,6 +169,52 @@ export function AudioOutputsTab({ eventId }: { eventId: number }) {
                               </div>
                             )}
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="min-w-24">
+                            <Select value={row.width} onChange={(e) => handleWidthChange(index, e.target.value as AudioPatchOutput['width'])}>
+                              <option value="mono">Mono</option>
+                              <option value="stereo">Stereo</option>
+                            </Select>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {row.width === 'stereo' ? (
+                            <div className="min-w-56 space-y-2 text-xs">
+                              <div className="flex items-center gap-1">
+                                <span className="w-10 text-zinc-500">SB</span>
+                                <Select value={row.stagebox_id_b ?? ''} onChange={(e) => { updateDraft(index, 'stagebox_id_b', toOptionalNumber(e.target.value)); updateDraft(index, 'stagebox_channel_b', undefined) }} onBlur={() => persist(outputs[index])}>
+                                  <option value="">—</option>
+                                  {(audioQuery.data?.stageboxes ?? []).map((sb) => <option key={sb.id} value={sb.id}>{sb.name}</option>)}
+                                </Select>
+                                {sbMaxB > 0 ? (
+                                  <Select value={row.stagebox_channel_b ?? ''} onChange={(e) => updateDraft(index, 'stagebox_channel_b', toOptionalNumber(e.target.value))} onBlur={() => persist(outputs[index])} className="min-w-16">
+                                    <option value="">—</option>
+                                    {Array.from({ length: sbMaxB }, (_, i) => i + 1).map((ch) => <option key={ch} value={ch}>{ch}</option>)}
+                                  </Select>
+                                ) : (
+                                  <Input type="number" min={1} value={row.stagebox_channel_b ?? ''} onChange={(e) => updateDraft(index, 'stagebox_channel_b', toOptionalNumber(e.target.value))} onBlur={() => persist(outputs[index])} className="min-w-16" disabled={!row.stagebox_id_b} />
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span className="w-10 text-zinc-500">Multi</span>
+                                <Select value={row.stage_multi_id_b ?? ''} onChange={(e) => { updateDraft(index, 'stage_multi_id_b', toOptionalNumber(e.target.value)); updateDraft(index, 'stage_multi_channel_b', undefined) }} onBlur={() => persist(outputs[index])}>
+                                  <option value="">—</option>
+                                  {(audioQuery.data?.stage_multis ?? []).map((sm) => <option key={sm.id} value={sm.id}>{sm.name}</option>)}
+                                </Select>
+                                {smMaxB > 0 ? (
+                                  <Select value={row.stage_multi_channel_b ?? ''} onChange={(e) => updateDraft(index, 'stage_multi_channel_b', toOptionalNumber(e.target.value))} onBlur={() => persist(outputs[index])} className="min-w-16">
+                                    <option value="">—</option>
+                                    {Array.from({ length: smMaxB }, (_, i) => i + 1).map((ch) => <option key={ch} value={ch}>{ch}</option>)}
+                                  </Select>
+                                ) : (
+                                  <Input type="number" min={1} value={row.stage_multi_channel_b ?? ''} onChange={(e) => updateDraft(index, 'stage_multi_channel_b', toOptionalNumber(e.target.value))} onBlur={() => persist(outputs[index])} className="min-w-16" disabled={!row.stage_multi_id_b} />
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="px-2 text-xs text-zinc-500">—</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <ColorSelect

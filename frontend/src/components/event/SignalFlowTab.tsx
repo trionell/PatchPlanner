@@ -44,6 +44,9 @@ export function SignalFlowTab({ eventId }: { eventId: number }) {
     micNameById,
     cableLabelById,
     cableLabel: (value) => label('signal_cable_types', value),
+    // DI source cables are picked from the same cable catalog as every
+    // other cable pick, so the query result doubles as its label source.
+    sourceCableLabelById: cableLabelById,
   })
   const gapCount = flows.filter((flow) => flow.hasGap).length
   const groups = audioQuery.data?.groups ?? []
@@ -86,6 +89,7 @@ export function SignalFlowTab({ eventId }: { eventId: number }) {
                   </TableCell>
                   <TableCell>
                     <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                      {flow.sourceCable && (<><Hop hop={flow.sourceCable} /><Arrow /></>)}
                       <Hop hop={flow.source} />
                       <Arrow />
                       <Hop hop={flow.cable} />
@@ -94,6 +98,13 @@ export function SignalFlowTab({ eventId }: { eventId: number }) {
                       <Arrow />
                       <span>Console ch {flow.channelNumber}</span>
                     </span>
+                    {flow.pathB && (
+                      <span className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-zinc-400">
+                        <span className="text-xs uppercase tracking-wide text-zinc-500">Side B</span>
+                        <Arrow />
+                        <Hop hop={flow.pathB} />
+                      </span>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
