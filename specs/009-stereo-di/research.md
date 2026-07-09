@@ -30,15 +30,19 @@
 
 ## R4 — Rental CTE: doubling and two-channel-device exceptions
 
+**Correction (verified against the real dev DB)**: `mic_item_id` is **not** mic-only — it is the existing overloaded slot for "this channel's primary source-hardware item," already reused for the DI box itself on DI-type rows (confirmed: `Bas`/`Gitarr`/`Piano` all have `signal_type='di'` and a populated `mic_item_id` pointing at a Radial JDI/PRO-D2 catalog item). An earlier draft of this research assumed DI rows never populate `mic_item_id`; that was wrong and would have doubled the DI box on every stereo DI row, violating FR-008. The `mic_item_id` arm's doubling must therefore be conditional on `signal_type`.
+
 **Decision**: Extend the existing `combined` CTE in `rental.go` (currently a `UNION ALL` of arms, one `SELECT` per catalog-reference column) with a `quantity` expression per arm instead of the current literal `1`:
 
-- Per-side items (mic, stand, cable on inputs/outputs, speaker): `CASE WHEN width = 'stereo' THEN 2 ELSE 1 END`
-- Two-channel devices (DI recognized as such only via `signal_type = 'di'`, amplifier): stays literal `1` regardless of width
-- Source cable (new arm): `CASE WHEN width = 'stereo' AND source_cabling = 'two_cables' THEN 2 ELSE 1 END`, `WHERE signal_type = 'di' AND source_cable_item_id IS NOT NULL`
+- `mic_item_id` arm (mic **or** DI-box slot, depending on `signal_type`): `CASE WHEN width = 'stereo' AND signal_type != 'di' THEN 2 ELSE 1 END` — doubles for a stereo mic/line/aux/return row, stays 1 for a DI row of any width (FR-008).
+- `cable_item_id` arm on inputs (console-side cable — XLR mic cable, or the DI→preamp XLR on DI rows) and both cable/speaker arms on outputs: `CASE WHEN width = 'stereo' THEN 2 ELSE 1 END` — always doubles per stereo width regardless of signal type; a stereo DI's own DI→preamp cable genuinely runs twice, one per physical input jack on the shared DI box (FR-005 calls this out explicitly).
+- `stand_item_id` arm: `CASE WHEN width = 'stereo' THEN 2 ELSE 1 END` — stands don't care about signal type.
+- `amplifier_item_id` arm (outputs): stays literal `1` regardless of width — always a two-channel device (FR-005).
+- Source cable (new arm): `CASE WHEN width = 'stereo' AND source_cabling = 'two_cables' THEN 2 ELSE 1 END`, `WHERE signal_type = 'di' AND source_cable_item_id IS NOT NULL`.
 
-**Rationale**: This is additive to the existing arm-per-column CTE shape already established in `rental.go`; no restructuring, no new joins, and the query still takes the event ID N times via `?` placeholders (N grows by one for the new source-cable arm). `mic_item_id`'s existing arm already fires for DI channels too (a DI's "mic" slot doesn't apply, but that arm is `WHERE mic_item_id IS NOT NULL`, and DI rows have no mic_item_id in practice — no special-casing needed there). The `signal_type = 'di'` check on the DI→preamp cable's own arm is unnecessary since the existing `cable_item_id` arm already doubles for *any* stereo channel, DI or not — correct, since a stereo mic channel's cable is physically two cables regardless of signal type.
+**Rationale**: This is additive to the existing arm-per-column CTE shape already established in `rental.go`; no restructuring, no new joins, and the query still takes the event ID N times via `?` placeholders (N grows by one for the new source-cable arm). Conditioning the `mic_item_id` arm on `signal_type != 'di'` is the only way to keep FR-008 correct given the column's existing dual role — every other arm's doubling can safely ignore `signal_type`.
 
-**Alternatives considered**: Doing the doubling in Go after a single-count query was rejected — it would require re-deriving per-item-role stereo/DI logic outside SQL, duplicating the arm structure anyway, and the existing codebase's convention (confirmed in `rental.go`) is to push all counting into the CTE.
+**Alternatives considered**: Doing the doubling in Go after a single-count query was rejected — it would require re-deriving per-item-role stereo/DI logic outside SQL, duplicating the arm structure anyway, and the existing codebase's convention (confirmed in `rental.go`) is to push all counting into the CTE. Splitting `mic_item_id` into a separate `di_item_id` column was considered (would remove the need for a signal_type-conditional CASE) but rejected as an unrelated, unnecessary schema change — the column's dual role is pre-existing, established behavior this slice must respect, not redesign.
 
 ## R5 — Signal flow and print sheet extensions
 
