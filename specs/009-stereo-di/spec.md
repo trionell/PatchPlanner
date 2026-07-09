@@ -85,7 +85,7 @@ The signal-flow view traces a stereo channel's **both** physical paths and a DI 
 - **FR-002a**: When a channel is switched to stereo, the second side MUST default to the next channel number on the first side's stagebox or stage multi (when one is set), as a convenience the planner can override; changing the first side later never silently rewrites an explicitly patched second side.
 - **FR-003**: Every stereo **input** channel MUST carry a mixer behavior of **stereo channel** (occupies one console channel number) or **linked channels** (occupies its console channel number and the next); the choice is per channel with *stereo channel* as the default.
 - **FR-004**: Console channel numbering displays MUST present a *linked channels* row as its number pair (e.g. "5–6"), and suggested numbers for newly added rows MUST skip numbers occupied by linked pairs.
-- **FR-005**: Rental aggregation MUST count per-side physical equipment twice for a stereo channel: microphone/source item where one is picked, stand, DI→preamp cable on DI channels, and the planned cable on inputs and outputs alike.
+- **FR-005**: Rental aggregation MUST count per-side physical equipment twice for a stereo channel: microphone/source item where one is picked (except the DI itself, per FR-008), stand, DI→preamp cable on DI channels, the planned cable on inputs and outputs alike, and the speaker on outputs. Two-channel devices count once: the DI on a stereo DI input (FR-008) and the amplifier on a stereo output.
 - **FR-006**: A DI-type input channel MUST offer a second cable pick — the **source cable** (source → DI) — from the same cable catalog as all other cable picks, independent of the existing DI→preamp cable pick.
 - **FR-007**: A **stereo** DI-type channel MUST offer a source-side cabling choice: *two individual cables* (source cable counted twice) or *one splitter cable* (source cable counted once); a mono DI channel counts its source cable once and offers no choice.
 - **FR-008**: On a stereo DI-type channel, the DI itself MUST be counted once (a dual-channel DI feeds both inputs).
@@ -98,7 +98,7 @@ The signal-flow view traces a stereo channel's **both** physical paths and a DI 
 ### Key Entities
 
 - **Input channel**: gains a width (mono/stereo), a second independently patchable physical connection (own stagebox/stage-multi route and channel, meaningful only when stereo), a mixer behavior (stereo channel / linked channels, meaningful only when stereo), and a source cable pick with a two-cables-vs-splitter choice (meaningful only for DI signal type).
-- **Output channel**: gains a width (mono/stereo) and, when stereo, a second independently patchable physical connection; a stereo output doubles its cable count.
+- **Output channel**: gains a width (mono/stereo) and, when stereo, a second independently patchable physical connection; a stereo output doubles its cable and speaker counts while the amplifier counts once (amplifiers are two-channel devices).
 - **Source cable pick**: a reference to a cable catalog item on DI channels, counted once or twice according to width and the splitter choice.
 
 ## Success Criteria *(mandatory)*
