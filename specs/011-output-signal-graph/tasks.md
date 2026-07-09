@@ -122,11 +122,11 @@ new component file, to avoid unnecessary churn in
 ## Phase 6: Polish & Cross-Cutting Concerns
 
 - [x] T025 [P] Extend `frontend/src/components/print/printSheets.test.tsx`: fixtures for a multi-hop graph-derived output sheet, a stage-multi hand-off, and a stereo channel's two paths (mirrors the fixture style already used since Slice 9).
-- [ ] T026 Run `gofmt -w`, `go vet ./...`, `golangci-lint run` (backend) and `tsc -p tsconfig.app.json --noEmit`, `eslint .` (frontend) from their respective directories; fix any findings. (`tsc -p tsconfig.app.json --noEmit`, not bare `tsc --noEmit` — documented false-positive from Slice 9.)
-- [ ] T027 Run the full test suite (`go test ./...` in `backend/`, `npx vitest run` in `frontend/`) and the frontend build (`npm run build`); confirm all green.
-- [ ] T028 Manually verify `specs/011-output-signal-graph/quickstart.md` end-to-end on a **copy** of the dev database (never the live file, with a fresh binary on a scratch port) — this project's standing DB-safety rule, restated with extra weight here since this is the first migration verified against data known to exist on the live database (Slice 10's chain editor, actively used). Confirm SC-004 (existing chains convert losslessly, including the two disclosed exceptions being reported rather than silently dropped) against the real reference event's actual "LR amplifier"/"LR splitter" rig.
-- [ ] T029 Update `README.md`: replace the Slice 10 chain-editor description with the graph — devices, ports, connector types, the mixer/stagebox/stage-multi roles, cable drawing, and the new `output-cables`/extended `output-devices` endpoints.
-- [ ] T030 Update `ROADMAP.md`: mark Slice 11 done with today's date and checked bullets, following the format already used for Slices 6–10.
+- [x] T026 Run `gofmt -w`, `go vet ./...`, `golangci-lint run` (backend) and `tsc -p tsconfig.app.json --noEmit`, `eslint .` (frontend) from their respective directories; fix any findings. (`tsc -p tsconfig.app.json --noEmit`, not bare `tsc --noEmit` — documented false-positive from Slice 9.)
+- [x] T027 Run the full test suite (`go test ./...` in `backend/`, `npx vitest run` in `frontend/`) and the frontend build (`npm run build`); confirm all green.
+- [x] T028 Manually verify `specs/011-output-signal-graph/quickstart.md` end-to-end on a **copy** of the dev database (never the live file, with a fresh binary on a scratch port) — this project's standing DB-safety rule, restated with extra weight here since this is the first migration verified against data known to exist on the live database (Slice 10's chain editor, actively used). Confirm SC-004 (existing chains convert losslessly, including the two disclosed exceptions being reported rather than silently dropped) against the real reference event's actual "LR amplifier"/"LR splitter" rig.
+- [x] T029 Update `README.md`: replace the Slice 10 chain-editor description with the graph — devices, ports, connector types, the mixer/stagebox/stage-multi roles, cable drawing, and the new `output-cables`/extended `output-devices` endpoints.
+- [x] T030 Update `ROADMAP.md`: mark Slice 11 done with today's date and checked bullets, following the format already used for Slices 6–10.
 
 ---
 

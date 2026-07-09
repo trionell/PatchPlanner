@@ -265,29 +265,53 @@ chains that branch.
       flagged as a gap — mirroring the input-side presentation from
       Slice 5/9.
 
-## Slice 11 — Audio output signal-flow graph (spec: `output-signal-graph`)
+## Slice 11 — Audio output signal-flow graph (spec: `output-signal-graph`) ✅ done 2026-07-10
 
 Live field feedback after using Slice 10: a flat, ordered per-channel hop
 list doesn't show a real rig's shape — shared equipment and branching (an
 amplifier feeding two speakers, a stage multi carrying unrelated channels
 to unrelated destinations) don't fit a straight line. Replaces Slice 10's
-chain editor outright with an interactive Sankey-style graph: devices are
-nodes (configurable input/output port counts, connector type per side —
-an amplifier really does have XLR in and Speakon out), cables are edges
-drawn port-to-port with a catalog picker, the mixer is an always-present
-implicit node, stageboxes stay output-only sources and stage multis
-become full processing nodes whose channels route independently (and
-whose own built-in wiring is never double-billed as an extra cable).
-Existing Slice 10 chains — including real, already-built rigs — convert
-automatically via a one-time Go migration (not a `.sql` script; the
-branching involved has no safe SQL-only expression). Rental aggregation
-actually simplifies here: stereo becomes two real rows instead of one row
-doubled by a flag, so the width-based `CASE WHEN` logic Slices 9/10
-needed disappears entirely for this feature's arms.
+chain editor outright with an interactive Sankey-style graph.
+
+- [x] Devices are nodes (`output_devices` extended with configurable
+      input/output port counts and a connector type per side — an
+      amplifier really does have XLR in and Speakon out — plus a
+      per-event canvas position). Cables are edges (`output_cables`)
+      drawn port-to-port with a catalog picker; the mixer is an
+      always-present implicit node (one or two independent ports per
+      output channel), stageboxes stay output-only sources, and stage
+      multis are full processing nodes whose channels route
+      independently — and whose own built-in input wiring is never
+      double-billed as an extra cable (`cable_item_id` forced `NULL`
+      into a `stage_multi`, no picker shown for that connection).
+- [x] Canvas: output-only nodes (mixer, stageboxes) pinned to a left
+      rail, input-only devices pinned to a right rail, everything else
+      (processing devices, stage multis) free-floating in the middle —
+      drag devices to reposition, click a free port then a compatible
+      free port to cable them together. A basic flat table of every
+      device and cable remains available alongside the graph.
+- [x] Existing Slice 10 chains — including the real, already-built
+      reference rig ("LR amplifier"/"LR splitter") — convert
+      automatically on startup via a one-time Go migration (not a
+      `.sql` script; the branching involved has no safe SQL-only
+      expression), sequenced so it can never run twice or against an
+      already-settled database. Verified port-for-port, item-for-item
+      against the real data, with byte-for-byte unchanged rental totals
+      (SC-004).
+- [x] Rental aggregation simplifies here: stereo becomes two real rows
+      instead of one row doubled by a flag, so the width-based
+      `CASE WHEN` logic Slices 9/10 needed disappears entirely for this
+      feature's arms — a device/cable just counts once per row it
+      appears in.
+- [x] Signal Flow tab and output print sheet walk the cable graph from
+      each mixer port, branching into multiple paths when a device fans
+      out to more than one destination; a device's unwired declared
+      input ports are flagged as gaps, a stage multi's unused channels
+      are not (normal spare hardware capacity, not a mistake).
 
 ## Dependency graph
 
 ```
-Slices 0–10 ✅ done
-Slice 10 (output chains) ──→ Slice 11 (output signal graph, replaces it)
+Slices 0–11 ✅ done
+Slice 10 (output chains) ──→ Slice 11 (output signal graph, replaces it) ✅
 ```
