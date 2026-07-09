@@ -265,8 +265,29 @@ chains that branch.
       flagged as a gap — mirroring the input-side presentation from
       Slice 5/9.
 
+## Slice 11 — Audio output signal-flow graph (spec: `output-signal-graph`)
+
+Live field feedback after using Slice 10: a flat, ordered per-channel hop
+list doesn't show a real rig's shape — shared equipment and branching (an
+amplifier feeding two speakers, a stage multi carrying unrelated channels
+to unrelated destinations) don't fit a straight line. Replaces Slice 10's
+chain editor outright with an interactive Sankey-style graph: devices are
+nodes (configurable input/output port counts, connector type per side —
+an amplifier really does have XLR in and Speakon out), cables are edges
+drawn port-to-port with a catalog picker, the mixer is an always-present
+implicit node, stageboxes stay output-only sources and stage multis
+become full processing nodes whose channels route independently (and
+whose own built-in wiring is never double-billed as an extra cable).
+Existing Slice 10 chains — including real, already-built rigs — convert
+automatically via a one-time Go migration (not a `.sql` script; the
+branching involved has no safe SQL-only expression). Rental aggregation
+actually simplifies here: stereo becomes two real rows instead of one row
+doubled by a flag, so the width-based `CASE WHEN` logic Slices 9/10
+needed disappears entirely for this feature's arms.
+
 ## Dependency graph
 
 ```
-Slices 0–10 ✅ done — roadmap complete
+Slices 0–10 ✅ done
+Slice 10 (output chains) ──→ Slice 11 (output signal graph, replaces it)
 ```
