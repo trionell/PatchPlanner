@@ -155,3 +155,57 @@ already has access to.
 **Print sheet**: the DCA column becomes two columns, Groups and DCA,
 comma-joined names resolved via id→name maps passed as props (the
 `itemLabelById` pattern from slice 6).
+
+## R8 — Color palette as a `reference_values` vocabulary (`channel_colors`), hex as value
+
+**Decision**: The static palette is a new vocabulary `channel_colors` in
+the existing `reference_values` table, seeded by migration 021 with 8
+console-style entries — value = CSS hex, label = name: Red `#ef4444`,
+Orange `#f97316`, Yellow `#eab308`, Green `#22c55e`, Cyan `#06b6d4`,
+Blue `#3b82f6`, Purple `#a855f7`, Grey `#9ca3af`. Groups, DCAs, input
+channels, and output channels store the picked value as nullable
+`color TEXT` — plain text, no FK, exactly the `signal_type` pattern.
+
+**Rationale**: Principle II says vocabularies are data, not code enums —
+and the slice 4 infrastructure makes this free: `GET /reference-data`
+returns any vocabulary automatically, the Settings page can already
+add/rename/delete entries, and re-import never touches `reference_values`.
+Storing the hex as the value means renderers use it directly
+(`style={{ background: color }}`); a removed palette entry degrades
+gracefully — rows keep rendering their stored hex, the picker just stops
+offering it (the spec's legacy edge case). No handler validation against
+the palette, consistent with how `signal_type` works post-slice-4.
+
+**Alternatives considered**: named slugs (`'red'`) with a frontend
+slug→hex map — puts rendering knowledge back into code and breaks when
+Settings adds a new entry; a `palette_colors` table with FK — heavier,
+and deleting a palette row would need legacy handling the text pattern
+already solves; hard-coded frontend array — violates Principle II and
+the spec's FR-018.
+
+## R9 — Color rendering: tinted badges on screen, swatch + `print-color-adjust: exact` in print
+
+**Decision**: One new `ColorSelect` component (a compact `Select` whose
+options are the palette labels, with a small swatch square showing the
+current value) used in the group/DCA managers and as a Color column on
+the inputs and outputs tabs. Bus badges (manager, BusMultiSelect,
+SignalFlowTab) get `style={{ backgroundColor: color }}` tints with dark
+text; uncolored falls through to today's neutral badge. Print sheets
+render a small fixed-size swatch `<span>` next to the channel number
+(and tint the group/DCA names), with `print-color-adjust: exact`
+(+ `-webkit-` prefix) on the sheet styles so browsers keep the
+backgrounds in print/PDF.
+
+**Rationale**: Full-row background tints fight readability and browser
+print defaults (backgrounds are stripped unless the user enables them);
+a dedicated swatch is ink-cheap, unambiguous, and — because
+`print-color-adjust: exact` applies to the element — survives to PDF
+even with default print settings in Chromium/Firefox. Black text never
+sits on a saturated background, so the spec's "must not become
+unreadable" edge case holds even where the property is unsupported.
+
+**Alternatives considered**: coloring the whole row (readability +
+print-stripping risk); a text color-name column (survives any printer
+but doesn't "read like the console" — kept implicitly since the swatch
+sits beside the printed sheet's existing text). No new dependency; a
+color-wheel/picker library is explicitly out per the request.

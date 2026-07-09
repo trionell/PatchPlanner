@@ -33,14 +33,33 @@ the backend so migration 021 applies.
 2. Rename and delete behave exactly like groups (no built-in protection —
    any DCA can be renamed/deleted).
 
-## 4. Print sheet & Signal Flow (US3)
+## 4. Colors (US3)
+
+1. In the Groups manager, give `LR` a color (recoloring LR is allowed —
+   only rename/delete are blocked) and give a DCA a color → the badges
+   tint everywhere the names appear (manager, channel cells).
+2. In the inputs table, set a channel's Color from the palette select →
+   the row shows the swatch; reload → persists.
+3. Audio Outputs tab: set a color on an output channel the same way.
+4. Open Settings → the `channel_colors` vocabulary is listed and editable
+   like any other (rename a color's label, add a new one — the pickers
+   follow).
+5. Channel color and group color are independent: recolor the group a
+   channel routes to → the channel's own color is untouched.
+
+## 5. Print sheet & Signal Flow (US4)
 
 1. Audio Inputs tab → Print: the sheet has **Groups** and **DCA** columns
    with comma-joined names; channels with no groups show an empty cell.
-2. Signal Flow tab: each channel card shows its group and DCA names; the
-   chain rendering (source → cable → path) is unchanged.
+2. In the print preview (and a saved PDF), colored channels show their
+   swatch next to the channel number and colored group/DCA names are
+   tinted; uncolored rows look exactly like before.
+3. Audio Outputs tab → Print: output rows show their color swatch.
+4. Signal Flow tab: each channel card shows its group and DCA names
+   (tinted when colored); the chain rendering (source → cable → path) is
+   unchanged.
 
-## 5. Guardrails
+## 6. Guardrails
 
 1. Rental tab and Excel export are byte-for-byte indifferent to groups/DCAs
    (compare a rental summary before/after assigning buses).
@@ -56,8 +75,10 @@ the backend so migration 021 applies.
   "Trummor" DCA per event, the "Keys" split, whitespace merging, LR
   presence and LR routing backfill, and that the column is gone.
 - `backend/internal/api/audio_patch_test.go` — group/DCA CRUD status
-  matrix, LR protection, duplicate 409s, assignment round-trip, LR default
-  on create (omitted vs explicit-empty `group_ids`), foreign-event id 400,
-  cascade on delete.
-- Frontend Vitest — print sheet renders the new columns; multi-select
-  helper logic.
+  matrix, LR protection (rename/delete blocked, recolor allowed),
+  duplicate 409s, assignment round-trip, LR default on create (omitted vs
+  explicit-empty `group_ids`), foreign-event id 400, cascade on delete,
+  color round-trip on groups/DCAs/inputs/outputs, `channel_colors` in the
+  reference-data response.
+- Frontend Vitest — print sheets render the new columns and color
+  swatches; multi-select helper logic.

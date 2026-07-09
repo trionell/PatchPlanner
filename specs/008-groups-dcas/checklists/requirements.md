@@ -31,6 +31,9 @@
 
 ## Notes
 
+- 2026-07-09: re-validated after the user added channel-strip colors
+  (US3/US4, FR-014–FR-018, SC-006/SC-007) — all items still pass.
+
 - The legacy `dca_groups` field name appears once in Assumptions purely as
   evidence for the multi-DCA decision, not as a design directive.
 - Grounded against production data (read-only): existing DCA text is

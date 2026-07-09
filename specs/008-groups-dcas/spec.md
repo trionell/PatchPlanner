@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: User description: "Slice 8 — mixer buses: groups & DCAs (feedback items 8–9). Per-event groups created/renamed/deleted in their own manager; LR is always present as a built-in group and is the default routing for new channels; each input channel selects the set of groups it routes to. Per-event DCAs managed the same way; the channel's DCA assignment becomes a selection over the event's DCAs instead of today's free-text string, with existing strings migrated. Input patch print sheet and Signal Flow tab show group/DCA assignments."
+**Input**: User description: "Slice 8 — mixer buses: groups & DCAs (feedback items 8–9). Per-event groups created/renamed/deleted in their own manager; LR is always present as a built-in group and is the default routing for new channels; each input channel selects the set of groups it routes to. Per-event DCAs managed the same way; the channel's DCA assignment becomes a selection over the event's DCAs instead of today's free-text string, with existing strings migrated. Input patch print sheet and Signal Flow tab show group/DCA assignments. Added 2026-07-09: groups and DCAs each have a color matched to the console's channel-strip color, and every input and output channel has its own color too (unrelated to groups/DCAs); colors come from a static palette (no color wheel) and are reflected in the audio input and output tabs and the printed/PDF sheets."
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -50,13 +50,32 @@ The engineer manages the event's DCAs (e.g. "Trummor", "Keys") in a manager alon
 
 ---
 
-### User Story 3 - See routing on the print sheet and in Signal Flow (Priority: P3)
+### User Story 3 - Color-code buses and channels like the console (Priority: P3)
 
-The input patch print sheet and the Signal Flow tab show each channel's group routing and DCA membership, so the paper/PDF handed to the crew and the per-channel flow view carry the full mix assignment.
+The engineer gives each group and each DCA a color from a fixed palette, mirroring the channel-strip colors programmed on the mixing console. Independently of that, each input channel and each output channel gets its own color from the same palette. The colors make the on-screen patch tabs and the printed sheets read like the console surface.
 
-**Why this priority**: Pure presentation of data captured in stories 1–2; valuable for the printed sheet's completeness but nothing new can be entered here.
+**Why this priority**: Colors are a strong usability multiplier for show-day navigation but carry no data semantics — routing (US1–US2) must exist first and is useful without them.
 
-**Independent Test**: Assign groups/DCAs to channels, open the print preview and the Signal Flow tab, and verify the assignments are rendered.
+**Independent Test**: Assign colors to a group, a DCA, an input channel, and an output channel; verify all four render in their tabs and survive reload — without touching print output (covered by US4).
+
+**Acceptance Scenarios**:
+
+1. **Given** a group or DCA, **When** the engineer picks a color from the palette in the manager, **Then** the group/DCA is shown in that color wherever its name appears (manager, channel assignments).
+2. **Given** an input channel, **When** the engineer picks a color for it, **Then** the channel row shows the color in the inputs tab; the same works for an output channel in the outputs tab.
+3. **Given** a channel routed to a colored group, **When** viewed, **Then** the channel's own color and the group's color are independent — coloring one never changes the other.
+4. **Given** the palette, **When** the engineer opens any color picker, **Then** it offers a small fixed set of named colors (plus "no color") — no free color input.
+5. **Given** an uncolored channel, group, or DCA, **When** displayed, **Then** it renders neutrally, exactly as today.
+6. **Given** a colored group/DCA/channel, **When** the page is reloaded, **Then** the color persists.
+
+---
+
+### User Story 4 - See routing and colors on the print sheets and in Signal Flow (Priority: P4)
+
+The input patch print sheet and the Signal Flow tab show each channel's group routing and DCA membership, and the input **and output** print sheets carry the channel/bus colors — so the paper/PDF handed to the crew reads like the console surface.
+
+**Why this priority**: Pure presentation of data captured in stories 1–3; valuable for the printed sheet's completeness but nothing new can be entered here.
+
+**Independent Test**: Assign groups/DCAs and colors to channels, open the print preview and the Signal Flow tab, and verify assignments and colors are rendered.
 
 **Acceptance Scenarios**:
 
@@ -64,6 +83,8 @@ The input patch print sheet and the Signal Flow tab show each channel's group ro
 2. **Given** a channel routed to several groups, **When** viewed on the sheet, **Then** all group names are listed legibly (e.g. comma-separated).
 3. **Given** a channel in the Signal Flow tab, **When** its flow is displayed, **Then** the channel's groups and DCAs are visible alongside the existing source-to-console chain.
 4. **Given** a channel with no group routing, **When** printed, **Then** the groups cell is empty — not an error, not a placeholder.
+5. **Given** colored input channels, groups, and DCAs, **When** the input patch sheet is printed (or saved as PDF), **Then** the colors are visibly rendered on the rows/names — including in the PDF, not just on screen.
+6. **Given** colored output channels, **When** the output patch sheet is printed, **Then** each row shows its channel color; uncolored rows print exactly as today.
 
 ---
 
@@ -78,6 +99,9 @@ The input patch print sheet and the Signal Flow tab show each channel's group ro
 - Pre-upgrade DCA text differing only in surrounding whitespace ("Trummor" vs " Trummor ") maps to the same DCA.
 - The upgrade runs once: re-opening the event or re-importing the price list must not duplicate DCAs or assignments.
 - Groups and DCAs are per-event: same-named groups on two events are independent entities.
+- A palette color that is later removed from the palette does not blank already-colored channels/buses — they keep rendering their stored color; the picker simply no longer offers it (same graceful-legacy behavior as other vocabularies).
+- Two groups (or a group and a channel) may share the same color — colors are labels, not identities; no uniqueness is enforced.
+- Print output must show colors when the user's browser print settings allow background rendering; the sheet must not become unreadable (black text stays black) when they don't.
 
 ## Requirements *(mandatory)*
 
@@ -96,12 +120,19 @@ The input patch print sheet and the Signal Flow tab show each channel's group ro
 - **FR-011**: The input patch print sheet MUST show each channel's group names and DCA names.
 - **FR-012**: The Signal Flow tab MUST show each channel's group and DCA assignments alongside the existing flow chain.
 - **FR-013**: Deleting an event MUST remove its groups, DCAs, and all channel assignments.
+- **FR-014**: Groups and DCAs MUST each carry an optional color, chosen from a fixed palette of named colors (no free color input); "no color" is the default and renders neutrally.
+- **FR-015**: Input channels and output channels MUST each carry an optional color from the same palette, independent of any group/DCA color.
+- **FR-016**: The audio inputs tab MUST display channel, group, and DCA colors; the audio outputs tab MUST display output channel colors.
+- **FR-017**: The input and output patch print sheets MUST render the colors so they survive into printed/PDF output; uncolored rows print unchanged.
+- **FR-018**: The palette MUST be a small static set of console-style colors shipped by default, managed as configurable data like the existing vocabularies (not hard-coded per screen).
 
 ### Key Entities
 
-- **Group**: A named mix bus belonging to one event. Attributes: name (unique per event, case-insensitive), built-in flag (true only for LR). LR exists on every event.
-- **DCA**: A named control assignment belonging to one event. Attributes: name (unique per event, case-insensitive). No built-in member.
+- **Group**: A named mix bus belonging to one event. Attributes: name (unique per event, case-insensitive), built-in flag (true only for LR), optional color. LR exists on every event.
+- **DCA**: A named control assignment belonging to one event. Attributes: name (unique per event, case-insensitive), optional color. No built-in member.
 - **Channel routing assignment**: The many-to-many link between an input channel and the groups it routes to, and between an input channel and the DCAs it belongs to. Removed automatically when either side is deleted.
+- **Channel color**: An optional color attribute on each input channel and each output channel, mirroring the console's channel-strip color; independent of group/DCA colors.
+- **Color palette**: The fixed set of named console-style colors offered by every color picker; shipped as default data and manageable like the existing vocabularies.
 
 ## Success Criteria *(mandatory)*
 
@@ -112,6 +143,8 @@ The input patch print sheet and the Signal Flow tab show each channel's group ro
 - **SC-003**: A newly added channel is routed to LR with zero additional user actions.
 - **SC-004**: An engineer can create a group and route five channels to it in under one minute.
 - **SC-005**: Every channel's group and DCA assignments appear on the printed input patch sheet and in the Signal Flow tab.
+- **SC-006**: A color assigned to a channel, group, or DCA is visible in the relevant tab and in the printed/PDF sheet with zero extra steps beyond picking it from the palette.
+- **SC-007**: Color selection everywhere is a single pick from the same fixed palette — no free-form color entry exists anywhere.
 
 ## Assumptions
 
@@ -121,5 +154,8 @@ The input patch print sheet and the Signal Flow tab show each channel's group ro
 - Deleting an in-use group/DCA removes the assignments (with confirmation) rather than being blocked — the per-event manager pattern (stageboxes) clears references on delete; the 409 in-use protection used for shared reference data does not apply to per-event entities.
 - Legacy DCA text is split on commas; every trimmed non-empty token is a valid DCA name, so the one-time conversion always succeeds and no legacy-label fallback is needed (production data currently holds only single-word values, e.g. "Trummor").
 - Groups capture **routing membership only** — no levels, sends, or output/matrix behavior; how group buses reach outputs is Slice 10 (output chains) territory.
-- Groups and DCAs involve no equipment selection, so the rental order, stock flagging, and the Excel export are unaffected (standing invariant not triggered).
-- Output channels are out of scope: the request applies groups/DCAs to audio **inputs**; output-side bus structure arrives with Slice 10.
+- Groups, DCAs, and colors involve no equipment selection, so the rental order, stock flagging, and the Excel export are unaffected (standing invariant not triggered).
+- Output-side **bus structure** is out of scope (groups/DCAs apply to audio inputs; output chains arrive with Slice 10) — but output channels do get the **color** attribute, per the request.
+- The default palette is a small set (~8) of named colors matching common console channel-strip palettes (red, orange, yellow, green, cyan, blue, purple, white/grey); "enough with a static palette" per the request. It ships as configurable default data like the slice 4 vocabularies, so renaming or extending it later needs no code change — but no palette-editing UI work is part of this slice beyond what already exists.
+- Colors are cosmetic labels: no uniqueness, no semantics, no effect on routing or rental.
+- A channel's color is chosen manually and does not auto-follow the colors of groups it routes to (the request says channel color is "unrelated to groups and DCA").
