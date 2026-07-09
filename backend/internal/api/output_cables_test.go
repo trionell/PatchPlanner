@@ -195,3 +195,138 @@ func TestOutputCableRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+// TestStageMultiIndependentChannels covers Slice 11 US2: a stage multi's
+// channels each connect independently — different sources, different
+// destinations — with its own built-in wiring never prompting for a
+// cable pick or adding a rental line, while the multi's own existing
+// rental line (from the pre-existing stageboxes/stage_multis rental arm)
+// is unaffected.
+func TestStageMultiIndependentChannels(t *testing.T) {
+	server, database := newTestServer(t)
+	eventID := seedEvent(t, server.URL)
+	multiItem := seedItem(t, database, "Multikabel 24/4", 2, 300)
+	speakerItem := seedItem(t, database, "Speaker", 4, 500)
+	monitorItem := seedItem(t, database, "Monitor", 4, 450)
+	inputCable := seedItem(t, database, "Sneaky input cable", 10, 20)
+
+	outputsURL := fmt.Sprintf("%s/events/%d/audio-outputs", server.URL, eventID)
+	devicesURL := fmt.Sprintf("%s/events/%d/output-devices", server.URL, eventID)
+	cablesURL := fmt.Sprintf("%s/events/%d/output-cables", server.URL, eventID)
+
+	status, raw := doJSON(t, http.MethodPost, fmt.Sprintf("%s/events/%d/stage-multis", server.URL, eventID), map[string]any{
+		"name": "Multi 1", "channels": 8, "connector_type": "xlr", "inventory_item_id": multiItem,
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("POST stage multi: status %d body %s", status, raw)
+	}
+	multi := decodeJSON[domain.StageMulti](t, raw)
+
+	status, raw = doJSON(t, http.MethodPost, fmt.Sprintf("%s/events/%d/stageboxes", server.URL, eventID), map[string]any{
+		"name": "SB A", "connection_type": "analog", "output_count": 4,
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("POST stagebox: status %d body %s", status, raw)
+	}
+	sb := decodeJSON[domain.Stagebox](t, raw)
+
+	status, raw = doJSON(t, http.MethodPost, outputsURL, map[string]any{"output_number": 1, "output_type": "foh", "width": "mono"})
+	if status != http.StatusCreated {
+		t.Fatalf("POST output: status %d body %s", status, raw)
+	}
+	output := decodeJSON[domain.AudioPatchOutput](t, raw)
+
+	status, raw = doJSON(t, http.MethodPost, devicesURL, map[string]any{
+		"name": "Speaker", "inventory_item_id": speakerItem, "input_port_count": 1, "input_connector_type": "speakon",
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("POST speaker device: status %d body %s", status, raw)
+	}
+	speaker := decodeJSON[domain.OutputDevice](t, raw)
+
+	status, raw = doJSON(t, http.MethodPost, devicesURL, map[string]any{
+		"name": "Monitor", "inventory_item_id": monitorItem, "input_port_count": 1, "input_connector_type": "speakon",
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("POST monitor device: status %d body %s", status, raw)
+	}
+	monitor := decodeJSON[domain.OutputDevice](t, raw)
+
+	// Channel 0: mixer -> multi input 0 (a cable_item_id sent here must be
+	// ignored/rejected, FR-013), multi output 0 -> speaker.
+	if status, raw = doJSON(t, http.MethodPost, cablesURL, map[string]any{
+		"from_kind": "mixer", "from_id": output.ID, "from_port": 0,
+		"to_kind": "stage_multi", "to_id": multi.ID, "to_port": 0, "cable_item_id": inputCable,
+	}); status != http.StatusBadRequest {
+		t.Fatalf("mixer->multi ch0 with cable_item_id: status %d body %s, want 400", status, raw)
+	}
+	status, raw = doJSON(t, http.MethodPost, cablesURL, map[string]any{
+		"from_kind": "mixer", "from_id": output.ID, "from_port": 0,
+		"to_kind": "stage_multi", "to_id": multi.ID, "to_port": 0,
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("mixer->multi ch0: status %d body %s", status, raw)
+	}
+	mixerToMulti := decodeJSON[domain.OutputCable](t, raw)
+	if mixerToMulti.CableItemID != nil {
+		t.Errorf("mixer->multi ch0 cable_item_id = %v, want nil", mixerToMulti.CableItemID)
+	}
+	if status, raw = doJSON(t, http.MethodPost, cablesURL, map[string]any{
+		"from_kind": "stage_multi", "from_id": multi.ID, "from_port": 0,
+		"to_kind": "device", "to_id": speaker.ID, "to_port": 0,
+	}); status != http.StatusCreated {
+		t.Fatalf("multi->speaker ch0: status %d body %s", status, raw)
+	}
+
+	// Channel 1: an independent source (the stagebox) into the SAME
+	// multi's different channel, with a cable_item_id also rejected, then
+	// on to a different destination (the monitor).
+	if status, raw = doJSON(t, http.MethodPost, cablesURL, map[string]any{
+		"from_kind": "stagebox", "from_id": sb.ID, "from_port": 0,
+		"to_kind": "stage_multi", "to_id": multi.ID, "to_port": 1, "cable_item_id": inputCable,
+	}); status != http.StatusBadRequest {
+		t.Fatalf("stagebox->multi ch1 with cable_item_id: status %d body %s, want 400", status, raw)
+	}
+	status, raw = doJSON(t, http.MethodPost, cablesURL, map[string]any{
+		"from_kind": "stagebox", "from_id": sb.ID, "from_port": 0,
+		"to_kind": "stage_multi", "to_id": multi.ID, "to_port": 1,
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("stagebox->multi ch1: status %d body %s", status, raw)
+	}
+	stageboxToMulti := decodeJSON[domain.OutputCable](t, raw)
+	if stageboxToMulti.CableItemID != nil {
+		t.Errorf("stagebox->multi ch1 cable_item_id = %v, want nil", stageboxToMulti.CableItemID)
+	}
+	if status, raw = doJSON(t, http.MethodPost, cablesURL, map[string]any{
+		"from_kind": "stage_multi", "from_id": multi.ID, "from_port": 1,
+		"to_kind": "device", "to_id": monitor.ID, "to_port": 0,
+	}); status != http.StatusCreated {
+		t.Fatalf("multi->monitor ch1: status %d body %s", status, raw)
+	}
+
+	// Rental: the multi's own line counts once (unchanged), speaker and
+	// monitor devices each count once, and neither input-side cable
+	// contributes anything (no cable item exists for either).
+	status, raw = doJSON(t, http.MethodGet, fmt.Sprintf("%s/events/%d/rentals", server.URL, eventID), nil)
+	if status != http.StatusOK {
+		t.Fatalf("GET rentals: status %d body %s", status, raw)
+	}
+	summary := decodeJSON[domain.RentalSummary](t, raw)
+	byID := map[int64]domain.EventRental{}
+	for _, line := range summary.Items {
+		byID[line.InventoryItemID] = line
+	}
+	if line := byID[multiItem]; line.QuantityAudio != 1 {
+		t.Errorf("multi's own rental line audio=%d, want 1 (unaffected by its channels' connections)", line.QuantityAudio)
+	}
+	if line := byID[speakerItem]; line.QuantityAudio != 1 {
+		t.Errorf("speaker device line audio=%d, want 1", line.QuantityAudio)
+	}
+	if line := byID[monitorItem]; line.QuantityAudio != 1 {
+		t.Errorf("monitor device line audio=%d, want 1", line.QuantityAudio)
+	}
+	if _, found := byID[inputCable]; found {
+		t.Errorf("input-side cable item unexpectedly on the rental order: %+v", byID[inputCable])
+	}
+}

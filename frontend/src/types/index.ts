@@ -124,49 +124,14 @@ export interface AudioPatchInput {
 }
 
 /**
- * One step in an output channel's signal path (Slice 10). A 'device' hop
- * carries a device pick — device_source selects which one of
- * inventory_item_id/owned_item_id/output_device_id is meaningful (at most
- * one set; none yet is a valid "not picked" gap). A 'route' hop instead
- * carries a stagebox/stage-multi hand-off, with an independent side B for
- * stereo channels. cable_item_id/cable_type/cable_length_m apply to
- * either hop kind — cable_type/cable_length_m are legacy pre-Slice-6 text
- * carried on hops migrated from a row that never got a catalog cable
- * pick; the UI never authors them directly and the server clears them
- * once cable_item_id is set. cable_item_id_b is side B's own,
- * independently-picked cable (meaningful only when the channel is
- * stereo) — left unset, cable_item_id doubles for both sides as a
- * convenience; set it when the two physical runs need different lengths
- * (e.g. an amp on one side of the stage needs a shorter cable to the
- * near speaker than the far one).
- */
-export interface OutputChainHop {
-  id?: number
-  position: number
-  hop_kind: 'device' | 'route'
-  cable_item_id?: number
-  cable_item_id_b?: number
-  cable_type?: string
-  cable_length_m?: number
-  device_source?: 'inventory' | 'owned' | 'shared'
-  inventory_item_id?: number
-  owned_item_id?: number
-  output_device_id?: number
-  stagebox_id?: number
-  stagebox_channel?: number
-  stagebox_id_b?: number
-  stagebox_channel_b?: number
-  stage_multi_id?: number
-  stage_multi_channel?: number
-  stage_multi_id_b?: number
-  stage_multi_channel_b?: number
-}
-
-/**
- * A physical device declared once per event and referenced by position
- * from any number of output channels' chain hops — counted once on the
- * rental order regardless of how many hops reference it. Exactly one of
- * inventory_item_id/owned_item_id is set.
+ * A node in the output signal-flow graph (Slice 11) — a physical device
+ * declared once per event and connected via any number of OutputCable
+ * edges, counted once on the rental order regardless of how many cables
+ * reference it. Exactly one of inventory_item_id/owned_item_id is set.
+ * A side's port count is 0 when the device has nothing on that side (0
+ * input ports = a pure source; 0 output ports = a pure destination); its
+ * connector_type is set exactly when that side's port count is > 0.
+ * position_x/position_y are this event's canvas placement only.
  */
 export interface OutputDevice {
   id: number
@@ -174,6 +139,33 @@ export interface OutputDevice {
   name: string
   inventory_item_id?: number
   owned_item_id?: number
+  input_port_count: number
+  input_connector_type?: string
+  output_port_count: number
+  output_connector_type?: string
+  position_x: number
+  position_y: number
+}
+
+/**
+ * One edge in the output signal-flow graph — a cable from one node's
+ * output-side port to another node's input-side port. from_kind is
+ * 'mixer' | 'stagebox' | 'stage_multi' | 'device' (mixer/stagebox have no
+ * input side, so are never a to_kind); to_kind is 'stage_multi' | 'device'
+ * only. cable_item_id is always null when to_kind is 'stage_multi' — a
+ * stage multi's own built-in wiring is never a separately rentable cable
+ * (FR-013); otherwise it's the picked catalog item, or unset for a gap.
+ */
+export interface OutputCable {
+  id: number
+  event_id: number
+  from_kind: 'mixer' | 'stagebox' | 'stage_multi' | 'device'
+  from_id: number
+  from_port: number
+  to_kind: 'stage_multi' | 'device'
+  to_id: number
+  to_port: number
+  cable_item_id?: number
 }
 
 export interface AudioPatchOutput {
@@ -188,12 +180,6 @@ export interface AudioPatchOutput {
   /** 'mono' (default) or 'stereo'. No mixer-behavior equivalent — outputs have no console-strip semantics. */
   width: 'mono' | 'stereo'
   notes?: string
-  /**
-   * The channel's ordered signal path, replaced wholesale on every write
-   * (destination/amplifier/speaker/cable fields from Slices 0-9 were
-   * replaced by this chain in Slice 10 — see OutputChainHop).
-   */
-  chain: OutputChainHop[]
 }
 
 export interface LightingRig {
@@ -343,6 +329,7 @@ export interface AudioPatchResponse {
   inputs: AudioPatchInput[]
   outputs: AudioPatchOutput[]
   output_devices: OutputDevice[]
+  output_cables: OutputCable[]
 }
 
 export interface LightingRigResponse {

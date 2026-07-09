@@ -1,4 +1,4 @@
-import type { AudioPatchInput, AudioPatchOutput, AudioPatchResponse, BusRequest, MixerDCA, MixerGroup, OutputDevice, Stagebox, StageMulti } from '../types'
+import type { AudioPatchInput, AudioPatchOutput, AudioPatchResponse, BusRequest, MixerDCA, MixerGroup, OutputCable, OutputDevice, Stagebox, StageMulti } from '../types'
 import { request } from './client'
 
 export const getAudioPatch = (eventId: number) => request<AudioPatchResponse>(`/events/${eventId}/audio-patch`)
@@ -50,3 +50,10 @@ export const updateOutputDevice = (eventId: number, deviceId: number, data: Omit
   request<OutputDevice>(`/events/${eventId}/output-devices/${deviceId}`, { method: 'PATCH', body: JSON.stringify(data) })
 export const deleteOutputDevice = (eventId: number, deviceId: number) =>
   request<void>(`/events/${eventId}/output-devices/${deviceId}`, { method: 'DELETE' })
+
+export const createOutputCable = (eventId: number, data: Omit<OutputCable, 'id' | 'event_id'>) =>
+  request<OutputCable>(`/events/${eventId}/output-cables`, { method: 'POST', body: JSON.stringify(data) })
+export const updateOutputCable = (eventId: number, cableId: number, cableItemId: number | undefined) =>
+  request<OutputCable>(`/events/${eventId}/output-cables/${cableId}`, { method: 'PATCH', body: JSON.stringify({ cable_item_id: cableItemId ?? null }) })
+export const deleteOutputCable = (eventId: number, cableId: number) =>
+  request<void>(`/events/${eventId}/output-cables/${cableId}`, { method: 'DELETE' })
