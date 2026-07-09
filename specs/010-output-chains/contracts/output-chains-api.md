@@ -74,6 +74,10 @@ over a stage multi to a bodypack — the IEM example from the spec.)
   for side B on inputs/outputs since Slice 9).
 - `cable_item_id` — optional on any hop, references an inventory item
   (`validItemRef`, same as every other cable pick in the codebase).
+  `cable_type`/`cable_length_m` — read-only legacy text carried over from
+  a pre-Slice-6 row that never got a catalog cable pick; the server never
+  writes them from payloads and clears them once `cable_item_id` is set,
+  same lifecycle as the pre-existing input/output legacy cable fields.
 - The whole `chain` array is validated and replaced atomically; a `400`
   on any hop rejects the entire request, leaving the previous chain
   untouched.

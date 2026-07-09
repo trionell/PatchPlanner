@@ -160,10 +160,16 @@ manager treatment rather than being folded into the chain payload.
 - If `destination_type` was `stagebox` or `stage_multi`: create a `route`
   hop carrying the old stagebox/stage-multi id + channel (+ side B if
   set).
-- If `cable_item_id` (or legacy `cable_type`/`cable_length_m`) was set:
-  attach it as the `cable_item_id` (or legacy text) of the first hop
-  created above, or its own bare device-less hop if no amplifier/speaker/
-  route hop exists for that row.
+- If `cable_item_id` was set: attach it as the `cable_item_id` of the
+  first hop created above (amplifier hop, else speaker hop, else route
+  hop), or its own bare device-less hop if none of those exist for that
+  row. If instead only the legacy `cable_type`/`cable_length_m` text was
+  set (no catalog pick — Slice 6's backfill was conservative and some
+  rows never got one), carry that legacy text onto the same hop's own
+  `cable_type`/`cable_length_m` columns (new, read-only-until-repicked
+  fields on `output_chain_hops` itself — see data-model.md) rather than
+  dropping it; a hop with neither is left with no cable pick at all,
+  correctly flagged as a gap.
 Finally, `audio_patch_outputs` is rebuilt (table-rebuild migration, the
 same technique already used for the DCA column drop) dropping
 `destination_type`, `stagebox_id(_b)`, `stage_multi_id(_b)`,

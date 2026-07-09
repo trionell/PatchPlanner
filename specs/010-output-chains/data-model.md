@@ -40,6 +40,8 @@ output row; ordered within it.
 | `position` | INTEGER, NOT NULL | — | 0-based order within the chain; consecutive, renumbered on every wholesale replace (R5) |
 | `hop_kind` | TEXT, NOT NULL | `'device'` | `device` \| `route` (Go-validated; selects which of the columns below are meaningful) |
 | `cable_item_id` | INTEGER, NULL | NULL | FK → `inventory_items(id)`. The cable feeding into this hop. Meaningful for either hop kind. Doubles unconditionally on a stereo channel (R3), same as today's `cable_item_id`. |
+| `cable_type` | TEXT, NULL | NULL | Legacy pre-Slice-6 free-text cable type, meaningful only when `cable_item_id IS NULL` — same read-only-until-repicked lifecycle as the pre-existing column it's migrated from (Slice 6 backfill was conservative; not every row got a catalog pick). Server never writes it from payloads. |
+| `cable_length_m` | REAL, NULL | NULL | Legacy pre-Slice-6 free-text cable length, same lifecycle as `cable_type`. |
 | `device_source` | TEXT, NULL | NULL | `inventory` \| `owned` \| `shared` (Go-validated). Meaningful only when `hop_kind = 'device'`; selects which one of the three columns below is set. |
 | `inventory_item_id` | INTEGER, NULL | NULL | FK → `inventory_items(id)`. Set when `device_source = 'inventory'`. Doubles on a stereo channel (per-side item, R3). |
 | `owned_item_id` | INTEGER, NULL | NULL | FK → `owned_items(id)`. Set when `device_source = 'owned'`. Never rental-counted. |

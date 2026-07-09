@@ -35,7 +35,7 @@ inputs in Slice 5/9.
 
 **Storage**: SQLite — migration `023_output_chains` (next after 022): two
 new tables (`output_devices`, `output_chain_hops`), plus a rebuild of
-`audio_patch_outputs` dropping thirteen now-superseded columns after
+`audio_patch_outputs` dropping fourteen now-superseded columns after
 converting their data into hop rows
 
 **Testing**: Go `testing` + `httptest` (api/db packages, migration replay
