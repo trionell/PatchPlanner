@@ -208,21 +208,41 @@ func TestRentalSummaryCountsStands(t *testing.T) {
 	}
 }
 
-// TestRentalSummaryCountsOutputCables covers the output cable_item_id arm,
-// mixed with input picks of the same item.
+// TestRentalSummaryCountsOutputCables covers the output_cables
+// cable_item_id arm, mixed with input picks of the same item.
 func TestRentalSummaryCountsOutputCables(t *testing.T) {
 	server, database := newTestServer(t)
 	eventID := seedEvent(t, server.URL)
 	speakonCable := seedRoleItem(t, database, "cable", "Högtalarkabel Speakon 2x2,5", "10m", 6, 12)
+	speakerItem := seedItem(t, database, "Speaker", 4, 500)
 	outputsURL := fmt.Sprintf("%s/events/%d/audio-outputs", server.URL, eventID)
+	devicesURL := fmt.Sprintf("%s/events/%d/output-devices", server.URL, eventID)
+	cablesURL := fmt.Sprintf("%s/events/%d/output-cables", server.URL, eventID)
 
 	for outputNumber := 1; outputNumber <= 2; outputNumber++ {
 		status, raw := doJSON(t, http.MethodPost, outputsURL, map[string]any{
-			"output_number": outputNumber, "output_type": "foh",
-			"chain": []map[string]any{{"hop_kind": "device", "cable_item_id": speakonCable}},
+			"output_number": outputNumber, "output_type": "foh", "width": "mono",
 		})
 		if status != http.StatusCreated {
 			t.Fatalf("POST output %d: status %d body %s", outputNumber, status, raw)
+		}
+		outputID := decodeJSON[domain.AudioPatchOutput](t, raw).ID
+
+		status, raw = doJSON(t, http.MethodPost, devicesURL, map[string]any{
+			"name": fmt.Sprintf("Speaker %d", outputNumber), "inventory_item_id": speakerItem,
+			"input_port_count": 1, "input_connector_type": "speakon",
+		})
+		if status != http.StatusCreated {
+			t.Fatalf("POST device %d: status %d body %s", outputNumber, status, raw)
+		}
+		deviceID := decodeJSON[domain.OutputDevice](t, raw).ID
+
+		status, raw = doJSON(t, http.MethodPost, cablesURL, map[string]any{
+			"from_kind": "mixer", "from_id": outputID, "from_port": 0,
+			"to_kind": "device", "to_id": deviceID, "to_port": 0, "cable_item_id": speakonCable,
+		})
+		if status != http.StatusCreated {
+			t.Fatalf("POST cable %d: status %d body %s", outputNumber, status, raw)
 		}
 	}
 	// The same cable picked on an input merges into the one line.
@@ -238,17 +258,35 @@ func TestRentalSummaryCountsOutputCables(t *testing.T) {
 		t.Fatalf("GET summary: status %d body %s", status, raw)
 	}
 	summary := decodeJSON[domain.RentalSummary](t, raw)
-	if len(summary.Items) != 1 {
-		t.Fatalf("summary has %d lines, want 1 merged cable line: %+v", len(summary.Items), summary.Items)
+	byID := map[int64]domain.EventRental{}
+	for _, line := range summary.Items {
+		byID[line.InventoryItemID] = line
 	}
-	if line := summary.Items[0]; line.InventoryItemID != speakonCable || line.QuantityAudio != 3 {
-		t.Errorf("cable line item=%d audio=%d, want %d/3", line.InventoryItemID, line.QuantityAudio, speakonCable)
+	if line := byID[speakonCable]; line.QuantityAudio != 3 {
+		t.Errorf("cable line audio=%d, want 3 (2 output cables + 1 input pick)", line.QuantityAudio)
+	}
+	if line := byID[speakerItem]; line.QuantityAudio != 2 {
+		t.Errorf("speaker device line audio=%d, want 2 (one device row per output)", line.QuantityAudio)
 	}
 
-	// Dangling cable reference on an output hop is rejected up front.
-	if status, raw = doJSON(t, http.MethodPost, outputsURL, map[string]any{
-		"output_number": 3, "output_type": "foh",
-		"chain": []map[string]any{{"hop_kind": "device", "cable_item_id": 99999}},
+	// Dangling cable_item_id on a new output cable is rejected up front.
+	status, raw = doJSON(t, http.MethodPost, outputsURL, map[string]any{
+		"output_number": 3, "output_type": "foh", "width": "mono",
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("POST output 3: status %d body %s", status, raw)
+	}
+	output3ID := decodeJSON[domain.AudioPatchOutput](t, raw).ID
+	status, raw = doJSON(t, http.MethodPost, devicesURL, map[string]any{
+		"name": "Speaker 3", "inventory_item_id": speakerItem, "input_port_count": 1, "input_connector_type": "speakon",
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("POST device 3: status %d body %s", status, raw)
+	}
+	device3ID := decodeJSON[domain.OutputDevice](t, raw).ID
+	if status, raw = doJSON(t, http.MethodPost, cablesURL, map[string]any{
+		"from_kind": "mixer", "from_id": output3ID, "from_port": 0,
+		"to_kind": "device", "to_id": device3ID, "to_port": 0, "cable_item_id": 99999,
 	}); status != http.StatusBadRequest {
 		t.Errorf("dangling output cable_item_id: status %d body %s, want 400", status, raw)
 	}

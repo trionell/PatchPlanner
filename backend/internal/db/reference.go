@@ -23,10 +23,12 @@ var vocabularyUsage = map[string][]struct{ table, column string }{
 	"signal_types":       {{"audio_patch_inputs", "signal_type"}},
 	"preamp_connectors":  {{"audio_patch_inputs", "preamp_connector"}},
 	"signal_cable_types": {{"audio_patch_inputs", "cable_type"}},
-	// cable_type moved from audio_patch_outputs onto output_chain_hops in
-	// Slice 10 (the flat destination/amplifier/speaker/cable shape was
-	// replaced by an ordered chain of hops).
-	"speaker_cable_types": {{"output_chain_hops", "cable_type"}},
+	// speaker_cable_types moved from audio_patch_outputs (flat model) to
+	// output_chain_hops.cable_type (Slice 10's hop chain) to, now,
+	// output_devices' per-side connector type (Slice 11's graph, research.md
+	// R2/R7) — a device's declared input/output connector is this
+	// vocabulary's real home today.
+	"speaker_cable_types": {{"output_devices", "input_connector_type"}, {"output_devices", "output_connector_type"}},
 	"output_types":        {{"audio_patch_outputs", "output_type"}},
 	"mic_stands":          {{"audio_patch_inputs", "mic_stand"}},
 	"power_connectors":    {{"lighting_fixtures", "power_connector_in"}, {"lighting_fixtures", "power_connector_out"}},

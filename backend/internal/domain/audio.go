@@ -49,33 +49,80 @@ var (
 	ValidWidths         = []string{"mono", "stereo"}
 	ValidMixerBehaviors = []string{"stereo_channel", "linked_channels"}
 	ValidSourceCablings = []string{"two_cables", "splitter"}
-	// ValidHopKinds/ValidDeviceSources are OutputChainHop's Go-validated
-	// enums, same rationale as above: hop_kind/device_source select which
-	// FK columns are meaningful and drive rental-counting/gap-detection
-	// logic in code.
+	// ValidHopKinds/ValidDeviceSources are legacy (Slice 10) enums, kept
+	// only for output_graph_migration.go's one-time conversion of old
+	// output_chain_hops rows — no longer written by any live API path.
 	ValidHopKinds      = []string{"device", "route"}
 	ValidDeviceSources = []string{"inventory", "owned", "shared"}
+	// ValidPortFromKinds/ValidPortToKinds are OutputCable's Go-validated
+	// enums (Slice 11): a port is identified by (kind, id, index), and
+	// kind selects which table id resolves against. Direction is
+	// structural, not a stored flag — from_kind always resolves against a
+	// node's output side, to_kind always against its input side, which is
+	// why mixer/stagebox (no input side — FR-004/FR-006) can only ever
+	// appear as a from_kind (research.md R7).
+	ValidPortFromKinds = []string{"mixer", "stagebox", "stage_multi", "device"}
+	ValidPortToKinds   = []string{"stage_multi", "device"}
 )
 
-// OutputDevice is a physical device declared once per event (Slice 10) and
-// referenced by position from any number of output channels' chain hops —
-// counted once on the rental order regardless of how many hops reference
-// it. Exactly one of InventoryItemID/OwnedItemID is set.
+// OutputDevice is a node in the output signal-flow graph (Slice 11) —
+// declared once per event, with an input port count/connector type and an
+// output port count/connector type (either side may be zero: zero inputs
+// makes it a pure source, zero outputs a pure destination), and a canvas
+// position for this event. Exactly one of InventoryItemID/OwnedItemID is
+// set. Referenced by position from any number of OutputCable rows;
+// counted once on the rental order regardless of how many cables
+// reference it (research.md R4 — no width-based doubling, a physically
+// separate unit is simply its own row).
 type OutputDevice struct {
 	ID              int64  `json:"id"`
 	EventID         int64  `json:"event_id"`
 	Name            string `json:"name"`
 	InventoryItemID *int64 `json:"inventory_item_id,omitempty"`
 	OwnedItemID     *int64 `json:"owned_item_id,omitempty"`
+
+	InputPortCount      int    `json:"input_port_count"`
+	InputConnectorType  string `json:"input_connector_type,omitempty"`
+	OutputPortCount     int    `json:"output_port_count"`
+	OutputConnectorType string `json:"output_connector_type,omitempty"`
+
+	PositionX float64 `json:"position_x"`
+	PositionY float64 `json:"position_y"`
 }
 
-// OutputChainHop is one step in an output channel's signal path (Slice 10).
-// HopKind "device" carries a device pick (DeviceSource selects which of
-// InventoryItemID/OwnedItemID/OutputDeviceID is meaningful); HopKind
-// "route" carries a stagebox/stage-multi hand-off instead, with an
-// independent side B for stereo channels (same semantics as Slice 9's
-// side-B columns, scoped per hop). CableItemID/CableType/CableLengthM are
-// meaningful on either hop kind.
+// OutputCable is one edge in the output signal-flow graph (Slice 11): a
+// connection from one output port to one input port. A port is identified
+// by (kind, id, index) — FromKind ∈ ValidPortFromKinds, ToKind ∈
+// ValidPortToKinds; id resolves against audio_patch_outputs (mixer),
+// stageboxes, stage_multis, or output_devices depending on kind (no DB FK
+// — polymorphic, validated in the API layer, research.md R2/R7).
+// CableItemID is always nil when ToKind is "stage_multi" — a stage
+// multi's input side is its own built-in wiring, never a separately
+// rentable cable (FR-013/research.md R6).
+type OutputCable struct {
+	ID      int64 `json:"id"`
+	EventID int64 `json:"event_id"`
+
+	FromKind string `json:"from_kind"`
+	FromID   int64  `json:"from_id"`
+	FromPort int    `json:"from_port"`
+
+	ToKind string `json:"to_kind"`
+	ToID   int64  `json:"to_id"`
+	ToPort int    `json:"to_port"`
+
+	CableItemID *int64 `json:"cable_item_id,omitempty"`
+}
+
+// OutputChainHop is the legacy (Slice 10) shape of one step in an output
+// channel's signal path — superseded by the OutputCable graph in Slice 11.
+// Kept only so output_graph_migration.go can scan pre-existing
+// output_chain_hops rows and convert them; nothing writes this shape
+// anymore. HopKind "device" carries a device pick (DeviceSource selects
+// which of InventoryItemID/OwnedItemID/OutputDeviceID is meaningful);
+// HopKind "route" carries a stagebox/stage-multi hand-off instead, with an
+// independent side B for stereo channels. CableItemID/CableType/
+// CableLengthM are meaningful on either hop kind.
 type OutputChainHop struct {
 	ID       int64  `json:"id"`
 	Position int    `json:"position"`
@@ -181,10 +228,12 @@ type AudioPatchInput struct {
 	Notes         string `json:"notes,omitempty"`
 }
 
-// AudioPatchOutput is one output channel. Its old destination/amplifier/
-// speaker/cable fields (Slice 0-9's flat shape) were replaced in Slice 10
-// by an ordered Chain of hops — see OutputChainHop. Width stays: it's
-// still channel-level and drives per-hop stereo doubling.
+// AudioPatchOutput is one output channel — a mixer channel definition.
+// Its signal path is no longer stored on this row at all (Slice 10's
+// Chain field is gone): the channel contributes one output-only port
+// (two, independently, when Width is "stereo") to the output signal-flow
+// graph, referenced by OutputCable rows with FromKind = "mixer",
+// FromID = this row's ID (data-model.md).
 type AudioPatchOutput struct {
 	ID           int64  `json:"id"`
 	EventID      int64  `json:"event_id"`
@@ -194,12 +243,8 @@ type AudioPatchOutput struct {
 	Color        string `json:"color,omitempty"`
 	// Width is "mono" or "stereo" (ValidWidths). No MixerBehavior equivalent
 	// exists for outputs — output numbering has no console-strip semantics.
+	// Stereo means two independent ports (research.md R4 — real separate
+	// rows/cables now, not a doubling flag).
 	Width string `json:"width"`
 	Notes string `json:"notes,omitempty"`
-	// Chain is the output's ordered signal path. Always present in
-	// responses ([] when empty); on write it is replaced wholesale (an
-	// omitted/empty payload clears it, same as GroupIDs/DCAIDs on inputs
-	// — every PATCH is expected to carry the row's full current state,
-	// research.md R5), never partially patched.
-	Chain []OutputChainHop `json:"chain"`
 }

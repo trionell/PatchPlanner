@@ -216,7 +216,7 @@ func TestDeleteReferenceValueInUse(t *testing.T) {
 
 	mustExec(t, database, `INSERT INTO audio_patch_inputs (event_id, channel_number, signal_type, preamp_connector, cable_type, mic_stand) VALUES (?, 1, 'mic', 'combo', 'jack_trs', 'boom')`, eventID)
 	mustExec(t, database, `INSERT INTO audio_patch_outputs (event_id, output_number, output_type) VALUES (?, 1, 'iem')`, eventID)
-	mustExec(t, database, `INSERT INTO output_chain_hops (output_id, position, hop_kind, cable_type) VALUES (1, 0, 'device', 'nl8')`)
+	mustExec(t, database, `INSERT INTO output_devices (event_id, name, output_connector_type) VALUES (?, 'Speaker', 'nl8')`, eventID)
 	mustExec(t, database, `INSERT INTO lighting_rigs (event_id, name) VALUES (?, 'Rig')`, eventID)
 	mustExec(t, database, `INSERT INTO truss_sections (rig_id, name, truss_type) VALUES (1, 'Front', 'ladder')`)
 	mustExec(t, database, `INSERT INTO lighting_fixtures (rig_id, custom_name, power_connector_in, power_connector_out) VALUES (1, 'Wash', 'cee16', 'powercon_true1')`)

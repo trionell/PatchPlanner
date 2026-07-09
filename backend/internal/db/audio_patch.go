@@ -62,10 +62,12 @@ func UpdateStagebox(db *sql.DB, id int64, sb domain.Stagebox) (domain.Stagebox, 
 	return GetStagebox(db, id)
 }
 
-// DeleteStagebox clears every patch-row/hop reference to the stagebox
+// DeleteStagebox clears every patch-row/cable reference to the stagebox
 // before removing it, so the patch stays consistent and the FK constraint
-// holds. Outputs route through hops (Slice 10), not their own column, so
-// only audio_patch_inputs still has a direct stagebox_id column.
+// holds. A stagebox is output-only in the output signal-flow graph (it
+// can only ever be a from_kind — FR-004), so only from-side output_cables
+// rows need clearing there; audio_patch_inputs still has its own direct
+// stagebox_id column (input-side patching, unrelated to this graph).
 func DeleteStagebox(db *sql.DB, id int64) error {
 	tx, err := db.Begin()
 	if err != nil {
@@ -75,11 +77,8 @@ func DeleteStagebox(db *sql.DB, id int64) error {
 	if _, err := tx.Exec(`UPDATE audio_patch_inputs SET stagebox_id = NULL, stagebox_channel = NULL WHERE stagebox_id = ?`, id); err != nil {
 		return fmt.Errorf("clear stagebox references: %w", err)
 	}
-	if _, err := tx.Exec(`UPDATE output_chain_hops SET stagebox_id = NULL, stagebox_channel = NULL WHERE stagebox_id = ?`, id); err != nil {
-		return fmt.Errorf("clear output chain hop stagebox references: %w", err)
-	}
-	if _, err := tx.Exec(`UPDATE output_chain_hops SET stagebox_id_b = NULL, stagebox_channel_b = NULL WHERE stagebox_id_b = ?`, id); err != nil {
-		return fmt.Errorf("clear output chain hop side-B stagebox references: %w", err)
+	if _, err := tx.Exec(`DELETE FROM output_cables WHERE from_kind = 'stagebox' AND from_id = ?`, id); err != nil {
+		return fmt.Errorf("clear output cable stagebox references: %w", err)
 	}
 	if _, err := tx.Exec(`DELETE FROM stageboxes WHERE id = ?`, id); err != nil {
 		return fmt.Errorf("delete stagebox: %w", err)
@@ -142,10 +141,13 @@ func UpdateStageMulti(db *sql.DB, id int64, sm domain.StageMulti) (domain.StageM
 	return GetStageMulti(db, id)
 }
 
-// DeleteStageMulti clears every patch-row/hop reference to the multicore
-// before removing it, so the patch stays consistent and the FK constraint
-// holds. Outputs route through hops (Slice 10), not their own column, so
-// only audio_patch_inputs still has a direct stage_multi_id column.
+// DeleteStageMulti clears every patch-row/cable reference to the
+// multicore before removing it, so the patch stays consistent and the FK
+// constraint holds. A stage multi is a full processing node in the output
+// signal-flow graph (both a from_kind and a to_kind — FR-005), so both
+// sides' output_cables rows need clearing; audio_patch_inputs still has
+// its own direct stage_multi_id column (input-side patching, unrelated to
+// this graph).
 func DeleteStageMulti(db *sql.DB, id int64) error {
 	tx, err := db.Begin()
 	if err != nil {
@@ -155,11 +157,8 @@ func DeleteStageMulti(db *sql.DB, id int64) error {
 	if _, err := tx.Exec(`UPDATE audio_patch_inputs SET stage_multi_id = NULL, stage_multi_channel = NULL WHERE stage_multi_id = ?`, id); err != nil {
 		return fmt.Errorf("clear stage multi references: %w", err)
 	}
-	if _, err := tx.Exec(`UPDATE output_chain_hops SET stage_multi_id = NULL, stage_multi_channel = NULL WHERE stage_multi_id = ?`, id); err != nil {
-		return fmt.Errorf("clear output chain hop stage multi references: %w", err)
-	}
-	if _, err := tx.Exec(`UPDATE output_chain_hops SET stage_multi_id_b = NULL, stage_multi_channel_b = NULL WHERE stage_multi_id_b = ?`, id); err != nil {
-		return fmt.Errorf("clear output chain hop side-B stage multi references: %w", err)
+	if _, err := tx.Exec(`DELETE FROM output_cables WHERE (from_kind = 'stage_multi' AND from_id = ?) OR (to_kind = 'stage_multi' AND to_id = ?)`, id, id); err != nil {
+		return fmt.Errorf("clear output cable stage multi references: %w", err)
 	}
 	if _, err := tx.Exec(`DELETE FROM stage_multis WHERE id = ?`, id); err != nil {
 		return fmt.Errorf("delete stage multi: %w", err)
@@ -309,66 +308,28 @@ func ListAudioPatchOutputs(db *sql.DB, eventID int64) ([]domain.AudioPatchOutput
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	for i := range items {
-		hops, err := listOutputChainHops(db, items[i].ID)
-		if err != nil {
-			return nil, err
-		}
-		items[i].Chain = hops
-	}
 	return items, nil
 }
 
 func GetAudioPatchOutput(db *sql.DB, id int64) (domain.AudioPatchOutput, error) {
 	row := db.QueryRow(`SELECT `+audioOutputColumns+` FROM audio_patch_outputs WHERE id = ?`, id)
-	item, err := scanAudioOutput(row)
-	if err != nil {
-		return domain.AudioPatchOutput{}, err
-	}
-	if item.Chain, err = listOutputChainHops(db, id); err != nil {
-		return domain.AudioPatchOutput{}, err
-	}
-	return item, nil
+	return scanAudioOutput(row)
 }
 
 func CreateAudioPatchOutput(db *sql.DB, output domain.AudioPatchOutput) (domain.AudioPatchOutput, error) {
-	tx, err := db.Begin()
-	if err != nil {
-		return domain.AudioPatchOutput{}, fmt.Errorf("create audio output: %w", err)
-	}
-	defer tx.Rollback()
-
-	result, err := tx.Exec(`INSERT INTO audio_patch_outputs (event_id, output_number, output_name, output_type, color, width, notes) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+	result, err := db.Exec(`INSERT INTO audio_patch_outputs (event_id, output_number, output_name, output_type, color, width, notes) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		output.EventID, output.OutputNumber, nullString(output.OutputName), output.OutputType, nullString(output.Color), output.Width, nullString(output.Notes))
 	if err != nil {
 		return domain.AudioPatchOutput{}, fmt.Errorf("create audio output: %w", err)
 	}
 	id, _ := result.LastInsertId()
-	if err := replaceOutputChainHops(tx, id, output.Chain); err != nil {
-		return domain.AudioPatchOutput{}, err
-	}
-	if err := tx.Commit(); err != nil {
-		return domain.AudioPatchOutput{}, fmt.Errorf("create audio output: %w", err)
-	}
 	return GetAudioPatchOutput(db, id)
 }
 
 func UpdateAudioPatchOutput(db *sql.DB, id int64, output domain.AudioPatchOutput) (domain.AudioPatchOutput, error) {
-	tx, err := db.Begin()
-	if err != nil {
-		return domain.AudioPatchOutput{}, fmt.Errorf("update audio output: %w", err)
-	}
-	defer tx.Rollback()
-
-	_, err = tx.Exec(`UPDATE audio_patch_outputs SET output_number = ?, output_name = ?, output_type = ?, color = ?, width = ?, notes = ? WHERE id = ?`,
+	_, err := db.Exec(`UPDATE audio_patch_outputs SET output_number = ?, output_name = ?, output_type = ?, color = ?, width = ?, notes = ? WHERE id = ?`,
 		output.OutputNumber, nullString(output.OutputName), output.OutputType, nullString(output.Color), output.Width, nullString(output.Notes), id)
 	if err != nil {
-		return domain.AudioPatchOutput{}, fmt.Errorf("update audio output: %w", err)
-	}
-	if err := replaceOutputChainHops(tx, id, output.Chain); err != nil {
-		return domain.AudioPatchOutput{}, err
-	}
-	if err := tx.Commit(); err != nil {
 		return domain.AudioPatchOutput{}, fmt.Errorf("update audio output: %w", err)
 	}
 	return GetAudioPatchOutput(db, id)
@@ -382,78 +343,7 @@ func DeleteAudioPatchOutput(db *sql.DB, id int64) error {
 	return nil
 }
 
-const outputChainHopColumns = `id, position, hop_kind, cable_item_id, cable_item_id_b, COALESCE(cable_type, ''), COALESCE(cable_length_m, 0), COALESCE(device_source, ''), inventory_item_id, owned_item_id, output_device_id, stagebox_id, stagebox_channel, stagebox_id_b, stagebox_channel_b, stage_multi_id, stage_multi_channel, stage_multi_id_b, stage_multi_channel_b`
-
-func listOutputChainHops(db *sql.DB, outputID int64) ([]domain.OutputChainHop, error) {
-	rows, err := db.Query(`SELECT `+outputChainHopColumns+` FROM output_chain_hops WHERE output_id = ? ORDER BY position ASC`, outputID)
-	if err != nil {
-		return nil, fmt.Errorf("list output chain hops: %w", err)
-	}
-	defer rows.Close()
-	hops := make([]domain.OutputChainHop, 0)
-	for rows.Next() {
-		hop, err := scanOutputChainHop(rows)
-		if err != nil {
-			return nil, err
-		}
-		hops = append(hops, hop)
-	}
-	return hops, rows.Err()
-}
-
-// replaceOutputChainHops rewrites one output's chain wholesale: delete
-// every existing hop row, then re-insert the given slice with position
-// set to the slice index (the client never sends position — research.md
-// R5). No partial-hop endpoints.
-func replaceOutputChainHops(tx *sql.Tx, outputID int64, hops []domain.OutputChainHop) error {
-	if _, err := tx.Exec(`DELETE FROM output_chain_hops WHERE output_id = ?`, outputID); err != nil {
-		return fmt.Errorf("clear output chain hops: %w", err)
-	}
-	for i, hop := range hops {
-		// A catalog cable pick always wins over legacy text on the same
-		// hop, even if the caller sent both — mirrors the read-only
-		// clear-on-pick lifecycle used for every other legacy field.
-		cableType, cableLengthM := hop.CableType, hop.CableLengthM
-		if hop.CableItemID != nil {
-			cableType, cableLengthM = "", 0
-		}
-		_, err := tx.Exec(`INSERT INTO output_chain_hops (output_id, position, hop_kind, cable_item_id, cable_item_id_b, cable_type, cable_length_m, device_source, inventory_item_id, owned_item_id, output_device_id, stagebox_id, stagebox_channel, stagebox_id_b, stagebox_channel_b, stage_multi_id, stage_multi_channel, stage_multi_id_b, stage_multi_channel_b) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			outputID, i, hop.HopKind, nullInt64(hop.CableItemID), nullInt64(hop.CableItemIDB), nullString(cableType), nullFloat(cableLengthM), nullString(hop.DeviceSource), nullInt64(hop.InventoryItemID), nullInt64(hop.OwnedItemID), nullInt64(hop.OutputDeviceID),
-			nullInt64(hop.StageboxID), nullInt(hop.StageboxChannel), nullInt64(hop.StageboxIDB), nullInt(hop.StageboxChannelB),
-			nullInt64(hop.StageMultiID), nullInt(hop.StageMultiChannel), nullInt64(hop.StageMultiIDB), nullInt(hop.StageMultiChannelB))
-		if err != nil {
-			return fmt.Errorf("insert output chain hop: %w", err)
-		}
-	}
-	return nil
-}
-
-func scanOutputChainHop(row scanner) (domain.OutputChainHop, error) {
-	var hop domain.OutputChainHop
-	var cableItemID, cableItemIDB, inventoryItemID, ownedItemID, outputDeviceID sql.NullInt64
-	var stageboxID, stageboxChannel, stageboxIDB, stageboxChannelB sql.NullInt64
-	var stageMultiID, stageMultiChannel, stageMultiIDB, stageMultiChannelB sql.NullInt64
-	if err := row.Scan(&hop.ID, &hop.Position, &hop.HopKind, &cableItemID, &cableItemIDB, &hop.CableType, &hop.CableLengthM, &hop.DeviceSource, &inventoryItemID, &ownedItemID, &outputDeviceID,
-		&stageboxID, &stageboxChannel, &stageboxIDB, &stageboxChannelB, &stageMultiID, &stageMultiChannel, &stageMultiIDB, &stageMultiChannelB); err != nil {
-		return domain.OutputChainHop{}, fmt.Errorf("scan output chain hop: %w", err)
-	}
-	hop.CableItemID = int64PtrFromNull(cableItemID)
-	hop.CableItemIDB = int64PtrFromNull(cableItemIDB)
-	hop.InventoryItemID = int64PtrFromNull(inventoryItemID)
-	hop.OwnedItemID = int64PtrFromNull(ownedItemID)
-	hop.OutputDeviceID = int64PtrFromNull(outputDeviceID)
-	hop.StageboxID = int64PtrFromNull(stageboxID)
-	hop.StageboxChannel = intPtrFromNull(stageboxChannel)
-	hop.StageboxIDB = int64PtrFromNull(stageboxIDB)
-	hop.StageboxChannelB = intPtrFromNull(stageboxChannelB)
-	hop.StageMultiID = int64PtrFromNull(stageMultiID)
-	hop.StageMultiChannel = intPtrFromNull(stageMultiChannel)
-	hop.StageMultiIDB = int64PtrFromNull(stageMultiIDB)
-	hop.StageMultiChannelB = intPtrFromNull(stageMultiChannelB)
-	return hop, nil
-}
-
-const outputDeviceColumns = `id, event_id, name, inventory_item_id, owned_item_id`
+const outputDeviceColumns = `id, event_id, name, inventory_item_id, owned_item_id, input_port_count, COALESCE(input_connector_type, ''), output_port_count, COALESCE(output_connector_type, ''), position_x, position_y`
 
 func ListOutputDevices(db *sql.DB, eventID int64) ([]domain.OutputDevice, error) {
 	rows, err := db.Query(`SELECT `+outputDeviceColumns+` FROM output_devices WHERE event_id = ? ORDER BY id ASC`, eventID)
@@ -478,8 +368,10 @@ func GetOutputDevice(db *sql.DB, id int64) (domain.OutputDevice, error) {
 }
 
 func CreateOutputDevice(db *sql.DB, device domain.OutputDevice) (domain.OutputDevice, error) {
-	result, err := db.Exec(`INSERT INTO output_devices (event_id, name, inventory_item_id, owned_item_id) VALUES (?, ?, ?, ?)`,
-		device.EventID, device.Name, nullInt64(device.InventoryItemID), nullInt64(device.OwnedItemID))
+	result, err := db.Exec(`INSERT INTO output_devices (event_id, name, inventory_item_id, owned_item_id, input_port_count, input_connector_type, output_port_count, output_connector_type, position_x, position_y) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		device.EventID, device.Name, nullInt64(device.InventoryItemID), nullInt64(device.OwnedItemID),
+		device.InputPortCount, nullString(device.InputConnectorType), device.OutputPortCount, nullString(device.OutputConnectorType),
+		device.PositionX, device.PositionY)
 	if err != nil {
 		return domain.OutputDevice{}, fmt.Errorf("create output device: %w", err)
 	}
@@ -488,27 +380,29 @@ func CreateOutputDevice(db *sql.DB, device domain.OutputDevice) (domain.OutputDe
 }
 
 func UpdateOutputDevice(db *sql.DB, id int64, device domain.OutputDevice) (domain.OutputDevice, error) {
-	_, err := db.Exec(`UPDATE output_devices SET name = ?, inventory_item_id = ?, owned_item_id = ? WHERE id = ?`,
-		device.Name, nullInt64(device.InventoryItemID), nullInt64(device.OwnedItemID), id)
+	_, err := db.Exec(`UPDATE output_devices SET name = ?, inventory_item_id = ?, owned_item_id = ?, input_port_count = ?, input_connector_type = ?, output_port_count = ?, output_connector_type = ?, position_x = ?, position_y = ? WHERE id = ?`,
+		device.Name, nullInt64(device.InventoryItemID), nullInt64(device.OwnedItemID),
+		device.InputPortCount, nullString(device.InputConnectorType), device.OutputPortCount, nullString(device.OutputConnectorType),
+		device.PositionX, device.PositionY, id)
 	if err != nil {
 		return domain.OutputDevice{}, fmt.Errorf("update output device: %w", err)
 	}
 	return GetOutputDevice(db, id)
 }
 
-// DeleteOutputDevice clears device_source/output_device_id on every hop
-// that referenced it (they fall back to "device not yet picked", a gap)
-// before removing the device — never blocks, matching how deleting a
-// stagebox/stage-multi already clears the routes that referenced it
-// (research.md R4).
+// DeleteOutputDevice deletes every output_cables row referencing this
+// device as either end before removing the device itself — never
+// blocks, matching how deleting a stagebox/stage-multi already clears the
+// cables that referenced it (research.md R4, carried forward from Slice
+// 10's identical rule for the old hop-based model).
 func DeleteOutputDevice(db *sql.DB, id int64) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("delete output device: %w", err)
 	}
 	defer tx.Rollback()
-	if _, err := tx.Exec(`UPDATE output_chain_hops SET device_source = NULL, output_device_id = NULL WHERE output_device_id = ?`, id); err != nil {
-		return fmt.Errorf("clear output device references: %w", err)
+	if _, err := tx.Exec(`DELETE FROM output_cables WHERE (from_kind = 'device' AND from_id = ?) OR (to_kind = 'device' AND to_id = ?)`, id, id); err != nil {
+		return fmt.Errorf("clear output device cables: %w", err)
 	}
 	if _, err := tx.Exec(`DELETE FROM output_devices WHERE id = ?`, id); err != nil {
 		return fmt.Errorf("delete output device: %w", err)
@@ -519,12 +413,131 @@ func DeleteOutputDevice(db *sql.DB, id int64) error {
 func scanOutputDevice(row scanner) (domain.OutputDevice, error) {
 	var item domain.OutputDevice
 	var invID, ownedID sql.NullInt64
-	if err := row.Scan(&item.ID, &item.EventID, &item.Name, &invID, &ownedID); err != nil {
+	if err := row.Scan(&item.ID, &item.EventID, &item.Name, &invID, &ownedID,
+		&item.InputPortCount, &item.InputConnectorType, &item.OutputPortCount, &item.OutputConnectorType,
+		&item.PositionX, &item.PositionY); err != nil {
 		return domain.OutputDevice{}, fmt.Errorf("scan output device: %w", err)
 	}
 	item.InventoryItemID = int64PtrFromNull(invID)
 	item.OwnedItemID = int64PtrFromNull(ownedID)
 	return item, nil
+}
+
+const outputCableColumns = `id, event_id, from_kind, from_id, from_port, to_kind, to_id, to_port, cable_item_id`
+
+func ListOutputCables(db *sql.DB, eventID int64) ([]domain.OutputCable, error) {
+	rows, err := db.Query(`SELECT `+outputCableColumns+` FROM output_cables WHERE event_id = ? ORDER BY id ASC`, eventID)
+	if err != nil {
+		return nil, fmt.Errorf("list output cables: %w", err)
+	}
+	defer rows.Close()
+	items := make([]domain.OutputCable, 0)
+	for rows.Next() {
+		item, err := scanOutputCable(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func GetOutputCable(db *sql.DB, id int64) (domain.OutputCable, error) {
+	row := db.QueryRow(`SELECT `+outputCableColumns+` FROM output_cables WHERE id = ?`, id)
+	return scanOutputCable(row)
+}
+
+func CreateOutputCable(db *sql.DB, cable domain.OutputCable) (domain.OutputCable, error) {
+	result, err := db.Exec(`INSERT INTO output_cables (event_id, from_kind, from_id, from_port, to_kind, to_id, to_port, cable_item_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		cable.EventID, cable.FromKind, cable.FromID, cable.FromPort, cable.ToKind, cable.ToID, cable.ToPort, nullInt64(cable.CableItemID))
+	if err != nil {
+		return domain.OutputCable{}, fmt.Errorf("create output cable: %w", err)
+	}
+	id, _ := result.LastInsertId()
+	return GetOutputCable(db, id)
+}
+
+// UpdateOutputCable only ever changes the catalog cable pick — moving a
+// cable to different ports is delete + create (contracts/output-graph-
+// api.md), since ports are 1:1 and there's nothing meaningful to "move"
+// partially.
+func UpdateOutputCable(db *sql.DB, id int64, cableItemID *int64) (domain.OutputCable, error) {
+	_, err := db.Exec(`UPDATE output_cables SET cable_item_id = ? WHERE id = ?`, nullInt64(cableItemID), id)
+	if err != nil {
+		return domain.OutputCable{}, fmt.Errorf("update output cable: %w", err)
+	}
+	return GetOutputCable(db, id)
+}
+
+func DeleteOutputCable(db *sql.DB, id int64) error {
+	_, err := db.Exec(`DELETE FROM output_cables WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("delete output cable: %w", err)
+	}
+	return nil
+}
+
+func scanOutputCable(row scanner) (domain.OutputCable, error) {
+	var item domain.OutputCable
+	var cableItemID sql.NullInt64
+	if err := row.Scan(&item.ID, &item.EventID, &item.FromKind, &item.FromID, &item.FromPort, &item.ToKind, &item.ToID, &item.ToPort, &cableItemID); err != nil {
+		return domain.OutputCable{}, fmt.Errorf("scan output cable: %w", err)
+	}
+	item.CableItemID = int64PtrFromNull(cableItemID)
+	return item, nil
+}
+
+// MixerPortCount is the number of ports an output channel's mixer node
+// contributes to the graph — 1, or 2 independent ports when stereo
+// (data-model.md's derived mixer ports).
+func MixerPortCount(width string) int {
+	if width == "stereo" {
+		return 2
+	}
+	return 1
+}
+
+// StageboxOutputPortCount returns a stagebox's live output port count.
+// This and the two functions below back the API layer's port-bounds
+// validation (research.md R2/R7 — no DB FK/CHECK can enforce a
+// polymorphic port index, so every cable write is validated in Go
+// against whichever node's live count it resolves to).
+func StageboxOutputPortCount(db *sql.DB, id int64) (int, error) {
+	var count int
+	err := db.QueryRow(`SELECT COALESCE(output_count, 0) FROM stageboxes WHERE id = ?`, id).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("stagebox output port count: %w", err)
+	}
+	return count, nil
+}
+
+// StageMultiChannelCount returns a stage multi's live channel count,
+// which is also its live port count on each side.
+func StageMultiChannelCount(db *sql.DB, id int64) (int, error) {
+	var count int
+	err := db.QueryRow(`SELECT COALESCE(channels, 0) FROM stage_multis WHERE id = ?`, id).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("stage multi channel count: %w", err)
+	}
+	return count, nil
+}
+
+// OutputDevicePortCounts returns a device's live input/output port counts.
+func OutputDevicePortCounts(db *sql.DB, id int64) (inputCount, outputCount int, err error) {
+	err = db.QueryRow(`SELECT input_port_count, output_port_count FROM output_devices WHERE id = ?`, id).Scan(&inputCount, &outputCount)
+	if err != nil {
+		return 0, 0, fmt.Errorf("output device port counts: %w", err)
+	}
+	return inputCount, outputCount, nil
+}
+
+func MixerOutputWidth(db *sql.DB, id int64) (string, error) {
+	var width string
+	err := db.QueryRow(`SELECT width FROM audio_patch_outputs WHERE id = ?`, id).Scan(&width)
+	if err != nil {
+		return "", fmt.Errorf("mixer output width: %w", err)
+	}
+	return width, nil
 }
 
 type scanner interface {

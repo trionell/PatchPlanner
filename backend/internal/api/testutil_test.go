@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -22,7 +23,7 @@ func newTestServer(t *testing.T) (*httptest.Server, *sql.DB) {
 		t.Fatal("cannot resolve caller path")
 	}
 	migrations := filepath.Join(filepath.Dir(thisFile), "..", "..", "migrations")
-	database, err := db.Open(filepath.Join(t.TempDir(), "test.db"), migrations)
+	database, err := db.Open(filepath.Join(t.TempDir(), "test.db"), migrations, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatalf("open test db: %v", err)
 	}

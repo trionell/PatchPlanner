@@ -2,6 +2,8 @@ package service
 
 import (
 	"database/sql"
+	"io"
+	"log/slog"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -18,7 +20,7 @@ func openTestDB(t *testing.T) *sql.DB {
 		t.Fatal("cannot resolve caller path")
 	}
 	migrations := filepath.Join(filepath.Dir(thisFile), "..", "..", "migrations")
-	database, err := db.Open(filepath.Join(t.TempDir(), "test.db"), migrations)
+	database, err := db.Open(filepath.Join(t.TempDir(), "test.db"), migrations, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatalf("open test db: %v", err)
 	}
@@ -116,11 +118,16 @@ func TestImportRoundTripPreservesReferences(t *testing.T) {
 	if _, err := db.CreateAudioPatchInput(database, domain.AudioPatchInput{EventID: event.ID, ChannelNumber: 1, SignalType: "mic", MicItemID: &micID}); err != nil {
 		t.Fatalf("create input: %v", err)
 	}
-	if _, err := db.CreateAudioPatchOutput(database, domain.AudioPatchOutput{
-		EventID: event.ID, OutputNumber: 1, OutputType: "foh",
-		Chain: []domain.OutputChainHop{{HopKind: "device", DeviceSource: "inventory", InventoryItemID: &speakerID}},
-	}); err != nil {
+	output, err := db.CreateAudioPatchOutput(database, domain.AudioPatchOutput{EventID: event.ID, OutputNumber: 1, OutputType: "foh", Width: "mono"})
+	if err != nil {
 		t.Fatalf("create output: %v", err)
+	}
+	speakerDevice, err := db.CreateOutputDevice(database, domain.OutputDevice{EventID: event.ID, Name: "Speaker", InventoryItemID: &speakerID, InputPortCount: 1})
+	if err != nil {
+		t.Fatalf("create output device: %v", err)
+	}
+	if _, err := db.CreateOutputCable(database, domain.OutputCable{EventID: event.ID, FromKind: "mixer", FromID: output.ID, FromPort: 0, ToKind: "device", ToID: speakerDevice.ID, ToPort: 0}); err != nil {
+		t.Fatalf("create output cable: %v", err)
 	}
 
 	if _, err := svc.ImportFromXLSX(path); err != nil {
@@ -132,8 +139,22 @@ func TestImportRoundTripPreservesReferences(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list outputs: %v", err)
 	}
-	if len(outputs) != 1 || len(outputs[0].Chain) != 1 || outputs[0].Chain[0].InventoryItemID == nil || *outputs[0].Chain[0].InventoryItemID != speakerID {
-		t.Fatalf("output row lost or relinked by re-import: %+v", outputs)
+	if len(outputs) != 1 {
+		t.Fatalf("output row lost by re-import: %+v", outputs)
+	}
+	devices, err := db.ListOutputDevices(database, event.ID)
+	if err != nil {
+		t.Fatalf("list output devices: %v", err)
+	}
+	if len(devices) != 1 || devices[0].InventoryItemID == nil || *devices[0].InventoryItemID != speakerID {
+		t.Fatalf("output device lost or relinked by re-import: %+v", devices)
+	}
+	cables, err := db.ListOutputCables(database, event.ID)
+	if err != nil {
+		t.Fatalf("list output cables: %v", err)
+	}
+	if len(cables) != 1 {
+		t.Fatalf("output cable lost by re-import: %+v", cables)
 	}
 
 	// Item identity survived.

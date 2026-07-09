@@ -10,7 +10,7 @@ import (
 // rentalSummaryQuery derives the full rental order for one event. Every
 // planning surface that can reference a catalog item contributes one arm of
 // the CTE; manual event_rentals lines are both merged into the totals and
-// re-joined so their share stays editable. Takes the event id 14 times.
+// re-joined so their share stays editable. Takes the event id 11 times.
 //
 // A stereo channel's per-side physical equipment doubles (CASE WHEN width =
 // 'stereo' ...); two-channel devices (the DI itself, an amplifier) stay
@@ -18,17 +18,18 @@ import (
 // stores the DI box on DI-type rows — so its doubling explicitly excludes
 // signal_type = 'di' or a stereo DI channel's own DI box would double.
 //
-// Output signal chains (Slice 10): a non-shared device hop doubles on a
-// stereo output channel, exactly like the mic/cable/stand/speaker arms
-// above; a declared shared device (output_devices) contributes a flat 1
-// with no join through hops at all — it's counted once per declaration
-// regardless of how many chains reference it (the "amplifier never
-// doubles" rule generalized, research.md R3/R7). A hop's cable
-// (CableItemID) doubles only when CableItemIDB is unset — the default
-// "same cable both sides" convenience; once a side sets its own
-// independent cable (e.g. a shorter run from an amp on one side of the
-// stage to the near speaker), each side counts its own pick once, since
-// they may be different lengths/items entirely.
+// Output signal graph (Slice 11, research.md R4): unlike the input side,
+// nothing here uses a width-based CASE WHEN doubling formula. A stereo
+// channel's two physical sides are two real, separate device/cable rows
+// from the start (output_devices.position_x/y and output_cables' two
+// independent (from,port)/(to,port) pairs) — so every device and every
+// cable simply counts 1 per row it appears in. A declared device
+// (output_devices) contributes a flat 1 per row regardless of how many
+// cables reference it (the "amplifier never doubles" rule, unchanged from
+// Slice 10). output_cables.cable_item_id is always NULL for a cable whose
+// to_kind is 'stage_multi' (FR-013 — a stage multi's own built-in wiring
+// is never a separately rentable cable), so that arm structurally excludes
+// those rows with no extra WHERE clause needed.
 const rentalSummaryQuery = `
 	WITH combined AS (
 		SELECT mic_item_id AS inventory_item_id,
@@ -57,24 +58,13 @@ const rentalSummaryQuery = `
 		FROM stage_multis
 		WHERE event_id = ? AND inventory_item_id IS NOT NULL
 		UNION ALL
-		SELECT h.inventory_item_id, CASE WHEN o.width = 'stereo' THEN 2 ELSE 1 END, 0
-		FROM output_chain_hops h
-		JOIN audio_patch_outputs o ON o.id = h.output_id
-		WHERE o.event_id = ? AND h.hop_kind = 'device' AND h.device_source = 'inventory' AND h.inventory_item_id IS NOT NULL
-		UNION ALL
-		SELECT h.cable_item_id, CASE WHEN o.width = 'stereo' AND h.cable_item_id_b IS NULL THEN 2 ELSE 1 END, 0
-		FROM output_chain_hops h
-		JOIN audio_patch_outputs o ON o.id = h.output_id
-		WHERE o.event_id = ? AND h.cable_item_id IS NOT NULL
-		UNION ALL
-		SELECT h.cable_item_id_b, 1, 0
-		FROM output_chain_hops h
-		JOIN audio_patch_outputs o ON o.id = h.output_id
-		WHERE o.event_id = ? AND o.width = 'stereo' AND h.cable_item_id_b IS NOT NULL
-		UNION ALL
 		SELECT inventory_item_id, 1, 0
 		FROM output_devices
 		WHERE event_id = ? AND inventory_item_id IS NOT NULL
+		UNION ALL
+		SELECT cable_item_id, 1, 0
+		FROM output_cables
+		WHERE event_id = ? AND cable_item_id IS NOT NULL
 		UNION ALL
 		SELECT lf.inventory_item_id, 0, 1
 		FROM lighting_fixtures lf
@@ -97,7 +87,7 @@ const rentalSummaryQuery = `
 
 func GetRentalSummary(db *sql.DB, eventID int64) (domain.RentalSummary, error) {
 	rows, err := db.Query(rentalSummaryQuery,
-		eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID)
+		eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID)
 	if err != nil {
 		return domain.RentalSummary{}, fmt.Errorf("get rental summary: %w", err)
 	}
