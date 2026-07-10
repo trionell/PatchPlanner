@@ -997,7 +997,7 @@ function DeviceNode({ x, y, device, cables, pendingPort, onPortClick, onPortPoin
   onDragStart: (e: ReactPointerEvent) => void
   onDelete: () => void
 }) {
-  const { inputs, outputs } = devicePorts(device)
+  const { inputs, outputs, links } = devicePorts(device)
   return (
     <NodeShell x={x} y={y} title={device.name} onDragStart={onDragStart} onDelete={onDelete}>
       <div className="grid grid-cols-2 gap-x-2">
@@ -1008,6 +1008,9 @@ function DeviceNode({ x, y, device, cables, pendingPort, onPortClick, onPortPoin
         </div>
         <div className="space-y-1">
           {outputs.map((port) => (
+            <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" />
+          ))}
+          {links.map((port) => (
             <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" />
           ))}
         </div>
@@ -1107,10 +1110,10 @@ function OutputResourceTable({ outputs, stageboxes, stageMultis, devices, cables
     const names = new Set(cables.filter((c) => c.to_kind === kind && c.to_id === id).map((c) => nodeName(c.from_kind, c.from_id, context)))
     return names.size > 0 ? [...names].join(', ') : '—'
   }
-  function downstreamOf(kind: PortRef['kind'], id: number): string {
+  function downstreamOf(kinds: PortRef['kind'][], id: number): string {
     const counts = new Map<string, number>()
     for (const c of cables) {
-      if (c.from_kind !== kind || c.from_id !== id) continue
+      if (!kinds.includes(c.from_kind) || c.from_id !== id) continue
       const name = nodeName(c.to_kind, c.to_id, context)
       counts.set(name, (counts.get(name) ?? 0) + 1)
     }
@@ -1131,24 +1134,25 @@ function OutputResourceTable({ outputs, stageboxes, stageMultis, devices, cables
     rows.push({ key: 'mixer', name: 'Mixer', zone: 'sources', ports: `out · ${channelCount}`, from: '—', to, item: '—' })
   }
   for (const sb of stageboxes) {
-    rows.push({ key: `sb-${sb.id}`, name: sb.name, zone: 'processing', ports: `in ${sb.output_count} · out ${sb.output_count}`, from: upstreamOf('stagebox', sb.id), to: downstreamOf('stagebox', sb.id), item: sb.inventory_item_id ? itemLabelById.get(sb.inventory_item_id) ?? `#${sb.inventory_item_id}` : '—' })
+    rows.push({ key: `sb-${sb.id}`, name: sb.name, zone: 'processing', ports: `in ${sb.output_count} · out ${sb.output_count}`, from: upstreamOf('stagebox', sb.id), to: downstreamOf(['stagebox'], sb.id), item: sb.inventory_item_id ? itemLabelById.get(sb.inventory_item_id) ?? `#${sb.inventory_item_id}` : '—' })
   }
   for (const sm of stageMultis) {
-    rows.push({ key: `sm-${sm.id}`, name: sm.name, zone: 'processing', ports: `in ${sm.channels} · out ${sm.channels}`, from: upstreamOf('stage_multi', sm.id), to: downstreamOf('stage_multi', sm.id), item: sm.inventory_item_id ? itemLabelById.get(sm.inventory_item_id) ?? `#${sm.inventory_item_id}` : '—' })
+    rows.push({ key: `sm-${sm.id}`, name: sm.name, zone: 'processing', ports: `in ${sm.channels} · out ${sm.channels}`, from: upstreamOf('stage_multi', sm.id), to: downstreamOf(['stage_multi'], sm.id), item: sm.inventory_item_id ? itemLabelById.get(sm.inventory_item_id) ?? `#${sm.inventory_item_id}` : '—' })
   }
   for (const device of devices) {
     const zone = nodeZone('device', device.id, { devices })
-    const portsLabel = device.input_port_count > 0 && device.output_port_count > 0
+    const portsLabel = (device.input_port_count > 0 && device.output_port_count > 0
       ? `in ${device.input_port_count} · out ${device.output_port_count}`
       : device.input_port_count > 0
         ? `in · ${device.input_port_count}`
-        : `out · ${device.output_port_count}`
+        : `out · ${device.output_port_count}`)
+      + (device.link_port_count > 0 ? ` · link ${device.link_port_count}` : '')
     const item = device.inventory_item_id
       ? itemLabelById.get(device.inventory_item_id) ?? `#${device.inventory_item_id}`
       : device.owned_item_id
         ? ownedItemLabelById.get(device.owned_item_id) ?? `#${device.owned_item_id}`
         : '—'
-    rows.push({ key: `dev-${device.id}`, name: device.name, zone, ports: portsLabel, from: upstreamOf('device', device.id), to: downstreamOf('device', device.id), item })
+    rows.push({ key: `dev-${device.id}`, name: device.name, zone, ports: portsLabel, from: upstreamOf('device', device.id), to: downstreamOf(['device', 'device_link'], device.id), item })
   }
 
   return (

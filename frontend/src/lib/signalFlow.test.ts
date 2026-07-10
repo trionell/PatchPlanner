@@ -170,7 +170,7 @@ function output(overrides: Partial<AudioPatchOutput>): AudioPatchOutput {
 
 function device(overrides: Partial<OutputDevice>): OutputDevice {
   return {
-    id: 1, event_id: 1, name: 'Device', input_port_count: 0, output_port_count: 0, position_x: 0, position_y: 0,
+    id: 1, event_id: 1, name: 'Device', input_port_count: 0, output_port_count: 0, link_port_count: 0, position_x: 0, position_y: 0,
     ...overrides,
   }
 }
@@ -296,6 +296,26 @@ describe('buildOutputChannelFlow', () => {
     const flow = buildOutputChannelFlow(output({}), outputContext([localSpeaker, monitor], cables))
     expect(flow.paths).toHaveLength(2)
     expect(flow.paths.map((p) => p.hops.at(-1)?.label).sort()).toEqual(['Local speaker ch 1', 'Monitor ch 1'])
+  })
+
+  it('continues a path through a destination device\'s link-out ports, daisy-chaining sub -> sub -> top', () => {
+    const sub1 = device({ id: 20, name: 'Sub 1', input_port_count: 1, link_port_count: 1 })
+    const sub2 = device({ id: 21, name: 'Sub 2', input_port_count: 1, link_port_count: 1 })
+    const top = device({ id: 22, name: 'Top', input_port_count: 1 })
+    const cables = [
+      cable({ id: 1, from_kind: 'mixer', from_id: 1, from_port: 0, to_kind: 'device', to_id: 20, to_port: 0 }),
+      cable({ id: 2, from_kind: 'device_link', from_id: 20, from_port: 0, to_kind: 'device', to_id: 21, to_port: 0, cable_item_id: 401 }),
+      cable({ id: 3, from_kind: 'device_link', from_id: 21, from_port: 0, to_kind: 'device', to_id: 22, to_port: 0 }),
+    ]
+    const flow = buildOutputChannelFlow(output({}), outputContext([sub1, sub2, top], cables))
+    expect(flow.paths).toHaveLength(1)
+    expect(flow.paths[0].hops).toEqual([
+      { label: 'Sub 1 ch 1', kind: 'device', missing: false },
+      { label: 'Speakon Cable — 10m', kind: 'cable', missing: false },
+      { label: 'Sub 2 ch 1', kind: 'device', missing: false },
+      { label: 'Top ch 1', kind: 'device', missing: false },
+    ])
+    expect(flow.hasGap).toBe(false)
   })
 })
 

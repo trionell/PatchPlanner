@@ -79,6 +79,8 @@ export function ProcessingDeviceSection({
       input_connector_type: Number(draftInputs) > 0 ? draftInputConnector : undefined,
       output_port_count: Number(draftOutputs) || 0,
       output_connector_type: draftOutputConnector,
+      link_port_count: 0,
+      link_connector_type: undefined,
       position_x,
       position_y,
     })
@@ -114,6 +116,8 @@ export function ProcessingDeviceSection({
         input_connector_type: merged.input_connector_type,
         output_port_count: merged.output_port_count,
         output_connector_type: merged.output_connector_type,
+        link_port_count: merged.link_port_count,
+        link_connector_type: merged.link_connector_type,
         position_x: merged.position_x,
         position_y: merged.position_y,
       },

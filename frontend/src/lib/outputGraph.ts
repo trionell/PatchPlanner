@@ -71,8 +71,14 @@ export function stageMultiPorts(stageMulti: StageMulti): { inputs: PortRef[]; ou
   return { inputs, outputs }
 }
 
-/** A device's ports on each side, per its declared port counts. */
-export function devicePorts(device: OutputDevice): { inputs: PortRef[]; outputs: PortRef[] } {
+/**
+ * A device's ports on each side, per its declared port counts. links are
+ * a destination device's link-out ports (daisy-chaining to another
+ * device's ordinary input, e.g. sub -> sub -> top) — a distinct
+ * from_kind ("device_link"), never counted toward input/output_port_count
+ * so a device with link ports doesn't shift zones.
+ */
+export function devicePorts(device: OutputDevice): { inputs: PortRef[]; outputs: PortRef[]; links: PortRef[] } {
   const inputs = Array.from({ length: device.input_port_count }, (_, i) => ({
     kind: 'device' as const,
     id: device.id,
@@ -87,7 +93,14 @@ export function devicePorts(device: OutputDevice): { inputs: PortRef[]; outputs:
     direction: 'out' as const,
     label: `Out ${i + 1}`,
   }))
-  return { inputs, outputs }
+  const links = Array.from({ length: device.link_port_count }, (_, i) => ({
+    kind: 'device_link' as const,
+    id: device.id,
+    port: i,
+    direction: 'out' as const,
+    label: `Link ${i + 1}`,
+  }))
+  return { inputs, outputs, links }
 }
 
 /**
@@ -113,7 +126,7 @@ export function deviceZone(device: OutputDevice): Zone {
   return 'processing'
 }
 
-/** Any node's zone, resolving a device's role when needed. */
+/** Any node's zone, resolving a device's role when needed. A link port lives on the same canvas node as its owning device's ordinary ports. */
 export function nodeZone(kind: PortRef['kind'], id: number, context: { devices: OutputDevice[] }): Zone {
   if (kind === 'mixer') return 'sources'
   if (kind === 'stagebox' || kind === 'stage_multi') return 'processing'
@@ -152,7 +165,8 @@ export function resolvePortRef(
   }
   const device = context.devices.find((d) => d.id === id)
   if (!device) return undefined
-  const { inputs, outputs } = devicePorts(device)
+  const { inputs, outputs, links } = devicePorts(device)
+  if (kind === 'device_link') return links.find((p) => p.port === port)
   return (direction === 'in' ? inputs : outputs).find((p) => p.port === port)
 }
 
@@ -203,6 +217,7 @@ export function nodeKindLabel(kind: PortRef['kind']): string {
     case 'stagebox': return 'Stagebox'
     case 'stage_multi': return 'Stage multi'
     case 'device': return 'Device'
+    case 'device_link': return 'Device'
   }
 }
 
@@ -220,6 +235,7 @@ export function nodeName(
     case 'stage_multi':
       return context.stageMultis.find((sm) => sm.id === id)?.name ?? `#${id}`
     case 'device':
+    case 'device_link':
       return context.devices.find((device) => device.id === id)?.name ?? `#${id}`
   }
 }
@@ -235,7 +251,7 @@ export function portsConnectable(a: PortRef, b: PortRef): boolean {
   if (a.direction === b.direction) return false
   const outPort = a.direction === 'out' ? a : b
   const inPort = a.direction === 'out' ? b : a
-  const validFromKinds: PortRef['kind'][] = ['mixer', 'stagebox', 'stage_multi', 'device']
+  const validFromKinds: PortRef['kind'][] = ['mixer', 'stagebox', 'stage_multi', 'device', 'device_link']
   const validToKinds: PortRef['kind'][] = ['stagebox', 'stage_multi', 'device']
   return validFromKinds.includes(outPort.kind) && validToKinds.includes(inPort.kind)
 }

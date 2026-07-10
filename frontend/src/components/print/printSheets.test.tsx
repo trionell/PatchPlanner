@@ -136,7 +136,7 @@ describe('InputPatchSheet', () => {
 })
 
 function outputDevice(overrides: Partial<OutputDevice>): OutputDevice {
-  return { id: 1, event_id: 1, name: 'Device', input_port_count: 0, output_port_count: 0, position_x: 0, position_y: 0, ...overrides }
+  return { id: 1, event_id: 1, name: 'Device', input_port_count: 0, output_port_count: 0, link_port_count: 0, position_x: 0, position_y: 0, ...overrides }
 }
 
 function outputCable(overrides: Partial<OutputCable>): OutputCable {

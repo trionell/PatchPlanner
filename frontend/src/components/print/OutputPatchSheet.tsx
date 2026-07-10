@@ -40,13 +40,17 @@ function pathLines(from: PortRef, context: PathContext, depth: number): { text: 
 
     // A device mixes/distributes internally — no fixed correspondence
     // between which input it came in on and which outputs carry it, so
-    // every declared output port is a candidate branch. A stage multi or
-    // stagebox is a straight pass-through: input index N is physically
+    // every declared output port — plus any link-out ports, for a
+    // chained destination device — is a candidate branch. A stage multi
+    // or stagebox is a straight pass-through: input index N is physically
     // the same jack as output index N, so only that one port continues.
     let outPorts: PortRef[] = []
     if (cable.to_kind === 'device') {
       const device = context.devices.find((d) => d.id === cable.to_id)
-      if (device) outPorts = devicePorts(device).outputs
+      if (device) {
+        const ports = devicePorts(device)
+        outPorts = [...ports.outputs, ...ports.links]
+      }
     } else if (cable.to_kind === 'stage_multi') {
       const multi = context.stageMultis.find((sm) => sm.id === cable.to_id)
       if (multi) outPorts = stageMultiPorts(multi).outputs.filter((p) => p.port === cable.to_port)

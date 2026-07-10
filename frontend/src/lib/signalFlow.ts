@@ -223,13 +223,17 @@ function walkFromPort(port: PortRef, context: OutputFlowContext, gapNodes: Set<s
     })
 
     // A device mixes/distributes internally, so every declared output
-    // port is a candidate continuation. A stage multi or stagebox is a
+    // port — plus any link-out ports, for a chained destination device —
+    // is a candidate continuation. A stage multi or stagebox is a
     // straight pass-through — input index N is physically the same jack
     // as output index N, so only that one port continues.
     let outPorts: PortRef[] = []
     if (cable.to_kind === 'device') {
       const device = context.devices.find((d) => d.id === cable.to_id)
-      if (device) outPorts = devicePorts(device).outputs.filter((p) => isPortConnected(p.kind, p.id, p.port, 'out', context.cables))
+      if (device) {
+        const ports = devicePorts(device)
+        outPorts = [...ports.outputs, ...ports.links].filter((p) => isPortConnected(p.kind, p.id, p.port, 'out', context.cables))
+      }
     } else if (cable.to_kind === 'stage_multi') {
       const multi = context.stageMultis.find((sm) => sm.id === cable.to_id)
       if (multi) outPorts = stageMultiPorts(multi).outputs.filter((p) => p.port === cable.to_port && isPortConnected(p.kind, p.id, p.port, 'out', context.cables))

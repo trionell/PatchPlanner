@@ -143,7 +143,12 @@ export interface AudioPatchInput {
  * A side's port count is 0 when the device has nothing on that side (0
  * input ports = a pure source; 0 output ports = a pure destination); its
  * connector_type is set exactly when that side's port count is > 0.
- * position_x/position_y are this event's canvas placement only.
+ * link_port_count/link_connector_type are a destination device's link-out
+ * ports (daisy-chaining to another device's ordinary input, e.g. sub ->
+ * sub -> top) — deliberately separate from output_port_count so a
+ * destination device stays pinned to the Destinations zone even with
+ * link ports declared. position_x/position_y are this event's canvas
+ * placement only.
  */
 export interface OutputDevice {
   id: number
@@ -155,6 +160,8 @@ export interface OutputDevice {
   input_connector_type?: string
   output_port_count: number
   output_connector_type?: string
+  link_port_count: number
+  link_connector_type?: string
   position_x: number
   position_y: number
 }
@@ -162,19 +169,23 @@ export interface OutputDevice {
 /**
  * One edge in the output signal-flow graph — a cable from one node's
  * output-side port to another node's input-side port. from_kind is
- * 'mixer' | 'stagebox' | 'stage_multi' | 'device' (mixer has no input
- * side, so is never a to_kind); to_kind is 'stagebox' | 'stage_multi' |
- * 'device'. cable_item_id is always null when to_kind is 'stagebox' or
- * 'stage_multi' — a channel's route into either is pure console/network
- * routing, never a separately rentable cable (FR-013); otherwise it's
- * the picked catalog item, or unset for a gap. A mixer port (a logical
- * channel, not a physical jack) can be the from side of more than one
- * cable at once — every other from_kind stays one-cable-per-port.
+ * 'mixer' | 'stagebox' | 'stage_multi' | 'device' | 'device_link' (mixer
+ * has no input side, so is never a to_kind; device_link is a destination
+ * device's link-out side, always landing on an ordinary device's input);
+ * to_kind is 'stagebox' | 'stage_multi' | 'device'. cable_item_id is
+ * always null when to_kind is 'stagebox' or 'stage_multi' — a channel's
+ * route into either is pure console/network routing, never a separately
+ * rentable cable (FR-013); otherwise it's the picked catalog item, or
+ * unset for a gap (a device_link cable is a real physical run, so it
+ * behaves like an ordinary device-to-device cable here). A mixer port (a
+ * logical channel, not a physical jack) can be the from side of more
+ * than one cable at once — every other from_kind stays
+ * one-cable-per-port.
  */
 export interface OutputCable {
   id: number
   event_id: number
-  from_kind: 'mixer' | 'stagebox' | 'stage_multi' | 'device'
+  from_kind: 'mixer' | 'stagebox' | 'stage_multi' | 'device' | 'device_link'
   from_id: number
   from_port: number
   to_kind: 'stagebox' | 'stage_multi' | 'device'

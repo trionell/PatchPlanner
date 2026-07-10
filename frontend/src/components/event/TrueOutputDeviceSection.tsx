@@ -52,8 +52,13 @@ export function TrueOutputDeviceSection({
   const [draftItemId, setDraftItemId] = useState<number | undefined>(undefined)
   const [draftInputs, setDraftInputs] = useState('1')
   const [draftInputConnector, setDraftInputConnector] = useState('')
+  const [draftLinks, setDraftLinks] = useState('0')
+  const [draftLinkConnector, setDraftLinkConnector] = useState('')
 
-  const canAdd = draftName.trim() && draftItemId && Number(draftInputs) > 0 && draftInputConnector
+  const canAdd = Boolean(
+    draftName.trim() && draftItemId && Number(draftInputs) > 0 && draftInputConnector
+    && (Number(draftLinks) > 0) === Boolean(draftLinkConnector),
+  )
 
   const add = () => {
     if (!canAdd) return
@@ -66,6 +71,8 @@ export function TrueOutputDeviceSection({
       input_port_count: Number(draftInputs) || 1,
       input_connector_type: draftInputConnector,
       output_port_count: 0,
+      link_port_count: Number(draftLinks) || 0,
+      link_connector_type: draftLinkConnector || undefined,
       position_x,
       position_y,
     })
@@ -73,6 +80,8 @@ export function TrueOutputDeviceSection({
     setDraftItemId(undefined)
     setDraftInputs('1')
     setDraftInputConnector('')
+    setDraftLinks('0')
+    setDraftLinkConnector('')
   }
 
   const remove = (device: OutputDevice) => {
@@ -99,6 +108,8 @@ export function TrueOutputDeviceSection({
         input_connector_type: merged.input_connector_type,
         output_port_count: 0,
         output_connector_type: undefined,
+        link_port_count: merged.link_port_count,
+        link_connector_type: merged.link_connector_type,
         position_x: merged.position_x,
         position_y: merged.position_y,
       },
@@ -142,6 +153,24 @@ export function TrueOutputDeviceSection({
                 {options('speaker_cable_types', device.input_connector_type).map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
               </Select>
             </div>
+            <div className="flex items-center gap-1 text-xs text-zinc-400">
+              <span>Link out</span>
+              <Input
+                type="number"
+                min={0}
+                defaultValue={device.link_port_count}
+                onBlur={(e) => saveField(device, { link_port_count: Number(e.target.value) || 0 })}
+                className="w-14"
+              />
+              <Select
+                value={device.link_connector_type ?? ''}
+                onChange={(e) => saveField(device, { link_connector_type: e.target.value || undefined })}
+                className="w-24"
+              >
+                <option value="">—</option>
+                {options('speaker_cable_types', device.link_connector_type).map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
+              </Select>
+            </div>
             <Button size="sm" variant="ghost" aria-label={`Delete ${device.name}`} onClick={() => remove(device)}>
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -172,6 +201,14 @@ export function TrueOutputDeviceSection({
             <Select value={draftInputConnector} onChange={(e) => setDraftInputConnector(e.target.value)} className="w-24">
               <option value="">—</option>
               {options('speaker_cable_types', draftInputConnector).map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
+            </Select>
+          </div>
+          <div className="flex items-center gap-1 text-xs text-zinc-400">
+            <span>Link out</span>
+            <Input type="number" min={0} value={draftLinks} onChange={(e) => setDraftLinks(e.target.value)} className="w-14" />
+            <Select value={draftLinkConnector} onChange={(e) => setDraftLinkConnector(e.target.value)} className="w-24">
+              <option value="">—</option>
+              {options('speaker_cable_types', draftLinkConnector).map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
             </Select>
           </div>
           <Button size="sm" onClick={add} disabled={!canAdd}><Plus className="mr-1 h-4 w-4" />Add</Button>
