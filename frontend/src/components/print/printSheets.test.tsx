@@ -136,25 +136,38 @@ describe('InputPatchSheet', () => {
 })
 
 describe('OutputPatchSheet', () => {
-  it('renders destinations per destination_type and cable picks', () => {
-    const base: Omit<AudioPatchOutput, 'id' | 'output_number' | 'destination_type'> = {
-      event_id: 1, output_name: '', output_type: 'foh', cable_type: 'nl4', cable_length_m: 20, width: 'mono',
+  it('renders each output\'s chain hop by hop with device and route labels', () => {
+    const base: Omit<AudioPatchOutput, 'id' | 'output_number' | 'chain'> = {
+      event_id: 1, output_name: '', output_type: 'foh', width: 'mono',
     }
     const outputLabels = new Map([...itemNameById, [401, 'Högtalarkabel Speakon 2x2,5 — 10m']])
     const html = render(
       <OutputPatchSheet
         eventId={1}
         outputs={[
-          { id: 1, output_number: 1, destination_type: 'local', amplifier_item_id: 77, speaker_item_id: 78, color: '#a855f7', ...base },
-          { id: 2, output_number: 2, destination_type: 'stagebox', stagebox_id: 1, stagebox_channel: 3, ...base, cable_item_id: 401, cable_type: undefined, cable_length_m: undefined },
-          { id: 3, output_number: 3, destination_type: 'stage_multi', stage_multi_id: 5, stage_multi_channel: 8, ...base },
+          {
+            id: 1, output_number: 1, color: '#a855f7', ...base,
+            chain: [
+              { position: 0, hop_kind: 'device', device_source: 'inventory', inventory_item_id: 77 },
+              { position: 1, hop_kind: 'device', device_source: 'inventory', inventory_item_id: 78, cable_type: 'nl4', cable_length_m: 20 },
+            ],
+          },
+          {
+            id: 2, output_number: 2, ...base,
+            chain: [{ position: 0, hop_kind: 'route', stagebox_id: 1, stagebox_channel: 3, cable_item_id: 401 }],
+          },
+          {
+            id: 3, output_number: 3, ...base,
+            chain: [{ position: 0, hop_kind: 'route', stage_multi_id: 5, stage_multi_channel: 8 }],
+          },
         ]}
         stageboxes={stageboxes}
         stageMultis={stageMultis}
+        outputDevices={[]}
         itemLabelById={outputLabels}
+        ownedItemLabelById={new Map()}
       />,
     )
-    expect(html).toContain('local')
     expect(html).toContain('SB FOH Rack ch 3')
     expect(html).toContain('Multi Multi A ch 8')
     expect(html).toContain('Amp X')
@@ -168,22 +181,62 @@ describe('OutputPatchSheet', () => {
     expect(html).not.toMatch(/<(input|select|button|textarea)\b/)
   })
 
-  it('shows a stereo output\'s independently-patched second destination', () => {
+  it('shows a stereo output route hop\'s independently-patched side B', () => {
     const html = render(
       <OutputPatchSheet
         eventId={1}
         outputs={[{
-          id: 4, output_number: 1, output_name: 'Main L/R', output_type: 'foh', destination_type: 'stage_multi',
-          stage_multi_id: 5, stage_multi_channel: 1, stage_multi_id_b: 5, stage_multi_channel_b: 2,
+          id: 4, output_number: 1, output_name: 'Main L/R', output_type: 'foh',
           width: 'stereo', event_id: 1,
+          chain: [{ position: 0, hop_kind: 'route', stage_multi_id: 5, stage_multi_channel: 1, stage_multi_id_b: 5, stage_multi_channel_b: 2 }],
         }]}
         stageboxes={stageboxes}
         stageMultis={stageMultis}
+        outputDevices={[]}
         itemLabelById={new Map()}
+        ownedItemLabelById={new Map()}
       />,
     )
     expect(html).toContain('Multi Multi A ch 1')
     expect(html).toContain('Multi Multi A ch 2')
+  })
+
+  it('resolves a shared-device hop via the declared device name, not the underlying item id', () => {
+    const html = render(
+      <OutputPatchSheet
+        eventId={1}
+        outputs={[{
+          id: 5, output_number: 1, output_name: 'IEM 1', output_type: 'iem', width: 'mono', event_id: 1,
+          chain: [{ position: 0, hop_kind: 'device', device_source: 'shared', output_device_id: 9 }],
+        }]}
+        stageboxes={stageboxes}
+        stageMultis={stageMultis}
+        outputDevices={[{ id: 9, event_id: 1, name: 'IEM headphone amp', inventory_item_id: 77 }]}
+        itemLabelById={itemNameById}
+        ownedItemLabelById={new Map()}
+      />,
+    )
+    expect(html).toContain('IEM headphone amp')
+    expect(html).not.toContain('Amp X')
+  })
+
+  it('shows a stereo hop\'s independently-picked side-B cable alongside side A\'s', () => {
+    const html = render(
+      <OutputPatchSheet
+        eventId={1}
+        outputs={[{
+          id: 6, output_number: 1, output_name: 'Subs', output_type: 'sub', width: 'stereo', event_id: 1,
+          chain: [{ position: 0, hop_kind: 'device', device_source: 'inventory', inventory_item_id: 78, cable_item_id: 401, cable_item_id_b: 402 }],
+        }]}
+        stageboxes={stageboxes}
+        stageMultis={stageMultis}
+        outputDevices={[]}
+        itemLabelById={new Map([...itemNameById, [401, 'Speakon 5m'], [402, 'Speakon 20m']])}
+        ownedItemLabelById={new Map()}
+      />,
+    )
+    expect(html).toContain('Speakon 5m')
+    expect(html).toContain('B: Speakon 20m')
   })
 })
 

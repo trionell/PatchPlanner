@@ -10,7 +10,8 @@ An AVL (Audio, Video, Lighting) event planning tool for live productions. Plan p
 - **Audio Patch (Inputs)** — Build full input patch lists: channel number, name, signal type, preamp connector, stagebox routing, stage multicore, microphone model, cable and mic stand picked straight from the rental catalog (concrete items with lengths, e.g. "Mikrofonkabel — 4m"), 48V phantom power, mix-group routing (per-event groups with a built-in LR main, the default for new channels), DCA membership picked from per-event DCAs, and a console channel-strip color per channel — groups and DCAs carry colors too, all from a configurable palette
 - **Mono/Stereo Channels** — Any input or output can be marked stereo: a second, independently-patched physical connection (its own stagebox/multicore route — not required to be the neighboring channel or even the same box, e.g. a crowd-mic pair on opposite sides of the stage), with per-input mixer behavior (one console channel strip vs. two linked strips) and doubled rental counts for per-side equipment; two-channel devices (a DI box, an amplifier) stay single-counted
 - **DI Cabling** — DI-type channels pick a source cable (source → DI) alongside the existing DI → preamp cable, closing a rental-order gap; a stereo DI channel chooses between two individual source cables or one 3.5 mm TRS → 2×TS splitter, which changes whether that cable counts once or twice
-- **Audio Patch (Outputs)** — Map outputs to destinations (local, stagebox, stage-multi), assign amplifiers and speakers, pick the cable run from the catalog
+- **Audio Patch (Outputs)** — Each output channel is an ordered **chain of hops** from the console to its final destination: a hop is either a device (an amplifier, controller, distro, speaker, headphone amp — picked from the rental catalog or your owned-gear list) or a route (a hand-off onto a stagebox/stage-multicore, with its own independent stereo side B), each carrying its own cable pick — modeling real multi-hop rigs (mixer → stagebox out → controller → amplifier → sub → sub (daisy-chained) → top) as well as the trivial local-out-to-speaker case
+- **Shared Output Devices** — Declare a device once per event (a multichannel headphone amp feeding several IEM mixes, a distro rack) and reference it as a hop from any number of output channels' chains — it lands on the rental order exactly once, no matter how many chains use it
 - **Lighting Rig** — Add fixtures (one by one or in bulk batches with shared settings, auto-incrementing console fixture IDs, and sequential DMX addresses), assign them to truss sections, configure power connections (grid or daisy-chain), set DMX universe/address and channel mode (catalog-defined modes are offered right in the add dialog), give every fixture its GrandMA fixture ID (duplicates flagged), auto-assign DMX addresses in sequence
 - **Rental Order** — Per-event summary of all rented equipment, derived automatically from the plan (mics, DI/IEM, stageboxes, multicores, amplifiers, speakers, cables, mic stands, fixtures) plus manual line items for anything else; flags lines that exceed the renter's stock. Which catalog categories feed the cable/stand pickers is itself data: each category on the Inventory page carries an editable picker role
 - **Excel Export** — One click produces a copy of LL.xlsx with the order quantities filled into the *Antal Ljud* / *Antal Ljus* columns at the right rows, ready to send to the renter unmodified; lines that can't be placed are reported, never silently dropped
@@ -18,7 +19,7 @@ An AVL (Audio, Video, Lighting) event planning tool for live productions. Plan p
 - **Configurable Reference Data** — Every planning vocabulary (signal types, preamp connectors, signal/speaker cable types, output types, mic stands, power connectors, truss types) is stored data, editable on the Settings page: add values for new gear, rename labels, delete unused ones (values in use by a plan are protected). Lighting fixture models carry DMX mode definitions (name + channel count) that auto-fill the channel count when patching
 - **Inventory** — Full catalog imported directly from the LL.xlsx price list (308 items across 27 categories: audio, lighting, rigging)
 - **Print Sheets** — Every planning tab (input patch, output patch, lighting rig) has a Print button that produces a clean paper/PDF sheet via the browser print dialog: event header, black-on-white table, repeating column headers, no UI chrome
-- **Signal Flow** — A read-only per-channel trace (source → cable → stagebox/multi channel → console) on its own event tab; incomplete routing is flagged so patching errors are caught before load-in, and the view prints like the sheets
+- **Signal Flow** — A read-only per-channel trace on its own event tab: inputs read source → cable → stagebox/multi channel → console; outputs read console → chain of hops → destination. Incomplete routing is flagged so patching errors are caught before load-in, and the view prints like the sheets
 
 ---
 
@@ -144,27 +145,30 @@ DCA values were converted automatically into per-event DCAs.
 | Out# | Output number |
 | Name | Output label (e.g. "FOH L", "Monitor 1") |
 | Type | Output type: FOH, monitor, sub, aux, matrix, stereo, IEM |
-| Destination | Where the signal goes: local, stagebox, stage multicore |
-| SB / SB Ch | Stagebox and channel (if destination = stagebox) |
-| Multi / Multi Ch | Multicore and channel (if destination = stage-multi) |
-| Amplifier | Amplifier from inventory |
-| Speaker | Speaker from inventory |
-| Cable | Cable from the rental catalog (item + length); legacy type/length values show as read-only text until re-picked |
 | Width | Mono (default) or Stereo — outputs have no linked-channels concept, since output numbering carries no console-strip semantics |
-| Side B | Stereo outputs only: the second physical connection's own destination routing, independent of side A |
+| Chain | The channel's ordered signal path — add, reorder, or remove hops freely. Each hop is either a **device** (pick from the rental catalog, your owned-gear list, or a device declared once in the Shared Output Devices manager above the table) or a **route** (a hand-off onto a stagebox/stage-multicore channel, with its own independent side B when the channel is stereo), plus its own cable pick. On a stereo channel, a hop's cable doubles by default (same cable, both sides); pick a **Cable B** to give the two physical runs different lengths instead (e.g. an amplifier on one side of the stage needs a shorter cable to the near speaker than the far one) — each side is then counted on its own. A fresh row starts with an empty chain — the trivial local-out-to-speaker case needs just one device hop, exactly as before |
 | Color | Console channel-strip color from the palette |
 | Notes | Free-text notes |
+
+Shared output devices are managed in their own card above the outputs
+table: create, rename, or delete them there (rental catalog or owned-gear
+pick). Deleting one clears the reference on every hop that used it
+(flagged as a gap) rather than being blocked — same behavior as deleting
+a stagebox or stage multicore that's still patched somewhere.
 
 Channel, group, and DCA colors show on the Audio Inputs/Outputs tabs, in
 the Signal Flow view, and on the printed sheets (as a swatch next to the
 channel number and tinted group/DCA names).
 
 A stereo channel doubles the rental count of everything picked per side —
-microphone/source item, cable, stand, and (on outputs) speaker — while
-two-channel devices count once regardless of width: the DI box itself on a
-stereo DI channel, and the amplifier on a stereo output. A DI channel's
-source cable is counted once, or twice on a stereo DI channel using two
-individual cables (a splitter counts once either way).
+microphone/source item, cable, stand, and (on outputs) a non-shared hop's
+device and any hop's cable — while two-channel devices count once
+regardless of width: the DI box itself on a stereo DI channel, and on a
+stereo output any hop whose device is a *declared shared device* (that's
+what makes it "one physical two-channel unit" rather than one-per-side —
+the same mechanism that reproduces the old amplifier-never-doubles rule).
+A DI channel's source cable is counted once, or twice on a stereo DI
+channel using two individual cables (a splitter counts once either way).
 
 ### Building a lighting rig
 
@@ -259,9 +263,12 @@ Base URL: `http://localhost:7331/api/v1`
 | POST | `/events/:id/audio-inputs` | Add an input row (omit `group_ids` to route to LR by default; the legacy `dca_groups` text field is gone — use `dca_ids`). `width` (`mono`/`stereo`), `mixer_behavior` (`stereo_channel`/`linked_channels`), `source_cabling` (`two_cables`/`splitter`) default when omitted; `stagebox_id_b`/`stagebox_channel_b`/`stage_multi_id_b`/`stage_multi_channel_b` are the stereo channel's independently-patched second side, and `source_cable_item_id` is a DI channel's source→DI cable pick — both validated the same way as their side-A/`cable_item_id` counterparts |
 | PATCH | `/events/:id/audio-inputs/:inputId` | Update an input row (`group_ids`/`dca_ids` replace the sets wholesale) |
 | DELETE | `/events/:id/audio-inputs/:inputId` | Delete an input row |
-| POST | `/events/:id/audio-outputs` | Add an output row. `width` defaults to `mono`; `stagebox_id_b`/`stagebox_channel_b`/`stage_multi_id_b`/`stage_multi_channel_b` are the stereo output's independently-patched second side |
-| PATCH | `/events/:id/audio-outputs/:outputId` | Update an output row |
-| DELETE | `/events/:id/audio-outputs/:outputId` | Delete an output row |
+| POST | `/events/:id/audio-outputs` | Add an output row. `width` defaults to `mono`; `chain` is the ordered array of hops (each a `device` pick — inventory, owned-gear, or a declared shared device via `output_device_id` — or a `route` hand-off onto a stagebox/stage-multi channel with its own independent side B — plus its own cable and, on a stereo channel, an optional independent `cable_item_id_b`), replaced wholesale on every write |
+| PATCH | `/events/:id/audio-outputs/:outputId` | Update an output row (`chain` replaces the hops wholesale; positions are reassigned from the array order) |
+| DELETE | `/events/:id/audio-outputs/:outputId` | Delete an output row and its chain |
+| POST | `/events/:id/output-devices` | Declare a shared device (name + exactly one of `inventory_item_id`/`owned_item_id`) |
+| PATCH | `/events/:id/output-devices/:deviceId` | Rename/repick a shared device |
+| DELETE | `/events/:id/output-devices/:deviceId` | Delete a shared device — clears the reference on every hop that used it instead of blocking |
 | GET | `/events/:id/lighting-rigs` | Get the rig with truss sections and fixtures |
 | POST | `/events/:id/lighting-rigs/:rigId/fixtures` | Add a fixture |
 | POST | `/events/:id/lighting-rigs/:rigId/fixtures/bulk` | Bulk-add N identical fixtures (shared settings, incrementing fixture IDs, appended DMX addresses; all-or-nothing) |

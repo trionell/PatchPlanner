@@ -18,12 +18,13 @@ type AudioPatchHandler struct {
 }
 
 type audioPatchResponse struct {
-	Stageboxes  []domain.Stagebox         `json:"stageboxes"`
-	StageMultis []domain.StageMulti       `json:"stage_multis"`
-	Groups      []domain.MixerGroup       `json:"groups"`
-	DCAs        []domain.MixerDCA         `json:"dcas"`
-	Inputs      []domain.AudioPatchInput  `json:"inputs"`
-	Outputs     []domain.AudioPatchOutput `json:"outputs"`
+	Stageboxes    []domain.Stagebox         `json:"stageboxes"`
+	StageMultis   []domain.StageMulti       `json:"stage_multis"`
+	Groups        []domain.MixerGroup       `json:"groups"`
+	DCAs          []domain.MixerDCA         `json:"dcas"`
+	Inputs        []domain.AudioPatchInput  `json:"inputs"`
+	Outputs       []domain.AudioPatchOutput `json:"outputs"`
+	OutputDevices []domain.OutputDevice     `json:"output_devices"`
 }
 
 // busRequest carries POST/PATCH bodies for groups and DCAs.
@@ -57,6 +58,10 @@ func (h AudioPatchHandler) Register(r chi.Router) {
 	r.Post("/events/{eventID}/audio-outputs", h.createOutput)
 	r.Patch("/events/{eventID}/audio-outputs/{outputID}", h.updateOutput)
 	r.Delete("/events/{eventID}/audio-outputs/{outputID}", h.deleteOutput)
+	// Output devices (shared, per event)
+	r.Post("/events/{eventID}/output-devices", h.createOutputDevice)
+	r.Patch("/events/{eventID}/output-devices/{deviceID}", h.updateOutputDevice)
+	r.Delete("/events/{eventID}/output-devices/{deviceID}", h.deleteOutputDevice)
 }
 
 func (h AudioPatchHandler) getAudioPatch(w http.ResponseWriter, r *http.Request) {
@@ -94,6 +99,11 @@ func (h AudioPatchHandler) getAudioPatch(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	outputDevices, err := dbstore.ListOutputDevices(h.DB, eventID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	if stageboxes == nil {
 		stageboxes = []domain.Stagebox{}
 	}
@@ -106,7 +116,10 @@ func (h AudioPatchHandler) getAudioPatch(w http.ResponseWriter, r *http.Request)
 	if outputs == nil {
 		outputs = []domain.AudioPatchOutput{}
 	}
-	writeJSON(w, http.StatusOK, audioPatchResponse{Stageboxes: stageboxes, StageMultis: stageMultis, Groups: groups, DCAs: dcas, Inputs: inputs, Outputs: outputs})
+	if outputDevices == nil {
+		outputDevices = []domain.OutputDevice{}
+	}
+	writeJSON(w, http.StatusOK, audioPatchResponse{Stageboxes: stageboxes, StageMultis: stageMultis, Groups: groups, DCAs: dcas, Inputs: inputs, Outputs: outputs, OutputDevices: outputDevices})
 }
 
 // decodeBusRequest parses and trims a group/DCA payload, rejecting empty
@@ -549,9 +562,7 @@ func (h AudioPatchHandler) createOutput(w http.ResponseWriter, r *http.Request) 
 	if payload.Width == "" {
 		payload.Width = "mono"
 	}
-	if !h.validItemRef(w, "cable_item_id", payload.CableItemID) ||
-		!h.validWidth(w, payload.Width) ||
-		!h.validSideBRefs(w, eventID, payload.StageboxIDB, payload.StageMultiIDB) {
+	if !h.validWidth(w, payload.Width) || !h.validChain(w, eventID, payload.Chain) {
 		return
 	}
 	created, err := dbstore.CreateAudioPatchOutput(h.DB, payload)
@@ -579,9 +590,7 @@ func (h AudioPatchHandler) updateOutput(w http.ResponseWriter, r *http.Request) 
 	if payload.Width == "" {
 		payload.Width = "mono"
 	}
-	if !h.validItemRef(w, "cable_item_id", payload.CableItemID) ||
-		!h.validWidth(w, payload.Width) ||
-		!h.validSideBRefs(w, eventID, payload.StageboxIDB, payload.StageMultiIDB) {
+	if !h.validWidth(w, payload.Width) || !h.validChain(w, eventID, payload.Chain) {
 		return
 	}
 	updated, err := dbstore.UpdateAudioPatchOutput(h.DB, outputID, payload)
@@ -590,6 +599,209 @@ func (h AudioPatchHandler) updateOutput(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeJSON(w, http.StatusOK, updated)
+}
+
+// validChain writes a 400/500 response and returns false when any hop in
+// the chain fails validation (research.md R8). Empty/nil chains are
+// always valid — a channel need not have any hops yet.
+func (h AudioPatchHandler) validChain(w http.ResponseWriter, eventID int64, chain []domain.OutputChainHop) bool {
+	for _, hop := range chain {
+		if !h.validHop(w, eventID, hop) {
+			return false
+		}
+	}
+	return true
+}
+
+func (h AudioPatchHandler) validHop(w http.ResponseWriter, eventID int64, hop domain.OutputChainHop) bool {
+	if !slices.Contains(domain.ValidHopKinds, hop.HopKind) {
+		writeError(w, http.StatusBadRequest, "hop_kind must be one of: device, route")
+		return false
+	}
+	if !h.validItemRef(w, "cable_item_id", hop.CableItemID) || !h.validItemRef(w, "cable_item_id_b", hop.CableItemIDB) {
+		return false
+	}
+	switch hop.HopKind {
+	case "device":
+		return h.validDeviceHop(w, eventID, hop)
+	case "route":
+		return h.validRouteHop(w, eventID, hop)
+	}
+	return true
+}
+
+// validDeviceHop enforces that at most one of the three device references
+// is set, that device_source (when present) matches whichever one is set,
+// and that every set reference resolves to a real row.
+func (h AudioPatchHandler) validDeviceHop(w http.ResponseWriter, eventID int64, hop domain.OutputChainHop) bool {
+	set := 0
+	if hop.InventoryItemID != nil {
+		set++
+	}
+	if hop.OwnedItemID != nil {
+		set++
+	}
+	if hop.OutputDeviceID != nil {
+		set++
+	}
+	if set > 1 {
+		writeError(w, http.StatusBadRequest, "a device hop may set at most one of inventory_item_id, owned_item_id, output_device_id")
+		return false
+	}
+	if hop.DeviceSource != "" {
+		if !slices.Contains(domain.ValidDeviceSources, hop.DeviceSource) {
+			writeError(w, http.StatusBadRequest, "device_source must be one of: inventory, owned, shared")
+			return false
+		}
+		mismatched := (hop.DeviceSource == "inventory" && hop.InventoryItemID == nil) ||
+			(hop.DeviceSource == "owned" && hop.OwnedItemID == nil) ||
+			(hop.DeviceSource == "shared" && hop.OutputDeviceID == nil)
+		if mismatched {
+			writeError(w, http.StatusBadRequest, "device_source does not match the device field that is set")
+			return false
+		}
+	}
+	if !h.validItemRef(w, "inventory_item_id", hop.InventoryItemID) {
+		return false
+	}
+	if !h.validOwnedItemRef(w, hop.OwnedItemID) {
+		return false
+	}
+	if hop.OutputDeviceID != nil && !h.itemBelongsToEvent("output_devices", eventID, *hop.OutputDeviceID) {
+		writeError(w, http.StatusBadRequest, "output_device_id references a device of another event")
+		return false
+	}
+	return true
+}
+
+// validRouteHop enforces stagebox/stage-multi mutual exclusivity
+// (independently for side A and side B) and event ownership of every
+// reference set — unlike the pre-existing flat model's side-A fields
+// (never event-scoped), hops are new in this slice and validated from the
+// start, the same treatment slice 8/9 gave their own new relationship
+// fields.
+func (h AudioPatchHandler) validRouteHop(w http.ResponseWriter, eventID int64, hop domain.OutputChainHop) bool {
+	if hop.StageboxID != nil && hop.StageMultiID != nil {
+		writeError(w, http.StatusBadRequest, "a route hop may set at most one of stagebox_id, stage_multi_id")
+		return false
+	}
+	if hop.StageboxIDB != nil && hop.StageMultiIDB != nil {
+		writeError(w, http.StatusBadRequest, "a route hop may set at most one of stagebox_id_b, stage_multi_id_b")
+		return false
+	}
+	if hop.StageboxID != nil && !h.itemBelongsToEvent("stageboxes", eventID, *hop.StageboxID) {
+		writeError(w, http.StatusBadRequest, "stagebox_id references a stagebox of another event")
+		return false
+	}
+	if hop.StageMultiID != nil && !h.itemBelongsToEvent("stage_multis", eventID, *hop.StageMultiID) {
+		writeError(w, http.StatusBadRequest, "stage_multi_id references a stage multi of another event")
+		return false
+	}
+	return h.validSideBRefs(w, eventID, hop.StageboxIDB, hop.StageMultiIDB)
+}
+
+// validOwnedItemRef writes a 400/500 response and returns false when a
+// non-nil owned-gear reference does not resolve to a catalog row. Owned
+// items are a global catalog (Slice 3), not event-scoped, same as
+// inventory items.
+func (h AudioPatchHandler) validOwnedItemRef(w http.ResponseWriter, itemID *int64) bool {
+	if itemID == nil {
+		return true
+	}
+	if _, err := dbstore.GetOwnedItem(h.DB, *itemID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusBadRequest, "owned_item_id references an unknown owned item")
+			return false
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return false
+	}
+	return true
+}
+
+func (h AudioPatchHandler) createOutputDevice(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
+	var payload domain.OutputDevice
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	payload.EventID = eventID
+	payload.Name = strings.TrimSpace(payload.Name)
+	if payload.Name == "" {
+		writeError(w, http.StatusBadRequest, "name must not be empty")
+		return
+	}
+	if !h.validOutputDeviceItemRefs(w, payload) {
+		return
+	}
+	created, err := dbstore.CreateOutputDevice(h.DB, payload)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusCreated, created)
+}
+
+func (h AudioPatchHandler) updateOutputDevice(w http.ResponseWriter, r *http.Request) {
+	deviceID, ok := parseID(w, chi.URLParam(r, "deviceID"))
+	if !ok {
+		return
+	}
+	var payload domain.OutputDevice
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	payload.Name = strings.TrimSpace(payload.Name)
+	if payload.Name == "" {
+		writeError(w, http.StatusBadRequest, "name must not be empty")
+		return
+	}
+	if !h.validOutputDeviceItemRefs(w, payload) {
+		return
+	}
+	updated, err := dbstore.UpdateOutputDevice(h.DB, deviceID, payload)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
+}
+
+func (h AudioPatchHandler) deleteOutputDevice(w http.ResponseWriter, r *http.Request) {
+	deviceID, ok := parseID(w, chi.URLParam(r, "deviceID"))
+	if !ok {
+		return
+	}
+	if err := dbstore.DeleteOutputDevice(h.DB, deviceID); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// validOutputDeviceItemRefs writes a 400 and returns false unless exactly
+// one of InventoryItemID/OwnedItemID is set and it resolves to a real row.
+func (h AudioPatchHandler) validOutputDeviceItemRefs(w http.ResponseWriter, device domain.OutputDevice) bool {
+	set := 0
+	if device.InventoryItemID != nil {
+		set++
+	}
+	if device.OwnedItemID != nil {
+		set++
+	}
+	if set != 1 {
+		writeError(w, http.StatusBadRequest, "exactly one of inventory_item_id or owned_item_id must be set")
+		return false
+	}
+	if !h.validItemRef(w, "inventory_item_id", device.InventoryItemID) {
+		return false
+	}
+	return h.validOwnedItemRef(w, device.OwnedItemID)
 }
 
 // validItemRef writes a 400/500 response and returns false when a non-nil

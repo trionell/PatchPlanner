@@ -1,9 +1,9 @@
 import { useReferenceData } from '../../hooks/useReferenceData'
-import { legacyCableText } from '../../lib/utils'
-import type { AudioPatchOutput, StageMulti, Stagebox } from '../../types'
+import { hopCableLabel, hopCableLabelB, hopLabel, hopLabelB } from '../../lib/outputChain'
+import type { AudioPatchOutput, OutputDevice, StageMulti, Stagebox } from '../../types'
 import { ColorSwatch, PrintSheet, sheetTd, sheetTh } from './PrintSheet'
 
-const columns = ['Out#', 'Name', 'Type', 'Destination', 'Amp', 'Speaker', 'Cable', 'Notes']
+const columns = ['Out#', 'Name', 'Type', 'Chain', 'Notes']
 
 /** Paper rendering of the output patch (hidden on screen, shown in print). */
 export function OutputPatchSheet({
@@ -11,17 +11,23 @@ export function OutputPatchSheet({
   outputs,
   stageboxes,
   stageMultis,
+  outputDevices,
   itemLabelById,
+  ownedItemLabelById,
 }: {
   eventId: number
   outputs: AudioPatchOutput[]
   stageboxes: Stagebox[]
   stageMultis: StageMulti[]
-  /** Catalog item labels (name — description) for amp/speaker/cable picks. */
+  outputDevices: OutputDevice[]
+  /** Catalog item labels (name — description) for device/cable picks. */
   itemLabelById: Map<number, string>
+  /** Owned-gear item labels, for owned device picks. */
+  ownedItemLabelById: Map<number, string>
 }) {
   const { label } = useReferenceData()
   const rows = [...outputs].sort((a, b) => a.output_number - b.output_number)
+  const hopContext = { stageboxes, stageMultis, outputDevices, itemLabelById, ownedItemLabelById, cableLabel: (value: string) => label('speaker_cable_types', value) }
 
   return (
     <PrintSheet eventId={eventId} title="Output Patch" empty={rows.length === 0}>
@@ -36,12 +42,24 @@ export function OutputPatchSheet({
               <td className={sheetTd}>{row.output_name || ''}</td>
               <td className={sheetTd}>{label('output_types', row.output_type)}</td>
               <td className={sheetTd}>
-                <div>{destinationText(row, stageboxes, stageMultis)}</div>
-                {row.width === 'stereo' && <div>{destinationTextB(row, stageboxes, stageMultis)}</div>}
+                {row.chain.length === 0 ? (
+                  <div>direct</div>
+                ) : (
+                  row.chain.map((hop, index) => {
+                    const cable = hopCableLabel(hop, hopContext)
+                    const cableB = hopCableLabelB(hop, hopContext)
+                    const sideB = hopLabelB(hop, hopContext)
+                    return (
+                      <div key={index}>
+                        {index + 1}. {hopLabel(hop, hopContext)}
+                        {cable && ` — ${cable}`}
+                        {cableB && ` / B: ${cableB}`}
+                        {sideB && <div className="pl-3">↳ B: {sideB}</div>}
+                      </div>
+                    )
+                  })
+                )}
               </td>
-              <td className={sheetTd}>{row.amplifier_item_id ? itemLabelById.get(row.amplifier_item_id) ?? `#${row.amplifier_item_id}` : ''}</td>
-              <td className={sheetTd}>{row.speaker_item_id ? itemLabelById.get(row.speaker_item_id) ?? `#${row.speaker_item_id}` : ''}</td>
-              <td className={sheetTd}>{cableText(row, itemLabelById, label)}</td>
               <td className={sheetTd}>{row.notes || ''}</td>
             </tr>
           ))}
@@ -49,35 +67,4 @@ export function OutputPatchSheet({
       </table>
     </PrintSheet>
   )
-}
-
-function cableText(row: AudioPatchOutput, itemLabelById: Map<number, string>, label: (vocabulary: string, value?: string) => string): string {
-  if (row.cable_item_id) return itemLabelById.get(row.cable_item_id) ?? `#${row.cable_item_id}`
-  if (row.cable_type) return legacyCableText(row.cable_type, row.cable_length_m, (value) => label('speaker_cable_types', value))
-  return ''
-}
-
-function destinationText(row: AudioPatchOutput, stageboxes: Stagebox[], stageMultis: StageMulti[]): string {
-  if (row.destination_type === 'stagebox') {
-    const name = stageboxes.find((sb) => sb.id === row.stagebox_id)?.name ?? (row.stagebox_id ? `#${row.stagebox_id}` : '—')
-    return `SB ${name} ch ${row.stagebox_channel ?? '—'}`
-  }
-  if (row.destination_type === 'stage_multi') {
-    const name = stageMultis.find((sm) => sm.id === row.stage_multi_id)?.name ?? (row.stage_multi_id ? `#${row.stage_multi_id}` : '—')
-    return `Multi ${name} ch ${row.stage_multi_channel ?? '—'}`
-  }
-  return 'local'
-}
-
-/** Side B's own, independently-patched route, following the same destination_type as side A (stereo outputs only). */
-function destinationTextB(row: AudioPatchOutput, stageboxes: Stagebox[], stageMultis: StageMulti[]): string {
-  if (row.destination_type === 'stagebox') {
-    const name = stageboxes.find((sb) => sb.id === row.stagebox_id_b)?.name ?? (row.stagebox_id_b ? `#${row.stagebox_id_b}` : '—')
-    return `SB ${name} ch ${row.stagebox_channel_b ?? '—'}`
-  }
-  if (row.destination_type === 'stage_multi') {
-    const name = stageMultis.find((sm) => sm.id === row.stage_multi_id_b)?.name ?? (row.stage_multi_id_b ? `#${row.stage_multi_id_b}` : '—')
-    return `Multi ${name} ch ${row.stage_multi_channel_b ?? '—'}`
-  }
-  return 'local'
 }

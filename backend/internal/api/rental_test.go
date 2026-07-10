@@ -218,7 +218,8 @@ func TestRentalSummaryCountsOutputCables(t *testing.T) {
 
 	for outputNumber := 1; outputNumber <= 2; outputNumber++ {
 		status, raw := doJSON(t, http.MethodPost, outputsURL, map[string]any{
-			"output_number": outputNumber, "output_type": "foh", "destination_type": "local", "cable_item_id": speakonCable,
+			"output_number": outputNumber, "output_type": "foh",
+			"chain": []map[string]any{{"hop_kind": "device", "cable_item_id": speakonCable}},
 		})
 		if status != http.StatusCreated {
 			t.Fatalf("POST output %d: status %d body %s", outputNumber, status, raw)
@@ -244,9 +245,10 @@ func TestRentalSummaryCountsOutputCables(t *testing.T) {
 		t.Errorf("cable line item=%d audio=%d, want %d/3", line.InventoryItemID, line.QuantityAudio, speakonCable)
 	}
 
-	// Dangling cable reference on an output is rejected up front.
+	// Dangling cable reference on an output hop is rejected up front.
 	if status, raw = doJSON(t, http.MethodPost, outputsURL, map[string]any{
-		"output_number": 3, "output_type": "foh", "destination_type": "local", "cable_item_id": 99999,
+		"output_number": 3, "output_type": "foh",
+		"chain": []map[string]any{{"hop_kind": "device", "cable_item_id": 99999}},
 	}); status != http.StatusBadRequest {
 		t.Errorf("dangling output cable_item_id: status %d body %s, want 400", status, raw)
 	}

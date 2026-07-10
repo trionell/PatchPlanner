@@ -1,9 +1,10 @@
-import type { AudioPatchInput, StageMulti, Stagebox } from '../types'
+import type { AudioPatchInput, AudioPatchOutput, StageMulti, Stagebox } from '../types'
+import { hopCableLabel, hopCableLabelB, hopLabel, hopLabelB, isHopGap, type HopLabelContext } from './outputChain'
 
 /** One hop in an input channel's signal chain. */
 export interface FlowHop {
   label: string
-  kind: 'source' | 'cable' | 'stagebox' | 'multi' | 'direct'
+  kind: 'source' | 'cable' | 'stagebox' | 'multi' | 'direct' | 'device' | 'route'
   /** True → rendered as a flagged gap, never silently omitted. */
   missing: boolean
   /** Secondary line, e.g. cable length. */
@@ -142,4 +143,55 @@ function sourceCableHop(input: AudioPatchInput, context: FlowContext): FlowHop {
     return { label: name, kind: 'cable', missing: false }
   }
   return { label: 'No source cable picked', kind: 'cable', missing: true }
+}
+
+/** One hop's view-model: its cable(s) (if any), its own device/route hop, and side B's route (stereo route hops only). */
+export interface OutputHopFlow {
+  cable?: FlowHop
+  /** Side B's own, independently-picked cable — present only when set (the default is Cable doubling for both sides, nothing extra to show). */
+  cableB?: FlowHop
+  device: FlowHop
+  sideB?: FlowHop
+}
+
+/** View-model for one output channel's chain: an ordered list of hops from mixer to final destination. */
+export interface OutputChainFlow {
+  outputNumber: number
+  outputName: string
+  hops: OutputHopFlow[]
+  hasGap: boolean
+}
+
+/**
+ * Derives the signal chain for one output channel (Slice 10) — mirrors
+ * buildChannelFlow's presentation but over an arbitrary-length hop array
+ * instead of fixed source/cable/path fields. A hop's device or route is a
+ * gap when unset (isHopGap); its cable is optional and never itself a
+ * gap, matching the input side's non-DI cable treatment (FR-013).
+ */
+export function buildOutputChainFlow(output: AudioPatchOutput, context: HopLabelContext): OutputChainFlow {
+  const hops = output.chain.map((hop): OutputHopFlow => {
+    const cableLabel = hopCableLabel(hop, context)
+    const cableBLabel = output.width === 'stereo' ? hopCableLabelB(hop, context) : undefined
+    const sideBLabel = output.width === 'stereo' ? hopLabelB(hop, context) : undefined
+    return {
+      cable: cableLabel ? { label: cableLabel, kind: 'cable', missing: false } : undefined,
+      cableB: cableBLabel ? { label: cableBLabel, kind: 'cable', missing: false } : undefined,
+      device: { label: hopLabel(hop, context), kind: hop.hop_kind === 'route' ? 'route' : 'device', missing: isHopGap(hop) },
+      sideB: sideBLabel ? { label: sideBLabel, kind: 'route', missing: false } : undefined,
+    }
+  })
+  return {
+    outputNumber: output.output_number,
+    outputName: output.output_name ?? '',
+    hops,
+    hasGap: hops.some((hop) => hop.device.missing),
+  }
+}
+
+/** All output channels' flows, sorted by output number (same order as the outputs tab). */
+export function buildOutputChainFlows(outputs: AudioPatchOutput[], context: HopLabelContext): OutputChainFlow[] {
+  return [...outputs]
+    .sort((a, b) => a.output_number - b.output_number)
+    .map((output) => buildOutputChainFlow(output, context))
 }

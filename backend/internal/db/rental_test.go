@@ -25,7 +25,13 @@ func TestRentalSummaryCountsAllSources(t *testing.T) {
 	if _, err := CreateStageMulti(database, domain.StageMulti{EventID: eventID, Name: "Multi 1", Channels: 24, ConnectorType: "xlr", InventoryItemID: &cat.Multi}); err != nil {
 		t.Fatalf("create stage multi: %v", err)
 	}
-	if _, err := CreateAudioPatchOutput(database, domain.AudioPatchOutput{EventID: eventID, OutputNumber: 1, OutputType: "foh", DestinationType: "local", AmplifierItemID: &cat.Amp, SpeakerItemID: &cat.Speaker}); err != nil {
+	if _, err := CreateAudioPatchOutput(database, domain.AudioPatchOutput{
+		EventID: eventID, OutputNumber: 1, OutputType: "foh",
+		Chain: []domain.OutputChainHop{
+			{HopKind: "device", DeviceSource: "inventory", InventoryItemID: &cat.Amp},
+			{HopKind: "device", DeviceSource: "inventory", InventoryItemID: &cat.Speaker},
+		},
+	}); err != nil {
 		t.Fatalf("create output: %v", err)
 	}
 	rig, err := GetOrCreateDefaultLightingRig(database, eventID)
@@ -245,10 +251,19 @@ func TestStereoRentalDoubling(t *testing.T) {
 	}
 
 	// Stereo output: cable, speaker, amplifier all picked — cable and
-	// speaker double, amplifier (two-channel device) stays single.
+	// speaker double (plain per-hop items); amplifier stays single because
+	// it's declared as a shared device (research.md R3: shared device hops
+	// never double, regardless of how many channels reference them).
+	ampDevice, err := CreateOutputDevice(database, domain.OutputDevice{EventID: eventID, Name: "FOH Amp", InventoryItemID: &cat.Amp})
+	if err != nil {
+		t.Fatalf("create shared amp device: %v", err)
+	}
 	if _, err := CreateAudioPatchOutput(database, domain.AudioPatchOutput{
-		EventID: eventID, OutputNumber: 1, OutputType: "foh", DestinationType: "local", Width: "stereo",
-		AmplifierItemID: &cat.Amp, SpeakerItemID: &cat.Speaker, CableItemID: &outputCable,
+		EventID: eventID, OutputNumber: 1, OutputType: "foh", Width: "stereo",
+		Chain: []domain.OutputChainHop{
+			{HopKind: "device", DeviceSource: "shared", OutputDeviceID: &ampDevice.ID, CableItemID: &outputCable},
+			{HopKind: "device", DeviceSource: "inventory", InventoryItemID: &cat.Speaker},
+		},
 	}); err != nil {
 		t.Fatalf("create stereo output: %v", err)
 	}
@@ -359,6 +374,222 @@ func TestDISourceCableCounting(t *testing.T) {
 	}
 	if got := splitterByItem[splitterCable].QuantityAudio; got != 1 {
 		t.Errorf("stereo DI (splitter): source cable quantity_audio=%d, want 1", got)
+	}
+}
+
+// TestOutputChainRentalDoubling verifies research.md R3/R7: a stereo
+// output channel doubles a non-shared device hop's item and any hop's
+// cable, while a hop referencing a declared shared device stays single —
+// exactly the amplifier/speaker split the old flat model had, now
+// expressed through the chain model instead of two fixed columns.
+func TestOutputChainRentalDoubling(t *testing.T) {
+	database := openTestDB(t)
+	cat := seedCatalog(t, database)
+	speakerCable := insertItem(t, database, cat.AudioCategoryID, "Speakon Cable", 10, 25, 50)
+
+	// Two separate events: one stereo, one mono, each with its own shared
+	// device declaration (declarations are event-scoped).
+	stereoEvent := createTestEvent(t, database)
+	stereoAmp, err := CreateOutputDevice(database, domain.OutputDevice{EventID: stereoEvent, Name: "Amp", InventoryItemID: &cat.Amp})
+	if err != nil {
+		t.Fatalf("create shared device: %v", err)
+	}
+	if _, err := CreateAudioPatchOutput(database, domain.AudioPatchOutput{
+		EventID: stereoEvent, OutputNumber: 1, OutputType: "foh", Width: "stereo",
+		Chain: []domain.OutputChainHop{
+			{HopKind: "device", DeviceSource: "inventory", InventoryItemID: &cat.Speaker, CableItemID: &speakerCable},
+			{HopKind: "device", DeviceSource: "shared", OutputDeviceID: &stereoAmp.ID},
+		},
+	}); err != nil {
+		t.Fatalf("create stereo output: %v", err)
+	}
+	stereoSummary, err := GetRentalSummary(database, stereoEvent)
+	if err != nil {
+		t.Fatalf("get stereo rental summary: %v", err)
+	}
+	stereoByItem := summaryByItem(stereoSummary)
+	if got := stereoByItem[cat.Speaker].QuantityAudio; got != 2 {
+		t.Errorf("stereo non-shared device hop: quantity_audio=%d, want 2", got)
+	}
+	if got := stereoByItem[speakerCable].QuantityAudio; got != 2 {
+		t.Errorf("stereo hop cable: quantity_audio=%d, want 2", got)
+	}
+	if got := stereoByItem[cat.Amp].QuantityAudio; got != 1 {
+		t.Errorf("stereo shared device hop: quantity_audio=%d, want 1 (never doubles)", got)
+	}
+
+	monoEvent := createTestEvent(t, database)
+	monoAmp, err := CreateOutputDevice(database, domain.OutputDevice{EventID: monoEvent, Name: "Amp", InventoryItemID: &cat.Amp})
+	if err != nil {
+		t.Fatalf("create shared device: %v", err)
+	}
+	if _, err := CreateAudioPatchOutput(database, domain.AudioPatchOutput{
+		EventID: monoEvent, OutputNumber: 1, OutputType: "foh", Width: "mono",
+		Chain: []domain.OutputChainHop{
+			{HopKind: "device", DeviceSource: "inventory", InventoryItemID: &cat.Speaker, CableItemID: &speakerCable},
+			{HopKind: "device", DeviceSource: "shared", OutputDeviceID: &monoAmp.ID},
+		},
+	}); err != nil {
+		t.Fatalf("create mono output: %v", err)
+	}
+	monoSummary, err := GetRentalSummary(database, monoEvent)
+	if err != nil {
+		t.Fatalf("get mono rental summary: %v", err)
+	}
+	monoByItem := summaryByItem(monoSummary)
+	if got := monoByItem[cat.Speaker].QuantityAudio; got != 1 {
+		t.Errorf("mono non-shared device hop: quantity_audio=%d, want 1", got)
+	}
+	if got := monoByItem[speakerCable].QuantityAudio; got != 1 {
+		t.Errorf("mono hop cable: quantity_audio=%d, want 1", got)
+	}
+	if got := monoByItem[cat.Amp].QuantityAudio; got != 1 {
+		t.Errorf("mono shared device hop: quantity_audio=%d, want 1", got)
+	}
+}
+
+// TestOutputHopIndependentCablePicks verifies the fix for a stereo hop
+// whose two physical runs need different cables — e.g. an amplifier on
+// one side of the stage needs a shorter cable to the near speaker than
+// the far one. Leaving CableItemIDB unset keeps the default "same cable
+// both sides" doubling; setting it makes each side an independent, single
+// count (even when both sides happen to pick the same catalog item).
+func TestOutputHopIndependentCablePicks(t *testing.T) {
+	database := openTestDB(t)
+	cat := seedCatalog(t, database)
+	shortCable := insertItem(t, database, cat.AudioCategoryID, "Speakon 5m", 10, 15, 60)
+	longCable := insertItem(t, database, cat.AudioCategoryID, "Speakon 20m", 10, 35, 61)
+
+	// Default: no side-B cable set, still doubles.
+	defaultEvent := createTestEvent(t, database)
+	if _, err := CreateAudioPatchOutput(database, domain.AudioPatchOutput{
+		EventID: defaultEvent, OutputNumber: 1, OutputType: "foh", Width: "stereo",
+		Chain: []domain.OutputChainHop{{HopKind: "device", DeviceSource: "inventory", InventoryItemID: &cat.Speaker, CableItemID: &shortCable}},
+	}); err != nil {
+		t.Fatalf("create default output: %v", err)
+	}
+	defaultSummary, err := GetRentalSummary(database, defaultEvent)
+	if err != nil {
+		t.Fatalf("get default rental summary: %v", err)
+	}
+	if got := summaryByItem(defaultSummary)[shortCable].QuantityAudio; got != 2 {
+		t.Errorf("no side-B cable set: quantity_audio=%d, want 2 (default doubling)", got)
+	}
+
+	// Independent picks: near speaker gets the short cable, far speaker
+	// the long one — each counted once, not doubled.
+	independentEvent := createTestEvent(t, database)
+	if _, err := CreateAudioPatchOutput(database, domain.AudioPatchOutput{
+		EventID: independentEvent, OutputNumber: 1, OutputType: "foh", Width: "stereo",
+		Chain: []domain.OutputChainHop{{HopKind: "device", DeviceSource: "inventory", InventoryItemID: &cat.Speaker, CableItemID: &shortCable, CableItemIDB: &longCable}},
+	}); err != nil {
+		t.Fatalf("create independent-cable output: %v", err)
+	}
+	independentSummary, err := GetRentalSummary(database, independentEvent)
+	if err != nil {
+		t.Fatalf("get independent rental summary: %v", err)
+	}
+	byItem := summaryByItem(independentSummary)
+	if got := byItem[shortCable].QuantityAudio; got != 1 {
+		t.Errorf("side A cable with side B set: quantity_audio=%d, want 1 (not doubled)", got)
+	}
+	if got := byItem[longCable].QuantityAudio; got != 1 {
+		t.Errorf("side B cable: quantity_audio=%d, want 1", got)
+	}
+
+	// Same item picked on both sides explicitly still sums to 2 overall —
+	// via two independent ×1 picks, not the ×2 doubling formula.
+	sameItemEvent := createTestEvent(t, database)
+	if _, err := CreateAudioPatchOutput(database, domain.AudioPatchOutput{
+		EventID: sameItemEvent, OutputNumber: 1, OutputType: "foh", Width: "stereo",
+		Chain: []domain.OutputChainHop{{HopKind: "device", DeviceSource: "inventory", InventoryItemID: &cat.Speaker, CableItemID: &shortCable, CableItemIDB: &shortCable}},
+	}); err != nil {
+		t.Fatalf("create same-item-both-sides output: %v", err)
+	}
+	sameItemSummary, err := GetRentalSummary(database, sameItemEvent)
+	if err != nil {
+		t.Fatalf("get same-item rental summary: %v", err)
+	}
+	if got := summaryByItem(sameItemSummary)[shortCable].QuantityAudio; got != 2 {
+		t.Errorf("same cable explicitly picked both sides: quantity_audio=%d, want 2", got)
+	}
+
+	// Mono channel: CableItemIDB is ignored regardless (inert-not-lost,
+	// same pattern as every other side-B field).
+	monoEvent := createTestEvent(t, database)
+	if _, err := CreateAudioPatchOutput(database, domain.AudioPatchOutput{
+		EventID: monoEvent, OutputNumber: 1, OutputType: "foh", Width: "mono",
+		Chain: []domain.OutputChainHop{{HopKind: "device", DeviceSource: "inventory", InventoryItemID: &cat.Speaker, CableItemID: &shortCable, CableItemIDB: &longCable}},
+	}); err != nil {
+		t.Fatalf("create mono output with stale side-B cable: %v", err)
+	}
+	monoCableSummary, err := GetRentalSummary(database, monoEvent)
+	if err != nil {
+		t.Fatalf("get mono cable rental summary: %v", err)
+	}
+	monoCableByItem := summaryByItem(monoCableSummary)
+	if got := monoCableByItem[shortCable].QuantityAudio; got != 1 {
+		t.Errorf("mono side A cable: quantity_audio=%d, want 1", got)
+	}
+	if _, found := monoCableByItem[longCable]; found {
+		t.Errorf("mono side-B cable should not count at all, found: %+v", monoCableByItem[longCable])
+	}
+}
+
+// TestOutputDeviceSharedAcrossChannels verifies FR-007/FR-008/SC-002: a
+// shared device referenced by several output channels' chains is counted
+// exactly once on the rental order, regardless of how many chains
+// reference it.
+func TestOutputDeviceSharedAcrossChannels(t *testing.T) {
+	database := openTestDB(t)
+	cat := seedCatalog(t, database)
+	eventID := createTestEvent(t, database)
+
+	headphoneAmp, err := CreateOutputDevice(database, domain.OutputDevice{EventID: eventID, Name: "IEM headphone amp", InventoryItemID: &cat.Amp})
+	if err != nil {
+		t.Fatalf("create shared device: %v", err)
+	}
+	for outputNumber := 1; outputNumber <= 3; outputNumber++ {
+		if _, err := CreateAudioPatchOutput(database, domain.AudioPatchOutput{
+			EventID: eventID, OutputNumber: outputNumber, OutputType: "iem",
+			Chain: []domain.OutputChainHop{{HopKind: "device", DeviceSource: "shared", OutputDeviceID: &headphoneAmp.ID}},
+		}); err != nil {
+			t.Fatalf("create output %d: %v", outputNumber, err)
+		}
+	}
+
+	summary, err := GetRentalSummary(database, eventID)
+	if err != nil {
+		t.Fatalf("get rental summary: %v", err)
+	}
+	byItem := summaryByItem(summary)
+	if got := byItem[cat.Amp].QuantityAudio; got != 1 {
+		t.Errorf("shared device referenced by 3 chains: quantity_audio=%d, want 1", got)
+	}
+
+	// Deleting the shared device clears every hop that referenced it
+	// instead of being blocked (research.md R4) — the rental line drops
+	// to zero (item no longer referenced at all).
+	if err := DeleteOutputDevice(database, headphoneAmp.ID); err != nil {
+		t.Fatalf("delete shared device: %v", err)
+	}
+	outputs, err := ListAudioPatchOutputs(database, eventID)
+	if err != nil {
+		t.Fatalf("list outputs: %v", err)
+	}
+	for _, output := range outputs {
+		for _, hop := range output.Chain {
+			if hop.OutputDeviceID != nil || hop.DeviceSource != "" {
+				t.Errorf("output %d hop still references deleted device: %+v", output.OutputNumber, hop)
+			}
+		}
+	}
+	afterSummary, err := GetRentalSummary(database, eventID)
+	if err != nil {
+		t.Fatalf("get rental summary after delete: %v", err)
+	}
+	if _, found := summaryByItem(afterSummary)[cat.Amp]; found {
+		t.Errorf("amp still on rental summary after its shared device was deleted")
 	}
 }
 

@@ -226,36 +226,47 @@ Feedback items 1–2. Data-model change on both patch directions.
       cable — verified byte-for-byte unchanged rental totals on the real
       reference event (SC-005).
 
-## Slice 10 — Output signal chains (spec: `output-chains`)
+## Slice 10 — Output signal chains (spec: `output-chains`) ✅ done 2026-07-09
 
 Feedback item 4, the deepest model change — depends on Slices 6 and 9.
 Today an output is just source + destination; real rigs are multi-hop
 chains that branch.
 
-- Per-output **chain of hops**, e.g. mixer → stagebox output → controller →
-  amplifier → sub 1 → sub 2 (chained) → speaker top; or the trivial
-  mixer local out → active speaker; or IEM paths: stagebox (×2 outputs for
-  a stereo bus) → multichannel headphone amp → stage multi → bodypack →
-  headphones.
-- Branching: one source/bus can fan out to multiple stageboxes/chains, and
-  shared devices (a multichannel headphone amp) are declared once and
-  referenced by several output channels.
-- Each hop selects its device (inventory or owned gear) and the cable into
-  it (an inventory cable item, Slice 6 pattern) — all counted on the rental
-  order.
-- Stereo LR chains reuse Slice 9's stereo semantics (declare once as a
-  stereo output).
-- Signal Flow tab and output print sheet render the full chains; gap
-  flagging extends to incomplete hops.
+- [x] Per-output **chain of hops** (`output_chain_hops`, replacing the flat
+      destination/amplifier/speaker/cable shape): each hop is a `device`
+      pick (inventory, owned gear, or a declared shared device) or a
+      `route` hand-off onto a stagebox/stage-multi channel (with its own
+      independent side B on a stereo channel), plus its own cable —
+      models mixer → stagebox out → controller → amplifier → sub 1 →
+      sub 2 (chained) → speaker top as readily as the trivial local-out →
+      active-speaker case, with no forced extra steps for the simple rig.
+- [x] **Shared output devices** (`output_devices`, its own per-event
+      manager): declared once, referenced by position from any number of
+      output channels' chains, counted exactly once on the rental order
+      regardless of reference count — closes the fan-out gap (a
+      multichannel headphone amp feeding 8 IEM mixes no longer needs to be
+      double-booked or omitted). Deleting one clears every referencing
+      hop instead of blocking, matching stagebox/stage-multi delete
+      behavior.
+- [x] Each hop's device (inventory items only — owned-gear hops are
+      structurally excluded, Slice 3's invariant) and any hop's cable
+      (Slice 6 pattern) are counted on the rental order; a stereo channel
+      doubles per-hop, non-shared items exactly as the old
+      speaker/cable arms did, while a shared-device hop stays single —
+      generalizing Slice 9's amplifier-never-doubles rule.
+- [x] Migration 023 is non-destructive: every existing output row converts
+      losslessly into an equivalent chain (the old amplifier becomes a
+      one-off shared device to preserve its non-doubling; the old speaker
+      becomes a plain hop; the old destination becomes a route hop) —
+      verified byte-for-byte unchanged rental totals against the real
+      reference event's LR output.
+- [x] Signal Flow tab and output print sheet render the full chain per
+      channel, hop by hop, with any hop missing its device (or route)
+      flagged as a gap — mirroring the input-side presentation from
+      Slice 5/9.
 
 ## Dependency graph
 
 ```
-Slices 0–9 ✅ done
-Slice 6 (rental: cables & stands) ──┬──→ Slice 10 (output chains)
-Slice 9 (stereo & DI) ──────────────┘
+Slices 0–10 ✅ done — roadmap complete
 ```
-
-Suggested order: 6 (restores the core "rental order is derived
-automatically" promise) → 7 (small, quick wins) → 8 → 9 → 10 (only
-remaining slice, now unblocked).
