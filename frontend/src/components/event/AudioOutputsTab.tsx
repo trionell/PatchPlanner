@@ -327,14 +327,15 @@ function OutputGraphCanvas({
   // than that constant.
   const [wrapperWidth, setWrapperWidth] = useState(1180)
   const [zoom, setZoom] = useState(1)
-  // The canvas's LOGICAL width (the coordinate space node positions and
-  // zone bounds live in) grows as you zoom out and shrinks as you zoom
-  // in, while canvasRef's own rendered box is scaled by `zoom` so its
-  // on-screen footprint always exactly matches the panel — zooming out
-  // reveals more logical room for the processing zone within the same
-  // panel size, rather than just shrinking the drawing and leaving
-  // empty space around it.
+  // The canvas's LOGICAL width/height (the coordinate space node
+  // positions and zone bounds live in) grow as you zoom out and shrink
+  // as you zoom in, while canvasRef's own rendered box is scaled by
+  // `zoom` so its on-screen footprint always exactly matches the panel
+  // in both dimensions — zooming out reveals more logical room for the
+  // processing zone within the same panel size, rather than just
+  // shrinking the drawing and leaving empty space around/below it.
   const canvasWidth = wrapperWidth / zoom
+  const canvasHeight = CANVAS_HEIGHT / zoom
 
   useLayoutEffect(() => {
     const el = wrapperRef.current
@@ -668,11 +669,11 @@ function OutputGraphCanvas({
         </div>
       </div>
       <div ref={wrapperRef} className="overflow-auto rounded-lg border border-zinc-800 bg-zinc-950/40" style={{ height: CANVAS_HEIGHT }}>
-        <div style={{ width: canvasWidth * zoom, height: CANVAS_HEIGHT * zoom }}>
-          <div ref={canvasRef} className="relative" style={{ width: canvasWidth, height: CANVAS_HEIGHT, transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
+        <div style={{ width: canvasWidth * zoom, height: canvasHeight * zoom }}>
+          <div ref={canvasRef} className="relative" style={{ width: canvasWidth, height: canvasHeight, transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
             <div className="pointer-events-none absolute inset-y-0 left-0 border-r border-dashed border-zinc-800 bg-white/[0.02]" style={{ width: ZONE_SOURCES_X + NODE_WIDTH + 24 }} />
             <div className="pointer-events-none absolute inset-y-0 right-0 border-l border-dashed border-zinc-800 bg-white/[0.02]" style={{ width: NODE_WIDTH + 48 }} />
-            <svg className="pointer-events-none absolute inset-0" width={canvasWidth} height={CANVAS_HEIGHT}>
+            <svg className="pointer-events-none absolute inset-0" width={canvasWidth} height={canvasHeight}>
               {paths.map((p) => (
                 <path key={p.id} d={p.d} fill="none" stroke={p.hasItem ? '#f59e0b' : '#71717a'} strokeWidth={2 / zoom} strokeDasharray={p.hasItem ? undefined : `${4 / zoom} ${3 / zoom}`} />
               ))}
