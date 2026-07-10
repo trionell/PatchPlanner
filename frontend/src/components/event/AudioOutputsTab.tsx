@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { LayoutGrid, Plus, Table2, Trash2, Unplug } from 'lucide-react'
+import { LayoutGrid, Minus, Plus, Table2, Trash2, Unplug } from 'lucide-react'
 import {
   createAudioOutput,
   createOutputCable,
@@ -251,12 +251,20 @@ function OutputChannelsSection({
 }
 
 const NODE_WIDTH = 200
-const CANVAS_WIDTH = 1180
 const CANVAS_HEIGHT = 640
+const CANVAS_MIN_WIDTH = 820
 const ZONE_SOURCES_X = 24
-const ZONE_DESTINATIONS_X = CANVAS_WIDTH - NODE_WIDTH - 24
-const ZONE_PROCESSING_MIN_X = 264
-const ZONE_PROCESSING_MAX_X = CANVAS_WIDTH - NODE_WIDTH - 264
+const ZOOM_MIN = 0.5
+const ZOOM_MAX = 1.5
+const ZOOM_STEP = 0.1
+
+/** Right/middle-zone edges depend on the canvas's live width — the panel resizes with the browser, so these can't be fixed constants. */
+function zoneDestinationsX(canvasWidth: number): number {
+  return canvasWidth - NODE_WIDTH - 24
+}
+function zoneProcessingBounds(canvasWidth: number): { min: number; max: number } {
+  return { min: 264, max: canvasWidth - NODE_WIDTH - 264 }
+}
 
 interface NodeLayout {
   kind: PortRef['kind']
@@ -302,6 +310,7 @@ function OutputGraphCanvas({
   cableItems: InventoryItem[]
   onChanged: () => Promise<void>
 }) {
+  const wrapperRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
   const portEls = useRef(new Map<string, HTMLElement>())
   const [paths, setPaths] = useState<{ id: number; d: string; hasItem: boolean }[]>([])
@@ -311,6 +320,37 @@ function OutputGraphCanvas({
   const [pickerPair, setPickerPair] = useState<{ from: PortRef; to: PortRef } | null>(null)
   const [infoCable, setInfoCable] = useState<OutputCable | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // The panel's real, live width — not a fixed constant — is what makes
+  // the Sources/Processing/Destinations zones actually line up with the
+  // panel's edges and follow the browser window when resized, instead of
+  // a hardcoded canvas width drifting out of view on any screen narrower
+  // than that constant.
+  const [wrapperWidth, setWrapperWidth] = useState(1180)
+  const [zoom, setZoom] = useState(1)
+  // The canvas's LOGICAL width (the coordinate space node positions and
+  // zone bounds live in) grows as you zoom out and shrinks as you zoom
+  // in, while canvasRef's own rendered box is scaled by `zoom` so its
+  // on-screen footprint always exactly matches the panel — zooming out
+  // reveals more logical room for the processing zone within the same
+  // panel size, rather than just shrinking the drawing and leaving
+  // empty space around it.
+  const canvasWidth = wrapperWidth / zoom
+
+  useLayoutEffect(() => {
+    const el = wrapperRef.current
+    if (!el) return
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width
+      if (width) setWrapperWidth(Math.max(CANVAS_MIN_WIDTH, Math.floor(width)))
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  function clampProcessingX(x: number): number {
+    const { min, max } = zoneProcessingBounds(canvasWidth)
+    return Math.max(min, Math.min(max, x))
+  }
 
   const portContext = { outputs, stageboxes, stageMultis, devices }
 
@@ -375,9 +415,10 @@ function OutputGraphCanvas({
       nodes.push({ kind: 'device', id: device.id, x: ZONE_SOURCES_X, y: pos.y, zone: 'sources' })
     }
 
+    const destX = zoneDestinationsX(canvasWidth)
     for (const device of destinationDevices) {
-      const pos = effectivePosition('device', device.id, ZONE_DESTINATIONS_X, device.position_y)
-      nodes.push({ kind: 'device', id: device.id, x: ZONE_DESTINATIONS_X, y: pos.y, zone: 'destinations' })
+      const pos = effectivePosition('device', device.id, destX, device.position_y)
+      nodes.push({ kind: 'device', id: device.id, x: destX, y: pos.y, zone: 'destinations' })
     }
 
     for (const sb of stageboxes) {
@@ -394,7 +435,7 @@ function OutputGraphCanvas({
     }
     return nodes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mixerPositionY, sourceDevices, destinationDevices, stageboxes, stageMultis, processingDevices, positions])
+  }, [mixerPositionY, sourceDevices, destinationDevices, stageboxes, stageMultis, processingDevices, positions, canvasWidth])
 
   useLayoutEffect(() => {
     const container = canvasRef.current
@@ -402,6 +443,12 @@ function OutputGraphCanvas({
       setPaths([])
       return
     }
+    // canvasRef is the element the zoom transform is applied to, so its
+    // own bounding rect is already post-scale screen pixels — dividing
+    // the offset from it by `zoom` converts back to the logical
+    // coordinate space the SVG (a child of that same scaled element)
+    // draws in, so the path aligns with the (also-scaled) node ports
+    // regardless of the current zoom level.
     const containerRect = container.getBoundingClientRect()
     const next = cables
       .map((cable) => {
@@ -410,17 +457,17 @@ function OutputGraphCanvas({
         if (!fromEl || !toEl) return null
         const fromRect = fromEl.getBoundingClientRect()
         const toRect = toEl.getBoundingClientRect()
-        const x1 = fromRect.left + fromRect.width / 2 - containerRect.left
-        const y1 = fromRect.top + fromRect.height / 2 - containerRect.top
-        const x2 = toRect.left + toRect.width / 2 - containerRect.left
-        const y2 = toRect.top + toRect.height / 2 - containerRect.top
+        const x1 = (fromRect.left + fromRect.width / 2 - containerRect.left) / zoom
+        const y1 = (fromRect.top + fromRect.height / 2 - containerRect.top) / zoom
+        const x2 = (toRect.left + toRect.width / 2 - containerRect.left) / zoom
+        const y2 = (toRect.top + toRect.height / 2 - containerRect.top) / zoom
         const dx = Math.max(60, Math.abs(x2 - x1) / 2)
         const d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`
         return { id: cable.id, d, hasItem: cable.cable_item_id != null || isCablelessToKind(cable.to_kind) }
       })
       .filter((p): p is { id: number; d: string; hasItem: boolean } => p !== null)
     setPaths(next)
-  }, [cables, layout])
+  }, [cables, layout, zoom])
 
   function persistPosition(kind: PortRef['kind'], id: number, x: number, y: number) {
     const onError = (e: unknown) => setError(e instanceof Error ? e.message : 'Failed to save position')
@@ -456,8 +503,14 @@ function OutputGraphCanvas({
     const key = `${kind}:${id}`
 
     function onMove(moveEvent: PointerEvent) {
-      const dx = mode === 'free' ? moveEvent.clientX - startX : 0
-      const dy = moveEvent.clientY - startY
+      // Node positions live in the canvas's unscaled logical coordinate
+      // space, but pointer movement is measured in real screen pixels —
+      // at zoom 2x, 1 logical pixel covers 2 screen pixels, so a screen
+      // delta has to be divided by the current zoom to get the matching
+      // logical delta (otherwise dragging at any zoom other than 100%
+      // moves nodes faster or slower than the cursor).
+      const dx = mode === 'free' ? (moveEvent.clientX - startX) / zoom : 0
+      const dy = (moveEvent.clientY - startY) / zoom
       const x = mode === 'free' ? clampProcessingX(origin.x + dx) : origin.x
       const y = Math.max(8, origin.y + dy)
       latest = { x, y }
@@ -580,13 +633,13 @@ function OutputGraphCanvas({
     }
     const containerRect = canvasRef.current.getBoundingClientRect()
     const fromRect = fromEl.getBoundingClientRect()
-    const x1 = fromRect.left + fromRect.width / 2 - containerRect.left
-    const y1 = fromRect.top + fromRect.height / 2 - containerRect.top
-    const x2 = dragGhost.x - containerRect.left
-    const y2 = dragGhost.y - containerRect.top
+    const x1 = (fromRect.left + fromRect.width / 2 - containerRect.left) / zoom
+    const y1 = (fromRect.top + fromRect.height / 2 - containerRect.top) / zoom
+    const x2 = (dragGhost.x - containerRect.left) / zoom
+    const y2 = (dragGhost.y - containerRect.top) / zoom
     const dx = Math.max(60, Math.abs(x2 - x1) / 2)
     setGhostPath(`M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`)
-  }, [dragGhost])
+  }, [dragGhost, zoom])
 
   return (
     <div className="space-y-2">
@@ -596,92 +649,107 @@ function OutputGraphCanvas({
           Selected {pendingPort.label} — click a free {pendingPort.direction === 'out' ? 'input' : 'output'} port to connect, or click it again to cancel.
         </div>
       )}
-      <div className="grid grid-cols-3 px-1 font-mono text-[10px] uppercase tracking-widest text-zinc-500">
-        <span>← Sources</span>
-        <span className="text-center">Processing</span>
-        <span className="text-right">Destinations →</span>
+      <div className="flex items-center justify-between px-1">
+        <div className="grid flex-1 grid-cols-3 font-mono text-[10px] uppercase tracking-widest text-zinc-500">
+          <span>← Sources</span>
+          <span className="text-center">Processing</span>
+          <span className="text-right">Destinations →</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setZoom((z) => Math.max(ZOOM_MIN, Math.round((z - ZOOM_STEP) * 100) / 100))} title="Zoom out">
+            <Minus className="h-3.5 w-3.5" />
+          </Button>
+          <button type="button" onClick={() => setZoom(1)} className="w-11 text-center font-mono text-[11px] text-zinc-400 hover:text-zinc-200" title="Reset zoom">
+            {Math.round(zoom * 100)}%
+          </button>
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setZoom((z) => Math.min(ZOOM_MAX, Math.round((z + ZOOM_STEP) * 100) / 100))} title="Zoom in">
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
-      <div className="overflow-auto rounded-lg border border-zinc-800 bg-zinc-950/40">
-        <div ref={canvasRef} className="relative" style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }}>
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-52 border-r border-dashed border-zinc-800 bg-white/[0.02]" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-52 border-l border-dashed border-zinc-800 bg-white/[0.02]" />
-          <svg className="pointer-events-none absolute inset-0" width={CANVAS_WIDTH} height={CANVAS_HEIGHT}>
-            {paths.map((p) => (
-              <path key={p.id} d={p.d} fill="none" stroke={p.hasItem ? '#f59e0b' : '#71717a'} strokeWidth={2} strokeDasharray={p.hasItem ? undefined : '4 3'} />
-            ))}
-            {ghostPath && <path d={ghostPath} fill="none" stroke="#f59e0b" strokeWidth={2} strokeDasharray="5 4" opacity={0.85} />}
-          </svg>
-          {layout.map((node) => {
-            if (node.kind === 'mixer') {
+      <div ref={wrapperRef} className="overflow-auto rounded-lg border border-zinc-800 bg-zinc-950/40" style={{ height: CANVAS_HEIGHT }}>
+        <div style={{ width: canvasWidth * zoom, height: CANVAS_HEIGHT * zoom }}>
+          <div ref={canvasRef} className="relative" style={{ width: canvasWidth, height: CANVAS_HEIGHT, transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
+            <div className="pointer-events-none absolute inset-y-0 left-0 border-r border-dashed border-zinc-800 bg-white/[0.02]" style={{ width: ZONE_SOURCES_X + NODE_WIDTH + 24 }} />
+            <div className="pointer-events-none absolute inset-y-0 right-0 border-l border-dashed border-zinc-800 bg-white/[0.02]" style={{ width: NODE_WIDTH + 48 }} />
+            <svg className="pointer-events-none absolute inset-0" width={canvasWidth} height={CANVAS_HEIGHT}>
+              {paths.map((p) => (
+                <path key={p.id} d={p.d} fill="none" stroke={p.hasItem ? '#f59e0b' : '#71717a'} strokeWidth={2 / zoom} strokeDasharray={p.hasItem ? undefined : `${4 / zoom} ${3 / zoom}`} />
+              ))}
+              {ghostPath && <path d={ghostPath} fill="none" stroke="#f59e0b" strokeWidth={2 / zoom} strokeDasharray={`${5 / zoom} ${4 / zoom}`} opacity={0.85} />}
+            </svg>
+            {layout.map((node) => {
+              if (node.kind === 'mixer') {
+                return (
+                  <MixerNode
+                    key="mixer"
+                    x={node.x}
+                    y={node.y}
+                    outputs={outputs}
+                    cables={cables}
+                    pendingPort={pendingPort}
+                    onPortClick={handlePortClick}
+                    onPortPointerDown={handlePortPointerDown}
+                    registerPort={registerPort}
+                    onDragStart={(e) => startNodeDrag('mixer', 0, 'y-only', e)}
+                  />
+                )
+              }
+              if (node.kind === 'stagebox') {
+                const sb = stageboxes.find((s) => s.id === node.id)
+                if (!sb) return null
+                return (
+                  <StageboxNode
+                    key={`sb-${sb.id}`}
+                    x={node.x}
+                    y={node.y}
+                    stagebox={sb}
+                    cables={cables}
+                    pendingPort={pendingPort}
+                    onPortClick={handlePortClick}
+                    onPortPointerDown={handlePortPointerDown}
+                    registerPort={registerPort}
+                    onDragStart={(e) => startNodeDrag('stagebox', sb.id, 'free', e)}
+                  />
+                )
+              }
+              if (node.kind === 'stage_multi') {
+                const sm = stageMultis.find((s) => s.id === node.id)
+                if (!sm) return null
+                return (
+                  <StageMultiNode
+                    key={`sm-${sm.id}`}
+                    x={node.x}
+                    y={node.y}
+                    stageMulti={sm}
+                    cables={cables}
+                    pendingPort={pendingPort}
+                    onPortClick={handlePortClick}
+                    onPortPointerDown={handlePortPointerDown}
+                    registerPort={registerPort}
+                    onDragStart={(e) => startNodeDrag('stage_multi', sm.id, 'free', e)}
+                  />
+                )
+              }
+              const device = devices.find((d) => d.id === node.id)
+              if (!device) return null
               return (
-                <MixerNode
-                  key="mixer"
+                <DeviceNode
+                  key={`dev-${device.id}`}
                   x={node.x}
                   y={node.y}
-                  outputs={outputs}
+                  device={device}
                   cables={cables}
                   pendingPort={pendingPort}
                   onPortClick={handlePortClick}
                   onPortPointerDown={handlePortPointerDown}
                   registerPort={registerPort}
-                  onDragStart={(e) => startNodeDrag('mixer', 0, 'y-only', e)}
+                  onDragStart={(e) => startNodeDrag('device', device.id, node.zone === 'processing' ? 'free' : 'y-only', e)}
+                  onDelete={() => deleteDeviceMutation.mutate(device.id)}
                 />
               )
-            }
-            if (node.kind === 'stagebox') {
-              const sb = stageboxes.find((s) => s.id === node.id)
-              if (!sb) return null
-              return (
-                <StageboxNode
-                  key={`sb-${sb.id}`}
-                  x={node.x}
-                  y={node.y}
-                  stagebox={sb}
-                  cables={cables}
-                  pendingPort={pendingPort}
-                  onPortClick={handlePortClick}
-                  onPortPointerDown={handlePortPointerDown}
-                  registerPort={registerPort}
-                  onDragStart={(e) => startNodeDrag('stagebox', sb.id, 'free', e)}
-                />
-              )
-            }
-            if (node.kind === 'stage_multi') {
-              const sm = stageMultis.find((s) => s.id === node.id)
-              if (!sm) return null
-              return (
-                <StageMultiNode
-                  key={`sm-${sm.id}`}
-                  x={node.x}
-                  y={node.y}
-                  stageMulti={sm}
-                  cables={cables}
-                  pendingPort={pendingPort}
-                  onPortClick={handlePortClick}
-                  onPortPointerDown={handlePortPointerDown}
-                  registerPort={registerPort}
-                  onDragStart={(e) => startNodeDrag('stage_multi', sm.id, 'free', e)}
-                />
-              )
-            }
-            const device = devices.find((d) => d.id === node.id)
-            if (!device) return null
-            return (
-              <DeviceNode
-                key={`dev-${device.id}`}
-                x={node.x}
-                y={node.y}
-                device={device}
-                cables={cables}
-                pendingPort={pendingPort}
-                onPortClick={handlePortClick}
-                onPortPointerDown={handlePortPointerDown}
-                registerPort={registerPort}
-                onDragStart={(e) => startNodeDrag('device', device.id, node.zone === 'processing' ? 'free' : 'y-only', e)}
-                onDelete={() => deleteDeviceMutation.mutate(device.id)}
-              />
-            )
-          })}
+            })}
+          </div>
         </div>
       </div>
       {devices.length === 0 && stageboxes.length === 0 && stageMultis.length === 0 && (
@@ -729,10 +797,6 @@ function OutputGraphCanvas({
       )}
     </div>
   )
-}
-
-function clampProcessingX(x: number): number {
-  return Math.max(ZONE_PROCESSING_MIN_X, Math.min(ZONE_PROCESSING_MAX_X, x))
 }
 
 function PortDot({
