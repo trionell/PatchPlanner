@@ -122,6 +122,40 @@ export function nodeZone(kind: PortRef['kind'], id: number, context: { devices: 
 }
 
 /** Whether a specific port already carries a cable. */
+/**
+ * Resolves a bare (kind, id, port, direction) tuple — e.g. decoded from a
+ * DOM element's data attribute during a drag-and-drop cable gesture —
+ * back into a full PortRef with its label. Undefined if the node no
+ * longer exists or the port index isn't currently valid for it.
+ */
+export function resolvePortRef(
+  kind: PortRef['kind'],
+  id: number,
+  port: number,
+  direction: 'in' | 'out',
+  context: { outputs: AudioPatchOutput[]; stageboxes: Stagebox[]; stageMultis: StageMulti[]; devices: OutputDevice[] },
+): PortRef | undefined {
+  if (kind === 'mixer') {
+    return mixerPorts(context.outputs).find((p) => p.id === id && p.port === port)
+  }
+  if (kind === 'stagebox') {
+    const stagebox = context.stageboxes.find((sb) => sb.id === id)
+    if (!stagebox) return undefined
+    const { inputs, outputs } = stageboxPorts(stagebox)
+    return (direction === 'in' ? inputs : outputs).find((p) => p.port === port)
+  }
+  if (kind === 'stage_multi') {
+    const stageMulti = context.stageMultis.find((sm) => sm.id === id)
+    if (!stageMulti) return undefined
+    const { inputs, outputs } = stageMultiPorts(stageMulti)
+    return (direction === 'in' ? inputs : outputs).find((p) => p.port === port)
+  }
+  const device = context.devices.find((d) => d.id === id)
+  if (!device) return undefined
+  const { inputs, outputs } = devicePorts(device)
+  return (direction === 'in' ? inputs : outputs).find((p) => p.port === port)
+}
+
 export function isPortConnected(
   kind: PortRef['kind'],
   id: number,

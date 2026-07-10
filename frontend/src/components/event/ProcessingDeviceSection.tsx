@@ -11,16 +11,20 @@ import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
 
 /**
- * Manager for the event's declared shared output devices (Slice 11 US1) —
- * same create/rename/delete shape as StageboxMultiSection/BusSection, now
- * with each side's port count and connector type (the graph's node
- * shape). Declared once here, wired into the signal-flow graph by
- * drawing cables to/from it on the canvas; counted once on the rental
- * order regardless of how many cables reference it. Deleting a device
- * clears every cable that referenced it instead of being blocked (matches
- * stagebox/stage-multi delete behavior).
+ * Manager for devices with an output side — sources (no inputs, e.g. a
+ * standalone signal generator) and true processing gear (both an input
+ * and an output, e.g. an amplifier or distro). Devices with only an
+ * input side live in the separate Output Devices section instead
+ * (TrueOutputDeviceSection) — this split mirrors the canvas's own
+ * Sources/Processing vs. Destinations zones, so a form never asks for
+ * fields that don't apply to the kind of gear it's declaring. Declared
+ * once here, wired into the signal-flow graph by drawing cables to/from
+ * it on the canvas; counted once on the rental order regardless of how
+ * many cables reference it. Deleting a device clears every cable that
+ * referenced it instead of being blocked (matches stagebox/stage-multi
+ * delete behavior).
  */
-export function OutputDeviceSection({
+export function ProcessingDeviceSection({
   eventId,
   devices,
   audioItems,
@@ -47,6 +51,8 @@ export function OutputDeviceSection({
   })
   const deleteM = useMutation({ mutationFn: (id: number) => deleteOutputDevice(eventId, id), onSuccess: invalidate })
 
+  const processingDevices = devices.filter((d) => d.output_port_count > 0)
+
   const [draftName, setDraftName] = useState('')
   const [draftSource, setDraftSource] = useState<'inventory' | 'owned'>('inventory')
   const [draftItemId, setDraftItemId] = useState<number | undefined>(undefined)
@@ -55,25 +61,24 @@ export function OutputDeviceSection({
   const [draftOutputs, setDraftOutputs] = useState('1')
   const [draftOutputConnector, setDraftOutputConnector] = useState('')
 
-  const canAdd = draftName.trim() && draftItemId && (Number(draftInputs) > 0 || Number(draftOutputs) > 0) &&
-    (Number(draftInputs) === 0 || draftInputConnector) && (Number(draftOutputs) === 0 || draftOutputConnector)
+  const canAdd = draftName.trim() && draftItemId && Number(draftOutputs) > 0 && draftOutputConnector &&
+    (Number(draftInputs) === 0 || draftInputConnector)
 
   const add = () => {
-    const name = draftName.trim()
-    if (!name || !draftItemId || !canAdd) return
-    // New devices land in a staggered default position, not stacked on
-    // the canvas origin — the tech drags them into place afterward
-    // (data-model.md's state-transition note).
+    if (!canAdd) return
+    // New nodes land staggered, not stacked on the canvas origin — the
+    // tech drags them into place afterward (data-model.md's
+    // state-transition note).
     const position_x = 420 + (devices.length % 3) * 220
     const position_y = 60 + Math.floor(devices.length / 3) * 160
     createM.mutate({
-      name,
+      name: draftName.trim(),
       inventory_item_id: draftSource === 'inventory' ? draftItemId : undefined,
       owned_item_id: draftSource === 'owned' ? draftItemId : undefined,
       input_port_count: Number(draftInputs) || 0,
       input_connector_type: Number(draftInputs) > 0 ? draftInputConnector : undefined,
       output_port_count: Number(draftOutputs) || 0,
-      output_connector_type: Number(draftOutputs) > 0 ? draftOutputConnector : undefined,
+      output_connector_type: draftOutputConnector,
       position_x,
       position_y,
     })
@@ -117,12 +122,12 @@ export function OutputDeviceSection({
 
   return (
     <Card className="mb-6">
-      <CardHeader><CardTitle>Output devices</CardTitle></CardHeader>
+      <CardHeader><CardTitle>Processing devices</CardTitle></CardHeader>
       <CardContent className="space-y-2">
         <p className="text-sm text-zinc-400">
-          Declare a device once (an amp, a splitter, a headphone distro…) with its port counts and connector types, then wire it into the graph below by drawing cables to/from it — counted once on the rental order no matter how many cables reference it.
+          Gear with an output side — an amplifier, a splitter, a headphone distro, or a standalone source. Declare it once with its port counts and connector types, then wire it into the graph below — counted once on the rental order no matter how many cables reference it.
         </p>
-        {devices.map((device) => (
+        {processingDevices.map((device) => (
           <div key={device.id} className="flex flex-wrap items-center gap-2 border-b border-zinc-800 pb-2">
             <Input
               key={`${device.id}-name`}
@@ -157,16 +162,15 @@ export function OutputDeviceSection({
               <span>Out</span>
               <Input
                 type="number"
-                min={0}
+                min={1}
                 defaultValue={device.output_port_count}
-                onBlur={(e) => saveField(device, { output_port_count: Number(e.target.value) || 0 })}
+                onBlur={(e) => saveField(device, { output_port_count: Number(e.target.value) || 1 })}
                 className="w-14"
               />
               <Select
                 value={device.output_connector_type ?? ''}
                 onChange={(e) => saveField(device, { output_connector_type: e.target.value || undefined })}
                 className="w-24"
-                disabled={device.output_port_count === 0}
               >
                 <option value="">—</option>
                 {options('speaker_cable_types', device.output_connector_type).map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
@@ -206,8 +210,8 @@ export function OutputDeviceSection({
           </div>
           <div className="flex items-center gap-1 text-xs text-zinc-400">
             <span>Out</span>
-            <Input type="number" min={0} value={draftOutputs} onChange={(e) => setDraftOutputs(e.target.value)} className="w-14" />
-            <Select value={draftOutputConnector} onChange={(e) => setDraftOutputConnector(e.target.value)} className="w-24" disabled={Number(draftOutputs) === 0}>
+            <Input type="number" min={1} value={draftOutputs} onChange={(e) => setDraftOutputs(e.target.value)} className="w-14" />
+            <Select value={draftOutputConnector} onChange={(e) => setDraftOutputConnector(e.target.value)} className="w-24">
               <option value="">—</option>
               {options('speaker_cable_types', draftOutputConnector).map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
             </Select>
