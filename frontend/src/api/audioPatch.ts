@@ -1,7 +1,11 @@
 import type { AudioPatchInput, AudioPatchOutput, AudioPatchResponse, BusRequest, MixerDCA, MixerGroup, OutputCable, OutputDevice, Stagebox, StageMulti } from '../types'
-import { request } from './client'
+import { get, request } from './client'
 
-export const getAudioPatch = (eventId: number) => request<AudioPatchResponse>(`/events/${eventId}/audio-patch`)
+// Forwards TanStack Query's AbortSignal — this query is invalidated very
+// frequently by the output graph (every cable/device/position edit), so
+// cancelling superseded fetches matters here more than almost anywhere
+// else in the app (see client.ts's `get` doc comment).
+export const getAudioPatch = (eventId: number, signal?: AbortSignal) => get<AudioPatchResponse>(`/events/${eventId}/audio-patch`, signal)
 
 export const createStagebox = (eventId: number, data: Omit<Stagebox, 'id'>) =>
   request<Stagebox>(`/events/${eventId}/stageboxes`, { method: 'POST', body: JSON.stringify(data) })

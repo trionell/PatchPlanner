@@ -59,7 +59,7 @@ function parsePortKey(key: string): { kind: PortRef['kind']; id: number; port: n
 
 export function AudioOutputsTab({ eventId }: { eventId: number }) {
   const queryClient = useQueryClient()
-  const audioQuery = useQuery({ queryKey: ['audio-patch', eventId], queryFn: () => getAudioPatch(eventId) })
+  const audioQuery = useQuery({ queryKey: ['audio-patch', eventId], queryFn: ({ signal }) => getAudioPatch(eventId, signal) })
   const inventoryQuery = useQuery({ queryKey: ['inventory-audio-items'], queryFn: () => listInventoryItems({ categoryType: 'audio' }) })
   const cableQuery = useQuery({ queryKey: ['inventory-items', 'role', 'cable'], queryFn: () => listInventoryItems({ role: 'cable' }) })
   const ownedQuery = useQuery({ queryKey: ['owned-items'], queryFn: listOwnedItems })
