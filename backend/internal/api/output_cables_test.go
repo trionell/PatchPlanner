@@ -459,3 +459,138 @@ func TestStageboxPassThroughAndMixerFanOut(t *testing.T) {
 		t.Errorf("mixer position_y = %v, want 123.5", patch.OutputMixerPositionY)
 	}
 }
+
+// TestOutputDeviceLinkPorts covers the link-out ports follow-up: a
+// destination device (0 output ports) can still declare link-out ports
+// (from_kind="device_link") and daisy-chain into another destination
+// device's ordinary input — e.g. sub -> sub -> top — with a link cable
+// counted as a real, separately rentable cable (unlike stagebox/stage-multi
+// routing), the device staying pinned as a destination regardless of its
+// link ports, and shrinking link_port_count blocked while a cable still
+// references the port being removed.
+func TestOutputDeviceLinkPorts(t *testing.T) {
+	server, database := newTestServer(t)
+	eventID := seedEvent(t, server.URL)
+	subItem := seedItem(t, database, "Sub", 4, 600)
+	topItem := seedItem(t, database, "Top", 4, 550)
+	linkCable := seedItem(t, database, "Speakon Link Cable", 10, 20)
+
+	outputsURL := fmt.Sprintf("%s/events/%d/audio-outputs", server.URL, eventID)
+	devicesURL := fmt.Sprintf("%s/events/%d/output-devices", server.URL, eventID)
+	cablesURL := fmt.Sprintf("%s/events/%d/output-cables", server.URL, eventID)
+
+	status, raw := doJSON(t, http.MethodPost, outputsURL, map[string]any{"output_number": 1, "output_type": "foh", "width": "mono"})
+	if status != http.StatusCreated {
+		t.Fatalf("POST output: status %d body %s", status, raw)
+	}
+	output := decodeJSON[domain.AudioPatchOutput](t, raw)
+
+	status, raw = doJSON(t, http.MethodPost, devicesURL, map[string]any{
+		"name": "Sub 1", "inventory_item_id": subItem, "input_port_count": 1, "input_connector_type": "speakon",
+		"link_port_count": 1, "link_connector_type": "speakon",
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("POST sub1: status %d body %s", status, raw)
+	}
+	sub1 := decodeJSON[domain.OutputDevice](t, raw)
+
+	status, raw = doJSON(t, http.MethodPost, devicesURL, map[string]any{
+		"name": "Sub 2", "inventory_item_id": subItem, "input_port_count": 1, "input_connector_type": "speakon",
+		"link_port_count": 1, "link_connector_type": "speakon",
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("POST sub2: status %d body %s", status, raw)
+	}
+	sub2 := decodeJSON[domain.OutputDevice](t, raw)
+
+	status, raw = doJSON(t, http.MethodPost, devicesURL, map[string]any{
+		"name": "Top", "inventory_item_id": topItem, "input_port_count": 1, "input_connector_type": "speakon",
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("POST top: status %d body %s", status, raw)
+	}
+	top := decodeJSON[domain.OutputDevice](t, raw)
+
+	// mixer -> sub1 (ordinary input), sub1 link-out -> sub2, sub2 link-out -> top.
+	if status, raw = doJSON(t, http.MethodPost, cablesURL, map[string]any{
+		"from_kind": "mixer", "from_id": output.ID, "from_port": 0,
+		"to_kind": "device", "to_id": sub1.ID, "to_port": 0,
+	}); status != http.StatusCreated {
+		t.Fatalf("mixer->sub1: status %d body %s", status, raw)
+	}
+	status, raw = doJSON(t, http.MethodPost, cablesURL, map[string]any{
+		"from_kind": "device_link", "from_id": sub1.ID, "from_port": 0,
+		"to_kind": "device", "to_id": sub2.ID, "to_port": 0, "cable_item_id": linkCable,
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("sub1 link->sub2: status %d body %s", status, raw)
+	}
+	sub1ToSub2 := decodeJSON[domain.OutputCable](t, raw)
+	if sub1ToSub2.FromKind != "device_link" || sub1ToSub2.CableItemID == nil || *sub1ToSub2.CableItemID != linkCable {
+		t.Errorf("sub1 link->sub2 cable = %+v, want from_kind=device_link and cable item %d", sub1ToSub2, linkCable)
+	}
+	if status, raw = doJSON(t, http.MethodPost, cablesURL, map[string]any{
+		"from_kind": "device_link", "from_id": sub2.ID, "from_port": 0,
+		"to_kind": "device", "to_id": top.ID, "to_port": 0,
+	}); status != http.StatusCreated {
+		t.Fatalf("sub2 link->top: status %d body %s", status, raw)
+	}
+
+	// A link port stays one-cable-per-port, unlike a mixer port.
+	status, raw = doJSON(t, http.MethodPost, devicesURL, map[string]any{
+		"name": "Another top", "inventory_item_id": topItem, "input_port_count": 1, "input_connector_type": "speakon",
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("POST another top: status %d body %s", status, raw)
+	}
+	anotherTop := decodeJSON[domain.OutputDevice](t, raw)
+	if status, raw = doJSON(t, http.MethodPost, cablesURL, map[string]any{
+		"from_kind": "device_link", "from_id": sub1.ID, "from_port": 0,
+		"to_kind": "device", "to_id": anotherTop.ID, "to_port": 0,
+	}); status != http.StatusConflict {
+		t.Errorf("link port reused for a second cable: status %d body %s, want 409", status, raw)
+	}
+
+	// Shrinking link_port_count to 0 while a cable still uses port 0 is blocked.
+	updateURL := fmt.Sprintf("%s/%d", devicesURL, sub1.ID)
+	if status, raw = doJSON(t, http.MethodPatch, updateURL, map[string]any{
+		"name": "Sub 1", "inventory_item_id": subItem, "input_port_count": 1, "input_connector_type": "speakon",
+		"link_port_count": 0,
+	}); status != http.StatusConflict {
+		t.Errorf("shrinking link_port_count with an attached cable: status %d body %s, want 409", status, raw)
+	}
+
+	// A device stays classified as a destination (0 output ports) even
+	// with link ports declared — verified indirectly via GET (no
+	// output_port_count leaks a nonzero value just because links exist).
+	status, raw = doJSON(t, http.MethodGet, fmt.Sprintf("%s/events/%d/audio-patch", server.URL, eventID), nil)
+	if status != http.StatusOK {
+		t.Fatalf("GET patch: status %d body %s", status, raw)
+	}
+	patch := decodeJSON[struct {
+		OutputDevices []domain.OutputDevice `json:"output_devices"`
+	}](t, raw)
+	for _, d := range patch.OutputDevices {
+		if d.ID == sub1.ID && d.OutputPortCount != 0 {
+			t.Errorf("sub1 output_port_count = %d, want 0 (link ports must not affect it)", d.OutputPortCount)
+		}
+	}
+
+	// Rental: the link cable counts once (a real physical run), same as
+	// any other device-to-device cable.
+	status, raw = doJSON(t, http.MethodGet, fmt.Sprintf("%s/events/%d/rentals", server.URL, eventID), nil)
+	if status != http.StatusOK {
+		t.Fatalf("GET rentals: status %d body %s", status, raw)
+	}
+	summary := decodeJSON[domain.RentalSummary](t, raw)
+	byID := map[int64]domain.EventRental{}
+	for _, line := range summary.Items {
+		byID[line.InventoryItemID] = line
+	}
+	if line := byID[linkCable]; line.QuantityAudio != 1 {
+		t.Errorf("link cable line audio=%d, want 1", line.QuantityAudio)
+	}
+	if line := byID[subItem]; line.QuantityAudio != 2 {
+		t.Errorf("sub device line audio=%d, want 2", line.QuantityAudio)
+	}
+}
