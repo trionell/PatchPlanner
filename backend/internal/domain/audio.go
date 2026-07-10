@@ -76,7 +76,11 @@ var (
 	// from_kind. A stagebox is a full pass-through: its existing
 	// OutputCount sizes both sides (a channel routes into a specific
 	// jack, a real cable carries on from it), mirroring stage_multi.
-	ValidPortFromKinds = []string{"mixer", "stagebox", "stage_multi", "device"}
+	// device_link is a destination device's link-out side (chaining to
+	// another device's ordinary input, e.g. sub → sub → top) — a
+	// from_kind only, since a link cable's other end is always an
+	// ordinary device input (to_kind="device"), never its own kind.
+	ValidPortFromKinds = []string{"mixer", "stagebox", "stage_multi", "device", "device_link"}
 	ValidPortToKinds   = []string{"stagebox", "stage_multi", "device"}
 )
 
@@ -89,6 +93,14 @@ var (
 // counted once on the rental order regardless of how many cables
 // reference it (research.md R4 — no width-based doubling, a physically
 // separate unit is simply its own row).
+//
+// LinkPortCount/LinkConnectorType are a destination device's link-out
+// ports (chaining to another device's ordinary input, e.g. sub → sub →
+// top, or three line-array boxes fed from one amp channel) — deliberately
+// separate from OutputPortCount so a destination device (OutputPortCount
+// == 0) stays a destination — pinned to the Destinations rail — even
+// with link ports declared; it never becomes a "processing" node just
+// because it can pass its signal on to another box.
 type OutputDevice struct {
 	ID              int64  `json:"id"`
 	EventID         int64  `json:"event_id"`
@@ -100,6 +112,8 @@ type OutputDevice struct {
 	InputConnectorType  string `json:"input_connector_type,omitempty"`
 	OutputPortCount     int    `json:"output_port_count"`
 	OutputConnectorType string `json:"output_connector_type,omitempty"`
+	LinkPortCount       int    `json:"link_port_count"`
+	LinkConnectorType   string `json:"link_connector_type,omitempty"`
 
 	PositionX float64 `json:"position_x"`
 	PositionY float64 `json:"position_y"`

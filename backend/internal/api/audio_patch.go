@@ -766,8 +766,8 @@ func (h AudioPatchHandler) validOutputDeviceItemRefs(w http.ResponseWriter, devi
 // cables currently attached to it — the caller must delete those cables
 // first (FR-016).
 func (h AudioPatchHandler) validOutputDevicePorts(w http.ResponseWriter, eventID int64, existingID *int64, device domain.OutputDevice) bool {
-	if device.InputPortCount < 0 || device.OutputPortCount < 0 {
-		writeError(w, http.StatusBadRequest, "input_port_count and output_port_count must be >= 0")
+	if device.InputPortCount < 0 || device.OutputPortCount < 0 || device.LinkPortCount < 0 {
+		writeError(w, http.StatusBadRequest, "input_port_count, output_port_count, and link_port_count must be >= 0")
 		return false
 	}
 	if device.InputPortCount == 0 && device.OutputPortCount == 0 {
@@ -782,6 +782,10 @@ func (h AudioPatchHandler) validOutputDevicePorts(w http.ResponseWriter, eventID
 		writeError(w, http.StatusBadRequest, "output_connector_type must be set exactly when output_port_count > 0")
 		return false
 	}
+	if (device.LinkPortCount > 0) != (strings.TrimSpace(device.LinkConnectorType) != "") {
+		writeError(w, http.StatusBadRequest, "link_connector_type must be set exactly when link_port_count > 0")
+		return false
+	}
 	if existingID == nil {
 		return true
 	}
@@ -793,6 +797,9 @@ func (h AudioPatchHandler) validOutputDevicePorts(w http.ResponseWriter, eventID
 	var orphaned []domain.OutputCable
 	for _, cable := range cables {
 		if cable.FromKind == "device" && cable.FromID == *existingID && cable.FromPort >= device.OutputPortCount {
+			orphaned = append(orphaned, cable)
+		}
+		if cable.FromKind == "device_link" && cable.FromID == *existingID && cable.FromPort >= device.LinkPortCount {
 			orphaned = append(orphaned, cable)
 		}
 		if cable.ToKind == "device" && cable.ToID == *existingID && cable.ToPort >= device.InputPortCount {
@@ -889,7 +896,7 @@ func (h AudioPatchHandler) deleteOutputCable(w http.ResponseWriter, r *http.Requ
 // (data-model.md's OutputCable validation rules, research.md R2/R7).
 func (h AudioPatchHandler) validOutputCable(w http.ResponseWriter, eventID int64, cable domain.OutputCable) bool {
 	if !slices.Contains(domain.ValidPortFromKinds, cable.FromKind) {
-		writeError(w, http.StatusBadRequest, "from_kind must be one of: mixer, stagebox, stage_multi, device")
+		writeError(w, http.StatusBadRequest, "from_kind must be one of: mixer, stagebox, stage_multi, device, device_link")
 		return false
 	}
 	if !slices.Contains(domain.ValidPortToKinds, cable.ToKind) {
@@ -1001,6 +1008,17 @@ func (h AudioPatchHandler) nodeOutputPortCount(w http.ResponseWriter, eventID in
 			return 0, false
 		}
 		return outputCount, true
+	case "device_link":
+		if !h.itemBelongsToEvent("output_devices", eventID, id) {
+			writeError(w, http.StatusBadRequest, "from_id references a device of another event")
+			return 0, false
+		}
+		count, err := dbstore.OutputDeviceLinkPortCount(h.DB, id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return 0, false
+		}
+		return count, true
 	}
 	writeError(w, http.StatusBadRequest, "unknown from_kind")
 	return 0, false

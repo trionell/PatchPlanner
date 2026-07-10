@@ -341,7 +341,7 @@ func DeleteAudioPatchOutput(db *sql.DB, id int64) error {
 	return nil
 }
 
-const outputDeviceColumns = `id, event_id, name, inventory_item_id, owned_item_id, input_port_count, COALESCE(input_connector_type, ''), output_port_count, COALESCE(output_connector_type, ''), position_x, position_y`
+const outputDeviceColumns = `id, event_id, name, inventory_item_id, owned_item_id, input_port_count, COALESCE(input_connector_type, ''), output_port_count, COALESCE(output_connector_type, ''), link_port_count, COALESCE(link_connector_type, ''), position_x, position_y`
 
 func ListOutputDevices(db *sql.DB, eventID int64) ([]domain.OutputDevice, error) {
 	rows, err := db.Query(`SELECT `+outputDeviceColumns+` FROM output_devices WHERE event_id = ? ORDER BY id ASC`, eventID)
@@ -366,9 +366,10 @@ func GetOutputDevice(db *sql.DB, id int64) (domain.OutputDevice, error) {
 }
 
 func CreateOutputDevice(db *sql.DB, device domain.OutputDevice) (domain.OutputDevice, error) {
-	result, err := db.Exec(`INSERT INTO output_devices (event_id, name, inventory_item_id, owned_item_id, input_port_count, input_connector_type, output_port_count, output_connector_type, position_x, position_y) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	result, err := db.Exec(`INSERT INTO output_devices (event_id, name, inventory_item_id, owned_item_id, input_port_count, input_connector_type, output_port_count, output_connector_type, link_port_count, link_connector_type, position_x, position_y) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		device.EventID, device.Name, nullInt64(device.InventoryItemID), nullInt64(device.OwnedItemID),
 		device.InputPortCount, nullString(device.InputConnectorType), device.OutputPortCount, nullString(device.OutputConnectorType),
+		device.LinkPortCount, nullString(device.LinkConnectorType),
 		device.PositionX, device.PositionY)
 	if err != nil {
 		return domain.OutputDevice{}, fmt.Errorf("create output device: %w", err)
@@ -378,9 +379,10 @@ func CreateOutputDevice(db *sql.DB, device domain.OutputDevice) (domain.OutputDe
 }
 
 func UpdateOutputDevice(db *sql.DB, id int64, device domain.OutputDevice) (domain.OutputDevice, error) {
-	_, err := db.Exec(`UPDATE output_devices SET name = ?, inventory_item_id = ?, owned_item_id = ?, input_port_count = ?, input_connector_type = ?, output_port_count = ?, output_connector_type = ?, position_x = ?, position_y = ? WHERE id = ?`,
+	_, err := db.Exec(`UPDATE output_devices SET name = ?, inventory_item_id = ?, owned_item_id = ?, input_port_count = ?, input_connector_type = ?, output_port_count = ?, output_connector_type = ?, link_port_count = ?, link_connector_type = ?, position_x = ?, position_y = ? WHERE id = ?`,
 		device.Name, nullInt64(device.InventoryItemID), nullInt64(device.OwnedItemID),
 		device.InputPortCount, nullString(device.InputConnectorType), device.OutputPortCount, nullString(device.OutputConnectorType),
+		device.LinkPortCount, nullString(device.LinkConnectorType),
 		device.PositionX, device.PositionY, id)
 	if err != nil {
 		return domain.OutputDevice{}, fmt.Errorf("update output device: %w", err)
@@ -392,14 +394,16 @@ func UpdateOutputDevice(db *sql.DB, id int64, device domain.OutputDevice) (domai
 // device as either end before removing the device itself — never
 // blocks, matching how deleting a stagebox/stage-multi already clears the
 // cables that referenced it (research.md R4, carried forward from Slice
-// 10's identical rule for the old hop-based model).
+// 10's identical rule for the old hop-based model). A device's link-out
+// ports are addressed as their own from_kind ("device_link"), so they
+// need their own clause alongside the ordinary "device" one.
 func DeleteOutputDevice(db *sql.DB, id int64) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("delete output device: %w", err)
 	}
 	defer tx.Rollback()
-	if _, err := tx.Exec(`DELETE FROM output_cables WHERE (from_kind = 'device' AND from_id = ?) OR (to_kind = 'device' AND to_id = ?)`, id, id); err != nil {
+	if _, err := tx.Exec(`DELETE FROM output_cables WHERE (from_kind = 'device' AND from_id = ?) OR (from_kind = 'device_link' AND from_id = ?) OR (to_kind = 'device' AND to_id = ?)`, id, id, id); err != nil {
 		return fmt.Errorf("clear output device cables: %w", err)
 	}
 	if _, err := tx.Exec(`DELETE FROM output_devices WHERE id = ?`, id); err != nil {
@@ -413,6 +417,7 @@ func scanOutputDevice(row scanner) (domain.OutputDevice, error) {
 	var invID, ownedID sql.NullInt64
 	if err := row.Scan(&item.ID, &item.EventID, &item.Name, &invID, &ownedID,
 		&item.InputPortCount, &item.InputConnectorType, &item.OutputPortCount, &item.OutputConnectorType,
+		&item.LinkPortCount, &item.LinkConnectorType,
 		&item.PositionX, &item.PositionY); err != nil {
 		return domain.OutputDevice{}, fmt.Errorf("scan output device: %w", err)
 	}
@@ -527,6 +532,15 @@ func OutputDevicePortCounts(db *sql.DB, id int64) (inputCount, outputCount int, 
 		return 0, 0, fmt.Errorf("output device port counts: %w", err)
 	}
 	return inputCount, outputCount, nil
+}
+
+func OutputDeviceLinkPortCount(db *sql.DB, id int64) (int, error) {
+	var count int
+	err := db.QueryRow(`SELECT link_port_count FROM output_devices WHERE id = ?`, id).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("output device link port count: %w", err)
+	}
+	return count, nil
 }
 
 func MixerOutputWidth(db *sql.DB, id int64) (string, error) {
