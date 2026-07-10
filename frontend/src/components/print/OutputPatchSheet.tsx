@@ -1,5 +1,5 @@
 import { useReferenceData } from '../../hooks/useReferenceData'
-import { devicePorts, mixerPorts, nodeName, stageMultiPorts, type PortRef } from '../../lib/outputGraph'
+import { devicePorts, isCablelessToKind, mixerPorts, nodeName, stageboxPorts, stageMultiPorts, type PortRef } from '../../lib/outputGraph'
 import type { AudioPatchOutput, OutputCable, OutputDevice, StageMulti, Stagebox } from '../../types'
 import { ColorSwatch, PrintSheet, sheetTd, sheetTh } from './PrintSheet'
 
@@ -16,35 +16,49 @@ interface PathContext {
 
 /**
  * One line of a channel's signal path plus every further branch a
- * fan-out device/stage-multi produces, rendered as a nested list — mirrors
- * the graph faithfully (contracts/output-graph-api.md: "walk output_cables
- * ... following the chain of to → that node's other from ports ... until a
- * dead end").
+ * fan-out node produces, rendered as a nested list — mirrors the graph
+ * faithfully (contracts/output-graph-api.md: "walk output_cables ...
+ * following the chain of to → that node's other from ports ... until a
+ * dead end"). A mixer port can itself carry more than one cable (fan-out
+ * to several physical destinations at once); every other port carries at
+ * most one, so filtering for "every cable from this port" is correct at
+ * any depth, not just the first call.
  */
 function pathLines(from: PortRef, context: PathContext, depth: number): { text: string; depth: number }[] {
-  const cable = context.cables.find((c) => c.from_kind === from.kind && c.from_id === from.id && c.from_port === from.port)
-  if (!cable) return depth === 0 ? [{ text: 'direct', depth }] : []
-  const destName = nodeName(cable.to_kind, cable.to_id, { outputs: context.outputs, stageboxes: context.stageboxes, stageMultis: context.stageMultis, devices: context.devices })
-  const cableLabel = cable.cable_item_id
-    ? context.itemLabelById.get(cable.cable_item_id) ?? `#${cable.cable_item_id}`
-    : cable.to_kind === 'stage_multi'
-      ? 'built-in'
-      : undefined
-  const line = `${destName} (ch ${cable.to_port + 1})${cableLabel ? ` — ${cableLabel}` : ''}`
-  const lines = [{ text: line, depth }]
+  const outgoing = context.cables.filter((c) => c.from_kind === from.kind && c.from_id === from.id && c.from_port === from.port)
+  if (outgoing.length === 0) return depth === 0 ? [{ text: 'direct', depth }] : []
 
-  let outPorts: PortRef[] = []
-  if (cable.to_kind === 'device') {
-    const device = context.devices.find((d) => d.id === cable.to_id)
-    if (device) outPorts = devicePorts(device).outputs
-  } else if (cable.to_kind === 'stage_multi') {
-    const multi = context.stageMultis.find((sm) => sm.id === cable.to_id)
-    if (multi) outPorts = stageMultiPorts(multi).outputs
-  }
-  for (const outPort of outPorts) {
-    lines.push(...pathLines(outPort, context, depth + 1))
-  }
-  return lines
+  return outgoing.flatMap((cable) => {
+    const destName = nodeName(cable.to_kind, cable.to_id, { outputs: context.outputs, stageboxes: context.stageboxes, stageMultis: context.stageMultis, devices: context.devices })
+    const cableLabel = cable.cable_item_id
+      ? context.itemLabelById.get(cable.cable_item_id) ?? `#${cable.cable_item_id}`
+      : isCablelessToKind(cable.to_kind)
+        ? 'built-in'
+        : undefined
+    const line = `${destName} (ch ${cable.to_port + 1})${cableLabel ? ` — ${cableLabel}` : ''}`
+    const lines = [{ text: line, depth }]
+
+    // A device mixes/distributes internally — no fixed correspondence
+    // between which input it came in on and which outputs carry it, so
+    // every declared output port is a candidate branch. A stage multi or
+    // stagebox is a straight pass-through: input index N is physically
+    // the same jack as output index N, so only that one port continues.
+    let outPorts: PortRef[] = []
+    if (cable.to_kind === 'device') {
+      const device = context.devices.find((d) => d.id === cable.to_id)
+      if (device) outPorts = devicePorts(device).outputs
+    } else if (cable.to_kind === 'stage_multi') {
+      const multi = context.stageMultis.find((sm) => sm.id === cable.to_id)
+      if (multi) outPorts = stageMultiPorts(multi).outputs.filter((p) => p.port === cable.to_port)
+    } else if (cable.to_kind === 'stagebox') {
+      const stagebox = context.stageboxes.find((sb) => sb.id === cable.to_id)
+      if (stagebox) outPorts = stageboxPorts(stagebox).outputs.filter((p) => p.port === cable.to_port)
+    }
+    for (const outPort of outPorts) {
+      lines.push(...pathLines(outPort, context, depth + 1))
+    }
+    return lines
+  })
 }
 
 /** Paper rendering of the output patch (hidden on screen, shown in print). */

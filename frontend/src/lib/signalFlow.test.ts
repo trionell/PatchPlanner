@@ -3,10 +3,10 @@ import type { AudioPatchInput, AudioPatchOutput, OutputCable, OutputDevice, Stag
 import { buildChannelFlow, buildChannelFlows, buildOutputChannelFlow, buildOutputChannelFlows, type FlowContext, type OutputFlowContext } from './signalFlow'
 
 const stageboxes: Stagebox[] = [
-  { id: 1, event_id: 1, name: 'SB Stage L', model: '', input_count: 16, output_count: 8, connection_type: 'analog' },
+  { id: 1, event_id: 1, name: 'SB Stage L', model: '', input_count: 16, output_count: 8, connection_type: 'analog', position_x: 0, position_y: 0 },
 ]
 const stageMultis: StageMulti[] = [
-  { id: 5, event_id: 1, name: 'Multi A', length_m: 30, channels: 12, connector_type: 'harting' },
+  { id: 5, event_id: 1, name: 'Multi A', length_m: 30, channels: 12, connector_type: 'harting', position_x: 0, position_y: 0 },
 ]
 const context: FlowContext = {
   stageboxes,
@@ -263,6 +263,39 @@ describe('buildOutputChannelFlow', () => {
     const flow = buildOutputChannelFlow(output({}), outputContext([distro, speakerL, speakerR], cables))
     expect(flow.paths).toHaveLength(2)
     expect(flow.paths.map((p) => p.hops.at(-1)?.label).sort()).toEqual(['Speaker L ch 1', 'Speaker R ch 1'])
+  })
+
+  it('treats a stagebox as a straight pass-through: only the matching output channel continues, not the box\'s other unrelated channels', () => {
+    const speaker = device({ id: 10, name: 'Speaker', input_port_count: 1 })
+    const otherDest = device({ id: 11, name: 'Unrelated dest', input_port_count: 1 })
+    const cables = [
+      // This channel: mixer -> stagebox ch 3 (index 2) -> speaker.
+      cable({ id: 1, from_kind: 'mixer', from_id: 1, from_port: 0, to_kind: 'stagebox', to_id: 1, to_port: 2 }),
+      cable({ id: 2, from_kind: 'stagebox', from_id: 1, from_port: 2, to_kind: 'device', to_id: 10, to_port: 0 }),
+      // A totally different channel also passing through the same
+      // stagebox, on a different jack — must not leak into this path.
+      cable({ id: 3, from_kind: 'stagebox', from_id: 1, from_port: 5, to_kind: 'device', to_id: 11, to_port: 0 }),
+    ]
+    const flow = buildOutputChannelFlow(output({}), outputContext([speaker, otherDest], cables))
+    expect(flow.paths).toHaveLength(1)
+    expect(flow.paths[0].hops).toEqual([
+      { label: 'SB Stage L ch 3', kind: 'stagebox', missing: false },
+      { label: 'Speaker ch 1', kind: 'device', missing: false },
+    ])
+    expect(flow.hasGap).toBe(false)
+  })
+
+  it('a mixer port fans out to more than one physical destination at once (local out and a stagebox jack)', () => {
+    const localSpeaker = device({ id: 10, name: 'Local speaker', input_port_count: 1 })
+    const monitor = device({ id: 11, name: 'Monitor', input_port_count: 1 })
+    const cables = [
+      cable({ id: 1, from_kind: 'mixer', from_id: 1, from_port: 0, to_kind: 'device', to_id: 10, to_port: 0 }),
+      cable({ id: 2, from_kind: 'mixer', from_id: 1, from_port: 0, to_kind: 'stagebox', to_id: 1, to_port: 0 }),
+      cable({ id: 3, from_kind: 'stagebox', from_id: 1, from_port: 0, to_kind: 'device', to_id: 11, to_port: 0 }),
+    ]
+    const flow = buildOutputChannelFlow(output({}), outputContext([localSpeaker, monitor], cables))
+    expect(flow.paths).toHaveLength(2)
+    expect(flow.paths.map((p) => p.hops.at(-1)?.label).sort()).toEqual(['Local speaker ch 1', 'Monitor ch 1'])
   })
 })
 

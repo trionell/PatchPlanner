@@ -7,22 +7,29 @@ import (
 	"github.com/trionell/patchplanner/internal/domain"
 )
 
+const stageboxColumns = `id, event_id, name, COALESCE(model, ''), COALESCE(input_count, 0), COALESCE(output_count, 0), COALESCE(connection_type, 'analog'), inventory_item_id, position_x, position_y`
+
+func scanStagebox(row scanner) (domain.Stagebox, error) {
+	var item domain.Stagebox
+	var invID sql.NullInt64
+	if err := row.Scan(&item.ID, &item.EventID, &item.Name, &item.Model, &item.InputCount, &item.OutputCount, &item.ConnectionType, &invID, &item.PositionX, &item.PositionY); err != nil {
+		return domain.Stagebox{}, fmt.Errorf("scan stagebox: %w", err)
+	}
+	item.InventoryItemID = int64PtrFromNull(invID)
+	return item, nil
+}
+
 func ListStageboxes(db *sql.DB, eventID int64) ([]domain.Stagebox, error) {
-	rows, err := db.Query(`SELECT id, event_id, name, COALESCE(model, ''), COALESCE(input_count, 0), COALESCE(output_count, 0), COALESCE(connection_type, 'analog'), inventory_item_id FROM stageboxes WHERE event_id = ? ORDER BY id ASC`, eventID)
+	rows, err := db.Query(`SELECT `+stageboxColumns+` FROM stageboxes WHERE event_id = ? ORDER BY id ASC`, eventID)
 	if err != nil {
 		return nil, fmt.Errorf("list stageboxes: %w", err)
 	}
 	defer rows.Close()
 	items := make([]domain.Stagebox, 0)
 	for rows.Next() {
-		var item domain.Stagebox
-		var invID sql.NullInt64
-		if err := rows.Scan(&item.ID, &item.EventID, &item.Name, &item.Model, &item.InputCount, &item.OutputCount, &item.ConnectionType, &invID); err != nil {
-			return nil, fmt.Errorf("scan stagebox: %w", err)
-		}
-		if invID.Valid {
-			v := invID.Int64
-			item.InventoryItemID = &v
+		item, err := scanStagebox(rows)
+		if err != nil {
+			return nil, err
 		}
 		items = append(items, item)
 	}
@@ -30,22 +37,13 @@ func ListStageboxes(db *sql.DB, eventID int64) ([]domain.Stagebox, error) {
 }
 
 func GetStagebox(db *sql.DB, id int64) (domain.Stagebox, error) {
-	row := db.QueryRow(`SELECT id, event_id, name, COALESCE(model, ''), COALESCE(input_count, 0), COALESCE(output_count, 0), COALESCE(connection_type, 'analog'), inventory_item_id FROM stageboxes WHERE id = ?`, id)
-	var item domain.Stagebox
-	var invID sql.NullInt64
-	if err := row.Scan(&item.ID, &item.EventID, &item.Name, &item.Model, &item.InputCount, &item.OutputCount, &item.ConnectionType, &invID); err != nil {
-		return domain.Stagebox{}, fmt.Errorf("get stagebox: %w", err)
-	}
-	if invID.Valid {
-		v := invID.Int64
-		item.InventoryItemID = &v
-	}
-	return item, nil
+	row := db.QueryRow(`SELECT `+stageboxColumns+` FROM stageboxes WHERE id = ?`, id)
+	return scanStagebox(row)
 }
 
 func CreateStagebox(db *sql.DB, sb domain.Stagebox) (domain.Stagebox, error) {
-	result, err := db.Exec(`INSERT INTO stageboxes (event_id, name, model, input_count, output_count, connection_type, inventory_item_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		sb.EventID, sb.Name, nullString(sb.Model), sb.InputCount, sb.OutputCount, sb.ConnectionType, nullInt64(sb.InventoryItemID))
+	result, err := db.Exec(`INSERT INTO stageboxes (event_id, name, model, input_count, output_count, connection_type, inventory_item_id, position_x, position_y) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		sb.EventID, sb.Name, nullString(sb.Model), sb.InputCount, sb.OutputCount, sb.ConnectionType, nullInt64(sb.InventoryItemID), sb.PositionX, sb.PositionY)
 	if err != nil {
 		return domain.Stagebox{}, fmt.Errorf("create stagebox: %w", err)
 	}
@@ -54,8 +52,8 @@ func CreateStagebox(db *sql.DB, sb domain.Stagebox) (domain.Stagebox, error) {
 }
 
 func UpdateStagebox(db *sql.DB, id int64, sb domain.Stagebox) (domain.Stagebox, error) {
-	_, err := db.Exec(`UPDATE stageboxes SET name = ?, model = ?, input_count = ?, output_count = ?, connection_type = ?, inventory_item_id = ? WHERE id = ?`,
-		sb.Name, nullString(sb.Model), sb.InputCount, sb.OutputCount, sb.ConnectionType, nullInt64(sb.InventoryItemID), id)
+	_, err := db.Exec(`UPDATE stageboxes SET name = ?, model = ?, input_count = ?, output_count = ?, connection_type = ?, inventory_item_id = ?, position_x = ?, position_y = ? WHERE id = ?`,
+		sb.Name, nullString(sb.Model), sb.InputCount, sb.OutputCount, sb.ConnectionType, nullInt64(sb.InventoryItemID), sb.PositionX, sb.PositionY, id)
 	if err != nil {
 		return domain.Stagebox{}, fmt.Errorf("update stagebox: %w", err)
 	}
@@ -64,10 +62,12 @@ func UpdateStagebox(db *sql.DB, id int64, sb domain.Stagebox) (domain.Stagebox, 
 
 // DeleteStagebox clears every patch-row/cable reference to the stagebox
 // before removing it, so the patch stays consistent and the FK constraint
-// holds. A stagebox is output-only in the output signal-flow graph (it
-// can only ever be a from_kind — FR-004), so only from-side output_cables
-// rows need clearing there; audio_patch_inputs still has its own direct
-// stagebox_id column (input-side patching, unrelated to this graph).
+// holds. A stagebox is a full pass-through node in the output signal-flow
+// graph (both a from_kind and a to_kind, symmetric with stage_multi — a
+// channel routes into a specific jack, a real cable carries on from it),
+// so both sides' output_cables rows need clearing; audio_patch_inputs
+// still has its own direct stagebox_id column (input-side patching,
+// unrelated to this graph).
 func DeleteStagebox(db *sql.DB, id int64) error {
 	tx, err := db.Begin()
 	if err != nil {
@@ -77,7 +77,7 @@ func DeleteStagebox(db *sql.DB, id int64) error {
 	if _, err := tx.Exec(`UPDATE audio_patch_inputs SET stagebox_id = NULL, stagebox_channel = NULL WHERE stagebox_id = ?`, id); err != nil {
 		return fmt.Errorf("clear stagebox references: %w", err)
 	}
-	if _, err := tx.Exec(`DELETE FROM output_cables WHERE from_kind = 'stagebox' AND from_id = ?`, id); err != nil {
+	if _, err := tx.Exec(`DELETE FROM output_cables WHERE (from_kind = 'stagebox' AND from_id = ?) OR (to_kind = 'stagebox' AND to_id = ?)`, id, id); err != nil {
 		return fmt.Errorf("clear output cable stagebox references: %w", err)
 	}
 	if _, err := tx.Exec(`DELETE FROM stageboxes WHERE id = ?`, id); err != nil {
@@ -86,22 +86,29 @@ func DeleteStagebox(db *sql.DB, id int64) error {
 	return tx.Commit()
 }
 
+const stageMultiColumns = `id, event_id, name, COALESCE(length_m, 0), COALESCE(channels, 24), COALESCE(connector_type, 'xlr'), inventory_item_id, position_x, position_y`
+
+func scanStageMulti(row scanner) (domain.StageMulti, error) {
+	var item domain.StageMulti
+	var invID sql.NullInt64
+	if err := row.Scan(&item.ID, &item.EventID, &item.Name, &item.LengthM, &item.Channels, &item.ConnectorType, &invID, &item.PositionX, &item.PositionY); err != nil {
+		return domain.StageMulti{}, fmt.Errorf("scan stage multi: %w", err)
+	}
+	item.InventoryItemID = int64PtrFromNull(invID)
+	return item, nil
+}
+
 func ListStageMultis(db *sql.DB, eventID int64) ([]domain.StageMulti, error) {
-	rows, err := db.Query(`SELECT id, event_id, name, COALESCE(length_m, 0), COALESCE(channels, 24), COALESCE(connector_type, 'xlr'), inventory_item_id FROM stage_multis WHERE event_id = ? ORDER BY id ASC`, eventID)
+	rows, err := db.Query(`SELECT `+stageMultiColumns+` FROM stage_multis WHERE event_id = ? ORDER BY id ASC`, eventID)
 	if err != nil {
 		return nil, fmt.Errorf("list stage multis: %w", err)
 	}
 	defer rows.Close()
 	items := make([]domain.StageMulti, 0)
 	for rows.Next() {
-		var item domain.StageMulti
-		var invID sql.NullInt64
-		if err := rows.Scan(&item.ID, &item.EventID, &item.Name, &item.LengthM, &item.Channels, &item.ConnectorType, &invID); err != nil {
-			return nil, fmt.Errorf("scan stage multi: %w", err)
-		}
-		if invID.Valid {
-			v := invID.Int64
-			item.InventoryItemID = &v
+		item, err := scanStageMulti(rows)
+		if err != nil {
+			return nil, err
 		}
 		items = append(items, item)
 	}
@@ -109,22 +116,13 @@ func ListStageMultis(db *sql.DB, eventID int64) ([]domain.StageMulti, error) {
 }
 
 func GetStageMulti(db *sql.DB, id int64) (domain.StageMulti, error) {
-	row := db.QueryRow(`SELECT id, event_id, name, COALESCE(length_m, 0), COALESCE(channels, 24), COALESCE(connector_type, 'xlr'), inventory_item_id FROM stage_multis WHERE id = ?`, id)
-	var item domain.StageMulti
-	var invID sql.NullInt64
-	if err := row.Scan(&item.ID, &item.EventID, &item.Name, &item.LengthM, &item.Channels, &item.ConnectorType, &invID); err != nil {
-		return domain.StageMulti{}, fmt.Errorf("get stage multi: %w", err)
-	}
-	if invID.Valid {
-		v := invID.Int64
-		item.InventoryItemID = &v
-	}
-	return item, nil
+	row := db.QueryRow(`SELECT `+stageMultiColumns+` FROM stage_multis WHERE id = ?`, id)
+	return scanStageMulti(row)
 }
 
 func CreateStageMulti(db *sql.DB, sm domain.StageMulti) (domain.StageMulti, error) {
-	result, err := db.Exec(`INSERT INTO stage_multis (event_id, name, length_m, channels, connector_type, inventory_item_id) VALUES (?, ?, ?, ?, ?, ?)`,
-		sm.EventID, sm.Name, sm.LengthM, sm.Channels, sm.ConnectorType, nullInt64(sm.InventoryItemID))
+	result, err := db.Exec(`INSERT INTO stage_multis (event_id, name, length_m, channels, connector_type, inventory_item_id, position_x, position_y) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		sm.EventID, sm.Name, sm.LengthM, sm.Channels, sm.ConnectorType, nullInt64(sm.InventoryItemID), sm.PositionX, sm.PositionY)
 	if err != nil {
 		return domain.StageMulti{}, fmt.Errorf("create stage multi: %w", err)
 	}
@@ -133,8 +131,8 @@ func CreateStageMulti(db *sql.DB, sm domain.StageMulti) (domain.StageMulti, erro
 }
 
 func UpdateStageMulti(db *sql.DB, id int64, sm domain.StageMulti) (domain.StageMulti, error) {
-	_, err := db.Exec(`UPDATE stage_multis SET name = ?, length_m = ?, channels = ?, connector_type = ?, inventory_item_id = ? WHERE id = ?`,
-		sm.Name, sm.LengthM, sm.Channels, sm.ConnectorType, nullInt64(sm.InventoryItemID), id)
+	_, err := db.Exec(`UPDATE stage_multis SET name = ?, length_m = ?, channels = ?, connector_type = ?, inventory_item_id = ?, position_x = ?, position_y = ? WHERE id = ?`,
+		sm.Name, sm.LengthM, sm.Channels, sm.ConnectorType, nullInt64(sm.InventoryItemID), sm.PositionX, sm.PositionY, id)
 	if err != nil {
 		return domain.StageMulti{}, fmt.Errorf("update stage multi: %w", err)
 	}
@@ -538,6 +536,33 @@ func MixerOutputWidth(db *sql.DB, id int64) (string, error) {
 		return "", fmt.Errorf("mixer output width: %w", err)
 	}
 	return width, nil
+}
+
+// OutputMixerPositionY returns the mixer node's canvas Y position for the
+// output signal-flow graph — a single implicit node per event, always
+// pinned to the Sources/Channels rail (X is fixed, so only Y is stored).
+func OutputMixerPositionY(db *sql.DB, eventID int64) (float64, error) {
+	var y float64
+	err := db.QueryRow(`SELECT output_mixer_position_y FROM events WHERE id = ?`, eventID).Scan(&y)
+	if err != nil {
+		return 0, fmt.Errorf("output mixer position: %w", err)
+	}
+	return y, nil
+}
+
+func UpdateOutputMixerPositionY(db *sql.DB, eventID int64, y float64) error {
+	result, err := db.Exec(`UPDATE events SET output_mixer_position_y = ? WHERE id = ?`, y, eventID)
+	if err != nil {
+		return fmt.Errorf("update output mixer position: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update output mixer position: %w", err)
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 type scanner interface {

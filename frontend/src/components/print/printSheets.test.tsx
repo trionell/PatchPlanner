@@ -19,10 +19,10 @@ function render(ui: ReactElement): string {
 }
 
 const stageboxes: Stagebox[] = [
-  { id: 1, event_id: 1, name: 'FOH Rack', model: '', input_count: 16, output_count: 8, connection_type: 'analog' },
+  { id: 1, event_id: 1, name: 'FOH Rack', model: '', input_count: 16, output_count: 8, connection_type: 'analog', position_x: 0, position_y: 0 },
 ]
 const stageMultis: StageMulti[] = [
-  { id: 5, event_id: 1, name: 'Multi A', length_m: 30, channels: 12, connector_type: 'harting' },
+  { id: 5, event_id: 1, name: 'Multi A', length_m: 30, channels: 12, connector_type: 'harting', position_x: 0, position_y: 0 },
 ]
 const itemNameById = new Map([[42, 'Shure SM58'], [77, 'Amp X'], [78, 'Speaker Y']])
 const groups: MixerGroup[] = [

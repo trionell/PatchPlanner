@@ -1,5 +1,5 @@
 import type { AudioPatchInput, AudioPatchOutput, OutputCable, OutputDevice, StageMulti, Stagebox } from '../types'
-import { devicePorts, isPortConnected, mixerPorts, nodeName, stageMultiPorts, type PortRef } from './outputGraph'
+import { devicePorts, isPortConnected, mixerPorts, nodeName, stageboxPorts, stageMultiPorts, type PortRef } from './outputGraph'
 
 /** One hop in an input channel's signal chain. */
 export interface FlowHop {
@@ -174,17 +174,18 @@ export interface OutputChannelFlow {
  * aren't all wired (data-model.md's derived gap rule — "a processing/
  * destination device with an unfilled input"): the tech explicitly
  * declared that many inputs, so an unwired one signals something was
- * forgotten. A stage multi's channel count is fixed hardware capacity
- * (e.g. a 12-channel snake) — using only some of its channels is normal,
- * not a gap, so it's exempt entirely (matches FR-012: a multi's channels
- * don't have to share a source or destination, and most events won't use
- * every one). A missing cable_item_id is never itself a gap (the cable
- * pick is always optional, same precedent as the input side's non-DI
- * cable — and this uniformly covers a stage multi's forced-null pick
- * without a special case).
+ * forgotten. A stage multi's or stagebox's channel count is fixed
+ * hardware capacity (e.g. a 12-channel snake, an 8-out stagebox) — using
+ * only some of its channels is normal, not a gap, so both are exempt
+ * entirely (matches FR-012: a multi's channels don't have to share a
+ * source or destination, and most events won't use every one). A
+ * missing cable_item_id is never itself a gap (the cable pick is always
+ * optional, same precedent as the input side's non-DI cable — and this
+ * uniformly covers a stage multi's/stagebox's forced-null pick without a
+ * special case).
  */
-function hasUnfilledInput(kind: 'device' | 'stage_multi', id: number, context: OutputFlowContext): boolean {
-  if (kind === 'stage_multi') return false
+function hasUnfilledInput(kind: PortRef['kind'], id: number, context: OutputFlowContext): boolean {
+  if (kind !== 'device') return false
   const device = context.devices.find((d) => d.id === id)
   if (!device || device.input_port_count === 0) return false
   const connected = devicePorts(device).inputs.filter((p) => isPortConnected(p.kind, p.id, p.port, 'in', context.cables)).length
@@ -195,38 +196,50 @@ function hasUnfilledInput(kind: 'device' | 'stage_multi', id: number, context: O
  * Walks forward from one output-side port, following `to` → that node's
  * other `from` ports, branching into one array per downstream path when a
  * node fans out to more than one destination (contracts/output-graph-
- * api.md). An unconnected starting port renders as "direct" — matching
- * the input side's "no routing = direct to console, not a gap" precedent,
+ * api.md) — a mixer port can itself carry more than one cable (fan-out to
+ * several physical destinations at once), so every match is its own
+ * branch from the very first hop, not just further down the chain. An
+ * unconnected starting port renders as "direct" — matching the input
+ * side's "no routing = direct to console, not a gap" precedent,
  * generalized to any source's output side.
  */
 function walkFromPort(port: PortRef, context: OutputFlowContext, gapNodes: Set<string>): FlowHop[][] {
   const nameContext = { outputs: [], stageboxes: context.stageboxes, stageMultis: context.stageMultis, devices: context.devices }
-  const cable = context.cables.find((c) => c.from_kind === port.kind && c.from_id === port.id && c.from_port === port.port)
-  if (!cable) return [[{ label: 'Direct to output', kind: 'direct', missing: false }]]
+  const outgoing = context.cables.filter((c) => c.from_kind === port.kind && c.from_id === port.id && c.from_port === port.port)
+  if (outgoing.length === 0) return [[{ label: 'Direct to output', kind: 'direct', missing: false }]]
 
-  if (hasUnfilledInput(cable.to_kind, cable.to_id, context)) gapNodes.add(`${cable.to_kind}:${cable.to_id}`)
+  return outgoing.flatMap((cable) => {
+    if (hasUnfilledInput(cable.to_kind, cable.to_id, context)) gapNodes.add(`${cable.to_kind}:${cable.to_id}`)
 
-  const stepHops: FlowHop[] = []
-  if (cable.cable_item_id) {
-    stepHops.push({ label: context.itemLabelById.get(cable.cable_item_id) ?? `Item #${cable.cable_item_id}`, kind: 'cable', missing: false })
-  }
-  const destName = nodeName(cable.to_kind, cable.to_id, nameContext)
-  stepHops.push({
-    label: `${destName} ch ${cable.to_port + 1}`,
-    kind: cable.to_kind === 'stage_multi' ? 'multi' : 'device',
-    missing: false,
+    const stepHops: FlowHop[] = []
+    if (cable.cable_item_id) {
+      stepHops.push({ label: context.itemLabelById.get(cable.cable_item_id) ?? `Item #${cable.cable_item_id}`, kind: 'cable', missing: false })
+    }
+    const destName = nodeName(cable.to_kind, cable.to_id, nameContext)
+    stepHops.push({
+      label: `${destName} ch ${cable.to_port + 1}`,
+      kind: cable.to_kind === 'stage_multi' ? 'multi' : cable.to_kind === 'stagebox' ? 'stagebox' : 'device',
+      missing: false,
+    })
+
+    // A device mixes/distributes internally, so every declared output
+    // port is a candidate continuation. A stage multi or stagebox is a
+    // straight pass-through — input index N is physically the same jack
+    // as output index N, so only that one port continues.
+    let outPorts: PortRef[] = []
+    if (cable.to_kind === 'device') {
+      const device = context.devices.find((d) => d.id === cable.to_id)
+      if (device) outPorts = devicePorts(device).outputs.filter((p) => isPortConnected(p.kind, p.id, p.port, 'out', context.cables))
+    } else if (cable.to_kind === 'stage_multi') {
+      const multi = context.stageMultis.find((sm) => sm.id === cable.to_id)
+      if (multi) outPorts = stageMultiPorts(multi).outputs.filter((p) => p.port === cable.to_port && isPortConnected(p.kind, p.id, p.port, 'out', context.cables))
+    } else {
+      const stagebox = context.stageboxes.find((sb) => sb.id === cable.to_id)
+      if (stagebox) outPorts = stageboxPorts(stagebox).outputs.filter((p) => p.port === cable.to_port && isPortConnected(p.kind, p.id, p.port, 'out', context.cables))
+    }
+    if (outPorts.length === 0) return [stepHops]
+    return outPorts.flatMap((outPort) => walkFromPort(outPort, context, gapNodes).map((branch) => [...stepHops, ...branch]))
   })
-
-  let outPorts: PortRef[] = []
-  if (cable.to_kind === 'device') {
-    const device = context.devices.find((d) => d.id === cable.to_id)
-    if (device) outPorts = devicePorts(device).outputs.filter((p) => isPortConnected(p.kind, p.id, p.port, 'out', context.cables))
-  } else {
-    const multi = context.stageMultis.find((sm) => sm.id === cable.to_id)
-    if (multi) outPorts = stageMultiPorts(multi).outputs.filter((p) => isPortConnected(p.kind, p.id, p.port, 'out', context.cables))
-  }
-  if (outPorts.length === 0) return [stepHops]
-  return outPorts.flatMap((outPort) => walkFromPort(outPort, context, gapNodes).map((branch) => [...stepHops, ...branch]))
 }
 
 /** Derives every path for one output channel — mirrors buildChannelFlow's presentation but over the cable graph instead of fixed source/cable/path fields (Slice 11, replaces the Slice 10 chain walk). */

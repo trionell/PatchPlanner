@@ -9,6 +9,15 @@ type Stagebox struct {
 	OutputCount     int    `json:"output_count"`
 	ConnectionType  string `json:"connection_type"`
 	InventoryItemID *int64 `json:"inventory_item_id,omitempty"`
+	// PositionX/PositionY are this event's canvas placement in the
+	// output signal-flow graph's Processing zone (Slice 11 follow-up) —
+	// a stagebox is a full pass-through node there: its existing
+	// OutputCount sizes both an input side (a channel routes into a
+	// specific jack — pure console routing, never a physical cable, the
+	// mixer-to-stagebox network link itself is out of scope here) and
+	// its unchanged output side (a real cable onward to a device).
+	PositionX float64 `json:"position_x"`
+	PositionY float64 `json:"position_y"`
 }
 
 type StageMulti struct {
@@ -19,6 +28,10 @@ type StageMulti struct {
 	Channels        int     `json:"channels"`
 	ConnectorType   string  `json:"connector_type"`
 	InventoryItemID *int64  `json:"inventory_item_id,omitempty"`
+	// PositionX/PositionY are this event's canvas placement in the
+	// output signal-flow graph's Processing zone.
+	PositionX float64 `json:"position_x"`
+	PositionY float64 `json:"position_y"`
 }
 
 // MixerGroup is a named mix bus of one event. The built-in LR main group
@@ -58,11 +71,13 @@ var (
 	// enums (Slice 11): a port is identified by (kind, id, index), and
 	// kind selects which table id resolves against. Direction is
 	// structural, not a stored flag — from_kind always resolves against a
-	// node's output side, to_kind always against its input side, which is
-	// why mixer/stagebox (no input side — FR-004/FR-006) can only ever
-	// appear as a from_kind (research.md R7).
+	// node's output side, to_kind always against its input side. mixer
+	// has no input side (FR-006) so it can only ever appear as a
+	// from_kind. A stagebox is a full pass-through: its existing
+	// OutputCount sizes both sides (a channel routes into a specific
+	// jack, a real cable carries on from it), mirroring stage_multi.
 	ValidPortFromKinds = []string{"mixer", "stagebox", "stage_multi", "device"}
-	ValidPortToKinds   = []string{"stage_multi", "device"}
+	ValidPortToKinds   = []string{"stagebox", "stage_multi", "device"}
 )
 
 // OutputDevice is a node in the output signal-flow graph (Slice 11) —
@@ -96,9 +111,12 @@ type OutputDevice struct {
 // ValidPortToKinds; id resolves against audio_patch_outputs (mixer),
 // stageboxes, stage_multis, or output_devices depending on kind (no DB FK
 // — polymorphic, validated in the API layer, research.md R2/R7).
-// CableItemID is always nil when ToKind is "stage_multi" — a stage
-// multi's input side is its own built-in wiring, never a separately
-// rentable cable (FR-013/research.md R6).
+// CableItemID is always nil when ToKind is "stage_multi" or "stagebox" —
+// a stage multi's input side is its own built-in wiring, and a
+// stagebox's input side is pure console/network routing (the
+// mixer-to-stagebox link itself is out of scope here, tracked separately
+// as a Rented Extra) — neither is ever a separately rentable cable
+// (FR-013/research.md R6, extended to stageboxes).
 type OutputCable struct {
 	ID      int64 `json:"id"`
 	EventID int64 `json:"event_id"`

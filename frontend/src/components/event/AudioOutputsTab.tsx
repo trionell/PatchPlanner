@@ -622,7 +622,12 @@ function NodeShell({ x, y, title, badge, onDragStart, onDelete, children }: {
         <div className="flex items-center gap-1">
           {badge && <Badge className="shrink-0">{badge}</Badge>}
           {onDelete && (
-            <button type="button" onClick={onDelete} className="text-zinc-500 hover:text-red-400">
+            <button
+              type="button"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={onDelete}
+              className="text-zinc-500 hover:text-red-400"
+            >
               <Trash2 className="h-3 w-3" />
             </button>
           )}

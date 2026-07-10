@@ -26,6 +26,9 @@ type audioPatchResponse struct {
 	Outputs       []domain.AudioPatchOutput `json:"outputs"`
 	OutputDevices []domain.OutputDevice     `json:"output_devices"`
 	OutputCables  []domain.OutputCable      `json:"output_cables"`
+	// OutputMixerPositionY is the mixer node's canvas Y position in the
+	// output signal-flow graph's Sources/Channels rail (X is fixed).
+	OutputMixerPositionY float64 `json:"output_mixer_position_y"`
 }
 
 // busRequest carries POST/PATCH bodies for groups and DCAs.
@@ -67,6 +70,8 @@ func (h AudioPatchHandler) Register(r chi.Router) {
 	r.Post("/events/{eventID}/output-cables", h.createOutputCable)
 	r.Patch("/events/{eventID}/output-cables/{cableID}", h.updateOutputCable)
 	r.Delete("/events/{eventID}/output-cables/{cableID}", h.deleteOutputCable)
+	// Mixer node position (a single implicit node per event, Sources rail)
+	r.Patch("/events/{eventID}/output-mixer-position", h.updateOutputMixerPosition)
 }
 
 func (h AudioPatchHandler) getAudioPatch(w http.ResponseWriter, r *http.Request) {
@@ -114,6 +119,11 @@ func (h AudioPatchHandler) getAudioPatch(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	mixerPositionY, err := dbstore.OutputMixerPositionY(h.DB, eventID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	if stageboxes == nil {
 		stageboxes = []domain.Stagebox{}
 	}
@@ -132,7 +142,32 @@ func (h AudioPatchHandler) getAudioPatch(w http.ResponseWriter, r *http.Request)
 	if outputCables == nil {
 		outputCables = []domain.OutputCable{}
 	}
-	writeJSON(w, http.StatusOK, audioPatchResponse{Stageboxes: stageboxes, StageMultis: stageMultis, Groups: groups, DCAs: dcas, Inputs: inputs, Outputs: outputs, OutputDevices: outputDevices, OutputCables: outputCables})
+	writeJSON(w, http.StatusOK, audioPatchResponse{
+		Stageboxes: stageboxes, StageMultis: stageMultis, Groups: groups, DCAs: dcas, Inputs: inputs, Outputs: outputs,
+		OutputDevices: outputDevices, OutputCables: outputCables, OutputMixerPositionY: mixerPositionY,
+	})
+}
+
+// updateOutputMixerPosition sets the mixer node's canvas Y position — a
+// single implicit node per event, always pinned to the Sources/Channels
+// rail (X is fixed, so only Y is ever sent).
+func (h AudioPatchHandler) updateOutputMixerPosition(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok || !h.requireEvent(w, eventID) {
+		return
+	}
+	var payload struct {
+		PositionY float64 `json:"position_y"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if err := dbstore.UpdateOutputMixerPositionY(h.DB, eventID, payload.PositionY); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // decodeBusRequest parses and trims a group/DCA payload, rejecting empty
@@ -822,8 +857,8 @@ func (h AudioPatchHandler) updateOutputCable(w http.ResponseWriter, r *http.Requ
 		writeError(w, http.StatusBadRequest, "invalid json body")
 		return
 	}
-	if existing.ToKind == "stage_multi" && payload.CableItemID != nil {
-		writeError(w, http.StatusBadRequest, "cable_item_id must be null for a cable into a stage multi (FR-013)")
+	if isCablelessToKind(existing.ToKind) && payload.CableItemID != nil {
+		writeError(w, http.StatusBadRequest, "cable_item_id must be null for a cable into a stage multi or stagebox (FR-013)")
 		return
 	}
 	if !h.validItemRef(w, "cable_item_id", payload.CableItemID) {
@@ -858,7 +893,7 @@ func (h AudioPatchHandler) validOutputCable(w http.ResponseWriter, eventID int64
 		return false
 	}
 	if !slices.Contains(domain.ValidPortToKinds, cable.ToKind) {
-		writeError(w, http.StatusBadRequest, "to_kind must be one of: stage_multi, device")
+		writeError(w, http.StatusBadRequest, "to_kind must be one of: stagebox, stage_multi, device")
 		return false
 	}
 	fromCount, ok := h.nodeOutputPortCount(w, eventID, cable.FromKind, cable.FromID)
@@ -877,8 +912,8 @@ func (h AudioPatchHandler) validOutputCable(w http.ResponseWriter, eventID int64
 		writeError(w, http.StatusBadRequest, "to_port is out of bounds for the resolved node")
 		return false
 	}
-	if cable.ToKind == "stage_multi" && cable.CableItemID != nil {
-		writeError(w, http.StatusBadRequest, "cable_item_id must be null for a cable into a stage multi (FR-013)")
+	if isCablelessToKind(cable.ToKind) && cable.CableItemID != nil {
+		writeError(w, http.StatusBadRequest, "cable_item_id must be null for a cable into a stage multi or stagebox (FR-013)")
 		return false
 	}
 	if !h.validItemRef(w, "cable_item_id", cable.CableItemID) {
@@ -890,7 +925,13 @@ func (h AudioPatchHandler) validOutputCable(w http.ResponseWriter, eventID int64
 		return false
 	}
 	for _, existing := range existingCables {
-		if existing.FromKind == cable.FromKind && existing.FromID == cable.FromID && existing.FromPort == cable.FromPort {
+		// A mixer port is a logical channel, not a physical jack — it can
+		// fan out to more than one destination at once (its own local-out
+		// AND one or more stagebox jacks), so it's exempt from the
+		// one-cable-per-port rule every other from_kind still has
+		// (research.md follow-up: real consoles route one channel to
+		// several output jacks simultaneously).
+		if cable.FromKind != "mixer" && existing.FromKind == cable.FromKind && existing.FromID == cable.FromID && existing.FromPort == cable.FromPort {
 			writeError(w, http.StatusConflict, "from port is already in use by another cable")
 			return false
 		}
@@ -900,6 +941,14 @@ func (h AudioPatchHandler) validOutputCable(w http.ResponseWriter, eventID int64
 		}
 	}
 	return true
+}
+
+// isCablelessToKind reports whether a to_kind's input side is pure
+// console/network routing rather than a real physical run — a stage
+// multi's built-in wiring and a stagebox's mixer link are both never a
+// separately rentable cable (FR-013).
+func isCablelessToKind(toKind string) bool {
+	return toKind == "stage_multi" || toKind == "stagebox"
 }
 
 // nodeOutputPortCount resolves from_kind/from_id to that node's live
@@ -967,6 +1016,17 @@ func (h AudioPatchHandler) nodeInputPortCount(w http.ResponseWriter, eventID int
 			return 0, false
 		}
 		count, err := dbstore.StageMultiChannelCount(h.DB, id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return 0, false
+		}
+		return count, true
+	case "stagebox":
+		if !h.itemBelongsToEvent("stageboxes", eventID, id) {
+			writeError(w, http.StatusBadRequest, "to_id references a stagebox of another event")
+			return 0, false
+		}
+		count, err := dbstore.StageboxOutputPortCount(h.DB, id)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return 0, false

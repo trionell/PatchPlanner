@@ -330,3 +330,132 @@ func TestStageMultiIndependentChannels(t *testing.T) {
 		t.Errorf("input-side cable item unexpectedly on the rental order: %+v", byID[inputCable])
 	}
 }
+
+// TestStageboxPassThroughAndMixerFanOut covers the graph-topology
+// follow-up: a stagebox is a full pass-through (a channel routes into a
+// specific jack with no cable pick, then a real cable carries on from
+// that same jack), and a mixer port — a logical channel, not a physical
+// jack — can fan out to more than one destination at once.
+func TestStageboxPassThroughAndMixerFanOut(t *testing.T) {
+	server, database := newTestServer(t)
+	eventID := seedEvent(t, server.URL)
+	speakerItem := seedItem(t, database, "Speaker", 4, 500)
+	cable := seedItem(t, database, "Speakon Cable", 10, 25)
+
+	outputsURL := fmt.Sprintf("%s/events/%d/audio-outputs", server.URL, eventID)
+	devicesURL := fmt.Sprintf("%s/events/%d/output-devices", server.URL, eventID)
+	cablesURL := fmt.Sprintf("%s/events/%d/output-cables", server.URL, eventID)
+
+	status, raw := doJSON(t, http.MethodPost, outputsURL, map[string]any{"output_number": 1, "output_type": "foh", "width": "mono"})
+	if status != http.StatusCreated {
+		t.Fatalf("POST output: status %d body %s", status, raw)
+	}
+	output := decodeJSON[domain.AudioPatchOutput](t, raw)
+
+	status, raw = doJSON(t, http.MethodPost, fmt.Sprintf("%s/events/%d/stageboxes", server.URL, eventID), map[string]any{"name": "SB A", "connection_type": "analog", "output_count": 4})
+	if status != http.StatusCreated {
+		t.Fatalf("POST stagebox: status %d body %s", status, raw)
+	}
+	sb := decodeJSON[domain.Stagebox](t, raw)
+
+	status, raw = doJSON(t, http.MethodPost, devicesURL, map[string]any{
+		"name": "Monitor", "inventory_item_id": speakerItem, "input_port_count": 1, "input_connector_type": "xlr",
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("POST device: status %d body %s", status, raw)
+	}
+	monitor := decodeJSON[domain.OutputDevice](t, raw)
+
+	// Channel -> stagebox jack: a cable_item_id is rejected (FR-013, same
+	// rule as a stage multi's input side).
+	if status, raw = doJSON(t, http.MethodPost, cablesURL, map[string]any{
+		"from_kind": "mixer", "from_id": output.ID, "from_port": 0,
+		"to_kind": "stagebox", "to_id": sb.ID, "to_port": 2, "cable_item_id": cable,
+	}); status != http.StatusBadRequest {
+		t.Errorf("mixer->stagebox with cable_item_id: status %d body %s, want 400", status, raw)
+	}
+	status, raw = doJSON(t, http.MethodPost, cablesURL, map[string]any{
+		"from_kind": "mixer", "from_id": output.ID, "from_port": 0,
+		"to_kind": "stagebox", "to_id": sb.ID, "to_port": 2,
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("mixer->stagebox: status %d body %s", status, raw)
+	}
+	channelToStagebox := decodeJSON[domain.OutputCable](t, raw)
+	if channelToStagebox.CableItemID != nil {
+		t.Errorf("mixer->stagebox cable_item_id = %v, want nil", channelToStagebox.CableItemID)
+	}
+
+	// The same stagebox jack now carries on to a device with a real,
+	// normally-picked cable.
+	if status, raw = doJSON(t, http.MethodPost, cablesURL, map[string]any{
+		"from_kind": "stagebox", "from_id": sb.ID, "from_port": 2,
+		"to_kind": "device", "to_id": monitor.ID, "to_port": 0, "cable_item_id": cable,
+	}); status != http.StatusCreated {
+		t.Errorf("stagebox->device: status %d body %s", status, raw)
+	}
+
+	// The SAME mixer port also fans out to its own local-out device —
+	// two cables from one from_port, allowed only for from_kind=mixer.
+	status, raw = doJSON(t, http.MethodPost, devicesURL, map[string]any{
+		"name": "Local speaker", "inventory_item_id": speakerItem, "input_port_count": 1, "input_connector_type": "xlr",
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("POST second device: status %d body %s", status, raw)
+	}
+	localSpeaker := decodeJSON[domain.OutputDevice](t, raw)
+	if status, raw = doJSON(t, http.MethodPost, cablesURL, map[string]any{
+		"from_kind": "mixer", "from_id": output.ID, "from_port": 0,
+		"to_kind": "device", "to_id": localSpeaker.ID, "to_port": 0,
+	}); status != http.StatusCreated {
+		t.Errorf("mixer fan-out to a second destination: status %d body %s, want 201", status, raw)
+	}
+
+	// A non-mixer from_kind stays restricted to one cable per port.
+	if status, raw = doJSON(t, http.MethodPost, devicesURL, map[string]any{
+		"name": "Third speaker", "inventory_item_id": speakerItem, "input_port_count": 1, "input_connector_type": "xlr",
+	}); status != http.StatusCreated {
+		t.Fatalf("POST third device: status %d body %s", status, raw)
+	}
+	thirdSpeaker := decodeJSON[domain.OutputDevice](t, raw)
+	if status, raw = doJSON(t, http.MethodPost, cablesURL, map[string]any{
+		"from_kind": "stagebox", "from_id": sb.ID, "from_port": 2,
+		"to_kind": "device", "to_id": thirdSpeaker.ID, "to_port": 0,
+	}); status != http.StatusConflict {
+		t.Errorf("stagebox port reused for a second cable: status %d body %s, want 409", status, raw)
+	}
+
+	// Rental: the channel->stagebox cable contributes nothing; the
+	// stagebox->device cable and both devices count normally.
+	status, raw = doJSON(t, http.MethodGet, fmt.Sprintf("%s/events/%d/rentals", server.URL, eventID), nil)
+	if status != http.StatusOK {
+		t.Fatalf("GET rentals: status %d body %s", status, raw)
+	}
+	summary := decodeJSON[domain.RentalSummary](t, raw)
+	byID := map[int64]domain.EventRental{}
+	for _, line := range summary.Items {
+		byID[line.InventoryItemID] = line
+	}
+	if line := byID[speakerItem]; line.QuantityAudio != 3 {
+		t.Errorf("speaker device line audio=%d, want 3 (monitor + local speaker + third speaker)", line.QuantityAudio)
+	}
+	if line := byID[cable]; line.QuantityAudio != 1 {
+		t.Errorf("cable line audio=%d, want 1 (only the stagebox->device leg)", line.QuantityAudio)
+	}
+
+	// Mixer position round-trips through its own dedicated endpoint.
+	status, raw = doJSON(t, http.MethodPatch, fmt.Sprintf("%s/events/%d/output-mixer-position", server.URL, eventID), map[string]any{"position_y": 123.5})
+	if status != http.StatusNoContent {
+		t.Fatalf("PATCH mixer position: status %d body %s", status, raw)
+	}
+	status, raw = doJSON(t, http.MethodGet, fmt.Sprintf("%s/events/%d/audio-patch", server.URL, eventID), nil)
+	if status != http.StatusOK {
+		t.Fatalf("GET patch: status %d body %s", status, raw)
+	}
+	patch := decodeJSON[struct {
+		OutputMixerPositionY float64 `json:"output_mixer_position_y"`
+	}](t, raw)
+	if patch.OutputMixerPositionY != 123.5 {
+		t.Errorf("mixer position_y = %v, want 123.5", patch.OutputMixerPositionY)
+	}
+}

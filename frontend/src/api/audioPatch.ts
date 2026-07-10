@@ -57,3 +57,6 @@ export const updateOutputCable = (eventId: number, cableId: number, cableItemId:
   request<OutputCable>(`/events/${eventId}/output-cables/${cableId}`, { method: 'PATCH', body: JSON.stringify({ cable_item_id: cableItemId ?? null }) })
 export const deleteOutputCable = (eventId: number, cableId: number) =>
   request<void>(`/events/${eventId}/output-cables/${cableId}`, { method: 'DELETE' })
+
+export const updateOutputMixerPosition = (eventId: number, positionY: number) =>
+  request<void>(`/events/${eventId}/output-mixer-position`, { method: 'PATCH', body: JSON.stringify({ position_y: positionY }) })

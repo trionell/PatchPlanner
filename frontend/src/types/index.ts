@@ -40,6 +40,15 @@ export interface Stagebox {
   output_count: number
   connection_type: string
   inventory_item_id?: number
+  /**
+   * Canvas placement in the output signal-flow graph's Processing zone —
+   * a stagebox is a full pass-through node there: output_count sizes
+   * both an input side (a channel routes into a specific jack, pure
+   * console/network routing, never a physical cable) and its output
+   * side (a real cable onward to a device).
+   */
+  position_x: number
+  position_y: number
 }
 
 export interface StageMulti {
@@ -50,6 +59,9 @@ export interface StageMulti {
   channels: number
   connector_type: string
   inventory_item_id?: number
+  /** Canvas placement in the output signal-flow graph's Processing zone. */
+  position_x: number
+  position_y: number
 }
 
 /** A named mix bus of one event; LR is built-in (recolorable, never renamed/deleted). */
@@ -150,11 +162,14 @@ export interface OutputDevice {
 /**
  * One edge in the output signal-flow graph — a cable from one node's
  * output-side port to another node's input-side port. from_kind is
- * 'mixer' | 'stagebox' | 'stage_multi' | 'device' (mixer/stagebox have no
- * input side, so are never a to_kind); to_kind is 'stage_multi' | 'device'
- * only. cable_item_id is always null when to_kind is 'stage_multi' — a
- * stage multi's own built-in wiring is never a separately rentable cable
- * (FR-013); otherwise it's the picked catalog item, or unset for a gap.
+ * 'mixer' | 'stagebox' | 'stage_multi' | 'device' (mixer has no input
+ * side, so is never a to_kind); to_kind is 'stagebox' | 'stage_multi' |
+ * 'device'. cable_item_id is always null when to_kind is 'stagebox' or
+ * 'stage_multi' — a channel's route into either is pure console/network
+ * routing, never a separately rentable cable (FR-013); otherwise it's
+ * the picked catalog item, or unset for a gap. A mixer port (a logical
+ * channel, not a physical jack) can be the from side of more than one
+ * cable at once — every other from_kind stays one-cable-per-port.
  */
 export interface OutputCable {
   id: number
@@ -162,7 +177,7 @@ export interface OutputCable {
   from_kind: 'mixer' | 'stagebox' | 'stage_multi' | 'device'
   from_id: number
   from_port: number
-  to_kind: 'stage_multi' | 'device'
+  to_kind: 'stagebox' | 'stage_multi' | 'device'
   to_id: number
   to_port: number
   cable_item_id?: number
@@ -330,6 +345,8 @@ export interface AudioPatchResponse {
   outputs: AudioPatchOutput[]
   output_devices: OutputDevice[]
   output_cables: OutputCable[]
+  /** The mixer node's canvas Y position in the Sources/Channels rail (X is fixed). */
+  output_mixer_position_y: number
 }
 
 export interface LightingRigResponse {

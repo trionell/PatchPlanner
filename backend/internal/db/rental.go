@@ -27,9 +27,12 @@ import (
 // (output_devices) contributes a flat 1 per row regardless of how many
 // cables reference it (the "amplifier never doubles" rule, unchanged from
 // Slice 10). output_cables.cable_item_id is always NULL for a cable whose
-// to_kind is 'stage_multi' (FR-013 — a stage multi's own built-in wiring
-// is never a separately rentable cable), so that arm structurally excludes
-// those rows with no extra WHERE clause needed.
+// to_kind is 'stage_multi' or 'stagebox' (FR-013, extended to stageboxes
+// once they became pass-through nodes — a channel's route into either is
+// pure console/network routing, never a separately rentable cable; the
+// mixer-to-stagebox link itself is out of scope here and tracked
+// separately as a Rented Extra), so that arm structurally excludes those
+// rows with no extra WHERE clause needed.
 const rentalSummaryQuery = `
 	WITH combined AS (
 		SELECT mic_item_id AS inventory_item_id,
