@@ -19,7 +19,7 @@ func main() {
 	migrationsPath := envOr("PATCHPLANNER_MIGRATIONS", "./migrations")
 	corsOrigin := envOr("PATCHPLANNER_CORS_ORIGIN", "http://localhost:5173")
 
-	database, err := db.Open(dbPath, migrationsPath)
+	database, err := db.Open(dbPath, migrationsPath, logger)
 	if err != nil {
 		logger.Error("failed to initialize database", slog.Any("error", err))
 		os.Exit(1)

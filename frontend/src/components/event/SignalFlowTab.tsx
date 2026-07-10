@@ -3,9 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { getAudioPatch } from '../../api/audioPatch'
 import { listInventoryItems } from '../../api/inventory'
-import { listOwnedItems } from '../../api/owned'
 import { useReferenceData } from '../../hooks/useReferenceData'
-import { buildChannelFlows, buildOutputChainFlows, type FlowHop } from '../../lib/signalFlow'
+import { buildChannelFlows, buildOutputChannelFlows, type FlowHop } from '../../lib/signalFlow'
 import { busTint, cn, itemLabel } from '../../lib/utils'
 import { PrintButton } from '../print/PrintButton'
 import { PrintSheet } from '../print/PrintSheet'
@@ -21,10 +20,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
  * Outputs tabs.
  */
 export function SignalFlowTab({ eventId }: { eventId: number }) {
-  const audioQuery = useQuery({ queryKey: ['audio-patch', eventId], queryFn: () => getAudioPatch(eventId) })
+  const audioQuery = useQuery({ queryKey: ['audio-patch', eventId], queryFn: ({ signal }) => getAudioPatch(eventId, signal) })
   const inventoryQuery = useQuery({ queryKey: ['inventory-audio-items'], queryFn: () => listInventoryItems({ categoryType: 'audio' }) })
   const cableQuery = useQuery({ queryKey: ['inventory-items', 'role', 'cable'], queryFn: () => listInventoryItems({ role: 'cable' }) })
-  const ownedQuery = useQuery({ queryKey: ['owned-items'], queryFn: listOwnedItems })
   const { label } = useReferenceData()
 
   const micNameById = useMemo(
@@ -38,10 +36,6 @@ export function SignalFlowTab({ eventId }: { eventId: number }) {
   const itemLabelById = useMemo(
     () => new Map([...(inventoryQuery.data ?? []), ...(cableQuery.data ?? [])].map((item) => [item.id, itemLabel(item)])),
     [inventoryQuery.data, cableQuery.data],
-  )
-  const ownedItemLabelById = useMemo(
-    () => new Map((ownedQuery.data ?? []).map((item) => [item.id, item.name])),
-    [ownedQuery.data],
   )
   // Sorted copy matching buildChannelFlows' internal order, so flows[i]
   // and inputs[i] describe the same channel (bus membership isn't part of
@@ -60,13 +54,12 @@ export function SignalFlowTab({ eventId }: { eventId: number }) {
     // other cable pick, so the query result doubles as its label source.
     sourceCableLabelById: cableLabelById,
   })
-  const outputFlows = buildOutputChainFlows(audioQuery.data?.outputs ?? [], {
+  const outputFlows = buildOutputChannelFlows(audioQuery.data?.outputs ?? [], {
     stageboxes: audioQuery.data?.stageboxes ?? [],
     stageMultis: audioQuery.data?.stage_multis ?? [],
-    outputDevices: audioQuery.data?.output_devices ?? [],
+    devices: audioQuery.data?.output_devices ?? [],
+    cables: audioQuery.data?.output_cables ?? [],
     itemLabelById,
-    ownedItemLabelById,
-    cableLabel: (value) => label('speaker_cable_types', value),
   })
   const gapCount = flows.filter((flow) => flow.hasGap).length + outputFlows.filter((flow) => flow.hasGap).length
   const groups = audioQuery.data?.groups ?? []
@@ -146,41 +139,25 @@ export function SignalFlowTab({ eventId }: { eventId: number }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {outputFlows.map((flow) => {
-                const sideBHops = flow.hops.filter((hop) => hop.sideB || hop.cableB)
-                return (
-                  <TableRow key={flow.outputNumber}>
-                    <TableCell className="w-16">{flow.outputNumber}</TableCell>
-                    <TableCell className="w-48">{flow.outputName || '—'}</TableCell>
-                    <TableCell>
-                      <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                        <span>Console out {flow.outputNumber}</span>
-                        {flow.hops.length === 0 && (<><Arrow /><span className="text-zinc-500">direct</span></>)}
-                        {flow.hops.map((hop, hopIndex) => (
+              {outputFlows.map((flow) => (
+                <TableRow key={flow.outputNumber}>
+                  <TableCell className="w-16">{flow.outputNumber}</TableCell>
+                  <TableCell className="w-48">{flow.outputName || '—'}</TableCell>
+                  <TableCell>
+                    {flow.paths.map((path, pathIndex) => (
+                      <span key={pathIndex} className={cn('flex flex-wrap items-baseline gap-x-2 gap-y-1', pathIndex > 0 && 'mt-1 text-zinc-400')}>
+                        <span>Console out {flow.outputNumber}{path.sideLabel ? ` ${path.sideLabel}` : ''}</span>
+                        {path.hops.map((hop, hopIndex) => (
                           <Fragment key={hopIndex}>
                             <Arrow />
-                            {hop.cable && (<><Hop hop={hop.cable} /><Arrow /></>)}
-                            <Hop hop={hop.device} />
+                            <Hop hop={hop} />
                           </Fragment>
                         ))}
                       </span>
-                      {sideBHops.length > 0 && (
-                        <span className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-zinc-400">
-                          <span className="text-xs uppercase tracking-wide text-zinc-500">Side B</span>
-                          {sideBHops.map((hop, hopIndex) => (
-                            <Fragment key={hopIndex}>
-                              <Arrow />
-                              {hop.cableB && <Hop hop={hop.cableB} />}
-                              {hop.cableB && hop.sideB && <Arrow />}
-                              {hop.sideB && <Hop hop={hop.sideB} />}
-                            </Fragment>
-                          ))}
-                        </span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
+                    ))}
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </CardContent>

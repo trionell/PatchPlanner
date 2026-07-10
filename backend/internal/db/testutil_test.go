@@ -2,6 +2,8 @@ package db
 
 import (
 	"database/sql"
+	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -14,7 +16,7 @@ import (
 // migrations, so tests exercise the exact schema production runs on.
 func openTestDB(t *testing.T) *sql.DB {
 	t.Helper()
-	database, err := Open(filepath.Join(t.TempDir(), "test.db"), migrationsDir(t))
+	database, err := Open(filepath.Join(t.TempDir(), "test.db"), migrationsDir(t), slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatalf("open test db: %v", err)
 	}

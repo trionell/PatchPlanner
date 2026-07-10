@@ -23,13 +23,6 @@ func nullInt(value *int) sql.NullInt64 {
 	return sql.NullInt64{Int64: int64(*value), Valid: true}
 }
 
-func nullFloat(value float64) sql.NullFloat64 {
-	if value == 0 {
-		return sql.NullFloat64{}
-	}
-	return sql.NullFloat64{Float64: value, Valid: true}
-}
-
 func boolToInt(value bool) int {
 	if value {
 		return 1

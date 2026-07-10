@@ -164,56 +164,11 @@ func sharedDeviceItem(t *testing.T, database *sql.DB, deviceID int64) int64 {
 	return itemID
 }
 
-// TestOutputChainsMigrationRentalParity verifies SC-005: migrating a
-// pre-023 event's output rows produces the exact same rental quantities
-// the old flat model would have — amplifier stays single (now via a
-// one-off shared device), speaker and cable double on a stereo row (now
-// via a plain hop / any hop's cable), both stay single on a mono row.
-// The old schema has no equivalent query to run "before", so this pins
-// the migrated result against the old CTE's documented behavior instead
-// (research.md R3/R6).
-func TestOutputChainsMigrationRentalParity(t *testing.T) {
-	database := openMigratedTo(t, 22)
-
-	mustExec(t, database, `INSERT INTO events (name) VALUES ('Mono'), ('Stereo')`)
-	cat := insertCategory(t, database, "Audio", "audio")
-	amp := insertItem(t, database, cat, "Amp", 2, 400, 12)
-	speaker := insertItem(t, database, cat, "Speaker", 2, 500, 13)
-	cable := insertItem(t, database, cat, "Speakon Cable", 2, 25, 14)
-
-	mustExec(t, database, `INSERT INTO audio_patch_outputs (event_id, output_number, output_type, destination_type, amplifier_item_id, speaker_item_id, cable_item_id, width) VALUES (1, 1, 'foh', 'local', ?, ?, ?, 'mono')`, amp, speaker, cable)
-	mustExec(t, database, `INSERT INTO audio_patch_outputs (event_id, output_number, output_type, destination_type, amplifier_item_id, speaker_item_id, cable_item_id, width) VALUES (2, 1, 'foh', 'local', ?, ?, ?, 'stereo')`, amp, speaker, cable)
-
-	execMigrationFileTx(t, database, "023_output_chains.up.sql")
-	execMigrationFileTx(t, database, "024_output_chain_cable_b.up.sql")
-
-	monoSummary, err := GetRentalSummary(database, 1)
-	if err != nil {
-		t.Fatalf("get mono rental summary: %v", err)
-	}
-	monoByItem := summaryByItem(monoSummary)
-	if got := monoByItem[amp].QuantityAudio; got != 1 {
-		t.Errorf("migrated mono amplifier: quantity_audio=%d, want 1", got)
-	}
-	if got := monoByItem[speaker].QuantityAudio; got != 1 {
-		t.Errorf("migrated mono speaker: quantity_audio=%d, want 1", got)
-	}
-	if got := monoByItem[cable].QuantityAudio; got != 1 {
-		t.Errorf("migrated mono cable: quantity_audio=%d, want 1", got)
-	}
-
-	stereoSummary, err := GetRentalSummary(database, 2)
-	if err != nil {
-		t.Fatalf("get stereo rental summary: %v", err)
-	}
-	stereoByItem := summaryByItem(stereoSummary)
-	if got := stereoByItem[amp].QuantityAudio; got != 1 {
-		t.Errorf("migrated stereo amplifier: quantity_audio=%d, want 1 (never doubles)", got)
-	}
-	if got := stereoByItem[speaker].QuantityAudio; got != 2 {
-		t.Errorf("migrated stereo speaker: quantity_audio=%d, want 2 (doubled)", got)
-	}
-	if got := stereoByItem[cable].QuantityAudio; got != 2 {
-		t.Errorf("migrated stereo cable: quantity_audio=%d, want 2 (doubled)", got)
-	}
-}
+// Rental-parity coverage for the 023/024 hop migration (formerly
+// TestOutputChainsMigrationRentalParity) was retired in Slice 11: rental
+// counting no longer reads output_chain_hops at all (research.md R4), so
+// there is nothing left for that parity check to pin. Slice 11's own
+// TestConvertOutputChainHopsToGraph in output_graph_migration_test.go
+// covers the full migration path (023's hop conversion followed by the
+// graph conversion) against the shapes that matter for rental counting
+// today.

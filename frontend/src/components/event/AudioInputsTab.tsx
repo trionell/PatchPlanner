@@ -23,7 +23,7 @@ import { StageboxMultiSection } from './StageboxMultiSection'
 
 export function AudioInputsTab({ eventId }: { eventId: number }) {
   const queryClient = useQueryClient()
-  const audioQuery = useQuery({ queryKey: ['audio-patch', eventId], queryFn: () => getAudioPatch(eventId) })
+  const audioQuery = useQuery({ queryKey: ['audio-patch', eventId], queryFn: ({ signal }) => getAudioPatch(eventId, signal) })
   const inventoryQuery = useQuery({ queryKey: ['inventory-audio-items'], queryFn: () => listInventoryItems({ categoryType: 'audio' }) })
   const cableQuery = useQuery({ queryKey: ['inventory-items', 'role', 'cable'], queryFn: () => listInventoryItems({ role: 'cable' }) })
   const standQuery = useQuery({ queryKey: ['inventory-items', 'role', 'stand'], queryFn: () => listInventoryItems({ role: 'stand' }) })

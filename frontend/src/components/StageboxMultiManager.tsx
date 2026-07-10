@@ -95,6 +95,11 @@ export function StageboxMultiManager({
       output_count: parseInt(boxDraft.output_count) || 0,
       connection_type: boxDraft.connection_type,
       inventory_item_id: boxDraft.inventory_item_id ? Number(boxDraft.inventory_item_id) : undefined,
+      // New nodes land staggered, not stacked on the canvas origin — the
+      // tech drags them into place afterward (data-model.md's
+      // state-transition note).
+      position_x: 420 + ((stageboxes.length + stageMultis.length) % 3) * 220,
+      position_y: 60 + Math.floor((stageboxes.length + stageMultis.length) / 3) * 160,
     })
     setBoxDraft(emptyBox)
     setAddingBox(false)
@@ -108,6 +113,8 @@ export function StageboxMultiManager({
       channels: parseInt(multiDraft.channels) || 24,
       connector_type: multiDraft.connector_type,
       length_m: parseFloat(multiDraft.length_m) || 0,
+      position_x: 420 + ((stageboxes.length + stageMultis.length) % 3) * 220,
+      position_y: 60 + Math.floor((stageboxes.length + stageMultis.length) / 3) * 160,
       inventory_item_id: multiDraft.inventory_item_id ? Number(multiDraft.inventory_item_id) : undefined,
     })
     setMultiDraft(emptyMulti)

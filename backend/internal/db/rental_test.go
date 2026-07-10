@@ -25,14 +25,23 @@ func TestRentalSummaryCountsAllSources(t *testing.T) {
 	if _, err := CreateStageMulti(database, domain.StageMulti{EventID: eventID, Name: "Multi 1", Channels: 24, ConnectorType: "xlr", InventoryItemID: &cat.Multi}); err != nil {
 		t.Fatalf("create stage multi: %v", err)
 	}
-	if _, err := CreateAudioPatchOutput(database, domain.AudioPatchOutput{
-		EventID: eventID, OutputNumber: 1, OutputType: "foh",
-		Chain: []domain.OutputChainHop{
-			{HopKind: "device", DeviceSource: "inventory", InventoryItemID: &cat.Amp},
-			{HopKind: "device", DeviceSource: "inventory", InventoryItemID: &cat.Speaker},
-		},
-	}); err != nil {
+	output, err := CreateAudioPatchOutput(database, domain.AudioPatchOutput{EventID: eventID, OutputNumber: 1, OutputType: "foh", Width: "mono"})
+	if err != nil {
 		t.Fatalf("create output: %v", err)
+	}
+	ampDevice, err := CreateOutputDevice(database, domain.OutputDevice{EventID: eventID, Name: "Amp", InventoryItemID: &cat.Amp, InputPortCount: 1, OutputPortCount: 1})
+	if err != nil {
+		t.Fatalf("create amp device: %v", err)
+	}
+	speakerDevice, err := CreateOutputDevice(database, domain.OutputDevice{EventID: eventID, Name: "Speaker", InventoryItemID: &cat.Speaker, InputPortCount: 1})
+	if err != nil {
+		t.Fatalf("create speaker device: %v", err)
+	}
+	if _, err := CreateOutputCable(database, domain.OutputCable{EventID: eventID, FromKind: "mixer", FromID: output.ID, FromPort: 0, ToKind: "device", ToID: ampDevice.ID, ToPort: 0}); err != nil {
+		t.Fatalf("create mixer->amp cable: %v", err)
+	}
+	if _, err := CreateOutputCable(database, domain.OutputCable{EventID: eventID, FromKind: "device", FromID: ampDevice.ID, FromPort: 0, ToKind: "device", ToID: speakerDevice.ID, ToPort: 0}); err != nil {
+		t.Fatalf("create amp->speaker cable: %v", err)
 	}
 	rig, err := GetOrCreateDefaultLightingRig(database, eventID)
 	if err != nil {
@@ -250,22 +259,36 @@ func TestStereoRentalDoubling(t *testing.T) {
 		t.Fatalf("create stereo mic input: %v", err)
 	}
 
-	// Stereo output: cable, speaker, amplifier all picked — cable and
-	// speaker double (plain per-hop items); amplifier stays single because
-	// it's declared as a shared device (research.md R3: shared device hops
-	// never double, regardless of how many channels reference them).
-	ampDevice, err := CreateOutputDevice(database, domain.OutputDevice{EventID: eventID, Name: "FOH Amp", InventoryItemID: &cat.Amp})
+	// Stereo output: one shared amp fed by both mixer sides (a real
+	// two-input-port device now, not a width flag) feeding two separate
+	// one-off speakers. The amp device row counts once regardless of how
+	// many cables reference it (research.md R3, carried into R4); the two
+	// independent mixer->amp cables (same catalog item, two real rows) and
+	// the two separate speaker device rows are what produce the "doubled"
+	// totals now — no CASE WHEN width = 'stereo' anywhere on this side.
+	ampDevice, err := CreateOutputDevice(database, domain.OutputDevice{EventID: eventID, Name: "FOH Amp", InventoryItemID: &cat.Amp, InputPortCount: 2, OutputPortCount: 2})
 	if err != nil {
 		t.Fatalf("create shared amp device: %v", err)
 	}
-	if _, err := CreateAudioPatchOutput(database, domain.AudioPatchOutput{
-		EventID: eventID, OutputNumber: 1, OutputType: "foh", Width: "stereo",
-		Chain: []domain.OutputChainHop{
-			{HopKind: "device", DeviceSource: "shared", OutputDeviceID: &ampDevice.ID, CableItemID: &outputCable},
-			{HopKind: "device", DeviceSource: "inventory", InventoryItemID: &cat.Speaker},
-		},
-	}); err != nil {
+	speakerL, err := CreateOutputDevice(database, domain.OutputDevice{EventID: eventID, Name: "Speaker L", InventoryItemID: &cat.Speaker, InputPortCount: 1})
+	if err != nil {
+		t.Fatalf("create speaker L device: %v", err)
+	}
+	speakerR, err := CreateOutputDevice(database, domain.OutputDevice{EventID: eventID, Name: "Speaker R", InventoryItemID: &cat.Speaker, InputPortCount: 1})
+	if err != nil {
+		t.Fatalf("create speaker R device: %v", err)
+	}
+	stereoOutput, err := CreateAudioPatchOutput(database, domain.AudioPatchOutput{EventID: eventID, OutputNumber: 1, OutputType: "foh", Width: "stereo"})
+	if err != nil {
 		t.Fatalf("create stereo output: %v", err)
+	}
+	for side, speaker := range map[int]domain.OutputDevice{0: speakerL, 1: speakerR} {
+		if _, err := CreateOutputCable(database, domain.OutputCable{EventID: eventID, FromKind: "mixer", FromID: stereoOutput.ID, FromPort: side, ToKind: "device", ToID: ampDevice.ID, ToPort: side, CableItemID: &outputCable}); err != nil {
+			t.Fatalf("create mixer->amp cable side %d: %v", side, err)
+		}
+		if _, err := CreateOutputCable(database, domain.OutputCable{EventID: eventID, FromKind: "device", FromID: ampDevice.ID, FromPort: side, ToKind: "device", ToID: speaker.ID, ToPort: 0}); err != nil {
+			t.Fatalf("create amp->speaker cable side %d: %v", side, err)
+		}
 	}
 
 	summary, err := GetRentalSummary(database, eventID)
@@ -377,184 +400,104 @@ func TestDISourceCableCounting(t *testing.T) {
 	}
 }
 
-// TestOutputChainRentalDoubling verifies research.md R3/R7: a stereo
-// output channel doubles a non-shared device hop's item and any hop's
-// cable, while a hop referencing a declared shared device stays single —
-// exactly the amplifier/speaker split the old flat model had, now
-// expressed through the chain model instead of two fixed columns.
-func TestOutputChainRentalDoubling(t *testing.T) {
+// TestOutputGraphRentalCounting verifies research.md R4: output rental
+// counting is flat per-row, with no width-based doubling anywhere. A
+// stereo channel's independent physical sides are two real device/cable
+// rows from the start, so "doubling" simply falls out of there being two
+// rows; a shared device counts once no matter how many cables reference
+// it; a stage multi's own built-in input wiring never contributes to the
+// rental order (FR-013), while its genuine output-side cabling counts
+// normally.
+func TestOutputGraphRentalCounting(t *testing.T) {
 	database := openTestDB(t)
 	cat := seedCatalog(t, database)
-	speakerCable := insertItem(t, database, cat.AudioCategoryID, "Speakon Cable", 10, 25, 50)
+	eventID := createTestEvent(t, database)
+	cable := insertItem(t, database, cat.AudioCategoryID, "Speakon Cable", 10, 25, 50)
 
-	// Two separate events: one stereo, one mono, each with its own shared
-	// device declaration (declarations are event-scoped).
-	stereoEvent := createTestEvent(t, database)
-	stereoAmp, err := CreateOutputDevice(database, domain.OutputDevice{EventID: stereoEvent, Name: "Amp", InventoryItemID: &cat.Amp})
+	// Two separate device rows, same catalog item, standing in for a
+	// stereo channel's two independent physical speakers: quantity 2.
+	speakerL, err := CreateOutputDevice(database, domain.OutputDevice{EventID: eventID, Name: "Speaker L", InventoryItemID: &cat.Speaker, InputPortCount: 1})
 	if err != nil {
-		t.Fatalf("create shared device: %v", err)
+		t.Fatalf("create speaker L: %v", err)
 	}
-	if _, err := CreateAudioPatchOutput(database, domain.AudioPatchOutput{
-		EventID: stereoEvent, OutputNumber: 1, OutputType: "foh", Width: "stereo",
-		Chain: []domain.OutputChainHop{
-			{HopKind: "device", DeviceSource: "inventory", InventoryItemID: &cat.Speaker, CableItemID: &speakerCable},
-			{HopKind: "device", DeviceSource: "shared", OutputDeviceID: &stereoAmp.ID},
-		},
-	}); err != nil {
-		t.Fatalf("create stereo output: %v", err)
-	}
-	stereoSummary, err := GetRentalSummary(database, stereoEvent)
+	speakerR, err := CreateOutputDevice(database, domain.OutputDevice{EventID: eventID, Name: "Speaker R", InventoryItemID: &cat.Speaker, InputPortCount: 1})
 	if err != nil {
-		t.Fatalf("get stereo rental summary: %v", err)
-	}
-	stereoByItem := summaryByItem(stereoSummary)
-	if got := stereoByItem[cat.Speaker].QuantityAudio; got != 2 {
-		t.Errorf("stereo non-shared device hop: quantity_audio=%d, want 2", got)
-	}
-	if got := stereoByItem[speakerCable].QuantityAudio; got != 2 {
-		t.Errorf("stereo hop cable: quantity_audio=%d, want 2", got)
-	}
-	if got := stereoByItem[cat.Amp].QuantityAudio; got != 1 {
-		t.Errorf("stereo shared device hop: quantity_audio=%d, want 1 (never doubles)", got)
+		t.Fatalf("create speaker R: %v", err)
 	}
 
-	monoEvent := createTestEvent(t, database)
-	monoAmp, err := CreateOutputDevice(database, domain.OutputDevice{EventID: monoEvent, Name: "Amp", InventoryItemID: &cat.Amp})
+	// One shared amp, referenced by two cables (from each speaker's
+	// upstream side): the device row itself still counts once.
+	amp, err := CreateOutputDevice(database, domain.OutputDevice{EventID: eventID, Name: "Amp", InventoryItemID: &cat.Amp, InputPortCount: 1, OutputPortCount: 3})
 	if err != nil {
-		t.Fatalf("create shared device: %v", err)
+		t.Fatalf("create amp: %v", err)
 	}
-	if _, err := CreateAudioPatchOutput(database, domain.AudioPatchOutput{
-		EventID: monoEvent, OutputNumber: 1, OutputType: "foh", Width: "mono",
-		Chain: []domain.OutputChainHop{
-			{HopKind: "device", DeviceSource: "inventory", InventoryItemID: &cat.Speaker, CableItemID: &speakerCable},
-			{HopKind: "device", DeviceSource: "shared", OutputDeviceID: &monoAmp.ID},
-		},
-	}); err != nil {
-		t.Fatalf("create mono output: %v", err)
+	if _, err := CreateOutputCable(database, domain.OutputCable{EventID: eventID, FromKind: "device", FromID: amp.ID, FromPort: 0, ToKind: "device", ToID: speakerL.ID, ToPort: 0, CableItemID: &cable}); err != nil {
+		t.Fatalf("create amp->speakerL cable: %v", err)
 	}
-	monoSummary, err := GetRentalSummary(database, monoEvent)
-	if err != nil {
-		t.Fatalf("get mono rental summary: %v", err)
-	}
-	monoByItem := summaryByItem(monoSummary)
-	if got := monoByItem[cat.Speaker].QuantityAudio; got != 1 {
-		t.Errorf("mono non-shared device hop: quantity_audio=%d, want 1", got)
-	}
-	if got := monoByItem[speakerCable].QuantityAudio; got != 1 {
-		t.Errorf("mono hop cable: quantity_audio=%d, want 1", got)
-	}
-	if got := monoByItem[cat.Amp].QuantityAudio; got != 1 {
-		t.Errorf("mono shared device hop: quantity_audio=%d, want 1", got)
-	}
-}
-
-// TestOutputHopIndependentCablePicks verifies the fix for a stereo hop
-// whose two physical runs need different cables — e.g. an amplifier on
-// one side of the stage needs a shorter cable to the near speaker than
-// the far one. Leaving CableItemIDB unset keeps the default "same cable
-// both sides" doubling; setting it makes each side an independent, single
-// count (even when both sides happen to pick the same catalog item).
-func TestOutputHopIndependentCablePicks(t *testing.T) {
-	database := openTestDB(t)
-	cat := seedCatalog(t, database)
-	shortCable := insertItem(t, database, cat.AudioCategoryID, "Speakon 5m", 10, 15, 60)
-	longCable := insertItem(t, database, cat.AudioCategoryID, "Speakon 20m", 10, 35, 61)
-
-	// Default: no side-B cable set, still doubles.
-	defaultEvent := createTestEvent(t, database)
-	if _, err := CreateAudioPatchOutput(database, domain.AudioPatchOutput{
-		EventID: defaultEvent, OutputNumber: 1, OutputType: "foh", Width: "stereo",
-		Chain: []domain.OutputChainHop{{HopKind: "device", DeviceSource: "inventory", InventoryItemID: &cat.Speaker, CableItemID: &shortCable}},
-	}); err != nil {
-		t.Fatalf("create default output: %v", err)
-	}
-	defaultSummary, err := GetRentalSummary(database, defaultEvent)
-	if err != nil {
-		t.Fatalf("get default rental summary: %v", err)
-	}
-	if got := summaryByItem(defaultSummary)[shortCable].QuantityAudio; got != 2 {
-		t.Errorf("no side-B cable set: quantity_audio=%d, want 2 (default doubling)", got)
+	if _, err := CreateOutputCable(database, domain.OutputCable{EventID: eventID, FromKind: "device", FromID: amp.ID, FromPort: 1, ToKind: "device", ToID: speakerR.ID, ToPort: 0, CableItemID: &cable}); err != nil {
+		t.Fatalf("create amp->speakerR cable: %v", err)
 	}
 
-	// Independent picks: near speaker gets the short cable, far speaker
-	// the long one — each counted once, not doubled.
-	independentEvent := createTestEvent(t, database)
-	if _, err := CreateAudioPatchOutput(database, domain.AudioPatchOutput{
-		EventID: independentEvent, OutputNumber: 1, OutputType: "foh", Width: "stereo",
-		Chain: []domain.OutputChainHop{{HopKind: "device", DeviceSource: "inventory", InventoryItemID: &cat.Speaker, CableItemID: &shortCable, CableItemIDB: &longCable}},
-	}); err != nil {
-		t.Fatalf("create independent-cable output: %v", err)
-	}
-	independentSummary, err := GetRentalSummary(database, independentEvent)
+	// A stage multi: a cable into its input side must carry no
+	// cable_item_id (FR-013, enforced at the API layer — here we assert
+	// the CTE arm itself contributes nothing for that row regardless) and
+	// have zero rental impact; a cable out of its output side, with a
+	// real catalog pick, counts normally.
+	multi, err := CreateStageMulti(database, domain.StageMulti{EventID: eventID, Name: "Multi 1", Channels: 8, ConnectorType: "xlr"})
 	if err != nil {
-		t.Fatalf("get independent rental summary: %v", err)
+		t.Fatalf("create stage multi: %v", err)
 	}
-	byItem := summaryByItem(independentSummary)
-	if got := byItem[shortCable].QuantityAudio; got != 1 {
-		t.Errorf("side A cable with side B set: quantity_audio=%d, want 1 (not doubled)", got)
+	monitor, err := CreateOutputDevice(database, domain.OutputDevice{EventID: eventID, Name: "Monitor", InventoryItemID: &cat.Speaker, InputPortCount: 1})
+	if err != nil {
+		t.Fatalf("create monitor: %v", err)
 	}
-	if got := byItem[longCable].QuantityAudio; got != 1 {
-		t.Errorf("side B cable: quantity_audio=%d, want 1", got)
+	multiOutputCable := insertItem(t, database, cat.AudioCategoryID, "Multi output cable", 10, 15, 51)
+	if _, err := CreateOutputCable(database, domain.OutputCable{EventID: eventID, FromKind: "device", FromID: amp.ID, FromPort: 2, ToKind: "stage_multi", ToID: multi.ID, ToPort: 0}); err != nil {
+		t.Fatalf("create amp->multi input cable: %v", err)
+	}
+	if _, err := CreateOutputCable(database, domain.OutputCable{EventID: eventID, FromKind: "stage_multi", FromID: multi.ID, FromPort: 0, ToKind: "device", ToID: monitor.ID, ToPort: 0, CableItemID: &multiOutputCable}); err != nil {
+		t.Fatalf("create multi->monitor output cable: %v", err)
 	}
 
-	// Same item picked on both sides explicitly still sums to 2 overall —
-	// via two independent ×1 picks, not the ×2 doubling formula.
-	sameItemEvent := createTestEvent(t, database)
-	if _, err := CreateAudioPatchOutput(database, domain.AudioPatchOutput{
-		EventID: sameItemEvent, OutputNumber: 1, OutputType: "foh", Width: "stereo",
-		Chain: []domain.OutputChainHop{{HopKind: "device", DeviceSource: "inventory", InventoryItemID: &cat.Speaker, CableItemID: &shortCable, CableItemIDB: &shortCable}},
-	}); err != nil {
-		t.Fatalf("create same-item-both-sides output: %v", err)
-	}
-	sameItemSummary, err := GetRentalSummary(database, sameItemEvent)
+	summary, err := GetRentalSummary(database, eventID)
 	if err != nil {
-		t.Fatalf("get same-item rental summary: %v", err)
+		t.Fatalf("get rental summary: %v", err)
 	}
-	if got := summaryByItem(sameItemSummary)[shortCable].QuantityAudio; got != 2 {
-		t.Errorf("same cable explicitly picked both sides: quantity_audio=%d, want 2", got)
+	byItem := summaryByItem(summary)
+	if got := byItem[cat.Speaker].QuantityAudio; got != 3 {
+		t.Errorf("speaker devices (2 stereo speakers + 1 monitor): quantity_audio=%d, want 3", got)
 	}
-
-	// Mono channel: CableItemIDB is ignored regardless (inert-not-lost,
-	// same pattern as every other side-B field).
-	monoEvent := createTestEvent(t, database)
-	if _, err := CreateAudioPatchOutput(database, domain.AudioPatchOutput{
-		EventID: monoEvent, OutputNumber: 1, OutputType: "foh", Width: "mono",
-		Chain: []domain.OutputChainHop{{HopKind: "device", DeviceSource: "inventory", InventoryItemID: &cat.Speaker, CableItemID: &shortCable, CableItemIDB: &longCable}},
-	}); err != nil {
-		t.Fatalf("create mono output with stale side-B cable: %v", err)
+	if got := byItem[cat.Amp].QuantityAudio; got != 1 {
+		t.Errorf("shared amp referenced by two cables: quantity_audio=%d, want 1 (never doubles)", got)
 	}
-	monoCableSummary, err := GetRentalSummary(database, monoEvent)
-	if err != nil {
-		t.Fatalf("get mono cable rental summary: %v", err)
+	if got := byItem[cable].QuantityAudio; got != 2 {
+		t.Errorf("amp->speaker cables: quantity_audio=%d, want 2", got)
 	}
-	monoCableByItem := summaryByItem(monoCableSummary)
-	if got := monoCableByItem[shortCable].QuantityAudio; got != 1 {
-		t.Errorf("mono side A cable: quantity_audio=%d, want 1", got)
-	}
-	if _, found := monoCableByItem[longCable]; found {
-		t.Errorf("mono side-B cable should not count at all, found: %+v", monoCableByItem[longCable])
+	if got := byItem[multiOutputCable].QuantityAudio; got != 1 {
+		t.Errorf("stage multi's genuine output-side cable: quantity_audio=%d, want 1", got)
 	}
 }
 
 // TestOutputDeviceSharedAcrossChannels verifies FR-007/FR-008/SC-002: a
-// shared device referenced by several output channels' chains is counted
-// exactly once on the rental order, regardless of how many chains
+// shared device referenced by several output channels' cables is counted
+// exactly once on the rental order, regardless of how many cables
 // reference it.
 func TestOutputDeviceSharedAcrossChannels(t *testing.T) {
 	database := openTestDB(t)
 	cat := seedCatalog(t, database)
 	eventID := createTestEvent(t, database)
 
-	headphoneAmp, err := CreateOutputDevice(database, domain.OutputDevice{EventID: eventID, Name: "IEM headphone amp", InventoryItemID: &cat.Amp})
+	headphoneAmp, err := CreateOutputDevice(database, domain.OutputDevice{EventID: eventID, Name: "IEM headphone amp", InventoryItemID: &cat.Amp, InputPortCount: 3})
 	if err != nil {
 		t.Fatalf("create shared device: %v", err)
 	}
 	for outputNumber := 1; outputNumber <= 3; outputNumber++ {
-		if _, err := CreateAudioPatchOutput(database, domain.AudioPatchOutput{
-			EventID: eventID, OutputNumber: outputNumber, OutputType: "iem",
-			Chain: []domain.OutputChainHop{{HopKind: "device", DeviceSource: "shared", OutputDeviceID: &headphoneAmp.ID}},
-		}); err != nil {
+		output, err := CreateAudioPatchOutput(database, domain.AudioPatchOutput{EventID: eventID, OutputNumber: outputNumber, OutputType: "iem", Width: "mono"})
+		if err != nil {
 			t.Fatalf("create output %d: %v", outputNumber, err)
+		}
+		if _, err := CreateOutputCable(database, domain.OutputCable{EventID: eventID, FromKind: "mixer", FromID: output.ID, FromPort: 0, ToKind: "device", ToID: headphoneAmp.ID, ToPort: outputNumber - 1}); err != nil {
+			t.Fatalf("create cable for output %d: %v", outputNumber, err)
 		}
 	}
 
@@ -564,24 +507,22 @@ func TestOutputDeviceSharedAcrossChannels(t *testing.T) {
 	}
 	byItem := summaryByItem(summary)
 	if got := byItem[cat.Amp].QuantityAudio; got != 1 {
-		t.Errorf("shared device referenced by 3 chains: quantity_audio=%d, want 1", got)
+		t.Errorf("shared device referenced by 3 cables: quantity_audio=%d, want 1", got)
 	}
 
-	// Deleting the shared device clears every hop that referenced it
-	// instead of being blocked (research.md R4) — the rental line drops
-	// to zero (item no longer referenced at all).
+	// Deleting the shared device clears every cable that referenced it
+	// instead of being blocked (research.md carries forward R4) — the
+	// rental line drops to zero (item no longer referenced at all).
 	if err := DeleteOutputDevice(database, headphoneAmp.ID); err != nil {
 		t.Fatalf("delete shared device: %v", err)
 	}
-	outputs, err := ListAudioPatchOutputs(database, eventID)
+	remainingCables, err := ListOutputCables(database, eventID)
 	if err != nil {
-		t.Fatalf("list outputs: %v", err)
+		t.Fatalf("list output cables: %v", err)
 	}
-	for _, output := range outputs {
-		for _, hop := range output.Chain {
-			if hop.OutputDeviceID != nil || hop.DeviceSource != "" {
-				t.Errorf("output %d hop still references deleted device: %+v", output.OutputNumber, hop)
-			}
+	for _, cable := range remainingCables {
+		if (cable.FromKind == "device" && cable.FromID == headphoneAmp.ID) || (cable.ToKind == "device" && cable.ToID == headphoneAmp.ID) {
+			t.Errorf("cable still references deleted device: %+v", cable)
 		}
 	}
 	afterSummary, err := GetRentalSummary(database, eventID)

@@ -1,7 +1,11 @@
-import type { AudioPatchInput, AudioPatchOutput, AudioPatchResponse, BusRequest, MixerDCA, MixerGroup, OutputDevice, Stagebox, StageMulti } from '../types'
-import { request } from './client'
+import type { AudioPatchInput, AudioPatchOutput, AudioPatchResponse, BusRequest, MixerDCA, MixerGroup, OutputCable, OutputDevice, Stagebox, StageMulti } from '../types'
+import { get, request } from './client'
 
-export const getAudioPatch = (eventId: number) => request<AudioPatchResponse>(`/events/${eventId}/audio-patch`)
+// Forwards TanStack Query's AbortSignal — this query is invalidated very
+// frequently by the output graph (every cable/device/position edit), so
+// cancelling superseded fetches matters here more than almost anywhere
+// else in the app (see client.ts's `get` doc comment).
+export const getAudioPatch = (eventId: number, signal?: AbortSignal) => get<AudioPatchResponse>(`/events/${eventId}/audio-patch`, signal)
 
 export const createStagebox = (eventId: number, data: Omit<Stagebox, 'id'>) =>
   request<Stagebox>(`/events/${eventId}/stageboxes`, { method: 'POST', body: JSON.stringify(data) })
@@ -50,3 +54,13 @@ export const updateOutputDevice = (eventId: number, deviceId: number, data: Omit
   request<OutputDevice>(`/events/${eventId}/output-devices/${deviceId}`, { method: 'PATCH', body: JSON.stringify(data) })
 export const deleteOutputDevice = (eventId: number, deviceId: number) =>
   request<void>(`/events/${eventId}/output-devices/${deviceId}`, { method: 'DELETE' })
+
+export const createOutputCable = (eventId: number, data: Omit<OutputCable, 'id' | 'event_id'>) =>
+  request<OutputCable>(`/events/${eventId}/output-cables`, { method: 'POST', body: JSON.stringify(data) })
+export const updateOutputCable = (eventId: number, cableId: number, cableItemId: number | undefined) =>
+  request<OutputCable>(`/events/${eventId}/output-cables/${cableId}`, { method: 'PATCH', body: JSON.stringify({ cable_item_id: cableItemId ?? null }) })
+export const deleteOutputCable = (eventId: number, cableId: number) =>
+  request<void>(`/events/${eventId}/output-cables/${cableId}`, { method: 'DELETE' })
+
+export const updateOutputMixerPosition = (eventId: number, positionY: number) =>
+  request<void>(`/events/${eventId}/output-mixer-position`, { method: 'PATCH', body: JSON.stringify({ position_y: positionY }) })

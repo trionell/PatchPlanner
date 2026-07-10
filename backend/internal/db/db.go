@@ -2,7 +2,9 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"strings"
 
@@ -12,7 +14,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-func Open(databasePath string, migrationsPath string) (*sql.DB, error) {
+func Open(databasePath string, migrationsPath string, logger *slog.Logger) (*sql.DB, error) {
 	// Foreign keys must be enabled via the DSN: database/sql pools
 	// connections, and a plain `PRAGMA foreign_keys = ON` would only apply
 	// to whichever single connection happened to execute it.
@@ -32,14 +34,24 @@ func Open(databasePath string, migrationsPath string) (*sql.DB, error) {
 		return nil, fmt.Errorf("open sqlite database: %w", err)
 	}
 
-	if err := runMigrations(db, migrationsPath); err != nil {
+	if err := runMigrations(db, migrationsPath, logger); err != nil {
 		return nil, err
 	}
 
 	return db, nil
 }
 
-func runMigrations(db *sql.DB, migrationsPath string) error {
+// runMigrations applies schema migrations, sequencing the Slice 11
+// output-graph conversion (research.md R5) precisely around the drop of
+// output_chain_hops in migration 026. golang-migrate's Migrate(version)
+// runs DOWN scripts if the target is behind the database's current
+// version, so calling Migrate(25) against a database already past 25
+// would run 026's down script and resurrect output_chain_hops — the
+// version check below is load-bearing, not a style choice: it only ever
+// calls Migrate(25) on a fresh database or one still behind 25, runs the
+// one-time conversion immediately after landing on 25, and only then
+// continues on to Up() to reach 026+.
+func runMigrations(db *sql.DB, migrationsPath string, logger *slog.Logger) error {
 	driver, err := migratesqlite.WithInstance(db, &migratesqlite.Config{})
 	if err != nil {
 		return fmt.Errorf("create migration driver: %w", err)
@@ -53,6 +65,18 @@ func runMigrations(db *sql.DB, migrationsPath string) error {
 	m, err := migrate.NewWithDatabaseInstance("file://"+path, "sqlite", driver)
 	if err != nil {
 		return fmt.Errorf("create migration instance: %w", err)
+	}
+
+	version, _, versionErr := m.Version()
+	if errors.Is(versionErr, migrate.ErrNilVersion) || (versionErr == nil && version < 25) {
+		if err := m.Migrate(25); err != nil && err != migrate.ErrNoChange {
+			return fmt.Errorf("run migrations to version 25: %w", err)
+		}
+		if err := convertOutputChainHopsToGraph(db, logger); err != nil {
+			return fmt.Errorf("convert output chain hops to graph: %w", err)
+		}
+	} else if versionErr != nil {
+		return fmt.Errorf("read migration version: %w", versionErr)
 	}
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {

@@ -25,6 +25,10 @@ type audioPatchResponse struct {
 	Inputs        []domain.AudioPatchInput  `json:"inputs"`
 	Outputs       []domain.AudioPatchOutput `json:"outputs"`
 	OutputDevices []domain.OutputDevice     `json:"output_devices"`
+	OutputCables  []domain.OutputCable      `json:"output_cables"`
+	// OutputMixerPositionY is the mixer node's canvas Y position in the
+	// output signal-flow graph's Sources/Channels rail (X is fixed).
+	OutputMixerPositionY float64 `json:"output_mixer_position_y"`
 }
 
 // busRequest carries POST/PATCH bodies for groups and DCAs.
@@ -62,6 +66,12 @@ func (h AudioPatchHandler) Register(r chi.Router) {
 	r.Post("/events/{eventID}/output-devices", h.createOutputDevice)
 	r.Patch("/events/{eventID}/output-devices/{deviceID}", h.updateOutputDevice)
 	r.Delete("/events/{eventID}/output-devices/{deviceID}", h.deleteOutputDevice)
+	// Output cables (the signal-flow graph's edges)
+	r.Post("/events/{eventID}/output-cables", h.createOutputCable)
+	r.Patch("/events/{eventID}/output-cables/{cableID}", h.updateOutputCable)
+	r.Delete("/events/{eventID}/output-cables/{cableID}", h.deleteOutputCable)
+	// Mixer node position (a single implicit node per event, Sources rail)
+	r.Patch("/events/{eventID}/output-mixer-position", h.updateOutputMixerPosition)
 }
 
 func (h AudioPatchHandler) getAudioPatch(w http.ResponseWriter, r *http.Request) {
@@ -104,6 +114,16 @@ func (h AudioPatchHandler) getAudioPatch(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	outputCables, err := dbstore.ListOutputCables(h.DB, eventID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	mixerPositionY, err := dbstore.OutputMixerPositionY(h.DB, eventID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	if stageboxes == nil {
 		stageboxes = []domain.Stagebox{}
 	}
@@ -119,7 +139,35 @@ func (h AudioPatchHandler) getAudioPatch(w http.ResponseWriter, r *http.Request)
 	if outputDevices == nil {
 		outputDevices = []domain.OutputDevice{}
 	}
-	writeJSON(w, http.StatusOK, audioPatchResponse{Stageboxes: stageboxes, StageMultis: stageMultis, Groups: groups, DCAs: dcas, Inputs: inputs, Outputs: outputs, OutputDevices: outputDevices})
+	if outputCables == nil {
+		outputCables = []domain.OutputCable{}
+	}
+	writeJSON(w, http.StatusOK, audioPatchResponse{
+		Stageboxes: stageboxes, StageMultis: stageMultis, Groups: groups, DCAs: dcas, Inputs: inputs, Outputs: outputs,
+		OutputDevices: outputDevices, OutputCables: outputCables, OutputMixerPositionY: mixerPositionY,
+	})
+}
+
+// updateOutputMixerPosition sets the mixer node's canvas Y position — a
+// single implicit node per event, always pinned to the Sources/Channels
+// rail (X is fixed, so only Y is ever sent).
+func (h AudioPatchHandler) updateOutputMixerPosition(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok || !h.requireEvent(w, eventID) {
+		return
+	}
+	var payload struct {
+		PositionY float64 `json:"position_y"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if err := dbstore.UpdateOutputMixerPositionY(h.DB, eventID, payload.PositionY); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // decodeBusRequest parses and trims a group/DCA payload, rejecting empty
@@ -562,7 +610,7 @@ func (h AudioPatchHandler) createOutput(w http.ResponseWriter, r *http.Request) 
 	if payload.Width == "" {
 		payload.Width = "mono"
 	}
-	if !h.validWidth(w, payload.Width) || !h.validChain(w, eventID, payload.Chain) {
+	if !h.validWidth(w, payload.Width) {
 		return
 	}
 	created, err := dbstore.CreateAudioPatchOutput(h.DB, payload)
@@ -574,10 +622,6 @@ func (h AudioPatchHandler) createOutput(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h AudioPatchHandler) updateOutput(w http.ResponseWriter, r *http.Request) {
-	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
-	if !ok {
-		return
-	}
 	outputID, ok := parseID(w, chi.URLParam(r, "outputID"))
 	if !ok {
 		return
@@ -590,7 +634,7 @@ func (h AudioPatchHandler) updateOutput(w http.ResponseWriter, r *http.Request) 
 	if payload.Width == "" {
 		payload.Width = "mono"
 	}
-	if !h.validWidth(w, payload.Width) || !h.validChain(w, eventID, payload.Chain) {
+	if !h.validWidth(w, payload.Width) {
 		return
 	}
 	updated, err := dbstore.UpdateAudioPatchOutput(h.DB, outputID, payload)
@@ -599,105 +643,6 @@ func (h AudioPatchHandler) updateOutput(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeJSON(w, http.StatusOK, updated)
-}
-
-// validChain writes a 400/500 response and returns false when any hop in
-// the chain fails validation (research.md R8). Empty/nil chains are
-// always valid — a channel need not have any hops yet.
-func (h AudioPatchHandler) validChain(w http.ResponseWriter, eventID int64, chain []domain.OutputChainHop) bool {
-	for _, hop := range chain {
-		if !h.validHop(w, eventID, hop) {
-			return false
-		}
-	}
-	return true
-}
-
-func (h AudioPatchHandler) validHop(w http.ResponseWriter, eventID int64, hop domain.OutputChainHop) bool {
-	if !slices.Contains(domain.ValidHopKinds, hop.HopKind) {
-		writeError(w, http.StatusBadRequest, "hop_kind must be one of: device, route")
-		return false
-	}
-	if !h.validItemRef(w, "cable_item_id", hop.CableItemID) || !h.validItemRef(w, "cable_item_id_b", hop.CableItemIDB) {
-		return false
-	}
-	switch hop.HopKind {
-	case "device":
-		return h.validDeviceHop(w, eventID, hop)
-	case "route":
-		return h.validRouteHop(w, eventID, hop)
-	}
-	return true
-}
-
-// validDeviceHop enforces that at most one of the three device references
-// is set, that device_source (when present) matches whichever one is set,
-// and that every set reference resolves to a real row.
-func (h AudioPatchHandler) validDeviceHop(w http.ResponseWriter, eventID int64, hop domain.OutputChainHop) bool {
-	set := 0
-	if hop.InventoryItemID != nil {
-		set++
-	}
-	if hop.OwnedItemID != nil {
-		set++
-	}
-	if hop.OutputDeviceID != nil {
-		set++
-	}
-	if set > 1 {
-		writeError(w, http.StatusBadRequest, "a device hop may set at most one of inventory_item_id, owned_item_id, output_device_id")
-		return false
-	}
-	if hop.DeviceSource != "" {
-		if !slices.Contains(domain.ValidDeviceSources, hop.DeviceSource) {
-			writeError(w, http.StatusBadRequest, "device_source must be one of: inventory, owned, shared")
-			return false
-		}
-		mismatched := (hop.DeviceSource == "inventory" && hop.InventoryItemID == nil) ||
-			(hop.DeviceSource == "owned" && hop.OwnedItemID == nil) ||
-			(hop.DeviceSource == "shared" && hop.OutputDeviceID == nil)
-		if mismatched {
-			writeError(w, http.StatusBadRequest, "device_source does not match the device field that is set")
-			return false
-		}
-	}
-	if !h.validItemRef(w, "inventory_item_id", hop.InventoryItemID) {
-		return false
-	}
-	if !h.validOwnedItemRef(w, hop.OwnedItemID) {
-		return false
-	}
-	if hop.OutputDeviceID != nil && !h.itemBelongsToEvent("output_devices", eventID, *hop.OutputDeviceID) {
-		writeError(w, http.StatusBadRequest, "output_device_id references a device of another event")
-		return false
-	}
-	return true
-}
-
-// validRouteHop enforces stagebox/stage-multi mutual exclusivity
-// (independently for side A and side B) and event ownership of every
-// reference set — unlike the pre-existing flat model's side-A fields
-// (never event-scoped), hops are new in this slice and validated from the
-// start, the same treatment slice 8/9 gave their own new relationship
-// fields.
-func (h AudioPatchHandler) validRouteHop(w http.ResponseWriter, eventID int64, hop domain.OutputChainHop) bool {
-	if hop.StageboxID != nil && hop.StageMultiID != nil {
-		writeError(w, http.StatusBadRequest, "a route hop may set at most one of stagebox_id, stage_multi_id")
-		return false
-	}
-	if hop.StageboxIDB != nil && hop.StageMultiIDB != nil {
-		writeError(w, http.StatusBadRequest, "a route hop may set at most one of stagebox_id_b, stage_multi_id_b")
-		return false
-	}
-	if hop.StageboxID != nil && !h.itemBelongsToEvent("stageboxes", eventID, *hop.StageboxID) {
-		writeError(w, http.StatusBadRequest, "stagebox_id references a stagebox of another event")
-		return false
-	}
-	if hop.StageMultiID != nil && !h.itemBelongsToEvent("stage_multis", eventID, *hop.StageMultiID) {
-		writeError(w, http.StatusBadRequest, "stage_multi_id references a stage multi of another event")
-		return false
-	}
-	return h.validSideBRefs(w, eventID, hop.StageboxIDB, hop.StageMultiIDB)
 }
 
 // validOwnedItemRef writes a 400/500 response and returns false when a
@@ -735,7 +680,7 @@ func (h AudioPatchHandler) createOutputDevice(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusBadRequest, "name must not be empty")
 		return
 	}
-	if !h.validOutputDeviceItemRefs(w, payload) {
+	if !h.validOutputDeviceItemRefs(w, payload) || !h.validOutputDevicePorts(w, eventID, nil, payload) {
 		return
 	}
 	created, err := dbstore.CreateOutputDevice(h.DB, payload)
@@ -751,6 +696,15 @@ func (h AudioPatchHandler) updateOutputDevice(w http.ResponseWriter, r *http.Req
 	if !ok {
 		return
 	}
+	existing, err := dbstore.GetOutputDevice(h.DB, deviceID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "output device not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	var payload domain.OutputDevice
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json body")
@@ -761,7 +715,7 @@ func (h AudioPatchHandler) updateOutputDevice(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusBadRequest, "name must not be empty")
 		return
 	}
-	if !h.validOutputDeviceItemRefs(w, payload) {
+	if !h.validOutputDeviceItemRefs(w, payload) || !h.validOutputDevicePorts(w, existing.EventID, &deviceID, payload) {
 		return
 	}
 	updated, err := dbstore.UpdateOutputDevice(h.DB, deviceID, payload)
@@ -802,6 +756,314 @@ func (h AudioPatchHandler) validOutputDeviceItemRefs(w http.ResponseWriter, devi
 		return false
 	}
 	return h.validOwnedItemRef(w, device.OwnedItemID)
+}
+
+// validOutputDevicePorts writes a 400/409/500 response and returns false
+// when a device's port-count/connector-type fields are inconsistent
+// (data-model.md: a side's connector type is required exactly when that
+// side's port count is > 0, and at least one side must be > 0), or when
+// an update (existingID != nil) would shrink a side below the number of
+// cables currently attached to it — the caller must delete those cables
+// first (FR-016).
+func (h AudioPatchHandler) validOutputDevicePorts(w http.ResponseWriter, eventID int64, existingID *int64, device domain.OutputDevice) bool {
+	if device.InputPortCount < 0 || device.OutputPortCount < 0 || device.LinkPortCount < 0 {
+		writeError(w, http.StatusBadRequest, "input_port_count, output_port_count, and link_port_count must be >= 0")
+		return false
+	}
+	if device.InputPortCount == 0 && device.OutputPortCount == 0 {
+		writeError(w, http.StatusBadRequest, "a device must have at least one input or output port")
+		return false
+	}
+	if (device.InputPortCount > 0) != (strings.TrimSpace(device.InputConnectorType) != "") {
+		writeError(w, http.StatusBadRequest, "input_connector_type must be set exactly when input_port_count > 0")
+		return false
+	}
+	if (device.OutputPortCount > 0) != (strings.TrimSpace(device.OutputConnectorType) != "") {
+		writeError(w, http.StatusBadRequest, "output_connector_type must be set exactly when output_port_count > 0")
+		return false
+	}
+	if (device.LinkPortCount > 0) != (strings.TrimSpace(device.LinkConnectorType) != "") {
+		writeError(w, http.StatusBadRequest, "link_connector_type must be set exactly when link_port_count > 0")
+		return false
+	}
+	if existingID == nil {
+		return true
+	}
+	cables, err := dbstore.ListOutputCables(h.DB, eventID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return false
+	}
+	var orphaned []domain.OutputCable
+	for _, cable := range cables {
+		if cable.FromKind == "device" && cable.FromID == *existingID && cable.FromPort >= device.OutputPortCount {
+			orphaned = append(orphaned, cable)
+		}
+		if cable.FromKind == "device_link" && cable.FromID == *existingID && cable.FromPort >= device.LinkPortCount {
+			orphaned = append(orphaned, cable)
+		}
+		if cable.ToKind == "device" && cable.ToID == *existingID && cable.ToPort >= device.InputPortCount {
+			orphaned = append(orphaned, cable)
+		}
+	}
+	if len(orphaned) > 0 {
+		writeJSON(w, http.StatusConflict, map[string]any{
+			"error":  "reducing port count would orphan existing cables",
+			"cables": orphaned,
+		})
+		return false
+	}
+	return true
+}
+
+// createOutputCable, updateOutputCable, and deleteOutputCable implement
+// the output_cables CRUD surface (contracts/output-graph-api.md).
+func (h AudioPatchHandler) createOutputCable(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok || !h.requireEvent(w, eventID) {
+		return
+	}
+	var payload domain.OutputCable
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	payload.EventID = eventID
+	if !h.validOutputCable(w, eventID, payload) {
+		return
+	}
+	created, err := dbstore.CreateOutputCable(h.DB, payload)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusCreated, created)
+}
+
+// updateOutputCable only ever changes cable_item_id — moving a cable to
+// different ports is delete + create (contracts/output-graph-api.md), so
+// port/endpoint validation does not apply here.
+func (h AudioPatchHandler) updateOutputCable(w http.ResponseWriter, r *http.Request) {
+	cableID, ok := parseID(w, chi.URLParam(r, "cableID"))
+	if !ok {
+		return
+	}
+	existing, err := dbstore.GetOutputCable(h.DB, cableID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "output cable not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	var payload struct {
+		CableItemID *int64 `json:"cable_item_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if isCablelessToKind(existing.ToKind) && payload.CableItemID != nil {
+		writeError(w, http.StatusBadRequest, "cable_item_id must be null for a cable into a stage multi or stagebox (FR-013)")
+		return
+	}
+	if !h.validItemRef(w, "cable_item_id", payload.CableItemID) {
+		return
+	}
+	updated, err := dbstore.UpdateOutputCable(h.DB, cableID, payload.CableItemID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
+}
+
+func (h AudioPatchHandler) deleteOutputCable(w http.ResponseWriter, r *http.Request) {
+	cableID, ok := parseID(w, chi.URLParam(r, "cableID"))
+	if !ok {
+		return
+	}
+	if err := dbstore.DeleteOutputCable(h.DB, cableID); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// validOutputCable writes a 400/409/500 response and returns false unless
+// the cable's endpoints, ports, and cable pick are all valid
+// (data-model.md's OutputCable validation rules, research.md R2/R7).
+func (h AudioPatchHandler) validOutputCable(w http.ResponseWriter, eventID int64, cable domain.OutputCable) bool {
+	if !slices.Contains(domain.ValidPortFromKinds, cable.FromKind) {
+		writeError(w, http.StatusBadRequest, "from_kind must be one of: mixer, stagebox, stage_multi, device, device_link")
+		return false
+	}
+	if !slices.Contains(domain.ValidPortToKinds, cable.ToKind) {
+		writeError(w, http.StatusBadRequest, "to_kind must be one of: stagebox, stage_multi, device")
+		return false
+	}
+	fromCount, ok := h.nodeOutputPortCount(w, eventID, cable.FromKind, cable.FromID)
+	if !ok {
+		return false
+	}
+	if cable.FromPort < 0 || cable.FromPort >= fromCount {
+		writeError(w, http.StatusBadRequest, "from_port is out of bounds for the resolved node")
+		return false
+	}
+	toCount, ok := h.nodeInputPortCount(w, eventID, cable.ToKind, cable.ToID)
+	if !ok {
+		return false
+	}
+	if cable.ToPort < 0 || cable.ToPort >= toCount {
+		writeError(w, http.StatusBadRequest, "to_port is out of bounds for the resolved node")
+		return false
+	}
+	if isCablelessToKind(cable.ToKind) && cable.CableItemID != nil {
+		writeError(w, http.StatusBadRequest, "cable_item_id must be null for a cable into a stage multi or stagebox (FR-013)")
+		return false
+	}
+	if !h.validItemRef(w, "cable_item_id", cable.CableItemID) {
+		return false
+	}
+	existingCables, err := dbstore.ListOutputCables(h.DB, eventID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return false
+	}
+	for _, existing := range existingCables {
+		// A mixer port is a logical channel, not a physical jack — it can
+		// fan out to more than one destination at once (its own local-out
+		// AND one or more stagebox jacks), so it's exempt from the
+		// one-cable-per-port rule every other from_kind still has
+		// (research.md follow-up: real consoles route one channel to
+		// several output jacks simultaneously).
+		if cable.FromKind != "mixer" && existing.FromKind == cable.FromKind && existing.FromID == cable.FromID && existing.FromPort == cable.FromPort {
+			writeError(w, http.StatusConflict, "from port is already in use by another cable")
+			return false
+		}
+		if existing.ToKind == cable.ToKind && existing.ToID == cable.ToID && existing.ToPort == cable.ToPort {
+			writeError(w, http.StatusConflict, "to port is already in use by another cable")
+			return false
+		}
+	}
+	return true
+}
+
+// isCablelessToKind reports whether a to_kind's input side is pure
+// console/network routing rather than a real physical run — a stage
+// multi's built-in wiring and a stagebox's mixer link are both never a
+// separately rentable cable (FR-013).
+func isCablelessToKind(toKind string) bool {
+	return toKind == "stage_multi" || toKind == "stagebox"
+}
+
+// nodeOutputPortCount resolves from_kind/from_id to that node's live
+// output-side port count, writing a 400/500 response and returning false
+// when the reference is invalid (research.md R2/R7 — no DB FK/CHECK can
+// enforce a polymorphic port index).
+func (h AudioPatchHandler) nodeOutputPortCount(w http.ResponseWriter, eventID int64, kind string, id int64) (int, bool) {
+	switch kind {
+	case "mixer":
+		if !h.itemBelongsToEvent("audio_patch_outputs", eventID, id) {
+			writeError(w, http.StatusBadRequest, "from_id references an output channel of another event")
+			return 0, false
+		}
+		width, err := dbstore.MixerOutputWidth(h.DB, id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return 0, false
+		}
+		return dbstore.MixerPortCount(width), true
+	case "stagebox":
+		if !h.itemBelongsToEvent("stageboxes", eventID, id) {
+			writeError(w, http.StatusBadRequest, "from_id references a stagebox of another event")
+			return 0, false
+		}
+		count, err := dbstore.StageboxOutputPortCount(h.DB, id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return 0, false
+		}
+		return count, true
+	case "stage_multi":
+		if !h.itemBelongsToEvent("stage_multis", eventID, id) {
+			writeError(w, http.StatusBadRequest, "from_id references a stage multi of another event")
+			return 0, false
+		}
+		count, err := dbstore.StageMultiChannelCount(h.DB, id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return 0, false
+		}
+		return count, true
+	case "device":
+		if !h.itemBelongsToEvent("output_devices", eventID, id) {
+			writeError(w, http.StatusBadRequest, "from_id references a device of another event")
+			return 0, false
+		}
+		_, outputCount, err := dbstore.OutputDevicePortCounts(h.DB, id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return 0, false
+		}
+		return outputCount, true
+	case "device_link":
+		if !h.itemBelongsToEvent("output_devices", eventID, id) {
+			writeError(w, http.StatusBadRequest, "from_id references a device of another event")
+			return 0, false
+		}
+		count, err := dbstore.OutputDeviceLinkPortCount(h.DB, id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return 0, false
+		}
+		return count, true
+	}
+	writeError(w, http.StatusBadRequest, "unknown from_kind")
+	return 0, false
+}
+
+// nodeInputPortCount is nodeOutputPortCount's counterpart for to_kind/
+// to_id, resolving against whichever node's live input-side port count.
+func (h AudioPatchHandler) nodeInputPortCount(w http.ResponseWriter, eventID int64, kind string, id int64) (int, bool) {
+	switch kind {
+	case "stage_multi":
+		if !h.itemBelongsToEvent("stage_multis", eventID, id) {
+			writeError(w, http.StatusBadRequest, "to_id references a stage multi of another event")
+			return 0, false
+		}
+		count, err := dbstore.StageMultiChannelCount(h.DB, id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return 0, false
+		}
+		return count, true
+	case "stagebox":
+		if !h.itemBelongsToEvent("stageboxes", eventID, id) {
+			writeError(w, http.StatusBadRequest, "to_id references a stagebox of another event")
+			return 0, false
+		}
+		count, err := dbstore.StageboxOutputPortCount(h.DB, id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return 0, false
+		}
+		return count, true
+	case "device":
+		if !h.itemBelongsToEvent("output_devices", eventID, id) {
+			writeError(w, http.StatusBadRequest, "to_id references a device of another event")
+			return 0, false
+		}
+		inputCount, _, err := dbstore.OutputDevicePortCounts(h.DB, id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return 0, false
+		}
+		return inputCount, true
+	}
+	writeError(w, http.StatusBadRequest, "unknown to_kind")
+	return 0, false
 }
 
 // validItemRef writes a 400/500 response and returns false when a non-nil

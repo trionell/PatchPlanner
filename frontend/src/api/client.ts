@@ -28,3 +28,17 @@ export async function request<T>(path: string, init?: RequestInit) {
   })
   return parseResponse<T>(response)
 }
+
+/**
+ * GET helper that forwards TanStack Query's AbortSignal, so a query that
+ * gets invalidated again before its first fetch resolves properly
+ * cancels the outdated request instead of leaving it in flight. Without
+ * this, two overlapping GETs to the same query key can resolve out of
+ * order — an old response landing after a newer one silently reverts a
+ * just-saved change. The output graph invalidates ['audio-patch', id]
+ * very frequently (every cable/device/position edit), which is exactly
+ * the shape of traffic that triggers this.
+ */
+export function get<T>(path: string, signal?: AbortSignal) {
+  return request<T>(path, { signal })
+}
