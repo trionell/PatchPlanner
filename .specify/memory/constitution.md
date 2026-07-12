@@ -1,14 +1,40 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: (new project) → 0.1.0
-Added sections: Core Principles (5), Technology Stack, Development Workflow, Governance
-Modified principles: N/A (initial version)
-Removed sections: N/A
-Templates updated:
-  ✅ plan-template.md — no changes needed, already uses generic structure
-  ✅ spec-template.md — no changes needed, already uses generic structure
-  ✅ tasks-template.md — no changes needed, already uses generic structure
+Version change: 0.1.0 → 0.2.0
+Modified principles:
+  - I. Domain-First Data Model — added a bullet codifying the port/cable
+    signal-flow graph convention established by the Output and Input
+    audio graphs, as the pattern for any future signal-routing feature.
+  - II. Extensibility by Design — clarified that "new equipment
+    categories addable by adding data" refers to inventory *categories*
+    from the LL.xlsx catalog (a domain entity referencing inventory
+    items generically never needs a new endpoint just because a new
+    catalog category appears). This does NOT claim that new domain
+    *node kinds* in the planning data model (e.g. Slice 12 splitting
+    Source from Channel) can be added without new tables/endpoints —
+    that is normal, expected structural work.
+  - III. Full-Stack Monorepo Architecture — corrected the documented Go
+    package layout to match reality (`backend/internal/{api,db,domain,
+    service}`, `backend/cmd/main.go`), and downgraded the "single
+    deployable binary" claim from MUST to MAY since it isn't
+    implemented today (frontend and backend run as two separate dev
+    processes; revisit if the tool is ever distributed beyond its
+    current single-user, locally-run setup per Principle V).
+  - V. Pragmatic Simplicity — reconciled the frontend state-management
+    rule with established practice: TanStack React Query is the
+    project-wide convention for server state (not an exception to
+    avoid), while local/UI state still defaults to React's built-in
+    primitives.
+Added sections: none (no new principles; bullet/paragraph-level
+  corrections and clarifications only)
+Removed sections: none
+Templates checked:
+  ✅ plan-template.md — Constitution Check section is generic, no
+     hardcoded principle text to update
+  ✅ spec-template.md — no constitution references
+  ✅ tasks-template.md — no constitution references
+  ✅ commands/*.md — no agent-specific or outdated principle references found
 Deferred TODOs: none
 -->
 
@@ -28,6 +54,10 @@ real-world AVL concept (mixer channel, fixture, stagebox, DMX address, cable run
   MUST be first-class, traversable connections — not free-text fields.
 - The inventory catalog (sourced from LL.xlsx) MUST be the authoritative source for rentable
   equipment; custom/owned gear may be added as separate catalog entries.
+- Signal-routing features (the Output and Input audio graphs) MUST model connections as an
+  explicit, traversable port-and-cable graph — a shared node-zone/`PortRef`/cable convention,
+  not flat foreign keys on the entity being routed. This is the established pattern any
+  future signal-flow feature (e.g., video or power distribution) MUST follow.
 
 ### II. Extensibility by Design
 
@@ -36,8 +66,16 @@ as data, not hard-coded logic, so the system can grow without schema rewrites.
 
 - Fixture channel modes (DMX), connector types (XLR, NL4, Schuko, CEE, etc.), and cable
   types MUST be stored as configurable records, not enums in code.
-- New equipment categories (e.g., video, rigging, power) MUST be addable by adding data
-  — they MUST NOT require new API endpoints or frontend components from scratch.
+- New inventory *categories* from the LL.xlsx catalog (e.g., a new "Video Cameras" or
+  "Rigging" category appearing in the price list) MUST be addable by adding data alone —
+  they MUST NOT require new API endpoints or frontend components, since every domain
+  entity references inventory items generically (`inventory_item_id`/`category_id`) and
+  never branches logic on a category name.
+- This does NOT extend to new domain *node kinds* in the planning data model itself (e.g.,
+  a new signal-flow node type, or splitting one entity into several as Source/Channel were
+  split from the old flat audio-input row) — those are structural additions and MAY require
+  new tables, endpoints, and components; that is expected engineering work, not a violation
+  of this principle.
 - The patch schema for audio inputs and outputs MUST support optional fields (mic stand,
   DCA group, cable length, etc.) so future attributes can be added non-destructively.
 
@@ -47,12 +85,16 @@ This project is a single-repo full-stack web application: Go REST API backend + 
 frontend, with SQLite as the embedded database.
 
 - Repository layout MUST follow: `backend/` (Go) and `frontend/` (React/TypeScript + Vite).
-- The backend MUST serve the compiled frontend as static files in production, producing a
-  single deployable binary.
+- The backend MAY serve the compiled frontend as static files in production for a single
+  deployable binary; today the two run as separate dev processes (`go run` + `vite dev`)
+  with no build step wiring them together — revisit this only if the tool needs to be
+  distributed beyond its current single-user, locally-run setup (Principle V).
 - The REST API MUST use JSON and follow resource-oriented URL conventions (`/api/v1/...`).
 - Database migrations MUST be versioned and applied automatically on startup.
-- Go packages MUST be organized as: `backend/internal/` for domain logic,
-  `backend/api/` for HTTP handlers, `backend/db/` for data access.
+- Go packages MUST be organized under `backend/internal/`: `api/` for HTTP handlers, `db/`
+  for data access, `domain/` for pure domain structs (no DB tags), `service/` for
+  cross-cutting business logic (e.g., inventory import, rental export); `backend/cmd/main.go`
+  is the sole entry point.
 
 ### IV. Inventory-Driven Rental Workflow
 
@@ -76,37 +118,48 @@ Start with the simplest solution that solves the problem. Avoid speculative infr
 - SQLite is the only database. No external services (Redis, message queues, etc.) unless
   a feature explicitly demands it and is approved.
 - Authentication is out of scope for v1; the tool is single-user, locally hosted.
-- Frontend state management MUST use React's built-in state (useState/useContext/useReducer)
-  before reaching for external state libraries.
+- Server state (data fetched from the API) MUST be managed via TanStack React Query
+  (`useQuery`/`useMutation`) — this is the established, project-wide convention, not an
+  exception to avoid. Purely local/UI state (form drafts, dialog open/close, canvas drag
+  state) MUST use React's built-in state (`useState`/`useContext`/`useReducer`) before
+  reaching for any additional external state library.
 
 ## Technology Stack
 
-| Layer        | Technology                                      |
-|--------------|-------------------------------------------------|
-| Backend      | Go 1.22+ (standard library + chi router)        |
-| Database     | SQLite via `modernc.org/sqlite` (pure Go)       |
-| Migrations   | `golang-migrate/migrate`                        |
-| Frontend     | React 18 + TypeScript + Vite                    |
-| UI components| To be decided per feature (prefer minimal deps) |
-| API style    | REST JSON (`/api/v1/...`)                       |
-| Build/deploy | Single Go binary embedding frontend static files|
-| Testing (BE) | Go standard `testing` package + `httptest`      |
-| Testing (FE) | Vitest + React Testing Library                  |
+| Layer              | Technology                                                                |
+|--------------------|----------------------------------------------------------------------------|
+| Backend            | Go 1.25+ (standard library + chi router)                                 |
+| Database           | SQLite via `modernc.org/sqlite` (pure Go)                                |
+| Migrations         | `golang-migrate/migrate`                                                 |
+| Frontend           | React 18 + TypeScript + Vite                                             |
+| Server state (FE)  | TanStack React Query (`useQuery`/`useMutation`)                          |
+| Forms/validation   | react-hook-form + zod                                                    |
+| Routing (FE)       | react-router-dom                                                         |
+| UI components      | To be decided per feature (prefer minimal deps)                          |
+| API style          | REST JSON (`/api/v1/...`)                                               |
+| Build/deploy       | Separate dev processes today; single-binary static embed remains optional (see Principle III) |
+| Testing (BE)       | Go standard `testing` package + `httptest`                              |
+| Testing (FE)       | Vitest, with lightweight custom render helpers (no React Testing Library) |
 
 **Project structure**:
 
 ```
 backend/
-├── api/          # HTTP handlers and routing
-├── internal/     # Domain models and business logic
-├── db/           # SQLite access, migrations, queries
-└── main.go
+├── cmd/
+│   └── main.go   # Entry point
+├── internal/
+│   ├── api/      # HTTP handlers and routing
+│   ├── db/       # SQLite access, migrations, queries
+│   ├── domain/   # Pure Go structs (no DB tags)
+│   └── service/  # Cross-cutting business logic (e.g., inventory import)
+└── migrations/   # Versioned SQL migration files
 
 frontend/
 ├── src/
 │   ├── components/
 │   ├── pages/
 │   ├── hooks/
+│   ├── lib/      # Pure functions (graph/signal-flow logic, utils)
 │   └── api/      # typed API client
 └── vite.config.ts
 
@@ -137,4 +190,4 @@ inventory/
 - Complexity violations (e.g., adding a new runtime dependency, adding a second database)
   MUST be documented in the relevant plan.md with rationale.
 
-**Version**: 0.1.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-25
+**Version**: 0.2.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-13
