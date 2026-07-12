@@ -49,6 +49,13 @@ export interface Stagebox {
    */
   position_x: number
   position_y: number
+  /**
+   * This same stagebox's separate canvas placement in the Input graph's
+   * Processing zone — a stagebox is a shared node between both graphs,
+   * but each graph keeps its own independent position.
+   */
+  input_position_x: number
+  input_position_y: number
 }
 
 export interface StageMulti {
@@ -62,6 +69,9 @@ export interface StageMulti {
   /** Canvas placement in the output signal-flow graph's Processing zone. */
   position_x: number
   position_y: number
+  /** This same stage multi's separate canvas placement in the Input graph's Processing zone — see Stagebox's own note above. */
+  input_position_x: number
+  input_position_y: number
 }
 
 /** A named mix bus of one event; LR is built-in (recolorable, never renamed/deleted). */
@@ -88,30 +98,42 @@ export interface BusRequest {
   color?: string
 }
 
-export interface AudioPatchInput {
+/**
+ * The physical origin of a signal (Slice 12) — a microphone on a stand,
+ * or a bare line/instrument output. Never linked to an InputChannel by a
+ * stored reference, only by the InputCable graph; never carries its own
+ * color (derived client-side from whichever Channel(s) it reaches).
+ * Contributes 1 output-only port (2, independently, when width is
+ * 'stereo') to the input signal-flow graph.
+ */
+export interface InputSource {
+  id: number
+  event_id: number
+  name: string
+  /** 'mic' requires mic_item_id (stand_item_id/phantom_power meaningful only for this kind); 'line' forbids all three. */
+  kind: 'mic' | 'line'
+  mic_item_id?: number
+  stand_item_id?: number
+  phantom_power: boolean
+  /** Always required regardless of kind. Vocabulary value from reference data (preamp_connectors). */
+  connector_type: string
+  width: 'mono' | 'stereo'
+  position_x: number
+  position_y: number
+}
+
+/**
+ * A console input strip (Slice 12) — channel identity only. What feeds
+ * it (a mic/line Source, optionally through a Stagebox/Stage-Multi/
+ * Device) is entirely determined by InputCable rows, never stored here.
+ * Contributes exactly one input-only port to the input signal-flow graph.
+ */
+export interface InputChannel {
   id: number
   event_id: number
   channel_number: number
   channel_name?: string
-  /** Vocabulary value from reference data (signal_types). */
-  signal_type: string
-  preamp_connector: string
-  stagebox_id?: number
-  stagebox_channel?: number
-  stage_multi_id?: number
-  stage_multi_channel?: number
-  mic_item_id?: number
-  /** Legacy free-text mic name for rows whose text matched no catalog item. Read-only. */
-  mic_label?: string
-  cable_item_id?: number
-  stand_item_id?: number
-  /** Legacy pre-019 cable values; read-only display until a cable is picked. */
-  cable_type?: string
-  cable_length_m?: number
-  /** Legacy pre-019 stand vocabulary value; read-only display until a stand is picked. */
-  mic_stand?: string
-  phantom_power: boolean
-  /** channel_colors palette value; absent = uncolored. */
+  /** channel_colors palette value; absent = uncolored. The only place color is stored — every upstream Source/port derives its color from this. */
   color?: string
   /**
    * Full bus membership sets. Omitting group_ids on create makes the server
@@ -119,20 +141,57 @@ export interface AudioPatchInput {
    */
   group_ids?: number[]
   dca_ids?: number[]
-  /** 'mono' (default) or 'stereo' — a stereo channel is two independently patchable physical inputs. */
+  /** 'mono' (default) or 'stereo' — display/console-numbering only; a stereo pair is two independent InputChannel rows, not one row with two ports. */
   width: 'mono' | 'stereo'
   /** Meaningful only when width is 'stereo'; console-number display only, never affects routing/counting. */
   mixer_behavior: 'stereo_channel' | 'linked_channels'
-  /** Side B's own stagebox/multi route — independent of side A, meaningful only when width is 'stereo'. */
-  stagebox_id_b?: number
-  stagebox_channel_b?: number
-  stage_multi_id_b?: number
-  stage_multi_channel_b?: number
-  /** Source→DI cable; meaningful only when signal_type is 'di'. */
-  source_cable_item_id?: number
-  /** 'two_cables' (default) or 'splitter'; meaningful only for a stereo DI channel. */
-  source_cabling: 'two_cables' | 'splitter'
   notes?: string
+}
+
+/**
+ * A Processing-zone node in the input signal-flow graph (Slice 12) — a
+ * DI box or similar gear with an input side and an output side. Same
+ * shape as OutputDevice's port/connector/position fields (minus link-out
+ * ports, not needed on this graph) but a separate table — the input and
+ * output graphs never share a device row.
+ */
+export interface InputDevice {
+  id: number
+  event_id: number
+  name: string
+  inventory_item_id?: number
+  owned_item_id?: number
+  input_port_count: number
+  input_connector_type?: string
+  output_port_count: number
+  output_connector_type?: string
+  position_x: number
+  position_y: number
+}
+
+/**
+ * One edge in the input signal-flow graph (Slice 12) — a cable from one
+ * node's output-side port to another node's input-side port. from_kind
+ * is 'source' | 'stagebox' | 'stage_multi' | 'device' ('source' has no
+ * input side, so is never a to_kind); to_kind is 'stagebox' |
+ * 'stage_multi' | 'device' | 'channel' ('channel' has no output side, so
+ * is never a from_kind). cable_item_id is always null when from_kind is
+ * 'stagebox'/'stage_multi' AND to_kind is 'channel' — that hop is a
+ * logical console-slot assignment, not a separately rentable physical
+ * cable (the mirror image of the output graph's FR-013). A Source's
+ * output port may originate more than one cable at once (double-patching)
+ * — every other from_kind stays one-cable-per-port.
+ */
+export interface InputCable {
+  id: number
+  event_id: number
+  from_kind: 'source' | 'stagebox' | 'stage_multi' | 'device'
+  from_id: number
+  from_port: number
+  to_kind: 'stagebox' | 'stage_multi' | 'device' | 'channel'
+  to_id: number
+  to_port: number
+  cable_item_id?: number
 }
 
 /**
@@ -352,7 +411,10 @@ export interface AudioPatchResponse {
   stage_multis: StageMulti[]
   groups: MixerGroup[]
   dcas: MixerDCA[]
-  inputs: AudioPatchInput[]
+  input_sources: InputSource[]
+  input_channels: InputChannel[]
+  input_devices: InputDevice[]
+  input_cables: InputCable[]
   outputs: AudioPatchOutput[]
   output_devices: OutputDevice[]
   output_cables: OutputCable[]

@@ -35,12 +35,12 @@ func TestManualRentalLineEndpoints(t *testing.T) {
 		t.Errorf("updated line quantity_audio=%d, want 3", line.QuantityAudio)
 	}
 
-	// Merge with a derived quantity: one input using the same mic.
-	status, raw = doJSON(t, http.MethodPost, fmt.Sprintf("%s/events/%d/audio-inputs", server.URL, eventID), map[string]any{
-		"channel_number": 1, "signal_type": "mic", "mic_item_id": micID,
+	// Merge with a derived quantity: one Source using the same mic.
+	status, raw = doJSON(t, http.MethodPost, fmt.Sprintf("%s/events/%d/input-sources", server.URL, eventID), map[string]any{
+		"name": "Lead Vox", "kind": "mic", "mic_item_id": micID, "connector_type": "xlr", "width": "mono",
 	})
 	if status != http.StatusCreated {
-		t.Fatalf("POST audio input: status %d body %s", status, raw)
+		t.Fatalf("POST input source: status %d body %s", status, raw)
 	}
 	status, raw = doJSON(t, http.MethodGet, fmt.Sprintf("%s/events/%d/rentals", server.URL, eventID), nil)
 	if status != http.StatusOK {
@@ -89,54 +89,68 @@ func TestManualRentalLineEndpoints(t *testing.T) {
 	}
 }
 
-// TestAudioInputMicValidation covers the 400 on dangling mic references.
-func TestAudioInputMicValidation(t *testing.T) {
+// TestInputSourceMicValidation covers the 400 on dangling mic references.
+func TestInputSourceMicValidation(t *testing.T) {
 	server, database := newTestServer(t)
 	eventID := seedEvent(t, server.URL)
-	inputsURL := fmt.Sprintf("%s/events/%d/audio-inputs", server.URL, eventID)
+	sourcesURL := fmt.Sprintf("%s/events/%d/input-sources", server.URL, eventID)
 
-	status, raw := doJSON(t, http.MethodPost, inputsURL, map[string]any{
-		"channel_number": 1, "signal_type": "mic", "mic_item_id": 12345,
+	status, raw := doJSON(t, http.MethodPost, sourcesURL, map[string]any{
+		"name": "Lead Vox", "kind": "mic", "mic_item_id": 12345, "connector_type": "xlr", "width": "mono",
 	})
 	if status != http.StatusBadRequest {
 		t.Errorf("dangling mic_item_id: status %d body %s, want 400", status, raw)
 	}
 
 	micID := seedItem(t, database, "Shure SM58", 4, 150)
-	status, raw = doJSON(t, http.MethodPost, inputsURL, map[string]any{
-		"channel_number": 1, "signal_type": "mic", "mic_item_id": micID,
+	status, raw = doJSON(t, http.MethodPost, sourcesURL, map[string]any{
+		"name": "Lead Vox", "kind": "mic", "mic_item_id": micID, "connector_type": "xlr", "width": "mono",
 	})
 	if status != http.StatusCreated {
 		t.Fatalf("valid mic_item_id: status %d body %s, want 201", status, raw)
 	}
-	input := decodeJSON[domain.AudioPatchInput](t, raw)
-	if input.MicItemID == nil || *input.MicItemID != micID {
-		t.Errorf("created input mic_item_id=%v, want %d", input.MicItemID, micID)
+	source := decodeJSON[domain.InputSource](t, raw)
+	if source.MicItemID == nil || *source.MicItemID != micID {
+		t.Errorf("created source mic_item_id=%v, want %d", source.MicItemID, micID)
 	}
 }
 
-// TestRentalSummaryCountsInputCables covers the slice-6 aggregation arm:
-// cable picks on input rows become priced, stock-validated rental lines.
+// TestRentalSummaryCountsInputCables covers the Slice 12 aggregation arm:
+// cable picks on input_cables edges become priced, stock-validated rental
+// lines; a channel with nothing feeding it contributes nothing.
 func TestRentalSummaryCountsInputCables(t *testing.T) {
 	server, database := newTestServer(t)
 	eventID := seedEvent(t, server.URL)
 	cable4m := seedRoleItem(t, database, "cable", "Mikrofonkabel", "4m", 2, 7)
 	cable10m := seedRoleItem(t, database, "cable", "Mikrofonkabel", "10m", 8, 8)
-	inputsURL := fmt.Sprintf("%s/events/%d/audio-inputs", server.URL, eventID)
+	channelsURL := fmt.Sprintf("%s/events/%d/input-channels", server.URL, eventID)
+	sourcesURL := fmt.Sprintf("%s/events/%d/input-sources", server.URL, eventID)
+	cablesURL := fmt.Sprintf("%s/events/%d/input-cables", server.URL, eventID)
 
 	for channel, cableID := range map[int]int64{1: cable4m, 2: cable4m, 3: cable10m} {
-		status, raw := doJSON(t, http.MethodPost, inputsURL, map[string]any{
-			"channel_number": channel, "signal_type": "mic", "cable_item_id": cableID,
+		status, raw := doJSON(t, http.MethodPost, channelsURL, map[string]any{"channel_number": channel})
+		if status != http.StatusCreated {
+			t.Fatalf("POST channel %d: status %d body %s", channel, status, raw)
+		}
+		channelID := decodeJSON[domain.InputChannel](t, raw).ID
+		status, raw = doJSON(t, http.MethodPost, sourcesURL, map[string]any{
+			"name": fmt.Sprintf("Source %d", channel), "kind": "line", "connector_type": "jack_ts", "width": "mono",
 		})
 		if status != http.StatusCreated {
-			t.Fatalf("POST input ch %d: status %d body %s", channel, status, raw)
+			t.Fatalf("POST source %d: status %d body %s", channel, status, raw)
+		}
+		sourceID := decodeJSON[domain.InputSource](t, raw).ID
+		status, raw = doJSON(t, http.MethodPost, cablesURL, map[string]any{
+			"from_kind": "source", "from_id": sourceID, "from_port": 0,
+			"to_kind": "channel", "to_id": channelID, "to_port": 0, "cable_item_id": cableID,
+		})
+		if status != http.StatusCreated {
+			t.Fatalf("POST cable ch %d: status %d body %s", channel, status, raw)
 		}
 	}
-	// A channel without a cable contributes nothing.
-	if status, raw := doJSON(t, http.MethodPost, inputsURL, map[string]any{
-		"channel_number": 4, "signal_type": "mic",
-	}); status != http.StatusCreated {
-		t.Fatalf("POST bare input: status %d body %s", status, raw)
+	// A channel without anything feeding it contributes nothing.
+	if status, raw := doJSON(t, http.MethodPost, channelsURL, map[string]any{"channel_number": 4}); status != http.StatusCreated {
+		t.Fatalf("POST bare channel: status %d body %s", status, raw)
 	}
 	// Manual share on the same item merges into one line.
 	status, raw := doJSON(t, http.MethodPut, fmt.Sprintf("%s/events/%d/rentals/manual/%d", server.URL, eventID, cable4m),
@@ -171,20 +185,23 @@ func TestRentalSummaryCountsInputCables(t *testing.T) {
 	}
 }
 
-// TestRentalSummaryCountsStands covers the stand_item_id aggregation arm.
+// TestRentalSummaryCountsStands covers the input_sources.stand_item_id
+// aggregation arm (stand is meaningful only alongside a mic pick, so every
+// row here also carries a shared mic — asserted as its own line too).
 func TestRentalSummaryCountsStands(t *testing.T) {
 	server, database := newTestServer(t)
 	eventID := seedEvent(t, server.URL)
+	micID := seedItem(t, database, "Shure SM58", 10, 150)
 	boomStand := seedRoleItem(t, database, "stand", "Mikrofonstativ Med bom", "", 16, 20)
 	drumStand := seedRoleItem(t, database, "stand", "Mikrofonstativ till trummor", "", 4, 20)
-	inputsURL := fmt.Sprintf("%s/events/%d/audio-inputs", server.URL, eventID)
+	sourcesURL := fmt.Sprintf("%s/events/%d/input-sources", server.URL, eventID)
 
-	for channel, standID := range map[int]int64{1: boomStand, 2: boomStand, 3: boomStand, 4: drumStand} {
-		status, raw := doJSON(t, http.MethodPost, inputsURL, map[string]any{
-			"channel_number": channel, "signal_type": "mic", "stand_item_id": standID,
+	for i, standID := range map[int]int64{1: boomStand, 2: boomStand, 3: boomStand, 4: drumStand} {
+		status, raw := doJSON(t, http.MethodPost, sourcesURL, map[string]any{
+			"name": fmt.Sprintf("Mic %d", i), "kind": "mic", "mic_item_id": micID, "stand_item_id": standID, "connector_type": "xlr", "width": "mono",
 		})
 		if status != http.StatusCreated {
-			t.Fatalf("POST input ch %d: status %d body %s", channel, status, raw)
+			t.Fatalf("POST source %d: status %d body %s", i, status, raw)
 		}
 	}
 
@@ -197,8 +214,11 @@ func TestRentalSummaryCountsStands(t *testing.T) {
 	for _, line := range summary.Items {
 		byID[line.InventoryItemID] = line
 	}
-	if len(summary.Items) != 2 {
-		t.Fatalf("summary has %d lines, want 2 stand lines: %+v", len(summary.Items), summary.Items)
+	if len(summary.Items) != 3 {
+		t.Fatalf("summary has %d lines, want 3 (mic + 2 stands): %+v", len(summary.Items), summary.Items)
+	}
+	if line := byID[micID]; line.QuantityAudio != 4 {
+		t.Errorf("mic line audio=%d, want 4", line.QuantityAudio)
 	}
 	if line := byID[boomStand]; line.QuantityAudio != 3 || line.IsOverStock {
 		t.Errorf("boom stand line audio=%d over_stock=%v, want 3/false", line.QuantityAudio, line.IsOverStock)
@@ -245,12 +265,25 @@ func TestRentalSummaryCountsOutputCables(t *testing.T) {
 			t.Fatalf("POST cable %d: status %d body %s", outputNumber, status, raw)
 		}
 	}
-	// The same cable picked on an input merges into the one line.
-	status, raw := doJSON(t, http.MethodPost, fmt.Sprintf("%s/events/%d/audio-inputs", server.URL, eventID), map[string]any{
-		"channel_number": 1, "signal_type": "line", "cable_item_id": speakonCable,
+	// The same cable picked on an input source's cable merges into the one line.
+	status, raw := doJSON(t, http.MethodPost, fmt.Sprintf("%s/events/%d/input-channels", server.URL, eventID), map[string]any{"channel_number": 1})
+	if status != http.StatusCreated {
+		t.Fatalf("POST input channel: status %d body %s", status, raw)
+	}
+	inputChannelID := decodeJSON[domain.InputChannel](t, raw).ID
+	status, raw = doJSON(t, http.MethodPost, fmt.Sprintf("%s/events/%d/input-sources", server.URL, eventID), map[string]any{
+		"name": "Bass", "kind": "line", "connector_type": "jack_ts", "width": "mono",
 	})
 	if status != http.StatusCreated {
-		t.Fatalf("POST input: status %d body %s", status, raw)
+		t.Fatalf("POST input source: status %d body %s", status, raw)
+	}
+	inputSourceID := decodeJSON[domain.InputSource](t, raw).ID
+	status, raw = doJSON(t, http.MethodPost, fmt.Sprintf("%s/events/%d/input-cables", server.URL, eventID), map[string]any{
+		"from_kind": "source", "from_id": inputSourceID, "from_port": 0,
+		"to_kind": "channel", "to_id": inputChannelID, "to_port": 0, "cable_item_id": speakonCable,
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("POST input cable: status %d body %s", status, raw)
 	}
 
 	status, raw = doJSON(t, http.MethodGet, fmt.Sprintf("%s/events/%d/rentals", server.URL, eventID), nil)

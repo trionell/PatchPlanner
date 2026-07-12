@@ -40,14 +40,14 @@ export function stageboxPorts(stagebox: Stagebox): { inputs: PortRef[]; outputs:
     id: stagebox.id,
     port: i,
     direction: 'in' as const,
-    label: `Ch ${i + 1}`,
+    label: `In ${i + 1}`,
   }))
   const outputs = Array.from({ length: stagebox.output_count }, (_, i) => ({
     kind: 'stagebox' as const,
     id: stagebox.id,
     port: i,
     direction: 'out' as const,
-    label: `Ch ${i + 1}`,
+    label: `Out ${i + 1}`,
   }))
   return { inputs, outputs }
 }
@@ -59,14 +59,14 @@ export function stageMultiPorts(stageMulti: StageMulti): { inputs: PortRef[]; ou
     id: stageMulti.id,
     port: i,
     direction: 'in' as const,
-    label: `Ch ${i + 1}`,
+    label: `In ${i + 1}`,
   }))
   const outputs = Array.from({ length: stageMulti.channels }, (_, i) => ({
     kind: 'stage_multi' as const,
     id: stageMulti.id,
     port: i,
     direction: 'out' as const,
-    label: `Ch ${i + 1}`,
+    label: `Out ${i + 1}`,
   }))
   return { inputs, outputs }
 }

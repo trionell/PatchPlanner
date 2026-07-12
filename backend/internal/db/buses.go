@@ -182,14 +182,17 @@ func BusesBelongToEvent(database *sql.DB, eventID int64, kind string, ids []int6
 	return count == len(unique), nil
 }
 
-// loadInputGroupIDs returns every input's group memberships for one event.
+// loadInputGroupIDs returns every input channel's group memberships for
+// one event. audio_input_groups still targets input_id — audio_patch_
+// inputs was renamed to input_channels in place (Slice 12, research.md
+// R4), so every existing row's id/membership survives untouched.
 func loadInputGroupIDs(database *sql.DB, eventID int64) (map[int64][]int64, error) {
-	return loadInputBusIDs(database, eventID, `SELECT ig.input_id, ig.group_id FROM audio_input_groups ig JOIN audio_patch_inputs i ON i.id = ig.input_id WHERE i.event_id = ? ORDER BY ig.input_id, ig.group_id`)
+	return loadInputBusIDs(database, eventID, `SELECT ig.input_id, ig.group_id FROM audio_input_groups ig JOIN input_channels i ON i.id = ig.input_id WHERE i.event_id = ? ORDER BY ig.input_id, ig.group_id`)
 }
 
-// loadInputDCAIDs returns every input's DCA memberships for one event.
+// loadInputDCAIDs returns every input channel's DCA memberships for one event.
 func loadInputDCAIDs(database *sql.DB, eventID int64) (map[int64][]int64, error) {
-	return loadInputBusIDs(database, eventID, `SELECT id.input_id, id.dca_id FROM audio_input_dcas id JOIN audio_patch_inputs i ON i.id = id.input_id WHERE i.event_id = ? ORDER BY id.input_id, id.dca_id`)
+	return loadInputBusIDs(database, eventID, `SELECT id.input_id, id.dca_id FROM audio_input_dcas id JOIN input_channels i ON i.id = id.input_id WHERE i.event_id = ? ORDER BY id.input_id, id.dca_id`)
 }
 
 func loadInputBusIDs(database *sql.DB, eventID int64, query string) (map[int64][]int64, error) {

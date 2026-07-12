@@ -79,6 +79,25 @@ func runMigrations(db *sql.DB, migrationsPath string, logger *slog.Logger) error
 		return fmt.Errorf("read migration version: %w", versionErr)
 	}
 
+	// Same sequencing discipline for the Slice 12 input-graph conversion
+	// (research.md R7), around the drop of input_channels' legacy columns
+	// in migration 030: only ever calls Migrate(29) on a database still
+	// behind 29, runs the one-time conversion immediately after landing on
+	// 29, and only then continues on to Up() to reach 030+. Re-reads the
+	// version (rather than reusing the check above) since the branch above
+	// may have just advanced it via m.Migrate(25).
+	version, _, versionErr = m.Version()
+	if errors.Is(versionErr, migrate.ErrNilVersion) || (versionErr == nil && version < 29) {
+		if err := m.Migrate(29); err != nil && err != migrate.ErrNoChange {
+			return fmt.Errorf("run migrations to version 29: %w", err)
+		}
+		if err := convertLegacyInputChannels(db, logger); err != nil {
+			return fmt.Errorf("convert legacy input channels: %w", err)
+		}
+	} else if versionErr != nil {
+		return fmt.Errorf("read migration version: %w", versionErr)
+	}
+
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		return fmt.Errorf("run migrations: %w", err)
 	}

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
-import type { AudioPatchInput, AudioPatchOutput, LightingFixture, MixerDCA, MixerGroup, OutputCable, OutputDevice, StageMulti, Stagebox, TrussSection } from '../../types'
+import type { AudioPatchOutput, InputCable, InputChannel, InputDevice, InputSource, LightingFixture, MixerDCA, MixerGroup, OutputCable, OutputDevice, StageMulti, Stagebox, TrussSection } from '../../types'
 import { InputPatchSheet } from './InputPatchSheet'
 import { LightingRigSheet } from './LightingRigSheet'
 import { OutputPatchSheet } from './OutputPatchSheet'
@@ -19,10 +19,10 @@ function render(ui: ReactElement): string {
 }
 
 const stageboxes: Stagebox[] = [
-  { id: 1, event_id: 1, name: 'FOH Rack', model: '', input_count: 16, output_count: 8, connection_type: 'analog', position_x: 0, position_y: 0 },
+  { id: 1, event_id: 1, name: 'FOH Rack', model: '', input_count: 16, output_count: 8, connection_type: 'analog', position_x: 0, position_y: 0, input_position_x: 0, input_position_y: 0 },
 ]
 const stageMultis: StageMulti[] = [
-  { id: 5, event_id: 1, name: 'Multi A', length_m: 30, channels: 12, connector_type: 'harting', position_x: 0, position_y: 0 },
+  { id: 5, event_id: 1, name: 'Multi A', length_m: 30, channels: 12, connector_type: 'harting', position_x: 0, position_y: 0, input_position_x: 0, input_position_y: 0 },
 ]
 const itemNameById = new Map([[42, 'Shure SM58'], [77, 'Amp X'], [78, 'Speaker Y']])
 const groups: MixerGroup[] = [
@@ -36,27 +36,38 @@ const itemLabelById = new Map([
   [301, 'Mikrofonstativ Med bom'],
 ])
 
-function anInput(overrides: Partial<AudioPatchInput>): AudioPatchInput {
-  return {
-    id: 1, event_id: 1, channel_number: 1, channel_name: 'Vocal', signal_type: 'mic',
-    preamp_connector: 'xlr', cable_type: 'xlr', cable_length_m: 10, phantom_power: true,
-    width: 'mono', mixer_behavior: 'stereo_channel', source_cabling: 'two_cables',
-    ...overrides,
-  }
+function aChannel(overrides: Partial<InputChannel>): InputChannel {
+  return { id: 1, event_id: 1, channel_number: 1, channel_name: 'Vocal', width: 'mono', mixer_behavior: 'stereo_channel', ...overrides }
+}
+function aSource(overrides: Partial<InputSource>): InputSource {
+  return { id: 1, event_id: 1, name: 'Lead Vox', kind: 'mic', connector_type: 'xlr', phantom_power: true, width: 'mono', position_x: 0, position_y: 0, ...overrides }
+}
+function aDevice(overrides: Partial<InputDevice>): InputDevice {
+  return { id: 1, event_id: 1, name: 'DI', input_port_count: 1, output_port_count: 1, position_x: 0, position_y: 0, ...overrides }
+}
+function anInputCable(overrides: Partial<InputCable>): InputCable {
+  return { id: 1, event_id: 1, from_kind: 'source', from_id: 1, from_port: 0, to_kind: 'channel', to_id: 1, to_port: 0, ...overrides }
 }
 
 describe('InputPatchSheet', () => {
-  it('renders every channel with routing and no form controls', () => {
+  it('renders every channel with its signal path and no form controls', () => {
     const html = render(
       <InputPatchSheet
         eventId={1}
-        inputs={[
-          anInput({ id: 2, channel_number: 2, channel_name: 'Guitar', mic_label: 'Old DI', stage_multi_id: 5, stage_multi_channel: 4, phantom_power: false, mic_stand: 'boom' }),
-          anInput({ id: 1, mic_item_id: 42, stagebox_id: 1, stagebox_channel: 12, cable_item_id: 201, cable_type: undefined, cable_length_m: undefined, stand_item_id: 301, group_ids: [1, 7], dca_ids: [3], color: '#22c55e' }),
-          anInput({ id: 3, channel_number: 3, channel_name: 'Playback L', group_ids: [] }),
+        channels={[
+          aChannel({ id: 2, channel_number: 2, channel_name: 'Guitar', group_ids: [], color: undefined }),
+          aChannel({ id: 1, channel_number: 1, channel_name: 'Vocal', group_ids: [1, 7], dca_ids: [3], color: '#22c55e' }),
+          aChannel({ id: 3, channel_number: 3, channel_name: 'Playback L', group_ids: [] }),
         ]}
+        sources={[aSource({ id: 1, name: 'Shure SM58' }), aSource({ id: 2, name: 'Guitar DI', kind: 'line', phantom_power: false })]}
+        devices={[]}
         stageboxes={stageboxes}
         stageMultis={stageMultis}
+        cables={[
+          anInputCable({ id: 1, from_id: 1, to_id: 1, cable_item_id: 201 }),
+          anInputCable({ id: 2, from_id: 2, to_kind: 'stagebox', to_id: 1, to_port: 11 }),
+          anInputCable({ id: 3, from_kind: 'stagebox', from_id: 1, from_port: 11, to_kind: 'channel', to_id: 2 }),
+        ]}
         groups={groups}
         dcas={dcas}
         itemLabelById={itemLabelById}
@@ -72,66 +83,65 @@ describe('InputPatchSheet', () => {
     expect(html).toContain('background-color:#22c55e')
     expect(html).toContain('data-testid="color-swatch"')
     expect(html).toContain('Shure SM58')
-    expect(html).toContain('SB FOH Rack ch 12')
-    expect(html).toContain('Old DI')
-    expect(html).toContain('Multi Multi A ch 4')
-    expect(html).toContain('direct')
-    // Picked cable/stand show catalog labels; legacy rows show old values.
     expect(html).toContain('Mikrofonkabel — 4m')
-    expect(html).toContain('xlr 10 m')
-    expect(html).toContain('Mikrofonstativ Med bom')
-    expect(html).toContain('boom')
-    expect(html).toContain('✓')
+    expect(html).toContain('Guitar DI')
+    expect(html).toContain('FOH Rack')
+    expect(html).toContain('built-in')
+    // A channel with nothing feeding it (Playback L) is flagged as a gap.
+    expect(html).toContain('no source connected')
     // Rows sorted by channel number: Vocal (1) before Guitar (2).
     expect(html.indexOf('Vocal')).toBeLessThan(html.indexOf('Guitar'))
     expect(html).not.toMatch(/<(input|select|button|textarea)\b/)
   })
 
   it('renders the empty-state line instead of a table', () => {
-    const html = render(<InputPatchSheet eventId={1} inputs={[]} stageboxes={[]} stageMultis={[]} groups={[]} dcas={[]} itemLabelById={new Map()} />)
+    const html = render(<InputPatchSheet eventId={1} channels={[]} sources={[]} devices={[]} stageboxes={[]} stageMultis={[]} cables={[]} groups={[]} dcas={[]} itemLabelById={new Map()} />)
     expect(html).toContain('Nothing planned on this sheet.')
     expect(html).not.toContain('<table')
   })
 
-  it('shows a linked-channels stereo row\'s pair number and both independently-patched sides', () => {
+  it('shows a double-patched source feeding two channels independently', () => {
     const html = render(
       <InputPatchSheet
         eventId={1}
-        inputs={[
-          anInput({
-            channel_number: 5, channel_name: 'Crowd L/R', mixer_behavior: 'linked_channels', width: 'stereo',
-            stagebox_id: 1, stagebox_channel: 9, stage_multi_id_b: 5, stage_multi_channel_b: 3, mic_item_id: 42,
-          }),
-        ]}
+        channels={[aChannel({ id: 5, channel_number: 32, channel_name: 'Talkback FOH' }), aChannel({ id: 6, channel_number: 33, channel_name: 'Talkback Mon' })]}
+        sources={[aSource({ id: 9, name: 'Talkback Mic' })]}
+        devices={[]}
         stageboxes={stageboxes}
         stageMultis={stageMultis}
+        cables={[
+          anInputCable({ id: 1, from_id: 9, to_id: 5 }),
+          anInputCable({ id: 2, from_id: 9, to_id: 6 }),
+        ]}
         groups={[]}
         dcas={[]}
         itemLabelById={itemLabelById}
       />,
     )
-    // Pair number and both sides' independent routes (side B needn't share
-    // side A's stagebox — the crowd-mic scenario).
-    expect(html).toContain('5–6')
-    expect(html).toContain('SB FOH Rack ch 9')
-    expect(html).toContain('Multi Multi A ch 3')
+    expect((html.match(/Talkback Mic/g) ?? []).length).toBe(2)
   })
 
-  it('shows a DI row\'s source cable alongside its DI→preamp cable', () => {
-    const diLabelById = new Map([...itemLabelById, [502, 'Linekabel Tele-tele — 2m']])
+  it('shows a DI channel\'s full path through its Device', () => {
     const html = render(
       <InputPatchSheet
         eventId={1}
-        inputs={[anInput({ signal_type: 'di', mic_item_id: 42, cable_item_id: 201, cable_type: undefined, cable_length_m: undefined, source_cable_item_id: 502 })]}
+        channels={[aChannel({ id: 1, channel_number: 4, channel_name: 'Bass' })]}
+        sources={[aSource({ id: 1, name: 'Bass Direct Out', kind: 'line', phantom_power: false })]}
+        devices={[aDevice({ id: 1, name: 'DI (Bass)' })]}
         stageboxes={stageboxes}
         stageMultis={stageMultis}
+        cables={[
+          anInputCable({ id: 1, from_kind: 'source', from_id: 1, to_kind: 'device', to_id: 1, to_port: 0, cable_item_id: 301 }),
+          anInputCable({ id: 2, from_kind: 'device', from_id: 1, from_port: 0, to_kind: 'channel', to_id: 1 }),
+        ]}
         groups={[]}
         dcas={[]}
-        itemLabelById={diLabelById}
+        itemLabelById={itemLabelById}
       />,
     )
-    expect(html).toContain('Mikrofonkabel — 4m')
-    expect(html).toContain('Src: Linekabel Tele-tele — 2m')
+    expect(html).toContain('Bass Direct Out')
+    expect(html).toContain('DI (Bass)')
+    expect(html).toContain('Mikrofonstativ Med bom')
   })
 })
 

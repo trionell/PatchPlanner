@@ -10,9 +10,9 @@ import (
 )
 
 type busPatchResponse struct {
-	Groups []domain.MixerGroup      `json:"groups"`
-	DCAs   []domain.MixerDCA        `json:"dcas"`
-	Inputs []domain.AudioPatchInput `json:"inputs"`
+	Groups        []domain.MixerGroup   `json:"groups"`
+	DCAs          []domain.MixerDCA     `json:"dcas"`
+	InputChannels []domain.InputChannel `json:"input_channels"`
 }
 
 func audioPatchOf(t *testing.T, serverURL string, eventID int64) busPatchResponse {
@@ -100,7 +100,7 @@ func TestGroupCRUDAndLR(t *testing.T) {
 func TestInputGroupAssignments(t *testing.T) {
 	server, _ := newTestServer(t)
 	eventID := seedEvent(t, server.URL)
-	inputsURL := fmt.Sprintf("%s/events/%d/audio-inputs", server.URL, eventID)
+	inputsURL := fmt.Sprintf("%s/events/%d/input-channels", server.URL, eventID)
 
 	patch := audioPatchOf(t, server.URL, eventID)
 	lrID := patch.Groups[0].ID
@@ -111,21 +111,21 @@ func TestInputGroupAssignments(t *testing.T) {
 	bandID := decodeJSON[domain.MixerGroup](t, raw).ID
 
 	// Omitted group_ids → LR default.
-	status, raw = doJSON(t, http.MethodPost, inputsURL, map[string]any{"channel_number": 1, "signal_type": "mic", "preamp_connector": "xlr"})
+	status, raw = doJSON(t, http.MethodPost, inputsURL, map[string]any{"channel_number": 1})
 	if status != http.StatusCreated {
 		t.Fatalf("POST input: status %d body %s", status, raw)
 	}
-	defaulted := decodeJSON[domain.AudioPatchInput](t, raw)
+	defaulted := decodeJSON[domain.InputChannel](t, raw)
 	if len(defaulted.GroupIDs) != 1 || defaulted.GroupIDs[0] != lrID {
 		t.Errorf("defaulted group_ids = %v, want [%d]", defaulted.GroupIDs, lrID)
 	}
 
 	// Explicit empty array sticks (spec scenario 5).
-	status, raw = doJSON(t, http.MethodPost, inputsURL, map[string]any{"channel_number": 2, "signal_type": "line", "preamp_connector": "xlr", "group_ids": []int64{}})
+	status, raw = doJSON(t, http.MethodPost, inputsURL, map[string]any{"channel_number": 2, "group_ids": []int64{}})
 	if status != http.StatusCreated {
 		t.Fatalf("POST unrouted input: status %d body %s", status, raw)
 	}
-	if unrouted := decodeJSON[domain.AudioPatchInput](t, raw); len(unrouted.GroupIDs) != 0 {
+	if unrouted := decodeJSON[domain.InputChannel](t, raw); len(unrouted.GroupIDs) != 0 {
 		t.Errorf("explicit-empty group_ids = %v, want []", unrouted.GroupIDs)
 	}
 
@@ -135,12 +135,12 @@ func TestInputGroupAssignments(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("PATCH input groups: status %d body %s", status, raw)
 	}
-	if updated := decodeJSON[domain.AudioPatchInput](t, raw); len(updated.GroupIDs) != 2 {
+	if updated := decodeJSON[domain.InputChannel](t, raw); len(updated.GroupIDs) != 2 {
 		t.Errorf("patched group_ids = %v, want [LR Band]", updated.GroupIDs)
 	}
 	patch = audioPatchOf(t, server.URL, eventID)
-	if len(patch.Inputs) != 2 || len(patch.Inputs[0].GroupIDs) != 2 {
-		t.Errorf("listed inputs carry %v", patch.Inputs)
+	if len(patch.InputChannels) != 2 || len(patch.InputChannels[0].GroupIDs) != 2 {
+		t.Errorf("listed inputs carry %v", patch.InputChannels)
 	}
 
 	// A group of another event is rejected.
@@ -160,10 +160,10 @@ func TestInputGroupAssignments(t *testing.T) {
 		t.Fatalf("delete assigned group: status %d body %s", status, raw)
 	}
 	patch = audioPatchOf(t, server.URL, eventID)
-	if len(patch.Inputs) != 2 {
-		t.Fatalf("channel count changed after group delete: %d", len(patch.Inputs))
+	if len(patch.InputChannels) != 2 {
+		t.Fatalf("channel count changed after group delete: %d", len(patch.InputChannels))
 	}
-	if got := patch.Inputs[0].GroupIDs; len(got) != 1 || got[0] != lrID {
+	if got := patch.InputChannels[0].GroupIDs; len(got) != 1 || got[0] != lrID {
 		t.Errorf("group_ids after delete = %v, want [%d]", got, lrID)
 	}
 }
@@ -174,7 +174,7 @@ func TestDCACRUDAndAssignments(t *testing.T) {
 	server, _ := newTestServer(t)
 	eventID := seedEvent(t, server.URL)
 	dcasURL := fmt.Sprintf("%s/events/%d/dcas", server.URL, eventID)
-	inputsURL := fmt.Sprintf("%s/events/%d/audio-inputs", server.URL, eventID)
+	inputsURL := fmt.Sprintf("%s/events/%d/input-channels", server.URL, eventID)
 
 	status, raw := doJSON(t, http.MethodPost, dcasURL, map[string]any{"name": "Trummor", "color": "#a855f7"})
 	if status != http.StatusCreated {
@@ -210,11 +210,11 @@ func TestDCACRUDAndAssignments(t *testing.T) {
 	}
 
 	// Multi-DCA membership round-trips; dca_groups is gone from the wire.
-	status, raw = doJSON(t, http.MethodPost, inputsURL, map[string]any{"channel_number": 1, "signal_type": "mic", "preamp_connector": "xlr", "dca_ids": []int64{trummor.ID, keys.ID}})
+	status, raw = doJSON(t, http.MethodPost, inputsURL, map[string]any{"channel_number": 1, "dca_ids": []int64{trummor.ID, keys.ID}})
 	if status != http.StatusCreated {
 		t.Fatalf("POST input with dcas: status %d body %s", status, raw)
 	}
-	input := decodeJSON[domain.AudioPatchInput](t, raw)
+	input := decodeJSON[domain.InputChannel](t, raw)
 	if len(input.DCAIDs) != 2 {
 		t.Errorf("dca_ids = %v, want two", input.DCAIDs)
 	}
@@ -246,7 +246,7 @@ func TestDCACRUDAndAssignments(t *testing.T) {
 		t.Errorf("delete unknown dca: status %d body %s, want 404", status, raw)
 	}
 	patch := audioPatchOf(t, server.URL, eventID)
-	if got := patch.Inputs[0].DCAIDs; len(got) != 1 || got[0] != keys.ID {
+	if got := patch.InputChannels[0].DCAIDs; len(got) != 1 || got[0] != keys.ID {
 		t.Errorf("dca_ids after delete = %v, want [%d]", got, keys.ID)
 	}
 	if len(patch.DCAs) != 1 {
@@ -261,12 +261,12 @@ func TestChannelColors(t *testing.T) {
 	eventID := seedEvent(t, server.URL)
 
 	// Input color round-trips and clears.
-	inputsURL := fmt.Sprintf("%s/events/%d/audio-inputs", server.URL, eventID)
-	status, raw := doJSON(t, http.MethodPost, inputsURL, map[string]any{"channel_number": 1, "signal_type": "mic", "preamp_connector": "xlr", "color": "#22c55e"})
+	inputsURL := fmt.Sprintf("%s/events/%d/input-channels", server.URL, eventID)
+	status, raw := doJSON(t, http.MethodPost, inputsURL, map[string]any{"channel_number": 1, "color": "#22c55e"})
 	if status != http.StatusCreated {
 		t.Fatalf("POST colored input: status %d body %s", status, raw)
 	}
-	input := decodeJSON[domain.AudioPatchInput](t, raw)
+	input := decodeJSON[domain.InputChannel](t, raw)
 	if input.Color != "#22c55e" {
 		t.Errorf("input color = %q, want #22c55e", input.Color)
 	}
@@ -275,7 +275,7 @@ func TestChannelColors(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("PATCH input: status %d body %s", status, raw)
 	}
-	if cleared := decodeJSON[domain.AudioPatchInput](t, raw); cleared.Color != "" {
+	if cleared := decodeJSON[domain.InputChannel](t, raw); cleared.Color != "" {
 		t.Errorf("input color not cleared: %q", cleared.Color)
 	}
 

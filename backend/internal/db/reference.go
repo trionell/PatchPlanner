@@ -20,9 +20,19 @@ var ErrInUse = errors.New("in use")
 // its values. Delete protection probes exactly these columns; keep in sync
 // with data-model.md §Usage map.
 var vocabularyUsage = map[string][]struct{ table, column string }{
-	"signal_types":       {{"audio_patch_inputs", "signal_type"}},
-	"preamp_connectors":  {{"audio_patch_inputs", "preamp_connector"}},
-	"signal_cable_types": {{"audio_patch_inputs", "cable_type"}},
+	// signal_types (mic/line/di/return/aux) had no real home left after
+	// Slice 12: InputSource.Kind is a Go-validated "mic"/"line" enum, not a
+	// reference vocabulary (the input graph's mirror of ValidWidths etc.) —
+	// no planning row stores a signal_types value anymore.
+	// preamp_connectors moved from audio_patch_inputs.preamp_connector
+	// (flat model) to input_sources.connector_type (Slice 12's graph) — a
+	// Source's declared connector is this vocabulary's real home today.
+	"preamp_connectors": {{"input_sources", "connector_type"}},
+	// signal_cable_types and mic_stands (both audio_patch_inputs legacy
+	// pre-catalog fallback text) had no replacement introduced in Slice 12
+	// — a cable is now always a catalog input_cables.cable_item_id pick,
+	// and a stand is always input_sources.stand_item_id, neither a
+	// reference-vocabulary value.
 	// speaker_cable_types moved from audio_patch_outputs (flat model) to
 	// output_chain_hops.cable_type (Slice 10's hop chain) to, now,
 	// output_devices' per-side connector type (Slice 11's graph, research.md
@@ -30,7 +40,6 @@ var vocabularyUsage = map[string][]struct{ table, column string }{
 	// vocabulary's real home today.
 	"speaker_cable_types": {{"output_devices", "input_connector_type"}, {"output_devices", "output_connector_type"}},
 	"output_types":        {{"audio_patch_outputs", "output_type"}},
-	"mic_stands":          {{"audio_patch_inputs", "mic_stand"}},
 	"power_connectors":    {{"lighting_fixtures", "power_connector_in"}, {"lighting_fixtures", "power_connector_out"}},
 	"truss_types":         {{"truss_sections", "truss_type"}},
 }

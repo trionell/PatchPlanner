@@ -106,39 +106,58 @@ This imports **308 items** across **27 categories** (speakers, microphones, mixe
 
 Open an event and navigate to the **Audio Inputs** or **Audio Outputs** tab.
 
-- Click **Add Input / Add Output** to append a new row
-- Each row is inline-editable — click any cell to edit
-- Changes save automatically when you leave the field (on blur)
-- Click the trash icon on a row to delete it
+#### Audio Inputs
 
-**Input columns:**
+The input side separates the physical origin of a signal (a **Source** —
+a mic on a stand, or a bare line/instrument output) from the **Channel**
+it ends up on (the console strip — name, groups, DCA, color, notes). What
+connects the two is entirely decided in the signal-flow graph below, via
+cables — never a stored reference on either row, so the same Source can
+feed more than one Channel at once (double-patching, e.g. a talkback mic
+also monitored on a second strip).
+
+**Sources table** — one row per physical origin:
 | Column | Description |
 |--------|-------------|
-| Ch# | Mixer channel number (auto-increments) |
-| Name | Channel label (e.g. "Kick In", "Lead Vox") |
-| Type | Signal type: mic, line, DI, return, aux |
-| Connector | Preamp input connector type (XLR, Jack TS/TRS, RCA) |
-| Stagebox | Which stagebox this connects to |
-| SB Ch | Stagebox channel number |
-| Multi | Which stage multicore cable |
-| Multi Ch | Multicore channel number |
-| Mic Model | Microphone model (e.g. "SM58") |
-| Cable | Cable from the rental catalog (item + length, e.g. "Mikrofonkabel — 4m"); pre-upgrade type/length values show as read-only legacy text until re-picked |
-| Source Cable | DI channels only: the source → DI cable, picked from the same cable catalog; on a stereo DI channel a second select chooses "two cables" (counted ×2) or "splitter" (one TRS→2×TS cable, counted ×1) |
-| Stand | Mic stand from the rental catalog; legacy stand-type values show as read-only text until re-picked |
-| 48V | Phantom power on/off |
-| Width | Mono (default) or Stereo; a stereo input shows a second Mixer Behavior select — **Stereo channel** (one console number) or **Linked channels** (occupies its number and the next, e.g. "5–6") |
-| Side B | Stereo channels only: the second physical connection's own stagebox/multicore routing, independent of side A — flipping to stereo defaults it to side A's route at the next channel as a one-time convenience, but it can be repatched anywhere (e.g. a crowd-mic pair through separate multicores) |
-| Groups | Mix groups the channel routes to, picked from the event's groups (LR is built-in and the default; remove it per channel if needed) |
-| DCA | DCA membership, picked from the event's DCAs (a channel can be in several) |
-| Color | Console channel-strip color from the palette (Settings → channel_colors) |
+| Name | Source label (e.g. "Kick In", "Lead Vox", "Playback PC") |
+| Kind | **Mic** (exposes Mic/Stand/48V) or **Line** (bare connector only — no mic, no phantom power) |
+| Mic | Microphone model from the rental catalog (mic Sources only) |
+| Stand | Mic stand from the rental catalog (mic Sources only) |
+| 48V | Phantom power on/off (mic Sources only) |
+| Connector | Physical connector at the source end (XLR, Jack TS/TRS, 3.5mm TRS mini-jack, RCA, …) |
+| Width | Mono (default) or Stereo — a stereo Source contributes two independent ports to the graph (e.g. a laptop's single stereo mini-jack) |
+
+A Source's row is tinted with whichever color it's currently feeding (see
+Color inheritance below) instead of carrying a color of its own.
+
+**Channels table** — one row per console strip:
+| Column | Description |
+|--------|-------------|
+| Ch# | Mixer channel number |
+| Name | Channel label |
+| Width | Mono (default) or Stereo |
+| Source (from graph) | Read-only summary of whatever currently feeds this channel, resolved from the graph below |
+| Groups | Mix groups the channel routes to (LR is built-in and the default; remove it per channel if needed) |
+| DCA | DCA membership (a channel can be in several) |
+| Color | Console channel-strip color from the palette (Settings → channel_colors) — the only place color is ever stored on the input side |
 | Notes | Free-text notes |
 
-Groups and DCAs are managed in the two cards above the inputs table:
-create, rename, recolor, or delete them there. LR can be recolored but
-never renamed or deleted; deleting an assigned group/DCA asks for
-confirmation and then just clears those assignments. Pre-upgrade free-text
-DCA values were converted automatically into per-event DCAs.
+Groups and DCAs are managed in the two cards above the tables: create,
+rename, recolor, or delete them there. LR can be recolored but never
+renamed or deleted; deleting an assigned group/DCA asks for confirmation
+and then just clears those assignments.
+
+**Stageboxes and stage multis** — declared in their own card, shared with
+the Output side (a stagebox's or multi's *input*-side jacks and *output*-
+side jacks are entirely independent cable sets, even though it's the same
+physical unit).
+
+**Devices** (DI boxes and anything else that sits between a Source and a
+Channel) — declared in their own card: name, item (rental catalog or
+owned-gear), and each side's port count + connector type. A stereo DI is
+one 2-in/2-out device row, not two one-off mono ones.
+
+#### Audio Outputs
 
 **Output channel columns** (the mini-table above the graph — each row is one mixer output, contributing one or two ports to the graph below):
 | Column | Description |
@@ -150,41 +169,62 @@ DCA values were converted automatically into per-event DCAs.
 | Color | Console channel-strip color from the palette |
 | Notes | Free-text notes |
 
-**The signal-flow graph** (below the channel table): a Sankey-style
-canvas where a line is a cable and a box is a device. The console (all
-output channels' ports together) and every stagebox are output-only,
-pinned to a left rail; devices with only an input side (speakers, IEM
-packs) are pinned to a right rail; devices with both an input and output
-side, and stage multis, sit free-floating in the middle — drag them
-anywhere. Declare devices in their own card above the graph: name, item
-(rental catalog or owned-gear), and each side's port count + connector
-type (a side with 0 ports has no connector; an amplifier with XLR in and
-Speakon out just sets both sides independently). Draw a cable by clicking
-a free port, then a free port of the opposite direction — a catalog
-picker pops up before the connection commits, *except* into a stage
-multi's input side, which commits immediately with no picker (its own
-built-in wiring is never a separately rentable cable). A basic flat table
-of every device and cable is available as an alternative to the graph. A
-port carries at most one cable; reducing a device's port count below its
-number of attached cables is rejected until those cables are removed;
-deleting a device or a stagebox/stage-multi removes every cable that
+#### Signal-flow graphs (both directions)
+
+Both tabs' graph is a Sankey-style canvas where a line is a cable and a
+box is a node. On **Audio Outputs** the console (all output channels'
+ports together) and every stagebox are output-only, pinned to a left
+rail; devices with only an input side (speakers, IEM packs) are pinned
+to a right rail; devices with both sides, and stage multis, sit
+free-floating in the middle. On **Audio Inputs** the graph runs the
+other way: Sources are pinned to a left rail, Channels to a right rail
+(each rail renders as one compact node listing every row, so the graph's
+height never grows per Source/Channel), and Stageboxes/Stage-Multis/
+Devices free-float in between, same as Outputs. Drag any free-floating
+node anywhere.
+
+Declare Devices in their own card above the graph: name, item (rental
+catalog or owned-gear), and each side's port count + connector type (a
+side with 0 ports has no connector; an amplifier with XLR in and Speakon
+out just sets both sides independently — a stereo DI is one 2-in/2-out
+device, not two one-off mono ones). Draw a cable by clicking a free
+port, then a free port of the opposite direction — a catalog picker pops
+up before the connection commits, *except* into a stage multi's or
+stagebox's console-side jack, which commits immediately with no picker
+(that hop is pure routing, never a separately rentable cable). A Source's
+port stays clickable even once it already carries a cable, so the same
+Source can feed more than one Channel at once (double-patching); when
+connecting a stereo Source's second port right after its first already
+got a cable item picked, the picker offers a one-click "same cable as the
+other side" shortcut for the common splitter-cable case. A basic flat
+table of every node and cable is available as an alternative to the
+graph. Every other kind of port carries at most one cable; reducing a
+device's port count below its number of attached cables is rejected
+until those cables are removed; deleting a node removes every cable that
 referenced it instead of being blocked.
+
+**Color inheritance (Audio Inputs only)**: color is stored only on the
+Channel. Every Source/Stagebox/Stage-Multi/Device port's displayed color
+is derived by tracing the graph forward to whichever Channel(s) it
+reaches — a single color when they all agree, neutral when none is
+reached yet or they disagree (e.g. a Source double-patched into two
+differently-colored Channels shows neutral). The Sources and Channels
+tables reflect the same color as a tinted row background with a
+left-edge accent bar.
 
 Channel, group, and DCA colors show on the Audio Inputs/Outputs tabs, in
 the Signal Flow view, and on the printed sheets (as a swatch next to the
 channel number and tinted group/DCA names).
 
-A stereo *input* channel doubles the rental count of everything picked
-per side — microphone/source item, cable, stand — while a two-channel
-device (a DI box) counts once regardless of width. A DI channel's source
-cable is counted once, or twice on a stereo DI channel using two
-individual cables (a splitter counts once either way). Output-side
-rental counting has no doubling logic at all: a stereo channel's two
-physical sides are two real, separate device/cable rows from the start
-(wire each side to its own device to get "2"; wire both into one shared
-device to get "1", counted once no matter how many cables reference it —
-the same "one physical unit" rule as before, now falling directly out of
-the graph instead of a width check).
+Rental counting has no width-based doubling logic on either side: every
+node and cable counts once per row, full stop. A stereo Source or
+Channel's two physical sides are two independent rows from the start —
+wire each side to its own Device/Source to get "2"; wire both into one
+shared Device to get "1", counted once no matter how many cables
+reference it (the "one physical unit" rule). A stereo splitter cable
+(one physical cable feeding both sides of a stereo pair) is entered as
+two cables with only one side's `cable_item_id` set — the unset side
+bills nothing, so the pair counts once, not twice.
 
 ### Building a lighting rig
 
@@ -263,7 +303,7 @@ Base URL: `http://localhost:7331/api/v1`
 | PATCH | `/inventory/categories/:id` | Set or clear a category's picker role (`{"picker_role": "cable" \| "stand" \| null}`) |
 | GET | `/inventory/items` | List inventory items (filters: `?category_type=lighting`, `?category_id=1`, `?role=cable`, `?include_discontinued=true`) |
 | POST | `/inventory/import-xlsx` | Re-import catalog from LL.xlsx (non-destructive upsert; picker roles survive) |
-| GET | `/events/:id/audio-patch` | Full audio patch: stageboxes, stage multis, groups, DCAs, inputs, outputs, output devices, output cables |
+| GET | `/events/:id/audio-patch` | Full audio patch: stageboxes, stage multis, groups, DCAs, input sources, input channels, input devices, input cables, outputs, output devices, output cables |
 | POST | `/events/:id/groups` | Add a mix group (`{"name", "color"?}`; 409 on duplicate name) |
 | PATCH | `/events/:id/groups/:groupId` | Rename/recolor a group (LR: recolor only) |
 | DELETE | `/events/:id/groups/:groupId` | Delete a group and its channel assignments (LR protected) |
@@ -276,9 +316,18 @@ Base URL: `http://localhost:7331/api/v1`
 | POST | `/events/:id/stage-multis` | Add a stage multicore |
 | PATCH | `/events/:id/stage-multis/:smId` | Update a stage multicore |
 | DELETE | `/events/:id/stage-multis/:smId` | Delete a stage multicore |
-| POST | `/events/:id/audio-inputs` | Add an input row (omit `group_ids` to route to LR by default; the legacy `dca_groups` text field is gone — use `dca_ids`). `width` (`mono`/`stereo`), `mixer_behavior` (`stereo_channel`/`linked_channels`), `source_cabling` (`two_cables`/`splitter`) default when omitted; `stagebox_id_b`/`stagebox_channel_b`/`stage_multi_id_b`/`stage_multi_channel_b` are the stereo channel's independently-patched second side, and `source_cable_item_id` is a DI channel's source→DI cable pick — both validated the same way as their side-A/`cable_item_id` counterparts |
-| PATCH | `/events/:id/audio-inputs/:inputId` | Update an input row (`group_ids`/`dca_ids` replace the sets wholesale) |
-| DELETE | `/events/:id/audio-inputs/:inputId` | Delete an input row |
+| POST | `/events/:id/input-channels` | Add a Channel — console strip only (`channel_number`, `channel_name`, `width`, `mixer_behavior`, `group_ids`/`dca_ids`, `color`, `notes`); omit `group_ids` to route to LR by default. No source-related fields — what feeds it is decided entirely by `input-cables` |
+| PATCH | `/events/:id/input-channels/:channelId` | Update a Channel (`group_ids`/`dca_ids` replace the sets wholesale) |
+| DELETE | `/events/:id/input-channels/:channelId` | Delete a Channel and every cable feeding it |
+| POST | `/events/:id/input-sources` | Add a Source — the physical origin (`name`, `kind` `mic`\|`line`, `connector_type`, `width`). `kind = mic` allows `mic_item_id`/`stand_item_id`/`phantom_power`; `kind = line` forbids all three (`400` otherwise) |
+| PATCH | `/events/:id/input-sources/:sourceId` | Update a Source — switching `kind` from `mic` to `line` clears `mic_item_id`/`stand_item_id`/`phantom_power` server-side |
+| DELETE | `/events/:id/input-sources/:sourceId` | Delete a Source and every cable attached to it |
+| POST | `/events/:id/input-devices` | Declare an input-side device (DI box, etc.) — same shape as `output-devices` minus link ports |
+| PATCH | `/events/:id/input-devices/:deviceId` | Update an input device — `409` with the affected cables if a port count would drop below its number of attached cables |
+| DELETE | `/events/:id/input-devices/:deviceId` | Delete an input device — removes every cable attached to it instead of blocking |
+| POST | `/events/:id/input-cables` | Connect two ports (`from_kind` ∈ `source`\|`stagebox`\|`stage_multi`\|`device`, `to_kind` ∈ `stagebox`\|`stage_multi`\|`device`\|`channel`, plus `from_id`/`from_port`/`to_id`/`to_port` and an optional `cable_item_id`). A Source's `from_port` is exempt from the one-cable-per-port rule (fan-out/double-patching); every other port is `409` if already in use. `400` on an out-of-bounds port or a `cable_item_id` sent when `from_kind` ∈ `stagebox`\|`stage_multi` and `to_kind = channel` (that hop is pure console routing, never a separate rentable cable) |
+| PATCH | `/events/:id/input-cables/:cableId` | Re-pick `cable_item_id` — the only field this endpoint changes |
+| DELETE | `/events/:id/input-cables/:cableId` | Remove a cable — both endpoints remain untouched |
 | POST | `/events/:id/audio-outputs` | Add an output row (`width` defaults to `mono`) — contributes 1 (mono) or 2 (stereo, independent) mixer ports to the graph |
 | PATCH | `/events/:id/audio-outputs/:outputId` | Update an output row |
 | DELETE | `/events/:id/audio-outputs/:outputId` | Delete an output row and every cable attached to its mixer ports |

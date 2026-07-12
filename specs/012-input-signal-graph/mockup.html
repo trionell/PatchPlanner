@@ -1,0 +1,497 @@
+<title>Audio Inputs — Sankey Graph Mockup v3</title>
+<style>
+  :root{
+    --bg:#09090b; --panel:#18181b; --panel-2:#1f1f23; --border:#2c2c31; --border-soft:#27272a;
+    --text:#e4e4e7; --text-dim:#a1a1aa; --text-faint:#71717a;
+    --amber:#f59e0b; --accent:#f59e0b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;font-size:14px;line-height:1.5}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .wrap{max-width:1280px;margin:0 auto;padding:28px 20px 80px}
+
+  .topbar{display:flex;align-items:center;gap:18px;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--panel);margin-bottom:22px}
+  .brand{font-weight:700;letter-spacing:.02em;color:var(--text)}
+  .brand span{color:var(--accent)}
+  .tabs{display:flex;gap:4px;margin-left:8px}
+  .tab{padding:6px 12px;border-radius:7px;font-size:12.5px;color:var(--text-faint)}
+  .tab.active{background:var(--panel-2);color:var(--text);border:1px solid var(--border)}
+  .status-pill{margin-left:auto;font-size:11px;color:var(--text-faint);border:1px solid var(--border);padding:4px 10px;border-radius:999px;display:flex;align-items:center;gap:6px}
+  .status-pill::before{content:"";width:6px;height:6px;border-radius:50%;background:#eab308}
+
+  h1.page-title{font-size:20px;margin:0 0 4px;font-weight:650;letter-spacing:-0.01em}
+  .page-sub{color:var(--text-dim);font-size:13px;margin:0 0 26px}
+
+  .card{border:1px solid var(--border);border-radius:12px;background:var(--panel);margin-bottom:20px;overflow:hidden}
+  .card-head{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--border-soft);gap:16px}
+  .card-head h2{font-size:14.5px;margin:0;font-weight:650}
+  .card-head p{margin:2px 0 0;font-size:12px;color:var(--text-faint)}
+  .card-body{padding:14px 16px}
+  .changed{display:inline-flex;align-items:center;font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#0a0a0b;background:#facc15;border-radius:5px;padding:2px 6px;margin-left:8px;vertical-align:2px}
+
+  .btn{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;padding:6px 11px;border-radius:7px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);cursor:pointer;flex:none}
+  .btn.ghost{background:transparent}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;padding:2px;background:var(--panel-2)}
+  .seg button{border:0;background:transparent;color:var(--text-faint);font-size:12.5px;padding:5px 11px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+  .seg button.active{background:#2a2a2f;color:var(--text)}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;color:var(--text-faint);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:6px 10px;border-bottom:1px solid var(--border-soft)}
+  td{padding:7px 10px;border-bottom:1px solid var(--border-soft);vertical-align:middle;color:var(--text)}
+  tr:last-child td{border-bottom:0}
+  .cell-input{background:var(--panel-2);border:1px solid var(--border);border-radius:6px;padding:4px 7px;color:var(--text);font-size:12.5px;width:100%}
+  select.cell-input{appearance:none}
+
+  .badge{display:inline-flex;align-items:center;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:600}
+  .b-mic{background:#38bdf826;color:#7dd3fc}
+  .b-line{background:#a78bfa26;color:#c4b5fd}
+  .b-di{background:#34d39926;color:#6ee7b7}
+  .b-warn{background:#f59e0b26;color:#fbbf24}
+
+  .helptext{font-size:12.5px;color:var(--text-dim);margin:0 0 12px}
+  .swatch{width:11px;height:11px;border-radius:3px;display:inline-block;margin-right:6px;border:1px solid rgba(255,255,255,.18);vertical-align:-1px}
+
+  /* graph canvas */
+  .zonebar{display:grid;grid-template-columns:1fr 1fr 1fr;font-family:ui-monospace,monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-faint);padding:0 4px 8px}
+  .zonebar .mid{text-align:center}
+  .zonebar .right{text-align:right}
+  .canvas{position:relative;border:1px solid var(--border);border-radius:10px;background:#0c0c0f;overflow:auto}
+  .canvas-inner{position:relative;width:1160px;height:400px}
+  .zone-shade{position:absolute;top:0;bottom:0;background:rgba(255,255,255,.015)}
+  .zone-shade.src{left:0;width:250px;border-right:1px dashed #2a2a30}
+  .zone-shade.chn{left:830px;width:330px;border-left:1px dashed #2a2a30}
+
+  .node{position:absolute;width:190px;border:1px solid var(--border);border-radius:9px;background:#151518;box-shadow:0 6px 18px -8px rgba(0,0,0,.6)}
+  .node.wide{width:210px}
+  .node-head{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:7px 9px;border-bottom:1px solid var(--border-soft);border-radius:9px 9px 0 0;background:#1b1b1f}
+  .node-head .t{font-size:12px;font-weight:650;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .node-head .k{font-size:9.5px;color:var(--text-faint);border:1px solid var(--border);border-radius:5px;padding:1px 5px;flex:none}
+  .node-body{padding:8px 9px;display:flex;flex-direction:column;gap:7px}
+  .node-body.split{display:grid;grid-template-columns:1fr 1fr;gap:7px 8px}
+  .prow{display:flex;align-items:center;gap:6px;font-size:11px;color:#d4d4d8;white-space:nowrap}
+  .prow.right{flex-direction:row-reverse;text-align:right}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none;border:1px solid #71717a;background:#27272a;display:inline-block}
+  .prow .lbl{overflow:hidden;text-overflow:ellipsis;color:#d4d4d8}
+  .node-foot{padding:0 9px 8px;font-size:10.5px;color:var(--text-faint)}
+
+  svg.cables{position:absolute;inset:0;pointer-events:none;overflow:visible}
+
+  .callout{position:absolute;font-size:10.5px;color:#fbbf24;background:#1c1305;border:1px solid #4a370e;padding:3px 8px;border-radius:6px;white-space:nowrap;z-index:2}
+  .callout.muted{color:#a1a1aa;background:#151518;border-color:#2c2c31}
+
+  .legend{display:flex;flex-wrap:wrap;gap:16px;padding:11px 16px;border-top:1px solid var(--border-soft);font-size:11.5px;color:var(--text-dim)}
+  .legend .li{display:flex;align-items:center;gap:7px}
+  .legend .swline{width:22px;height:0;border-top:2px dashed #71717a}
+  .legend .swdot{width:9px;height:9px;border-radius:50%;background:#27272a;border:1px solid #71717a}
+  .legend .swgrad{width:22px;height:6px;border-radius:3px;background:linear-gradient(90deg,#ef4444,#3b82f6,#a855f7,#06b6d4,#f97316)}
+
+  .review,.resolved{border-radius:12px;padding:14px 18px;margin-top:18px;font-size:12.5px}
+  .resolved{border:1px solid #143a1e;background:#0c1a10;color:#86efac}
+  .resolved b{color:#bbf7d0}
+  .resolved li{margin:3px 0}
+  .resolved ul{margin:6px 0 0;padding-left:18px}
+
+  .subgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:980px){.subgrid{grid-template-columns:1fr}}
+</style>
+
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand">Patch<span>Planner</span></div>
+    <div class="tabs">
+      <div class="tab">Event</div>
+      <div class="tab active">Audio Inputs</div>
+      <div class="tab">Audio Outputs</div>
+      <div class="tab">Lighting</div>
+      <div class="tab">Equipment</div>
+    </div>
+    <div class="status-pill">mockup v3 — not wired up</div>
+  </div>
+
+  <h1 class="page-title">Audio Inputs</h1>
+  <p class="page-sub">Slice 12 proposal, round 3 — Sources collapse into one compact node (like Channels/Mixer already do), cables are now drawn from each port's real position, and color has a single source of truth: the Channel.</p>
+
+  <!-- CHANNELS -->
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <h2>Channels</h2>
+        <p>The console strip only — name, width, groups, DCA, notes, color. Color set here is the <em>only</em> place it's set; Sources below just inherit it.</p>
+      </div>
+      <button class="btn">+ Add channel</button>
+    </div>
+    <div class="card-body">
+      <table>
+        <thead><tr><th>Ch#</th><th>Name</th><th>Width</th><th>Source (from graph)</th><th>Groups</th><th>DCA</th><th>Color</th><th>Notes</th><th></th></tr></thead>
+        <tbody>
+          <tr style="background:#ef44440f">
+            <td style="box-shadow:inset 3px 0 0 0 #ef4444" class="mono">1</td>
+            <td><input class="cell-input" value="Lead Vox"></td>
+            <td><select class="cell-input"><option>Mono</option></select></td>
+            <td style="color:var(--text-dim)">Lead Vox</td>
+            <td>Vocals, LR</td>
+            <td>DCA 1</td>
+            <td><select class="cell-input"><option>Red</option></select></td>
+            <td><input class="cell-input" value=""></td>
+            <td class="mono" style="color:var(--text-faint)">···</td>
+          </tr>
+          <tr style="background:#3b82f60f">
+            <td style="box-shadow:inset 3px 0 0 0 #3b82f6" class="mono">5</td>
+            <td><input class="cell-input" value="Bass"></td>
+            <td><select class="cell-input"><option>Mono</option></select></td>
+            <td style="color:var(--text-dim)">Bass Direct Out</td>
+            <td>Band, LR</td>
+            <td>DCA 2</td>
+            <td><select class="cell-input"><option>Blue</option></select></td>
+            <td><input class="cell-input" value=""></td>
+            <td class="mono" style="color:var(--text-faint)">···</td>
+          </tr>
+          <tr style="background:#a855f70f">
+            <td style="box-shadow:inset 3px 0 0 0 #a855f7" class="mono">9</td>
+            <td><input class="cell-input" value="Play L"></td>
+            <td><select class="cell-input"><option>Stereo</option></select></td>
+            <td style="color:var(--text-dim)">Playback PC</td>
+            <td>Playback, LR</td>
+            <td>—</td>
+            <td><select class="cell-input"><option>Purple</option></select></td>
+            <td><input class="cell-input" value=""></td>
+            <td class="mono" style="color:var(--text-faint)">···</td>
+          </tr>
+          <tr style="background:#a855f70f">
+            <td style="box-shadow:inset 3px 0 0 0 #a855f7" class="mono">10</td>
+            <td><input class="cell-input" value="Play R"></td>
+            <td><select class="cell-input"><option>Stereo</option></select></td>
+            <td style="color:var(--text-dim)">Playback PC</td>
+            <td>Playback, LR</td>
+            <td>—</td>
+            <td><select class="cell-input"><option>Purple</option></select></td>
+            <td><input class="cell-input" value=""></td>
+            <td class="mono" style="color:var(--text-faint)">···</td>
+          </tr>
+          <tr style="background:#06b6d40f">
+            <td style="box-shadow:inset 3px 0 0 0 #06b6d4" class="mono">32</td>
+            <td><input class="cell-input" value="Talkback FOH"></td>
+            <td><select class="cell-input"><option>Mono</option></select></td>
+            <td style="color:var(--text-dim)">Talkback Mic</td>
+            <td>—</td>
+            <td>—</td>
+            <td><select class="cell-input"><option>Cyan</option></select></td>
+            <td><input class="cell-input" value=""></td>
+            <td class="mono" style="color:var(--text-faint)">···</td>
+          </tr>
+          <tr style="background:#f970160f">
+            <td style="box-shadow:inset 3px 0 0 0 #f97016" class="mono">33</td>
+            <td><input class="cell-input" value="Talkback Mon"></td>
+            <td><select class="cell-input"><option>Mono</option></select></td>
+            <td style="color:var(--text-dim)">Talkback Mic</td>
+            <td>—</td>
+            <td>—</td>
+            <td><select class="cell-input"><option>Orange</option></select></td>
+            <td><input class="cell-input" value=""></td>
+            <td class="mono" style="color:var(--text-faint)">···</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- STAGEBOXES & MULTIS -->
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <h2>Stageboxes &amp; stage multis</h2>
+        <p>Same shared manager already used on Audio Outputs — unchanged. Here it's the mic/line input-jack side (<span class="mono">input_count</span> / <span class="mono">channels</span>) that matters.</p>
+      </div>
+      <button class="btn">+ Add</button>
+    </div>
+    <div class="card-body">
+      <div class="subgrid">
+        <div>
+          <h3 style="font-size:12.5px;color:var(--text-dim);margin:0 0 8px">Stageboxes</h3>
+          <table>
+            <thead><tr><th>Name</th><th>Model</th><th>In</th><th>Out</th><th>Connection</th></tr></thead>
+            <tbody>
+              <tr><td><input class="cell-input" value="Stagebox FOH"></td><td style="color:var(--text-dim)">DiGiCo SD-Rack</td><td class="mono">32</td><td class="mono">8</td><td>AES50</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <h3 style="font-size:12.5px;color:var(--text-dim);margin:0 0 8px">Stage multis</h3>
+          <table>
+            <thead><tr><th>Name</th><th>Channels</th><th>Connector</th><th>Length</th></tr></thead>
+            <tbody>
+              <tr><td><input class="cell-input" value="Monitor world snake"></td><td class="mono">24</td><td>XLR</td><td class="mono">30 m</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROCESSING DEVICES (DI) -->
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <h2>Processing devices (DI boxes, splitters, …)</h2>
+        <p>Unchanged from the Output graph's "Processing device" concept, reused as-is — a node with both an input and an output side.</p>
+      </div>
+      <button class="btn">+ Add device</button>
+    </div>
+    <div class="card-body">
+      <table>
+        <thead><tr><th>Name</th><th>Item</th><th>In</th><th>Out</th><th></th></tr></thead>
+        <tbody>
+          <tr>
+            <td><input class="cell-input" value="DI (Bass)"></td>
+            <td style="color:var(--text-dim)">Radial J48</td>
+            <td class="mono">1 · Jack TS</td>
+            <td class="mono">1 · XLR</td>
+            <td class="mono" style="color:var(--text-faint)">···</td>
+          </tr>
+          <tr>
+            <td><input class="cell-input" value="Stereo DI (Playback)"></td>
+            <td style="color:var(--text-dim)">Radial ProD2</td>
+            <td class="mono">2 · Jack TS</td>
+            <td class="mono">2 · XLR</td>
+            <td class="mono" style="color:var(--text-faint)">···</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SOURCES -->
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <h2>Sources</h2>
+        <p>The physical origin of a signal — a mic on a stand, or a bare line/instrument output. Mic pick, stand, 48V and connector live here; color does not — it's inherited from whichever channel(s) this source feeds.</p>
+      </div>
+      <button class="btn">+ Add source</button>
+    </div>
+    <div class="card-body">
+      <table>
+        <thead><tr>
+          <th>Name</th><th>Kind</th><th>Mic</th><th>Stand</th><th>48V</th><th>Connector</th><th>Width</th><th></th>
+        </tr></thead>
+        <tbody>
+          <tr style="background:#ef44440f">
+            <td style="box-shadow:inset 3px 0 0 0 #ef4444"><input class="cell-input" value="Lead Vox"></td>
+            <td><span class="badge b-mic">mic</span></td>
+            <td><select class="cell-input"><option>Shure SM58</option></select></td>
+            <td><select class="cell-input"><option>Boom stand</option></select></td>
+            <td style="text-align:center"><input type="checkbox" checked></td>
+            <td><select class="cell-input"><option>XLR</option></select></td>
+            <td><select class="cell-input"><option>Mono</option></select></td>
+            <td class="mono" style="color:var(--text-faint)">···</td>
+          </tr>
+          <tr style="background:#3b82f60f">
+            <td style="box-shadow:inset 3px 0 0 0 #3b82f6"><input class="cell-input" value="Bass Direct Out"></td>
+            <td><span class="badge b-line">line</span></td>
+            <td><span class="mono" style="color:var(--text-faint)">— (no mic)</span></td>
+            <td><span class="mono" style="color:var(--text-faint)">—</span></td>
+            <td style="text-align:center;color:var(--text-faint)">—</td>
+            <td><select class="cell-input"><option>Jack TS</option></select></td>
+            <td><select class="cell-input"><option>Mono</option></select></td>
+            <td class="mono" style="color:var(--text-faint)">···</td>
+          </tr>
+          <tr style="background:#a855f70f">
+            <td style="box-shadow:inset 3px 0 0 0 #a855f7"><input class="cell-input" value="Playback PC"></td>
+            <td><span class="badge b-line">line</span></td>
+            <td><span class="mono" style="color:var(--text-faint)">— (no mic)</span></td>
+            <td><span class="mono" style="color:var(--text-faint)">—</span></td>
+            <td style="text-align:center;color:var(--text-faint)">—</td>
+            <td><select class="cell-input"><option>3.5mm TRS (mini-jack)</option></select></td>
+            <td><select class="cell-input"><option>Stereo</option></select></td>
+            <td class="mono" style="color:var(--text-faint)">···</td>
+          </tr>
+          <tr style="background:#9ca3af0f">
+            <td style="box-shadow:inset 3px 0 0 0 #9ca3af"><input class="cell-input" value="Talkback Mic"></td>
+            <td><span class="badge b-mic">mic</span></td>
+            <td><select class="cell-input"><option>Shure SM58</option></select></td>
+            <td><select class="cell-input"><option>Desk stand</option></select></td>
+            <td style="text-align:center"><input type="checkbox" checked></td>
+            <td><select class="cell-input"><option>XLR</option></select></td>
+            <td><select class="cell-input"><option>Mono</option></select></td>
+            <td class="mono" style="color:var(--text-faint)">···</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="helptext" style="margin:10px 0 0">No color picker on a source — the left edge stripe and row tint show what it inherited: one channel's color, or grey once a double-patched source (Talkback Mic) reaches channels that disagree.</p>
+    </div>
+  </div>
+
+  <!-- SIGNAL FLOW GRAPH -->
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <h2>Signal flow</h2>
+        <p>Sources are now one compact node (like Channels/Mixer already were) — 32 sources is 32 short rows, not 32 tall boxes. Cables are drawn from each port's actual on-screen position.</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div class="seg">
+          <button class="active">▦ Graph</button>
+          <button>☰ Table</button>
+        </div>
+        <button class="btn ghost">Print</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="zonebar"><span>← Sources</span><span class="mid">Processing</span><span class="right">Channels →</span></div>
+      <div class="canvas" style="height:420px">
+        <div class="canvas-inner" id="canvas-inner">
+          <div class="zone-shade src"></div>
+          <div class="zone-shade chn"></div>
+          <svg class="cables" id="cable-svg" width="1160" height="400"></svg>
+
+          <!-- callouts -->
+          <div class="callout" style="left:300px; top:206px;">splitter cable — billed ×1, not ×2</div>
+          <div class="callout muted" style="left:790px; top:34px;">network hop — dashed, colored by channel</div>
+          <div class="callout" style="left:420px; top:300px;">1 source → 2 channels, 2 colors → grey at the source</div>
+
+          <!-- SOURCES — one compact node, mirrors the Mixer/Channels node style -->
+          <div class="node" style="left:24px; top:24px;">
+            <div class="node-head"><span class="t">Sources</span><span class="k">32 max example: 5</span></div>
+            <div class="node-body">
+              <div class="prow right"><span class="dot" id="src-leadvox-out" style="border-color:#ef4444;background:#ef4444cc"></span><span class="lbl" style="color:#ef4444">Lead Vox</span></div>
+              <div class="prow right"><span class="dot" id="src-bass-out" style="border-color:#3b82f6;background:#3b82f6cc"></span><span class="lbl" style="color:#3b82f6">Bass Direct Out</span></div>
+              <div class="prow right"><span class="dot" id="src-pbL-out" style="border-color:#a855f7;background:#a855f7cc"></span><span class="lbl" style="color:#a855f7">Playback PC L</span></div>
+              <div class="prow right"><span class="dot" id="src-pbR-out" style="border-color:#a855f7;background:#a855f7cc"></span><span class="lbl" style="color:#a855f7">Playback PC R</span></div>
+              <div class="prow right"><span class="dot" id="src-talkback-out" style="border-color:#9ca3af;background:#9ca3afcc"></span><span class="lbl" style="color:#d4d4d8">Talkback Mic</span></div>
+            </div>
+          </div>
+
+          <!-- PROCESSING: DI devices -->
+          <div class="node" style="left:300px; top:24px;">
+            <div class="node-head"><span class="t">DI (Bass)</span><span class="k">DEV</span></div>
+            <div class="node-body split">
+              <div class="prow"><span class="dot" id="di-bass-in" style="border-color:#3b82f6;background:#3b82f6cc"></span><span class="lbl" style="color:#3b82f6">In</span></div>
+              <div class="prow right"><span class="dot" id="di-bass-out" style="border-color:#3b82f6;background:#3b82f6cc"></span><span class="lbl" style="color:#3b82f6">Out</span></div>
+            </div>
+          </div>
+
+          <div class="node" style="left:300px; top:100px;">
+            <div class="node-head"><span class="t">Stereo DI (Playback)</span><span class="k">DEV</span></div>
+            <div class="node-body split">
+              <div class="prow"><span class="dot" id="sdi-inL" style="border-color:#a855f7;background:#a855f7cc"></span><span class="lbl" style="color:#a855f7">In L</span></div>
+              <div class="prow right"><span class="dot" id="sdi-outL" style="border-color:#a855f7;background:#a855f7cc"></span><span class="lbl" style="color:#a855f7">Out L</span></div>
+              <div class="prow"><span class="dot" id="sdi-inR" style="border-color:#a855f7;background:#a855f7cc"></span><span class="lbl" style="color:#a855f7">In R</span></div>
+              <div class="prow right"><span class="dot" id="sdi-outR" style="border-color:#a855f7;background:#a855f7cc"></span><span class="lbl" style="color:#a855f7">Out R</span></div>
+            </div>
+          </div>
+
+          <!-- PROCESSING: stagebox (shell stays neutral — each port pair carries its own downstream color) -->
+          <div class="node wide" style="left:560px; top:24px;">
+            <div class="node-head"><span class="t">Stagebox FOH</span><span class="k">SB</span></div>
+            <div class="node-body split">
+              <div class="prow"><span class="dot" id="sb-in1" style="border-color:#ef4444;background:#ef4444cc"></span><span class="lbl" style="color:#ef4444">In 1</span></div>
+              <div class="prow right"><span class="dot" id="sb-out1" style="border-color:#ef4444;background:#ef4444cc"></span><span class="lbl" style="color:#ef4444">Out 1</span></div>
+              <div class="prow"><span class="dot" id="sb-in2" style="border-color:#3b82f6;background:#3b82f6cc"></span><span class="lbl" style="color:#3b82f6">In 2</span></div>
+              <div class="prow right"><span class="dot" id="sb-out2" style="border-color:#3b82f6;background:#3b82f6cc"></span><span class="lbl" style="color:#3b82f6">Out 2</span></div>
+              <div class="prow"><span class="dot" id="sb-in3" style="border-color:#a855f7;background:#a855f7cc"></span><span class="lbl" style="color:#a855f7">In 3</span></div>
+              <div class="prow right"><span class="dot" id="sb-out3" style="border-color:#a855f7;background:#a855f7cc"></span><span class="lbl" style="color:#a855f7">Out 3</span></div>
+              <div class="prow"><span class="dot" id="sb-in4" style="border-color:#a855f7;background:#a855f7cc"></span><span class="lbl" style="color:#a855f7">In 4</span></div>
+              <div class="prow right"><span class="dot" id="sb-out4" style="border-color:#a855f7;background:#a855f7cc"></span><span class="lbl" style="color:#a855f7">Out 4</span></div>
+            </div>
+          </div>
+
+          <!-- CHANNELS -->
+          <div class="node wide" style="left:860px; top:24px;">
+            <div class="node-head"><span class="t">Channels</span><span class="k">console</span></div>
+            <div class="node-body">
+              <div class="prow"><span class="dot" id="ch-1" style="border-color:#ef4444;background:#ef4444cc"></span><span class="lbl" style="color:#ef4444">Ch 1 — Lead Vox</span></div>
+              <div class="prow"><span class="dot" id="ch-5" style="border-color:#3b82f6;background:#3b82f6cc"></span><span class="lbl" style="color:#3b82f6">Ch 5 — Bass</span></div>
+              <div class="prow"><span class="dot" id="ch-9" style="border-color:#a855f7;background:#a855f7cc"></span><span class="lbl" style="color:#a855f7">Ch 9 — Play L</span></div>
+              <div class="prow"><span class="dot" id="ch-10" style="border-color:#a855f7;background:#a855f7cc"></span><span class="lbl" style="color:#a855f7">Ch 10 — Play R</span></div>
+              <div class="prow"><span class="dot" id="ch-32" style="border-color:#06b6d4;background:#06b6d4cc"></span><span class="lbl" style="color:#06b6d4">Ch 32 — Talkback FOH</span></div>
+              <div class="prow"><span class="dot" id="ch-33" style="border-color:#f97316;background:#f97316cc"></span><span class="lbl" style="color:#f97316">Ch 33 — Talkback Mon</span></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <div class="legend">
+        <div class="li"><span class="swgrad"></span> cable/port color = the channel it reaches; a source feeding channels of different colors (and the ports upstream of that split) shows grey</div>
+        <div class="li"><span class="swline"></span> dashed = network hop (stagebox/multi jack → channel), no separate cable item</div>
+        <div class="li">Sources: vertical reorder only · Processing: free drag · Channels: vertical reorder only</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLE VIEW -->
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <h2>Table view (alternative to the graph)</h2>
+        <p>Flat "all resources" list mirroring the Output graph's table toggle — one row per node, cabling summarized in "Feeds". Channel metadata itself lives in the Channels section above, not duplicated here.</p>
+      </div>
+    </div>
+    <div class="card-body">
+      <table>
+        <thead><tr><th>Resource</th><th>Kind</th><th>Ports</th><th>Feeds</th></tr></thead>
+        <tbody>
+          <tr><td>Lead Vox</td><td><span class="badge b-mic">source</span></td><td class="mono">out · 1</td><td>Stagebox FOH</td></tr>
+          <tr><td>Bass Direct Out</td><td><span class="badge b-line">source</span></td><td class="mono">out · 1</td><td>DI (Bass)</td></tr>
+          <tr><td>Playback PC</td><td><span class="badge b-line">source</span></td><td class="mono">out · 2</td><td>Stereo DI (Playback) (×2)</td></tr>
+          <tr><td>Talkback Mic</td><td><span class="badge b-mic">source</span></td><td class="mono">out · 1</td><td>Ch 32, Ch 33</td></tr>
+          <tr><td>DI (Bass)</td><td><span class="badge b-di">device</span></td><td class="mono">in 1 · out 1</td><td>Stagebox FOH</td></tr>
+          <tr><td>Stereo DI (Playback)</td><td><span class="badge b-di">device</span></td><td class="mono">in 2 · out 2</td><td>Stagebox FOH (×2)</td></tr>
+          <tr><td>Stagebox FOH</td><td><span class="badge b-warn">processing</span></td><td class="mono">in 4 · out 4</td><td>Ch 1, 5, 9, 10</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="resolved">
+    <b>Round 3 changes:</b>
+    <ul>
+      <li>Sources are one node with a compact row per source (mirrors how Channels/Mixer already scale) — solves the height problem at 32 sources.</li>
+      <li>Cable paths are now computed from each port dot's real rendered position (same technique the actual canvas uses via <span class="mono">getBoundingClientRect</span>), so they always terminate exactly on the handles, including after rows are added/removed.</li>
+      <li>Color has one source of truth — the Channel. A Source (and any Processing/Stagebox port between it and its channel) simply inherits: one channel's color if everything downstream agrees, grey the moment two reachable channels disagree. No color field anywhere else.</li>
+    </ul>
+    <p style="margin:10px 0 0">Everything from rounds 1–2 (Channels/Stagebox-Multi sections, splitter billing, direct-to-channel patching, DI as a plain Processing device) still stands. Say the word and I'll turn this into the spec.</p>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  var container = document.getElementById('canvas-inner');
+  var svg = document.getElementById('cable-svg');
+  var edges = [
+    ['src-leadvox-out','sb-in1','#ef4444',false],
+    ['sb-out1','ch-1','#ef4444',true],
+    ['src-bass-out','di-bass-in','#3b82f6',false],
+    ['di-bass-out','sb-in2','#3b82f6',false],
+    ['sb-out2','ch-5','#3b82f6',true],
+    ['src-pbL-out','sdi-inL','#a855f7',false],
+    ['src-pbR-out','sdi-inR','#a855f7',false],
+    ['sdi-outL','sb-in3','#a855f7',false],
+    ['sdi-outR','sb-in4','#a855f7',false],
+    ['sb-out3','ch-9','#a855f7',true],
+    ['sb-out4','ch-10','#a855f7',true],
+    ['src-talkback-out','ch-32','#06b6d4',false],
+    ['src-talkback-out','ch-33','#f97316',false]
+  ];
+  function draw(){
+    var cRect = container.getBoundingClientRect();
+    var parts = [];
+    edges.forEach(function(edge){
+      var a = document.getElementById(edge[0]), b = document.getElementById(edge[1]);
+      if(!a||!b) return;
+      var ar=a.getBoundingClientRect(), br=b.getBoundingClientRect();
+      var x1=ar.left+ar.width/2-cRect.left, y1=ar.top+ar.height/2-cRect.top;
+      var x2=br.left+br.width/2-cRect.left, y2=br.top+br.height/2-cRect.top;
+      var dx=Math.max(60,Math.abs(x2-x1)/2);
+      var d='M '+x1+' '+y1+' C '+(x1+dx)+' '+y1+', '+(x2-dx)+' '+y2+', '+x2+' '+y2;
+      var dash = edge[3] ? ' stroke-dasharray="4 3"' : '';
+      parts.push('<path d="'+d+'" stroke="'+edge[2]+'" stroke-width="2" fill="none"'+dash+'/>');
+    });
+    svg.innerHTML = parts.join('');
+  }
+  draw();
+  window.addEventListener('resize', draw);
+  document.fonts && document.fonts.ready && document.fonts.ready.then(draw);
+})();
+</script>

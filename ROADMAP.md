@@ -309,9 +309,58 @@ chain editor outright with an interactive Sankey-style graph.
       input ports are flagged as gaps, a stage multi's unused channels
       are not (normal spare hardware capacity, not a mistake).
 
+## Slice 12 — Audio input signal-flow graph (spec: `input-signal-graph`) ✅ done 2026-07-13
+
+Mirrors Slice 11 on the input side, reversed in direction: Sources (left
+rail) → Stageboxes/Stage-Multis/Devices (free-floating) → Channels (right
+rail). Separates the physical origin of a signal from the console strip
+that ends up carrying it — the old flat `audio_patch_inputs` row
+conflated the two, which made double-patching (the same mic feeding two
+strips at once) and a DI box's shared 2-in/2-out device impossible to
+express cleanly.
+
+- [x] `InputSource` (physical origin: mic/line, connector, width) and
+      `InputChannel` (console strip: name/width/mixer_behavior/color/
+      groups/DCA/notes) are fully independent rows, tied together only
+      via the `input_cables` graph — never a stored FK either way.
+- [x] A Source's output port may originate more than one cable at once
+      (double-patching, mirroring Slice 11's Mixer fan-out exemption);
+      every other port stays one-cable-per-port via a partial unique
+      index. A Stagebox's/Stage-Multi's console-side hop into a Channel
+      is always cableless (`cable_item_id` forced `NULL`), the mirror
+      image of Slice 11's stage-multi rule.
+- [x] `input_devices` is a separate table from `output_devices` (not
+      reused) — the two are independent directional graphs sharing
+      stagebox/stage-multi rows but never a mutable resource.
+- [x] Canvas: Sources/Channels each render as one compact node listing
+      every row (so the graph's height never grows per Source/Channel),
+      Stageboxes/Stage-Multis/Devices free-float in between, same
+      drag-and-cable interaction as Slice 11.
+- [x] Color lives only on the Channel; every other port's displayed
+      color is derived by tracing the graph forward to whichever
+      Channel(s) it reaches — a shared color if they agree, neutral
+      otherwise — reflected in the graph and as tinted rows in the
+      Sources/Channels tables.
+- [x] A stereo splitter cable (one physical cable feeding both sides of
+      a stereo pair) is two cable rows with only one side's
+      `cable_item_id` set, billed once — no stored "splitter" flag, a UI
+      convenience offers the same item for the second side.
+- [x] Existing rows (`audio_patch_inputs`, renamed in place to
+      `input_channels`) convert automatically on startup via a one-time
+      Go migration. Verified against the real reference event's actual
+      data, which surfaced a genuine legacy quirk this migration now
+      handles instead of crashing on: a "stereo" row's second-side
+      columns sometimes duplicate a jack (or a channel number) that a
+      wholly separate pre-existing row already owns — the conversion now
+      detects the collision, skips the redundant synthesized side, and
+      falls back to a direct cable rather than aborting. Fixing this
+      also corrected a pre-existing rental-count overcount for that
+      exact real event (a double-counted overhead mic/stand/cable).
+
 ## Dependency graph
 
 ```
-Slices 0–11 ✅ done
+Slices 0–12 ✅ done
 Slice 10 (output chains) ──→ Slice 11 (output signal graph, replaces it) ✅
+Slice 11 (output signal graph) ──→ Slice 12 (input signal graph, same pattern reversed) ✅
 ```

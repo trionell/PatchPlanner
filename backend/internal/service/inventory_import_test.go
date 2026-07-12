@@ -115,8 +115,8 @@ func TestImportRoundTripPreservesReferences(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create event: %v", err)
 	}
-	if _, err := db.CreateAudioPatchInput(database, domain.AudioPatchInput{EventID: event.ID, ChannelNumber: 1, SignalType: "mic", MicItemID: &micID}); err != nil {
-		t.Fatalf("create input: %v", err)
+	if _, err := db.CreateInputSource(database, domain.InputSource{EventID: event.ID, Name: "Lead Vox", Kind: "mic", MicItemID: &micID, ConnectorType: "xlr", Width: "mono"}); err != nil {
+		t.Fatalf("create input source: %v", err)
 	}
 	output, err := db.CreateAudioPatchOutput(database, domain.AudioPatchOutput{EventID: event.ID, OutputNumber: 1, OutputType: "foh", Width: "mono"})
 	if err != nil {

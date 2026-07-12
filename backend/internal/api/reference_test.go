@@ -46,7 +46,10 @@ func TestGetReferenceData(t *testing.T) {
 
 func TestReferenceValueEndpoints(t *testing.T) {
 	server, database := newTestServer(t)
-	valuesURL := server.URL + "/reference-data/signal_cable_types/values"
+	// preamp_connectors (Slice 12: input_sources.connector_type is its real
+	// home now, reference.go's vocabularyUsage) is used here rather than
+	// signal_cable_types, which no longer tracks usage at all.
+	valuesURL := server.URL + "/reference-data/preamp_connectors/values"
 
 	if status, raw := doJSON(t, http.MethodPost, server.URL+"/reference-data/starships/values", map[string]any{"value": "x", "label": "X"}); status != http.StatusNotFound {
 		t.Fatalf("unknown vocabulary: expected 404, got %d: %s", status, raw)
@@ -79,8 +82,8 @@ func TestReferenceValueEndpoints(t *testing.T) {
 
 	// A planning row using the value blocks deletion with 409.
 	eventID := seedEvent(t, server.URL)
-	if _, err := database.Exec(`INSERT INTO audio_patch_inputs (event_id, channel_number, cable_type) VALUES (?, 1, 'dmx5')`, eventID); err != nil {
-		t.Fatalf("insert referencing input: %v", err)
+	if _, err := database.Exec(`INSERT INTO input_sources (event_id, name, kind, connector_type, width) VALUES (?, 'Test', 'line', 'dmx5', 'mono')`, eventID); err != nil {
+		t.Fatalf("insert referencing input source: %v", err)
 	}
 	status, raw = doJSON(t, http.MethodDelete, valuesURL+"/"+itoa(created.ID), nil)
 	if status != http.StatusConflict {
@@ -90,8 +93,8 @@ func TestReferenceValueEndpoints(t *testing.T) {
 		t.Errorf("409 body must name the usage: %s", raw)
 	}
 
-	if _, err := database.Exec(`DELETE FROM audio_patch_inputs WHERE event_id = ?`, eventID); err != nil {
-		t.Fatalf("clear referencing input: %v", err)
+	if _, err := database.Exec(`DELETE FROM input_sources WHERE event_id = ?`, eventID); err != nil {
+		t.Fatalf("clear referencing input source: %v", err)
 	}
 	if status, raw := doJSON(t, http.MethodDelete, valuesURL+"/"+itoa(created.ID), nil); status != http.StatusNoContent {
 		t.Fatalf("delete unused: expected 204, got %d: %s", status, raw)
