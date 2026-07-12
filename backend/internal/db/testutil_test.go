@@ -106,18 +106,24 @@ func createTestEvent(t *testing.T, database *sql.DB) int64 {
 	return event.ID
 }
 
-func createMicInput(t *testing.T, database *sql.DB, eventID int64, channel int, micItemID *int64) domain.AudioPatchInput {
+// createMicSource creates a mic InputSource with the given catalog item —
+// the Slice 12 replacement for the old flat model's "mic input row" test
+// fixture. Rental counting now reads mic_item_id off input_sources
+// directly (no channel involved at all).
+func createMicSource(t *testing.T, database *sql.DB, eventID int64, micItemID *int64) domain.InputSource {
 	t.Helper()
-	input, err := CreateAudioPatchInput(database, domain.AudioPatchInput{
+	source, err := CreateInputSource(database, domain.InputSource{
 		EventID:       eventID,
-		ChannelNumber: channel,
-		SignalType:    "mic",
+		Name:          "Test mic",
+		Kind:          "mic",
 		MicItemID:     micItemID,
+		ConnectorType: "xlr",
+		Width:         "mono",
 	})
 	if err != nil {
-		t.Fatalf("create input ch %d: %v", channel, err)
+		t.Fatalf("create mic source: %v", err)
 	}
-	return input
+	return source
 }
 
 func summaryByItem(summary domain.RentalSummary) map[int64]domain.EventRental {

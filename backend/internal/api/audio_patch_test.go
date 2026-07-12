@@ -8,198 +8,181 @@ import (
 	"github.com/trionell/patchplanner/internal/domain"
 )
 
-// TestAudioPatchCableStandLifecycle covers the slice-6 field contract:
-// picks round-trip, legacy values are served until a pick clears them for
-// good, and clearing a pick never resurrects legacy values.
-func TestAudioPatchCableStandLifecycle(t *testing.T) {
-	server, database := newTestServer(t)
-	eventID := seedEvent(t, server.URL)
-	cableID := seedRoleItem(t, database, "cable", "Mikrofonkabel", "4m", 6, 7)
-	standID := seedRoleItem(t, database, "stand", "Mikrofonstativ Med bom", "", 16, 20)
-	inputsURL := fmt.Sprintf("%s/events/%d/audio-inputs", server.URL, eventID)
-
-	// New rows round-trip picks and carry no legacy values.
-	status, raw := doJSON(t, http.MethodPost, inputsURL, map[string]any{
-		"channel_number": 1, "signal_type": "mic", "cable_item_id": cableID, "stand_item_id": standID,
-	})
-	if status != http.StatusCreated {
-		t.Fatalf("POST input: status %d body %s", status, raw)
-	}
-	created := decodeJSON[domain.AudioPatchInput](t, raw)
-	if created.CableItemID == nil || *created.CableItemID != cableID || created.StandItemID == nil || *created.StandItemID != standID {
-		t.Errorf("created picks cable=%v stand=%v, want %d/%d", created.CableItemID, created.StandItemID, cableID, standID)
-	}
-	if created.CableType != "" || created.CableLengthM != 0 || created.MicStand != "" {
-		t.Errorf("new row has legacy values: %+v", created)
-	}
-
-	// Dangling references are rejected up front.
-	for _, field := range []string{"cable_item_id", "stand_item_id"} {
-		if status, raw = doJSON(t, http.MethodPost, inputsURL, map[string]any{
-			"channel_number": 9, "signal_type": "mic", field: 99999,
-		}); status != http.StatusBadRequest {
-			t.Errorf("dangling %s: status %d body %s, want 400", field, status, raw)
-		}
-	}
-
-	// A legacy row (pre-019 shape) serves its old values...
-	if _, err := database.Exec(`INSERT INTO audio_patch_inputs (event_id, channel_number, cable_type, cable_length_m, mic_stand) VALUES (?, 2, 'xlr', 10, 'boom')`, eventID); err != nil {
-		t.Fatalf("seed legacy row: %v", err)
-	}
-	var legacyID int64
-	if err := database.QueryRow(`SELECT id FROM audio_patch_inputs WHERE event_id = ? AND channel_number = 2`, eventID).Scan(&legacyID); err != nil {
-		t.Fatalf("legacy row id: %v", err)
-	}
-	status, raw = doJSON(t, http.MethodGet, fmt.Sprintf("%s/events/%d/audio-patch", server.URL, eventID), nil)
-	if status != http.StatusOK {
-		t.Fatalf("GET patch: status %d body %s", status, raw)
-	}
-	patch := decodeJSON[struct {
-		Inputs []domain.AudioPatchInput `json:"inputs"`
-	}](t, raw)
-	var legacy domain.AudioPatchInput
-	for _, input := range patch.Inputs {
-		if input.ID == legacyID {
-			legacy = input
-		}
-	}
-	if legacy.CableType != "xlr" || legacy.CableLengthM != 10 || legacy.MicStand != "boom" {
-		t.Errorf("legacy row served %+v, want xlr/10/boom", legacy)
-	}
-
-	// ...until a pick clears the corresponding legacy pair for good.
-	legacy.CableItemID = &cableID
-	updateURL := fmt.Sprintf("%s/%d", inputsURL, legacyID)
-	status, raw = doJSON(t, http.MethodPatch, updateURL, legacy)
-	if status != http.StatusOK {
-		t.Fatalf("PATCH pick cable: status %d body %s", status, raw)
-	}
-	updated := decodeJSON[domain.AudioPatchInput](t, raw)
-	if updated.CableItemID == nil || updated.CableType != "" || updated.CableLengthM != 0 {
-		t.Errorf("after cable pick: %+v, want cleared legacy cable fields", updated)
-	}
-	if updated.MicStand != "boom" {
-		t.Errorf("stand legacy cleared by cable pick: %+v", updated)
-	}
-
-	// Clearing the pick leaves the row bare — legacy values stay gone.
-	updated.CableItemID = nil
-	status, raw = doJSON(t, http.MethodPatch, updateURL, updated)
-	if status != http.StatusOK {
-		t.Fatalf("PATCH clear cable: status %d body %s", status, raw)
-	}
-	cleared := decodeJSON[domain.AudioPatchInput](t, raw)
-	if cleared.CableItemID != nil || cleared.CableType != "" {
-		t.Errorf("after clearing pick: %+v, want no cable at all", cleared)
-	}
-}
-
-// TestStereoWidthRoundTrip covers slice-9 US1: width/mixer_behavior and
-// independently-patched side-B routing round-trip on create and update, and
-// enum/foreign-event validation rejects bad values up front.
-func TestStereoWidthRoundTrip(t *testing.T) {
+// TestInputChannelCRUD covers the Slice 12 input-channels endpoint: basic
+// round-trip of console-strip fields (no source-only fields present at
+// all) and width/mixer_behavior enum validation.
+func TestInputChannelCRUD(t *testing.T) {
 	server, _ := newTestServer(t)
 	eventID := seedEvent(t, server.URL)
-	otherEventID := seedEvent(t, server.URL)
+	channelsURL := fmt.Sprintf("%s/events/%d/input-channels", server.URL, eventID)
 
-	status, raw := doJSON(t, http.MethodPost, fmt.Sprintf("%s/events/%d/stageboxes", server.URL, eventID), map[string]any{
-		"name": "SB A", "connection_type": "analog",
+	status, raw := doJSON(t, http.MethodPost, channelsURL, map[string]any{
+		"channel_number": 1, "channel_name": "Lead Vox", "color": "#ef4444", "notes": "spare windscreen",
 	})
 	if status != http.StatusCreated {
-		t.Fatalf("create stagebox: status %d body %s", status, raw)
+		t.Fatalf("POST channel: status %d body %s", status, raw)
 	}
-	sbID := decodeJSON[domain.Stagebox](t, raw).ID
-
-	status, raw = doJSON(t, http.MethodPost, fmt.Sprintf("%s/events/%d/stageboxes", server.URL, otherEventID), map[string]any{
-		"name": "SB Foreign", "connection_type": "analog",
-	})
-	if status != http.StatusCreated {
-		t.Fatalf("create foreign stagebox: status %d body %s", status, raw)
+	created := decodeJSON[domain.InputChannel](t, raw)
+	if created.ChannelName != "Lead Vox" || created.Color != "#ef4444" || created.Notes != "spare windscreen" {
+		t.Errorf("created channel = %+v", created)
 	}
-	foreignSbID := decodeJSON[domain.Stagebox](t, raw).ID
-
-	inputsURL := fmt.Sprintf("%s/events/%d/audio-inputs", server.URL, eventID)
-
-	// Create: stereo, linked channels, independently-patched side B.
-	status, raw = doJSON(t, http.MethodPost, inputsURL, map[string]any{
-		"channel_number": 5, "signal_type": "mic", "width": "stereo", "mixer_behavior": "linked_channels",
-		"stagebox_id": sbID, "stagebox_channel": 9, "stagebox_id_b": sbID, "stagebox_channel_b": 10,
-	})
-	if status != http.StatusCreated {
-		t.Fatalf("POST stereo input: status %d body %s", status, raw)
-	}
-	created := decodeJSON[domain.AudioPatchInput](t, raw)
-	if created.Width != "stereo" || created.MixerBehavior != "linked_channels" {
-		t.Errorf("created width=%q mixer_behavior=%q, want stereo/linked_channels", created.Width, created.MixerBehavior)
-	}
-	if created.StageboxIDB == nil || *created.StageboxIDB != sbID || created.StageboxChannelB == nil || *created.StageboxChannelB != 10 {
-		t.Errorf("created side B: stagebox_id_b=%v stagebox_channel_b=%v, want %d/10", created.StageboxIDB, created.StageboxChannelB, sbID)
+	if created.Width != "mono" || created.MixerBehavior != "stereo_channel" {
+		t.Errorf("created channel defaults = %+v, want mono/stereo_channel", created)
 	}
 
-	// Update: repatch side B independently, per the crowd-mic scenario —
-	// no requirement that it stay on the same stagebox as side A.
-	created.StageboxIDB = nil
-	created.StageboxChannelB = nil
-	updateURL := fmt.Sprintf("%s/%d", inputsURL, created.ID)
+	created.ChannelName = "Lead Vocal"
+	updateURL := fmt.Sprintf("%s/%d", channelsURL, created.ID)
 	status, raw = doJSON(t, http.MethodPatch, updateURL, created)
 	if status != http.StatusOK {
-		t.Fatalf("PATCH clear side B: status %d body %s", status, raw)
+		t.Fatalf("PATCH channel: status %d body %s", status, raw)
 	}
-	updated := decodeJSON[domain.AudioPatchInput](t, raw)
-	if updated.StageboxIDB != nil || updated.StageboxChannelB != nil {
-		t.Errorf("after clearing side B: %+v, want nil", updated)
+	if updated := decodeJSON[domain.InputChannel](t, raw); updated.ChannelName != "Lead Vocal" {
+		t.Errorf("updated channel name = %q, want Lead Vocal", updated.ChannelName)
 	}
 
-	// Invalid enum values are rejected.
-	if status, raw = doJSON(t, http.MethodPost, inputsURL, map[string]any{
-		"channel_number": 6, "signal_type": "mic", "width": "quad",
-	}); status != http.StatusBadRequest {
+	if status, raw = doJSON(t, http.MethodPost, channelsURL, map[string]any{"channel_number": 2, "width": "quad"}); status != http.StatusBadRequest {
 		t.Errorf("invalid width: status %d body %s, want 400", status, raw)
 	}
-	if status, raw = doJSON(t, http.MethodPost, inputsURL, map[string]any{
-		"channel_number": 6, "signal_type": "mic", "width": "stereo", "mixer_behavior": "ganged",
-	}); status != http.StatusBadRequest {
+	if status, raw = doJSON(t, http.MethodPost, channelsURL, map[string]any{"channel_number": 2, "width": "stereo", "mixer_behavior": "ganged"}); status != http.StatusBadRequest {
 		t.Errorf("invalid mixer_behavior: status %d body %s, want 400", status, raw)
 	}
 
-	// A side-B stagebox belonging to another event is rejected.
-	if status, raw = doJSON(t, http.MethodPost, inputsURL, map[string]any{
-		"channel_number": 6, "signal_type": "mic", "width": "stereo", "stagebox_id_b": foreignSbID,
-	}); status != http.StatusBadRequest {
-		t.Errorf("foreign stagebox_id_b: status %d body %s, want 400", status, raw)
+	if status, raw = doJSON(t, http.MethodDelete, updateURL, nil); status != http.StatusNoContent {
+		t.Errorf("delete channel: status %d body %s, want 204", status, raw)
 	}
 }
 
-// TestDISourceCableValidation covers slice-9 US2: source_cabling enum
-// validation, dangling source_cable_item_id rejection, and that a non-DI
-// row still accepts (and simply doesn't use for counting) a source cable
-// pick if one happens to be set — per FR-012/edge cases, values are inert
-// rather than rejected outside their signal type.
-func TestDISourceCableValidation(t *testing.T) {
+// TestInputChannelIndependentOfSource verifies US2: a Channel's metadata is
+// fully manageable with no Source involved, and updating it never touches
+// whichever Source ends up feeding it via the cable graph.
+func TestInputChannelIndependentOfSource(t *testing.T) {
 	server, database := newTestServer(t)
 	eventID := seedEvent(t, server.URL)
-	cableID := seedRoleItem(t, database, "cable", "Linekabel Tele-tele", "2m", 10, 15)
-	inputsURL := fmt.Sprintf("%s/events/%d/audio-inputs", server.URL, eventID)
+	micID := seedRoleItem(t, database, "", "Shure SM58", "", 4, 150)
+	channelsURL := fmt.Sprintf("%s/events/%d/input-channels", server.URL, eventID)
+	sourcesURL := fmt.Sprintf("%s/events/%d/input-sources", server.URL, eventID)
+	cablesURL := fmt.Sprintf("%s/events/%d/input-cables", server.URL, eventID)
 
-	if status, raw := doJSON(t, http.MethodPost, inputsURL, map[string]any{
-		"channel_number": 1, "signal_type": "di", "width": "stereo", "source_cabling": "half-and-half",
-	}); status != http.StatusBadRequest {
-		t.Errorf("invalid source_cabling: status %d body %s, want 400", status, raw)
-	}
-	if status, raw := doJSON(t, http.MethodPost, inputsURL, map[string]any{
-		"channel_number": 1, "signal_type": "di", "source_cable_item_id": 99999,
-	}); status != http.StatusBadRequest {
-		t.Errorf("dangling source_cable_item_id: status %d body %s, want 400", status, raw)
-	}
-
-	status, raw := doJSON(t, http.MethodPost, inputsURL, map[string]any{
-		"channel_number": 1, "signal_type": "mic", "source_cable_item_id": cableID,
+	// Channel created and fully configured with no Source anywhere yet.
+	status, raw := doJSON(t, http.MethodPost, channelsURL, map[string]any{
+		"channel_number": 1, "channel_name": "Lead Vox", "color": "#ef4444", "notes": "note",
 	})
 	if status != http.StatusCreated {
-		t.Fatalf("POST non-DI with source cable: status %d body %s", status, raw)
+		t.Fatalf("POST channel: status %d body %s", status, raw)
 	}
-	created := decodeJSON[domain.AudioPatchInput](t, raw)
-	if created.SourceCableItemID == nil || *created.SourceCableItemID != cableID {
-		t.Errorf("non-DI row: source_cable_item_id=%v, want it stored (inert, not rejected)", created.SourceCableItemID)
+	channel := decodeJSON[domain.InputChannel](t, raw)
+
+	// Wire a Source to it via the graph.
+	status, raw = doJSON(t, http.MethodPost, sourcesURL, map[string]any{
+		"name": "Lead Vox Mic", "kind": "mic", "mic_item_id": micID, "connector_type": "xlr", "width": "mono",
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("POST source: status %d body %s", status, raw)
+	}
+	source := decodeJSON[domain.InputSource](t, raw)
+	status, raw = doJSON(t, http.MethodPost, cablesURL, map[string]any{
+		"from_kind": "source", "from_id": source.ID, "from_port": 0, "to_kind": "channel", "to_id": channel.ID, "to_port": 0,
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("POST cable: status %d body %s", status, raw)
+	}
+
+	// Updating the channel's name/color must not alter the Source.
+	channel.ChannelName = "Lead Vocal"
+	channel.Color = "#3b82f6"
+	status, raw = doJSON(t, http.MethodPatch, fmt.Sprintf("%s/%d", channelsURL, channel.ID), channel)
+	if status != http.StatusOK {
+		t.Fatalf("PATCH channel: status %d body %s", status, raw)
+	}
+
+	status, raw = doJSON(t, http.MethodGet, fmt.Sprintf("%s/events/%d/audio-patch", server.URL, eventID), nil)
+	if status != http.StatusOK {
+		t.Fatalf("GET audio-patch: status %d body %s", status, raw)
+	}
+	patch := decodeJSON[busPatchResponse](t, raw)
+	if len(patch.InputChannels) != 1 || patch.InputChannels[0].ChannelName != "Lead Vocal" || patch.InputChannels[0].Color != "#3b82f6" {
+		t.Errorf("channel not updated: %+v", patch.InputChannels)
+	}
+}
+
+// TestInputSourceKindValidation verifies US3: mic/line kind-conditional
+// field validation, and that switching kind clears the mic-only fields
+// server-side.
+func TestInputSourceKindValidation(t *testing.T) {
+	server, database := newTestServer(t)
+	eventID := seedEvent(t, server.URL)
+	micID := seedRoleItem(t, database, "", "Shure SM58", "", 4, 150)
+	standID := seedRoleItem(t, database, "stand", "Boom stand", "", 10, 20)
+	sourcesURL := fmt.Sprintf("%s/events/%d/input-sources", server.URL, eventID)
+
+	// mic without mic_item_id → 400.
+	if status, raw := doJSON(t, http.MethodPost, sourcesURL, map[string]any{
+		"name": "Lead Vox", "kind": "mic", "connector_type": "xlr", "width": "mono",
+	}); status != http.StatusBadRequest {
+		t.Errorf("mic without mic_item_id: status %d body %s, want 400", status, raw)
+	}
+
+	// line with mic_item_id set → 400.
+	if status, raw := doJSON(t, http.MethodPost, sourcesURL, map[string]any{
+		"name": "Bass", "kind": "line", "mic_item_id": micID, "connector_type": "jack_ts", "width": "mono",
+	}); status != http.StatusBadRequest {
+		t.Errorf("line with mic_item_id: status %d body %s, want 400", status, raw)
+	}
+
+	// line with phantom_power true → 400.
+	if status, raw := doJSON(t, http.MethodPost, sourcesURL, map[string]any{
+		"name": "Bass", "kind": "line", "phantom_power": true, "connector_type": "jack_ts", "width": "mono",
+	}); status != http.StatusBadRequest {
+		t.Errorf("line with phantom_power: status %d body %s, want 400", status, raw)
+	}
+
+	// Valid mic source round-trips.
+	status, raw := doJSON(t, http.MethodPost, sourcesURL, map[string]any{
+		"name": "Lead Vox", "kind": "mic", "mic_item_id": micID, "stand_item_id": standID, "phantom_power": true, "connector_type": "xlr", "width": "mono",
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("POST mic source: status %d body %s", status, raw)
+	}
+	created := decodeJSON[domain.InputSource](t, raw)
+	if created.MicItemID == nil || *created.MicItemID != micID || created.StandItemID == nil || !created.PhantomPower {
+		t.Errorf("created mic source = %+v", created)
+	}
+
+	// Valid line source round-trips with no mic fields.
+	status, raw = doJSON(t, http.MethodPost, sourcesURL, map[string]any{
+		"name": "Bass", "kind": "line", "connector_type": "jack_ts", "width": "mono",
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("POST line source: status %d body %s", status, raw)
+	}
+	lineSource := decodeJSON[domain.InputSource](t, raw)
+	if lineSource.MicItemID != nil || lineSource.StandItemID != nil || lineSource.PhantomPower {
+		t.Errorf("line source unexpectedly carries mic fields: %+v", lineSource)
+	}
+
+	// Switching an existing mic source to line clears mic/stand/phantom
+	// server-side, in the same response.
+	created.Kind = "line"
+	created.MicItemID = nil
+	created.StandItemID = nil
+	created.PhantomPower = false
+	status, raw = doJSON(t, http.MethodPatch, fmt.Sprintf("%s/%d", sourcesURL, created.ID), created)
+	if status != http.StatusOK {
+		t.Fatalf("PATCH source to line: status %d body %s", status, raw)
+	}
+	if switched := decodeJSON[domain.InputSource](t, raw); switched.MicItemID != nil || switched.StandItemID != nil || switched.PhantomPower {
+		t.Errorf("switched source still carries mic fields: %+v", switched)
+	}
+
+	// connector_type is always required.
+	if status, raw := doJSON(t, http.MethodPost, sourcesURL, map[string]any{"name": "No connector", "kind": "line", "width": "mono"}); status != http.StatusBadRequest {
+		t.Errorf("missing connector_type: status %d body %s, want 400", status, raw)
+	}
+
+	// Dangling mic_item_id/stand_item_id are rejected up front.
+	if status, raw := doJSON(t, http.MethodPost, sourcesURL, map[string]any{
+		"name": "Ghost mic", "kind": "mic", "mic_item_id": 99999, "connector_type": "xlr", "width": "mono",
+	}); status != http.StatusBadRequest {
+		t.Errorf("dangling mic_item_id: status %d body %s, want 400", status, raw)
 	}
 }

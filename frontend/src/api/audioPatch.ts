@@ -1,4 +1,4 @@
-import type { AudioPatchInput, AudioPatchOutput, AudioPatchResponse, BusRequest, MixerDCA, MixerGroup, OutputCable, OutputDevice, Stagebox, StageMulti } from '../types'
+import type { AudioPatchOutput, AudioPatchResponse, BusRequest, InputCable, InputChannel, InputDevice, InputSource, MixerDCA, MixerGroup, OutputCable, OutputDevice, Stagebox, StageMulti } from '../types'
 import { get, request } from './client'
 
 // Forwards TanStack Query's AbortSignal — this query is invalidated very
@@ -35,12 +35,34 @@ export const updateDCA = (eventId: number, dcaId: number, data: BusRequest) =>
 export const deleteDCA = (eventId: number, dcaId: number) =>
   request<void>(`/events/${eventId}/dcas/${dcaId}`, { method: 'DELETE' })
 
-export const createAudioInput = (eventId: number, data: Omit<AudioPatchInput, 'id'>) =>
-  request<AudioPatchInput>(`/events/${eventId}/audio-inputs`, { method: 'POST', body: JSON.stringify(data) })
-export const updateAudioInput = (eventId: number, inputId: number, data: Omit<AudioPatchInput, 'id'>) =>
-  request<AudioPatchInput>(`/events/${eventId}/audio-inputs/${inputId}`, { method: 'PATCH', body: JSON.stringify(data) })
-export const deleteAudioInput = (eventId: number, inputId: number) =>
-  request<void>(`/events/${eventId}/audio-inputs/${inputId}`, { method: 'DELETE' })
+export const createInputChannel = (eventId: number, data: Omit<InputChannel, 'id' | 'event_id'>) =>
+  request<InputChannel>(`/events/${eventId}/input-channels`, { method: 'POST', body: JSON.stringify(data) })
+export const updateInputChannel = (eventId: number, channelId: number, data: Omit<InputChannel, 'id' | 'event_id'>) =>
+  request<InputChannel>(`/events/${eventId}/input-channels/${channelId}`, { method: 'PATCH', body: JSON.stringify(data) })
+export const deleteInputChannel = (eventId: number, channelId: number) =>
+  request<void>(`/events/${eventId}/input-channels/${channelId}`, { method: 'DELETE' })
+
+export const createInputSource = (eventId: number, data: Omit<InputSource, 'id' | 'event_id'>) =>
+  request<InputSource>(`/events/${eventId}/input-sources`, { method: 'POST', body: JSON.stringify(data) })
+export const updateInputSource = (eventId: number, sourceId: number, data: Omit<InputSource, 'id' | 'event_id'>) =>
+  request<InputSource>(`/events/${eventId}/input-sources/${sourceId}`, { method: 'PATCH', body: JSON.stringify(data) })
+export const deleteInputSource = (eventId: number, sourceId: number) =>
+  request<void>(`/events/${eventId}/input-sources/${sourceId}`, { method: 'DELETE' })
+
+export const createInputDevice = (eventId: number, data: Omit<InputDevice, 'id' | 'event_id'>) =>
+  request<InputDevice>(`/events/${eventId}/input-devices`, { method: 'POST', body: JSON.stringify(data) })
+export const updateInputDevice = (eventId: number, deviceId: number, data: Omit<InputDevice, 'id' | 'event_id'>) =>
+  request<InputDevice>(`/events/${eventId}/input-devices/${deviceId}`, { method: 'PATCH', body: JSON.stringify(data) })
+export const deleteInputDevice = (eventId: number, deviceId: number) =>
+  request<void>(`/events/${eventId}/input-devices/${deviceId}`, { method: 'DELETE' })
+
+export const createInputCable = (eventId: number, data: Omit<InputCable, 'id' | 'event_id'>) =>
+  request<InputCable>(`/events/${eventId}/input-cables`, { method: 'POST', body: JSON.stringify(data) })
+export const updateInputCable = (eventId: number, cableId: number, cableItemId: number | undefined) =>
+  request<InputCable>(`/events/${eventId}/input-cables/${cableId}`, { method: 'PATCH', body: JSON.stringify({ cable_item_id: cableItemId ?? null }) })
+export const deleteInputCable = (eventId: number, cableId: number) =>
+  request<void>(`/events/${eventId}/input-cables/${cableId}`, { method: 'DELETE' })
+
 export const createAudioOutput = (eventId: number, data: Omit<AudioPatchOutput, 'id'>) =>
   request<AudioPatchOutput>(`/events/${eventId}/audio-outputs`, { method: 'POST', body: JSON.stringify(data) })
 export const updateAudioOutput = (eventId: number, outputId: number, data: Omit<AudioPatchOutput, 'id'>) =>

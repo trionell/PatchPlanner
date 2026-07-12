@@ -97,9 +97,12 @@ export function StageboxMultiManager({
       inventory_item_id: boxDraft.inventory_item_id ? Number(boxDraft.inventory_item_id) : undefined,
       // New nodes land staggered, not stacked on the canvas origin — the
       // tech drags them into place afterward (data-model.md's
-      // state-transition note).
+      // state-transition note). Both graphs get their own staggered
+      // starting position since they're independent (Slice 12 fix).
       position_x: 420 + ((stageboxes.length + stageMultis.length) % 3) * 220,
       position_y: 60 + Math.floor((stageboxes.length + stageMultis.length) / 3) * 160,
+      input_position_x: 420 + ((stageboxes.length + stageMultis.length) % 3) * 220,
+      input_position_y: 60 + Math.floor((stageboxes.length + stageMultis.length) / 3) * 160,
     })
     setBoxDraft(emptyBox)
     setAddingBox(false)
@@ -115,6 +118,8 @@ export function StageboxMultiManager({
       length_m: parseFloat(multiDraft.length_m) || 0,
       position_x: 420 + ((stageboxes.length + stageMultis.length) % 3) * 220,
       position_y: 60 + Math.floor((stageboxes.length + stageMultis.length) / 3) * 160,
+      input_position_x: 420 + ((stageboxes.length + stageMultis.length) % 3) * 220,
+      input_position_y: 60 + Math.floor((stageboxes.length + stageMultis.length) / 3) * 160,
       inventory_item_id: multiDraft.inventory_item_id ? Number(multiDraft.inventory_item_id) : undefined,
     })
     setMultiDraft(emptyMulti)

@@ -12,46 +12,38 @@ import (
 // the CTE; manual event_rentals lines are both merged into the totals and
 // re-joined so their share stays editable. Takes the event id 11 times.
 //
-// A stereo channel's per-side physical equipment doubles (CASE WHEN width =
-// 'stereo' ...); two-channel devices (the DI itself, an amplifier) stay
-// single-counted regardless of width. mic_item_id is overloaded — it also
-// stores the DI box on DI-type rows — so its doubling explicitly excludes
-// signal_type = 'di' or a stereo DI channel's own DI box would double.
-//
-// Output signal graph (Slice 11, research.md R4): unlike the input side,
-// nothing here uses a width-based CASE WHEN doubling formula. A stereo
-// channel's two physical sides are two real, separate device/cable rows
-// from the start (output_devices.position_x/y and output_cables' two
-// independent (from,port)/(to,port) pairs) — so every device and every
-// cable simply counts 1 per row it appears in. A declared device
-// (output_devices) contributes a flat 1 per row regardless of how many
-// cables reference it (the "amplifier never doubles" rule, unchanged from
-// Slice 10). output_cables.cable_item_id is always NULL for a cable whose
-// to_kind is 'stage_multi' or 'stagebox' (FR-013, extended to stageboxes
-// once they became pass-through nodes — a channel's route into either is
-// pure console/network routing, never a separately rentable cable; the
-// mixer-to-stagebox link itself is out of scope here and tracked
-// separately as a Rented Extra), so that arm structurally excludes those
-// rows with no extra WHERE clause needed.
+// Neither signal graph uses a width-based CASE WHEN doubling formula
+// (Slice 11 research.md R4, extended to the input side by Slice 12): a
+// stereo pair's two physical sides are two real, separate rows from the
+// start — two input_sources rows (research.md R4's InputChannel split),
+// two output_devices rows, or two independent cable rows — so every
+// device/source and every cable simply counts 1 per row it appears in. A
+// declared device (input_devices/output_devices) contributes a flat 1 per
+// row regardless of how many cables reference it (the "amplifier/DI-box
+// never doubles" rule, unchanged from Slice 10). A cable's cable_item_id
+// is always NULL for the console-side hop into a stage_multi/stagebox on
+// either graph (output: FR-013, to_kind stage_multi/stagebox; input:
+// research.md R5, from_kind stage_multi/stagebox landing on to_kind
+// channel) or for a deliberately-unset half of a stereo splitter pair
+// (research.md R6) — both arms below structurally exclude those rows with
+// no extra WHERE clause needed, since NULL never joins to inventory_items.
 const rentalSummaryQuery = `
 	WITH combined AS (
-		SELECT mic_item_id AS inventory_item_id,
-			CASE WHEN width = 'stereo' AND signal_type != 'di' THEN 2 ELSE 1 END AS quantity_audio,
-			0 AS quantity_lighting
-		FROM audio_patch_inputs
+		SELECT mic_item_id AS inventory_item_id, 1 AS quantity_audio, 0 AS quantity_lighting
+		FROM input_sources
 		WHERE event_id = ? AND mic_item_id IS NOT NULL
 		UNION ALL
-		SELECT cable_item_id, CASE WHEN width = 'stereo' THEN 2 ELSE 1 END, 0
-		FROM audio_patch_inputs
-		WHERE event_id = ? AND cable_item_id IS NOT NULL
-		UNION ALL
-		SELECT stand_item_id, CASE WHEN width = 'stereo' THEN 2 ELSE 1 END, 0
-		FROM audio_patch_inputs
+		SELECT stand_item_id, 1, 0
+		FROM input_sources
 		WHERE event_id = ? AND stand_item_id IS NOT NULL
 		UNION ALL
-		SELECT source_cable_item_id, CASE WHEN width = 'stereo' AND source_cabling = 'two_cables' THEN 2 ELSE 1 END, 0
-		FROM audio_patch_inputs
-		WHERE event_id = ? AND signal_type = 'di' AND source_cable_item_id IS NOT NULL
+		SELECT COALESCE(inventory_item_id, owned_item_id), 1, 0
+		FROM input_devices
+		WHERE event_id = ? AND (inventory_item_id IS NOT NULL OR owned_item_id IS NOT NULL)
+		UNION ALL
+		SELECT cable_item_id, 1, 0
+		FROM input_cables
+		WHERE event_id = ? AND cable_item_id IS NOT NULL
 		UNION ALL
 		SELECT inventory_item_id, 1, 0
 		FROM stageboxes

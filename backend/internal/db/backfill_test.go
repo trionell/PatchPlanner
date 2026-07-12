@@ -13,7 +13,13 @@ import (
 // matches exactly one live Mikrofonkabel item convert; everything else keeps
 // its legacy values.
 func TestCableBackfillConservative(t *testing.T) {
-	database := openTestDB(t)
+	// Pinned to just before Slice 12's migration 029 renames
+	// audio_patch_inputs and (030) drops cable_type/cable_length_m/
+	// mic_stand entirely — this test replays migration 019's own backfill
+	// UPDATE statements against that legacy shape, same isolation
+	// technique as stereo_migration_test.go/buses_migration_test.go use
+	// for their own historical migrations.
+	database := openMigratedTo(t, 28)
 
 	// Catalog: a cable-role category with unambiguous lengths, a duplicated
 	// length (two 6m items → ambiguous), and a discontinued 8m.

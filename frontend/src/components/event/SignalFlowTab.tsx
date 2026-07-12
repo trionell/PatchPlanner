@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { getAudioPatch } from '../../api/audioPatch'
 import { listInventoryItems } from '../../api/inventory'
-import { useReferenceData } from '../../hooks/useReferenceData'
-import { buildChannelFlows, buildOutputChannelFlows, type FlowHop } from '../../lib/signalFlow'
+import { buildInputChannelFlows, type FlowHop as InputFlowHop } from '../../lib/inputSignalFlow'
+import { buildOutputChannelFlows, type FlowHop } from '../../lib/signalFlow'
 import { busTint, cn, itemLabel } from '../../lib/utils'
 import { PrintButton } from '../print/PrintButton'
 import { PrintSheet } from '../print/PrintSheet'
@@ -13,46 +13,30 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table'
 
 /**
- * Read-only trace of every input channel's signal chain
- * (source → cable → stagebox/multi → console) and every output channel's
- * chain (console → hop → hop → … → destination), with flagged gaps.
- * Printable like the patch sheets; edits happen on the Audio Inputs/
- * Outputs tabs.
+ * Read-only trace of every input channel's signal chain (walking
+ * input_cables backward from each channel to its Source, research.md R8)
+ * and every output channel's chain (console → hop → hop → … →
+ * destination), with flagged gaps. Printable like the patch sheets; edits
+ * happen on the Audio Inputs/Outputs tabs.
  */
 export function SignalFlowTab({ eventId }: { eventId: number }) {
   const audioQuery = useQuery({ queryKey: ['audio-patch', eventId], queryFn: ({ signal }) => getAudioPatch(eventId, signal) })
   const inventoryQuery = useQuery({ queryKey: ['inventory-audio-items'], queryFn: () => listInventoryItems({ categoryType: 'audio' }) })
   const cableQuery = useQuery({ queryKey: ['inventory-items', 'role', 'cable'], queryFn: () => listInventoryItems({ role: 'cable' }) })
-  const { label } = useReferenceData()
 
-  const micNameById = useMemo(
-    () => new Map((inventoryQuery.data ?? []).map((item) => [item.id, item.name])),
-    [inventoryQuery.data],
-  )
-  const cableLabelById = useMemo(
-    () => new Map((cableQuery.data ?? []).map((item) => [item.id, itemLabel(item)])),
-    [cableQuery.data],
-  )
   const itemLabelById = useMemo(
     () => new Map([...(inventoryQuery.data ?? []), ...(cableQuery.data ?? [])].map((item) => [item.id, itemLabel(item)])),
     [inventoryQuery.data, cableQuery.data],
   )
-  // Sorted copy matching buildChannelFlows' internal order, so flows[i]
-  // and inputs[i] describe the same channel (bus membership isn't part of
-  // the chain view-model — memberships are not hops).
-  const inputs = useMemo(
-    () => [...(audioQuery.data?.inputs ?? [])].sort((a, b) => a.channel_number - b.channel_number),
-    [audioQuery.data],
-  )
-  const flows = buildChannelFlows(inputs, {
+  const channels = audioQuery.data?.input_channels ?? []
+  const flows = buildInputChannelFlows(channels, {
+    sources: audioQuery.data?.input_sources ?? [],
+    channels,
+    devices: audioQuery.data?.input_devices ?? [],
     stageboxes: audioQuery.data?.stageboxes ?? [],
     stageMultis: audioQuery.data?.stage_multis ?? [],
-    micNameById,
-    cableLabelById,
-    cableLabel: (value) => label('signal_cable_types', value),
-    // DI source cables are picked from the same cable catalog as every
-    // other cable pick, so the query result doubles as its label source.
-    sourceCableLabelById: cableLabelById,
+    cables: audioQuery.data?.input_cables ?? [],
+    itemLabelById,
   })
   const outputFlows = buildOutputChannelFlows(audioQuery.data?.outputs ?? [], {
     stageboxes: audioQuery.data?.stageboxes ?? [],
@@ -94,30 +78,34 @@ export function SignalFlowTab({ eventId }: { eventId: number }) {
             </TableHeader>
             <TableBody>
               {flows.map((flow, index) => (
-                <TableRow key={inputs[index]?.id ?? flow.channelNumber}>
+                <TableRow key={channels[index]?.id ?? flow.channelNumber}>
                   <TableCell className="w-16">{flow.channelNumber}</TableCell>
                   <TableCell className="w-48">{flow.channelName || '—'}</TableCell>
                   <TableCell className="w-56">
-                    <BusBadges input={inputs[index]} groups={groups} dcas={dcas} />
+                    <BusBadges input={channels[index]} groups={groups} dcas={dcas} />
                   </TableCell>
                   <TableCell>
-                    <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                      {flow.sourceCable && (<><Hop hop={flow.sourceCable} /><Arrow /></>)}
-                      <Hop hop={flow.source} />
-                      <Arrow />
-                      <Hop hop={flow.cable} />
-                      <Arrow />
-                      <Hop hop={flow.path} />
-                      <Arrow />
-                      <span>Console ch {flow.channelNumber}</span>
-                    </span>
-                    {flow.pathB && (
-                      <span className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-zinc-400">
-                        <span className="text-xs uppercase tracking-wide text-zinc-500">Side B</span>
-                        <Arrow />
-                        <Hop hop={flow.pathB} />
-                      </span>
-                    )}
+                    {flow.paths.map((path, pathIndex) => (
+                      <div key={pathIndex} className={pathIndex > 0 ? 'mt-1' : undefined}>
+                        {path.hops.length === 0 ? (
+                          <span className="inline-flex items-baseline gap-1 font-medium text-amber-400">
+                            <AlertTriangle className="h-3.5 w-3.5 self-center" />
+                            no source connected{path.sideLabel ? ` (${path.sideLabel})` : ''}
+                          </span>
+                        ) : (
+                          <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                            {path.hops.map((hop, hopIndex) => (
+                              <Fragment key={hopIndex}>
+                                {hopIndex > 0 && <Arrow />}
+                                <InputHop hop={hop} />
+                              </Fragment>
+                            ))}
+                            <Arrow />
+                            <span>Console ch {flow.channelNumber}{path.sideLabel ? ` ${path.sideLabel}` : ''}</span>
+                          </span>
+                        )}
+                      </div>
+                    ))}
                   </TableCell>
                 </TableRow>
               ))}
@@ -199,6 +187,10 @@ function Hop({ hop }: { hop: FlowHop }) {
       {hop.detail && <span className="text-xs text-zinc-500">({hop.detail})</span>}
     </span>
   )
+}
+
+function InputHop({ hop }: { hop: InputFlowHop }) {
+  return <span className="inline-flex items-baseline gap-1">{hop.label}</span>
 }
 
 function Arrow() {

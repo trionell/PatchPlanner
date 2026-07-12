@@ -146,14 +146,14 @@ func TestForeignKeysEnforced(t *testing.T) {
 	cat := seedCatalog(t, database)
 	eventID := createTestEvent(t, database)
 
-	input := createMicInput(t, database, eventID, 1, &cat.Mic)
-	stagebox, err := CreateStagebox(database, domain.Stagebox{EventID: eventID, Name: "SB A", ConnectionType: "analog"})
+	source := createMicSource(t, database, eventID, &cat.Mic)
+	stagebox, err := CreateStagebox(database, domain.Stagebox{EventID: eventID, Name: "SB A", ConnectionType: "analog", InputCount: 8})
 	if err != nil {
 		t.Fatalf("create stagebox: %v", err)
 	}
-	input.StageboxID = &stagebox.ID
-	if _, err := UpdateAudioPatchInput(database, input.ID, input); err != nil {
-		t.Fatalf("link input to stagebox: %v", err)
+	cable, err := CreateInputCable(database, domain.InputCable{EventID: eventID, FromKind: "source", FromID: source.ID, FromPort: 0, ToKind: "stagebox", ToID: stagebox.ID, ToPort: 0})
+	if err != nil {
+		t.Fatalf("link source to stagebox: %v", err)
 	}
 	rig, err := GetOrCreateDefaultLightingRig(database, eventID)
 	if err != nil {
@@ -166,16 +166,13 @@ func TestForeignKeysEnforced(t *testing.T) {
 		t.Fatalf("chain fixture: %v", err)
 	}
 
-	// Deleting a referenced stagebox clears the reference first.
+	// Deleting a referenced stagebox clears the cable that referenced it
+	// first (input_cables is a real table now, not inline columns).
 	if err := DeleteStagebox(database, stagebox.ID); err != nil {
 		t.Fatalf("delete referenced stagebox: %v", err)
 	}
-	got, err := GetAudioPatchInput(database, input.ID)
-	if err != nil {
-		t.Fatalf("get input: %v", err)
-	}
-	if got.StageboxID != nil {
-		t.Errorf("input still references deleted stagebox")
+	if _, err := GetInputCable(database, cable.ID); err == nil {
+		t.Errorf("input cable still references deleted stagebox")
 	}
 
 	// Deleting a chain parent detaches its children.
@@ -189,9 +186,11 @@ func TestForeignKeysEnforced(t *testing.T) {
 		t.Fatalf("delete event: %v", err)
 	}
 	for name, query := range map[string]string{
-		"inputs":   `SELECT COUNT(*) FROM audio_patch_inputs WHERE event_id = ?`,
-		"rigs":     `SELECT COUNT(*) FROM lighting_rigs WHERE event_id = ?`,
-		"fixtures": `SELECT COUNT(*) FROM lighting_fixtures WHERE rig_id = ?`,
+		"input channels": `SELECT COUNT(*) FROM input_channels WHERE event_id = ?`,
+		"input sources":  `SELECT COUNT(*) FROM input_sources WHERE event_id = ?`,
+		"input cables":   `SELECT COUNT(*) FROM input_cables WHERE event_id = ?`,
+		"rigs":           `SELECT COUNT(*) FROM lighting_rigs WHERE event_id = ?`,
+		"fixtures":       `SELECT COUNT(*) FROM lighting_fixtures WHERE rig_id = ?`,
 	} {
 		arg := eventID
 		if name == "fixtures" {

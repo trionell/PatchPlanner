@@ -85,33 +85,41 @@ rows across and repointing `audio_input_groups`/`audio_input_dcas`' FK
 column — rejected: strictly more migration surface (copy + FK rewrite)
 for an identical end state.
 
-## R5 — Cableless rule: keyed on the (stagebox/stage-multi → channel) edge specifically, not on kind alone
+## R5 — Cableless rule: a Stage Multi's whole output side is free; a Stagebox's only into a Channel
 
-**Decision**: `cable_item_id` is forced `NULL` (and the API rejects a
-non-null value) exactly when `from_kind ∈ {stagebox, stage_multi}` **and**
-`to_kind = 'channel'` — not for every edge touching a Stagebox/Stage
-Multi.
+**Revised** (original decision below, corrected after live use surfaced a
+real rig where a Stage Multi's output fed a Processing device, not a
+Channel, and still shouldn't have prompted for a cable): `cable_item_id`
+is forced `NULL` (and the API rejects a non-null value) whenever
+`from_kind = 'stage_multi'`, **regardless of `to_kind`** — plus, as
+before, whenever `from_kind = 'stagebox'` **and** `to_kind = 'channel'`.
 
-**Rationale**: A Stagebox/Stage Multi's console-side hop into a specific
-Channel is a logical slot assignment ("this channel uses jack 5"), not a
-separately rentable physical run — the real, physical, billable cable is
-the one on the *other* side, from the Source into the Stagebox/Stage
-Multi's stage-end jack (`to_kind ∈ {stagebox, stage_multi}` with
-`from_kind ∈ {source, device}`, which stays a normal billable cable).
-This is the mirror image of Slice 11's rule (there, a Channel-equivalent
-node — the mixer — feeds *into* the stagebox/multi's input side for free,
-and its *output* side onward is real; here, a Source feeds *into* the
-stagebox/multi's input side for real, and its console-side hop *onward*
-to a Channel is free) — same underlying idea (the multicore/stagebox's
-own built-in wiring is already billed once via its own rental line, so
-the per-connection hop that merely picks a numbered slot never gets a
-second, redundant billable cable), applied to the input graph's reversed
-direction.
+**Rationale**: A Stage Multi's own body *is* the physical cable for its
+entire run — there is no separate cable to pick no matter what its output
+side feeds (a Channel, a Stagebox, another Stage Multi, or a Processing
+device); the real, billable cable is only ever the one on its *input*
+side, from the Source into its stage-end jack. A Stagebox has no such
+integrated run of its own — each of its jacks is a separate physical
+connection point, so only its console-side hop into a specific Channel is
+a logical slot assignment ("this channel uses jack 5"); a Stagebox's hop
+onward to anything else (a device, another Stagebox/Stage-Multi) is a
+real, separately billable cable, same as before.
+
+**Original decision** (superseded above): `cable_item_id` forced `NULL`
+exactly when `from_kind ∈ {stagebox, stage_multi}` **and**
+`to_kind = 'channel'` — treating a Stage Multi identically to a Stagebox.
+This was the mirror image of Slice 11's rule (there, the mixer feeds
+*into* the stagebox/multi's input side for free, and its *output* side
+onward is real) and seemed like the natural generalization, but it didn't
+account for a Stage Multi's output side reaching something *other* than a
+Channel — an edge case the original design never explicitly considered
+kind-by-kind.
 
 **Alternatives considered**: Keying cablelessness off node kind alone
-(any cable touching a Stagebox/Stage Multi is free) — rejected outright,
-it would incorrectly zero out the real physical mic-cable run from the
-Source into the stagebox.
+(any cable touching a Stagebox/Stage Multi is free) — still rejected, it
+would incorrectly zero out the real physical mic-cable run from the
+Source into either node's own input side, and the real cable from a
+Stagebox's output into a device.
 
 ## R6 — No stored "splitter vs. two cables" field
 

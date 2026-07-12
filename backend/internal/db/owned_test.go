@@ -140,7 +140,7 @@ func TestOwnedGearNeverOnRentalOrder(t *testing.T) {
 	database := openTestDB(t)
 	cat := seedCatalog(t, database)
 	eventID := createTestEvent(t, database)
-	createMicInput(t, database, eventID, 1, &cat.Mic)
+	createMicSource(t, database, eventID, &cat.Mic)
 
 	before, err := GetRentalSummary(database, eventID)
 	if err != nil {

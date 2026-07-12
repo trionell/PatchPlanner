@@ -18,6 +18,13 @@ type Stagebox struct {
 	// its unchanged output side (a real cable onward to a device).
 	PositionX float64 `json:"position_x"`
 	PositionY float64 `json:"position_y"`
+	// InputPositionX/InputPositionY are this same stagebox's separate
+	// canvas placement in the Input graph's Processing zone (Slice 12) —
+	// a stagebox is a shared node between both graphs, but each graph
+	// keeps its own independent position so dragging it in one never
+	// moves it in the other.
+	InputPositionX float64 `json:"input_position_x"`
+	InputPositionY float64 `json:"input_position_y"`
 }
 
 type StageMulti struct {
@@ -32,6 +39,11 @@ type StageMulti struct {
 	// output signal-flow graph's Processing zone.
 	PositionX float64 `json:"position_x"`
 	PositionY float64 `json:"position_y"`
+	// InputPositionX/InputPositionY are this same stage multi's separate
+	// canvas placement in the Input graph's Processing zone (Slice 12) —
+	// see Stagebox's own note above.
+	InputPositionX float64 `json:"input_position_x"`
+	InputPositionY float64 `json:"input_position_y"`
 }
 
 // MixerGroup is a named mix bus of one event. The built-in LR main group
@@ -82,6 +94,20 @@ var (
 	// ordinary device input (to_kind="device"), never its own kind.
 	ValidPortFromKinds = []string{"mixer", "stagebox", "stage_multi", "device", "device_link"}
 	ValidPortToKinds   = []string{"stagebox", "stage_multi", "device"}
+	// ValidInputSourceKinds is InputSource.Kind (Slice 12): "mic" requires
+	// MicItemID (StandItemID/PhantomPower meaningful only for this kind);
+	// "line" forbids all three. Go-validated, not a reference vocabulary —
+	// same reasoning as ValidWidths etc. above.
+	ValidInputSourceKinds = []string{"mic", "line"}
+	// ValidInputCableFromKinds/ValidInputCableToKinds are InputCable's
+	// Go-validated enums (Slice 12), the input graph's mirror of
+	// ValidPortFromKinds/ValidPortToKinds: "source" has no input side (only
+	// ever a from_kind, symmetric with "mixer" on the output graph);
+	// "channel" has no output side (only ever a to_kind). A Stagebox/
+	// Stage-Multi's own console-side hop into a channel is cableless
+	// (research.md R5) — the mirror image of the output graph's rule.
+	ValidInputCableFromKinds = []string{"source", "stagebox", "stage_multi", "device"}
+	ValidInputCableToKinds   = []string{"stagebox", "stage_multi", "device", "channel"}
 )
 
 // OutputDevice is a node in the output signal-flow graph (Slice 11) —
@@ -201,63 +227,108 @@ type OutputChainHop struct {
 	StageMultiChannelB *int   `json:"stage_multi_channel_b,omitempty"`
 }
 
-type AudioPatchInput struct {
-	ID                int64  `json:"id"`
-	EventID           int64  `json:"event_id"`
-	ChannelNumber     int    `json:"channel_number"`
-	ChannelName       string `json:"channel_name,omitempty"`
-	SignalType        string `json:"signal_type"`
-	PreampConnector   string `json:"preamp_connector"`
-	StageboxID        *int64 `json:"stagebox_id,omitempty"`
-	StageboxChannel   *int   `json:"stagebox_channel,omitempty"`
-	StageMultiID      *int64 `json:"stage_multi_id,omitempty"`
-	StageMultiChannel *int   `json:"stage_multi_channel,omitempty"`
-	MicItemID         *int64 `json:"mic_item_id,omitempty"`
-	// MicLabel is the legacy free-text mic name kept for rows whose text
-	// matched no inventory item during the 009 backfill. Read-only: the
-	// server never writes it from payloads and clears it once MicItemID
-	// is set.
-	MicLabel    string `json:"mic_label,omitempty"`
-	CableItemID *int64 `json:"cable_item_id,omitempty"`
-	StandItemID *int64 `json:"stand_item_id,omitempty"`
-	// CableType/CableLengthM/MicStand are the legacy pre-019 values, kept
-	// for display on rows that have no catalog pick yet. Read-only: the
-	// server never writes them from payloads and clears them once the
-	// corresponding *ItemID is set.
-	CableType    string  `json:"cable_type,omitempty"`
-	CableLengthM float64 `json:"cable_length_m,omitempty"`
-	MicStand     string  `json:"mic_stand,omitempty"`
-	PhantomPower bool    `json:"phantom_power"`
-	Color        string  `json:"color,omitempty"`
+// InputChannel is a console input strip (Slice 12, renamed in place from
+// AudioPatchInput/audio_patch_inputs — research.md R4) — channel identity
+// only. What feeds it (a mic/line Source, optionally through a Stagebox/
+// Stage-Multi/Device) is entirely determined by InputCable rows, never
+// stored here. Contributes exactly one input-only port to the input
+// signal-flow graph at (channel, ID, 0).
+type InputChannel struct {
+	ID            int64  `json:"id"`
+	EventID       int64  `json:"event_id"`
+	ChannelNumber int    `json:"channel_number"`
+	ChannelName   string `json:"channel_name,omitempty"`
+	Color         string `json:"color,omitempty"`
 	// GroupIDs/DCAIDs are the channel's full bus membership sets. On create,
 	// a nil GroupIDs (field absent from JSON) means "no opinion" and the
 	// server routes the channel to the event's LR group; an explicit array —
 	// including [] — is stored verbatim. Updates always replace wholesale.
 	GroupIDs []int64 `json:"group_ids"`
 	DCAIDs   []int64 `json:"dca_ids"`
-	// Width is "mono" or "stereo" (ValidWidths). A stereo channel represents
-	// two independently patchable physical connections; side B's routing
-	// (StageboxIDB etc.) is meaningful only when Width is "stereo" but is
-	// never cleared when switched back to mono (state is inert, not lost).
+	// Width is "mono" or "stereo" (ValidWidths) — display/console-numbering
+	// only; a stereo pair is two independent InputChannel rows (Slice 9
+	// convention, unchanged), not one row with two ports.
 	Width string `json:"width"`
-	// MixerBehavior is "stereo_channel" or "linked_channels" (ValidMixerBehaviors).
-	// Meaningful only when Width is "stereo"; purely a console-number
-	// display/numbering-suggestion attribute — never affects routing or
-	// rental counting.
-	MixerBehavior      string `json:"mixer_behavior"`
-	StageboxIDB        *int64 `json:"stagebox_id_b,omitempty"`
-	StageboxChannelB   *int   `json:"stagebox_channel_b,omitempty"`
-	StageMultiIDB      *int64 `json:"stage_multi_id_b,omitempty"`
-	StageMultiChannelB *int   `json:"stage_multi_channel_b,omitempty"`
-	// SourceCableItemID is the source→DI cable, meaningful only when
-	// SignalType is "di" (but not cleared when the signal type changes away
-	// from DI — same inert-not-lost pattern as Width/side B).
-	SourceCableItemID *int64 `json:"source_cable_item_id,omitempty"`
-	// SourceCabling is "two_cables" or "splitter" (ValidSourceCablings).
-	// Meaningful only when SignalType is "di" AND Width is "stereo";
-	// determines whether SourceCableItemID counts once or twice in rental.
-	SourceCabling string `json:"source_cabling"`
+	// MixerBehavior is "stereo_channel" or "linked_channels"
+	// (ValidMixerBehaviors). Meaningful only when Width is "stereo"; purely
+	// a console-number display attribute — never affects routing/rental.
+	MixerBehavior string `json:"mixer_behavior"`
 	Notes         string `json:"notes,omitempty"`
+}
+
+// InputSource is the physical origin of a signal (Slice 12) — a
+// microphone on a stand, or a bare line/instrument output. Never linked
+// to an InputChannel by a stored reference, only by the InputCable graph;
+// never carries its own color (derived client-side from whichever
+// Channel(s) it reaches, research.md R9). Contributes 1 output-only port
+// (2, independently, when Width is "stereo") to the graph.
+type InputSource struct {
+	ID      int64  `json:"id"`
+	EventID int64  `json:"event_id"`
+	Name    string `json:"name"`
+	// Kind is "mic" or "line" (ValidInputSourceKinds). "mic" requires
+	// MicItemID; "line" forbids MicItemID/StandItemID/PhantomPower.
+	Kind         string `json:"kind"`
+	MicItemID    *int64 `json:"mic_item_id,omitempty"`
+	StandItemID  *int64 `json:"stand_item_id,omitempty"`
+	PhantomPower bool   `json:"phantom_power"`
+	// ConnectorType is always required, regardless of Kind.
+	ConnectorType string `json:"connector_type"`
+	// Width is "mono" or "stereo" (ValidWidths).
+	Width     string  `json:"width"`
+	PositionX float64 `json:"position_x"`
+	PositionY float64 `json:"position_y"`
+}
+
+// InputDevice is a Processing-zone node in the input signal-flow graph
+// (Slice 12) — a DI box or similar gear with an input side and an output
+// side. Same shape as OutputDevice's port/connector/position fields
+// (minus link-out ports, not needed on this graph) but a separate table
+// (research.md R3) — the input and output graphs never share a device
+// row.
+type InputDevice struct {
+	ID              int64  `json:"id"`
+	EventID         int64  `json:"event_id"`
+	Name            string `json:"name"`
+	InventoryItemID *int64 `json:"inventory_item_id,omitempty"`
+	OwnedItemID     *int64 `json:"owned_item_id,omitempty"`
+
+	InputPortCount      int    `json:"input_port_count"`
+	InputConnectorType  string `json:"input_connector_type,omitempty"`
+	OutputPortCount     int    `json:"output_port_count"`
+	OutputConnectorType string `json:"output_connector_type,omitempty"`
+
+	PositionX float64 `json:"position_x"`
+	PositionY float64 `json:"position_y"`
+}
+
+// InputCable is one edge in the input signal-flow graph (Slice 12): a
+// connection from one output port to one input port. FromKind ∈
+// ValidInputCableFromKinds, ToKind ∈ ValidInputCableToKinds; id resolves
+// against input_sources, stageboxes, stage_multis, or input_devices
+// (from_kind) / stageboxes, stage_multis, input_devices, or
+// input_channels (to_kind) — no DB FK, polymorphic, validated in the API
+// layer (research.md R2). CableItemID is always nil when FromKind is
+// "stagebox"/"stage_multi" AND ToKind is "channel" — that hop is a
+// logical console-slot assignment, not a separately rentable physical
+// cable (research.md R5, the mirror image of the output graph's FR-013).
+// A Source's output port may originate more than one cable at once
+// (double-patching, FR-006) — every other from_kind stays
+// one-cable-per-port, enforced by a partial unique index (migration 029),
+// not a table-level UNIQUE.
+type InputCable struct {
+	ID      int64 `json:"id"`
+	EventID int64 `json:"event_id"`
+
+	FromKind string `json:"from_kind"`
+	FromID   int64  `json:"from_id"`
+	FromPort int    `json:"from_port"`
+
+	ToKind string `json:"to_kind"`
+	ToID   int64  `json:"to_id"`
+	ToPort int    `json:"to_port"`
+
+	CableItemID *int64 `json:"cable_item_id,omitempty"`
 }
 
 // AudioPatchOutput is one output channel — a mixer channel definition.

@@ -120,9 +120,9 @@ func TestExportPlacesQuantities(t *testing.T) {
 
 	// 2 mic inputs + 1 manual audio → merged 3 audio; JBL 2 lighting manual.
 	micID := ids["Shure SM58"]
-	for channel := 1; channel <= 2; channel++ {
-		if _, err := db.CreateAudioPatchInput(database, domain.AudioPatchInput{EventID: eventID, ChannelNumber: channel, SignalType: "mic", MicItemID: &micID}); err != nil {
-			t.Fatalf("create input: %v", err)
+	for i := 0; i < 2; i++ {
+		if _, err := db.CreateInputSource(database, domain.InputSource{EventID: eventID, Name: "Mic", Kind: "mic", MicItemID: &micID, ConnectorType: "xlr", Width: "mono"}); err != nil {
+			t.Fatalf("create input source: %v", err)
 		}
 	}
 	if err := db.UpsertManualRental(database, eventID, micID, domain.ManualRentalRequest{QuantityAudio: 1}); err != nil {

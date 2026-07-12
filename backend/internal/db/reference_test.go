@@ -15,7 +15,7 @@ import (
 
 var seedCounts = map[string]int{
 	"signal_types":        5,
-	"preamp_connectors":   6,
+	"preamp_connectors":   7, // +1: mini_jack_3_5mm (Slice 12, migration 029)
 	"signal_cable_types":  5,
 	"speaker_cable_types": 4,
 	"output_types":        7,
@@ -214,7 +214,11 @@ func TestDeleteReferenceValueInUse(t *testing.T) {
 	database := openTestDB(t)
 	eventID := createTestEvent(t, database)
 
-	mustExec(t, database, `INSERT INTO audio_patch_inputs (event_id, channel_number, signal_type, preamp_connector, cable_type, mic_stand) VALUES (?, 1, 'mic', 'combo', 'jack_trs', 'boom')`, eventID)
+	// preamp_connectors' real home moved to input_sources.connector_type in
+	// Slice 12 (reference.go's vocabularyUsage) — signal_types/
+	// signal_cable_types/mic_stands no longer track usage at all (their old
+	// columns are gone, with no reference-vocabulary replacement).
+	mustExec(t, database, `INSERT INTO input_sources (event_id, name, kind, connector_type, width) VALUES (?, 'Test source', 'line', 'combo', 'mono')`, eventID)
 	mustExec(t, database, `INSERT INTO audio_patch_outputs (event_id, output_number, output_type) VALUES (?, 1, 'iem')`, eventID)
 	mustExec(t, database, `INSERT INTO output_devices (event_id, name, output_connector_type) VALUES (?, 'Speaker', 'nl8')`, eventID)
 	mustExec(t, database, `INSERT INTO lighting_rigs (event_id, name) VALUES (?, 'Rig')`, eventID)
@@ -222,12 +226,9 @@ func TestDeleteReferenceValueInUse(t *testing.T) {
 	mustExec(t, database, `INSERT INTO lighting_fixtures (rig_id, custom_name, power_connector_in, power_connector_out) VALUES (1, 'Wash', 'cee16', 'powercon_true1')`)
 
 	inUse := map[string]string{
-		"signal_types":        "mic",
 		"preamp_connectors":   "combo",
-		"signal_cable_types":  "jack_trs",
 		"speaker_cable_types": "nl8",
 		"output_types":        "iem",
-		"mic_stands":          "boom",
 		"truss_types":         "ladder",
 	}
 	for vocabulary, value := range inUse {

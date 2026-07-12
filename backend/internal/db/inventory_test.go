@@ -49,7 +49,7 @@ func TestUpsertInventoryPreservesIdentity(t *testing.T) {
 
 	// A plan references the mic; the reference must survive re-imports.
 	eventID := createTestEvent(t, database)
-	createMicInput(t, database, eventID, 1, &micID)
+	createMicSource(t, database, eventID, &micID)
 
 	// Second import: price/stock changed, AKG dropped, one new item.
 	updated := []domain.InventoryItem{

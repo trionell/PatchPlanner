@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2 } from 'lucide-react'
 import { createDCA, createGroup, deleteDCA, deleteGroup, updateDCA, updateGroup } from '../../api/audioPatch'
 import { busTint } from '../../lib/utils'
-import type { AudioPatchInput, BusRequest } from '../../types'
+import type { BusRequest, InputChannel } from '../../types'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
@@ -26,12 +26,12 @@ export function BusSection({
   eventId,
   groups,
   dcas,
-  inputs,
+  channels,
 }: {
   eventId: number
   groups: Bus[]
   dcas: Bus[]
-  inputs: AudioPatchInput[]
+  channels: InputChannel[]
 }) {
   const queryClient = useQueryClient()
   const invalidate = async () => {
@@ -54,7 +54,7 @@ export function BusSection({
         title="Groups"
         noun="group"
         buses={groups}
-        assignedCount={(id) => assignedChannels(inputs.map((input) => input.group_ids), id)}
+        assignedCount={(id) => assignedChannels(channels.map((channel) => channel.group_ids), id)}
         onCreate={(d) => createGroupM.mutate(d)}
         onUpdate={(id, d) => updateGroupM.mutate({ id, d })}
         onDelete={(id) => deleteGroupM.mutate(id)}
@@ -64,7 +64,7 @@ export function BusSection({
         title="DCAs"
         noun="DCA"
         buses={dcas}
-        assignedCount={(id) => assignedChannels(inputs.map((input) => input.dca_ids), id)}
+        assignedCount={(id) => assignedChannels(channels.map((channel) => channel.dca_ids), id)}
         onCreate={(d) => createDcaM.mutate(d)}
         onUpdate={(id, d) => updateDcaM.mutate({ id, d })}
         onDelete={(id) => deleteDcaM.mutate(id)}
