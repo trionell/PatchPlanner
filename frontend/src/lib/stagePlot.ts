@@ -109,6 +109,67 @@ export function roundCm(valueCm: number): number {
   return Math.round(valueCm * 100) / 100
 }
 
+// ---- Trusses & fixture labels (US5) ----
+
+/**
+ * Suggest a piece length in cm from a catalog item name (research.md
+ * R3): the LL.xlsx catalog encodes dimensions in names ("Tross F34 2m",
+ * "0,5m"), the same convention cables use. Returns null when no length
+ * is recognizable — the user then types it manually.
+ */
+export function parseLengthFromName(name: string): number | null {
+  // Last "number + m/cm" token wins ("F34 … 2m" → the 2m, not the 34).
+  const matches = [...name.matchAll(/(\d+(?:[.,]\d+)?)\s*(cm|m)\b/gi)]
+  const last = matches[matches.length - 1]
+  if (!last) return null
+  const value = Number(last[1].replace(',', '.'))
+  if (!Number.isFinite(value) || value <= 0) return null
+  return last[2].toLowerCase() === 'm' ? value * 100 : value
+}
+
+/** A truss's drawn length is exactly the sum of its pieces (FR-023). */
+export function trussLength(pieces: Array<{ length_cm: number }>): number {
+  return pieces.reduce((sum, piece) => sum + piece.length_cm, 0)
+}
+
+export interface FixtureLabelSettings {
+  show_fixture_name: boolean
+  show_fixture_fid: boolean
+  show_fixture_dmx: boolean
+}
+
+export interface FixtureLabelSource {
+  fixture_name?: string
+  fixture_number?: number
+  dmx_universe?: number
+  dmx_start_address?: number
+}
+
+/**
+ * Compose the label drawn beside a fixture (FR-029): any combination of
+ * name, FID, and DMX universe.address — parts whose value is missing
+ * are simply omitted. "Spot 1 · FID 11 · 1.001".
+ */
+export function fixtureLabel(fixture: FixtureLabelSource, settings: FixtureLabelSettings): string {
+  const parts: string[] = []
+  if (settings.show_fixture_name && fixture.fixture_name) parts.push(fixture.fixture_name)
+  if (settings.show_fixture_fid && fixture.fixture_number != null) parts.push(`FID ${fixture.fixture_number}`)
+  if (settings.show_fixture_dmx && fixture.dmx_universe != null && fixture.dmx_start_address != null) {
+    parts.push(`${fixture.dmx_universe}.${String(fixture.dmx_start_address).padStart(3, '0')}`)
+  }
+  return parts.join(' · ')
+}
+
+/**
+ * Clamp a fixture's offset to the truss's current extent (edge case: a
+ * removed piece shortened the truss). Returns the drawn offset and
+ * whether it had to be clamped (rendered flagged).
+ */
+export function clampFixtureOffset(offsetCm: number, trussLengthCm: number): { offset: number; clamped: boolean } {
+  if (offsetCm <= trussLengthCm) return { offset: offsetCm, clamped: false }
+  return { offset: trussLengthCm, clamped: true }
+}
+
 // ---- Snapping (research.md R8) ----
 
 /** Snap threshold in screen pixels, converted to cm via the current zoom. */

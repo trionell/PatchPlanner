@@ -540,10 +540,14 @@ func GetStagePlotResponse(db *sql.DB, eventID, plotID int64) (domain.StagePlotRe
 			elements[i].Links = links
 		}
 	}
+	trusses, err := ListPlotTrusses(db, eventID)
+	if err != nil {
+		return domain.StagePlotResponse{}, err
+	}
 	return domain.StagePlotResponse{
 		Plot:     plot,
 		Layers:   layers,
 		Elements: elements,
-		Trusses:  make([]domain.PlotTruss, 0),
+		Trusses:  trusses,
 	}, nil
 }

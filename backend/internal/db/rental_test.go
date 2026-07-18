@@ -590,3 +590,101 @@ func mustExec(t *testing.T, database *sql.DB, query string, args ...any) {
 		t.Fatalf("exec %s: %v", query, err)
 	}
 }
+
+// TestTrussPieceRentalCounting covers the Slice 13 arm: truss pieces
+// count once per event (lighting column) regardless of how many plots
+// place the truss; NULL-item legacy pieces contribute nothing; an event
+// without trusses is untouched.
+func TestTrussPieceRentalCounting(t *testing.T) {
+	database := openTestDB(t)
+	cat := seedCatalog(t, database)
+	eventID := createTestEvent(t, database)
+	trussItem := insertItem(t, database, cat.LightingCategoryID, "Tross F34 2m", 10, 100, 30)
+
+	before, err := GetRentalSummary(database, eventID)
+	if err != nil {
+		t.Fatalf("summary before: %v", err)
+	}
+
+	truss, err := CreatePlotTruss(database, eventID, "Front truss", 400)
+	if err != nil {
+		t.Fatalf("create truss: %v", err)
+	}
+	for i := 0; i < 3; i++ {
+		if _, err := CreatePlotTrussPiece(database, truss.ID, &trussItem, "", 200); err != nil {
+			t.Fatalf("create piece: %v", err)
+		}
+	}
+	// A legacy piece (no catalog link) must not bill.
+	if _, err := CreatePlotTrussPiece(database, truss.ID, nil, "Gammal tross 2m", 200); err != nil {
+		t.Fatalf("create legacy piece: %v", err)
+	}
+
+	// Place the truss on two plots — still counted once per event.
+	for _, plotName := range []string{"Main", "FOH"} {
+		plot, err := CreateStagePlot(database, eventID, plotName)
+		if err != nil {
+			t.Fatalf("create plot: %v", err)
+		}
+		layers, err := ListStagePlotLayers(database, plot.ID)
+		if err != nil || len(layers) == 0 {
+			t.Fatalf("plot layers: %v", err)
+		}
+		if _, err := CreateStagePlotElement(database, domain.StagePlotElement{
+			PlotID: plot.ID, LayerID: layers[0].ID, Kind: "truss", TrussID: &truss.ID, DepthCm: 30,
+		}); err != nil {
+			t.Fatalf("place truss on %s: %v", plotName, err)
+		}
+	}
+
+	summary, err := GetRentalSummary(database, eventID)
+	if err != nil {
+		t.Fatalf("summary after: %v", err)
+	}
+	line, ok := summaryByItem(summary)[trussItem]
+	if !ok {
+		t.Fatal("truss item missing from rental summary")
+	}
+	if line.QuantityLighting != 3 || line.QuantityAudio != 0 {
+		t.Errorf("truss pieces: lighting %d audio %d, want 3/0 (once per event, never per placement)", line.QuantityLighting, line.QuantityAudio)
+	}
+	if line.SubtotalExVAT != 300 {
+		t.Errorf("truss subtotal %v, want 300", line.SubtotalExVAT)
+	}
+	if summary.TotalQuantity != before.TotalQuantity+3 {
+		t.Errorf("total quantity %d, want %d (+3 pieces only)", summary.TotalQuantity, before.TotalQuantity+3)
+	}
+
+	// Stock validation applies like everywhere else.
+	overTruss, err := CreatePlotTruss(database, eventID, "Big rig", 0)
+	if err != nil {
+		t.Fatalf("create big truss: %v", err)
+	}
+	for i := 0; i < 8; i++ {
+		if _, err := CreatePlotTrussPiece(database, overTruss.ID, &trussItem, "", 200); err != nil {
+			t.Fatalf("create over-stock piece: %v", err)
+		}
+	}
+	summary, err = GetRentalSummary(database, eventID)
+	if err != nil {
+		t.Fatalf("summary over-stock: %v", err)
+	}
+	if line := summaryByItem(summary)[trussItem]; !line.IsOverStock {
+		t.Errorf("11 pieces of a 10-stock item not flagged over-stock: %+v", line)
+	}
+
+	// Deleting the trusses restores the exact pre-truss summary.
+	if err := DeletePlotTruss(database, eventID, truss.ID); err != nil {
+		t.Fatalf("delete truss: %v", err)
+	}
+	if err := DeletePlotTruss(database, eventID, overTruss.ID); err != nil {
+		t.Fatalf("delete big truss: %v", err)
+	}
+	after, err := GetRentalSummary(database, eventID)
+	if err != nil {
+		t.Fatalf("summary final: %v", err)
+	}
+	if after.TotalQuantity != before.TotalQuantity || after.TotalExVAT != before.TotalExVAT {
+		t.Errorf("summary changed after truss removal: %+v vs %+v", after, before)
+	}
+}

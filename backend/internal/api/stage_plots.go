@@ -38,6 +38,7 @@ func (h StagePlotsHandler) Register(r chi.Router) {
 			r.Delete("/elements/{elementID}/links/{linkID}", h.deleteLink)
 		})
 	})
+	h.registerTrussRoutes(r)
 }
 
 // eventAndPlot resolves the {eventID}/{plotID} pair, writing the error

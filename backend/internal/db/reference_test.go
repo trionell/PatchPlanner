@@ -222,14 +222,12 @@ func TestDeleteReferenceValueInUse(t *testing.T) {
 	mustExec(t, database, `INSERT INTO audio_patch_outputs (event_id, output_number, output_type) VALUES (?, 1, 'iem')`, eventID)
 	mustExec(t, database, `INSERT INTO output_devices (event_id, name, output_connector_type) VALUES (?, 'Speaker', 'nl8')`, eventID)
 	mustExec(t, database, `INSERT INTO lighting_rigs (event_id, name) VALUES (?, 'Rig')`, eventID)
-	mustExec(t, database, `INSERT INTO truss_sections (rig_id, name, truss_type) VALUES (1, 'Front', 'ladder')`)
 	mustExec(t, database, `INSERT INTO lighting_fixtures (rig_id, custom_name, power_connector_in, power_connector_out) VALUES (1, 'Wash', 'cee16', 'powercon_true1')`)
 
 	inUse := map[string]string{
 		"preamp_connectors":   "combo",
 		"speaker_cable_types": "nl8",
 		"output_types":        "iem",
-		"truss_types":         "ladder",
 	}
 	for vocabulary, value := range inUse {
 		id := referenceValueID(t, database, vocabulary, value)
@@ -245,10 +243,10 @@ func TestDeleteReferenceValueInUse(t *testing.T) {
 		}
 	}
 
-	// Clearing the referencing row unblocks deletion.
-	mustExec(t, database, `DELETE FROM truss_sections WHERE name = 'Front'`)
+	// truss_types lost its consuming column with Slice 13 — deleting one
+	// of its values is always allowed now.
 	if err := DeleteReferenceValue(database, "truss_types", referenceValueID(t, database, "truss_types", "ladder")); err != nil {
-		t.Errorf("delete after clearing usage: %v", err)
+		t.Errorf("delete untracked truss_types value: %v", err)
 	}
 }
 

@@ -2,12 +2,16 @@ import { describe, expect, it } from 'vitest'
 import type { StagePlotElement } from '../types'
 import {
   clampDimension,
+  clampFixtureOffset,
+  fixtureLabel,
   MIN_DIMENSION_CM,
+  parseLengthFromName,
   projectedBounds,
   projectElement,
   pxPerCm,
   roundCm,
   snapPosition,
+  trussLength,
   viewAxisFields,
   type SnapSettings,
 } from './stagePlot'
@@ -191,6 +195,64 @@ describe('snapPosition (SC-003: exact, deterministic)', () => {
     const neighbor = { minU: 200, maxU: 240, minV: 0, maxV: 30 }
     const snapped = snapPosition({ u: 175.3, v: 101.7 }, half, [neighbor], none, 1)
     expect(snapped).toEqual({ u: 175.3, v: 101.7, guides: [] })
+  })
+})
+
+describe('parseLengthFromName (catalog convention, research.md R3)', () => {
+  it('parses whole metres', () => {
+    expect(parseLengthFromName('Tross F34 2m')).toBe(200)
+    expect(parseLengthFromName('Tross F34 3 m')).toBe(300)
+  })
+  it('parses Swedish decimal comma', () => {
+    expect(parseLengthFromName('Tross F34 0,5m')).toBe(50)
+    expect(parseLengthFromName('Tross 1.5m')).toBe(150)
+  })
+  it('parses centimetres', () => {
+    expect(parseLengthFromName('Trossbit 50cm')).toBe(50)
+  })
+  it('takes the last length token, not a model number', () => {
+    expect(parseLengthFromName('F34 truss 2m')).toBe(200)
+  })
+  it('returns null when nothing matches', () => {
+    expect(parseLengthFromName('Tross hörn 90°')).toBeNull()
+    expect(parseLengthFromName('')).toBeNull()
+  })
+})
+
+describe('trussLength', () => {
+  it('is the exact sum of piece lengths (FR-023)', () => {
+    expect(trussLength([{ length_cm: 200 }, { length_cm: 200 }, { length_cm: 200 }])).toBe(600)
+    expect(trussLength([])).toBe(0)
+    expect(trussLength([{ length_cm: 250 }, { length_cm: 50 }])).toBe(300)
+  })
+})
+
+describe('fixtureLabel (FR-029)', () => {
+  const fixture = { fixture_name: 'Spot 1', fixture_number: 11, dmx_universe: 1, dmx_start_address: 1 }
+  it('composes all three parts', () => {
+    expect(fixtureLabel(fixture, { show_fixture_name: true, show_fixture_fid: true, show_fixture_dmx: true })).toBe('Spot 1 · FID 11 · 1.001')
+  })
+  it('respects each toggle', () => {
+    expect(fixtureLabel(fixture, { show_fixture_name: true, show_fixture_fid: false, show_fixture_dmx: false })).toBe('Spot 1')
+    expect(fixtureLabel(fixture, { show_fixture_name: false, show_fixture_fid: true, show_fixture_dmx: true })).toBe('FID 11 · 1.001')
+    expect(fixtureLabel(fixture, { show_fixture_name: false, show_fixture_fid: false, show_fixture_dmx: false })).toBe('')
+  })
+  it('omits parts with missing values', () => {
+    expect(
+      fixtureLabel({ fixture_name: 'Spot 2', dmx_universe: 1 }, { show_fixture_name: true, show_fixture_fid: true, show_fixture_dmx: true }),
+    ).toBe('Spot 2') // no FID, no DMX address yet
+  })
+  it('zero-pads the DMX address', () => {
+    expect(fixtureLabel({ ...fixture, dmx_start_address: 79 }, { show_fixture_name: false, show_fixture_fid: false, show_fixture_dmx: true })).toBe('1.079')
+  })
+})
+
+describe('clampFixtureOffset', () => {
+  it('passes in-range offsets through', () => {
+    expect(clampFixtureOffset(100, 600)).toEqual({ offset: 100, clamped: false })
+  })
+  it('clamps and flags out-of-range offsets (shortened truss edge case)', () => {
+    expect(clampFixtureOffset(700, 600)).toEqual({ offset: 600, clamped: true })
   })
 })
 

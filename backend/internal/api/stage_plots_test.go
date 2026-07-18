@@ -249,6 +249,114 @@ func TestStagePlotElementLinks(t *testing.T) {
 	}
 }
 
+// TestPlotTrusses covers event-scoped truss CRUD, pieces (summed
+// length), fixture attach/move/detach, and plot placement rules (US5).
+func TestPlotTrusses(t *testing.T) {
+	server, database := newTestServer(t)
+	eventID := seedEvent(t, server.URL)
+	trussesURL := fmt.Sprintf("%s/events/%d/plot-trusses", server.URL, eventID)
+	trussItemID := seedRoleItem(t, database, "truss", "Tross F34 2m", "", 10, 100)
+
+	// Create truss; height validation.
+	if status, _ := doJSON(t, http.MethodPost, trussesURL, map[string]any{"name": "Front truss", "height_cm": -1}); status != http.StatusBadRequest {
+		t.Errorf("negative height accepted: %d", status)
+	}
+	status, raw := doJSON(t, http.MethodPost, trussesURL, map[string]any{"name": "Front truss", "height_cm": 400})
+	if status != http.StatusCreated {
+		t.Fatalf("create truss: status %d body %s", status, raw)
+	}
+	truss := decodeJSON[domain.PlotTruss](t, raw)
+	trussURL := fmt.Sprintf("%s/%d", trussesURL, truss.ID)
+
+	// Pieces: validation and exact summed length (FR-023).
+	if status, _ = doJSON(t, http.MethodPost, trussURL+"/pieces", map[string]any{"length_cm": 0}); status != http.StatusBadRequest {
+		t.Errorf("zero-length piece accepted: %d", status)
+	}
+	if status, _ = doJSON(t, http.MethodPost, trussURL+"/pieces", map[string]any{"inventory_item_id": 99999, "length_cm": 200}); status != http.StatusNotFound {
+		t.Errorf("missing item accepted: %d", status)
+	}
+	for i := 0; i < 3; i++ {
+		status, raw = doJSON(t, http.MethodPost, trussURL+"/pieces", map[string]any{"inventory_item_id": trussItemID, "length_cm": 200})
+		if status != http.StatusCreated {
+			t.Fatalf("create piece %d: status %d body %s", i, status, raw)
+		}
+	}
+	truss = decodeJSON[domain.PlotTruss](t, raw)
+	if truss.TotalLengthCm != 600 || len(truss.Pieces) != 3 || truss.Pieces[0].ItemName != "Tross F34 2m" {
+		t.Fatalf("truss after pieces: total %v pieces %d", truss.TotalLengthCm, len(truss.Pieces))
+	}
+
+	// Fixture attach at an offset; moving to another truss is an upsert.
+	rigID, _ := lightingRigOf(t, server.URL, eventID)
+	status, raw = doJSON(t, http.MethodPost, fmt.Sprintf("%s/events/%d/lighting-rigs/%d/fixtures", server.URL, eventID, rigID), map[string]any{
+		"custom_name": "Spot 1", "dmx_universe": 1, "dmx_start_address": 1, "power_connection": "grid", "power_connector_in": "schuko"})
+	if status != http.StatusCreated {
+		t.Fatalf("create fixture: status %d body %s", status, raw)
+	}
+	fixture := decodeJSON[domain.LightingFixture](t, raw)
+
+	status, raw = doJSON(t, http.MethodPut, fmt.Sprintf("%s/fixtures/%d", trussURL, fixture.ID), map[string]any{"offset_cm": 100})
+	if status != http.StatusOK {
+		t.Fatalf("attach fixture: status %d body %s", status, raw)
+	}
+	truss = decodeJSON[domain.PlotTruss](t, raw)
+	if len(truss.Fixtures) != 1 || truss.Fixtures[0].OffsetCm == nil || *truss.Fixtures[0].OffsetCm != 100 || truss.Fixtures[0].FixtureName != "Spot 1" {
+		t.Fatalf("attached fixture wrong: %+v", truss.Fixtures)
+	}
+
+	status, raw = doJSON(t, http.MethodPost, trussesURL, map[string]any{"name": "Back truss"})
+	if status != http.StatusCreated {
+		t.Fatal("create second truss failed")
+	}
+	backTruss := decodeJSON[domain.PlotTruss](t, raw)
+	status, raw = doJSON(t, http.MethodPut, fmt.Sprintf("%s/%d/fixtures/%d", trussesURL, backTruss.ID, fixture.ID), map[string]any{"offset_cm": 50})
+	if status != http.StatusOK {
+		t.Fatalf("move fixture: status %d body %s", status, raw)
+	}
+	if moved := decodeJSON[domain.PlotTruss](t, raw); len(moved.Fixtures) != 1 {
+		t.Fatal("fixture did not move to second truss")
+	}
+	status, raw = doJSON(t, http.MethodGet, trussesURL, nil)
+	if status != http.StatusOK {
+		t.Fatal("list trusses failed")
+	}
+	all := decodeJSON[[]domain.PlotTruss](t, raw)
+	if len(all[0].Fixtures) != 0 {
+		t.Error("fixture still attached to first truss after move (must hang on at most one)")
+	}
+
+	// Plot placement: once per plot, twice across plots.
+	plot := seedStagePlot(t, server.URL, eventID, "Main stage")
+	base := fmt.Sprintf("%s/events/%d/stage-plots/%d", server.URL, eventID, plot.ID)
+	layerID := getPlotResponse(t, server.URL, eventID, plot.ID).Layers[0].ID
+	body := map[string]any{"layer_id": layerID, "kind": "truss", "truss_id": truss.ID, "depth_cm": 30}
+	if status, raw = doJSON(t, http.MethodPost, base+"/elements", body); status != http.StatusCreated {
+		t.Fatalf("place truss: status %d body %s", status, raw)
+	}
+	if status, _ = doJSON(t, http.MethodPost, base+"/elements", body); status != http.StatusConflict {
+		t.Errorf("second placement on same plot accepted: %d", status)
+	}
+	otherPlot := seedStagePlot(t, server.URL, eventID, "FOH")
+	otherBase := fmt.Sprintf("%s/events/%d/stage-plots/%d", server.URL, eventID, otherPlot.ID)
+	otherLayer := getPlotResponse(t, server.URL, eventID, otherPlot.ID).Layers[0].ID
+	if status, _ = doJSON(t, http.MethodPost, otherBase+"/elements", map[string]any{"layer_id": otherLayer, "kind": "truss", "truss_id": truss.ID, "depth_cm": 30}); status != http.StatusCreated {
+		t.Errorf("placement on second plot rejected: %d", status)
+	}
+
+	// Aggregate read carries the event's trusses.
+	if response := getPlotResponse(t, server.URL, eventID, plot.ID); len(response.Trusses) != 2 {
+		t.Errorf("aggregate trusses = %d, want 2", len(response.Trusses))
+	}
+
+	// Deleting the truss removes placements but never the rig fixture.
+	if status, _ = doJSON(t, http.MethodDelete, fmt.Sprintf("%s/%d", trussesURL, backTruss.ID), nil); status != http.StatusNoContent {
+		t.Fatal("delete truss failed")
+	}
+	if _, fixtures := lightingRigOf(t, server.URL, eventID); len(fixtures) != 1 {
+		t.Error("rig fixture deleted with truss")
+	}
+}
+
 // doJSONBody fetches the rental summary body for byte-identical
 // comparison (FR-015).
 func doJSONBody(t *testing.T, serverURL string, eventID int64) (string, int) {

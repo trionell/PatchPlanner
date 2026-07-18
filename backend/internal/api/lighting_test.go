@@ -99,19 +99,10 @@ func TestBulkAddFixtures(t *testing.T) {
 		t.Fatalf("POST existing fixture: status %d body %s", status, raw)
 	}
 
-	// Truss section for the batch.
-	status, raw = doJSON(t, http.MethodPost, fmt.Sprintf("%s/events/%d/lighting-rigs/%d/truss-sections", server.URL, eventID, rigID), map[string]any{
-		"name": "Front", "length_m": 6, "truss_type": "box",
-	})
-	if status != http.StatusCreated {
-		t.Fatalf("POST truss section: status %d body %s", status, raw)
-	}
-	sectionID := decodeJSON[domain.TrussSection](t, raw).ID
-
 	// Happy path: 8 units, numbered from 101, appended on universe 2.
 	status, raw = doJSON(t, http.MethodPost, bulkURL, map[string]any{
 		"inventory_item_id": modelID, "quantity": 8, "fixture_number_start": 101,
-		"dmx_channel_mode": "Extended", "dmx_channel_count": 16, "truss_section_id": sectionID,
+		"dmx_channel_mode": "Extended", "dmx_channel_count": 16,
 		"dmx_universe": 2, "power_connection": "grid", "power_connector_in": "powercon",
 	})
 	if status != http.StatusOK {
@@ -132,8 +123,8 @@ func TestBulkAddFixtures(t *testing.T) {
 		if fixture.DMXUniverse != 2 || fixture.DMXChannelMode != "Extended" || fixture.DMXChannelCount != 16 {
 			t.Errorf("unit %d shared settings wrong: %+v", i, fixture)
 		}
-		if fixture.TrussSectionID == nil || *fixture.TrussSectionID != sectionID || fixture.PowerConnectorIn != "powercon" {
-			t.Errorf("unit %d truss/power wrong: %+v", i, fixture)
+		if fixture.PowerConnectorIn != "powercon" {
+			t.Errorf("unit %d power wrong: %+v", i, fixture)
 		}
 		if fixture.PositionIndex != 2+i {
 			t.Errorf("unit %d position_index = %d, want %d", i, fixture.PositionIndex, 2+i)
