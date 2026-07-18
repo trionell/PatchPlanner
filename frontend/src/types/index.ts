@@ -13,7 +13,7 @@ export interface InventoryCategory {
   name: string
   category_type: 'audio' | 'lighting' | 'misc' | 'video' | 'rigging'
   /** Marks the category as a planning-picker source; absent = not offered. */
-  picker_role?: 'cable' | 'stand'
+  picker_role?: 'cable' | 'stand' | 'truss'
   item_count?: number
 }
 
@@ -274,21 +274,11 @@ export interface LightingRig {
   notes?: string
 }
 
-export interface TrussSection {
-  id: number
-  rig_id: number
-  name: string
-  length_m: number
-  /** Vocabulary value from reference data (truss_types). */
-  truss_type: string
-}
-
 export interface LightingFixture {
   id: number
   rig_id: number
   /** Console (GrandMA) fixture ID; optional, duplicates flagged in the UI. */
   fixture_number?: number
-  truss_section_id?: number
   inventory_item_id?: number
   inventory_item_name?: string
   custom_name?: string
@@ -303,7 +293,9 @@ export interface LightingFixture {
   dmx_channel_count: number
   dmx_chain_parent_id?: number
   notes?: string
-  truss_section_name?: string
+  /** Read-only, derived from the stage plot truss attachment (FR-030). */
+  truss_name?: string
+  truss_offset_cm?: number
 }
 
 /** One bulk-add batch: N identical fixtures with shared settings. */
@@ -313,7 +305,6 @@ export interface BulkFixtureRequest {
   fixture_number_start?: number
   dmx_channel_mode?: string
   dmx_channel_count: number
-  truss_section_id?: number
   dmx_universe: number
   power_connection: 'grid' | 'chain'
   power_connector_in: string
@@ -424,7 +415,6 @@ export interface AudioPatchResponse {
 
 export interface LightingRigResponse {
   rig: LightingRig
-  sections: TrussSection[]
   fixtures: LightingFixture[]
 }
 

@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react'
-import type { StagePlot, StagePlotElement, StagePlotLayer, StagePlotView } from '../../types'
+import type { PlotTruss, StagePlot, StagePlotElement, StagePlotLayer, StagePlotView } from '../../types'
 import type { StagePlotElementPatch } from '../../api/stagePlots'
 import {
   clampDimension,
+  clampFixtureOffset,
+  fixtureLabel,
   projectedBounds,
   projectElement,
   roundCm,
@@ -25,6 +27,7 @@ interface StagePlotCanvasProps {
   plot: StagePlot
   layers: StagePlotLayer[]
   elements: StagePlotElement[]
+  trusses: PlotTruss[]
   view: StagePlotView
   viewState: PlotViewState
   onViewStateChange: (state: PlotViewState) => void
@@ -66,6 +69,7 @@ export function StagePlotCanvas({
   plot,
   layers,
   elements,
+  trusses,
   view,
   viewState,
   onViewStateChange,
@@ -109,8 +113,28 @@ export function StagePlotCanvas({
     [panX, panY, zoom],
   )
 
-  const effectiveElement = (element: StagePlotElement): StagePlotElement =>
-    override && override.id === element.id ? { ...element, ...override.patch } : element
+  const trussById = new Map(trusses.map((truss) => [truss.id, truss]))
+
+  // Live drag override + derived truss geometry (a truss's length is the
+  // sum of its pieces; its vertical placement is its hang height —
+  // FR-023/FR-025), folded in here so rendering, dragging and snapping
+  // all agree on one geometry.
+  const effectiveElement = (element: StagePlotElement): StagePlotElement => {
+    let current = override && override.id === element.id ? { ...element, ...override.patch } : element
+    if (current.kind === 'truss' && current.truss_id != null) {
+      const truss = trussById.get(current.truss_id)
+      if (truss) {
+        current = {
+          ...current,
+          width_cm: Math.max(truss.total_length_cm, 20),
+          height_cm: 30,
+          z_cm: truss.height_cm,
+          name: current.name || truss.name,
+        }
+      }
+    }
+    return current
+  }
 
   // ---- Interaction handlers ----
 
@@ -303,9 +327,62 @@ export function StagePlotCanvas({
           {iconGlyph(current.icon ?? '', view)}
         </svg>
       )
+    } else if (current.kind === 'truss' && current.truss_id != null && trussById.has(current.truss_id)) {
+      const truss = trussById.get(current.truss_id) as PlotTruss
+      const length = Math.max(truss.total_length_cm, 20)
+      const labelSettings = {
+        show_fixture_name: plot.show_fixture_name,
+        show_fixture_fid: plot.show_fixture_fid,
+        show_fixture_dmx: plot.show_fixture_dmx,
+      }
+      // Piece divider positions (cumulative lengths along the bar).
+      const dividers: number[] = []
+      let cumulative = 0
+      for (let i = 0; i < truss.pieces.length - 1; i++) {
+        cumulative += truss.pieces[i].length_cm
+        dividers.push(cumulative)
+      }
+      const barHalf = view === 'side' ? halfW : halfH
+      body = (
+        <g>
+          <rect x={-halfW} y={-halfH} width={rect.width} height={Math.max(rect.height, 4)} fill="rgba(245,158,11,0.08)" stroke="currentColor" strokeWidth={2 / zoom} />
+          {view !== 'side' &&
+            dividers.map((position) => (
+              <line key={position} x1={-halfW + position} x2={-halfW + position} y1={-halfH} y2={halfH} stroke="currentColor" strokeWidth={1 / zoom} opacity={0.6} />
+            ))}
+          {view !== 'side' &&
+            truss.fixtures.map((fixture) => {
+              if (fixture.offset_cm == null) return null
+              const { offset, clamped } = clampFixtureOffset(fixture.offset_cm, length)
+              const label = fixtureLabel(fixture, labelSettings)
+              const size = Math.max(14, 10 / zoom)
+              return (
+                <g key={fixture.id} transform={`translate(${-halfW + offset} ${barHalf})`}>
+                  <rect
+                    x={-size / 2}
+                    y={2 / zoom}
+                    width={size}
+                    height={size * 0.8}
+                    rx={2 / zoom}
+                    fill={clamped ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.25)'}
+                    stroke={clamped ? '#ef4444' : 'currentColor'}
+                    strokeWidth={1.2 / zoom}
+                  >
+                    {clamped && <title>Beyond the truss's current length — reposition this fixture</title>}
+                  </rect>
+                  {label && (
+                    <text y={size * 0.8 + 2 / zoom + fontSize} textAnchor="middle" fill="#a1a1aa" fontSize={fontSize * 0.85} style={{ userSelect: 'none' }}>
+                      {label}
+                    </text>
+                  )}
+                </g>
+              )
+            })}
+        </g>
+      )
     } else {
-      // truss / fixture placements get their real rendering in US5;
-      // draw an honest outlined box so nothing is invisible meanwhile.
+      // Free-standing fixture placement (or a truss whose row vanished):
+      // an honest outlined box so nothing is invisible.
       body = (
         <rect x={-halfW} y={-halfH} width={rect.width} height={Math.max(rect.height, 4)} fill="transparent" stroke="currentColor" strokeDasharray={`${6 / zoom} ${4 / zoom}`} strokeWidth={2 / zoom} />
       )

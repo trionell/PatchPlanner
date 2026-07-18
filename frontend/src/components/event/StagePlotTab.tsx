@@ -19,11 +19,12 @@ import {
   type StagePlotElementCreate,
   type StagePlotElementPatch,
 } from '../../api/stagePlots'
-import type { StagePlotResponse } from '../../types'
+import type { PlotTruss, StagePlotResponse } from '../../types'
 import { useDraftState } from '../../hooks/useDraftState'
 import { roundCm } from '../../lib/stagePlot'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
+import { PlotTrussManager } from './PlotTrussManager'
 import { StagePlotCanvas, type PlotViewState } from './StagePlotCanvas'
 import { StagePlotInspector, StagePlotLayersPanel } from './StagePlotInspector'
 import { StagePlotPalette } from './StagePlotPalette'
@@ -49,6 +50,7 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
   const [creatingName, setCreatingName] = useState<string | null>(null)
   const [renamingName, setRenamingName] = useState<string | null>(null)
   const [gridSizeDraft, setGridSizeDraft] = useDraftState(response?.plot.grid_size_cm, String, '25')
+  const [trussManagerOpen, setTrussManagerOpen] = useState(false)
 
   // Viewport state lives here (not in the canvas) so the palette can
   // place elements at the visible centre; persisted debounced.
@@ -220,6 +222,13 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
     createElementMutation.mutate({ ...template, layer_id: activeLayerId, x_cm: centerU, y_cm: centerV })
   }
 
+  const handlePlaceTruss = (truss: PlotTruss) => {
+    handlePlace({ kind: 'truss', truss_id: truss.id, name: '', z_cm: 0, width_cm: 0, depth_cm: 30, height_cm: 30, rotation_deg: 0 })
+    setTrussManagerOpen(false)
+  }
+
+  const placedTrussIds = new Set((response?.elements ?? []).filter((element) => element.truss_id != null).map((element) => element.truss_id as number))
+
   // ---- Render ----
 
   if (plotsQuery.isLoading) return <p className="text-sm text-zinc-400">Loading stage plots…</p>
@@ -385,6 +394,10 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
               />
               Snap to objects
             </label>
+            <span className="h-5 w-px bg-zinc-800" aria-hidden />
+            <Button variant="outline" size="sm" onClick={() => setTrussManagerOpen(true)}>
+              Trusses…
+            </Button>
             <span className="ml-auto text-xs text-zinc-500">1 square = {response.plot.grid_size_cm} cm · canvas is true to scale</span>
           </div>
 
@@ -395,6 +408,7 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
               <StagePlotCanvas
                 key={activePlotId}
                 plot={response.plot}
+                trusses={response.trusses}
                 layers={response.layers}
                 elements={response.elements}
                 view="top"
@@ -428,7 +442,33 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
                 onUpdate={(layerId, patch) => updateLayerMutation.mutate({ layerId, patch })}
                 onDelete={(layerId) => deleteLayerMutation.mutate(layerId)}
               />
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
+                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Fixture labels</p>
+                <div className="flex flex-col gap-1.5 text-sm text-zinc-400">
+                  <label className="flex items-center gap-1.5">
+                    <input type="checkbox" className="accent-amber-500" checked={response.plot.show_fixture_name} onChange={(e) => updatePlotSettings.mutate({ show_fixture_name: e.target.checked })} />
+                    Name
+                  </label>
+                  <label className="flex items-center gap-1.5">
+                    <input type="checkbox" className="accent-amber-500" checked={response.plot.show_fixture_fid} onChange={(e) => updatePlotSettings.mutate({ show_fixture_fid: e.target.checked })} />
+                    Fixture ID (FID)
+                  </label>
+                  <label className="flex items-center gap-1.5">
+                    <input type="checkbox" className="accent-amber-500" checked={response.plot.show_fixture_dmx} onChange={(e) => updatePlotSettings.mutate({ show_fixture_dmx: e.target.checked })} />
+                    DMX universe · address
+                  </label>
+                </div>
+              </div>
             </div>
+            <PlotTrussManager
+              eventId={eventId}
+              trusses={response.trusses}
+              open={trussManagerOpen}
+              onClose={() => setTrussManagerOpen(false)}
+              onChanged={invalidatePlot}
+              onPlace={handlePlaceTruss}
+              placedTrussIds={placedTrussIds}
+            />
           </div>
         </>
       )}

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
-import type { AudioPatchOutput, InputCable, InputChannel, InputDevice, InputSource, LightingFixture, MixerDCA, MixerGroup, OutputCable, OutputDevice, StageMulti, Stagebox, TrussSection } from '../../types'
+import type { AudioPatchOutput, InputCable, InputChannel, InputDevice, InputSource, LightingFixture, MixerDCA, MixerGroup, OutputCable, OutputDevice, StageMulti, Stagebox } from '../../types'
 import { InputPatchSheet } from './InputPatchSheet'
 import { LightingRigSheet } from './LightingRigSheet'
 import { OutputPatchSheet } from './OutputPatchSheet'
@@ -231,7 +231,6 @@ describe('OutputPatchSheet', () => {
 
 describe('LightingRigSheet', () => {
   it('renders fixtures with DMX range and power chains', () => {
-    const sections: TrussSection[] = [{ id: 9, rig_id: 1, name: 'Front Truss', length_m: 6, truss_type: 'box' }]
     const base: Omit<LightingFixture, 'id' | 'position_index'> = {
       rig_id: 1, power_connection: 'grid', power_connector_in: 'schuko',
       dmx_universe: 1, dmx_channel_count: 16, dmx_channel_mode: 'Extended',
@@ -240,15 +239,15 @@ describe('LightingRigSheet', () => {
       <LightingRigSheet
         eventId={1}
         fixtures={[
-          { ...base, id: 11, position_index: 1, inventory_item_name: 'ADJ Encore', truss_section_id: 9, dmx_start_address: 1, fixture_number: 101 },
+          { ...base, id: 11, position_index: 1, inventory_item_name: 'ADJ Encore', truss_name: 'Front Truss', truss_offset_cm: 150, dmx_start_address: 1, fixture_number: 101 },
           { ...base, id: 12, position_index: 2, custom_name: 'House blinder', power_connection: 'chain', power_chain_parent_id: 11, dmx_start_address: 17 },
         ]}
-        sections={sections}
       />,
     )
     expect(html).toContain('ADJ Encore')
     expect(html).toContain('House blinder')
-    expect(html).toContain('Front Truss')
+    // Truss column is read-only, derived from the stage plot attachment.
+    expect(html).toContain('Front Truss · 150 cm')
     // FID column: printed when set, empty cell when not.
     expect(html).toContain('FID')
     expect(html).toContain('101')
