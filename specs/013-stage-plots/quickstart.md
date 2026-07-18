@@ -22,9 +22,9 @@ Record the reference event's rental totals **before** the first run with
 the new migrations and diff after (SC-004/SC-008 byte-for-byte check):
 
 ```bash
-curl -s localhost:8080/api/v1/events/1/rental-summary > /tmp/claude-1000/rental-before.json
+curl -s localhost:8080/api/v1/events/1/rentals > /tmp/claude-1000/rental-before.json
 # ...start new build against the copy...
-curl -s localhost:8080/api/v1/events/1/rental-summary | diff /tmp/claude-1000/rental-before.json -
+curl -s localhost:8080/api/v1/events/1/rentals | diff /tmp/claude-1000/rental-before.json -
 ```
 
 ## Manual walkthrough (maps to spec user stories)

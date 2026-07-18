@@ -19,7 +19,7 @@
 
 **Purpose**: Baseline capture so every later rental assertion has ground truth. No project scaffolding needed — the feature lands in the existing trees.
 
-- [ ] T001 Copy the dev DB per quickstart.md (never run against the live file) and save the reference event's `GET /api/v1/events/{id}/rental-summary` response to `specs/013-stage-plots/rental-baseline.json` for the SC-004/SC-008 byte-for-byte diffs in T031/T036
+- [x] T001 Copy the dev DB per quickstart.md (never run against the live file) and save the reference event's `GET /api/v1/events/{id}/rental-summary` response to `specs/013-stage-plots/rental-baseline.json` for the SC-004/SC-008 byte-for-byte diffs in T031/T036
 
 ---
 
@@ -27,13 +27,13 @@
 
 **Purpose**: Schema, domain types, and the plot/element plumbing every story builds on. No UI yet.
 
-- [ ] T002 Migration `backend/migrations/032_stage_plots.up.sql` + `.down.sql`: create all seven tables exactly per data-model.md (stage_plots, stage_plot_layers, stage_plot_elements, stage_plot_trusses, stage_plot_truss_pieces, stage_plot_truss_fixtures, stage_plot_element_links) and seed `inventory_categories.picker_role = 'truss'` where name = 'Tross'; leave `truss_sections` untouched (dropped later in T032)
-- [ ] T003 [P] Domain structs in `backend/internal/domain/stageplot.go`: StagePlot, StagePlotLayer, StagePlotElement, PlotTruss, TrussPiece, TrussFixture, ElementLink, StagePlotResponse (aggregate) — pure structs, no DB tags, matching contracts/stage-plots-api.md field names
-- [ ] T004 [P] Frontend types in `frontend/src/types/index.ts`: StagePlot, StagePlotLayer, StagePlotElement, PlotTruss, TrussPiece, TrussFixture, ElementLink, StagePlotResponse; element `kind`/`shape_kind`/view unions
-- [ ] T005 DB layer in `backend/internal/db/stage_plots.go`: plot CRUD (create makes plot + default "Layer 1" in one transaction), plot settings update, layer CRUD (delete rejects the plot's last layer), element CRUD with kind-field validation helpers, and the aggregate read returning plot + layers + elements (links/trusses arrays empty until T024/T027)
-- [ ] T006 API handlers in `backend/internal/api/stage_plots.go` for plots, layers, elements per contracts/stage-plots-api.md (400 kind/field validation, 409 last-layer and duplicate-truss-placement, 404s); register `StagePlotsHandler` in `backend/internal/api/router.go`
-- [ ] T007 httptest suite `backend/internal/api/stage_plots_test.go`: plot create makes default layer, settings PATCH round-trip, last-layer delete 409, element kind validation (exactly one of shape_kind/icon/truss_id/fixture_id), element spatial PATCH, plot delete cascades
-- [ ] T008 [P] API client module `frontend/src/api/stagePlots.ts` (the per-domain module pattern, e.g. `api/lighting.ts`): typed functions for every route in contracts/stage-plots-api.md
+- [x] T002 Migration `backend/migrations/032_stage_plots.up.sql` + `.down.sql`: create all seven tables exactly per data-model.md (stage_plots, stage_plot_layers, stage_plot_elements, stage_plot_trusses, stage_plot_truss_pieces, stage_plot_truss_fixtures, stage_plot_element_links) and seed `inventory_categories.picker_role = 'truss'` where name = 'Tross'; leave `truss_sections` untouched (dropped later in T032)
+- [x] T003 [P] Domain structs in `backend/internal/domain/stageplot.go`: StagePlot, StagePlotLayer, StagePlotElement, PlotTruss, TrussPiece, TrussFixture, ElementLink, StagePlotResponse (aggregate) — pure structs, no DB tags, matching contracts/stage-plots-api.md field names
+- [x] T004 [P] Frontend types in `frontend/src/types/index.ts`: StagePlot, StagePlotLayer, StagePlotElement, PlotTruss, TrussPiece, TrussFixture, ElementLink, StagePlotResponse; element `kind`/`shape_kind`/view unions
+- [x] T005 DB layer in `backend/internal/db/stage_plots.go`: plot CRUD (create makes plot + default "Layer 1" in one transaction), plot settings update, layer CRUD (delete rejects the plot's last layer), element CRUD with kind-field validation helpers, and the aggregate read returning plot + layers + elements (links/trusses arrays empty until T024/T027)
+- [x] T006 API handlers in `backend/internal/api/stage_plots.go` for plots, layers, elements per contracts/stage-plots-api.md (400 kind/field validation, 409 last-layer and duplicate-truss-placement, 404s); register `StagePlotsHandler` in `backend/internal/api/router.go`
+- [x] T007 httptest suite `backend/internal/api/stage_plots_test.go`: plot create makes default layer, settings PATCH round-trip, last-layer delete 409, element kind validation (exactly one of shape_kind/icon/truss_id/fixture_id), element spatial PATCH, plot delete cascades
+- [x] T008 [P] API client module `frontend/src/api/stagePlots.ts` (the per-domain module pattern, e.g. `api/lighting.ts`): typed functions for every route in contracts/stage-plots-api.md
 
 **Checkpoint**: `go test ./...` green; plots/layers/elements fully manipulable via curl — no UI yet.
 
@@ -45,15 +45,15 @@
 
 **Independent Test**: Quickstart step 1 — create a plot, draw a 600×400 cm stage, place a 46 cm speaker, verify proportions at any zoom, reload, everything persists.
 
-- [ ] T009 [P] [US1] Pure geometry module `frontend/src/lib/stagePlot.ts`: `projectElement(element, view)` mapping x/y/z + w/d/h to the three orthographic views (research.md R7; only 'top' consumed until US6), px↔cm conversion for a given zoom, rotation-aware element bounds, min-size clamping
-- [ ] T010 [P] [US1] Vitest suite `frontend/src/lib/stagePlot.test.ts`: projection round-trips for all three views, bounds under rotation, SC-002 ratio check (200 cm element measures exactly half a 400 cm element in every view)
-- [ ] T011 [P] [US1] Icon registry `frontend/src/lib/stagePlotIcons.tsx` — core set, **top-down variants** with default cm dimensions (research.md R9): person, mic, speaker, monitor, rack, truss, fixture; registry API keyed by id with per-view lookup and labeled-placeholder fallback for unknown ids
-- [ ] T012 [P] [US1] Icon registry — instrument set, **top-down variants**: drums, piano_grand, piano_upright, keyboard, guitar_acoustic, guitar_electric, bass, cello, trumpet, saxophone (FR-008's distinct-per-instrument minimum) in `frontend/src/lib/stagePlotIcons.tsx`
-- [ ] T013 [US1] `frontend/src/components/event/StagePlotTab.tsx`: plot tabs bar (list/create/rename/delete/switch, React Query on `api/stagePlots.ts`), toolbar shell (zoom −/100 %/+ readout), three-column editor layout hosting palette/canvas/inspector
-- [ ] T014 [US1] `frontend/src/components/event/StagePlotCanvas.tsx`: cm-native SVG viewBox (research.md R1), zoom/pan (wheel + drag, persisted via plot settings PATCH), selection, drag-move/resize handles/rotate with save-on-drop element PATCH, name labels beside icons (legible outside the footprint — spec edge case)
-- [ ] T015 [P] [US1] `frontend/src/components/event/StagePlotPalette.tsx`: Shapes (rect/ellipse/line/text), Resources (core icons), Instruments, Lighting sections; clicking/dragging places an element with the icon's default cm dimensions on the active layer
-- [ ] T016 [P] [US1] `frontend/src/components/event/StagePlotInspector.tsx`: numeric editing (name, icon picker, x/y, width/depth, rotation) applying immediately via element PATCH; duplicate + delete actions
-- [ ] T017 [US1] Add the "Stage Plots" tab to `frontend/src/pages/EventDetail.tsx` (after "Lighting Rig")
+- [x] T009 [P] [US1] Pure geometry module `frontend/src/lib/stagePlot.ts`: `projectElement(element, view)` mapping x/y/z + w/d/h to the three orthographic views (research.md R7; only 'top' consumed until US6), px↔cm conversion for a given zoom, rotation-aware element bounds, min-size clamping
+- [x] T010 [P] [US1] Vitest suite `frontend/src/lib/stagePlot.test.ts`: projection round-trips for all three views, bounds under rotation, SC-002 ratio check (200 cm element measures exactly half a 400 cm element in every view)
+- [x] T011 [P] [US1] Icon registry `frontend/src/lib/stagePlotIcons.tsx` — core set, **top-down variants** with default cm dimensions (research.md R9): person, mic, speaker, monitor, rack, truss, fixture; registry API keyed by id with per-view lookup and labeled-placeholder fallback for unknown ids
+- [x] T012 [P] [US1] Icon registry — instrument set, **top-down variants**: drums, piano_grand, piano_upright, keyboard, guitar_acoustic, guitar_electric, bass, cello, trumpet, saxophone (FR-008's distinct-per-instrument minimum) in `frontend/src/lib/stagePlotIcons.tsx`
+- [x] T013 [US1] `frontend/src/components/event/StagePlotTab.tsx`: plot tabs bar (list/create/rename/delete/switch, React Query on `api/stagePlots.ts`), toolbar shell (zoom −/100 %/+ readout), three-column editor layout hosting palette/canvas/inspector
+- [x] T014 [US1] `frontend/src/components/event/StagePlotCanvas.tsx`: cm-native SVG viewBox (research.md R1), zoom/pan (wheel + drag, persisted via plot settings PATCH), selection, drag-move/resize handles/rotate with save-on-drop element PATCH, name labels beside icons (legible outside the footprint — spec edge case)
+- [x] T015 [P] [US1] `frontend/src/components/event/StagePlotPalette.tsx`: Shapes (rect/ellipse/line/text), Resources (core icons), Instruments, Lighting sections; clicking/dragging places an element with the icon's default cm dimensions on the active layer
+- [x] T016 [P] [US1] `frontend/src/components/event/StagePlotInspector.tsx`: numeric editing (name, icon picker, x/y, width/depth, rotation) applying immediately via element PATCH; duplicate + delete actions
+- [x] T017 [US1] Add the "Stage Plots" tab to `frontend/src/pages/EventDetail.tsx` (after "Lighting Rig")
 
 **Checkpoint**: US1 fully usable and persistent — the MVP ships here.
 
@@ -65,9 +65,9 @@
 
 **Independent Test**: Quickstart step 2 — dragged positions land on exact grid multiples or exact neighbour alignments; toggles restore on reload.
 
-- [ ] T018 [P] [US2] `snapPosition(dragged, neighbors, settings, pxPerCm)` in `frontend/src/lib/stagePlot.ts` per research.md R8: per-axis candidates, object edge/centre alignment beats grid within an 8-screen-px threshold converted to cm, returns snapped cm values + guide descriptors
-- [ ] T019 [P] [US2] Extend `frontend/src/lib/stagePlot.test.ts`: SC-003 exactness (snapped results are exact grid multiples / exact neighbour coordinates, no epsilon), object-over-grid precedence, threshold respects zoom, disabled toggles bypass
-- [ ] T020 [US2] Grid + snapping in `frontend/src/components/event/StagePlotCanvas.tsx`: adaptive grid rendering (thin line density per zoom band — 40×60 m venue edge case), snapPosition wired into drag, alignment guide overlay; toolbar controls in `StagePlotTab.tsx` (grid toggle, size input in cm, two snap checkboxes) persisted via plot settings PATCH
+- [x] T018 [P] [US2] `snapPosition(dragged, neighbors, settings, pxPerCm)` in `frontend/src/lib/stagePlot.ts` per research.md R8: per-axis candidates, object edge/centre alignment beats grid within an 8-screen-px threshold converted to cm, returns snapped cm values + guide descriptors
+- [x] T019 [P] [US2] Extend `frontend/src/lib/stagePlot.test.ts`: SC-003 exactness (snapped results are exact grid multiples / exact neighbour coordinates, no epsilon), object-over-grid precedence, threshold respects zoom, disabled toggles bypass
+- [x] T020 [US2] Grid + snapping in `frontend/src/components/event/StagePlotCanvas.tsx`: adaptive grid rendering (thin line density per zoom band — 40×60 m venue edge case), snapPosition wired into drag, alignment guide overlay; toolbar controls in `StagePlotTab.tsx` (grid toggle, size input in cm, two snap checkboxes) persisted via plot settings PATCH
 
 **Checkpoint**: US1 + US2 — accurate layout is now fast.
 
@@ -79,8 +79,8 @@
 
 **Independent Test**: Quickstart step 3 — hidden layers unselectable, locked layers uneditable, new elements join the active layer, last-layer delete blocked.
 
-- [ ] T021 [US3] Layers panel in `frontend/src/components/event/StagePlotInspector.tsx` sidebar: list with color dot, visibility eye, lock, active-layer highlight; create/rename/reorder/delete-with-confirmation (elements deleted with it; 409 on last layer surfaced as a disabled action)
-- [ ] T022 [US3] Layer semantics in `frontend/src/components/event/StagePlotCanvas.tsx` + `StagePlotInspector.tsx`: hidden layers skipped from render and hit-testing, locked layers rendered but inert, layer color tints element strokes, new elements target the active layer, inspector "Layer" select moves elements between layers
+- [x] T021 [US3] Layers panel in `frontend/src/components/event/StagePlotInspector.tsx` sidebar: list with color dot, visibility eye, lock, active-layer highlight; create/rename/reorder/delete-with-confirmation (elements deleted with it; 409 on last layer surfaced as a disabled action)
+- [x] T022 [US3] Layer semantics in `frontend/src/components/event/StagePlotCanvas.tsx` + `StagePlotInspector.tsx`: hidden layers skipped from render and hit-testing, locked layers rendered but inert, layer color tints element strokes, new elements target the active layer, inspector "Layer" select moves elements between layers
 
 **Checkpoint**: Mixed audio/lighting plots stay workable.
 
@@ -92,11 +92,11 @@
 
 **Independent Test**: Quickstart step 4 — assign, verify display, delete the underlying entity in its own tab, link vanishes, element stays, rental diff empty.
 
-- [ ] T023 [US4] Link CRUD in `backend/internal/db/stage_plots.go` + `backend/internal/api/stage_plots.go`: POST/PATCH/DELETE element links per contract (Go-validated entity_kind enum, target-existence 404, duplicate 409, stack sort_order)
-- [ ] T024 [US4] Aggregate-read link resolution in `backend/internal/db/stage_plots.go`: per-kind JOINs producing `display_name` (+ FID/DMX fields for lighting_fixture links), dangling targets dropped and opportunistically deleted (research.md R6)
-- [ ] T025 [US4] Delete-path cleanup — add `DELETE FROM stage_plot_element_links WHERE entity_kind = ? AND entity_id = ?` to the delete functions for input_sources/input_channels (`backend/internal/db/audio_patch.go`), output_devices/input_devices (`audio_patch.go`), stageboxes/stage_multis (`backend/internal/db/buses.go`), lighting_fixtures (`backend/internal/db/lighting.go`)
-- [ ] T026 [US4] Extend `backend/internal/api/stage_plots_test.go`: link kind/target validation, duplicate 409, entity delete clears links, aggregate read drops dangling rows, and rental summary is byte-identical before/after adding assignments + stack entries (FR-015)
-- [ ] T027 [US4] Assignments + stack UI in `frontend/src/components/event/StagePlotInspector.tsx`: per-kind pickers over existing event data (React Query caches already used by the patch tabs), assignment chips with remove, stack entry list with add/reorder/remove; `StagePlotCanvas.tsx` draws assignment-count badge and stack ×N badge
+- [x] T023 [US4] Link CRUD in `backend/internal/db/stage_plots.go` + `backend/internal/api/stage_plots.go`: POST/PATCH/DELETE element links per contract (Go-validated entity_kind enum, target-existence 404, duplicate 409, stack sort_order)
+- [x] T024 [US4] Aggregate-read link resolution in `backend/internal/db/stage_plots.go`: per-kind JOINs producing `display_name` (+ FID/DMX fields for lighting_fixture links), dangling targets dropped and opportunistically deleted (research.md R6)
+- [x] T025 [US4] Delete-path cleanup — add `DELETE FROM stage_plot_element_links WHERE entity_kind = ? AND entity_id = ?` to the delete functions for input_sources/input_channels (`backend/internal/db/audio_patch.go`), output_devices/input_devices (`audio_patch.go`), stageboxes/stage_multis (`backend/internal/db/buses.go`), lighting_fixtures (`backend/internal/db/lighting.go`)
+- [x] T026 [US4] Extend `backend/internal/api/stage_plots_test.go`: link kind/target validation, duplicate 409, entity delete clears links, aggregate read drops dangling rows, and rental summary is byte-identical before/after adding assignments + stack entries (FR-015)
+- [x] T027 [US4] Assignments + stack UI in `frontend/src/components/event/StagePlotInspector.tsx`: per-kind pickers over existing event data (React Query caches already used by the patch tabs), assignment chips with remove, stack entry list with add/reorder/remove; `StagePlotCanvas.tsx` draws assignment-count badge and stack ×N badge
 
 **Checkpoint**: Plots now document who/what is where against real planned data.
 

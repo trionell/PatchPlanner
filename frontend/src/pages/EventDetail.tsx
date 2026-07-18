@@ -8,6 +8,7 @@ import { LightingTab } from '../components/event/LightingTab'
 import { OverviewTab } from '../components/event/OverviewTab'
 import { RentalTab } from '../components/event/RentalTab'
 import { SignalFlowTab } from '../components/event/SignalFlowTab'
+import { StagePlotTab } from '../components/event/StagePlotTab'
 import { Tab, TabList, TabPanel, Tabs } from '../components/ui/Tabs'
 
 export function EventDetailPage() {
@@ -35,6 +36,7 @@ export function EventDetailPage() {
           <Tab value="audio-inputs">Audio Inputs</Tab>
           <Tab value="audio-outputs">Audio Outputs</Tab>
           <Tab value="lighting-rig">Lighting Rig</Tab>
+          <Tab value="stage-plots">Stage Plots</Tab>
           <Tab value="signal-flow">Signal Flow</Tab>
           <Tab value="equipment">Equipment</Tab>
           <Tab value="rentals">Rental Order</Tab>
@@ -44,6 +46,7 @@ export function EventDetailPage() {
         <TabPanel value="audio-inputs"><AudioInputsTab eventId={eventId} /></TabPanel>
         <TabPanel value="audio-outputs"><AudioOutputsTab eventId={eventId} /></TabPanel>
         <TabPanel value="lighting-rig"><LightingTab eventId={eventId} /></TabPanel>
+        <TabPanel value="stage-plots"><StagePlotTab eventId={eventId} /></TabPanel>
         <TabPanel value="signal-flow"><SignalFlowTab eventId={eventId} /></TabPanel>
         <TabPanel value="equipment"><EquipmentTab eventId={eventId} /></TabPanel>
         <TabPanel value="rentals"><RentalTab eventId={eventId} /></TabPanel>

@@ -79,6 +79,9 @@ func DeleteStagebox(db *sql.DB, id int64) error {
 	if _, err := tx.Exec(`DELETE FROM input_cables WHERE (from_kind = 'stagebox' AND from_id = ?) OR (to_kind = 'stagebox' AND to_id = ?)`, id, id); err != nil {
 		return fmt.Errorf("clear input cable stagebox references: %w", err)
 	}
+	if err := clearStagePlotLinksTo(tx, "stagebox", id); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(`DELETE FROM stageboxes WHERE id = ?`, id); err != nil {
 		return fmt.Errorf("delete stagebox: %w", err)
 	}
@@ -153,6 +156,9 @@ func DeleteStageMulti(db *sql.DB, id int64) error {
 	}
 	if _, err := tx.Exec(`DELETE FROM input_cables WHERE (from_kind = 'stage_multi' AND from_id = ?) OR (to_kind = 'stage_multi' AND to_id = ?)`, id, id); err != nil {
 		return fmt.Errorf("clear input cable stage multi references: %w", err)
+	}
+	if err := clearStagePlotLinksTo(tx, "stage_multi", id); err != nil {
+		return err
 	}
 	if _, err := tx.Exec(`DELETE FROM stage_multis WHERE id = ?`, id); err != nil {
 		return fmt.Errorf("delete stage multi: %w", err)
@@ -283,6 +289,9 @@ func DeleteInputChannel(db *sql.DB, id int64) error {
 	defer tx.Rollback()
 	if _, err := tx.Exec(`DELETE FROM input_cables WHERE to_kind = 'channel' AND to_id = ?`, id); err != nil {
 		return fmt.Errorf("clear input channel cables: %w", err)
+	}
+	if err := clearStagePlotLinksTo(tx, "input_channel", id); err != nil {
+		return err
 	}
 	if _, err := tx.Exec(`DELETE FROM input_channels WHERE id = ?`, id); err != nil {
 		return fmt.Errorf("delete input channel: %w", err)
@@ -416,6 +425,9 @@ func DeleteOutputDevice(db *sql.DB, id int64) error {
 	defer tx.Rollback()
 	if _, err := tx.Exec(`DELETE FROM output_cables WHERE (from_kind = 'device' AND from_id = ?) OR (from_kind = 'device_link' AND from_id = ?) OR (to_kind = 'device' AND to_id = ?)`, id, id, id); err != nil {
 		return fmt.Errorf("clear output device cables: %w", err)
+	}
+	if err := clearStagePlotLinksTo(tx, "output_device", id); err != nil {
+		return err
 	}
 	if _, err := tx.Exec(`DELETE FROM output_devices WHERE id = ?`, id); err != nil {
 		return fmt.Errorf("delete output device: %w", err)
@@ -556,6 +568,9 @@ func DeleteInputSource(db *sql.DB, id int64) error {
 	if _, err := tx.Exec(`DELETE FROM input_cables WHERE from_kind = 'source' AND from_id = ?`, id); err != nil {
 		return fmt.Errorf("clear input source cables: %w", err)
 	}
+	if err := clearStagePlotLinksTo(tx, "input_source", id); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(`DELETE FROM input_sources WHERE id = ?`, id); err != nil {
 		return fmt.Errorf("delete input source: %w", err)
 	}
@@ -633,6 +648,9 @@ func DeleteInputDevice(db *sql.DB, id int64) error {
 	defer tx.Rollback()
 	if _, err := tx.Exec(`DELETE FROM input_cables WHERE (from_kind = 'device' AND from_id = ?) OR (to_kind = 'device' AND to_id = ?)`, id, id); err != nil {
 		return fmt.Errorf("clear input device cables: %w", err)
+	}
+	if err := clearStagePlotLinksTo(tx, "input_device", id); err != nil {
+		return err
 	}
 	if _, err := tx.Exec(`DELETE FROM input_devices WHERE id = ?`, id); err != nil {
 		return fmt.Errorf("delete input device: %w", err)

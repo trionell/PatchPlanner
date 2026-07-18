@@ -127,6 +127,9 @@ func DeleteLightingFixture(db *sql.DB, id int64) error {
 	if _, err := tx.Exec(`UPDATE lighting_fixtures SET dmx_chain_parent_id = NULL WHERE dmx_chain_parent_id = ?`, id); err != nil {
 		return fmt.Errorf("clear dmx chain references: %w", err)
 	}
+	if err := clearStagePlotLinksTo(tx, "lighting_fixture", id); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(`DELETE FROM lighting_fixtures WHERE id = ?`, id); err != nil {
 		return fmt.Errorf("delete lighting fixture: %w", err)
 	}
