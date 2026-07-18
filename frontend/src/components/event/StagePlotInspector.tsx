@@ -38,8 +38,10 @@ interface ElementDraft {
   name: string
   x: string
   y: string
+  z: string
   width: string
   depth: string
+  height: string
   rotation: string
 }
 
@@ -48,8 +50,10 @@ function toDraft(element: StagePlotElement): ElementDraft {
     name: element.name,
     x: String(element.x_cm),
     y: String(element.y_cm),
+    z: String(element.z_cm),
     width: String(element.width_cm),
     depth: String(element.depth_cm),
+    height: String(element.height_cm),
     rotation: String(element.rotation_deg),
   }
 }
@@ -321,7 +325,7 @@ function LinksSection({ eventId, element, disabled, onAdd, onReorder, onRemove }
  *  Values commit on blur or Enter (FR-022). */
 export function StagePlotInspector({ eventId, element, layers, onUpdate, onDuplicate, onDelete, onAddLink, onReorderLink, onDeleteLink }: StagePlotInspectorProps) {
   const [draft, setDraft] = useDraftState<StagePlotElement, ElementDraft>(element ?? undefined, toDraft, {
-    name: '', x: '0', y: '0', width: '0', depth: '0', rotation: '0',
+    name: '', x: '0', y: '0', z: '0', width: '0', depth: '0', height: '0', rotation: '0',
   })
 
   if (!element) {
@@ -431,6 +435,29 @@ export function StagePlotInspector({ eventId, element, layers, onUpdate, onDupli
               onBlur={() => commitNumber('depth', 'depth_cm', (value) => Math.max(0, value))}
               onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
               aria-label="Depth (cm)"
+            />
+          </Row>
+        )}
+
+        {element.kind !== 'truss' && (
+          <Row label="Elev. (cm)">
+            <Input
+              className="h-8 text-right tabular-nums"
+              value={draft.z}
+              onChange={(e) => setDraft((prev) => ({ ...prev, z: e.target.value }))}
+              onBlur={() => commitNumber('z', 'z_cm', (value) => Math.max(0, value))}
+              onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+              aria-label="Height above floor (cm)"
+              title="Bottom edge above the floor — front/side views"
+            />
+            <Input
+              className="h-8 text-right tabular-nums"
+              value={draft.height}
+              onChange={(e) => setDraft((prev) => ({ ...prev, height: e.target.value }))}
+              onBlur={() => commitNumber('height', 'height_cm', (value) => Math.max(0, value))}
+              onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+              aria-label="Element height (cm)"
+              title="Vertical extent — front/side views"
             />
           </Row>
         )}

@@ -395,6 +395,25 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
               Snap to objects
             </label>
             <span className="h-5 w-px bg-zinc-800" aria-hidden />
+            {/* Three linked projections of the same model (US6): an edit
+                in any view is an edit of the shared elements. */}
+            <div className="inline-flex rounded-md border border-zinc-700 bg-zinc-900 p-0.5">
+              {(['top', 'front', 'side'] as const).map((viewOption) => (
+                <button
+                  key={viewOption}
+                  type="button"
+                  onClick={() => updatePlotSettings.mutate({ active_view: viewOption })}
+                  className={
+                    response.plot.active_view === viewOption
+                      ? 'rounded bg-amber-500 px-2.5 py-1 text-xs font-medium text-zinc-950'
+                      : 'rounded px-2.5 py-1 text-xs text-zinc-400 hover:text-zinc-200'
+                  }
+                >
+                  {viewOption === 'top' ? 'Top' : viewOption === 'front' ? 'Front' : 'Side'}
+                </button>
+              ))}
+            </div>
+            <span className="h-5 w-px bg-zinc-800" aria-hidden />
             <Button variant="outline" size="sm" onClick={() => setTrussManagerOpen(true)}>
               Trusses…
             </Button>
@@ -411,7 +430,7 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
                 trusses={response.trusses}
                 layers={response.layers}
                 elements={response.elements}
-                view="top"
+                view={response.plot.active_view}
                 viewState={viewState}
                 onViewStateChange={handleViewStateChange}
                 selectedElementId={selectedElementId}

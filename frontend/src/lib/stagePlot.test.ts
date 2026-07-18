@@ -89,6 +89,24 @@ describe('scale exactness (SC-002)', () => {
   })
 })
 
+describe('cross-view consistency (SC-006)', () => {
+  it('an edit made through one view is immediately visible in the others', () => {
+    const el = element({ x_cm: 100, y_cm: 200, z_cm: 0, height_cm: 60 })
+    // Raise the element by 120 cm via the front view's vertical axis.
+    const axes = viewAxisFields('front')
+    const raised = { ...el, [axes.v]: 120 } as typeof el
+    // The side view reflects the same height without any sync step…
+    expect(projectElement(raised, 'side').v).toBe(120 + 60 / 2)
+    // …and the top view is unaffected (z is not one of its axes).
+    expect(projectElement(raised, 'top')).toEqual(projectElement(el, 'top'))
+
+    // Move across the stage via the top view; the front view follows.
+    const movedAxes = viewAxisFields('top')
+    const moved = { ...el, [movedAxes.u]: 350 } as typeof el
+    expect(projectElement(moved, 'front').u).toBe(350)
+  })
+})
+
 describe('viewAxisFields', () => {
   it('maps drags to the correct stored fields per view', () => {
     expect(viewAxisFields('top')).toEqual({ u: 'x_cm', v: 'y_cm' })

@@ -128,10 +128,10 @@
 
 **Independent Test**: Quickstart step 6.
 
-- [ ] T037 [P] [US6] Icon registry front + side variants — core set (person, mic, speaker, monitor, rack, truss, fixture) in `frontend/src/lib/stagePlotIcons.tsx`
-- [ ] T038 [P] [US6] Icon registry front + side variants — instrument set (drums, both pianos, keyboard, both guitars, bass, cello, trumpet, saxophone) in `frontend/src/lib/stagePlotIcons.tsx`
-- [ ] T039 [US6] View switching in `frontend/src/components/event/StagePlotTab.tsx` + `StagePlotCanvas.tsx`: Top/Front/Side segmented control (persisted `active_view`), canvas renders via `projectElement` for the active view (trusses at `height_cm`, floor line at z = 0), drag edits the projected axes only (vertical drag in front/side writes `z_cm`), rotation restricted to top view (research.md R7), grid + snapPosition operating on the view's axis pair
-- [ ] T040 [US6] Height editing in `frontend/src/components/event/StagePlotInspector.tsx`: z (height above floor) and height_cm fields; truss hang-height field in `PlotTrussManager.tsx`; extend `frontend/src/lib/stagePlot.test.ts` cross-view consistency (edit in one view, other projections agree — SC-006's pure-logic core)
+- [x] T037 [P] [US6] Icon registry front + side variants — core set (person, mic, speaker, monitor, rack, truss, fixture) in `frontend/src/lib/stagePlotIcons.tsx`
+- [x] T038 [P] [US6] Icon registry front + side variants — instrument set (drums, both pianos, keyboard, both guitars, bass, cello, trumpet, saxophone) in `frontend/src/lib/stagePlotIcons.tsx`
+- [x] T039 [US6] View switching in `frontend/src/components/event/StagePlotTab.tsx` + `StagePlotCanvas.tsx`: Top/Front/Side segmented control (persisted `active_view`), canvas renders via `projectElement` for the active view (trusses at `height_cm`, floor line at z = 0), drag edits the projected axes only (vertical drag in front/side writes `z_cm`), rotation restricted to top view (research.md R7), grid + snapPosition operating on the view's axis pair
+- [x] T040 [US6] Height editing in `frontend/src/components/event/StagePlotInspector.tsx`: z (height above floor) and height_cm fields; truss hang-height field in `PlotTrussManager.tsx`; extend `frontend/src/lib/stagePlot.test.ts` cross-view consistency (edit in one view, other projections agree — SC-006's pure-logic core)
 
 **Checkpoint**: Vertical rigging is truthful; all six stories done.
 
