@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
-import type { AudioPatchOutput, InputCable, InputChannel, InputDevice, InputSource, LightingFixture, MixerDCA, MixerGroup, OutputCable, OutputDevice, StageMulti, Stagebox } from '../../types'
+import type { AudioPatchOutput, StagePlotResponse, InputCable, InputChannel, InputDevice, InputSource, LightingFixture, MixerDCA, MixerGroup, OutputCable, OutputDevice, StageMulti, Stagebox } from '../../types'
 import { InputPatchSheet } from './InputPatchSheet'
 import { LightingRigSheet } from './LightingRigSheet'
 import { OutputPatchSheet } from './OutputPatchSheet'
+import { StagePlotSheet } from './StagePlotSheet'
 
 /**
  * Static server-render of the sheets: verifies the printed table content
@@ -254,6 +255,46 @@ describe('LightingRigSheet', () => {
     expect(html).toContain('1–16')
     expect(html).toContain('grid schuko')
     expect(html).toContain('chain ← #1')
+    expect(html).not.toMatch(/<(input|select|button|textarea)\b/)
+  })
+})
+
+describe('StagePlotSheet', () => {
+  it('renders the active view to scale with the grid caption and fixture labels', () => {
+    const response: StagePlotResponse = {
+      plot: {
+        id: 1, event_id: 1, name: 'Main stage', sort_order: 0,
+        grid_visible: true, grid_size_cm: 25, snap_grid: true, snap_objects: true,
+        show_fixture_name: true, show_fixture_fid: true, show_fixture_dmx: true,
+        active_view: 'top', zoom: 1, pan_x_cm: 0, pan_y_cm: 0,
+      },
+      layers: [
+        { id: 1, plot_id: 1, name: 'Stage', sort_order: 0, visible: true, locked: false },
+        { id: 2, plot_id: 1, name: 'Hidden', sort_order: 1, visible: false, locked: false },
+      ],
+      elements: [
+        { id: 10, plot_id: 1, layer_id: 1, kind: 'shape', shape_kind: 'rect', name: 'Stage 600×400', x_cm: 300, y_cm: 200, z_cm: 0, width_cm: 600, depth_cm: 400, height_cm: 0, rotation_deg: 0, links: [] },
+        { id: 11, plot_id: 1, layer_id: 1, kind: 'resource', icon: 'drums', name: 'Anna — Drums', x_cm: 300, y_cm: 120, z_cm: 0, width_cm: 200, depth_cm: 150, height_cm: 120, rotation_deg: 0, links: [] },
+        { id: 12, plot_id: 1, layer_id: 1, kind: 'truss', truss_id: 7, name: '', x_cm: 300, y_cm: 30, z_cm: 0, width_cm: 0, depth_cm: 30, height_cm: 30, rotation_deg: 0, links: [] },
+        { id: 13, plot_id: 1, layer_id: 2, kind: 'resource', icon: 'person', name: 'Hidden person', x_cm: 0, y_cm: 0, z_cm: 0, width_cm: 60, depth_cm: 40, height_cm: 180, rotation_deg: 0, links: [] },
+      ],
+      trusses: [
+        {
+          id: 7, event_id: 1, name: 'Front truss', height_cm: 400, total_length_cm: 600,
+          pieces: [{ id: 1, truss_id: 7, inventory_item_id: 42, item_name: 'Tross F34 2m', length_cm: 200, sort_order: 0 }],
+          fixtures: [{ id: 1, truss_id: 7, fixture_id: 5, offset_cm: 100, fixture_number: 11, fixture_name: 'Spot 1', dmx_universe: 1, dmx_start_address: 1 }],
+        },
+      ],
+    }
+    const html = render(<StagePlotSheet eventId={1} response={response} />)
+    expect(html).toContain('Stage Plot — Main stage (Top view)')
+    expect(html).toContain('Grid square = 25 cm')
+    expect(html).toContain('Anna — Drums')
+    expect(html).toContain('Front truss')
+    // All three labels composed for the truss fixture.
+    expect(html).toContain('Spot 1 · FID 11 · 1.001')
+    // Hidden layers stay off the paper.
+    expect(html).not.toContain('Hidden person')
     expect(html).not.toMatch(/<(input|select|button|textarea)\b/)
   })
 })

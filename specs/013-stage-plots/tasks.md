@@ -139,9 +139,9 @@
 
 ## Phase 9: Polish & Cross-Cutting
 
-- [ ] T041 [P] Print sheet `frontend/src/components/print/StagePlotSheet.tsx`: active view via the shared projection/label helpers inside the `.print-sheet` pattern with scale caption ("1 square = N cm") + PrintButton wiring in `StagePlotTab.tsx`; extend `frontend/src/components/print/printSheets.test.tsx`
-- [ ] T042 [P] Update `ROADMAP.md`: add Slice 13 summary with checked deliverables and the dependency-graph line
-- [ ] T043 Full gates + walkthrough: `go vet ./... && go test ./... && golangci-lint run` (backend), `npx tsc --noEmit && npx eslint . && npx vitest run` (frontend), then the complete quickstart.md manual walkthrough on the DB copy; fix anything found
+- [x] T041 [P] Print sheet `frontend/src/components/print/StagePlotSheet.tsx`: active view via the shared projection/label helpers inside the `.print-sheet` pattern with scale caption ("1 square = N cm") + PrintButton wiring in `StagePlotTab.tsx`; extend `frontend/src/components/print/printSheets.test.tsx`
+- [x] T042 [P] Update `ROADMAP.md`: add Slice 13 summary with checked deliverables and the dependency-graph line
+- [x] T043 Full gates + walkthrough: `go vet ./... && go test ./... && golangci-lint run` (backend), `npx tsc --noEmit && npx eslint . && npx vitest run` (frontend), then the complete quickstart.md manual walkthrough on the DB copy; fix anything found
 
 ---
 

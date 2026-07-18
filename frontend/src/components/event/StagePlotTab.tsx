@@ -24,6 +24,8 @@ import { useDraftState } from '../../hooks/useDraftState'
 import { roundCm } from '../../lib/stagePlot'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
+import { PrintButton } from '../print/PrintButton'
+import { StagePlotSheet } from '../print/StagePlotSheet'
 import { PlotTrussManager } from './PlotTrussManager'
 import { StagePlotCanvas, type PlotViewState } from './StagePlotCanvas'
 import { StagePlotInspector, StagePlotLayersPanel } from './StagePlotInspector'
@@ -244,7 +246,8 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
   })()
 
   return (
-    <div className="space-y-3">
+    <>
+    <div className="space-y-3 print:hidden">
       {/* Plot tabs bar */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-900 p-1">
@@ -417,6 +420,7 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
             <Button variant="outline" size="sm" onClick={() => setTrussManagerOpen(true)}>
               Trusses…
             </Button>
+            <PrintButton />
             <span className="ml-auto text-xs text-zinc-500">1 square = {response.plot.grid_size_cm} cm · canvas is true to scale</span>
           </div>
 
@@ -492,5 +496,7 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
         </>
       )}
     </div>
+    {response && <StagePlotSheet eventId={eventId} response={response} />}
+    </>
   )
 }
