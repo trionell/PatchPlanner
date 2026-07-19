@@ -6,9 +6,7 @@ import {
   autoAssignDMX,
   bulkAddFixtures,
   createLightingFixture,
-  createTrussSection,
   deleteLightingFixture,
-  deleteTrussSection,
   getLightingRig,
   updateLightingFixture,
 } from '../../api/lighting'
@@ -27,7 +25,6 @@ import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table'
 
-const emptyTrussDraft = { name: '', length_m: '', truss_type: 'box' }
 const emptyFixtureDraft = { inventory_item_id: '', custom_name: '', dmx_channel_mode: 'Basic', dmx_channel_count: 8 }
 const emptyBulkDraft = {
   inventory_item_id: '',
@@ -35,7 +32,6 @@ const emptyBulkDraft = {
   fixture_number_start: '',
   dmx_channel_mode: 'Basic',
   dmx_channel_count: 8,
-  truss_section_id: '',
   dmx_universe: 1,
   power_connection: 'grid' as BulkFixtureRequest['power_connection'],
   power_connector_in: 'schuko',
@@ -52,10 +48,8 @@ export function LightingTab({ eventId }: { eventId: number }) {
   const [fixtureDraft, setFixtureDraft] = useState(emptyFixtureDraft)
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false)
   const [bulkDraft, setBulkDraft] = useState(emptyBulkDraft)
-  const [trussDraft, setTrussDraft] = useState(emptyTrussDraft)
 
   const rigId = lightingQuery.data?.rig.id
-  const sections = lightingQuery.data?.sections ?? []
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['lighting-rig', eventId] })
@@ -90,23 +84,6 @@ export function LightingTab({ eventId }: { eventId: number }) {
       await invalidate()
     },
   })
-  const addTrussMutation = useMutation({
-    mutationFn: () => createTrussSection(eventId, rigId!, {
-      rig_id: rigId!,
-      name: trussDraft.name,
-      length_m: Number(trussDraft.length_m) || 0,
-      truss_type: trussDraft.truss_type,
-    }),
-    onSuccess: async () => {
-      setTrussDraft(emptyTrussDraft)
-      await queryClient.invalidateQueries({ queryKey: ['lighting-rig', eventId] })
-    },
-  })
-  const deleteTrussMutation = useMutation({
-    mutationFn: (sectionId: number) => deleteTrussSection(eventId, rigId!, sectionId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['lighting-rig', eventId] }),
-  })
-
   const lightingOptions = useMemo(
     () => (lightingInventoryQuery.data ?? []).map((item) => ({ label: item.name, value: item.id })),
     [lightingInventoryQuery.data],
@@ -145,48 +122,6 @@ export function LightingTab({ eventId }: { eventId: number }) {
   return (
     <>
       <div className="print:hidden">
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Truss sections</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-3 flex flex-wrap items-end gap-3">
-              <div className="min-w-48">
-                <label className="mb-1 block text-sm text-zinc-300">Name</label>
-                <Input value={trussDraft.name} onChange={(e) => setTrussDraft((prev) => ({ ...prev, name: e.target.value }))} placeholder="e.g. Front Truss" />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm text-zinc-300">Length (m)</label>
-                <Input type="number" step="0.5" value={trussDraft.length_m} onChange={(e) => setTrussDraft((prev) => ({ ...prev, length_m: e.target.value }))} className="w-24" />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm text-zinc-300">Type</label>
-                <Select value={trussDraft.truss_type} onChange={(e) => setTrussDraft((prev) => ({ ...prev, truss_type: e.target.value }))}>
-                  {options('truss_types', trussDraft.truss_type).map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
-                </Select>
-              </div>
-              <Button size="sm" disabled={!trussDraft.name.trim() || !rigId || addTrussMutation.isPending} onClick={() => addTrussMutation.mutate()}>
-                <Plus className="mr-2 h-4 w-4" />Add Section
-              </Button>
-            </div>
-            {sections.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {sections.map((section) => (
-                  <span key={section.id} className="inline-flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-200">
-                    {section.name}
-                    <span className="text-xs text-zinc-500">{section.truss_type}{section.length_m ? ` · ${section.length_m} m` : ''}</span>
-                    <button className="text-zinc-500 hover:text-red-400" title="Delete section" onClick={() => deleteTrussMutation.mutate(section.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-zinc-500">No truss sections yet — add one to assign fixtures to positions.</p>
-            )}
-          </CardContent>
-        </Card>
-
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <div>
@@ -241,11 +176,15 @@ export function LightingTab({ eventId }: { eventId: number }) {
                         />
                       </TableCell>
                       <TableCell className="min-w-48"><div className="space-y-2"><div className="font-medium">{fixture.inventory_item_name || fixture.custom_name || 'Unnamed fixture'}</div><Input value={fixture.custom_name ?? ''} onChange={(e) => updateDraft(index, 'custom_name', e.target.value)} onBlur={() => persist(fixtures[index])} placeholder="Custom label" /></div></TableCell>
-                      <TableCell>
-                        <Select value={fixture.truss_section_id ?? ''} onChange={(e) => updateDraft(index, 'truss_section_id', toOptionalNumber(e.target.value))} onBlur={() => persist(fixtures[index])} className="min-w-32">
-                          <option value="">—</option>
-                          {sections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
-                        </Select>
+                      <TableCell className="min-w-32 whitespace-nowrap text-zinc-300" title="Assigned by placing the fixture on a truss in the Stage Plots tab">
+                        {fixture.truss_name ? (
+                          <>
+                            {fixture.truss_name}
+                            {fixture.truss_offset_cm != null && <span className="text-zinc-500"> · {fixture.truss_offset_cm} cm</span>}
+                          </>
+                        ) : (
+                          <span className="text-zinc-600">—</span>
+                        )}
                       </TableCell>
                       <TableCell><Input type="number" value={fixture.position_index} onChange={(e) => updateDraft(index, 'position_index', Number(e.target.value))} onBlur={() => persist(fixtures[index])} className="min-w-20" /></TableCell>
                       <TableCell><div className="flex items-center gap-2"><Select value={fixture.power_connection} onChange={(e) => updateDraft(index, 'power_connection', e.target.value as LightingFixture['power_connection'])} onBlur={() => persist(fixtures[index])} className="min-w-24"><option value="grid">grid</option><option value="chain">chain</option></Select>{fixture.power_connection === 'chain' && <Link2 className="h-4 w-4 text-amber-400" />}</div></TableCell>
@@ -412,13 +351,6 @@ export function LightingTab({ eventId }: { eventId: number }) {
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm text-zinc-300">Truss section</label>
-                <Select value={bulkDraft.truss_section_id} onChange={(e) => setBulkDraft((prev) => ({ ...prev, truss_section_id: e.target.value }))}>
-                  <option value="">—</option>
-                  {sections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
-                </Select>
-              </div>
-              <div>
                 <label className="mb-1 block text-sm text-zinc-300">DMX universe</label>
                 <Input type="number" min={1} value={bulkDraft.dmx_universe} onChange={(e) => setBulkDraft((prev) => ({ ...prev, dmx_universe: Number(e.target.value) }))} />
               </div>
@@ -448,7 +380,6 @@ export function LightingTab({ eventId }: { eventId: number }) {
                     fixture_number_start: toOptionalNumber(bulkDraft.fixture_number_start),
                     dmx_channel_mode: bulkDraft.dmx_channel_mode,
                     dmx_channel_count: bulkDraft.dmx_channel_count,
-                    truss_section_id: toOptionalNumber(bulkDraft.truss_section_id),
                     dmx_universe: bulkDraft.dmx_universe,
                     power_connection: bulkDraft.power_connection,
                     power_connector_in: bulkDraft.power_connector_in,
@@ -462,7 +393,7 @@ export function LightingTab({ eventId }: { eventId: number }) {
           </div>
         </Dialog>
       </div>
-      <LightingRigSheet eventId={eventId} fixtures={fixtures} sections={sections} />
+      <LightingRigSheet eventId={eventId} fixtures={fixtures} />
     </>
   )
 }

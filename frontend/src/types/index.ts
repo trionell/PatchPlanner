@@ -13,7 +13,7 @@ export interface InventoryCategory {
   name: string
   category_type: 'audio' | 'lighting' | 'misc' | 'video' | 'rigging'
   /** Marks the category as a planning-picker source; absent = not offered. */
-  picker_role?: 'cable' | 'stand'
+  picker_role?: 'cable' | 'stand' | 'truss'
   item_count?: number
 }
 
@@ -274,21 +274,11 @@ export interface LightingRig {
   notes?: string
 }
 
-export interface TrussSection {
-  id: number
-  rig_id: number
-  name: string
-  length_m: number
-  /** Vocabulary value from reference data (truss_types). */
-  truss_type: string
-}
-
 export interface LightingFixture {
   id: number
   rig_id: number
   /** Console (GrandMA) fixture ID; optional, duplicates flagged in the UI. */
   fixture_number?: number
-  truss_section_id?: number
   inventory_item_id?: number
   inventory_item_name?: string
   custom_name?: string
@@ -303,7 +293,9 @@ export interface LightingFixture {
   dmx_channel_count: number
   dmx_chain_parent_id?: number
   notes?: string
-  truss_section_name?: string
+  /** Read-only, derived from the stage plot truss attachment (FR-030). */
+  truss_name?: string
+  truss_offset_cm?: number
 }
 
 /** One bulk-add batch: N identical fixtures with shared settings. */
@@ -313,7 +305,6 @@ export interface BulkFixtureRequest {
   fixture_number_start?: number
   dmx_channel_mode?: string
   dmx_channel_count: number
-  truss_section_id?: number
   dmx_universe: number
   power_connection: 'grid' | 'chain'
   power_connector_in: string
@@ -424,11 +415,137 @@ export interface AudioPatchResponse {
 
 export interface LightingRigResponse {
   rig: LightingRig
-  sections: TrussSection[]
   fixtures: LightingFixture[]
 }
 
 export interface InventoryImportResult {
   categories_imported: number
   items_imported: number
+}
+
+// ---- Stage plots (Slice 13) ----
+// All positions/dimensions are centimetres; the canvas renders
+// 1 SVG user unit = 1 cm.
+
+export type StagePlotView = 'top' | 'front' | 'side'
+export type StagePlotElementKind = 'shape' | 'resource' | 'truss' | 'fixture'
+export type StagePlotShapeKind = 'rect' | 'ellipse' | 'line' | 'text'
+export type StagePlotLinkRole = 'assignment' | 'stack'
+export type StagePlotEntityKind =
+  | 'input_source'
+  | 'input_channel'
+  | 'output_device'
+  | 'input_device'
+  | 'stagebox'
+  | 'stage_multi'
+  | 'lighting_fixture'
+
+export interface StagePlot {
+  id: number
+  event_id: number
+  name: string
+  sort_order: number
+  grid_visible: boolean
+  grid_size_cm: number
+  snap_grid: boolean
+  snap_objects: boolean
+  show_fixture_name: boolean
+  show_fixture_fid: boolean
+  show_fixture_dmx: boolean
+  active_view: StagePlotView
+  zoom: number
+  pan_x_cm: number
+  pan_y_cm: number
+}
+
+export interface StagePlotLayer {
+  id: number
+  plot_id: number
+  name: string
+  sort_order: number
+  color?: string
+  visible: boolean
+  locked: boolean
+}
+
+export interface StagePlotLink {
+  id: number
+  element_id: number
+  role: StagePlotLinkRole
+  entity_kind: StagePlotEntityKind
+  entity_id: number
+  sort_order: number
+  /** Resolved at read time; dangling links are never returned. */
+  display_name: string
+  fixture_number?: number
+  dmx_universe?: number
+  dmx_start_address?: number
+}
+
+export interface StagePlotElement {
+  id: number
+  plot_id: number
+  layer_id: number
+  kind: StagePlotElementKind
+  shape_kind?: StagePlotShapeKind
+  icon?: string
+  truss_id?: number
+  fixture_id?: number
+  name: string
+  x_cm: number
+  y_cm: number
+  z_cm: number
+  width_cm: number
+  depth_cm: number
+  height_cm: number
+  rotation_deg: number
+  /** Front-view rotation (rake about the depth axis), degrees. */
+  tilt_deg: number
+  notes?: string
+  links: StagePlotLink[]
+}
+
+export interface PlotTrussPiece {
+  id: number
+  truss_id: number
+  inventory_item_id?: number
+  item_name?: string
+  label?: string
+  length_cm: number
+  sort_order: number
+}
+
+/** Which lane of the truss a fixture hangs on, as seen in the top view. */
+export type TrussSide = 'top' | 'middle' | 'bottom'
+
+export interface PlotTrussFixture {
+  id: number
+  truss_id: number
+  fixture_id: number
+  /** Position along the truss from its left end; absent = unpositioned (legacy). */
+  offset_cm?: number
+  side: TrussSide
+  fixture_number?: number
+  fixture_name: string
+  dmx_universe: number
+  dmx_start_address?: number
+}
+
+/** Event-scoped: placed on plots by reference, counted once per event. */
+export interface PlotTruss {
+  id: number
+  event_id: number
+  name: string
+  height_cm: number
+  total_length_cm: number
+  pieces: PlotTrussPiece[]
+  fixtures: PlotTrussFixture[]
+}
+
+export interface StagePlotResponse {
+  plot: StagePlot
+  layers: StagePlotLayer[]
+  elements: StagePlotElement[]
+  /** All of the event's trusses, placed on this plot or not. */
+  trusses: PlotTruss[]
 }

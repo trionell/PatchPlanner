@@ -88,55 +88,62 @@ func TestAutoAssignDMXUniverseOverflow(t *testing.T) {
 	}
 }
 
-// TestTrussSectionLifecycle covers truss CRUD and that deleting a section
-// unassigns its fixtures instead of failing or dangling.
-func TestTrussSectionLifecycle(t *testing.T) {
+// TestFixtureTrussDisplayDerived covers FR-030: the fixture's truss info
+// is read-only, derived from the stage plot truss attachment — present
+// with name (and offset when known), empty when unattached, and cleared
+// (fixture intact) when the plot truss is deleted.
+func TestFixtureTrussDisplayDerived(t *testing.T) {
 	database := openTestDB(t)
 	eventID := createTestEvent(t, database)
 	rig, err := GetOrCreateDefaultLightingRig(database, eventID)
 	if err != nil {
 		t.Fatalf("create rig: %v", err)
 	}
-
-	section, err := CreateTrussSection(database, domain.TrussSection{RigID: rig.ID, Name: "FOH Truss", LengthM: 8, TrussType: "box"})
-	if err != nil {
-		t.Fatalf("create truss section: %v", err)
-	}
-	updated, err := UpdateTrussSection(database, section.ID, domain.TrussSection{Name: "Front Truss", LengthM: 10, TrussType: "ladder"})
-	if err != nil {
-		t.Fatalf("update truss section: %v", err)
-	}
-	if updated.Name != "Front Truss" || updated.LengthM != 10 || updated.TrussType != "ladder" {
-		t.Errorf("updated section: %+v", updated)
-	}
-
 	fixture := createTestFixture(t, database, rig.ID, 1, 1, 8)
-	if _, err := UpdateLightingFixture(database, fixture.ID, withTruss(fixture, section.ID)); err != nil {
-		t.Fatalf("assign fixture to truss: %v", err)
-	}
+
 	got, err := GetLightingFixture(database, fixture.ID)
 	if err != nil {
 		t.Fatalf("get fixture: %v", err)
 	}
-	if got.TrussSectionName != "Front Truss" {
-		t.Errorf("fixture truss name %q, want Front Truss", got.TrussSectionName)
+	if got.TrussName != "" || got.TrussOffsetCm != nil {
+		t.Errorf("unattached fixture must show no truss: %+v", got)
 	}
 
-	if err := DeleteTrussSection(database, section.ID); err != nil {
-		t.Fatalf("delete truss section: %v", err)
+	truss, err := CreatePlotTruss(database, eventID, "Front truss", 400)
+	if err != nil {
+		t.Fatalf("create plot truss: %v", err)
+	}
+	offset := 150.0
+	if err := AttachPlotTrussFixture(database, truss.ID, fixture.ID, &offset, "middle"); err != nil {
+		t.Fatalf("attach fixture: %v", err)
 	}
 	got, err = GetLightingFixture(database, fixture.ID)
 	if err != nil {
-		t.Fatalf("get fixture after truss delete: %v", err)
+		t.Fatalf("get fixture after attach: %v", err)
 	}
-	if got.TrussSectionID != nil {
-		t.Errorf("fixture still references deleted truss section")
+	if got.TrussName != "Front truss" || got.TrussOffsetCm == nil || *got.TrussOffsetCm != 150 {
+		t.Errorf("attached fixture truss display wrong: %+v", got)
 	}
-}
 
-func withTruss(fixture domain.LightingFixture, sectionID int64) domain.LightingFixture {
-	fixture.TrussSectionID = &sectionID
-	return fixture
+	// Unknown position (legacy conversion) shows the name alone.
+	if err := AttachPlotTrussFixture(database, truss.ID, fixture.ID, nil, "middle"); err != nil {
+		t.Fatalf("re-attach without offset: %v", err)
+	}
+	got, _ = GetLightingFixture(database, fixture.ID)
+	if got.TrussName != "Front truss" || got.TrussOffsetCm != nil {
+		t.Errorf("offset-less attachment wrong: %+v", got)
+	}
+
+	if err := DeletePlotTruss(database, eventID, truss.ID); err != nil {
+		t.Fatalf("delete plot truss: %v", err)
+	}
+	got, err = GetLightingFixture(database, fixture.ID)
+	if err != nil {
+		t.Fatalf("fixture must survive truss deletion: %v", err)
+	}
+	if got.TrussName != "" {
+		t.Errorf("fixture still shows deleted truss: %+v", got)
+	}
 }
 
 // TestForeignKeysEnforced verifies FK enforcement holds on every pooled

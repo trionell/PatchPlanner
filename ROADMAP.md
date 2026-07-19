@@ -357,10 +357,58 @@ express cleanly.
       also corrected a pre-existing rental-count overcount for that
       exact real event (a double-counted overhead mic/stand/cable).
 
+## Slice 13 — Stage plots (spec: `stage-plots`) ✅ done 2026-07-18
+
+New per-event Stage Plots tab: any number of named, to-scale, layered
+drawings on a draw.io-style editor (palette / cm-native SVG canvas /
+inspector + layers panel), with an approved mockup driving the design.
+
+- [x] **To scale by construction**: 1 SVG user unit = 1 cm; elements
+      store x/y/z + width/depth/height + rotation in centimetres; zoom
+      is purely a viewBox transform, so proportions can never drift.
+      Shapes (rect/ellipse/line/text), resources with a built-in icon
+      registry — person, mic, speaker, monitor, rack, truss, fixture,
+      plus one **distinct glyph per instrument** (drums, both pianos,
+      keyboard, both guitars, bass, cello, trumpet, saxophone), each in
+      three projection variants.
+- [x] **Grid & snapping**: per-plot toggleable grid (cm spacing),
+      independent snap-to-grid and snap-to-objects with alignment
+      guides; snapping math runs in cm space (exact landings, SC-003),
+      thresholds derive from screen px; adaptive grid density at far
+      zoom.
+- [x] **Layers**: create/rename/reorder/color/hide/lock, active-layer
+      placement, last-layer delete protection, per-element layer moves.
+- [x] **Linked resources & stacks**: one polymorphic links table serves
+      inspector assignments and speaker/rack stack entries, referencing
+      the event's existing sources/channels/devices/stageboxes/multis/
+      fixtures by id; every entity delete path clears its links, and the
+      aggregate read drops dangling rows as defense in depth. Links
+      never touch the rental order.
+- [x] **Trusses**: event-scoped (the shared-device pattern) — assembled
+      from `picker_role = 'truss'` catalog pieces with copy-on-pick
+      lengths parsed from item names ("Tross F34 2m" → 200 cm), hang
+      height, fixtures attached at offsets that move with the truss.
+      One new rental CTE arm counts pieces (lighting column) once per
+      event regardless of placements. The Lighting tab's truss-section
+      manager is superseded: fixtures' truss display is read-only,
+      derived from plot attachments; legacy `truss_sections` carried
+      over by the third one-time Go conversion (label-only pieces, no
+      inventory link → zero rental impact) and dropped by migration 033.
+      Verified byte-for-byte unchanged rental totals on the real dev DB
+      ("Bakre truss" + 2 fixtures converted exactly).
+- [x] **Fixture labels**: per-plot checkboxes compose name / FID / DMX
+      universe.address beside each fixture, missing parts omitted.
+- [x] **Three linked projections**: top (default) / front / side render
+      the same rows through one pure `projectElement` function — edits
+      propagate with no sync code; heights to true scale; rotation is
+      plan-view-only; per-view icon variants; print sheet renders the
+      active view with a scale caption.
+
 ## Dependency graph
 
 ```
-Slices 0–12 ✅ done
+Slices 0–13 ✅ done
 Slice 10 (output chains) ──→ Slice 11 (output signal graph, replaces it) ✅
 Slice 11 (output signal graph) ──→ Slice 12 (input signal graph, same pattern reversed) ✅
+Slice 7 (lighting rig) + Slice 12 ──→ Slice 13 (stage plots; supersedes Slice 0's truss sections) ✅
 ```

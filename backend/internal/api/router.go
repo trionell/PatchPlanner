@@ -16,5 +16,6 @@ func NewRouter(db *sql.DB) http.Handler {
 	RentalHandler{DB: db}.Register(r)
 	OwnedHandler{DB: db}.Register(r)
 	ReferenceHandler{DB: db}.Register(r)
+	StagePlotsHandler{DB: db}.Register(r)
 	return r
 }

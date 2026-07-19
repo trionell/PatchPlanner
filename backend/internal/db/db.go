@@ -98,6 +98,25 @@ func runMigrations(db *sql.DB, migrationsPath string, logger *slog.Logger) error
 		return fmt.Errorf("read migration version: %w", versionErr)
 	}
 
+	// Slice 13's truss-section carry-over, sequenced around migration
+	// 033's DROP of truss_sections. Unlike the two branches above this
+	// runs unconditionally after landing on 032: the conversion is
+	// guarded by truss_sections' existence and deletes sections as they
+	// convert, so a crash between the conversion and 033 can never leave
+	// unconverted sections for 033 to drop — every startup re-runs the
+	// (cheap, idempotent) conversion until 033 has actually applied.
+	version, _, versionErr = m.Version()
+	if errors.Is(versionErr, migrate.ErrNilVersion) || (versionErr == nil && version < 32) {
+		if err := m.Migrate(32); err != nil && err != migrate.ErrNoChange {
+			return fmt.Errorf("run migrations to version 32: %w", err)
+		}
+	} else if versionErr != nil {
+		return fmt.Errorf("read migration version: %w", versionErr)
+	}
+	if err := convertTrussSectionsToPlotTrusses(db, logger); err != nil {
+		return fmt.Errorf("convert truss sections to plot trusses: %w", err)
+	}
+
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		return fmt.Errorf("run migrations: %w", err)
 	}

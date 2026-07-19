@@ -41,7 +41,9 @@ var vocabularyUsage = map[string][]struct{ table, column string }{
 	"speaker_cable_types": {{"output_devices", "input_connector_type"}, {"output_devices", "output_connector_type"}},
 	"output_types":        {{"audio_patch_outputs", "output_type"}},
 	"power_connectors":    {{"lighting_fixtures", "power_connector_in"}, {"lighting_fixtures", "power_connector_out"}},
-	"truss_types":         {{"truss_sections", "truss_type"}},
+	// truss_types lost its consuming column when Slice 13 dropped
+	// truss_sections (plot truss pieces are catalog picks, not typed) —
+	// the vocabulary remains, untracked, like signal_types before it.
 }
 
 // InUseError reports how many planning rows reference a vocabulary value,

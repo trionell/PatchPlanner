@@ -108,6 +108,7 @@ function RentalCatalog() {
                     <option value="">no picker</option>
                     <option value="cable">Cable</option>
                     <option value="stand">Stand</option>
+                    <option value="truss">Truss</option>
                   </select>
                 </div>
               </div>

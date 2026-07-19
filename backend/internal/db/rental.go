@@ -10,7 +10,14 @@ import (
 // rentalSummaryQuery derives the full rental order for one event. Every
 // planning surface that can reference a catalog item contributes one arm of
 // the CTE; manual event_rentals lines are both merged into the totals and
-// re-joined so their share stays editable. Takes the event id 11 times.
+// re-joined so their share stays editable. Takes the event id 12 times.
+//
+// Stage plot truss pieces (Slice 13) count under the lighting column via
+// the event-scoped stage_plot_trusses join — never through plot
+// placements, so a truss shown on three plots still counts once
+// (research.md R4/R10). Legacy pieces carried over from the old truss
+// sections have NULL inventory_item_id and structurally contribute
+// nothing until re-picked from the catalog.
 //
 // Neither signal graph uses a width-based CASE WHEN doubling formula
 // (Slice 11 research.md R4, extended to the input side by Slice 12): a
@@ -66,6 +73,11 @@ const rentalSummaryQuery = `
 		JOIN lighting_rigs lr ON lr.id = lf.rig_id
 		WHERE lr.event_id = ? AND lf.inventory_item_id IS NOT NULL
 		UNION ALL
+		SELECT p.inventory_item_id, 0, 1
+		FROM stage_plot_truss_pieces p
+		JOIN stage_plot_trusses t ON t.id = p.truss_id
+		WHERE t.event_id = ? AND p.inventory_item_id IS NOT NULL
+		UNION ALL
 		SELECT inventory_item_id, quantity_audio, quantity_lighting
 		FROM event_rentals
 		WHERE event_id = ?
@@ -82,7 +94,7 @@ const rentalSummaryQuery = `
 
 func GetRentalSummary(db *sql.DB, eventID int64) (domain.RentalSummary, error) {
 	rows, err := db.Query(rentalSummaryQuery,
-		eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID)
+		eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID)
 	if err != nil {
 		return domain.RentalSummary{}, fmt.Errorf("get rental summary: %w", err)
 	}
