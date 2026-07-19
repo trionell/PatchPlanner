@@ -7,8 +7,9 @@ import {
   fixtureLabel,
   MIN_DIMENSION_CM,
   parseLengthFromName,
-  projectedAxisScales,
+  projectedAxes,
   projectedBounds,
+  projectedOutline,
   projectElement,
   pxPerCm,
   rectLocalPoint,
@@ -101,17 +102,43 @@ describe('3D projection under rotation and tilt', () => {
     expect(projectElement(tilted, 'top')).toMatchObject({ width: 30, height: 30 })
   })
 
-  it('projectedAxisScales collapse and spread fixture markers with the view', () => {
+  it('projectedAxes collapse and spread fixture markers with the view', () => {
     // Unrotated bar seen from the side: no length axis on screen,
     // lanes spread across the bar's depth.
-    expect(projectedAxisScales(bar, 'side')).toMatchObject({ sAlong: 0, sLane: 1 })
+    const straight = projectedAxes(bar, 'side')
+    expect(straight.ax.u).toBeCloseTo(0)
+    expect(straight.ax.v).toBeCloseTo(0)
+    expect(straight.ay.u).toBeCloseTo(1)
+    expect(straight.ay.v).toBeCloseTo(0)
     // Yawed 90° the side view shows the full length and the lanes
     // collapse; the front view is the mirror case.
     const yawed = { ...bar, rotation_deg: 90 }
-    expect(projectedAxisScales(yawed, 'side').sAlong).toBeCloseTo(1)
-    expect(projectedAxisScales(yawed, 'side').sLane).toBeCloseTo(0)
-    expect(projectedAxisScales(yawed, 'front').sAlong).toBeCloseTo(0)
-    expect(Math.abs(projectedAxisScales(yawed, 'front').sLane)).toBeCloseTo(1)
+    expect(projectedAxes(yawed, 'side').ax.u).toBeCloseTo(1)
+    expect(projectedAxes(yawed, 'side').ay.u).toBeCloseTo(0)
+    expect(projectedAxes(yawed, 'front').ax.u).toBeCloseTo(0)
+    expect(Math.abs(projectedAxes(yawed, 'front').ay.u)).toBeCloseTo(1)
+  })
+
+  it('a raked bar climbs in the side view: fixture height follows the offset', () => {
+    // Tilt 45°: 1 cm along the bar rises/falls sin 45° on the side
+    // view's vertical — the marker at the high end draws high.
+    const raked = { ...bar, tilt_deg: 45 }
+    expect(projectedAxes(raked, 'side').ax.v).toBeCloseTo(Math.SQRT1_2)
+    // The horizontal spread of the lanes is unaffected.
+    expect(projectedAxes(raked, 'side').ay.u).toBeCloseTo(1)
+  })
+
+  it('projectedOutline is the true silhouette: a rectangle flat, a hexagon under combined rotations', () => {
+    // Straight bar in the top view: the plain 600×30 rectangle.
+    expect(projectedOutline(bar, 'top')).toEqual([
+      { u: -300, v: -15 },
+      { u: 300, v: -15 },
+      { u: 300, v: 15 },
+      { u: -300, v: 15 },
+    ])
+    // Yaw and tilt combined: the box's silhouette needs six corners.
+    const skewed = { ...bar, rotation_deg: 45, tilt_deg: 45 }
+    expect(projectedOutline(skewed, 'front')).toHaveLength(6)
   })
 })
 

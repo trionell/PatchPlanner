@@ -114,23 +114,76 @@ export function projectElement(element: StagePlotElement, view: StagePlotView): 
   }
 }
 
+export interface ProjectedAxes {
+  /** Drawn-frame travel of 1 cm along the element's width/length axis. */
+  ax: PlaneVec
+  /** … across its depth axis (a truss lane offset). */
+  ay: PlaneVec
+  /** … up its height axis. */
+  az: PlaneVec
+}
+
 /**
- * How a bar element's own axes travel in a view's drawn (rotated) rect
- * frame, per cm: sAlong — along the drawn width axis per cm along the
- * bar's length; sLane — along the drawn width axis per cm across the
- * bar (a lane offset); sCross — along the drawn height axis per cm
- * across the bar. Signed; near zero means that bar axis points into
- * the screen (e.g. sAlong ≈ 0 in the side view of an unrotated truss,
- * whose fixture markers then stack by lane only).
+ * Where the element's own axes point inside its drawn frame — the
+ * rotated group the canvas renders the element in (u along the drawn
+ * width, v along the drawn height, SVG-down). A point at (a, b, c) cm
+ * in the element's local frame draws at a·ax + b·ay + c·az from its
+ * centre, so truss fixtures project exactly like the bar itself. A
+ * near-zero vector is an axis pointing into the screen.
  */
-export function projectedAxisScales(element: StagePlotElement, view: StagePlotView): { sAlong: number; sLane: number; sCross: number } {
+export function projectedAxes(element: StagePlotElement, view: StagePlotView): ProjectedAxes {
   const axes = localAxes(element.rotation_deg, element.tilt_deg)
   const radians = (drawnRotation(element, view) * Math.PI) / 180
   const along = { u: Math.cos(radians), v: Math.sin(radians) }
   const across = { u: -Math.sin(radians), v: Math.cos(radians) }
-  const pX = screenDirection(axes.ax, view)
-  const pY = screenDirection(axes.ay, view)
-  return { sAlong: dot(pX, along), sLane: dot(pY, along), sCross: dot(pY, across) }
+  const toDrawn = (a: Vec3): PlaneVec => {
+    const p = screenDirection(a, view)
+    return { u: dot(p, along), v: dot(p, across) }
+  }
+  return { ax: toDrawn(axes.ax), ay: toDrawn(axes.ay), az: toDrawn(axes.az) }
+}
+
+/** Convex hull (monotone chain); input is a handful of box corners. */
+function convexHull(points: PlaneVec[]): PlaneVec[] {
+  const pts = [...points].sort((a, b) => a.u - b.u || a.v - b.v)
+  const cross = (o: PlaneVec, a: PlaneVec, b: PlaneVec) => (a.u - o.u) * (b.v - o.v) - (a.v - o.v) * (b.u - o.u)
+  const build = (list: PlaneVec[]) => {
+    const hull: PlaneVec[] = []
+    for (const p of list) {
+      while (hull.length >= 2 && cross(hull[hull.length - 2], hull[hull.length - 1], p) <= 0) hull.pop()
+      hull.push(p)
+    }
+    return hull
+  }
+  const lower = build(pts)
+  const upper = build([...pts].reverse())
+  return [...lower.slice(0, -1), ...upper.slice(0, -1)]
+}
+
+/**
+ * The true silhouette of the element's oriented box in a view: the
+ * convex hull of its eight projected corners, in the drawn rect's
+ * frame. A plain rectangle when at most one rotation shows; up to a
+ * hexagon when yaw and tilt combine — the shape a rotated rectangle
+ * cannot represent.
+ */
+export function projectedOutline(element: StagePlotElement, view: StagePlotView): PlaneVec[] {
+  const { ax, ay, az } = projectedAxes(element, view)
+  const hw = element.width_cm / 2
+  const hd = element.depth_cm / 2
+  const hh = element.height_cm / 2
+  const corners: PlaneVec[] = []
+  for (const sx of [-1, 1]) {
+    for (const sy of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        corners.push({
+          u: roundCm(sx * hw * ax.u + sy * hd * ay.u + sz * hh * az.u),
+          v: roundCm(sx * hw * ax.v + sy * hd * ay.v + sz * hh * az.v),
+        })
+      }
+    }
+  }
+  return convexHull(corners)
 }
 
 /**

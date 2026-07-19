@@ -1,5 +1,5 @@
 import type { PlotTruss, StagePlotElement, StagePlotResponse, StagePlotView } from '../../types'
-import { clampFixtureOffset, fixtureLabel, projectedAxisScales, projectedBounds, projectElement, trussLaneLocalV } from '../../lib/stagePlot'
+import { clampFixtureOffset, fixtureLabel, projectedAxes, projectedBounds, projectedOutline, projectElement, trussLaneLocalV } from '../../lib/stagePlot'
 import { iconGlyph, iconViewBox } from '../../lib/stagePlotIcons'
 import { PrintSheet } from './PrintSheet'
 
@@ -106,27 +106,31 @@ export function StagePlotSheet({ eventId, response }: { eventId: number; respons
     } else if (element.kind === 'truss' && element.truss_id != null && trussById.has(element.truss_id)) {
       const truss = trussById.get(element.truss_id) as PlotTruss
       const settings = { show_fixture_name: plot.show_fixture_name, show_fixture_fid: plot.show_fixture_fid, show_fixture_dmx: plot.show_fixture_dmx }
-      const scales = projectedAxisScales(element, view)
+      const axes = projectedAxes(element, view)
       const barLength = Math.max(truss.total_length_cm, 20)
+      const hangV = (element.height_cm / 2) * Math.abs(axes.az.v)
+      const outline = projectedOutline(element, view)
+        .map((p) => `${p.u},${p.v}`)
+        .join(' ')
       body = (
         <g>
-          <rect x={-halfW} y={-halfH} width={rect.width} height={Math.max(rect.height, 4)} fill="none" stroke="black" strokeWidth={fontSize / 8} />
+          <polygon points={outline} fill="none" stroke="black" strokeWidth={fontSize / 8} />
           {truss.fixtures.map((fixture) => {
               if (fixture.offset_cm == null) return null
               const { offset } = clampFixtureOffset(fixture.offset_cm, barLength)
               const label = fixtureLabel(fixture, settings)
-              // Same projection as the editor: offset along the bar,
-              // lane across its depth, foreshortened with the bar; the
-              // top view sits markers on their lane, elevations hang
-              // them below it.
+              // Same projection as the editor: the marker's true point
+              // on the bar; the top view sits it on its lane, the
+              // elevations hang it below the bar's underside.
               const laneV = trussLaneLocalV(fixture.side, element.depth_cm / 2)
-              const markerX = (offset - barLength / 2) * scales.sAlong + laneV * scales.sLane
-              const markerY = view === 'top' ? laneV * scales.sCross - fontSize / 2 : halfH
+              const along = offset - barLength / 2
+              const pos = { u: along * axes.ax.u + laneV * axes.ay.u, v: along * axes.ax.v + laneV * axes.ay.v }
+              const markerY = view === 'top' ? pos.v - fontSize / 2 : pos.v + hangV
               return (
-                <g key={fixture.id} transform={`translate(${markerX} 0)`}>
+                <g key={fixture.id} transform={`translate(${pos.u} 0)`}>
                   <rect x={-fontSize / 2} y={markerY} width={fontSize} height={fontSize} fill="none" stroke="black" strokeWidth={fontSize / 10} />
                   {label && (
-                    <text y={halfH + fontSize * 2} textAnchor="middle" fill="black" fontSize={fontSize * 0.8}>
+                    <text y={view === 'top' ? halfH + fontSize * 2 : markerY + fontSize * 2} textAnchor="middle" fill="black" fontSize={fontSize * 0.8}>
                       {label}
                     </text>
                   )}
