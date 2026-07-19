@@ -468,7 +468,7 @@ export function StagePlotInspector({ eventId, element, layers, onUpdate, onDupli
           </Row>
         )}
 
-        <Row label="Rotation">
+        <Row label="Rotation (top)">
           <Input
             className="h-8 text-right tabular-nums"
             value={draft.rotation}
@@ -480,15 +480,15 @@ export function StagePlotInspector({ eventId, element, layers, onUpdate, onDupli
           />
         </Row>
 
-        <Row label="Tilt">
+        <Row label="Tilt (front)">
           <Input
             className="h-8 text-right tabular-nums"
             value={draft.tilt}
             onChange={(e) => setDraft((prev) => ({ ...prev, tilt: e.target.value }))}
             onBlur={() => commitNumber('tilt', 'tilt_deg', (value) => ((value % 360) + 360) % 360)}
             onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-            aria-label="Tilt (degrees)"
-            title="Rake in the front view (degrees) — e.g. an angled truss"
+            aria-label="Rotation in the front view (degrees)"
+            title="Rotation in the front view (degrees) — rakes the element, e.g. an angled truss"
           />
         </Row>
       </fieldset>

@@ -282,6 +282,12 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
   }
 
   const placedTrussIds = new Set((response?.elements ?? []).filter((element) => element.truss_id != null).map((element) => element.truss_id as number))
+  // Rotation lives on the placement, so the Trusses dialog can edit it.
+  const placedTrussElements = new Map(
+    (response?.elements ?? [])
+      .filter((element) => element.kind === 'truss' && element.truss_id != null)
+      .map((element) => [element.truss_id as number, element]),
+  )
 
   // ---- Render ----
 
@@ -555,6 +561,8 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
               onChanged={invalidatePlot}
               onPlace={handlePlaceTruss}
               placedTrussIds={placedTrussIds}
+              placedElements={placedTrussElements}
+              onRotate={(elementId, patch) => updateElementMutation.mutate({ elementId, patch })}
             />
           </div>
         </>

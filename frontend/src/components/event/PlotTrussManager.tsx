@@ -31,12 +31,22 @@ interface PlotTrussManagerProps {
   onPlace: (truss: PlotTruss) => void
   /** Truss ids already placed on the current plot. */
   placedTrussIds: Set<number>
+  /** The placed element per truss id (rotation lives on the placement). */
+  placedElements: Map<number, PlacedTrussElement>
+  /** Patch a placed truss element's rotation/tilt. */
+  onRotate: (elementId: number, patch: { rotation_deg?: number; tilt_deg?: number }) => void
+}
+
+export interface PlacedTrussElement {
+  id: number
+  rotation_deg: number
+  tilt_deg: number
 }
 
 /** Event-level truss manager (US5): assemble trusses from inventory
  *  truss pieces (lengths auto-suggested from catalog names), set hang
  *  height, and attach rig fixtures at offsets along the truss. */
-export function PlotTrussManager({ eventId, trusses, open, onClose, onChanged, onPlace, placedTrussIds }: PlotTrussManagerProps) {
+export function PlotTrussManager({ eventId, trusses, open, onClose, onChanged, onPlace, placedTrussIds, placedElements, onRotate }: PlotTrussManagerProps) {
   const queryClient = useQueryClient()
   const trussItemsQuery = useQuery({
     queryKey: ['inventory-truss-items'],
@@ -80,6 +90,8 @@ export function PlotTrussManager({ eventId, trusses, open, onClose, onChanged, o
             onChanged={changed}
             onPlace={() => onPlace(truss)}
             placed={placedTrussIds.has(truss.id)}
+            element={placedElements.get(truss.id)}
+            onRotate={onRotate}
           />
         ))}
         <form
@@ -108,11 +120,16 @@ interface TrussEditorProps {
   onChanged: () => Promise<void>
   onPlace: () => void
   placed: boolean
+  /** The truss's placement on the current plot, when placed. */
+  element?: PlacedTrussElement
+  onRotate: (elementId: number, patch: { rotation_deg?: number; tilt_deg?: number }) => void
 }
 
-function TrussEditor({ eventId, truss, trussItems, fixtures, onChanged, onPlace, placed }: TrussEditorProps) {
+function TrussEditor({ eventId, truss, trussItems, fixtures, onChanged, onPlace, placed, element, onRotate }: TrussEditorProps) {
   const [heightDraft, setHeightDraft] = useDraftState(truss.height_cm, String, '0')
   const [nameDraft, setNameDraft] = useDraftState(truss.name, (v) => v, '')
+  const [rotationDraft, setRotationDraft] = useDraftState(element?.rotation_deg, String, '0')
+  const [tiltDraft, setTiltDraft] = useDraftState(element?.tilt_deg, String, '0')
   const [pieceItemId, setPieceItemId] = useState('')
   const [pieceLength, setPieceLength] = useState('')
   const [attachFixtureId, setAttachFixtureId] = useState('')
@@ -202,6 +219,46 @@ function TrussEditor({ eventId, truss, trussItems, fixtures, onChanged, onPlace,
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
+
+      {element && (
+        <div className="mb-2 flex items-center gap-3 text-xs text-zinc-400">
+          <label className="flex items-center gap-1.5" title="Rotation in the top view (degrees)">
+            Rotation (top)
+            <Input
+              className="h-7 w-16 text-right text-xs tabular-nums"
+              value={rotationDraft}
+              onChange={(e) => setRotationDraft(e.target.value)}
+              onBlur={() => {
+                const parsed = Number(rotationDraft.replace(',', '.'))
+                if (!Number.isFinite(parsed)) return setRotationDraft(String(element.rotation_deg))
+                const normalized = ((parsed % 360) + 360) % 360
+                if (normalized !== element.rotation_deg) onRotate(element.id, { rotation_deg: normalized })
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+              aria-label={`Top-view rotation for ${truss.name} (degrees)`}
+            />
+            °
+          </label>
+          <label className="flex items-center gap-1.5" title="Rotation in the front view (degrees) — rakes the truss">
+            Rotation (front)
+            <Input
+              className="h-7 w-16 text-right text-xs tabular-nums"
+              value={tiltDraft}
+              onChange={(e) => setTiltDraft(e.target.value)}
+              onBlur={() => {
+                const parsed = Number(tiltDraft.replace(',', '.'))
+                if (!Number.isFinite(parsed)) return setTiltDraft(String(element.tilt_deg))
+                const normalized = ((parsed % 360) + 360) % 360
+                if (normalized !== element.tilt_deg) onRotate(element.id, { tilt_deg: normalized })
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+              aria-label={`Front-view rotation for ${truss.name} (degrees)`}
+            />
+            °
+          </label>
+          <span className="text-zinc-500">on this plot</span>
+        </div>
+      )}
 
       <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">
         Pieces — total {truss.total_length_cm} cm
