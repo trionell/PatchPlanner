@@ -7,6 +7,7 @@ import {
   clampFixtureOffset,
   fixtureDropOnTruss,
   fixtureLabel,
+  projectedAxisScales,
   projectedBounds,
   projectElement,
   rectLocalPoint,
@@ -245,21 +246,29 @@ export function StagePlotCanvas({
       const trussElement = elements.find((entry) => entry.id === drag.trussElementId)
       const truss = trussById.get(drag.trussId)
       if (!trussElement || !truss) return
-      const rect = projectElement(effectiveElement(trussElement), view)
+      const current = effectiveElement(trussElement)
+      const rect = projectElement(current, view)
+      const scales = projectedAxisScales(current, view)
       const local = rectLocalPoint(point, rect, view)
       const length = Math.max(truss.total_length_cm, 20)
-      if (view === 'side') {
-        // The side view looks along the bar: dragging moves the marker
-        // across the bar's depth, i.e. switches lane; the offset stays.
-        setFixtureDrag({ fixtureId: drag.fixtureId, offset: drag.offsetCm, side: trussSideForLocalV(local.u, rect.width / 2) })
-      } else {
-        setFixtureDrag({
-          fixtureId: drag.fixtureId,
-          offset: roundCm(Math.min(length, Math.max(0, local.u + length / 2))),
-          // The lane only changes across the bar in the top view.
-          side: view === 'top' ? trussSideForLocalV(local.v, rect.height / 2) : drag.side,
-        })
+      const barHalfDepth = current.depth_cm / 2
+      // Invert the marker projection (see the render): a drag adjusts
+      // whichever bar axis the view actually shows. Top view: lane from
+      // the cross axis, offset along the bar. Elevations: horizontal
+      // drags move the offset when the bar runs along the view, or
+      // switch lanes when looking down the bar's length.
+      let offset = drag.offsetCm
+      let side = drag.side
+      if (view === 'top' && Math.abs(scales.sCross) > 0.05) {
+        side = trussSideForLocalV(local.v / scales.sCross, barHalfDepth)
       }
+      const laneU = trussLaneLocalV(side, barHalfDepth) * scales.sLane
+      if ((view === 'top' || Math.abs(scales.sAlong) >= Math.abs(scales.sLane)) && Math.abs(scales.sAlong) > 0.05) {
+        offset = roundCm(Math.min(length, Math.max(0, (local.u - laneU) / scales.sAlong + length / 2)))
+      } else if (view !== 'top' && Math.abs(scales.sLane) > Math.abs(scales.sAlong) && Math.abs(scales.sLane) > 0.05) {
+        side = trussSideForLocalV((local.u - (offset - length / 2) * scales.sAlong) / scales.sLane, barHalfDepth)
+      }
+      setFixtureDrag({ fixtureId: drag.fixtureId, offset, side })
       return
     }
 
@@ -305,8 +314,14 @@ export function StagePlotCanvas({
           if (entry.kind !== 'truss' || entry.truss_id == null || !entryLayer?.visible || entryLayer.locked) continue
           const truss = trussById.get(entry.truss_id)
           if (!truss) continue
-          const trussRect = projectElement(effectiveElement(entry), view)
-          const drop = fixtureDropOnTruss(rectLocalPoint({ u: snapped.u, v: snapped.v }, trussRect, view), Math.max(truss.total_length_cm, 20), trussRect.height / 2)
+          const barElement = effectiveElement(entry)
+          const trussRect = projectElement(barElement, view)
+          const scales = projectedAxisScales(barElement, view)
+          // A tilted bar draws foreshortened; divide back to bar cm
+          // before the hit test (a bar seen end-on takes no drops).
+          if (Math.abs(scales.sAlong) < 0.05 || Math.abs(scales.sCross) < 0.05) continue
+          const local = rectLocalPoint({ u: snapped.u, v: snapped.v }, trussRect, view)
+          const drop = fixtureDropOnTruss({ u: local.u / scales.sAlong, v: local.v / scales.sCross }, Math.max(truss.total_length_cm, 20), barElement.depth_cm / 2)
           if (drop) {
             target = { elementId: entry.id, trussId: entry.truss_id, offset: drop.offset, side: drop.side }
             break
@@ -470,6 +485,11 @@ export function StagePlotCanvas({
       }
       const highlighted = dropTarget?.elementId === element.id
       const ghostSize = Math.max(14, 10 / zoom)
+      // Fixture markers and piece dividers live on the bar's own axes;
+      // these scales project bar cm into the drawn rect's frame.
+      const scales = projectedAxisScales(current, view)
+      const barHalfDepth = current.depth_cm / 2
+      const ghostLaneV = dropTarget ? trussLaneLocalV(dropTarget.side, barHalfDepth) : 0
       body = (
         <g>
           <rect
@@ -481,15 +501,15 @@ export function StagePlotCanvas({
             stroke={highlighted ? '#818cf8' : 'currentColor'}
             strokeWidth={2 / zoom}
           />
-          {view !== 'side' &&
+          {Math.abs(scales.sAlong) > 0.05 &&
             dividers.map((position) => (
-              <line key={position} x1={-halfW + position} x2={-halfW + position} y1={-halfH} y2={halfH} stroke="currentColor" strokeWidth={1 / zoom} opacity={0.6} />
+              <line key={position} x1={(position - length / 2) * scales.sAlong} x2={(position - length / 2) * scales.sAlong} y1={-halfH} y2={halfH} stroke="currentColor" strokeWidth={1 / zoom} opacity={0.6} />
             ))}
           {/* Ghost marker: where the dragged fixture element will land. */}
           {highlighted && dropTarget && view === 'top' && (
             <rect
-              x={-halfW + dropTarget.offset - ghostSize / 2}
-              y={trussLaneLocalV(dropTarget.side, halfH) - (ghostSize * 0.8) / 2}
+              x={(dropTarget.offset - length / 2) * scales.sAlong + ghostLaneV * scales.sLane - ghostSize / 2}
+              y={ghostLaneV * scales.sCross - (ghostSize * 0.8) / 2}
               width={ghostSize}
               height={ghostSize * 0.8}
               rx={2 / zoom}
@@ -508,12 +528,14 @@ export function StagePlotCanvas({
               const { offset, clamped } = clampFixtureOffset(rawOffset, length)
               const label = fixtureLabel(fixture, labelSettings)
               const size = Math.max(14, 10 / zoom)
-              // Top view: marker sits on its lane (upstage chord, centre,
-              // downstage chord). Front view: it hangs below the bar.
-              // Side view looks along the bar: the lane is the marker's
-              // position across the bar's depth, hanging below it.
-              const markerX = view === 'side' ? trussLaneLocalV(side, halfW) : -halfW + offset
-              const markerY = view === 'top' ? trussLaneLocalV(side, halfH) - (size * 0.8) / 2 : halfH + 2 / zoom
+              // The marker's true position on the bar — offset along
+              // its length, lane across its depth — projected into the
+              // drawn frame, so rotation and tilt foreshorten markers
+              // exactly like the bar itself. Top view: the marker sits
+              // on its lane; elevations hang it below the bar.
+              const laneV = trussLaneLocalV(side, barHalfDepth)
+              const markerX = (offset - length / 2) * scales.sAlong + laneV * scales.sLane
+              const markerY = view === 'top' ? laneV * scales.sCross - (size * 0.8) / 2 : halfH + 2 / zoom
               return (
                 <g
                   key={fixture.id}

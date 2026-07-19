@@ -1,5 +1,5 @@
 import type { PlotTruss, StagePlotElement, StagePlotResponse, StagePlotView } from '../../types'
-import { clampFixtureOffset, fixtureLabel, projectedBounds, projectElement, trussLaneLocalV } from '../../lib/stagePlot'
+import { clampFixtureOffset, fixtureLabel, projectedAxisScales, projectedBounds, projectElement, trussLaneLocalV } from '../../lib/stagePlot'
 import { iconGlyph, iconViewBox } from '../../lib/stagePlotIcons'
 import { PrintSheet } from './PrintSheet'
 
@@ -106,18 +106,22 @@ export function StagePlotSheet({ eventId, response }: { eventId: number; respons
     } else if (element.kind === 'truss' && element.truss_id != null && trussById.has(element.truss_id)) {
       const truss = trussById.get(element.truss_id) as PlotTruss
       const settings = { show_fixture_name: plot.show_fixture_name, show_fixture_fid: plot.show_fixture_fid, show_fixture_dmx: plot.show_fixture_dmx }
+      const scales = projectedAxisScales(element, view)
+      const barLength = Math.max(truss.total_length_cm, 20)
       body = (
         <g>
           <rect x={-halfW} y={-halfH} width={rect.width} height={Math.max(rect.height, 4)} fill="none" stroke="black" strokeWidth={fontSize / 8} />
           {truss.fixtures.map((fixture) => {
               if (fixture.offset_cm == null) return null
-              const { offset } = clampFixtureOffset(fixture.offset_cm, Math.max(truss.total_length_cm, 20))
+              const { offset } = clampFixtureOffset(fixture.offset_cm, barLength)
               const label = fixtureLabel(fixture, settings)
-              // Same lanes as the editor: on the bar in the top view,
-              // hanging below it in the elevations; the side view puts
-              // the lane across the bar's depth.
-              const markerX = view === 'side' ? trussLaneLocalV(fixture.side, halfW) : -halfW + offset
-              const markerY = view === 'top' ? trussLaneLocalV(fixture.side, halfH) - fontSize / 2 : halfH
+              // Same projection as the editor: offset along the bar,
+              // lane across its depth, foreshortened with the bar; the
+              // top view sits markers on their lane, elevations hang
+              // them below it.
+              const laneV = trussLaneLocalV(fixture.side, element.depth_cm / 2)
+              const markerX = (offset - barLength / 2) * scales.sAlong + laneV * scales.sLane
+              const markerY = view === 'top' ? laneV * scales.sCross - fontSize / 2 : halfH
               return (
                 <g key={fixture.id} transform={`translate(${markerX} 0)`}>
                   <rect x={-fontSize / 2} y={markerY} width={fontSize} height={fontSize} fill="none" stroke="black" strokeWidth={fontSize / 10} />

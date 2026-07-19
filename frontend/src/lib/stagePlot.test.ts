@@ -7,6 +7,7 @@ import {
   fixtureLabel,
   MIN_DIMENSION_CM,
   parseLengthFromName,
+  projectedAxisScales,
   projectedBounds,
   projectElement,
   pxPerCm,
@@ -42,24 +43,24 @@ function element(overrides: Partial<StagePlotElement>): StagePlotElement {
 }
 
 describe('projectElement', () => {
-  const el = element({ x_cm: 100, y_cm: 200, z_cm: 50, width_cm: 40, depth_cm: 30, height_cm: 60, rotation_deg: 15 })
+  const el = element({ x_cm: 100, y_cm: 200, z_cm: 50, width_cm: 40, depth_cm: 30, height_cm: 60 })
+  const rotated = { ...el, rotation_deg: 15 }
 
   it('top view projects x/y and width/depth with rotation', () => {
-    expect(projectElement(el, 'top')).toEqual({ u: 100, v: 200, width: 40, height: 30, rotationDeg: 15 })
+    expect(projectElement(rotated, 'top')).toEqual({ u: 100, v: 200, width: 40, height: 30, rotationDeg: 15 })
   })
 
   it('front view projects x/z and width/height with the tilt as its rotation', () => {
-    // v is the vertical CENTER: bottom z=50 + height 60 / 2 = 80. The
-    // plan rotation (15°) never leaks into the front view.
+    // v is the vertical CENTER: bottom z=50 + height 60 / 2 = 80.
     expect(projectElement(el, 'front')).toEqual({ u: 100, v: 80, width: 40, height: 60, rotationDeg: 0 })
     expect(projectElement({ ...el, tilt_deg: 20 }, 'front').rotationDeg).toBe(20)
   })
 
   it('side view projects y/z and depth/height, always axis-aligned', () => {
-    expect(projectElement({ ...el, tilt_deg: 20 }, 'side')).toEqual({ u: 200, v: 80, width: 30, height: 60, rotationDeg: 0 })
+    expect(projectElement(el, 'side')).toEqual({ u: 200, v: 80, width: 30, height: 60, rotationDeg: 0 })
   })
 
-  it('shares each stored dimension between the views that show it', () => {
+  it('shares each stored dimension between the views that show it (unrotated)', () => {
     // Width agrees between top and front; depth between top and side;
     // height between front and side — FR-027's "dimensions shared
     // between two views always agree" is structural.
@@ -72,6 +73,45 @@ describe('projectElement', () => {
     expect(top.u).toBe(front.u) // x agrees
     expect(top.v).toBe(side.u) // y agrees
     expect(front.v).toBe(side.v) // z agrees
+  })
+})
+
+describe('3D projection under rotation and tilt', () => {
+  const bar = element({ x_cm: 0, y_cm: 0, z_cm: 300, width_cm: 600, depth_cm: 30, height_cm: 30 })
+
+  it('a truss yawed 90° shows its cross-section in front and full length in side', () => {
+    const yawed = { ...bar, rotation_deg: 90 }
+    expect(projectElement(yawed, 'front')).toMatchObject({ width: 30, height: 30 })
+    expect(projectElement(yawed, 'side')).toMatchObject({ width: 600, height: 30 })
+  })
+
+  it('a partial yaw foreshortens the front view continuously', () => {
+    const yawed = { ...bar, rotation_deg: 60 }
+    // 600·cos60 + 30·sin60
+    expect(projectElement(yawed, 'front').width).toBeCloseTo(325.98, 1)
+  })
+
+  it('a truss tilted 90° stands vertical: full length upward in both elevations', () => {
+    const tilted = { ...bar, tilt_deg: 90 }
+    // Front view draws the full bar rotated to vertical…
+    expect(projectElement(tilted, 'front')).toMatchObject({ width: 600, height: 30, rotationDeg: 90 })
+    // …the side view sees the same vertical bar axis-aligned…
+    expect(projectElement(tilted, 'side')).toMatchObject({ width: 30, height: 600 })
+    // …and the plan view shows just the cross-section it stands on.
+    expect(projectElement(tilted, 'top')).toMatchObject({ width: 30, height: 30 })
+  })
+
+  it('projectedAxisScales collapse and spread fixture markers with the view', () => {
+    // Unrotated bar seen from the side: no length axis on screen,
+    // lanes spread across the bar's depth.
+    expect(projectedAxisScales(bar, 'side')).toMatchObject({ sAlong: 0, sLane: 1 })
+    // Yawed 90° the side view shows the full length and the lanes
+    // collapse; the front view is the mirror case.
+    const yawed = { ...bar, rotation_deg: 90 }
+    expect(projectedAxisScales(yawed, 'side').sAlong).toBeCloseTo(1)
+    expect(projectedAxisScales(yawed, 'side').sLane).toBeCloseTo(0)
+    expect(projectedAxisScales(yawed, 'front').sAlong).toBeCloseTo(0)
+    expect(Math.abs(projectedAxisScales(yawed, 'front').sLane)).toBeCloseTo(1)
   })
 })
 
@@ -142,10 +182,12 @@ describe('projectedBounds', () => {
     expect(bounds.maxU * 2).toBeCloseTo(100 * Math.SQRT2, 6)
   })
 
-  it('ignores rotation in elevations', () => {
-    const el = element({ x_cm: 0, z_cm: 0, width_cm: 40, height_cm: 60, rotation_deg: 45 })
+  it('carries plan rotation into the elevations as foreshortening', () => {
+    const el = element({ x_cm: 0, z_cm: 0, width_cm: 40, depth_cm: 30, height_cm: 60, rotation_deg: 45 })
     const bounds = projectedBounds(el, 'front')
-    expect(bounds.maxU - bounds.minU).toBe(40)
+    // Yawed 45°: the front silhouette mixes width and depth…
+    expect(bounds.maxU - bounds.minU).toBeCloseTo((40 + 30) * Math.SQRT1_2, 1)
+    // …while the height is untouched.
     expect(bounds.maxV - bounds.minV).toBe(60)
   })
 })

@@ -28,39 +28,109 @@ export interface ProjectedRect {
   rotationDeg: number
 }
 
+interface Vec3 {
+  x: number
+  y: number
+  z: number
+}
+
+interface PlaneVec {
+  u: number
+  v: number
+}
+
 /**
- * Orthographic projection of one element into a view (research.md R7).
- * All three views project the same stored fields, so the views can
- * never disagree: top = (x, y) × (width, depth); front = (x, z) ×
- * (width, height); side = (y, z) × (depth, height).
+ * World directions of an element's local axes under its plan rotation
+ * (yaw about the vertical) and tilt (rake about its own depth axis):
+ * world = Rz(rotation) · Ry(tilt) · local. World frame: x stage-left →
+ * stage-right, y upstage → downstage, z up.
  */
-export function projectElement(element: StagePlotElement, view: StagePlotView): ProjectedRect {
+function localAxes(rotationDeg: number, tiltDeg: number): { ax: Vec3; ay: Vec3; az: Vec3 } {
+  const yaw = (rotationDeg * Math.PI) / 180
+  const tilt = (tiltDeg * Math.PI) / 180
+  const cy = Math.cos(yaw)
+  const sy = Math.sin(yaw)
+  const ct = Math.cos(tilt)
+  const st = Math.sin(tilt)
+  return {
+    ax: { x: cy * ct, y: sy * ct, z: -st },
+    ay: { x: -sy, y: cy, z: 0 },
+    az: { x: cy * st, y: sy * st, z: ct },
+  }
+}
+
+/** A world direction on a view's screen plane (u right, v down — the
+ *  SVG frame each view is drawn in). */
+function screenDirection(a: Vec3, view: StagePlotView): PlaneVec {
   switch (view) {
     case 'top':
-      return {
-        u: element.x_cm,
-        v: element.y_cm,
-        width: element.width_cm,
-        height: element.depth_cm,
-        rotationDeg: element.rotation_deg,
-      }
+      return { u: a.x, v: a.y }
     case 'front':
-      return {
-        u: element.x_cm,
-        v: element.z_cm + element.height_cm / 2,
-        width: element.width_cm,
-        height: element.height_cm,
-        rotationDeg: element.tilt_deg,
-      }
+      return { u: a.x, v: -a.z }
     case 'side':
-      return {
-        u: element.y_cm,
-        v: element.z_cm + element.height_cm / 2,
-        width: element.depth_cm,
-        height: element.height_cm,
-        rotationDeg: 0,
-      }
+      return { u: a.y, v: -a.z }
   }
+}
+
+function dot(a: PlaneVec, b: PlaneVec): number {
+  return a.u * b.u + a.v * b.v
+}
+
+/** The rotation a view draws with: plan rotation in the top view, tilt
+ *  in the front view; the side view stays axis-aligned. */
+function drawnRotation(element: StagePlotElement, view: StagePlotView): number {
+  return view === 'top' ? element.rotation_deg : view === 'front' ? element.tilt_deg : 0
+}
+
+/**
+ * Orthographic projection of one element into a view (research.md R7).
+ * The stored fields are a full 3D model — center (x, y, z + h/2), box
+ * dimensions, plan rotation and tilt — and every view projects that
+ * same oriented box, so the views can never disagree. The drawn rect's
+ * extents are the box's true silhouette extents along and across the
+ * view's drawn rotation: a truss yawed 90° in the plan shows only its
+ * cross-section in the front view and its full length in the side view.
+ */
+export function projectElement(element: StagePlotElement, view: StagePlotView): ProjectedRect {
+  const rotationDeg = drawnRotation(element, view)
+  const axes = localAxes(element.rotation_deg, element.tilt_deg)
+  const radians = (rotationDeg * Math.PI) / 180
+  const along = { u: Math.cos(radians), v: Math.sin(radians) }
+  const across = { u: -Math.sin(radians), v: Math.cos(radians) }
+  const pX = screenDirection(axes.ax, view)
+  const pY = screenDirection(axes.ay, view)
+  const pZ = screenDirection(axes.az, view)
+  // roundCm kills the cos²+sin² float noise so unrotated elements keep
+  // their exact stored dimensions.
+  const width = roundCm(element.width_cm * Math.abs(dot(pX, along)) + element.depth_cm * Math.abs(dot(pY, along)) + element.height_cm * Math.abs(dot(pZ, along)))
+  const height = roundCm(element.width_cm * Math.abs(dot(pX, across)) + element.depth_cm * Math.abs(dot(pY, across)) + element.height_cm * Math.abs(dot(pZ, across)))
+  switch (view) {
+    case 'top':
+      return { u: element.x_cm, v: element.y_cm, width, height, rotationDeg }
+    case 'front':
+      return { u: element.x_cm, v: element.z_cm + element.height_cm / 2, width, height, rotationDeg }
+    case 'side':
+      return { u: element.y_cm, v: element.z_cm + element.height_cm / 2, width, height, rotationDeg }
+  }
+}
+
+/**
+ * How a bar element's own axes travel in a view's drawn (rotated) rect
+ * frame, per cm: sAlong — along the drawn width axis per cm along the
+ * bar's length; sLane — along the drawn width axis per cm across the
+ * bar (a lane offset); sCross — along the drawn height axis per cm
+ * across the bar. Signed; near zero means that bar axis points into
+ * the screen (e.g. sAlong ≈ 0 in the side view of an unrotated truss,
+ * whose fixture markers then stack by lane only).
+ */
+export function projectedAxisScales(element: StagePlotElement, view: StagePlotView): { sAlong: number; sLane: number; sCross: number } {
+  const axes = localAxes(element.rotation_deg, element.tilt_deg)
+  const radians = (drawnRotation(element, view) * Math.PI) / 180
+  const along = { u: Math.cos(radians), v: Math.sin(radians) }
+  const across = { u: -Math.sin(radians), v: Math.cos(radians) }
+  const pX = screenDirection(axes.ax, view)
+  const pY = screenDirection(axes.ay, view)
+  return { sAlong: dot(pX, along), sLane: dot(pY, along), sCross: dot(pY, across) }
 }
 
 /**
