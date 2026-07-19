@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, Minus, Pencil, Plus, Trash2, X } from 'lucide-react'
 import {
@@ -143,6 +143,33 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
       await invalidatePlot()
     },
   })
+
+  // Delete/Backspace removes the selected element — unless the user is
+  // typing in a form field, and never on a locked layer.
+  const deleteSelectedRef = useRef<() => void>(() => {})
+  useEffect(() => {
+    // Re-pointed after every render so the window listener sees the
+    // current selection (refs must not be written during render).
+    deleteSelectedRef.current = () => {
+      if (selectedElementId == null || !response) return
+      const element = response.elements.find((entry) => entry.id === selectedElementId)
+      if (!element) return
+      const layer = response.layers.find((entry) => entry.id === element.layer_id)
+      if (!layer?.visible || layer.locked) return
+      deleteElementMutation.mutate(element.id)
+    }
+  })
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => {
+      if (event.key !== 'Delete' && event.key !== 'Backspace') return
+      const target = event.target as HTMLElement | null
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable)) return
+      event.preventDefault()
+      deleteSelectedRef.current()
+    }
+    window.addEventListener('keydown', listener)
+    return () => window.removeEventListener('keydown', listener)
+  }, [])
 
   // ---- Viewport ----
 

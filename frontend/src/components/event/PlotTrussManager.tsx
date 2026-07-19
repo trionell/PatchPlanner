@@ -102,7 +102,7 @@ export function PlotTrussManager({ eventId, trusses, open, onClose, onChanged, o
 interface TrussEditorProps {
   eventId: number
   truss: PlotTruss
-  trussItems: Array<{ id: number; name: string }>
+  trussItems: Array<{ id: number; name: string; description?: string }>
   fixtures: Array<{ id: number; custom_name?: string; inventory_item_name?: string; fixture_number?: number; truss_name?: string }>
   onChanged: () => Promise<void>
   onPlace: () => void
@@ -225,7 +225,10 @@ function TrussEditor({ eventId, truss, trussItems, fixtures, onChanged, onPlace,
         >
           <option value="">Pick truss piece…</option>
           {trussItems.map((item) => (
-            <option key={item.id} value={item.id}>{item.name}</option>
+            <option key={item.id} value={item.id}>
+              {item.name}
+              {item.description ? ` — ${item.description}` : ''}
+            </option>
           ))}
         </Select>
         <Input

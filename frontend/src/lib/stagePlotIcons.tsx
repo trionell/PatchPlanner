@@ -2,12 +2,14 @@ import type { ReactElement } from 'react'
 import type { StagePlotView } from '../types'
 
 // Built-in stage plot icon registry (research.md R9). Every glyph is
-// drawn in a normalized 0–100 box and stretched to the element's cm
-// footprint by the canvas (preserveAspectRatio="none"), so the icon
-// always fills exactly the element's real-world outline. Strokes use
-// currentColor (the layer tint) and non-scaling-stroke so stretching
-// never fattens lines. Front/side variants land with US6 (T037/T038);
-// until then lookup falls back to the top-down glyph.
+// drawn in a per-view coordinate box matching the icon's DEFAULT
+// real-world proportions — top: width×depth, front: width×height,
+// side: depth×height, all in cm — and stretched to the element's actual
+// footprint by the canvas (preserveAspectRatio="none"). Drawing in the
+// true aspect means a default-sized element renders undistorted, and
+// user resizing distorts proportionally, exactly like the outline
+// itself. Strokes use currentColor (the layer tint) and
+// non-scaling-stroke so stretching never fattens lines.
 
 export interface StagePlotIconDef {
   id: string
@@ -21,10 +23,15 @@ export interface StagePlotIconDef {
 const stroke = {
   fill: 'none',
   stroke: 'currentColor',
-  strokeWidth: 4,
+  strokeWidth: 3.5,
   vectorEffect: 'non-scaling-stroke',
   strokeLinecap: 'round',
   strokeLinejoin: 'round',
+} as const
+
+const filled = {
+  fill: 'currentColor',
+  stroke: 'none',
 } as const
 
 export const STAGE_PLOT_ICONS: StagePlotIconDef[] = [
@@ -35,22 +42,26 @@ export const STAGE_PLOT_ICONS: StagePlotIconDef[] = [
     group: 'resource',
     defaults: { width_cm: 60, depth_cm: 40, height_cm: 180 },
     glyphs: {
+      // Top (60×40): shoulders behind a solid head, nose toward downstage.
       top: (
         <g>
-          <ellipse {...stroke} cx="50" cy="55" rx="42" ry="30" />
-          <circle {...stroke} cx="50" cy="45" r="16" />
+          <path {...stroke} d="M6 16 C6 8 16 6 30 6 C44 6 54 8 54 16 C54 22 48 25 44 25 L16 25 C12 25 6 22 6 16 Z" />
+          <circle {...filled} cx="30" cy="22" r="8" />
+          <path {...stroke} d="M27 31 L30 36 L33 31" />
         </g>
       ),
+      // Front (60×180): stick figure.
       front: (
         <g>
-          <circle {...stroke} cx="50" cy="14" r="11" />
-          <path {...stroke} d="M50 25 L50 62 M50 34 L28 52 M50 34 L72 52 M50 62 L36 96 M50 62 L64 96" />
+          <circle {...stroke} cx="30" cy="16" r="11" />
+          <path {...stroke} d="M30 27 L30 95 M30 44 L8 72 M30 44 L52 72 M30 95 L16 172 M30 95 L44 172" />
         </g>
       ),
+      // Side (40×180): profile stick figure.
       side: (
         <g>
-          <circle {...stroke} cx="54" cy="14" r="11" />
-          <path {...stroke} d="M52 25 L48 62 M50 36 L60 54 M48 62 L42 96 M48 62 L56 96" />
+          <circle {...stroke} cx="24" cy="16" r="11" />
+          <path {...stroke} d="M22 27 C20 50 20 70 20 95 M21 46 L32 74 M20 95 L13 172 M20 95 L28 172" />
         </g>
       ),
     },
@@ -61,22 +72,25 @@ export const STAGE_PLOT_ICONS: StagePlotIconDef[] = [
     group: 'resource',
     defaults: { width_cm: 30, depth_cm: 30, height_cm: 160 },
     glyphs: {
+      // Top (30×30): capsule + tripod legs from above.
       top: (
         <g>
-          <circle {...stroke} cx="50" cy="35" r="18" />
-          <path {...stroke} d="M50 53 L50 88 M30 88 L70 88" />
+          <circle {...stroke} cx="15" cy="15" r="7" />
+          <path {...stroke} d="M15 15 L4 27 M15 15 L26 27 M15 15 L15 2" />
         </g>
       ),
+      // Front (30×160): mic on a straight stand.
       front: (
         <g>
-          <rect {...stroke} x="42" y="4" width="16" height="26" rx="8" />
-          <path {...stroke} d="M34 22 A16 16 0 0 0 66 22 M50 38 L50 88 M32 96 L68 96 M50 88 L32 96 M50 88 L68 96" />
+          <rect {...stroke} x="11" y="2" width="8" height="16" rx="4" />
+          <path {...stroke} d="M15 18 L15 138 M15 138 L4 156 M15 138 L26 156 M15 138 L15 158" />
         </g>
       ),
+      // Side (30×160): boom stand in profile.
       side: (
         <g>
-          <rect {...stroke} x="44" y="4" width="14" height="24" rx="7" />
-          <path {...stroke} d="M51 28 L51 88 M36 96 L66 96 M51 88 L36 96 M51 88 L66 96" />
+          <rect {...stroke} x="19" y="4" width="8" height="14" rx="4" transform="rotate(35 23 11)" />
+          <path {...stroke} d="M13 40 L24 16 M13 40 L13 138 M13 138 L3 156 M13 138 L23 156" />
         </g>
       ),
     },
@@ -87,23 +101,26 @@ export const STAGE_PLOT_ICONS: StagePlotIconDef[] = [
     group: 'resource',
     defaults: { width_cm: 40, depth_cm: 35, height_cm: 70 },
     glyphs: {
+      // Top (40×35): classic plan symbol — box with a cross.
       top: (
         <g>
-          <rect {...stroke} x="8" y="8" width="84" height="84" />
-          <path {...stroke} d="M20 80 A38 38 0 0 1 80 80" />
-          <circle {...stroke} cx="50" cy="42" r="10" />
+          <rect {...stroke} x="2" y="2" width="36" height="31" />
+          <path {...stroke} d="M2 2 L38 33 M38 2 L2 33" />
         </g>
       ),
+      // Front (40×70): cabinet, woofer, tweeter.
       front: (
         <g>
-          <rect {...stroke} x="14" y="4" width="72" height="92" />
-          <circle {...stroke} cx="50" cy="66" r="20" />
-          <circle {...stroke} cx="50" cy="24" r="10" />
+          <rect {...stroke} x="2" y="2" width="36" height="66" />
+          <circle {...stroke} cx="20" cy="46" r="13" />
+          <circle {...stroke} cx="20" cy="16" r="6" />
         </g>
       ),
+      // Side (35×70): plain cabinet with the grille at the front edge.
       side: (
         <g>
-          <path {...stroke} d="M20 4 L80 4 L80 96 L34 96 L20 60 Z" />
+          <rect {...stroke} x="3" y="2" width="29" height="66" />
+          <path {...stroke} d="M9 2 L9 68" />
         </g>
       ),
     },
@@ -114,21 +131,24 @@ export const STAGE_PLOT_ICONS: StagePlotIconDef[] = [
     group: 'resource',
     defaults: { width_cm: 50, depth_cm: 40, height_cm: 35 },
     glyphs: {
+      // Top (50×40): wedge from above.
       top: (
         <g>
-          <path {...stroke} d="M12 20 L88 20 L72 85 L28 85 Z" />
-          <path {...stroke} d="M28 38 L72 38" />
+          <path {...stroke} d="M4 6 L46 6 L38 36 L12 36 Z" />
+          <path {...stroke} d="M11 14 L39 14" />
         </g>
       ),
+      // Front (50×35): wedge face with driver.
       front: (
         <g>
-          <path {...stroke} d="M8 96 L92 96 L78 52 L22 52 Z" />
-          <circle {...stroke} cx="50" cy="76" r="12" />
+          <path {...stroke} d="M2 33 L48 33 L41 10 L9 10 Z" />
+          <circle {...stroke} cx="25" cy="23" r="7" />
         </g>
       ),
+      // Side (40×35): the wedge profile.
       side: (
         <g>
-          <path {...stroke} d="M10 96 L90 96 L90 66 L30 30 Z" />
+          <path {...stroke} d="M3 33 L37 33 L37 20 L10 4 Z" />
         </g>
       ),
     },
@@ -139,25 +159,30 @@ export const STAGE_PLOT_ICONS: StagePlotIconDef[] = [
     group: 'resource',
     defaults: { width_cm: 60, depth_cm: 60, height_cm: 100 },
     glyphs: {
+      // Top (60×60): case with rails.
       top: (
         <g>
-          <rect {...stroke} x="10" y="10" width="80" height="80" />
-          <path {...stroke} d="M22 10 L22 90 M78 10 L78 90" />
-          <path {...stroke} d="M34 35 L66 35 M34 50 L66 50 M34 65 L66 65" />
+          <rect {...stroke} x="3" y="3" width="54" height="54" />
+          <path {...stroke} d="M12 3 L12 57 M48 3 L48 57" />
+          <path {...stroke} d="M12 21 L48 21 M12 39 L48 39" />
         </g>
       ),
+      // Front (60×100): rack units.
       front: (
         <g>
-          <rect {...stroke} x="12" y="4" width="76" height="92" />
-          <path {...stroke} d="M12 26 L88 26 M12 48 L88 48 M12 70 L88 70" />
-          <circle {...stroke} cx="22" cy="15" r="2" />
-          <circle {...stroke} cx="22" cy="37" r="2" />
+          <rect {...stroke} x="3" y="2" width="54" height="96" />
+          <path {...stroke} d="M3 22 L57 22 M3 42 L57 42 M3 62 L57 62 M3 82 L57 82" />
+          <circle {...filled} cx="10" cy="12" r="1.6" />
+          <circle {...filled} cx="50" cy="12" r="1.6" />
+          <circle {...filled} cx="10" cy="32" r="1.6" />
+          <circle {...filled} cx="50" cy="32" r="1.6" />
         </g>
       ),
+      // Side (60×100): case profile with a handle.
       side: (
         <g>
-          <rect {...stroke} x="18" y="4" width="64" height="92" />
-          <path {...stroke} d="M18 26 L82 26" />
+          <rect {...stroke} x="6" y="2" width="48" height="96" />
+          <path {...stroke} d="M22 14 L38 14" />
         </g>
       ),
     },
@@ -168,22 +193,24 @@ export const STAGE_PLOT_ICONS: StagePlotIconDef[] = [
     group: 'lighting',
     defaults: { width_cm: 200, depth_cm: 30, height_cm: 30 },
     glyphs: {
+      // Top/front (200×30): chords + diagonal lacing.
       top: (
         <g>
-          <path {...stroke} d="M4 25 L96 25 M4 75 L96 75" />
-          <path {...stroke} d="M4 25 L20 75 L36 25 L52 75 L68 25 L84 75 L96 25" />
+          <path {...stroke} d="M2 5 L198 5 M2 25 L198 25" />
+          <path {...stroke} d="M2 5 L22 25 L42 5 L62 25 L82 5 L102 25 L122 5 L142 25 L162 5 L182 25 L198 9" />
         </g>
       ),
       front: (
         <g>
-          <path {...stroke} d="M4 30 L96 30 M4 70 L96 70" />
-          <path {...stroke} d="M4 30 L20 70 L36 30 L52 70 L68 30 L84 70 L96 30" />
+          <path {...stroke} d="M2 5 L198 5 M2 25 L198 25" />
+          <path {...stroke} d="M2 5 L22 25 L42 5 L62 25 L82 5 L102 25 L122 5 L142 25 L162 5 L182 25 L198 9" />
         </g>
       ),
+      // Side (30×30): the square cross-section.
       side: (
         <g>
-          <rect {...stroke} x="20" y="20" width="60" height="60" />
-          <path {...stroke} d="M20 20 L80 80 M80 20 L20 80" />
+          <rect {...stroke} x="3" y="3" width="24" height="24" />
+          <path {...stroke} d="M3 3 L27 27 M27 3 L3 27" />
         </g>
       ),
     },
@@ -194,25 +221,28 @@ export const STAGE_PLOT_ICONS: StagePlotIconDef[] = [
     group: 'lighting',
     defaults: { width_cm: 30, depth_cm: 25, height_cm: 35 },
     glyphs: {
+      // Top (30×25): body + yoke arms, lens toward downstage.
       top: (
         <g>
-          <rect {...stroke} x="25" y="15" width="50" height="55" rx="8" />
-          <path {...stroke} d="M25 82 A34 20 0 0 1 75 82" />
-          <path {...stroke} d="M14 15 L14 45 M86 15 L86 45" />
+          <rect {...stroke} x="7" y="3" width="16" height="13" rx="2" />
+          <path {...stroke} d="M7 22 A11 5 0 0 1 23 22" />
+          <path {...stroke} d="M2 3 L2 13 M28 3 L28 13" />
         </g>
       ),
+      // Front (30×35): clamp, yoke, body, lens.
       front: (
         <g>
-          <path {...stroke} d="M30 4 L70 4 M50 4 L50 16" />
-          <rect {...stroke} x="32" y="16" width="36" height="44" rx="6" />
-          <path {...stroke} d="M32 74 A26 14 0 0 1 68 74 M26 60 L74 60" />
+          <path {...stroke} d="M9 2 L21 2 M15 2 L15 7" />
+          <rect {...stroke} x="8" y="7" width="14" height="18" rx="3" />
+          <path {...stroke} d="M8 31 A9 5 0 0 1 22 31" />
         </g>
       ),
+      // Side (25×35): tilted body throwing a beam.
       side: (
         <g>
-          <path {...stroke} d="M40 4 L76 4 M58 4 L58 16" />
-          <rect {...stroke} x="42" y="16" width="30" height="42" rx="6" transform="rotate(18 57 37)" />
-          <path {...stroke} d="M36 66 L64 84" />
+          <path {...stroke} d="M6 2 L18 2 M12 2 L12 6" />
+          <rect {...stroke} x="6" y="6" width="11" height="17" rx="3" transform="rotate(22 11.5 14.5)" />
+          <path {...stroke} d="M6 27 L19 33" />
         </g>
       ),
     },
@@ -224,31 +254,36 @@ export const STAGE_PLOT_ICONS: StagePlotIconDef[] = [
     group: 'instrument',
     defaults: { width_cm: 200, depth_cm: 150, height_cm: 120 },
     glyphs: {
+      // Top (200×150): kick center, snare/toms/floor around, cymbals out wide.
       top: (
         <g>
-          <circle {...stroke} cx="50" cy="62" r="20" />
-          <circle {...stroke} cx="22" cy="38" r="13" />
-          <circle {...stroke} cx="50" cy="26" r="11" />
-          <circle {...stroke} cx="78" cy="38" r="13" />
-          <circle {...stroke} cx="14" cy="70" r="9" />
-          <circle {...stroke} cx="86" cy="70" r="11" />
+          <circle {...stroke} cx="100" cy="96" r="36" />
+          <circle {...stroke} cx="46" cy="62" r="23" />
+          <circle {...stroke} cx="79" cy="36" r="19" />
+          <circle {...stroke} cx="121" cy="36" r="19" />
+          <circle {...stroke} cx="153" cy="64" r="25" />
+          <circle {...stroke} cx="19" cy="102" r="15" />
+          <circle {...stroke} cx="180" cy="102" r="18" />
         </g>
       ),
+      // Front (200×120): kick drum, rack toms, cymbals on stands.
       front: (
         <g>
-          <circle {...stroke} cx="50" cy="60" r="24" />
-          <path {...stroke} d="M26 60 L74 60" />
-          <rect {...stroke} x="16" y="26" width="22" height="16" rx="3" />
-          <rect {...stroke} x="62" y="26" width="22" height="16" rx="3" />
-          <path {...stroke} d="M14 12 L38 18 M86 12 L62 18" />
-          <path {...stroke} d="M34 84 L28 96 M66 84 L72 96" />
+          <circle {...stroke} cx="100" cy="78" r="34" />
+          <circle {...stroke} cx="100" cy="78" r="6" />
+          <rect {...stroke} x="48" y="20" width="38" height="24" rx="4" />
+          <rect {...stroke} x="114" y="20" width="38" height="24" rx="4" />
+          <path {...stroke} d="M8 8 L48 16 M28 12 L28 112 M192 8 L152 16 M172 12 L172 112" />
+          <path {...stroke} d="M74 104 L60 116 M126 104 L140 116" />
         </g>
       ),
+      // Side (150×120): kick in profile, snare + cymbal stands.
       side: (
         <g>
-          <rect {...stroke} x="26" y="42" width="40" height="38" rx="4" />
-          <path {...stroke} d="M20 18 L52 26 M46 42 L46 80" />
-          <path {...stroke} d="M34 80 L28 96 M60 80 L68 96" />
+          <rect {...stroke} x="94" y="44" width="34" height="70" rx="8" />
+          <rect {...stroke} x="38" y="58" width="34" height="14" rx="3" />
+          <path {...stroke} d="M55 72 L55 114" />
+          <path {...stroke} d="M14 28 L58 28 M36 28 L36 114" />
         </g>
       ),
     },
@@ -259,24 +294,26 @@ export const STAGE_PLOT_ICONS: StagePlotIconDef[] = [
     group: 'instrument',
     defaults: { width_cm: 150, depth_cm: 250, height_cm: 100 },
     glyphs: {
+      // Top (150×250): the classic grand outline, keys upstage.
       top: (
         <g>
-          <path {...stroke} d="M15 8 L85 8 L85 40 C85 75 70 92 45 92 L15 92 Z" />
-          <path {...stroke} d="M15 20 L85 20" />
+          <path {...stroke} d="M12 6 L138 6 L138 120 C138 200 104 242 58 242 L12 242 Z" />
+          <path {...stroke} d="M12 30 L138 30" />
         </g>
       ),
+      // Front (150×100): lid, keybed, legs.
       front: (
         <g>
-          <rect {...stroke} x="8" y="34" width="84" height="24" />
-          <path {...stroke} d="M8 34 L8 10 L92 10 L92 34" />
-          <path {...stroke} d="M22 34 L22 58 M36 34 L36 58 M50 34 L50 58 M64 34 L64 58 M78 34 L78 58" />
-          <path {...stroke} d="M16 58 L16 96 M84 58 L84 96 M50 58 L50 96" />
+          <rect {...stroke} x="6" y="10" width="138" height="28" />
+          <rect {...stroke} x="6" y="38" width="138" height="16" />
+          <path {...stroke} d="M20 54 L20 94 M75 54 L75 94 M130 54 L130 94" />
         </g>
       ),
+      // Side (250×100): body wedge with the raised lid line.
       side: (
         <g>
-          <path {...stroke} d="M10 44 L64 44 L92 16 L92 44 L90 58 L14 58 Z" />
-          <path {...stroke} d="M20 58 L20 96 M82 58 L82 96" />
+          <path {...stroke} d="M12 36 L160 36 L238 8 L238 52 L12 52 Z" />
+          <path {...stroke} d="M28 52 L28 94 M215 52 L215 94 M110 52 L110 78 L130 78" />
         </g>
       ),
     },
@@ -287,26 +324,29 @@ export const STAGE_PLOT_ICONS: StagePlotIconDef[] = [
     group: 'instrument',
     defaults: { width_cm: 150, depth_cm: 60, height_cm: 125 },
     glyphs: {
+      // Top (150×60): body slab + protruding keybed.
       top: (
         <g>
-          <rect {...stroke} x="6" y="15" width="88" height="70" />
-          <path {...stroke} d="M6 55 L94 55" />
-          <path {...stroke} d="M20 55 L20 85 M35 55 L35 85 M50 55 L50 85 M65 55 L65 85 M80 55 L80 85" />
+          <rect {...stroke} x="4" y="4" width="142" height="34" />
+          <rect {...stroke} x="14" y="38" width="122" height="16" />
+          <path {...stroke} d="M38 38 L38 54 M63 38 L63 54 M87 38 L87 54 M112 38 L112 54" />
         </g>
       ),
+      // Front (150×125): tall body, keybed, legs.
       front: (
         <g>
-          <rect {...stroke} x="10" y="8" width="80" height="54" />
-          <path {...stroke} d="M10 62 L90 62 L90 74 L10 74 Z" />
-          <path {...stroke} d="M24 62 L24 74 M38 62 L38 74 M52 62 L52 74 M66 62 L66 74 M80 62 L80 74" />
-          <path {...stroke} d="M16 74 L16 96 M84 74 L84 96" />
+          <rect {...stroke} x="4" y="4" width="142" height="68" />
+          <rect {...stroke} x="4" y="72" width="142" height="16" />
+          <path {...stroke} d="M30 72 L30 88 M60 72 L60 88 M90 72 L90 88 M120 72 L120 88" />
+          <path {...stroke} d="M14 88 L14 121 M136 88 L136 121" />
         </g>
       ),
+      // Side (60×125): tall slab with the keybed sticking out.
       side: (
         <g>
-          <rect {...stroke} x="30" y="8" width="34" height="66" />
-          <path {...stroke} d="M64 60 L82 60 L82 74 L64 74" />
-          <path {...stroke} d="M36 74 L36 96 M76 74 L76 96" />
+          <rect {...stroke} x="14" y="4" width="30" height="70" />
+          <path {...stroke} d="M44 60 L54 60 L54 74 L44 74" />
+          <path {...stroke} d="M20 74 L20 121 M48 74 L48 121" />
         </g>
       ),
     },
@@ -317,23 +357,27 @@ export const STAGE_PLOT_ICONS: StagePlotIconDef[] = [
     group: 'instrument',
     defaults: { width_cm: 130, depth_cm: 40, height_cm: 95 },
     glyphs: {
+      // Top (130×40): the keybed from above.
       top: (
         <g>
-          <rect {...stroke} x="4" y="25" width="92" height="50" />
-          <path {...stroke} d="M17 25 L17 75 M30 25 L30 75 M43 25 L43 75 M56 25 L56 75 M69 25 L69 75 M82 25 L82 75" />
+          <rect {...stroke} x="3" y="4" width="124" height="32" />
+          <path {...stroke} d="M3 17 L127 17" />
+          <path {...stroke} d="M19 17 L19 36 M35 17 L35 36 M51 17 L51 36 M67 17 L67 36 M83 17 L83 36 M99 17 L99 36 M115 17 L115 36" />
         </g>
       ),
+      // Front (130×95): keyboard on an X-stand.
       front: (
         <g>
-          <rect {...stroke} x="6" y="40" width="88" height="18" />
-          <path {...stroke} d="M20 40 L20 58 M34 40 L34 58 M48 40 L48 58 M62 40 L62 58 M76 40 L76 58" />
-          <path {...stroke} d="M18 58 L12 96 M82 58 L88 96 M14 82 L86 82" />
+          <rect {...stroke} x="8" y="34" width="114" height="12" />
+          <path {...stroke} d="M26 46 L26 34 M46 46 L46 34 M66 46 L66 34 M86 46 L86 34 M106 46 L106 34" />
+          <path {...stroke} d="M35 46 L95 90 M95 46 L35 90 M24 90 L46 90 M84 90 L106 90" />
         </g>
       ),
+      // Side (40×95): slab + X-stand profile.
       side: (
         <g>
-          <path {...stroke} d="M26 44 L74 40 L76 56 L28 60 Z" />
-          <path {...stroke} d="M50 60 L46 96 M38 96 L58 96" />
+          <rect {...stroke} x="7" y="36" width="26" height="8" />
+          <path {...stroke} d="M11 44 L29 88 M29 44 L11 88" />
         </g>
       ),
     },
@@ -344,26 +388,31 @@ export const STAGE_PLOT_ICONS: StagePlotIconDef[] = [
     group: 'instrument',
     defaults: { width_cm: 45, depth_cm: 40, height_cm: 110 },
     glyphs: {
+      // Top (45×40): body + neck at an angle (on a stand).
       top: (
         <g>
-          <circle {...stroke} cx="42" cy="68" r="24" />
-          <circle {...stroke} cx="42" cy="38" r="16" />
-          <circle {...stroke} cx="42" cy="55" r="6" />
-          <path {...stroke} d="M52 25 L82 -4 M75 3 L82 -4" transform="translate(0,10)" />
+          <circle {...stroke} cx="16" cy="26" r="12" />
+          <circle {...stroke} cx="23" cy="17" r="8" />
+          <circle {...stroke} cx="19" cy="22" r="3.5" />
+          <path {...stroke} d="M29 11 L43 2" />
         </g>
       ),
+      // Front (45×110): standing on a stand.
       front: (
         <g>
-          <path {...stroke} d="M50 40 C66 40 70 52 68 64 C66 82 58 92 50 92 C42 92 34 82 32 64 C30 52 34 40 50 40 Z" />
-          <circle {...stroke} cx="50" cy="62" r="8" />
-          <rect {...stroke} x="45" y="6" width="10" height="34" />
-          <path {...stroke} d="M42 6 L58 6" />
+          <circle {...stroke} cx="22" cy="82" r="19" />
+          <circle {...stroke} cx="22" cy="57" r="13" />
+          <circle {...stroke} cx="22" cy="68" r="5" />
+          <path {...stroke} d="M19 4 L19 44 M25 4 L25 44 M16 4 L28 4" />
+          <path {...stroke} d="M8 106 L17 94 M36 106 L27 94" />
         </g>
       ),
+      // Side (40×110): thin body in profile.
       side: (
         <g>
-          <path {...stroke} d="M44 40 L56 40 L58 92 L42 92 Z" />
-          <path {...stroke} d="M47 40 L45 6 L57 6 L53 40" />
+          <path {...stroke} d="M17 50 L26 50 L28 100 L14 100 Z" />
+          <path {...stroke} d="M21 4 L20 50" />
+          <path {...stroke} d="M8 106 L15 96 M32 106 L27 98" />
         </g>
       ),
     },
@@ -374,24 +423,27 @@ export const STAGE_PLOT_ICONS: StagePlotIconDef[] = [
     group: 'instrument',
     defaults: { width_cm: 40, depth_cm: 35, height_cm: 100 },
     glyphs: {
+      // Top (40×35): waisted body + neck at an angle.
       top: (
         <g>
-          <path {...stroke} d="M30 88 C14 88 10 72 22 64 C10 58 16 42 32 46 C38 48 44 52 46 58 L52 74 C54 84 44 88 30 88 Z" />
-          <path {...stroke} d="M50 60 L88 10" />
-          <path {...stroke} d="M82 4 L94 16" />
+          <path {...stroke} d="M8 30 C3 30 2 24 6 21 C2 18 4 12 9 13 C12 13 14 15 15 17 L18 22 C19 26 15 30 8 30 Z" />
+          <path {...stroke} d="M17 18 L38 3" />
         </g>
       ),
+      // Front (40×100): standing solid-body.
       front: (
         <g>
-          <path {...stroke} d="M50 44 C62 44 66 54 62 62 C70 66 68 80 58 86 C54 90 46 90 42 86 C32 80 30 66 38 62 C34 54 38 44 50 44 Z" />
-          <rect {...stroke} x="46" y="4" width="8" height="40" />
-          <path {...stroke} d="M42 4 L58 4" />
+          <path {...stroke} d="M20 50 C29 50 33 58 29 64 C36 68 34 82 26 87 C22 91 18 91 14 87 C6 82 4 68 11 64 C7 58 11 50 20 50 Z" />
+          <path {...stroke} d="M17 4 L17 50 M23 4 L23 50 M14 4 L26 4" />
+          <path {...stroke} d="M7 96 L14 88 M33 96 L26 88" />
         </g>
       ),
+      // Side (35×100): slim slab + neck.
       side: (
         <g>
-          <path {...stroke} d="M46 46 L54 46 L56 88 L44 88 Z" />
-          <path {...stroke} d="M48 46 L47 4 L56 4 L52 46" />
+          <path {...stroke} d="M15 52 L22 52 L24 88 L13 88 Z" />
+          <path {...stroke} d="M18 4 L17 52" />
+          <path {...stroke} d="M8 96 L14 89 M28 96 L23 90" />
         </g>
       ),
     },
@@ -402,22 +454,27 @@ export const STAGE_PLOT_ICONS: StagePlotIconDef[] = [
     group: 'instrument',
     defaults: { width_cm: 45, depth_cm: 35, height_cm: 120 },
     glyphs: {
+      // Top (45×35): longer neck than the electric guitar.
       top: (
         <g>
-          <path {...stroke} d="M26 90 C12 90 8 76 18 68 C8 62 14 48 28 51 C34 53 40 57 42 63 L46 78 C48 87 38 90 26 90 Z" />
-          <path {...stroke} d="M44 64 L92 4" />
+          <path {...stroke} d="M8 30 C3 30 2 24 6 21 C3 18 5 13 10 14 C13 14 15 16 16 18 L18 23 C19 27 14 30 8 30 Z" />
+          <path {...stroke} d="M17 19 L43 2" />
         </g>
       ),
+      // Front (45×120): long-scale standing bass guitar.
       front: (
         <g>
-          <path {...stroke} d="M50 48 C60 48 64 56 61 63 C68 67 66 80 57 86 C53 90 47 90 43 86 C34 80 32 67 39 63 C36 56 40 48 50 48 Z" />
-          <rect {...stroke} x="46.5" y="2" width="7" height="46" />
+          <path {...stroke} d="M22 66 C30 66 34 73 31 79 C37 83 35 95 27 100 C24 103 20 103 17 100 C9 95 7 83 13 79 C10 73 14 66 22 66 Z" />
+          <path {...stroke} d="M19 4 L19 66 M25 4 L25 66 M16 4 L28 4" />
+          <path {...stroke} d="M9 114 L16 102 M35 114 L28 102" />
         </g>
       ),
+      // Side (35×120): slim slab + long neck.
       side: (
         <g>
-          <path {...stroke} d="M46 50 L54 50 L55 88 L45 88 Z" />
-          <path {...stroke} d="M49 50 L48 2 L54 2 L51 50" />
+          <path {...stroke} d="M15 68 L22 68 L24 102 L13 102 Z" />
+          <path {...stroke} d="M18 4 L17 68" />
+          <path {...stroke} d="M8 114 L14 104 M28 114 L23 104" />
         </g>
       ),
     },
@@ -428,23 +485,29 @@ export const STAGE_PLOT_ICONS: StagePlotIconDef[] = [
     group: 'instrument',
     defaults: { width_cm: 50, depth_cm: 45, height_cm: 130 },
     glyphs: {
+      // Top (50×45): body outline leaning on a stand, neck upstage.
       top: (
         <g>
-          <path {...stroke} d="M50 18 C64 18 70 26 70 34 C70 40 66 44 66 50 C66 58 74 62 74 72 C74 85 64 92 50 92 C36 92 26 85 26 72 C26 62 34 58 34 50 C34 44 30 40 30 34 C30 26 36 18 50 18 Z" />
-          <path {...stroke} d="M50 18 L50 4" />
-          <path {...stroke} d="M42 50 L42 62 M58 50 L58 62" />
+          <path {...stroke} d="M25 12 C33 12 37 16 37 21 C37 24 35 26 35 29 C35 34 40 36 40 40 C40 43 33 43 25 43 C17 43 10 43 10 40 C10 36 15 34 15 29 C15 26 13 24 13 21 C13 16 17 12 25 12 Z" />
+          <path {...stroke} d="M25 12 L25 2" />
         </g>
       ),
+      // Front (50×130): classic waisted silhouette, endpin down.
       front: (
         <g>
-          <path {...stroke} d="M50 26 C61 26 66 33 66 40 C66 45 62 48 62 53 C62 60 69 63 69 71 C69 82 60 90 50 90 C40 90 31 82 31 71 C31 63 38 60 38 53 C38 48 34 45 34 40 C34 33 39 26 50 26 Z" />
-          <path {...stroke} d="M50 26 L50 6 M44 6 L56 6 M50 90 L50 98" />
+          <path {...stroke} d="M25 34 C36 34 41 41 41 48 C41 53 37 56 37 61 C37 68 44 71 44 79 C44 92 35 100 25 100 C15 100 6 92 6 79 C6 71 13 68 13 61 C13 56 9 53 9 48 C9 41 14 34 25 34 Z" />
+          <path {...stroke} d="M25 34 L25 8 M20 8 L30 8" />
+          <circle {...stroke} cx="25" cy="5" r="2.5" />
+          <path {...stroke} d="M25 100 L25 126 M20 126 L30 126" />
+          <path {...stroke} d="M19 58 L19 72 M31 58 L31 72" />
         </g>
       ),
+      // Side (45×130): narrow slab, neck and endpin.
       side: (
         <g>
-          <path {...stroke} d="M44 28 L52 28 L56 88 L42 88 Z" />
-          <path {...stroke} d="M48 28 L48 6 M49 88 L52 98" />
+          <path {...stroke} d="M19 36 L27 36 L31 98 L15 98 Z" />
+          <path {...stroke} d="M23 36 L23 8" />
+          <path {...stroke} d="M23 98 L24 126" />
         </g>
       ),
     },
@@ -455,24 +518,29 @@ export const STAGE_PLOT_ICONS: StagePlotIconDef[] = [
     group: 'instrument',
     defaults: { width_cm: 55, depth_cm: 20, height_cm: 15 },
     glyphs: {
+      // Top (55×20): tubing + bell flare, valves as dots.
       top: (
         <g>
-          <path {...stroke} d="M4 42 L58 42 M4 58 L58 58" />
-          <path {...stroke} d="M58 42 C74 42 78 24 92 24 L92 76 C78 76 74 58 58 58" />
-          <path {...stroke} d="M26 42 L26 58 M36 42 L36 58 M46 42 L46 58" />
+          <path {...stroke} d="M3 7 L36 7 M3 13 L36 13 M3 7 L3 13" />
+          <path {...stroke} d="M36 7 C45 7 46 2 53 2 L53 18 C46 18 45 13 36 13" />
+          <circle {...filled} cx="15" cy="10" r="1.8" />
+          <circle {...filled} cx="21" cy="10" r="1.8" />
+          <circle {...filled} cx="27" cy="10" r="1.8" />
         </g>
       ),
+      // Front (55×15): tubing with valve stems and the bell circle.
       front: (
         <g>
-          <path {...stroke} d="M6 46 L54 46 M6 58 L54 58" />
-          <path {...stroke} d="M54 46 C70 46 72 28 88 28 L88 76 C72 76 70 58 54 58" />
-          <path {...stroke} d="M22 46 L22 36 M32 46 L32 36 M42 46 L42 36" />
+          <path {...stroke} d="M3 8 L39 8" />
+          <path {...stroke} d="M15 8 L15 3 M21 8 L21 3 M27 8 L27 3" />
+          <circle {...stroke} cx="47" cy="8" r="6" />
         </g>
       ),
+      // Side (20×15): looking into the bell.
       side: (
         <g>
-          <circle {...stroke} cx="50" cy="52" r="22" />
-          <circle {...stroke} cx="50" cy="52" r="9" />
+          <circle {...stroke} cx="10" cy="7.5" r="6" />
+          <circle {...stroke} cx="10" cy="7.5" r="2" />
         </g>
       ),
     },
@@ -483,24 +551,27 @@ export const STAGE_PLOT_ICONS: StagePlotIconDef[] = [
     group: 'instrument',
     defaults: { width_cm: 30, depth_cm: 40, height_cm: 80 },
     glyphs: {
+      // Top (30×40): bell opening + body curve from above.
       top: (
         <g>
-          <path {...stroke} d="M66 6 C60 6 58 10 58 16 L58 62 C58 78 48 88 34 88 C22 88 14 80 14 68 C14 58 20 51 30 50" />
-          <path {...stroke} d="M66 6 L76 6" />
-          <path {...stroke} d="M58 28 L52 28 M58 40 L52 40 M58 52 L52 52" />
+          <circle {...stroke} cx="13" cy="28" r="9" />
+          <circle {...stroke} cx="13" cy="28" r="3" />
+          <path {...stroke} d="M13 19 C13 10 18 6 24 3" />
         </g>
       ),
+      // Front (30×80): body down, U-bend, bell up; mouthpiece kink.
       front: (
         <g>
-          <path {...stroke} d="M60 4 C56 4 54 8 54 12 L54 62 C54 76 46 86 36 86 C26 86 18 78 18 68 C18 60 24 54 32 54" />
-          <path {...stroke} d="M60 4 L72 2" />
-          <path {...stroke} d="M54 24 L48 24 M54 36 L48 36 M54 48 L48 48" />
+          <path {...stroke} d="M19 6 L26 2" />
+          <path {...stroke} d="M19 6 C17 20 17 34 17 46 C17 62 13 70 9 68 C4 66 4 58 8 54 C10 52 13 53 14 56" />
+          <path {...stroke} d="M17 20 L13 20 M17 30 L13 30 M17 40 L13 40" />
         </g>
       ),
+      // Side (40×80): same silhouette, wider bell swing.
       side: (
         <g>
-          <path {...stroke} d="M56 4 L52 60 C52 76 44 86 36 86 C28 86 24 78 26 70" />
-          <path {...stroke} d="M56 4 L66 2" />
+          <path {...stroke} d="M22 6 L30 2" />
+          <path {...stroke} d="M22 6 C20 22 20 36 20 46 C20 62 15 70 10 68 C4 66 4 56 10 53 C14 51 17 54 17 58" />
         </g>
       ),
     },
@@ -511,6 +582,27 @@ const iconById = new Map(STAGE_PLOT_ICONS.map((icon) => [icon.id, icon]))
 
 export function getStagePlotIcon(id: string): StagePlotIconDef | undefined {
   return iconById.get(id)
+}
+
+/**
+ * The glyph coordinate box for an icon in a view, derived from the
+ * icon's default real-world proportions (top: w×d, front: w×h,
+ * side: d×h). Rendering with preserveAspectRatio="none" into the
+ * element's actual footprint keeps a default-sized element undistorted
+ * and scales user resizes proportionally.
+ */
+export function iconViewBox(id: string, view: StagePlotView): string {
+  const icon = iconById.get(id)
+  if (!icon) return '0 0 100 100'
+  const { width_cm, depth_cm, height_cm } = icon.defaults
+  switch (view) {
+    case 'top':
+      return `0 0 ${width_cm} ${depth_cm}`
+    case 'front':
+      return `0 0 ${width_cm} ${height_cm}`
+    case 'side':
+      return `0 0 ${depth_cm} ${height_cm}`
+  }
 }
 
 /** Placeholder for unknown ids: a labeled box, never a crash. */
@@ -524,7 +616,9 @@ const placeholderGlyph = (
 /**
  * The glyph to draw for an icon id in a view. Falls back per view →
  * top-down → labeled placeholder, so an unknown or not-yet-drawn
- * variant renders visibly instead of breaking the canvas.
+ * variant renders visibly instead of breaking the canvas. Pair with
+ * iconViewBox(id, view) — the placeholder uses '0 0 100 100', which
+ * iconViewBox also returns for unknown ids.
  */
 export function iconGlyph(id: string, view: StagePlotView): ReactElement {
   const icon = iconById.get(id)

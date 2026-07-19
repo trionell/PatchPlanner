@@ -1,6 +1,6 @@
 import type { StagePlotShapeKind } from '../../types'
 import type { StagePlotElementCreate } from '../../api/stagePlots'
-import { STAGE_PLOT_ICONS } from '../../lib/stagePlotIcons'
+import { iconViewBox, STAGE_PLOT_ICONS } from '../../lib/stagePlotIcons'
 
 interface StagePlotPaletteProps {
   /** Called with a ready-to-create element (position filled by the tab). */
@@ -70,7 +70,8 @@ export function StagePlotPalette({ onPlace, disabled }: StagePlotPaletteProps) {
 
   const iconButton = (icon: (typeof STAGE_PLOT_ICONS)[number]) => (
     <PaletteItem key={icon.id} label={icon.label} disabled={disabled} onClick={() => placeIcon(icon.id)}>
-      <svg viewBox="0 0 100 100" className="h-full w-full text-zinc-300">
+      {/* Preview keeps the glyph's true aspect (meet) inside the tile. */}
+      <svg viewBox={iconViewBox(icon.id, 'top')} preserveAspectRatio="xMidYMid meet" className="h-full w-full text-zinc-300">
         {icon.glyphs.top}
       </svg>
     </PaletteItem>

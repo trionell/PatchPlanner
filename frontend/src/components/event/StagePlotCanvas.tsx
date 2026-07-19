@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { PlotTruss, StagePlot, StagePlotElement, StagePlotLayer, StagePlotView } from '../../types'
 import type { StagePlotElementPatch } from '../../api/stagePlots'
 import {
@@ -13,7 +13,7 @@ import {
   viewAxisFields,
   type SnapGuide,
 } from '../../lib/stagePlot'
-import { iconGlyph } from '../../lib/stagePlotIcons'
+import { iconGlyph, iconViewBox } from '../../lib/stagePlotIcons'
 
 /** Live viewport state (owned by the tab so the palette can place
  *  elements at the visible center). Pan is the viewBox origin in cm. */
@@ -138,20 +138,39 @@ export function StagePlotCanvas({
 
   // ---- Interaction handlers ----
 
-  const handleWheel = (event: ReactWheelEvent<SVGSVGElement>) => {
-    const rect = svgRef.current?.getBoundingClientRect()
-    if (!rect) return
-    const factor = Math.exp(-event.deltaY * 0.0015)
-    const nextZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * factor))
-    // Keep the cm point under the cursor stationary while zooming.
-    const cursorU = panX + (event.clientX - rect.left) / zoom
-    const cursorV = panY + (event.clientY - rect.top) / zoom
-    onViewStateChange({
-      zoom: nextZoom,
-      panX: cursorU - (event.clientX - rect.left) / nextZoom,
-      panY: cursorV - (event.clientY - rect.top) / nextZoom,
-    })
-  }
+  // Zoom on wheel. React's synthetic onWheel is passive (preventDefault
+  // is ignored), which let the page scroll along with the zoom on small
+  // screens — so the listener is attached natively with passive: false:
+  // while the cursor is over the canvas the wheel only zooms, and page
+  // scrolling resumes as soon as it leaves.
+  const handleWheelRef = useRef<(event: WheelEvent) => void>(() => {})
+  useEffect(() => {
+    // Re-pointed after every render so the native listener always sees
+    // the current zoom/pan (refs must not be written during render).
+    handleWheelRef.current = (event: WheelEvent) => {
+      const rect = svgRef.current?.getBoundingClientRect()
+      if (!rect) return
+      event.preventDefault()
+      const factor = Math.exp(-event.deltaY * 0.0015)
+      const nextZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * factor))
+      // Keep the cm point under the cursor stationary while zooming.
+      const cursorU = panX + (event.clientX - rect.left) / zoom
+      const cursorV = panY + (event.clientY - rect.top) / zoom
+      onViewStateChange({
+        zoom: nextZoom,
+        panX: cursorU - (event.clientX - rect.left) / nextZoom,
+        panY: cursorV - (event.clientY - rect.top) / nextZoom,
+      })
+    }
+  })
+
+  useEffect(() => {
+    const node = svgRef.current
+    if (!node) return
+    const listener = (event: WheelEvent) => handleWheelRef.current(event)
+    node.addEventListener('wheel', listener, { passive: false })
+    return () => node.removeEventListener('wheel', listener)
+  }, [])
 
   const handleBackgroundPointerDown = (event: ReactPointerEvent<SVGSVGElement>) => {
     if (event.button !== 0) return
@@ -323,7 +342,15 @@ export function StagePlotCanvas({
       }
     } else if (current.kind === 'resource') {
       body = (
-        <svg x={-halfW} y={-halfH} width={rect.width} height={rect.height} viewBox="0 0 100 100" preserveAspectRatio="none" overflow="visible">
+        <svg
+          x={-halfW}
+          y={-halfH}
+          width={rect.width}
+          height={rect.height}
+          viewBox={iconViewBox(current.icon ?? '', view)}
+          preserveAspectRatio="none"
+          overflow="visible"
+        >
           {iconGlyph(current.icon ?? '', view)}
         </svg>
       )
@@ -473,12 +500,14 @@ export function StagePlotCanvas({
   }
 
   return (
-    <div ref={containerRef} className="relative h-[600px] w-full overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
+    <div
+      ref={containerRef}
+      className="relative h-[calc(100vh-330px)] min-h-[560px] w-full overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950"
+    >
       <svg
         ref={svgRef}
         className="block h-full w-full touch-none select-none"
         viewBox={`${panX} ${panY} ${size.width / zoom} ${size.height / zoom}`}
-        onWheel={handleWheel}
         onPointerDown={handleBackgroundPointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}

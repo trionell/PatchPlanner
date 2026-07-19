@@ -440,16 +440,7 @@ export function StagePlotInspector({ eventId, element, layers, onUpdate, onDupli
         )}
 
         {element.kind !== 'truss' && (
-          <Row label="Elev. (cm)">
-            <Input
-              className="h-8 text-right tabular-nums"
-              value={draft.z}
-              onChange={(e) => setDraft((prev) => ({ ...prev, z: e.target.value }))}
-              onBlur={() => commitNumber('z', 'z_cm', (value) => Math.max(0, value))}
-              onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-              aria-label="Height above floor (cm)"
-              title="Bottom edge above the floor — front/side views"
-            />
+          <Row label="Height (cm)">
             <Input
               className="h-8 text-right tabular-nums"
               value={draft.height}
@@ -457,7 +448,20 @@ export function StagePlotInspector({ eventId, element, layers, onUpdate, onDupli
               onBlur={() => commitNumber('height', 'height_cm', (value) => Math.max(0, value))}
               onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
               aria-label="Element height (cm)"
-              title="Vertical extent — front/side views"
+              title="Vertical extent, drawn in the front/side views (e.g. a 60 cm stage deck)"
+            />
+          </Row>
+        )}
+        {element.kind !== 'truss' && (
+          <Row label="Elevation">
+            <Input
+              className="h-8 text-right tabular-nums"
+              value={draft.z}
+              onChange={(e) => setDraft((prev) => ({ ...prev, z: e.target.value }))}
+              onBlur={() => commitNumber('z', 'z_cm', (value) => Math.max(0, value))}
+              onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+              aria-label="Elevation above floor (cm)"
+              title="Bottom edge above the floor in cm — front/side views"
             />
           </Row>
         )}

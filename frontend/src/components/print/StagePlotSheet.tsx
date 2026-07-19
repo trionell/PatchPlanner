@@ -1,6 +1,6 @@
 import type { PlotTruss, StagePlotElement, StagePlotResponse, StagePlotView } from '../../types'
 import { clampFixtureOffset, fixtureLabel, projectedBounds, projectElement } from '../../lib/stagePlot'
-import { iconGlyph } from '../../lib/stagePlotIcons'
+import { iconGlyph, iconViewBox } from '../../lib/stagePlotIcons'
 import { PrintSheet } from './PrintSheet'
 
 const VIEW_TITLES: Record<StagePlotView, string> = { top: 'Top view', front: 'Front view', side: 'Side view' }
@@ -83,7 +83,16 @@ export function StagePlotSheet({ eventId, response }: { eventId: number; respons
       }
     } else if (element.kind === 'resource') {
       body = (
-        <svg x={-halfW} y={-halfH} width={rect.width} height={rect.height} viewBox="0 0 100 100" preserveAspectRatio="none" overflow="visible" style={{ color: 'black' }}>
+        <svg
+          x={-halfW}
+          y={-halfH}
+          width={rect.width}
+          height={rect.height}
+          viewBox={iconViewBox(element.icon ?? '', view)}
+          preserveAspectRatio="none"
+          overflow="visible"
+          style={{ color: 'black' }}
+        >
           {iconGlyph(element.icon ?? '', view)}
         </svg>
       )
