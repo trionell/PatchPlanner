@@ -204,14 +204,14 @@ func DeleteStagePlotLayer(db *sql.DB, plotID, layerID int64) error {
 // ---- Elements ----
 
 const stagePlotElementColumns = `id, plot_id, layer_id, kind, shape_kind, icon, truss_id, fixture_id,
-	name, x_cm, y_cm, z_cm, width_cm, depth_cm, height_cm, rotation_deg, notes`
+	name, x_cm, y_cm, z_cm, width_cm, depth_cm, height_cm, rotation_deg, tilt_deg, notes`
 
 func scanStagePlotElement(row interface{ Scan(...any) error }) (domain.StagePlotElement, error) {
 	var e domain.StagePlotElement
 	var shapeKind, icon, notes sql.NullString
 	var trussID, fixtureID sql.NullInt64
 	err := row.Scan(&e.ID, &e.PlotID, &e.LayerID, &e.Kind, &shapeKind, &icon, &trussID, &fixtureID,
-		&e.Name, &e.XCm, &e.YCm, &e.ZCm, &e.WidthCm, &e.DepthCm, &e.HeightCm, &e.RotationDeg, &notes)
+		&e.Name, &e.XCm, &e.YCm, &e.ZCm, &e.WidthCm, &e.DepthCm, &e.HeightCm, &e.RotationDeg, &e.TiltDeg, &notes)
 	if err != nil {
 		return domain.StagePlotElement{}, err
 	}
@@ -262,12 +262,12 @@ func CreateStagePlotElement(db *sql.DB, element domain.StagePlotElement) (domain
 	}
 	result, err := db.Exec(`INSERT INTO stage_plot_elements
 		(plot_id, layer_id, kind, shape_kind, icon, truss_id, fixture_id, name,
-		 x_cm, y_cm, z_cm, width_cm, depth_cm, height_cm, rotation_deg, notes)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 x_cm, y_cm, z_cm, width_cm, depth_cm, height_cm, rotation_deg, tilt_deg, notes)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		element.PlotID, element.LayerID, element.Kind, nullString(element.ShapeKind), nullString(element.Icon),
 		nullInt64(element.TrussID), nullInt64(element.FixtureID), element.Name,
 		element.XCm, element.YCm, element.ZCm, element.WidthCm, element.DepthCm, element.HeightCm,
-		element.RotationDeg, nullString(element.Notes))
+		element.RotationDeg, element.TiltDeg, nullString(element.Notes))
 	if err != nil {
 		return domain.StagePlotElement{}, fmt.Errorf("create stage plot element: %w", err)
 	}
@@ -289,11 +289,11 @@ func UpdateStagePlotElement(db *sql.DB, element domain.StagePlotElement) error {
 		}
 	}
 	_, err := db.Exec(`UPDATE stage_plot_elements SET layer_id = ?, icon = ?, name = ?,
-		x_cm = ?, y_cm = ?, z_cm = ?, width_cm = ?, depth_cm = ?, height_cm = ?, rotation_deg = ?, notes = ?
+		x_cm = ?, y_cm = ?, z_cm = ?, width_cm = ?, depth_cm = ?, height_cm = ?, rotation_deg = ?, tilt_deg = ?, notes = ?
 		WHERE id = ?`,
 		element.LayerID, nullString(element.Icon), element.Name,
 		element.XCm, element.YCm, element.ZCm, element.WidthCm, element.DepthCm, element.HeightCm,
-		element.RotationDeg, nullString(element.Notes), element.ID)
+		element.RotationDeg, element.TiltDeg, nullString(element.Notes), element.ID)
 	if err != nil {
 		return fmt.Errorf("update stage plot element: %w", err)
 	}

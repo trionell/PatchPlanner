@@ -273,10 +273,10 @@ describe('StagePlotSheet', () => {
         { id: 2, plot_id: 1, name: 'Hidden', sort_order: 1, visible: false, locked: false },
       ],
       elements: [
-        { id: 10, plot_id: 1, layer_id: 1, kind: 'shape', shape_kind: 'rect', name: 'Stage 600×400', x_cm: 300, y_cm: 200, z_cm: 0, width_cm: 600, depth_cm: 400, height_cm: 0, rotation_deg: 0, links: [] },
-        { id: 11, plot_id: 1, layer_id: 1, kind: 'resource', icon: 'drums', name: 'Anna — Drums', x_cm: 300, y_cm: 120, z_cm: 0, width_cm: 200, depth_cm: 150, height_cm: 120, rotation_deg: 0, links: [] },
-        { id: 12, plot_id: 1, layer_id: 1, kind: 'truss', truss_id: 7, name: '', x_cm: 300, y_cm: 30, z_cm: 0, width_cm: 0, depth_cm: 30, height_cm: 30, rotation_deg: 0, links: [] },
-        { id: 13, plot_id: 1, layer_id: 2, kind: 'resource', icon: 'person', name: 'Hidden person', x_cm: 0, y_cm: 0, z_cm: 0, width_cm: 60, depth_cm: 40, height_cm: 180, rotation_deg: 0, links: [] },
+        { id: 10, plot_id: 1, layer_id: 1, kind: 'shape', shape_kind: 'rect', name: 'Stage 600×400', x_cm: 300, y_cm: 200, z_cm: 0, width_cm: 600, depth_cm: 400, height_cm: 0, rotation_deg: 0, tilt_deg: 0, links: [] },
+        { id: 11, plot_id: 1, layer_id: 1, kind: 'resource', icon: 'drums', name: 'Anna — Drums', x_cm: 300, y_cm: 120, z_cm: 0, width_cm: 200, depth_cm: 150, height_cm: 120, rotation_deg: 0, tilt_deg: 0, links: [] },
+        { id: 12, plot_id: 1, layer_id: 1, kind: 'truss', truss_id: 7, name: '', x_cm: 300, y_cm: 30, z_cm: 0, width_cm: 0, depth_cm: 30, height_cm: 30, rotation_deg: 0, tilt_deg: 0, links: [] },
+        { id: 13, plot_id: 1, layer_id: 2, kind: 'resource', icon: 'person', name: 'Hidden person', x_cm: 0, y_cm: 0, z_cm: 0, width_cm: 60, depth_cm: 40, height_cm: 180, rotation_deg: 0, tilt_deg: 0, links: [] },
       ],
       trusses: [
         {

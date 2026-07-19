@@ -337,6 +337,7 @@ type stagePlotElementRequest struct {
 	DepthCm     float64 `json:"depth_cm"`
 	HeightCm    float64 `json:"height_cm"`
 	RotationDeg float64 `json:"rotation_deg"`
+	TiltDeg     float64 `json:"tilt_deg"`
 	Notes       string  `json:"notes"`
 }
 
@@ -452,6 +453,7 @@ func (h StagePlotsHandler) createElement(w http.ResponseWriter, r *http.Request)
 		DepthCm:     req.DepthCm,
 		HeightCm:    req.HeightCm,
 		RotationDeg: req.RotationDeg,
+		TiltDeg:     req.TiltDeg,
 		Notes:       req.Notes,
 	})
 	if err != nil {
@@ -472,6 +474,7 @@ type stagePlotElementPatch struct {
 	DepthCm     *float64 `json:"depth_cm"`
 	HeightCm    *float64 `json:"height_cm"`
 	RotationDeg *float64 `json:"rotation_deg"`
+	TiltDeg     *float64 `json:"tilt_deg"`
 	Notes       *string  `json:"notes"`
 }
 
@@ -547,6 +550,9 @@ func (h StagePlotsHandler) updateElement(w http.ResponseWriter, r *http.Request)
 	}
 	if patch.RotationDeg != nil {
 		element.RotationDeg = *patch.RotationDeg
+	}
+	if patch.TiltDeg != nil {
+		element.TiltDeg = *patch.TiltDeg
 	}
 	if patch.Notes != nil {
 		element.Notes = *patch.Notes

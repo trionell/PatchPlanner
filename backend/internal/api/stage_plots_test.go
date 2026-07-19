@@ -429,12 +429,12 @@ func TestStagePlotElementValidation(t *testing.T) {
 	}
 
 	status, raw = doJSON(t, http.MethodPatch, fmt.Sprintf("%s/elements/%d", base, element.ID),
-		map[string]any{"x_cm": 500, "rotation_deg": 45, "name": "PA Right"})
+		map[string]any{"x_cm": 500, "rotation_deg": 45, "tilt_deg": 15, "name": "PA Right"})
 	if status != http.StatusOK {
 		t.Fatalf("patch element: status %d body %s", status, raw)
 	}
 	patched := decodeJSON[domain.StagePlotElement](t, raw)
-	if patched.XCm != 500 || patched.RotationDeg != 45 || patched.Name != "PA Right" {
+	if patched.XCm != 500 || patched.RotationDeg != 45 || patched.TiltDeg != 15 || patched.Name != "PA Right" {
 		t.Errorf("element patch not applied: %+v", patched)
 	}
 	if patched.YCm != 355 || patched.WidthCm != 46 {

@@ -43,6 +43,7 @@ interface ElementDraft {
   depth: string
   height: string
   rotation: string
+  tilt: string
 }
 
 function toDraft(element: StagePlotElement): ElementDraft {
@@ -55,6 +56,7 @@ function toDraft(element: StagePlotElement): ElementDraft {
     depth: String(element.depth_cm),
     height: String(element.height_cm),
     rotation: String(element.rotation_deg),
+    tilt: String(element.tilt_deg),
   }
 }
 
@@ -325,7 +327,7 @@ function LinksSection({ eventId, element, disabled, onAdd, onReorder, onRemove }
  *  Values commit on blur or Enter (FR-022). */
 export function StagePlotInspector({ eventId, element, layers, onUpdate, onDuplicate, onDelete, onAddLink, onReorderLink, onDeleteLink }: StagePlotInspectorProps) {
   const [draft, setDraft] = useDraftState<StagePlotElement, ElementDraft>(element ?? undefined, toDraft, {
-    name: '', x: '0', y: '0', z: '0', width: '0', depth: '0', height: '0', rotation: '0',
+    name: '', x: '0', y: '0', z: '0', width: '0', depth: '0', height: '0', rotation: '0', tilt: '0',
   })
 
   if (!element) {
@@ -474,6 +476,19 @@ export function StagePlotInspector({ eventId, element, layers, onUpdate, onDupli
             onBlur={() => commitNumber('rotation', 'rotation_deg', (value) => ((value % 360) + 360) % 360)}
             onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
             aria-label="Rotation (degrees)"
+            title="Rotation in the top view (degrees)"
+          />
+        </Row>
+
+        <Row label="Tilt">
+          <Input
+            className="h-8 text-right tabular-nums"
+            value={draft.tilt}
+            onChange={(e) => setDraft((prev) => ({ ...prev, tilt: e.target.value }))}
+            onBlur={() => commitNumber('tilt', 'tilt_deg', (value) => ((value % 360) + 360) % 360)}
+            onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+            aria-label="Tilt (degrees)"
+            title="Rake in the front view (degrees) — e.g. an angled truss"
           />
         </Row>
       </fieldset>
@@ -508,6 +523,7 @@ export function StagePlotInspector({ eventId, element, layers, onUpdate, onDupli
               depth_cm: element.depth_cm,
               height_cm: element.height_cm,
               rotation_deg: element.rotation_deg,
+              tilt_deg: element.tilt_deg,
               notes: element.notes,
             })
           }

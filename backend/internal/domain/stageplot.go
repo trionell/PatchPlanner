@@ -38,20 +38,23 @@ type StagePlotElement struct {
 	LayerID int64  `json:"layer_id"`
 	Kind    string `json:"kind"`
 	// Exactly one of ShapeKind/Icon/TrussID/FixtureID is set, matching Kind.
-	ShapeKind   string          `json:"shape_kind,omitempty"`
-	Icon        string          `json:"icon,omitempty"`
-	TrussID     *int64          `json:"truss_id,omitempty"`
-	FixtureID   *int64          `json:"fixture_id,omitempty"`
-	Name        string          `json:"name"`
-	XCm         float64         `json:"x_cm"`
-	YCm         float64         `json:"y_cm"`
-	ZCm         float64         `json:"z_cm"`
-	WidthCm     float64         `json:"width_cm"`
-	DepthCm     float64         `json:"depth_cm"`
-	HeightCm    float64         `json:"height_cm"`
-	RotationDeg float64         `json:"rotation_deg"`
-	Notes       string          `json:"notes,omitempty"`
-	Links       []StagePlotLink `json:"links"`
+	ShapeKind   string  `json:"shape_kind,omitempty"`
+	Icon        string  `json:"icon,omitempty"`
+	TrussID     *int64  `json:"truss_id,omitempty"`
+	FixtureID   *int64  `json:"fixture_id,omitempty"`
+	Name        string  `json:"name"`
+	XCm         float64 `json:"x_cm"`
+	YCm         float64 `json:"y_cm"`
+	ZCm         float64 `json:"z_cm"`
+	WidthCm     float64 `json:"width_cm"`
+	DepthCm     float64 `json:"depth_cm"`
+	HeightCm    float64 `json:"height_cm"`
+	RotationDeg float64 `json:"rotation_deg"`
+	// TiltDeg rakes the element in the front view (rotation about the
+	// depth axis), e.g. an angled truss; RotationDeg is the plan view.
+	TiltDeg float64         `json:"tilt_deg"`
+	Notes   string          `json:"notes,omitempty"`
+	Links   []StagePlotLink `json:"links"`
 }
 
 // StagePlotLink is one assignment or stack entry on an element,

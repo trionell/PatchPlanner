@@ -499,6 +499,8 @@ export interface StagePlotElement {
   depth_cm: number
   height_cm: number
   rotation_deg: number
+  /** Front-view rotation (rake about the depth axis), degrees. */
+  tilt_deg: number
   notes?: string
   links: StagePlotLink[]
 }

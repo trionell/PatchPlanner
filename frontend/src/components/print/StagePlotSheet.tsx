@@ -1,5 +1,5 @@
 import type { PlotTruss, StagePlotElement, StagePlotResponse, StagePlotView } from '../../types'
-import { clampFixtureOffset, cylinderGeometry, fixtureLabel, projectedBounds, projectElement, trussLaneLocalV } from '../../lib/stagePlot'
+import { clampFixtureOffset, fixtureLabel, projectedBounds, projectElement, trussLaneLocalV } from '../../lib/stagePlot'
 import { iconGlyph, iconViewBox } from '../../lib/stagePlotIcons'
 import { PrintSheet } from './PrintSheet'
 
@@ -66,18 +66,13 @@ export function StagePlotSheet({ eventId, response }: { eventId: number; respons
           body = <rect x={-halfW} y={-halfH} width={rect.width} height={rect.height} fill="none" stroke="black" strokeWidth={fontSize / 8} />
           break
         case 'ellipse':
-          if (view === 'top') {
-            body = <ellipse rx={halfW} ry={halfH} fill="none" stroke="black" strokeWidth={fontSize / 8} />
-          } else {
-            // Elevations draw the cylinder silhouette, like the editor.
-            const cylinder = cylinderGeometry(rect.width, rect.height)
-            body = (
-              <g>
-                <path d={cylinder.bodyPath} fill="none" stroke="black" strokeWidth={fontSize / 8} />
-                <ellipse cy={cylinder.capCy} rx={halfW} ry={cylinder.capRy} fill="none" stroke="black" strokeWidth={fontSize / 8} />
-              </g>
+          // Straight-on a cylinder is a rectangle, like the editor.
+          body =
+            view === 'top' ? (
+              <ellipse rx={halfW} ry={halfH} fill="none" stroke="black" strokeWidth={fontSize / 8} />
+            ) : (
+              <rect x={-halfW} y={-halfH} width={rect.width} height={rect.height} fill="none" stroke="black" strokeWidth={fontSize / 8} />
             )
-          }
           break
         case 'line':
           body = <line x1={-halfW} x2={halfW} y1={0} y2={0} stroke="black" strokeWidth={fontSize / 8} />
@@ -114,16 +109,17 @@ export function StagePlotSheet({ eventId, response }: { eventId: number; respons
       body = (
         <g>
           <rect x={-halfW} y={-halfH} width={rect.width} height={Math.max(rect.height, 4)} fill="none" stroke="black" strokeWidth={fontSize / 8} />
-          {view !== 'side' &&
-            truss.fixtures.map((fixture) => {
+          {truss.fixtures.map((fixture) => {
               if (fixture.offset_cm == null) return null
               const { offset } = clampFixtureOffset(fixture.offset_cm, Math.max(truss.total_length_cm, 20))
               const label = fixtureLabel(fixture, settings)
               // Same lanes as the editor: on the bar in the top view,
-              // hanging below it in the front view.
+              // hanging below it in the elevations; the side view puts
+              // the lane across the bar's depth.
+              const markerX = view === 'side' ? trussLaneLocalV(fixture.side, halfW) : -halfW + offset
               const markerY = view === 'top' ? trussLaneLocalV(fixture.side, halfH) - fontSize / 2 : halfH
               return (
-                <g key={fixture.id} transform={`translate(${-halfW + offset} 0)`}>
+                <g key={fixture.id} transform={`translate(${markerX} 0)`}>
                   <rect x={-fontSize / 2} y={markerY} width={fontSize} height={fontSize} fill="none" stroke="black" strokeWidth={fontSize / 10} />
                   {label && (
                     <text y={halfH + fontSize * 2} textAnchor="middle" fill="black" fontSize={fontSize * 0.8}>
@@ -140,10 +136,10 @@ export function StagePlotSheet({ eventId, response }: { eventId: number; respons
     }
     const showLabel = element.name && !(element.kind === 'shape' && element.shape_kind === 'text')
     return (
-      <g key={element.id} transform={`translate(${rect.u} ${svgY}) rotate(${view === 'top' ? rect.rotationDeg : 0})`}>
+      <g key={element.id} transform={`translate(${rect.u} ${svgY}) rotate(${rect.rotationDeg})`}>
         {body}
         {showLabel && (
-          <text y={halfH + fontSize * 1.3} textAnchor="middle" fill="black" fontSize={fontSize} transform={view === 'top' ? `rotate(${-rect.rotationDeg})` : undefined}>
+          <text y={halfH + fontSize * 1.3} textAnchor="middle" fill="black" fontSize={fontSize} transform={`rotate(${-rect.rotationDeg})`}>
             {element.name}
           </text>
         )}

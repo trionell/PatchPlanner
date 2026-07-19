@@ -3,7 +3,6 @@ import type { StagePlotElement } from '../types'
 import {
   clampDimension,
   clampFixtureOffset,
-  cylinderGeometry,
   fixtureDropOnTruss,
   fixtureLabel,
   MIN_DIMENSION_CM,
@@ -36,6 +35,7 @@ function element(overrides: Partial<StagePlotElement>): StagePlotElement {
     depth_cm: 30,
     height_cm: 60,
     rotation_deg: 0,
+    tilt_deg: 0,
     links: [],
     ...overrides,
   }
@@ -48,13 +48,15 @@ describe('projectElement', () => {
     expect(projectElement(el, 'top')).toEqual({ u: 100, v: 200, width: 40, height: 30, rotationDeg: 15 })
   })
 
-  it('front view projects x/z and width/height, axis-aligned', () => {
-    // v is the vertical CENTER: bottom z=50 + height 60 / 2 = 80.
+  it('front view projects x/z and width/height with the tilt as its rotation', () => {
+    // v is the vertical CENTER: bottom z=50 + height 60 / 2 = 80. The
+    // plan rotation (15°) never leaks into the front view.
     expect(projectElement(el, 'front')).toEqual({ u: 100, v: 80, width: 40, height: 60, rotationDeg: 0 })
+    expect(projectElement({ ...el, tilt_deg: 20 }, 'front').rotationDeg).toBe(20)
   })
 
-  it('side view projects y/z and depth/height, axis-aligned', () => {
-    expect(projectElement(el, 'side')).toEqual({ u: 200, v: 80, width: 30, height: 60, rotationDeg: 0 })
+  it('side view projects y/z and depth/height, always axis-aligned', () => {
+    expect(projectElement({ ...el, tilt_deg: 20 }, 'side')).toEqual({ u: 200, v: 80, width: 30, height: 60, rotationDeg: 0 })
   })
 
   it('shares each stored dimension between the views that show it', () => {
@@ -293,22 +295,6 @@ describe('clamping and rounding', () => {
   })
 })
 
-describe('cylinderGeometry (ellipse shapes in the elevations)', () => {
-  it('fits the projected box exactly: cap at the top, arc reaching the bottom', () => {
-    const { capCy, capRy, bodyPath } = cylinderGeometry(100, 80)
-    // Cap rim never pokes above the box top (-40).
-    expect(capCy - capRy).toBe(-40)
-    // The rim flattening stays shallow.
-    expect(capRy).toBe(12)
-    // Sides start at ±halfW.
-    expect(bodyPath).toContain('M -50')
-    expect(bodyPath).toContain('L 50')
-  })
-  it('caps the rim at a quarter of the height for squat cylinders', () => {
-    expect(cylinderGeometry(400, 20).capRy).toBe(5)
-  })
-})
-
 describe('rectLocalPoint (truss-frame coordinates)', () => {
   const rect = { u: 100, v: 200, width: 600, height: 30, rotationDeg: 0 }
   it('translates into the unrotated frame', () => {
@@ -326,6 +312,14 @@ describe('rectLocalPoint (truss-frame coordinates)', () => {
     // Element centre at v=200 renders at SVG y=-200; a pointer 10 below
     // that is local v=+10.
     expect(rectLocalPoint({ u: 100, v: -190 }, rect, 'front')).toEqual({ u: 0, v: 10 })
+  })
+  it('inverts the tilt in the front view', () => {
+    const tilted = { ...rect, rotationDeg: 90 }
+    // A raked bar rotated 90°: a pointer below the centre (SVG +y)
+    // lies along +u of the bar.
+    const local = rectLocalPoint({ u: 100, v: -150 }, tilted, 'front')
+    expect(local.u).toBeCloseTo(50)
+    expect(local.v).toBeCloseTo(0)
   })
 })
 

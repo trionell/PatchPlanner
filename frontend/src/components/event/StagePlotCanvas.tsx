@@ -5,7 +5,6 @@ import type { StagePlotElementPatch } from '../../api/stagePlots'
 import {
   clampDimension,
   clampFixtureOffset,
-  cylinderGeometry,
   fixtureDropOnTruss,
   fixtureLabel,
   projectedBounds,
@@ -75,7 +74,7 @@ type DragMode =
   | { kind: 'move'; elementId: number; startU: number; startV: number; origin: StagePlotElement; moved: boolean }
   | { kind: 'resize'; elementId: number; origin: StagePlotElement }
   | { kind: 'rotate'; elementId: number; origin: StagePlotElement }
-  | { kind: 'truss-fixture'; trussElementId: number; trussId: number; fixtureId: number; side: TrussSide }
+  | { kind: 'truss-fixture'; trussElementId: number; trussId: number; fixtureId: number; side: TrussSide; offsetCm: number }
 
 export function StagePlotCanvas({
   plot,
@@ -214,12 +213,12 @@ export function StagePlotCanvas({
     setDrag({ kind: 'move', elementId: element.id, startU: point.u, startV: point.v, origin: element, moved: false })
   }
 
-  const handleFixturePointerDown = (event: ReactPointerEvent, element: StagePlotElement, trussId: number, fixture: { fixture_id: number; side: TrussSide }) => {
+  const handleFixturePointerDown = (event: ReactPointerEvent, element: StagePlotElement, trussId: number, fixture: { fixture_id: number; side: TrussSide }, offsetCm: number) => {
     if (event.button !== 0 || !onAttachFixture) return
     if (layerById.get(element.layer_id)?.locked) return
     event.stopPropagation()
     svgRef.current?.setPointerCapture(event.pointerId)
-    setDrag({ kind: 'truss-fixture', trussElementId: element.id, trussId, fixtureId: fixture.fixture_id, side: fixture.side })
+    setDrag({ kind: 'truss-fixture', trussElementId: element.id, trussId, fixtureId: fixture.fixture_id, side: fixture.side, offsetCm })
   }
 
   const handleHandlePointerDown = (event: ReactPointerEvent, element: StagePlotElement, mode: 'resize' | 'rotate') => {
@@ -249,12 +248,18 @@ export function StagePlotCanvas({
       const rect = projectElement(effectiveElement(trussElement), view)
       const local = rectLocalPoint(point, rect, view)
       const length = Math.max(truss.total_length_cm, 20)
-      setFixtureDrag({
-        fixtureId: drag.fixtureId,
-        offset: roundCm(Math.min(length, Math.max(0, local.u + length / 2))),
-        // The lane only changes in the top view; elevations keep it.
-        side: view === 'top' ? trussSideForLocalV(local.v, rect.height / 2) : drag.side,
-      })
+      if (view === 'side') {
+        // The side view looks along the bar: dragging moves the marker
+        // across the bar's depth, i.e. switches lane; the offset stays.
+        setFixtureDrag({ fixtureId: drag.fixtureId, offset: drag.offsetCm, side: trussSideForLocalV(local.u, rect.width / 2) })
+      } else {
+        setFixtureDrag({
+          fixtureId: drag.fixtureId,
+          offset: roundCm(Math.min(length, Math.max(0, local.u + length / 2))),
+          // The lane only changes across the bar in the top view.
+          side: view === 'top' ? trussSideForLocalV(local.v, rect.height / 2) : drag.side,
+        })
+      }
       return
     }
 
@@ -315,13 +320,15 @@ export function StagePlotCanvas({
     if (drag.kind === 'resize') {
       const origin = drag.origin
       const rect = projectElement(origin, view)
-      // Transform the pointer into the element's unrotated local frame,
-      // then size from the fixed NW corner (rotation only in top view).
-      const radians = view === 'top' ? (origin.rotation_deg * Math.PI) / 180 : 0
+      // Transform the pointer into the element's unrotated local frame
+      // (SVG coordinates — elevations flip v when rendering), then size
+      // from the fixed NW corner.
+      const centerY = view === 'top' ? rect.v : -rect.v
+      const radians = (rect.rotationDeg * Math.PI) / 180
       const cos = Math.cos(-radians)
       const sin = Math.sin(-radians)
       const relU = point.u - rect.u
-      const relV = point.v - rect.v
+      const relV = point.v - centerY
       const localU = relU * cos - relV * sin
       const localV = relU * sin + relV * cos
       const newW = clampDimension(roundCm(localU + rect.width / 2))
@@ -341,11 +348,14 @@ export function StagePlotCanvas({
       return
     }
 
-    if (drag.kind === 'rotate' && view === 'top') {
-      const origin = drag.origin
-      const angle = (Math.atan2(point.v - origin.y_cm, point.u - origin.x_cm) * 180) / Math.PI + 90
+    if (drag.kind === 'rotate' && view !== 'side') {
+      // Top view writes the plan rotation; the front view writes the
+      // tilt (rake). Both spin the element around its drawn centre.
+      const rect = projectElement(effectiveElement(drag.origin), view)
+      const centerY = view === 'top' ? rect.v : -rect.v
+      const angle = (Math.atan2(point.v - centerY, point.u - rect.u) * 180) / Math.PI + 90
       const normalized = Math.round(((angle % 360) + 360) % 360)
-      setOverride({ id: drag.elementId, patch: { rotation_deg: normalized } })
+      setOverride({ id: drag.elementId, patch: view === 'top' ? { rotation_deg: normalized } : { tilt_deg: normalized } })
     }
   }
 
@@ -404,19 +414,14 @@ export function StagePlotCanvas({
           body = <rect x={-halfW} y={-halfH} width={rect.width} height={rect.height} fill="transparent" stroke="currentColor" strokeWidth={2 / zoom} />
           break
         case 'ellipse':
-          if (view === 'top') {
-            body = <ellipse cx={0} cy={0} rx={halfW} ry={halfH} fill="transparent" stroke="currentColor" strokeWidth={2 / zoom} />
-          } else {
-            // An ellipse with a height is a cylinder — the elevations
-            // draw its silhouette (top cap + sides + bottom arc).
-            const cylinder = cylinderGeometry(rect.width, rect.height)
-            body = (
-              <g>
-                <path d={cylinder.bodyPath} fill="transparent" stroke="currentColor" strokeWidth={2 / zoom} />
-                <ellipse cx={0} cy={cylinder.capCy} rx={halfW} ry={cylinder.capRy} fill="transparent" stroke="currentColor" strokeWidth={2 / zoom} />
-              </g>
+          // A cylinder seen straight-on is a rectangle, so the
+          // elevations draw the plain projected box.
+          body =
+            view === 'top' ? (
+              <ellipse cx={0} cy={0} rx={halfW} ry={halfH} fill="transparent" stroke="currentColor" strokeWidth={2 / zoom} />
+            ) : (
+              <rect x={-halfW} y={-halfH} width={rect.width} height={rect.height} fill="transparent" stroke="currentColor" strokeWidth={2 / zoom} />
             )
-          }
           break
         case 'line':
           body = <line x1={-halfW} y1={0} x2={halfW} y2={0} stroke="currentColor" strokeWidth={2 / zoom} />
@@ -494,8 +499,7 @@ export function StagePlotCanvas({
               strokeWidth={1.2 / zoom}
             />
           )}
-          {view !== 'side' &&
-            truss.fixtures.map((fixture) => {
+          {truss.fixtures.map((fixture) => {
               // A marker being dragged renders at its live position.
               const live = drag.kind === 'truss-fixture' && drag.trussId === truss.id && fixtureDrag?.fixtureId === fixture.fixture_id ? fixtureDrag : null
               const rawOffset = live ? live.offset : fixture.offset_cm
@@ -506,13 +510,16 @@ export function StagePlotCanvas({
               const size = Math.max(14, 10 / zoom)
               // Top view: marker sits on its lane (upstage chord, centre,
               // downstage chord). Front view: it hangs below the bar.
+              // Side view looks along the bar: the lane is the marker's
+              // position across the bar's depth, hanging below it.
+              const markerX = view === 'side' ? trussLaneLocalV(side, halfW) : -halfW + offset
               const markerY = view === 'top' ? trussLaneLocalV(side, halfH) - (size * 0.8) / 2 : halfH + 2 / zoom
               return (
                 <g
                   key={fixture.id}
-                  transform={`translate(${-halfW + offset} 0)`}
+                  transform={`translate(${markerX} 0)`}
                   className="cursor-move"
-                  onPointerDown={(event) => handleFixturePointerDown(event, element, truss.id, fixture)}
+                  onPointerDown={(event) => handleFixturePointerDown(event, element, truss.id, fixture, offset)}
                 >
                   <rect
                     x={-size / 2}
@@ -560,7 +567,7 @@ export function StagePlotCanvas({
     return (
       <g
         key={element.id}
-        transform={`translate(${rect.u} ${svgY}) rotate(${view === 'top' ? rect.rotationDeg : 0})`}
+        transform={`translate(${rect.u} ${svgY}) rotate(${rect.rotationDeg})`}
         style={{ color, pointerEvents: layer.locked ? 'none' : undefined, opacity: layer.locked ? 0.75 : 1 }}
         onPointerDown={(event) => handleElementPointerDown(event, element)}
         className="cursor-move"
@@ -583,7 +590,7 @@ export function StagePlotCanvas({
               textAnchor="middle"
               fill="#2dd4bf"
               fontSize={fontSize * 0.85}
-              transform={view === 'top' ? `rotate(${-rect.rotationDeg})` : undefined}
+              transform={`rotate(${-rect.rotationDeg})`}
               style={{ userSelect: 'none' }}
             >
               {badges.join(' · ')}
@@ -596,7 +603,7 @@ export function StagePlotCanvas({
             textAnchor="middle"
             fill="#d4d4d8"
             fontSize={fontSize}
-            transform={view === 'top' ? `rotate(${-rect.rotationDeg})` : undefined}
+            transform={`rotate(${-rect.rotationDeg})`}
             style={{ userSelect: 'none' }}
           >
             {displayName}
@@ -624,8 +631,9 @@ export function StagePlotCanvas({
               className="cursor-nwse-resize"
               onPointerDown={(event) => handleHandlePointerDown(event, element, 'resize')}
             />
-            {/* Rotate handle (plan view only) */}
-            {view === 'top' && (
+            {/* Rotate handle: plan rotation in the top view, tilt
+                (rake) in the front view. */}
+            {view !== 'side' && (
               <circle
                 cy={-halfH - 18 / zoom}
                 r={handlePx / 2}

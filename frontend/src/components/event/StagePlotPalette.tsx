@@ -66,7 +66,7 @@ export function StagePlotPalette({ onPlace, disabled, rigFixtures }: StagePlotPa
       width_cm: icon.defaults.width_cm,
       depth_cm: icon.defaults.depth_cm,
       height_cm: icon.defaults.height_cm,
-      rotation_deg: 0,
+      rotation_deg: 0, tilt_deg: 0,
     })
   }
 
@@ -96,7 +96,7 @@ export function StagePlotPalette({ onPlace, disabled, rigFixtures }: StagePlotPa
                 width_cm: shape.defaults.width_cm,
                 depth_cm: shape.defaults.depth_cm,
                 height_cm: 0,
-                rotation_deg: 0,
+                rotation_deg: 0, tilt_deg: 0,
               })
             }
           >
@@ -133,7 +133,7 @@ export function StagePlotPalette({ onPlace, disabled, rigFixtures }: StagePlotPa
                       width_cm: fixtureIcon.defaults.width_cm,
                       depth_cm: fixtureIcon.defaults.depth_cm,
                       height_cm: fixtureIcon.defaults.height_cm,
-                      rotation_deg: 0,
+                      rotation_deg: 0, tilt_deg: 0,
                     })
                   }
                   className="flex items-center gap-2 rounded-md border border-zinc-800 px-2 py-1.5 text-left text-[11px] leading-tight text-zinc-400 hover:border-zinc-600 hover:text-zinc-200 disabled:opacity-40"

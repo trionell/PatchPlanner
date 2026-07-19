@@ -23,7 +23,8 @@ export interface ProjectedRect {
   /** Extent along u/v, cm. */
   width: number
   height: number
-  /** Rotation to draw with (top view only; elevations stay axis-aligned). */
+  /** Rotation to draw with: plan rotation in the top view, tilt (rake)
+   *  in the front view; the side view stays axis-aligned. */
   rotationDeg: number
 }
 
@@ -49,7 +50,7 @@ export function projectElement(element: StagePlotElement, view: StagePlotView): 
         v: element.z_cm + element.height_cm / 2,
         width: element.width_cm,
         height: element.height_cm,
-        rotationDeg: 0,
+        rotationDeg: element.tilt_deg,
       }
     case 'side':
       return {
@@ -85,8 +86,8 @@ export function pxPerCm(zoom: number): number {
 
 /**
  * Axis-aligned bounding box (in the view plane, centered coordinates)
- * of an element's projected rectangle under its rotation. Rotation only
- * applies in the top view; elevations always get the unrotated box.
+ * of an element's projected rectangle under its rotation (plan rotation
+ * in the top view, tilt in the front view; the side view is unrotated).
  */
 export function projectedBounds(element: StagePlotElement, view: StagePlotView): { minU: number; maxU: number; minV: number; maxV: number } {
   const rect = projectElement(element, view)
@@ -107,25 +108,6 @@ export function clampDimension(valueCm: number): number {
  *  kills float noise without ever visibly moving anything). */
 export function roundCm(valueCm: number): number {
   return Math.round(valueCm * 100) / 100
-}
-
-/**
- * Cylinder silhouette for ellipse shapes in the elevations: an ellipse
- * with a height is a cylinder, so front/side views draw a body (sides +
- * bottom arc) capped by a top ellipse, all fitting the projected
- * width×height box exactly.
- */
-export function cylinderGeometry(width: number, height: number): { capCy: number; capRy: number; bodyPath: string } {
-  const halfW = width / 2
-  const halfH = height / 2
-  // Rim flattening: shallow enough to read as a cylinder, never eating
-  // more than half the height.
-  const ry = Math.min(width * 0.12, height / 4)
-  return {
-    capCy: -halfH + ry,
-    capRy: ry,
-    bodyPath: `M ${-halfW} ${-halfH + ry} L ${-halfW} ${halfH - ry} A ${halfW} ${ry} 0 0 0 ${halfW} ${halfH - ry} L ${halfW} ${-halfH + ry}`,
-  }
 }
 
 // ---- Trusses & fixture labels (US5) ----
@@ -197,8 +179,9 @@ export const TRUSS_DROP_MARGIN_CM = 25
 /**
  * A view-plane point (SVG coordinates, v down) expressed in a projected
  * rect's local frame: origin at the rect centre, u along its width.
- * Rotation applies in the top view only — exactly the transform the
- * canvas renders elements with.
+ * The rect's rotation (plan rotation in the top view, tilt in the
+ * front view) is inverted — exactly the transform the canvas renders
+ * elements with.
  */
 export function rectLocalPoint(
   point: { u: number; v: number },
@@ -208,7 +191,7 @@ export function rectLocalPoint(
   const centerV = view === 'top' ? rect.v : -rect.v
   const du = point.u - rect.u
   const dv = point.v - centerV
-  if (view !== 'top' || rect.rotationDeg === 0) return { u: du, v: dv }
+  if (rect.rotationDeg === 0) return { u: du, v: dv }
   const radians = (-rect.rotationDeg * Math.PI) / 180
   const cos = Math.cos(radians)
   const sin = Math.sin(radians)

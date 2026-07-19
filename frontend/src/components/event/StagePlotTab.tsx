@@ -277,7 +277,7 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
   }
 
   const handlePlaceTruss = (truss: PlotTruss) => {
-    handlePlace({ kind: 'truss', truss_id: truss.id, name: '', z_cm: 0, width_cm: 0, depth_cm: 30, height_cm: 30, rotation_deg: 0 })
+    handlePlace({ kind: 'truss', truss_id: truss.id, name: '', z_cm: 0, width_cm: 0, depth_cm: 30, height_cm: 30, rotation_deg: 0, tilt_deg: 0 })
     setTrussManagerOpen(false)
   }
 
@@ -395,8 +395,9 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
         <p className="text-sm text-zinc-400">Loading plot…</p>
       ) : (
         <>
-          {/* Toolbar */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-400">
+          {/* Toolbar — sticks just below the app header (73 px: its
+              py-5 + text-2xl line + border) once scrolled past. */}
+          <div className="sticky top-[73px] z-10 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-400">
             <div className="flex items-center gap-1">
               <Button variant="ghost" size="sm" title="Zoom out" onClick={() => zoomBy(1 / 1.25)}>
                 <Minus className="h-4 w-4" />
