@@ -7,6 +7,7 @@ import type {
   StagePlotLayer,
   StagePlotLink,
   StagePlotResponse,
+  TrussSide,
 } from '../types'
 import { get, request } from './client'
 
@@ -105,10 +106,15 @@ export const updatePlotTrussPiece = (
 export const deletePlotTrussPiece = (eventId: number, trussId: number, pieceId: number) =>
   request<void>(`/events/${eventId}/plot-trusses/${trussId}/pieces/${pieceId}`, { method: 'DELETE' })
 
-export const attachPlotTrussFixture = (eventId: number, trussId: number, fixtureId: number, offsetCm: number | null) =>
+export const attachPlotTrussFixture = (
+  eventId: number,
+  trussId: number,
+  fixtureId: number,
+  data: { offset_cm: number | null; side?: TrussSide },
+) =>
   request<PlotTrussFixture>(`/events/${eventId}/plot-trusses/${trussId}/fixtures/${fixtureId}`, {
     method: 'PUT',
-    body: JSON.stringify({ offset_cm: offsetCm }),
+    body: JSON.stringify(data),
   })
 export const detachPlotTrussFixture = (eventId: number, trussId: number, fixtureId: number) =>
   request<void>(`/events/${eventId}/plot-trusses/${trussId}/fixtures/${fixtureId}`, { method: 'DELETE' })

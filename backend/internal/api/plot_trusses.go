@@ -285,6 +285,7 @@ func (h StagePlotsHandler) attachTrussFixture(w http.ResponseWriter, r *http.Req
 	}
 	var req struct {
 		OffsetCm *float64 `json:"offset_cm"`
+		Side     string   `json:"side"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -294,7 +295,14 @@ func (h StagePlotsHandler) attachTrussFixture(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusBadRequest, "offset_cm cannot be negative")
 		return
 	}
-	if err := dbstore.AttachPlotTrussFixture(h.DB, trussID, fixtureID, req.OffsetCm); err != nil {
+	if req.Side == "" {
+		req.Side = "middle"
+	}
+	if req.Side != "top" && req.Side != "middle" && req.Side != "bottom" {
+		writeError(w, http.StatusBadRequest, "side must be top, middle or bottom")
+		return
+	}
+	if err := dbstore.AttachPlotTrussFixture(h.DB, trussID, fixtureID, req.OffsetCm, req.Side); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

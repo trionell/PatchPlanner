@@ -97,14 +97,18 @@ type PlotTrussPiece struct {
 }
 
 type PlotTrussFixture struct {
-	ID              int64    `json:"id"`
-	TrussID         int64    `json:"truss_id"`
-	FixtureID       int64    `json:"fixture_id"`
-	OffsetCm        *float64 `json:"offset_cm,omitempty"`
-	FixtureNumber   *int     `json:"fixture_number,omitempty"`
-	FixtureName     string   `json:"fixture_name"`
-	DMXUniverse     int      `json:"dmx_universe"`
-	DMXStartAddress *int     `json:"dmx_start_address,omitempty"`
+	ID        int64    `json:"id"`
+	TrussID   int64    `json:"truss_id"`
+	FixtureID int64    `json:"fixture_id"`
+	OffsetCm  *float64 `json:"offset_cm,omitempty"`
+	// Side is the lane the fixture hangs on in the top view: the
+	// upstage chord ("top"), centre ("middle") or downstage chord
+	// ("bottom").
+	Side            string `json:"side"`
+	FixtureNumber   *int   `json:"fixture_number,omitempty"`
+	FixtureName     string `json:"fixture_name"`
+	DMXUniverse     int    `json:"dmx_universe"`
+	DMXStartAddress *int   `json:"dmx_start_address,omitempty"`
 }
 
 // StagePlotResponse is the aggregate read for one plot: everything the

@@ -303,6 +303,21 @@ func TestPlotTrusses(t *testing.T) {
 	if len(truss.Fixtures) != 1 || truss.Fixtures[0].OffsetCm == nil || *truss.Fixtures[0].OffsetCm != 100 || truss.Fixtures[0].FixtureName != "Spot 1" {
 		t.Fatalf("attached fixture wrong: %+v", truss.Fixtures)
 	}
+	if truss.Fixtures[0].Side != "middle" {
+		t.Fatalf("side must default to middle, got %q", truss.Fixtures[0].Side)
+	}
+
+	// Side lanes (drag-and-drop placement): persisted and validated.
+	status, raw = doJSON(t, http.MethodPut, fmt.Sprintf("%s/fixtures/%d", trussURL, fixture.ID), map[string]any{"offset_cm": 100, "side": "top"})
+	if status != http.StatusOK {
+		t.Fatalf("re-attach with side: status %d body %s", status, raw)
+	}
+	if truss = decodeJSON[domain.PlotTruss](t, raw); truss.Fixtures[0].Side != "top" {
+		t.Fatalf("side not persisted: %+v", truss.Fixtures[0])
+	}
+	if status, _ = doJSON(t, http.MethodPut, fmt.Sprintf("%s/fixtures/%d", trussURL, fixture.ID), map[string]any{"side": "diagonal"}); status != http.StatusBadRequest {
+		t.Fatalf("invalid side must 400, got %d", status)
+	}
 
 	status, raw = doJSON(t, http.MethodPost, trussesURL, map[string]any{"name": "Back truss"})
 	if status != http.StatusCreated {

@@ -114,7 +114,7 @@ func TestFixtureTrussDisplayDerived(t *testing.T) {
 		t.Fatalf("create plot truss: %v", err)
 	}
 	offset := 150.0
-	if err := AttachPlotTrussFixture(database, truss.ID, fixture.ID, &offset); err != nil {
+	if err := AttachPlotTrussFixture(database, truss.ID, fixture.ID, &offset, "middle"); err != nil {
 		t.Fatalf("attach fixture: %v", err)
 	}
 	got, err = GetLightingFixture(database, fixture.ID)
@@ -126,7 +126,7 @@ func TestFixtureTrussDisplayDerived(t *testing.T) {
 	}
 
 	// Unknown position (legacy conversion) shows the name alone.
-	if err := AttachPlotTrussFixture(database, truss.ID, fixture.ID, nil); err != nil {
+	if err := AttachPlotTrussFixture(database, truss.ID, fixture.ID, nil, "middle"); err != nil {
 		t.Fatalf("re-attach without offset: %v", err)
 	}
 	got, _ = GetLightingFixture(database, fixture.ID)

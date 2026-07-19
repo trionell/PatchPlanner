@@ -72,6 +72,10 @@ func TestConvertTrussSections(t *testing.T) {
 	if err := convertTrussSectionsToPlotTrusses(database, trussMigrationLogger()); err != nil {
 		t.Fatalf("convert: %v", err)
 	}
+	// Production sequencing continues with Up() after the conversion and
+	// the readers below assume the 034 side column; 033 is skipped so the
+	// truss_sections assertions further down can still see the table.
+	execMigrationFileTx(t, database, "034_truss_fixture_side.up.sql")
 
 	// Event A: two trusses (Front + Side sticks), correctly shaped.
 	trusses, err := ListPlotTrusses(database, eventID)

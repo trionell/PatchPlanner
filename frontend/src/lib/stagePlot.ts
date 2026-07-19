@@ -1,4 +1,4 @@
-import type { StagePlotElement, StagePlotView } from '../types'
+import type { StagePlotElement, StagePlotView, TrussSide } from '../types'
 
 // Pure geometry for the stage plot editor. Everything works in
 // centimetres; the canvas renders 1 SVG user unit = 1 cm, so these
@@ -109,6 +109,25 @@ export function roundCm(valueCm: number): number {
   return Math.round(valueCm * 100) / 100
 }
 
+/**
+ * Cylinder silhouette for ellipse shapes in the elevations: an ellipse
+ * with a height is a cylinder, so front/side views draw a body (sides +
+ * bottom arc) capped by a top ellipse, all fitting the projected
+ * width×height box exactly.
+ */
+export function cylinderGeometry(width: number, height: number): { capCy: number; capRy: number; bodyPath: string } {
+  const halfW = width / 2
+  const halfH = height / 2
+  // Rim flattening: shallow enough to read as a cylinder, never eating
+  // more than half the height.
+  const ry = Math.min(width * 0.12, height / 4)
+  return {
+    capCy: -halfH + ry,
+    capRy: ry,
+    bodyPath: `M ${-halfW} ${-halfH + ry} L ${-halfW} ${halfH - ry} A ${halfW} ${ry} 0 0 0 ${halfW} ${halfH - ry} L ${halfW} ${-halfH + ry}`,
+  }
+}
+
 // ---- Trusses & fixture labels (US5) ----
 
 /**
@@ -168,6 +187,66 @@ export function fixtureLabel(fixture: FixtureLabelSource, settings: FixtureLabel
 export function clampFixtureOffset(offsetCm: number, trussLengthCm: number): { offset: number; clamped: boolean } {
   if (offsetCm <= trussLengthCm) return { offset: offsetCm, clamped: false }
   return { offset: trussLengthCm, clamped: true }
+}
+
+// ---- Truss drag-and-drop (fixtures hang on a lane of the bar) ----
+
+/** How far (cm) outside the drawn bar a dropped fixture still attaches. */
+export const TRUSS_DROP_MARGIN_CM = 25
+
+/**
+ * A view-plane point (SVG coordinates, v down) expressed in a projected
+ * rect's local frame: origin at the rect centre, u along its width.
+ * Rotation applies in the top view only — exactly the transform the
+ * canvas renders elements with.
+ */
+export function rectLocalPoint(
+  point: { u: number; v: number },
+  rect: ProjectedRect,
+  view: StagePlotView,
+): { u: number; v: number } {
+  const centerV = view === 'top' ? rect.v : -rect.v
+  const du = point.u - rect.u
+  const dv = point.v - centerV
+  if (view !== 'top' || rect.rotationDeg === 0) return { u: du, v: dv }
+  const radians = (-rect.rotationDeg * Math.PI) / 180
+  const cos = Math.cos(radians)
+  const sin = Math.sin(radians)
+  return { u: du * cos - dv * sin, v: du * sin + dv * cos }
+}
+
+/** Which lane a local v (SVG down = downstage in the top view) lands
+ *  on: the bar's depth is split into three equal bands. */
+export function trussSideForLocalV(localV: number, barHalfDepth: number): TrussSide {
+  if (localV < -barHalfDepth / 3) return 'top'
+  if (localV > barHalfDepth / 3) return 'bottom'
+  return 'middle'
+}
+
+/** The local v a lane is drawn at: the upstage chord, the centre line,
+ *  or the downstage chord of the bar. */
+export function trussLaneLocalV(side: TrussSide, barHalfDepth: number): number {
+  return side === 'top' ? -barHalfDepth : side === 'bottom' ? barHalfDepth : 0
+}
+
+/**
+ * Where a fixture dropped at a local point lands on the truss: offset
+ * along the bar (clamped to its length) and the lane under the drop.
+ * Null when the point is outside the bar plus the drop margin — the
+ * drop is not an attach.
+ */
+export function fixtureDropOnTruss(
+  local: { u: number; v: number },
+  lengthCm: number,
+  barHalfDepth: number,
+  marginCm: number = TRUSS_DROP_MARGIN_CM,
+): { offset: number; side: TrussSide } | null {
+  const halfLength = lengthCm / 2
+  if (Math.abs(local.u) > halfLength + marginCm || Math.abs(local.v) > barHalfDepth + marginCm) return null
+  return {
+    offset: roundCm(Math.min(lengthCm, Math.max(0, local.u + halfLength))),
+    side: trussSideForLocalV(local.v, barHalfDepth),
+  }
 }
 
 // ---- Snapping (research.md R8) ----

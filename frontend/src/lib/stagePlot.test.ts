@@ -3,15 +3,20 @@ import type { StagePlotElement } from '../types'
 import {
   clampDimension,
   clampFixtureOffset,
+  cylinderGeometry,
+  fixtureDropOnTruss,
   fixtureLabel,
   MIN_DIMENSION_CM,
   parseLengthFromName,
   projectedBounds,
   projectElement,
   pxPerCm,
+  rectLocalPoint,
   roundCm,
   snapPosition,
+  trussLaneLocalV,
   trussLength,
+  trussSideForLocalV,
   viewAxisFields,
   type SnapSettings,
 } from './stagePlot'
@@ -285,5 +290,69 @@ describe('clamping and rounding', () => {
     expect(roundCm(25)).toBe(25)
     expect(roundCm(24.999999999)).toBe(25)
     expect(roundCm(33.333333)).toBe(33.33)
+  })
+})
+
+describe('cylinderGeometry (ellipse shapes in the elevations)', () => {
+  it('fits the projected box exactly: cap at the top, arc reaching the bottom', () => {
+    const { capCy, capRy, bodyPath } = cylinderGeometry(100, 80)
+    // Cap rim never pokes above the box top (-40).
+    expect(capCy - capRy).toBe(-40)
+    // The rim flattening stays shallow.
+    expect(capRy).toBe(12)
+    // Sides start at ±halfW.
+    expect(bodyPath).toContain('M -50')
+    expect(bodyPath).toContain('L 50')
+  })
+  it('caps the rim at a quarter of the height for squat cylinders', () => {
+    expect(cylinderGeometry(400, 20).capRy).toBe(5)
+  })
+})
+
+describe('rectLocalPoint (truss-frame coordinates)', () => {
+  const rect = { u: 100, v: 200, width: 600, height: 30, rotationDeg: 0 }
+  it('translates into the unrotated frame', () => {
+    expect(rectLocalPoint({ u: 130, v: 190 }, rect, 'top')).toEqual({ u: 30, v: -10 })
+  })
+  it('inverts the rotation in the top view', () => {
+    const rotated = { ...rect, rotationDeg: 90 }
+    // A point directly downstage (+v) of the centre lies along +u of a
+    // bar rotated 90°.
+    const local = rectLocalPoint({ u: 100, v: 250 }, rotated, 'top')
+    expect(local.u).toBeCloseTo(50)
+    expect(local.v).toBeCloseTo(0)
+  })
+  it('flips v in the elevations (v up-positive, SVG y down)', () => {
+    // Element centre at v=200 renders at SVG y=-200; a pointer 10 below
+    // that is local v=+10.
+    expect(rectLocalPoint({ u: 100, v: -190 }, rect, 'front')).toEqual({ u: 0, v: 10 })
+  })
+})
+
+describe('truss lanes (top/middle/bottom)', () => {
+  it('splits the bar depth into three bands', () => {
+    expect(trussSideForLocalV(-10, 15)).toBe('top')
+    expect(trussSideForLocalV(0, 15)).toBe('middle')
+    expect(trussSideForLocalV(4, 15)).toBe('middle')
+    expect(trussSideForLocalV(10, 15)).toBe('bottom')
+  })
+  it('draws lanes on the chords and centre line', () => {
+    expect(trussLaneLocalV('top', 15)).toBe(-15)
+    expect(trussLaneLocalV('middle', 15)).toBe(0)
+    expect(trussLaneLocalV('bottom', 15)).toBe(15)
+  })
+})
+
+describe('fixtureDropOnTruss', () => {
+  it('attaches inside the bar with the offset from the left end', () => {
+    expect(fixtureDropOnTruss({ u: -200, v: -12 }, 600, 15)).toEqual({ offset: 100, side: 'top' })
+    expect(fixtureDropOnTruss({ u: 0, v: 0 }, 600, 15)).toEqual({ offset: 300, side: 'middle' })
+  })
+  it('still attaches within the drop margin, clamped to the truss extent', () => {
+    expect(fixtureDropOnTruss({ u: 310, v: 20 }, 600, 15)).toEqual({ offset: 600, side: 'bottom' })
+  })
+  it('rejects drops beyond the margin', () => {
+    expect(fixtureDropOnTruss({ u: 340, v: 0 }, 600, 15)).toBeNull()
+    expect(fixtureDropOnTruss({ u: 0, v: 45 }, 600, 15)).toBeNull()
   })
 })

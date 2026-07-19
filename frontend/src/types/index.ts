@@ -513,12 +513,16 @@ export interface PlotTrussPiece {
   sort_order: number
 }
 
+/** Which lane of the truss a fixture hangs on, as seen in the top view. */
+export type TrussSide = 'top' | 'middle' | 'bottom'
+
 export interface PlotTrussFixture {
   id: number
   truss_id: number
   fixture_id: number
   /** Position along the truss from its left end; absent = unpositioned (legacy). */
   offset_cm?: number
+  side: TrussSide
   fixture_number?: number
   fixture_name: string
   dmx_universe: number

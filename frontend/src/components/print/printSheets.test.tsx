@@ -282,7 +282,7 @@ describe('StagePlotSheet', () => {
         {
           id: 7, event_id: 1, name: 'Front truss', height_cm: 400, total_length_cm: 600,
           pieces: [{ id: 1, truss_id: 7, inventory_item_id: 42, item_name: 'Tross F34 2m', length_cm: 200, sort_order: 0 }],
-          fixtures: [{ id: 1, truss_id: 7, fixture_id: 5, offset_cm: 100, fixture_number: 11, fixture_name: 'Spot 1', dmx_universe: 1, dmx_start_address: 1 }],
+          fixtures: [{ id: 1, truss_id: 7, fixture_id: 5, offset_cm: 100, side: 'middle' as const, fixture_number: 11, fixture_name: 'Spot 1', dmx_universe: 1, dmx_start_address: 1 }],
         },
       ],
     }

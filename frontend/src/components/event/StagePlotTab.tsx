@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, Minus, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { getLightingRig } from '../../api/lighting'
 import {
+  attachPlotTrussFixture,
   createStagePlot,
   createStagePlotElement,
   createStagePlotLayer,
@@ -19,7 +21,7 @@ import {
   type StagePlotElementCreate,
   type StagePlotElementPatch,
 } from '../../api/stagePlots'
-import type { PlotTruss, StagePlotResponse } from '../../types'
+import type { PlotTruss, StagePlotResponse, TrussSide } from '../../types'
 import { useDraftState } from '../../hooks/useDraftState'
 import { roundCm } from '../../lib/stagePlot'
 import { Button } from '../ui/Button'
@@ -47,6 +49,14 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
     enabled: activePlotId != null,
   })
   const response = plotQuery.data
+
+  // The rig feeds the palette's fixture list and free-element names.
+  const lightingQuery = useQuery({ queryKey: ['lighting-rig', eventId], queryFn: () => getLightingRig(eventId) })
+  const rigFixtures = useMemo(() => lightingQuery.data?.fixtures ?? [], [lightingQuery.data])
+  const fixtureNameById = useMemo(
+    () => new Map(rigFixtures.map((fixture) => [fixture.id, fixture.custom_name || fixture.inventory_item_name || `Fixture ${fixture.id}`])),
+    [rigFixtures],
+  )
 
   const [selectedElementId, setSelectedElementId] = useState<number | null>(null)
   const [creatingName, setCreatingName] = useState<string | null>(null)
@@ -141,6 +151,21 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
     onSuccess: async () => {
       setSelectedElementId(null)
       await invalidatePlot()
+    },
+  })
+
+  // Drag-and-drop truss attachment: dragging a fixture marker along a
+  // truss re-positions it; dropping a free fixture element onto a truss
+  // bar attaches it (the element is consumed by the attachment).
+  const attachFixtureMutation = useMutation({
+    mutationFn: async ({ trussId, fixtureId, offsetCm, side, consumeElementId }: { trussId: number; fixtureId: number; offsetCm: number; side: TrussSide; consumeElementId?: number }) => {
+      await attachPlotTrussFixture(eventId, trussId, fixtureId, { offset_cm: offsetCm, side })
+      if (consumeElementId != null) await deleteStagePlotElement(eventId, activePlotId as number, consumeElementId)
+    },
+    onSuccess: async (_data, variables) => {
+      if (variables.consumeElementId != null && variables.consumeElementId === selectedElementId) setSelectedElementId(null)
+      await invalidatePlot()
+      await queryClient.invalidateQueries({ queryKey: ['lighting-rig', eventId] })
     },
   })
 
@@ -453,7 +478,16 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
 
           {/* Editor */}
           <div className="flex items-stretch gap-3">
-            <StagePlotPalette onPlace={handlePlace} disabled={activeLayerId == null || createElementMutation.isPending} />
+            <StagePlotPalette
+              onPlace={handlePlace}
+              disabled={activeLayerId == null || createElementMutation.isPending}
+              rigFixtures={rigFixtures.map((fixture) => ({
+                id: fixture.id,
+                name: fixtureNameById.get(fixture.id) ?? `Fixture ${fixture.id}`,
+                trussName: fixture.truss_name || undefined,
+                placed: (response.elements ?? []).some((element) => element.fixture_id === fixture.id),
+              }))}
+            />
             <div className="min-w-0 flex-1">
               <StagePlotCanvas
                 key={activePlotId}
@@ -470,6 +504,8 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
                 onCanvasSize={(size) => {
                   canvasSize.current = size
                 }}
+                fixtureNameById={fixtureNameById}
+                onAttachFixture={(args) => attachFixtureMutation.mutate(args)}
               />
             </div>
             <div className="flex w-64 flex-none flex-col gap-3">

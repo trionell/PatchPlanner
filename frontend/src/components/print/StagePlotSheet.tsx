@@ -1,5 +1,5 @@
 import type { PlotTruss, StagePlotElement, StagePlotResponse, StagePlotView } from '../../types'
-import { clampFixtureOffset, fixtureLabel, projectedBounds, projectElement } from '../../lib/stagePlot'
+import { clampFixtureOffset, cylinderGeometry, fixtureLabel, projectedBounds, projectElement, trussLaneLocalV } from '../../lib/stagePlot'
 import { iconGlyph, iconViewBox } from '../../lib/stagePlotIcons'
 import { PrintSheet } from './PrintSheet'
 
@@ -66,7 +66,18 @@ export function StagePlotSheet({ eventId, response }: { eventId: number; respons
           body = <rect x={-halfW} y={-halfH} width={rect.width} height={rect.height} fill="none" stroke="black" strokeWidth={fontSize / 8} />
           break
         case 'ellipse':
-          body = <ellipse rx={halfW} ry={halfH} fill="none" stroke="black" strokeWidth={fontSize / 8} />
+          if (view === 'top') {
+            body = <ellipse rx={halfW} ry={halfH} fill="none" stroke="black" strokeWidth={fontSize / 8} />
+          } else {
+            // Elevations draw the cylinder silhouette, like the editor.
+            const cylinder = cylinderGeometry(rect.width, rect.height)
+            body = (
+              <g>
+                <path d={cylinder.bodyPath} fill="none" stroke="black" strokeWidth={fontSize / 8} />
+                <ellipse cy={cylinder.capCy} rx={halfW} ry={cylinder.capRy} fill="none" stroke="black" strokeWidth={fontSize / 8} />
+              </g>
+            )
+          }
           break
         case 'line':
           body = <line x1={-halfW} x2={halfW} y1={0} y2={0} stroke="black" strokeWidth={fontSize / 8} />
@@ -81,19 +92,20 @@ export function StagePlotSheet({ eventId, response }: { eventId: number; respons
         default:
           body = null
       }
-    } else if (element.kind === 'resource') {
+    } else if (element.kind === 'resource' || (element.kind === 'fixture' && element.fixture_id != null)) {
+      const iconId = element.kind === 'fixture' ? 'fixture' : (element.icon ?? '')
       body = (
         <svg
           x={-halfW}
           y={-halfH}
           width={rect.width}
           height={rect.height}
-          viewBox={iconViewBox(element.icon ?? '', view)}
+          viewBox={iconViewBox(iconId, view)}
           preserveAspectRatio="none"
           overflow="visible"
           style={{ color: 'black' }}
         >
-          {iconGlyph(element.icon ?? '', view)}
+          {iconGlyph(iconId, view)}
         </svg>
       )
     } else if (element.kind === 'truss' && element.truss_id != null && trussById.has(element.truss_id)) {
@@ -107,11 +119,14 @@ export function StagePlotSheet({ eventId, response }: { eventId: number; respons
               if (fixture.offset_cm == null) return null
               const { offset } = clampFixtureOffset(fixture.offset_cm, Math.max(truss.total_length_cm, 20))
               const label = fixtureLabel(fixture, settings)
+              // Same lanes as the editor: on the bar in the top view,
+              // hanging below it in the front view.
+              const markerY = view === 'top' ? trussLaneLocalV(fixture.side, halfH) - fontSize / 2 : halfH
               return (
-                <g key={fixture.id} transform={`translate(${-halfW + offset} ${halfH})`}>
-                  <rect x={-fontSize / 2} y={0} width={fontSize} height={fontSize} fill="none" stroke="black" strokeWidth={fontSize / 10} />
+                <g key={fixture.id} transform={`translate(${-halfW + offset} 0)`}>
+                  <rect x={-fontSize / 2} y={markerY} width={fontSize} height={fontSize} fill="none" stroke="black" strokeWidth={fontSize / 10} />
                   {label && (
-                    <text y={fontSize * 2} textAnchor="middle" fill="black" fontSize={fontSize * 0.8}>
+                    <text y={halfH + fontSize * 2} textAnchor="middle" fill="black" fontSize={fontSize * 0.8}>
                       {label}
                     </text>
                   )}

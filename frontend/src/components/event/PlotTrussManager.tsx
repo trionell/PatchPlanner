@@ -14,7 +14,7 @@ import {
 } from '../../api/stagePlots'
 import { useDraftState } from '../../hooks/useDraftState'
 import { parseLengthFromName } from '../../lib/stagePlot'
-import type { PlotTruss } from '../../types'
+import type { PlotTruss, PlotTrussFixture, TrussSide } from '../../types'
 import { Button } from '../ui/Button'
 import { Dialog } from '../ui/Dialog'
 import { Input } from '../ui/Input'
@@ -67,7 +67,8 @@ export function PlotTrussManager({ eventId, trusses, open, onClose, onChanged, o
       <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
         <p className="text-sm text-zinc-400">
           Trusses belong to the event and are counted once on the rental order no matter how many plots show them. Assemble each
-          truss from the inventory's truss pieces — its drawn length is exactly the sum of the pieces.
+          truss from the inventory's truss pieces — its drawn length is exactly the sum of the pieces. Fixtures can also be hung by
+          drag-and-drop: place one from the palette's Rig fixtures and drop it onto a truss bar, then drag its marker along the bar.
         </p>
         {trusses.map((truss) => (
           <TrussEditor
@@ -142,12 +143,19 @@ function TrussEditor({ eventId, truss, trussItems, fixtures, onChanged, onPlace,
   })
   const attachMutation = useMutation({
     mutationFn: () =>
-      attachPlotTrussFixture(eventId, truss.id, Number(attachFixtureId), attachOffset === '' ? null : Number(attachOffset.replace(',', '.'))),
+      attachPlotTrussFixture(eventId, truss.id, Number(attachFixtureId), {
+        offset_cm: attachOffset === '' ? null : Number(attachOffset.replace(',', '.')),
+      }),
     onSuccess: async () => {
       setAttachFixtureId('')
       setAttachOffset('')
       await onChanged()
     },
+  })
+  const repositionMutation = useMutation({
+    mutationFn: ({ fixtureId, offsetCm, side }: { fixtureId: number; offsetCm: number | null; side: TrussSide }) =>
+      attachPlotTrussFixture(eventId, truss.id, fixtureId, { offset_cm: offsetCm, side }),
+    onSuccess: onChanged,
   })
   const detachMutation = useMutation({
     mutationFn: (fixtureId: number) => detachPlotTrussFixture(eventId, truss.id, fixtureId),
@@ -246,13 +254,12 @@ function TrussEditor({ eventId, truss, trussItems, fixtures, onChanged, onPlace,
       <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Fixtures</p>
       <div className="mb-2 flex flex-col gap-1">
         {truss.fixtures.map((fixture) => (
-          <div key={fixture.id} className="flex items-center gap-2 rounded-md border border-zinc-800 px-2 py-1 text-xs text-zinc-300">
-            <span className="min-w-0 flex-1 truncate">{fixture.fixture_name}{fixture.fixture_number != null && <span className="text-zinc-500"> · FID {fixture.fixture_number}</span>}</span>
-            <span className="tabular-nums text-zinc-400">{fixture.offset_cm != null ? `${fixture.offset_cm} cm` : 'no position'}</span>
-            <button type="button" className="text-zinc-500 hover:text-red-400" onClick={() => detachMutation.mutate(fixture.fixture_id)} title="Detach (fixture stays in the rig)">
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
+          <AttachedFixtureRow
+            key={fixture.id}
+            fixture={fixture}
+            onReposition={(offsetCm, side) => repositionMutation.mutate({ fixtureId: fixture.fixture_id, offsetCm, side })}
+            onDetach={() => detachMutation.mutate(fixture.fixture_id)}
+          />
         ))}
       </div>
       <div className="flex items-center gap-2">
@@ -276,6 +283,54 @@ function TrussEditor({ eventId, truss, trussItems, fixtures, onChanged, onPlace,
           Attach
         </Button>
       </div>
+    </div>
+  )
+}
+
+/** One attached fixture: offset and lane editable in place (the
+ *  fine-tuning counterpart to dragging the marker on the canvas). */
+function AttachedFixtureRow({
+  fixture,
+  onReposition,
+  onDetach,
+}: {
+  fixture: PlotTrussFixture
+  onReposition: (offsetCm: number | null, side: TrussSide) => void
+  onDetach: () => void
+}) {
+  const [offsetDraft, setOffsetDraft] = useDraftState(fixture.offset_cm, String, '')
+  return (
+    <div className="flex items-center gap-2 rounded-md border border-zinc-800 px-2 py-1 text-xs text-zinc-300">
+      <span className="min-w-0 flex-1 truncate">
+        {fixture.fixture_name}
+        {fixture.fixture_number != null && <span className="text-zinc-500"> · FID {fixture.fixture_number}</span>}
+      </span>
+      <Input
+        className="h-7 w-16 text-right text-xs tabular-nums"
+        placeholder="cm"
+        value={offsetDraft}
+        onChange={(e) => setOffsetDraft(e.target.value)}
+        onBlur={() => {
+          if (offsetDraft.trim() === '') return
+          const parsed = Number(offsetDraft.replace(',', '.'))
+          if (Number.isFinite(parsed) && parsed >= 0 && parsed !== fixture.offset_cm) onReposition(parsed, fixture.side)
+        }}
+        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+        aria-label={`Offset along truss for ${fixture.fixture_name} (cm)`}
+      />
+      <Select
+        className="h-7 w-24 text-xs"
+        value={fixture.side}
+        onChange={(e) => onReposition(fixture.offset_cm ?? null, e.target.value as TrussSide)}
+        aria-label={`Lane for ${fixture.fixture_name}`}
+      >
+        <option value="top">Top</option>
+        <option value="middle">Middle</option>
+        <option value="bottom">Bottom</option>
+      </Select>
+      <button type="button" className="text-zinc-500 hover:text-red-400" onClick={onDetach} title="Detach (fixture stays in the rig)">
+        <X className="h-3.5 w-3.5" />
+      </button>
     </div>
   )
 }

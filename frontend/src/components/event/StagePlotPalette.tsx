@@ -6,6 +6,8 @@ interface StagePlotPaletteProps {
   /** Called with a ready-to-create element (position filled by the tab). */
   onPlace: (template: Omit<StagePlotElementCreate, 'layer_id' | 'x_cm' | 'y_cm'>) => void
   disabled: boolean
+  /** The event's lighting rig, for placing real fixtures on the plot. */
+  rigFixtures: Array<{ id: number; name: string; trussName?: string; placed: boolean }>
 }
 
 const SHAPES: Array<{ kind: StagePlotShapeKind; label: string; defaults: { width_cm: number; depth_cm: number } }> = [
@@ -48,10 +50,10 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 /** Left-hand palette: click an entry to drop it at the viewport centre
  *  on the active layer, sized with the icon's real-world defaults. */
-export function StagePlotPalette({ onPlace, disabled }: StagePlotPaletteProps) {
+export function StagePlotPalette({ onPlace, disabled, rigFixtures }: StagePlotPaletteProps) {
   const resources = STAGE_PLOT_ICONS.filter((icon) => icon.group === 'resource')
   const instruments = STAGE_PLOT_ICONS.filter((icon) => icon.group === 'instrument')
-  const lighting = STAGE_PLOT_ICONS.filter((icon) => icon.group === 'lighting')
+  const fixtureIcon = STAGE_PLOT_ICONS.find((icon) => icon.id === 'fixture')
 
   const placeIcon = (iconId: string) => {
     const icon = STAGE_PLOT_ICONS.find((entry) => entry.id === iconId)
@@ -106,7 +108,57 @@ export function StagePlotPalette({ onPlace, disabled }: StagePlotPaletteProps) {
       </Section>
       <Section title="Resources">{resources.map(iconButton)}</Section>
       <Section title="Instruments">{instruments.map(iconButton)}</Section>
-      <Section title="Lighting">{lighting.map(iconButton)}</Section>
+      {/* Real rig fixtures (not generic symbols): place one, then drag
+          it onto a truss bar to hang it there. */}
+      <div>
+        <p className="mb-1.5 px-0.5 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Rig fixtures</p>
+        {rigFixtures.length === 0 ? (
+          <p className="px-0.5 text-[11px] leading-snug text-zinc-600">No fixtures in the lighting rig yet.</p>
+        ) : (
+          <div className="flex flex-col gap-1">
+            {rigFixtures.map((fixture) => {
+              const unavailable = fixture.placed || fixture.trussName != null
+              return (
+                <button
+                  key={fixture.id}
+                  type="button"
+                  disabled={disabled || unavailable}
+                  onClick={() =>
+                    fixtureIcon &&
+                    onPlace({
+                      kind: 'fixture',
+                      fixture_id: fixture.id,
+                      name: '',
+                      z_cm: 0,
+                      width_cm: fixtureIcon.defaults.width_cm,
+                      depth_cm: fixtureIcon.defaults.depth_cm,
+                      height_cm: fixtureIcon.defaults.height_cm,
+                      rotation_deg: 0,
+                    })
+                  }
+                  className="flex items-center gap-2 rounded-md border border-zinc-800 px-2 py-1.5 text-left text-[11px] leading-tight text-zinc-400 hover:border-zinc-600 hover:text-zinc-200 disabled:opacity-40"
+                  title={
+                    fixture.trussName
+                      ? `Hanging on ${fixture.trussName} — detach it in Trusses… to place it freely`
+                      : fixture.placed
+                        ? 'Already on this plot'
+                        : `Place ${fixture.name}, then drag it onto a truss to hang it`
+                  }
+                >
+                  {fixtureIcon && (
+                    <svg viewBox={iconViewBox('fixture', 'top')} preserveAspectRatio="xMidYMid meet" className="h-5 w-5 flex-none text-zinc-300">
+                      {fixtureIcon.glyphs.top}
+                    </svg>
+                  )}
+                  <span className="min-w-0 flex-1 truncate">{fixture.name}</span>
+                  {fixture.trussName && <span className="flex-none text-[10px] text-amber-500/80">on truss</span>}
+                  {!fixture.trussName && fixture.placed && <span className="flex-none text-[10px] text-zinc-500">placed</span>}
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

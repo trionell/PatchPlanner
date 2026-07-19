@@ -1,15 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import type { PlotTruss, StagePlot, StagePlotElement, StagePlotLayer, StagePlotView } from '../../types'
+import type { PlotTruss, StagePlot, StagePlotElement, StagePlotLayer, StagePlotView, TrussSide } from '../../types'
 import type { StagePlotElementPatch } from '../../api/stagePlots'
 import {
   clampDimension,
   clampFixtureOffset,
+  cylinderGeometry,
+  fixtureDropOnTruss,
   fixtureLabel,
   projectedBounds,
   projectElement,
+  rectLocalPoint,
   roundCm,
   snapPosition,
+  trussLaneLocalV,
+  trussSideForLocalV,
   viewAxisFields,
   type SnapGuide,
 } from '../../lib/stagePlot'
@@ -35,6 +40,12 @@ interface StagePlotCanvasProps {
   onSelectElement: (id: number | null) => void
   onUpdateElement: (id: number, patch: StagePlotElementPatch) => void
   onCanvasSize?: (size: { width: number; height: number }) => void
+  /** Rig fixture display names, for free fixture elements without a name. */
+  fixtureNameById?: Map<number, string>
+  /** Attach (or re-position) a fixture on a truss — from dragging its
+   *  marker along the bar, or dropping a free fixture element onto it
+   *  (consumeElementId: that element is replaced by the attachment). */
+  onAttachFixture?: (args: { trussId: number; fixtureId: number; offsetCm: number; side: TrussSide; consumeElementId?: number }) => void
 }
 
 const DEFAULT_LAYER_COLOR = '#a1a1aa'
@@ -64,6 +75,7 @@ type DragMode =
   | { kind: 'move'; elementId: number; startU: number; startV: number; origin: StagePlotElement; moved: boolean }
   | { kind: 'resize'; elementId: number; origin: StagePlotElement }
   | { kind: 'rotate'; elementId: number; origin: StagePlotElement }
+  | { kind: 'truss-fixture'; trussElementId: number; trussId: number; fixtureId: number; side: TrussSide }
 
 export function StagePlotCanvas({
   plot,
@@ -77,6 +89,8 @@ export function StagePlotCanvas({
   onSelectElement,
   onUpdateElement,
   onCanvasSize,
+  fixtureNameById,
+  onAttachFixture,
 }: StagePlotCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
@@ -86,6 +100,10 @@ export function StagePlotCanvas({
   // only written on drop (save-on-drop, the graph canvas pattern).
   const [override, setOverride] = useState<{ id: number; patch: StagePlotElementPatch } | null>(null)
   const [guides, setGuides] = useState<SnapGuide[]>([])
+  // Live position of a fixture marker being dragged along its truss.
+  const [fixtureDrag, setFixtureDrag] = useState<{ fixtureId: number; offset: number; side: TrussSide } | null>(null)
+  // The truss a dragged free fixture element would attach to on drop.
+  const [dropTarget, setDropTarget] = useState<{ elementId: number; trussId: number; offset: number; side: TrussSide } | null>(null)
 
   useEffect(() => {
     const node = containerRef.current
@@ -196,6 +214,14 @@ export function StagePlotCanvas({
     setDrag({ kind: 'move', elementId: element.id, startU: point.u, startV: point.v, origin: element, moved: false })
   }
 
+  const handleFixturePointerDown = (event: ReactPointerEvent, element: StagePlotElement, trussId: number, fixture: { fixture_id: number; side: TrussSide }) => {
+    if (event.button !== 0 || !onAttachFixture) return
+    if (layerById.get(element.layer_id)?.locked) return
+    event.stopPropagation()
+    svgRef.current?.setPointerCapture(event.pointerId)
+    setDrag({ kind: 'truss-fixture', trussElementId: element.id, trussId, fixtureId: fixture.fixture_id, side: fixture.side })
+  }
+
   const handleHandlePointerDown = (event: ReactPointerEvent, element: StagePlotElement, mode: 'resize' | 'rotate') => {
     if (event.button !== 0) return
     event.stopPropagation()
@@ -213,6 +239,22 @@ export function StagePlotCanvas({
       if (!drag.moved && Math.abs(dx) < 3 && Math.abs(dy) < 3) return
       setDrag({ ...drag, moved: true })
       onViewStateChange({ zoom, panX: drag.startPanX - dx / zoom, panY: drag.startPanY - dy / zoom })
+      return
+    }
+
+    if (drag.kind === 'truss-fixture') {
+      const trussElement = elements.find((entry) => entry.id === drag.trussElementId)
+      const truss = trussById.get(drag.trussId)
+      if (!trussElement || !truss) return
+      const rect = projectElement(effectiveElement(trussElement), view)
+      const local = rectLocalPoint(point, rect, view)
+      const length = Math.max(truss.total_length_cm, 20)
+      setFixtureDrag({
+        fixtureId: drag.fixtureId,
+        offset: roundCm(Math.min(length, Math.max(0, local.u + length / 2))),
+        // The lane only changes in the top view; elevations keep it.
+        side: view === 'top' ? trussSideForLocalV(local.v, rect.height / 2) : drag.side,
+      })
       return
     }
 
@@ -249,6 +291,24 @@ export function StagePlotCanvas({
       }
       if (!drag.moved) setDrag({ ...drag, moved: true })
       setOverride({ id: drag.elementId, patch })
+      // A free fixture element dragged over a placed truss bar (top
+      // view) will attach on drop — find and highlight that truss.
+      if (drag.origin.kind === 'fixture' && drag.origin.fixture_id != null && view === 'top' && onAttachFixture) {
+        let target: typeof dropTarget = null
+        for (const entry of elements) {
+          const entryLayer = layerById.get(entry.layer_id)
+          if (entry.kind !== 'truss' || entry.truss_id == null || !entryLayer?.visible || entryLayer.locked) continue
+          const truss = trussById.get(entry.truss_id)
+          if (!truss) continue
+          const trussRect = projectElement(effectiveElement(entry), view)
+          const drop = fixtureDropOnTruss(rectLocalPoint({ u: snapped.u, v: snapped.v }, trussRect, view), Math.max(truss.total_length_cm, 20), trussRect.height / 2)
+          if (drop) {
+            target = { elementId: entry.id, trussId: entry.truss_id, offset: drop.offset, side: drop.side }
+            break
+          }
+        }
+        setDropTarget(target)
+      }
       return
     }
 
@@ -292,12 +352,31 @@ export function StagePlotCanvas({
   const handlePointerUp = () => {
     if (drag.kind === 'maybe-pan') {
       if (!drag.moved) onSelectElement(null)
+    } else if (drag.kind === 'truss-fixture') {
+      if (fixtureDrag && onAttachFixture) {
+        onAttachFixture({ trussId: drag.trussId, fixtureId: drag.fixtureId, offsetCm: fixtureDrag.offset, side: fixtureDrag.side })
+      }
     } else if (drag.kind !== 'none' && override && override.id === drag.elementId && Object.keys(override.patch).length > 0) {
       const skipSave = drag.kind === 'move' && !drag.moved
-      if (!skipSave) onUpdateElement(override.id, override.patch)
+      if (!skipSave) {
+        if (drag.kind === 'move' && drag.origin.kind === 'fixture' && drag.origin.fixture_id != null && dropTarget && onAttachFixture) {
+          // Dropped onto a truss: the free element becomes an attachment.
+          onAttachFixture({
+            trussId: dropTarget.trussId,
+            fixtureId: drag.origin.fixture_id,
+            offsetCm: dropTarget.offset,
+            side: dropTarget.side,
+            consumeElementId: drag.origin.id,
+          })
+        } else {
+          onUpdateElement(override.id, override.patch)
+        }
+      }
     }
     setOverride(null)
     setGuides([])
+    setFixtureDrag(null)
+    setDropTarget(null)
     setDrag({ kind: 'none' })
   }
 
@@ -325,7 +404,19 @@ export function StagePlotCanvas({
           body = <rect x={-halfW} y={-halfH} width={rect.width} height={rect.height} fill="transparent" stroke="currentColor" strokeWidth={2 / zoom} />
           break
         case 'ellipse':
-          body = <ellipse cx={0} cy={0} rx={halfW} ry={halfH} fill="transparent" stroke="currentColor" strokeWidth={2 / zoom} />
+          if (view === 'top') {
+            body = <ellipse cx={0} cy={0} rx={halfW} ry={halfH} fill="transparent" stroke="currentColor" strokeWidth={2 / zoom} />
+          } else {
+            // An ellipse with a height is a cylinder — the elevations
+            // draw its silhouette (top cap + sides + bottom arc).
+            const cylinder = cylinderGeometry(rect.width, rect.height)
+            body = (
+              <g>
+                <path d={cylinder.bodyPath} fill="transparent" stroke="currentColor" strokeWidth={2 / zoom} />
+                <ellipse cx={0} cy={cylinder.capCy} rx={halfW} ry={cylinder.capRy} fill="transparent" stroke="currentColor" strokeWidth={2 / zoom} />
+              </g>
+            )
+          }
           break
         case 'line':
           body = <line x1={-halfW} y1={0} x2={halfW} y2={0} stroke="currentColor" strokeWidth={2 / zoom} />
@@ -340,18 +431,21 @@ export function StagePlotCanvas({
         default:
           body = null
       }
-    } else if (current.kind === 'resource') {
+    } else if (current.kind === 'resource' || (current.kind === 'fixture' && current.fixture_id != null)) {
+      // Free fixture elements draw with the built-in fixture glyph; drop
+      // one onto a truss bar to turn it into an attachment.
+      const iconId = current.kind === 'fixture' ? 'fixture' : (current.icon ?? '')
       body = (
         <svg
           x={-halfW}
           y={-halfH}
           width={rect.width}
           height={rect.height}
-          viewBox={iconViewBox(current.icon ?? '', view)}
+          viewBox={iconViewBox(iconId, view)}
           preserveAspectRatio="none"
           overflow="visible"
         >
-          {iconGlyph(current.icon ?? '', view)}
+          {iconGlyph(iconId, view)}
         </svg>
       )
     } else if (current.kind === 'truss' && current.truss_id != null && trussById.has(current.truss_id)) {
@@ -369,36 +463,81 @@ export function StagePlotCanvas({
         cumulative += truss.pieces[i].length_cm
         dividers.push(cumulative)
       }
-      const barHalf = view === 'side' ? halfW : halfH
+      const highlighted = dropTarget?.elementId === element.id
+      const ghostSize = Math.max(14, 10 / zoom)
       body = (
         <g>
-          <rect x={-halfW} y={-halfH} width={rect.width} height={Math.max(rect.height, 4)} fill="rgba(245,158,11,0.08)" stroke="currentColor" strokeWidth={2 / zoom} />
+          <rect
+            x={-halfW}
+            y={-halfH}
+            width={rect.width}
+            height={Math.max(rect.height, 4)}
+            fill={highlighted ? 'rgba(99,102,241,0.18)' : 'rgba(245,158,11,0.08)'}
+            stroke={highlighted ? '#818cf8' : 'currentColor'}
+            strokeWidth={2 / zoom}
+          />
           {view !== 'side' &&
             dividers.map((position) => (
               <line key={position} x1={-halfW + position} x2={-halfW + position} y1={-halfH} y2={halfH} stroke="currentColor" strokeWidth={1 / zoom} opacity={0.6} />
             ))}
+          {/* Ghost marker: where the dragged fixture element will land. */}
+          {highlighted && dropTarget && view === 'top' && (
+            <rect
+              x={-halfW + dropTarget.offset - ghostSize / 2}
+              y={trussLaneLocalV(dropTarget.side, halfH) - (ghostSize * 0.8) / 2}
+              width={ghostSize}
+              height={ghostSize * 0.8}
+              rx={2 / zoom}
+              fill="rgba(99,102,241,0.3)"
+              stroke="#818cf8"
+              strokeDasharray={`${3 / zoom} ${2 / zoom}`}
+              strokeWidth={1.2 / zoom}
+            />
+          )}
           {view !== 'side' &&
             truss.fixtures.map((fixture) => {
-              if (fixture.offset_cm == null) return null
-              const { offset, clamped } = clampFixtureOffset(fixture.offset_cm, length)
+              // A marker being dragged renders at its live position.
+              const live = drag.kind === 'truss-fixture' && drag.trussId === truss.id && fixtureDrag?.fixtureId === fixture.fixture_id ? fixtureDrag : null
+              const rawOffset = live ? live.offset : fixture.offset_cm
+              if (rawOffset == null) return null
+              const side = live ? live.side : fixture.side
+              const { offset, clamped } = clampFixtureOffset(rawOffset, length)
               const label = fixtureLabel(fixture, labelSettings)
               const size = Math.max(14, 10 / zoom)
+              // Top view: marker sits on its lane (upstage chord, centre,
+              // downstage chord). Front view: it hangs below the bar.
+              const markerY = view === 'top' ? trussLaneLocalV(side, halfH) - (size * 0.8) / 2 : halfH + 2 / zoom
               return (
-                <g key={fixture.id} transform={`translate(${-halfW + offset} ${barHalf})`}>
+                <g
+                  key={fixture.id}
+                  transform={`translate(${-halfW + offset} 0)`}
+                  className="cursor-move"
+                  onPointerDown={(event) => handleFixturePointerDown(event, element, truss.id, fixture)}
+                >
                   <rect
                     x={-size / 2}
-                    y={2 / zoom}
+                    y={markerY}
                     width={size}
                     height={size * 0.8}
                     rx={2 / zoom}
-                    fill={clamped ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.25)'}
-                    stroke={clamped ? '#ef4444' : 'currentColor'}
+                    fill={clamped ? 'rgba(239,68,68,0.3)' : live ? 'rgba(99,102,241,0.35)' : 'rgba(245,158,11,0.25)'}
+                    stroke={clamped ? '#ef4444' : live ? '#818cf8' : 'currentColor'}
                     strokeWidth={1.2 / zoom}
                   >
-                    {clamped && <title>Beyond the truss's current length — reposition this fixture</title>}
+                    <title>
+                      {clamped
+                        ? "Beyond the truss's current length — reposition this fixture"
+                        : 'Drag along the truss to place; drag across it to switch lane (top/middle/bottom). Fine-tune in Trusses…'}
+                    </title>
                   </rect>
                   {label && (
-                    <text y={size * 0.8 + 2 / zoom + fontSize} textAnchor="middle" fill="#a1a1aa" fontSize={fontSize * 0.85} style={{ userSelect: 'none' }}>
+                    <text
+                      y={view === 'top' ? halfH + 2 / zoom + fontSize : halfH + 2 / zoom + size * 0.8 + fontSize}
+                      textAnchor="middle"
+                      fill="#a1a1aa"
+                      fontSize={fontSize * 0.85}
+                      style={{ userSelect: 'none' }}
+                    >
                       {label}
                     </text>
                   )}
@@ -416,6 +555,8 @@ export function StagePlotCanvas({
     }
 
     const showLabel = current.kind !== 'shape' || current.shape_kind !== 'text'
+    // Free fixture elements fall back to their rig name.
+    const displayName = current.kind === 'fixture' && current.fixture_id != null ? current.name || fixtureNameById?.get(current.fixture_id) || '' : current.name
     return (
       <g
         key={element.id}
@@ -449,7 +590,7 @@ export function StagePlotCanvas({
             </text>
           )
         })()}
-        {showLabel && current.name && (
+        {showLabel && displayName && (
           <text
             y={halfH + fontSize * 1.2}
             textAnchor="middle"
@@ -458,7 +599,7 @@ export function StagePlotCanvas({
             transform={view === 'top' ? `rotate(${-rect.rotationDeg})` : undefined}
             style={{ userSelect: 'none' }}
           >
-            {current.name}
+            {displayName}
           </text>
         )}
         {selected && !layer.locked && (

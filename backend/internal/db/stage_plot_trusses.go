@@ -78,7 +78,7 @@ func fillPlotTruss(db *sql.DB, truss *domain.PlotTruss) error {
 		return err
 	}
 
-	fixtureRows, err := db.Query(`SELECT tf.id, tf.truss_id, tf.fixture_id, tf.offset_cm,
+	fixtureRows, err := db.Query(`SELECT tf.id, tf.truss_id, tf.fixture_id, tf.offset_cm, tf.side,
 			f.fixture_number, COALESCE(NULLIF(f.custom_name, ''), i.name, 'Fixture'), COALESCE(f.dmx_universe, 1), f.dmx_start_address
 		FROM stage_plot_truss_fixtures tf
 		JOIN lighting_fixtures f ON f.id = tf.fixture_id
@@ -92,7 +92,7 @@ func fillPlotTruss(db *sql.DB, truss *domain.PlotTruss) error {
 		var fixture domain.PlotTrussFixture
 		var offset sql.NullFloat64
 		var fixtureNumber, dmxAddress sql.NullInt64
-		if err := fixtureRows.Scan(&fixture.ID, &fixture.TrussID, &fixture.FixtureID, &offset,
+		if err := fixtureRows.Scan(&fixture.ID, &fixture.TrussID, &fixture.FixtureID, &offset, &fixture.Side,
 			&fixtureNumber, &fixture.FixtureName, &fixture.DMXUniverse, &dmxAddress); err != nil {
 			return fmt.Errorf("scan truss fixture: %w", err)
 		}
@@ -185,16 +185,17 @@ func DeletePlotTrussPiece(db *sql.DB, trussID, pieceID int64) error {
 // ---- Fixture attachments ----
 
 // AttachPlotTrussFixture attaches (or moves) a fixture onto the truss at
-// an offset. UNIQUE(fixture_id) means re-attaching from another truss is
-// an upsert-style move — a fixture hangs on at most one truss.
-func AttachPlotTrussFixture(db *sql.DB, trussID, fixtureID int64, offsetCm *float64) error {
+// an offset and side lane. UNIQUE(fixture_id) means re-attaching from
+// another truss is an upsert-style move — a fixture hangs on at most one
+// truss.
+func AttachPlotTrussFixture(db *sql.DB, trussID, fixtureID int64, offsetCm *float64, side string) error {
 	var offset sql.NullFloat64
 	if offsetCm != nil {
 		offset = sql.NullFloat64{Float64: *offsetCm, Valid: true}
 	}
-	_, err := db.Exec(`INSERT INTO stage_plot_truss_fixtures (truss_id, fixture_id, offset_cm) VALUES (?, ?, ?)
-		ON CONFLICT(fixture_id) DO UPDATE SET truss_id = excluded.truss_id, offset_cm = excluded.offset_cm`,
-		trussID, fixtureID, offset)
+	_, err := db.Exec(`INSERT INTO stage_plot_truss_fixtures (truss_id, fixture_id, offset_cm, side) VALUES (?, ?, ?, ?)
+		ON CONFLICT(fixture_id) DO UPDATE SET truss_id = excluded.truss_id, offset_cm = excluded.offset_cm, side = excluded.side`,
+		trussID, fixtureID, offset, side)
 	if err != nil {
 		return fmt.Errorf("attach truss fixture: %w", err)
 	}
