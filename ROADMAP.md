@@ -404,6 +404,155 @@ inspector + layers panel), with an approved mockup driving the design.
       plan-view-only; per-view icon variants; print sheet renders the
       active view with a scale caption.
 
+## Slice 14 — Authentication (spec: `auth`)
+
+The app has no authentication today — any browser can hit every API route.
+Prerequisite for deploying anywhere real. Depends on nothing existing;
+unblocks Slices 15 and 16.
+
+**Note**: this slice makes Constitution Principle V's statement
+*"Authentication is out of scope for v1; the tool is single-user, locally
+hosted"* factually false. A `/speckit-constitution` amendment (MINOR bump)
+striking that line and adding OAuth + DB-backed sessions to the Technology
+Stack table should happen alongside or just before implementation.
+
+- Google OAuth 2.0 authorization-code flow, fully backend-driven (browser
+  full-navigation redirects, never `fetch`, so the OAuth dance itself never
+  touches CORS): `GET /api/v1/auth/google/login` → Google consent →
+  `GET /api/v1/auth/google/callback` exchanges the code server-to-server
+  (`golang.org/x/oauth2` + `/google`, the one new backend dependency — no
+  heavier ID-token-verification library needed since the code exchange is
+  already an authenticated, TLS-protected server call), fetches the profile
+  from Google's userinfo endpoint, checks the email against
+  `PATCHPLANNER_ALLOWED_EMAILS` before touching the `users` table, upserts a
+  `users` row keyed on the immutable Google `sub`, creates a session, sets an
+  `HttpOnly`/`SameSite=Lax` cookie, redirects to the frontend Dashboard. A
+  rejected (not-allow-listed) login creates no user row and redirects to a
+  plain error message on the login page.
+- New `users` (id, google_sub, email, name, picture_url, created_at,
+  last_login_at) and `sessions` (token_hash, user_id, created_at, expires_at
+  — only the SHA-256 of the opaque token is stored, never the raw cookie
+  value) tables, migration `036_auth`. `users.id` is the FK target Slice 15's
+  membership table will reference.
+- First `internal/api/middleware` package: `RequireAuth` reads/validates the
+  session cookie and injects the loaded user into request context via a
+  typed key; `UserFromContext` is the seam Slice 15 hooks per-event role
+  checks onto. `NewRouter` gains an `AuthConfig` param and wraps all existing
+  handler registration in one `r.Group` behind this middleware (auth routes
+  and `/health` stay outside it) — establishing the pattern once instead of
+  touching every handler individually.
+- `GET /api/v1/auth/me` (protected — its own 401 *is* "not logged in") and
+  `POST /api/v1/auth/logout` (deletes the session row, clears the cookie,
+  idempotent).
+- CORS: `AllowCredentials: true` (origin already comes from a specific env
+  var, never a wildcard, so this is a safe one-line change).
+- Frontend: a deliberately minimal `Login.tsx` (heading + "Sign in with
+  Google" link + error banner), `useCurrentUser` hook (TanStack Query over
+  `/auth/me`), a `RequireAuth` route guard wrapping the existing route tree,
+  an unguarded `/login` route, a logout action in `Layout.tsx`'s header.
+  `api/client.ts`'s `request()` adds `credentials: 'include'` and a 401→
+  redirect-to-login branch (excluding `/auth/*` paths, which expect 401s).
+- New env vars: `PATCHPLANNER_GOOGLE_CLIENT_ID`, `_CLIENT_SECRET`,
+  `_REDIRECT_URL`, `PATCHPLANNER_FRONTEND_URL`, `PATCHPLANNER_ALLOWED_EMAILS`,
+  `PATCHPLANNER_SESSION_TTL` (default `720h`).
+- `quickstart.md` walks a first-timer through Google Cloud Console setup:
+  OAuth consent screen (External, Testing mode — add each allowed person as
+  a Google test user, in addition to the app's own allow-list env var),
+  OAuth Client ID (Web application), authorized JavaScript origin, and
+  authorized redirect URIs for both localhost and the future prod callback.
+- Tests: Go `httptest` for the allow-list function, session CRUD, the
+  middleware's 401/200 branches, and the callback flow against a fake
+  identity-provider interface (never dials real Google); existing API tests
+  need only `testutil_test.go` updated to seed one authenticated test
+  session, not per-file changes. The real Google browser round-trip is
+  manual-only, documented as such.
+- Known seam for Slice 16: the cookie's `Secure` flag is derived from
+  `r.TLS != nil`, which is wrong once TLS terminates at a reverse proxy in
+  front of the Go binary — Slice 16 must decide how to trust
+  `X-Forwarded-Proto` (or force the flag via env var).
+
+## Slice 15 — Event ownership & sharing (spec: `event-sharing`)
+
+A simple ownership/contributor/viewer permission model scoped to *events*
+(no finer-grained audio/lighting split), so events can be shared with
+collaborators without giving away edit access to everyone. No mail server:
+invitees must already have a `users` row (signed in at least once) before
+they can be invited. Depends on Slice 14 (needs `users` and the auth
+middleware/context seam).
+
+- `events` gains `owner_user_id` (nullable at the schema level; every event
+  created after this slice always has one). A new `event_memberships` table
+  (`event_id`, `user_id`, `role` — `contributor` | `viewer`, `invited_by`,
+  `created_at`) covers everyone who isn't the owner. Owner always has full
+  access; `contributor` has full read/write access including inviting
+  further contributors/viewers; `viewer` is read-only (printing/exporting
+  counts as reading — those endpoints require only viewer-level access, not
+  write).
+- Existing events created before this slice have no owner yet (they predate
+  any user). Bootstrap rule: the very first user ever to log in
+  system-wide (i.e., the first row ever inserted into `users`) is
+  auto-assigned as owner of every pre-existing ownerless event, on that
+  first login — needs no new env var and works regardless of which email
+  happens to sign in first; confirm/adjust in this slice's own plan.md
+  before implementation.
+- Second authorization middleware layer (per-event), built on Slice 14's
+  `UserFromContext`: resolves the `{eventID}` URL param, checks
+  owner/membership, and gates by HTTP method — safe methods (`GET`) require
+  at least `viewer`; mutating methods require `owner` or `contributor`.
+  Applied to the existing `/events/{eventID}/...` route group (audio patch,
+  lighting, rentals, stage plots, etc. — all of it, unchanged internally,
+  just gated at the group level).
+- `GET /api/v1/events` (and the Dashboard's recent-events query) scoped to
+  events the current user owns or is a member of — no more "returns
+  everything to anyone."
+- New endpoints: `GET /api/v1/events/{eventID}/members` (list with roles),
+  `POST .../members` (invite an existing user by id + role), `PATCH
+  .../members/{userID}` (change role), `DELETE .../members/{userID}`
+  (remove) — all requiring owner/contributor. `GET /api/v1/users` lists
+  known users (id, name, email, picture) for the invite picker — only
+  populated by people who've signed in at least once.
+- Frontend: an "Invite" dialog on the event detail page (visible only to
+  owner/contributor), a members list with role management, role badges on
+  Dashboard/Events list, viewer-mode UI (disable/hide mutating controls
+  everywhere a viewer can reach; print/export stays enabled).
+- Tests: membership CRUD, the per-event authorization middleware's
+  method/role matrix, events-list scoping, viewer-cannot-mutate on a
+  representative sample of existing mutating endpoints.
+
+## Slice 16 — Production deployment (spec: `deployment`)
+
+An actual production deployment path — currently undefined (two
+independently-run dev processes, no Docker/CI-deploy, no production docs).
+Depends on Slices 14 and 15 (needs working auth/authz before exposing the
+app publicly).
+
+- Go backend serves the built frontend itself: `go:embed` the Vite
+  `frontend/dist` output into the binary, with a catch-all route (excluding
+  `/api/*` and `/health`) serving `index.html` so React Router's
+  client-side routes work on a hard refresh/direct link. Single deployable
+  binary, single origin in production.
+- Build step: `npm run build` (frontend) must happen before `go build`
+  embeds its output — add a `Makefile` (or equivalent script) target so this
+  isn't a manual two-step ritual.
+- Reverse proxy in front of the Go binary for TLS (Caddy or Nginx — Caddy
+  recommended for its automatic HTTPS on a simple personal deployment).
+  Document trusting `X-Forwarded-Proto` from the proxy so the session
+  cookie's `Secure` flag is set correctly even though the Go process itself
+  only sees plain HTTP from the proxy.
+- Update the Google Cloud OAuth client's authorized redirect URI to include
+  the real production callback URL before this slice ships (otherwise login
+  fails with `redirect_uri_mismatch`) — call this out explicitly in
+  `quickstart.md`/deployment docs since it's an easy miss.
+- Ops docs: example `systemd` unit file for running the binary as a
+  service, env var checklist for production (Google prod client
+  id/secret/redirect URL, allow-list, session TTL, DB path, migrations
+  path), and a simple SQLite backup strategy (periodic file copy of the
+  live DB — no new tooling).
+- `PATCHPLANNER_CORS_ORIGIN`/the CORS middleware becomes effectively a
+  no-op in production (same-origin) but stays for local dev.
+- No CI/CD pipeline is in scope here unless wanted later (manual build +
+  copy + restart is fine for a single small VPS to start).
+
 ## Dependency graph
 
 ```
@@ -411,4 +560,5 @@ Slices 0–13 ✅ done
 Slice 10 (output chains) ──→ Slice 11 (output signal graph, replaces it) ✅
 Slice 11 (output signal graph) ──→ Slice 12 (input signal graph, same pattern reversed) ✅
 Slice 7 (lighting rig) + Slice 12 ──→ Slice 13 (stage plots; supersedes Slice 0's truss sections) ✅
+Slice 14 (auth) ──→ Slice 15 (event ownership & sharing) ──→ Slice 16 (deployment)
 ```
