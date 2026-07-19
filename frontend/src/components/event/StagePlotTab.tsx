@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Minus, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Check, Maximize2, Minimize2, Minus, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { getLightingRig } from '../../api/lighting'
 import {
   attachPlotTrussFixture,
@@ -63,6 +63,23 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
   const [renamingName, setRenamingName] = useState<string | null>(null)
   const [gridSizeDraft, setGridSizeDraft] = useDraftState(response?.plot.grid_size_cm, String, '25')
   const [trussManagerOpen, setTrussManagerOpen] = useState(false)
+  // Fullscreen editor: the canvas fills the browser window and the
+  // toolbar / palette / inspector float on top of it.
+  const [fullscreen, setFullscreen] = useState(false)
+
+  useEffect(() => {
+    if (!fullscreen) return
+    const listener = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setFullscreen(false)
+    }
+    window.addEventListener('keydown', listener)
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', listener)
+      document.body.style.overflow = previousOverflow
+    }
+  }, [fullscreen])
 
   // Viewport state lives here (not in the canvas) so the palette can
   // place elements at the visible centre; persisted debounced.
@@ -105,6 +122,7 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
     onSuccess: async () => {
       setSelectedPlotId(null)
       setSelectedElementId(null)
+      setFullscreen(false)
       await invalidateList()
     },
   })
@@ -400,10 +418,16 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
       ) : !response ? (
         <p className="text-sm text-zinc-400">Loading plot…</p>
       ) : (
-        <>
-          {/* Toolbar — sticks just below the app header (73 px: its
-              py-5 + text-2xl line + border) once scrolled past. */}
-          <div className="sticky top-[73px] z-10 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-400">
+        (() => {
+          // Toolbar — inline it sticks just below the app header (73 px:
+          // its py-5 + text-2xl line + border) once scrolled past; in
+          // fullscreen it floats on top of the canvas.
+          const toolbar = (
+          <div
+            className={`flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-zinc-800 px-3 py-2 text-sm text-zinc-400 ${
+              fullscreen ? 'bg-zinc-900/90 backdrop-blur' : 'sticky top-[73px] z-10 bg-zinc-900'
+            }`}
+          >
             <div className="flex items-center gap-1">
               <Button variant="ghost" size="sm" title="Zoom out" onClick={() => zoomBy(1 / 1.25)}>
                 <Minus className="h-4 w-4" />
@@ -481,10 +505,18 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
             </Button>
             <PrintButton />
             <span className="ml-auto text-xs text-zinc-500">1 square = {response.plot.grid_size_cm} cm · canvas is true to scale</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              title={fullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen'}
+              onClick={() => setFullscreen((value) => !value)}
+            >
+              {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </Button>
           </div>
+          )
 
-          {/* Editor */}
-          <div className="flex items-stretch gap-3">
+          const palette = (
             <StagePlotPalette
               onPlace={handlePlace}
               disabled={activeLayerId == null || createElementMutation.isPending}
@@ -495,7 +527,9 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
                 placed: (response.elements ?? []).some((element) => element.fixture_id === fixture.id),
               }))}
             />
-            <div className="min-w-0 flex-1">
+          )
+
+          const canvas = (
               <StagePlotCanvas
                 key={activePlotId}
                 plot={response.plot}
@@ -513,8 +547,11 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
                 }}
                 fixtureNameById={fixtureNameById}
                 onAttachFixture={(args) => attachFixtureMutation.mutate(args)}
+                fillParent={fullscreen}
               />
-            </div>
+          )
+
+          const sidePanels = (
             <div className="flex w-64 flex-none flex-col gap-3">
               <StagePlotInspector
                 eventId={eventId}
@@ -553,6 +590,9 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
                 </div>
               </div>
             </div>
+          )
+
+          const trussManager = (
             <PlotTrussManager
               eventId={eventId}
               trusses={response.trusses}
@@ -564,8 +604,38 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
               placedElements={placedTrussElements}
               onRotate={(elementId, patch) => updateElementMutation.mutate({ elementId, patch })}
             />
-          </div>
-        </>
+          )
+
+          // Fullscreen: the canvas fills the browser window; the toolbar
+          // and side panels float above it, and pointer events fall
+          // through the empty overlay areas to the canvas below.
+          if (fullscreen)
+            return (
+              <div className="fixed inset-0 z-40 !mt-0 bg-zinc-950">
+                <div className="absolute inset-0">{canvas}</div>
+                <div className="pointer-events-none absolute inset-0 flex flex-col gap-3 p-3">
+                  <div className="pointer-events-auto">{toolbar}</div>
+                  <div className="flex min-h-0 flex-1 items-stretch justify-between gap-3">
+                    <div className="pointer-events-auto flex rounded-lg bg-zinc-950/75 backdrop-blur-sm">{palette}</div>
+                    <div className="pointer-events-auto flex overflow-y-auto rounded-lg bg-zinc-950/75 backdrop-blur-sm">{sidePanels}</div>
+                  </div>
+                </div>
+                {trussManager}
+              </div>
+            )
+
+          return (
+            <>
+              {toolbar}
+              <div className="flex items-stretch gap-3">
+                {palette}
+                <div className="min-w-0 flex-1">{canvas}</div>
+                {sidePanels}
+                {trussManager}
+              </div>
+            </>
+          )
+        })()
       )}
     </div>
     {response && <StagePlotSheet eventId={eventId} response={response} />}

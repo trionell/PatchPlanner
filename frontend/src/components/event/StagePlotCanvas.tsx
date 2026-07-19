@@ -41,6 +41,9 @@ interface StagePlotCanvasProps {
   onSelectElement: (id: number | null) => void
   onUpdateElement: (id: number, patch: StagePlotElementPatch) => void
   onCanvasSize?: (size: { width: number; height: number }) => void
+  /** Fill the parent instead of the default viewport-derived height
+   *  (fullscreen mode, where panels float over the canvas). */
+  fillParent?: boolean
   /** Rig fixture display names, for free fixture elements without a name. */
   fixtureNameById?: Map<number, string>
   /** Attach (or re-position) a fixture on a truss — from dragging its
@@ -90,6 +93,7 @@ export function StagePlotCanvas({
   onSelectElement,
   onUpdateElement,
   onCanvasSize,
+  fillParent,
   fixtureNameById,
   onAttachFixture,
 }: StagePlotCanvasProps) {
@@ -716,7 +720,11 @@ export function StagePlotCanvas({
   return (
     <div
       ref={containerRef}
-      className="relative h-[calc(100vh-330px)] min-h-[560px] w-full overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950"
+      className={
+        fillParent
+          ? 'relative h-full w-full overflow-hidden bg-zinc-950'
+          : 'relative h-[calc(100vh-330px)] min-h-[560px] w-full overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950'
+      }
     >
       <svg
         ref={svgRef}
