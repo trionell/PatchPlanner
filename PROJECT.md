@@ -227,7 +227,7 @@ For recurring productions or multi-day tours using the same rig, there is no way
 
 **REST over GraphQL:** The data access patterns are simple and resource-oriented. REST with JSON is sufficient and keeps the backend easy to reason about. Every frontend query maps to exactly one API call.
 
-**No authentication (v1):** The tool runs locally (`localhost:7331`). Adding auth would add complexity with no security benefit for a single-user local tool. Explicitly noted in the constitution as out of scope for v1.
+**Authentication (roadmap Slice 14):** The tool originally ran locally (`localhost:7331`) with no auth, since a single-user local tool gets no security benefit from it. That changes ahead of deployment: Slice 14 adds Google OAuth 2.0 sign-in restricted to an allow-listed set of users, with DB-backed sessions (a SQLite table, not JWT) — see the constitution's Principle V and Technology Stack.
 
 **Inline-edit UX (blur-to-save):** Patch sheets can have 40–80 rows with 12–15 columns each. A row-level "Save" button would create excessive friction. Saving on field blur keeps the experience close to working in a spreadsheet while ensuring data is persisted incrementally.
 
