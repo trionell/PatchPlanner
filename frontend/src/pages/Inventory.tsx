@@ -48,7 +48,7 @@ function RentalCatalog() {
     },
   })
   const roleMutation = useMutation({
-    mutationFn: ({ categoryId, role }: { categoryId: number; role: 'cable' | 'stand' | null }) => updateCategoryPickerRole(categoryId, role),
+    mutationFn: ({ categoryId, role }: { categoryId: number; role: 'cable' | 'stand' | 'truss' | null }) => updateCategoryPickerRole(categoryId, role),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['inventory-categories'] }),
