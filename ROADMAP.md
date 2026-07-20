@@ -408,7 +408,7 @@ inspector + layers panel), with an approved mockup driving the design.
 
 The app has no authentication today — any browser can hit every API route.
 Prerequisite for deploying anywhere real. Depends on nothing existing;
-unblocks Slices 15 and 16.
+unblocks every slice after it.
 
 **Note**: this slice makes Constitution Principle V's statement
 *"Authentication is out of scope for v1; the tool is single-user, locally
@@ -519,12 +519,112 @@ middleware/context seam).
   method/role matrix, events-list scoping, viewer-cannot-mutate on a
   representative sample of existing mutating endpoints.
 
-## Slice 16 — Production deployment (spec: `deployment`)
+## Slice 16 — Inventory ownership & duplication (spec: `inventory-ownership`)
+
+Field feedback after using Slices 14/15 live (2026-07-20): the inventory
+catalog is currently one single global table shared by every user, which
+makes no sense once events belong to different owners — each user's price
+list, stock levels, and re-imports should be theirs alone, not silently
+shared with (or overwritten by) everyone else. This is one of the largest
+schema changes in the project's history: nearly every planning table
+(mic/cable/stand picks, output devices, truss pieces) references
+`inventory_items` generically, so scoping the catalog touches the whole
+domain model's FK graph. Depends on Slices 14 (users) and 15 (event
+roles); the exact backfill/validation details below are a starting design
+to be finalized in this slice's own `/speckit-specify` → `/speckit-plan`
+pass, not fully locked here.
+
+- New `inventories` table (id, owner_user_id, name, created_at).
+  `inventory_categories` and `inventory_items` gain an `inventory_id` FK —
+  the catalog becomes per-inventory-instance, not one global table.
+  `events` gains an `inventory_id` FK, picked at event creation from among
+  the creating user's own inventories (never a foreign one).
+- Bootstrap: the existing single global inventory becomes a real
+  `inventories` row, claimed by whoever logs in first after this ships —
+  the same idempotent `WHERE owner_user_id IS NULL` pattern Slice 15 used
+  for ownerless events (research.md R3 there), reused here rather than
+  reinvented. Every user after that gets their own empty starter inventory
+  auto-created on their first sign-in, ready to import an LL.xlsx into —
+  no dead-end empty state.
+- Duplication: `POST /inventories/{id}/duplicate` deep-copies categories,
+  items, and their `fixture_modes` into a brand-new inventory owned by the
+  caller; the original and any events already using it are untouched.
+- Access control: a second `RequireInventoryAccess`-style middleware
+  (mirrors Slice 15's `RequireEventAccess` pattern directly) gates
+  `/inventories/{inventoryID}/...` routes. **Read** access follows from
+  having any role at all on an event bound to that inventory; **write**
+  access (add/rename/re-import/adjust stock, and duplication) is
+  restricted to the inventory's own owner only — a deliberate, explicit
+  exception to Slice 15's "contributor = full access" rule, scoped to
+  inventory alone, per field feedback: an edit to a shared inventory could
+  otherwise ripple unexpectedly into other events using the same one.
+- Every existing global inventory route (`/inventory/categories`,
+  `/inventory/items`, `/inventory/import-xlsx`,
+  `/inventory/items/{itemID}/fixture-modes`) moves under
+  `/inventories/{inventoryID}/...`.
+- New data-integrity validation this model introduces: every existing
+  picker into `inventory_items` (mic/cable/stand picks, output devices,
+  truss pieces, etc.) must confirm the picked item belongs to the same
+  inventory the event is bound to — a gap that couldn't exist before this
+  slice, since there was only ever one inventory to pick from.
+- Frontend: restructures around "my inventories" (a personal management
+  page — list/create/duplicate/rename, reachable independent of any
+  event) versus "the inventory used by this event" (reachable from the
+  event, read-only unless the viewer is also that inventory's owner,
+  feeding every existing picker unchanged in shape, just scoped). Event
+  creation gains an inventory picker, defaulting silently to the user's
+  inventory when they only have one.
+
+## Slice 17 — Per-event settings from a personal template (spec: `event-settings`)
+
+Same field-feedback session as Slice 16: the reference-data vocabularies
+(connector types, cable types, signal types, mic stands, output types,
+power connectors, truss types, channel colors — Slice 4's `reference_values`
+table) are global today, the same problem as inventory. Settings should
+live under the event, not be shared across every user. Depends on Slices
+14 and 15; independent of Slice 16 (different tables), but sequenced after
+it per the user's stated preference — stabilize the domain model before
+deployment (Slice 18).
+
+- Each user gets their own personal, editable template of the 8
+  vocabularies (a "my defaults" settings surface, auto-created on first
+  sign-in the same way Slice 16's starter inventory is, seeded from
+  whatever the current global `reference_values` set is at migration
+  time — existing labels survive byte-for-byte for the first user, this
+  project's usual migration-safety bar).
+- Event creation copies the creating user's *current* template into new
+  event-scoped reference-value rows — a **one-time snapshot, not a shared
+  link** (explicitly different from Slice 16's inventory-sharing model,
+  per the user's own distinction): editing an event's vocab afterward
+  never affects the user's template, nor any other event, even one
+  created from the same template a moment later.
+- The existing global Settings page splits into two surfaces: a personal
+  "My defaults" page (edits the user's template — used only as a seed for
+  future events, has no live effect on any already-created event) and a
+  per-event Settings tab (edits that event's own already-copied vocab,
+  same add/rename/delete UI as today, just scoped) — an owner/contributor
+  concern, per Slice 15's roles.
+- `fixture_modes` (per-catalog-item DMX modes) stays with inventory
+  ownership (Slice 16), not this slice — it's tied to inventory items, not
+  event-level vocab.
+- Every dropdown currently reading `useReferenceData()` from the global
+  `GET /reference-data` moves to an event-scoped
+  `GET /events/{eventID}/reference-data`.
+- Migration bootstrap for pre-existing events: since the global table is
+  going away, every event that existed before this slice needs a one-time
+  copy-in of the vocab as it existed at migration time — this doesn't
+  depend on who logs in first (unlike Slices 15/16's claim pattern), so it
+  needs its own one-time Go conversion sequenced in `db.go`, following the
+  established pattern from Slices 11–13.
+
+## Slice 18 — Production deployment (spec: `deployment`)
 
 An actual production deployment path — currently undefined (two
 independently-run dev processes, no Docker/CI-deploy, no production docs).
 Depends on Slices 14 and 15 (needs working auth/authz before exposing the
-app publicly).
+app publicly); sequenced after Slices 16/17 so the domain model is
+stable before anything goes live, per the user's stated preference
+(2026-07-20).
 
 - Go backend serves the built frontend itself: `go:embed` the Vite
   `frontend/dist` output into the binary, with a catch-all route (excluding
@@ -560,5 +660,5 @@ Slices 0–13 ✅ done
 Slice 10 (output chains) ──→ Slice 11 (output signal graph, replaces it) ✅
 Slice 11 (output signal graph) ──→ Slice 12 (input signal graph, same pattern reversed) ✅
 Slice 7 (lighting rig) + Slice 12 ──→ Slice 13 (stage plots; supersedes Slice 0's truss sections) ✅
-Slice 14 (auth) ──→ Slice 15 (event ownership & sharing) ──→ Slice 16 (deployment)
+Slice 14 (auth) ──→ Slice 15 (event ownership & sharing) ──→ Slice 16 (inventory ownership) ──→ Slice 17 (event settings) ──→ Slice 18 (deployment)
 ```
