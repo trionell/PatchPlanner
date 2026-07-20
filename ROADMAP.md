@@ -404,7 +404,7 @@ inspector + layers panel), with an approved mockup driving the design.
       plan-view-only; per-view icon variants; print sheet renders the
       active view with a scale caption.
 
-## Slice 14 — Authentication (spec: `auth`)
+## Slice 14 — Authentication (spec: `auth`) ✅ done 2026-07-20
 
 The app has no authentication today — any browser can hit every API route.
 Prerequisite for deploying anywhere real. Depends on nothing existing;
@@ -416,7 +416,7 @@ hosted"* factually false. A `/speckit-constitution` amendment (MINOR bump)
 striking that line and adding OAuth + DB-backed sessions to the Technology
 Stack table should happen alongside or just before implementation.
 
-- Google OAuth 2.0 authorization-code flow, fully backend-driven (browser
+- [x] Google OAuth 2.0 authorization-code flow, fully backend-driven (browser
   full-navigation redirects, never `fetch`, so the OAuth dance itself never
   touches CORS): `GET /api/v1/auth/google/login` → Google consent →
   `GET /api/v1/auth/google/callback` exchanges the code server-to-server
@@ -429,49 +429,49 @@ Stack table should happen alongside or just before implementation.
   `HttpOnly`/`SameSite=Lax` cookie, redirects to the frontend Dashboard. A
   rejected (not-allow-listed) login creates no user row and redirects to a
   plain error message on the login page.
-- New `users` (id, google_sub, email, name, picture_url, created_at,
+- [x] New `users` (id, google_sub, email, name, picture_url, created_at,
   last_login_at) and `sessions` (token_hash, user_id, created_at, expires_at
   — only the SHA-256 of the opaque token is stored, never the raw cookie
   value) tables, migration `036_auth`. `users.id` is the FK target Slice 15's
   membership table will reference.
-- First `internal/api/middleware` package: `RequireAuth` reads/validates the
+- [x] First `internal/api/middleware` package: `RequireAuth` reads/validates the
   session cookie and injects the loaded user into request context via a
   typed key; `UserFromContext` is the seam Slice 15 hooks per-event role
   checks onto. `NewRouter` gains an `AuthConfig` param and wraps all existing
   handler registration in one `r.Group` behind this middleware (auth routes
   and `/health` stay outside it) — establishing the pattern once instead of
   touching every handler individually.
-- `GET /api/v1/auth/me` (protected — its own 401 *is* "not logged in") and
+- [x] `GET /api/v1/auth/me` (protected — its own 401 *is* "not logged in") and
   `POST /api/v1/auth/logout` (deletes the session row, clears the cookie,
   idempotent).
-- CORS: `AllowCredentials: true` (origin already comes from a specific env
+- [x] CORS: `AllowCredentials: true` (origin already comes from a specific env
   var, never a wildcard, so this is a safe one-line change).
-- Frontend: a deliberately minimal `Login.tsx` (heading + "Sign in with
+- [x] Frontend: a deliberately minimal `Login.tsx` (heading + "Sign in with
   Google" link + error banner), `useCurrentUser` hook (TanStack Query over
   `/auth/me`), a `RequireAuth` route guard wrapping the existing route tree,
   an unguarded `/login` route, a logout action in `Layout.tsx`'s header.
   `api/client.ts`'s `request()` adds `credentials: 'include'` and a 401→
   redirect-to-login branch (excluding `/auth/*` paths, which expect 401s).
-- New env vars: `PATCHPLANNER_GOOGLE_CLIENT_ID`, `_CLIENT_SECRET`,
+- [x] New env vars: `PATCHPLANNER_GOOGLE_CLIENT_ID`, `_CLIENT_SECRET`,
   `_REDIRECT_URL`, `PATCHPLANNER_FRONTEND_URL`, `PATCHPLANNER_ALLOWED_EMAILS`,
   `PATCHPLANNER_SESSION_TTL` (default `720h`).
-- `quickstart.md` walks a first-timer through Google Cloud Console setup:
+- [x] `quickstart.md` walks a first-timer through Google Cloud Console setup:
   OAuth consent screen (External, Testing mode — add each allowed person as
   a Google test user, in addition to the app's own allow-list env var),
   OAuth Client ID (Web application), authorized JavaScript origin, and
   authorized redirect URIs for both localhost and the future prod callback.
-- Tests: Go `httptest` for the allow-list function, session CRUD, the
+- [x] Tests: Go `httptest` for the allow-list function, session CRUD, the
   middleware's 401/200 branches, and the callback flow against a fake
   identity-provider interface (never dials real Google); existing API tests
   need only `testutil_test.go` updated to seed one authenticated test
   session, not per-file changes. The real Google browser round-trip is
   manual-only, documented as such.
-- Known seam for Slice 16: the cookie's `Secure` flag is derived from
+- [x] Known seam for Slice 16: the cookie's `Secure` flag is derived from
   `r.TLS != nil`, which is wrong once TLS terminates at a reverse proxy in
   front of the Go binary — Slice 16 must decide how to trust
   `X-Forwarded-Proto` (or force the flag via env var).
 
-## Slice 15 — Event ownership & sharing (spec: `event-sharing`)
+## Slice 15 — Event ownership & sharing (spec: `event-sharing`) ✅ done 2026-07-20
 
 A simple ownership/contributor/viewer permission model scoped to *events*
 (no finer-grained audio/lighting split), so events can be shared with
@@ -480,7 +480,7 @@ invitees must already have a `users` row (signed in at least once) before
 they can be invited. Depends on Slice 14 (needs `users` and the auth
 middleware/context seam).
 
-- `events` gains `owner_user_id` (nullable at the schema level; every event
+- [x] `events` gains `owner_user_id` (nullable at the schema level; every event
   created after this slice always has one). A new `event_memberships` table
   (`event_id`, `user_id`, `role` — `contributor` | `viewer`, `invited_by`,
   `created_at`) covers everyone who isn't the owner. Owner always has full
@@ -488,38 +488,38 @@ middleware/context seam).
   further contributors/viewers; `viewer` is read-only (printing/exporting
   counts as reading — those endpoints require only viewer-level access, not
   write).
-- Existing events created before this slice have no owner yet (they predate
+- [x] Existing events created before this slice have no owner yet (they predate
   any user). Bootstrap rule: the very first user ever to log in
   system-wide (i.e., the first row ever inserted into `users`) is
   auto-assigned as owner of every pre-existing ownerless event, on that
   first login — needs no new env var and works regardless of which email
   happens to sign in first; confirm/adjust in this slice's own plan.md
   before implementation.
-- Second authorization middleware layer (per-event), built on Slice 14's
+- [x] Second authorization middleware layer (per-event), built on Slice 14's
   `UserFromContext`: resolves the `{eventID}` URL param, checks
   owner/membership, and gates by HTTP method — safe methods (`GET`) require
   at least `viewer`; mutating methods require `owner` or `contributor`.
   Applied to the existing `/events/{eventID}/...` route group (audio patch,
   lighting, rentals, stage plots, etc. — all of it, unchanged internally,
   just gated at the group level).
-- `GET /api/v1/events` (and the Dashboard's recent-events query) scoped to
+- [x] `GET /api/v1/events` (and the Dashboard's recent-events query) scoped to
   events the current user owns or is a member of — no more "returns
   everything to anyone."
-- New endpoints: `GET /api/v1/events/{eventID}/members` (list with roles),
+- [x] New endpoints: `GET /api/v1/events/{eventID}/members` (list with roles),
   `POST .../members` (invite an existing user by id + role), `PATCH
   .../members/{userID}` (change role), `DELETE .../members/{userID}`
   (remove) — all requiring owner/contributor. `GET /api/v1/users` lists
   known users (id, name, email, picture) for the invite picker — only
   populated by people who've signed in at least once.
-- Frontend: an "Invite" dialog on the event detail page (visible only to
+- [x] Frontend: an "Invite" dialog on the event detail page (visible only to
   owner/contributor), a members list with role management, role badges on
   Dashboard/Events list, viewer-mode UI (disable/hide mutating controls
   everywhere a viewer can reach; print/export stays enabled).
-- Tests: membership CRUD, the per-event authorization middleware's
+- [x] Tests: membership CRUD, the per-event authorization middleware's
   method/role matrix, events-list scoping, viewer-cannot-mutate on a
   representative sample of existing mutating endpoints.
 
-## Slice 16 — Inventory ownership & duplication (spec: `inventory-ownership`)
+## Slice 16 — Inventory ownership & duplication (spec: `inventory-ownership`) ✅ done 2026-07-20
 
 Field feedback after using Slices 14/15 live (2026-07-20): the inventory
 catalog is currently one single global table shared by every user, which
@@ -534,22 +534,22 @@ roles); the exact backfill/validation details below are a starting design
 to be finalized in this slice's own `/speckit-specify` → `/speckit-plan`
 pass, not fully locked here.
 
-- New `inventories` table (id, owner_user_id, name, created_at).
+- [x] New `inventories` table (id, owner_user_id, name, created_at).
   `inventory_categories` and `inventory_items` gain an `inventory_id` FK —
   the catalog becomes per-inventory-instance, not one global table.
   `events` gains an `inventory_id` FK, picked at event creation from among
   the creating user's own inventories (never a foreign one).
-- Bootstrap: the existing single global inventory becomes a real
+- [x] Bootstrap: the existing single global inventory becomes a real
   `inventories` row, claimed by whoever logs in first after this ships —
   the same idempotent `WHERE owner_user_id IS NULL` pattern Slice 15 used
   for ownerless events (research.md R3 there), reused here rather than
   reinvented. Every user after that gets their own empty starter inventory
   auto-created on their first sign-in, ready to import an LL.xlsx into —
   no dead-end empty state.
-- Duplication: `POST /inventories/{id}/duplicate` deep-copies categories,
+- [x] Duplication: `POST /inventories/{id}/duplicate` deep-copies categories,
   items, and their `fixture_modes` into a brand-new inventory owned by the
   caller; the original and any events already using it are untouched.
-- Access control: a second `RequireInventoryAccess`-style middleware
+- [x] Access control: a second `RequireInventoryAccess`-style middleware
   (mirrors Slice 15's `RequireEventAccess` pattern directly) gates
   `/inventories/{inventoryID}/...` routes. **Read** access follows from
   having any role at all on an event bound to that inventory; **write**
@@ -558,16 +558,16 @@ pass, not fully locked here.
   exception to Slice 15's "contributor = full access" rule, scoped to
   inventory alone, per field feedback: an edit to a shared inventory could
   otherwise ripple unexpectedly into other events using the same one.
-- Every existing global inventory route (`/inventory/categories`,
+- [x] Every existing global inventory route (`/inventory/categories`,
   `/inventory/items`, `/inventory/import-xlsx`,
   `/inventory/items/{itemID}/fixture-modes`) moves under
   `/inventories/{inventoryID}/...`.
-- New data-integrity validation this model introduces: every existing
+- [x] New data-integrity validation this model introduces: every existing
   picker into `inventory_items` (mic/cable/stand picks, output devices,
   truss pieces, etc.) must confirm the picked item belongs to the same
   inventory the event is bound to — a gap that couldn't exist before this
   slice, since there was only ever one inventory to pick from.
-- Frontend: restructures around "my inventories" (a personal management
+- [x] Frontend: restructures around "my inventories" (a personal management
   page — list/create/duplicate/rename, reachable independent of any
   event) versus "the inventory used by this event" (reachable from the
   event, read-only unless the viewer is also that inventory's owner,
@@ -575,7 +575,7 @@ pass, not fully locked here.
   creation gains an inventory picker, defaulting silently to the user's
   inventory when they only have one.
 
-## Slice 17 — Per-event settings from a personal template (spec: `event-settings`)
+## Slice 17 — Per-event settings from a personal template (spec: `event-settings`) ✅ done 2026-07-21
 
 Same field-feedback session as Slice 16: the reference-data vocabularies
 (connector types, cable types, signal types, mic stands, output types,
@@ -586,38 +586,38 @@ live under the event, not be shared across every user. Depends on Slices
 it per the user's stated preference — stabilize the domain model before
 deployment (Slice 18).
 
-- Each user gets their own personal, editable template of the 8
+- [x] Each user gets their own personal, editable template of the 8
   vocabularies (a "my defaults" settings surface, auto-created on first
   sign-in the same way Slice 16's starter inventory is, seeded from
   whatever the current global `reference_values` set is at migration
   time — existing labels survive byte-for-byte for the first user, this
   project's usual migration-safety bar).
-- Event creation copies the creating user's *current* template into new
+- [x] Event creation copies the creating user's *current* template into new
   event-scoped reference-value rows — a **one-time snapshot, not a shared
   link** (explicitly different from Slice 16's inventory-sharing model,
   per the user's own distinction): editing an event's vocab afterward
   never affects the user's template, nor any other event, even one
   created from the same template a moment later.
-- The existing global Settings page splits into two surfaces: a personal
+- [x] The existing global Settings page splits into two surfaces: a personal
   "My defaults" page (edits the user's template — used only as a seed for
   future events, has no live effect on any already-created event) and a
   per-event Settings tab (edits that event's own already-copied vocab,
   same add/rename/delete UI as today, just scoped) — an owner/contributor
   concern, per Slice 15's roles.
-- `fixture_modes` (per-catalog-item DMX modes) stays with inventory
+- [x] `fixture_modes` (per-catalog-item DMX modes) stays with inventory
   ownership (Slice 16), not this slice — it's tied to inventory items, not
   event-level vocab.
-- Every dropdown currently reading `useReferenceData()` from the global
+- [x] Every dropdown currently reading `useReferenceData()` from the global
   `GET /reference-data` moves to an event-scoped
   `GET /events/{eventID}/reference-data`.
-- Migration bootstrap for pre-existing events: since the global table is
+- [x] Migration bootstrap for pre-existing events: since the global table is
   going away, every event that existed before this slice needs a one-time
   copy-in of the vocab as it existed at migration time — this doesn't
   depend on who logs in first (unlike Slices 15/16's claim pattern), so it
   needs its own one-time Go conversion sequenced in `db.go`, following the
   established pattern from Slices 11–13.
 
-## Slice 18 — Production deployment (spec: `deployment`)
+## Slice 18 — Production deployment (spec: `deployment`) ✅ done 2026-07-21
 
 An actual production deployment path — currently undefined (two
 independently-run dev processes, no Docker/CI-deploy, no production docs).
@@ -626,39 +626,39 @@ app publicly); sequenced after Slices 16/17 so the domain model is
 stable before anything goes live, per the user's stated preference
 (2026-07-20).
 
-- Go backend serves the built frontend itself: `go:embed` the Vite
+- [x] Go backend serves the built frontend itself: `go:embed` the Vite
   `frontend/dist` output into the binary, with a catch-all route (excluding
   `/api/*` and `/health`) serving `index.html` so React Router's
   client-side routes work on a hard refresh/direct link. Single deployable
   binary, single origin in production.
-- Build step: `npm run build` (frontend) must happen before `go build`
+- [x] Build step: `npm run build` (frontend) must happen before `go build`
   embeds its output — add a `Makefile` (or equivalent script) target so this
   isn't a manual two-step ritual.
-- Reverse proxy in front of the Go binary for TLS (Caddy or Nginx — Caddy
+- [x] Reverse proxy in front of the Go binary for TLS (Caddy or Nginx — Caddy
   recommended for its automatic HTTPS on a simple personal deployment).
   Document trusting `X-Forwarded-Proto` from the proxy so the session
   cookie's `Secure` flag is set correctly even though the Go process itself
   only sees plain HTTP from the proxy.
-- Update the Google Cloud OAuth client's authorized redirect URI to include
+- [x] Update the Google Cloud OAuth client's authorized redirect URI to include
   the real production callback URL before this slice ships (otherwise login
   fails with `redirect_uri_mismatch`) — call this out explicitly in
   `quickstart.md`/deployment docs since it's an easy miss.
-- Ops docs: example `systemd` unit file for running the binary as a
+- [x] Ops docs: example `systemd` unit file for running the binary as a
   service, env var checklist for production (Google prod client
   id/secret/redirect URL, allow-list, session TTL, DB path, migrations
   path), and a simple SQLite backup strategy (periodic file copy of the
   live DB — no new tooling).
-- `PATCHPLANNER_CORS_ORIGIN`/the CORS middleware becomes effectively a
+- [x] `PATCHPLANNER_CORS_ORIGIN`/the CORS middleware becomes effectively a
   no-op in production (same-origin) but stays for local dev.
-- No CI/CD pipeline is in scope here unless wanted later (manual build +
+- [x] No CI/CD pipeline is in scope here unless wanted later (manual build +
   copy + restart is fine for a single small VPS to start).
 
 ## Dependency graph
 
 ```
-Slices 0–13 ✅ done
+Slices 0–18 ✅ done
 Slice 10 (output chains) ──→ Slice 11 (output signal graph, replaces it) ✅
 Slice 11 (output signal graph) ──→ Slice 12 (input signal graph, same pattern reversed) ✅
 Slice 7 (lighting rig) + Slice 12 ──→ Slice 13 (stage plots; supersedes Slice 0's truss sections) ✅
-Slice 14 (auth) ──→ Slice 15 (event ownership & sharing) ──→ Slice 16 (inventory ownership) ──→ Slice 17 (event settings) ──→ Slice 18 (deployment)
+Slice 14 (auth) ──→ Slice 15 (event ownership & sharing) ──→ Slice 16 (inventory ownership) ──→ Slice 17 (event settings) ──→ Slice 18 (deployment) ✅
 ```
