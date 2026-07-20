@@ -653,10 +653,37 @@ stable before anything goes live, per the user's stated preference
 - [x] No CI/CD pipeline is in scope here unless wanted later (manual build +
   copy + restart is fine for a single small VPS to start).
 
+## Slice 19 — CI/CD deploy to VPS (spec: `cicd-vps-deploy`)
+
+Automates what Slice 18 left as a manual runbook: a GitHub Actions
+workflow builds, tests, and deploys the app to the production VPS on
+every push to `main`, plus an on-demand manual trigger. Depends on Slice
+18 (needs the `make build` target and the VPS's nginx/systemd setup to
+already exist — this slice only automates getting new builds onto it).
+
+- Single GitHub Actions job (checkout, backend `go vet`/`go test`,
+  frontend typecheck/lint/test, `make build`, SSH deploy) — a failing
+  check step blocks deploy with no extra wiring, matching GitHub Actions'
+  default step-failure behavior.
+- SSH-based push deploy using only the OpenSSH client already on the
+  runner — no third-party GitHub Actions for SCP/SSH.
+- A fixed, version-controlled VPS-side script (`deploy/remote-deploy.sh`)
+  is the only thing the pipeline is allowed to invoke on the server: it
+  atomically swaps in the new binary, restarts the `patchplanner` systemd
+  service, health-checks it, and automatically restores the previous
+  binary if the new one never comes up healthy.
+- A dedicated, non-root `deploy` VPS user with a `sudo` rule scoped to
+  exactly two `systemctl` commands — no broader privilege than deploying
+  requires.
+- `workflow_dispatch` trigger lets an operator redeploy the current
+  `main` on demand, going through the identical checks as an automatic
+  run.
+
 ## Dependency graph
 
 ```
 Slices 0–18 ✅ done
+Slice 18 (deployment) ──→ Slice 19 (CI/CD deploy to VPS)
 Slice 10 (output chains) ──→ Slice 11 (output signal graph, replaces it) ✅
 Slice 11 (output signal graph) ──→ Slice 12 (input signal graph, same pattern reversed) ✅
 Slice 7 (lighting rig) + Slice 12 ──→ Slice 13 (stage plots; supersedes Slice 0's truss sections) ✅

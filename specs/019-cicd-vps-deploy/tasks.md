@@ -40,10 +40,10 @@ Repository root paths, per plan.md's Project Structure: `.github/workflows/`
 **Purpose**: Scaffold the two new files this feature adds, with no
 behavior yet.
 
-- [ ] T001 [P] Create `.github/workflows/deploy.yml` with just
+- [X] T001 [P] Create `.github/workflows/deploy.yml` with just
   `name: Deploy` and an empty `jobs.build-test-deploy` skeleton
   (`runs-on: ubuntu-latest`, no `on:` trigger and no `steps:` yet).
-- [ ] T002 [P] Create `deploy/remote-deploy.sh` with `#!/usr/bin/env bash`,
+- [X] T002 [P] Create `deploy/remote-deploy.sh` with `#!/usr/bin/env bash`,
   `set -euo pipefail`, and argument-count validation only (fail with a
   clear message if `$1` is missing), per the invocation contract in
   `specs/019-cicd-vps-deploy/contracts/remote-deploy-script.md`. Make it
@@ -59,7 +59,7 @@ is complete.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T003 Implement the full body of `deploy/remote-deploy.sh` per
+- [X] T003 Implement the full body of `deploy/remote-deploy.sh` per
   `specs/019-cicd-vps-deploy/contracts/remote-deploy-script.md`: validate
   `$1` is a directory containing an executable `patchplanner` binary and a
   `migrations/` directory; back up the current live binary to
@@ -69,20 +69,23 @@ is complete.
   file) with a small retry budget and short backoff; on success clean up
   the staging directory and exit `0`; on failure restore
   `patchplanner.prev`, restart again, and exit non-zero. (Depends on T002.)
-- [ ] T004 Add the shared verification steps to
+- [X] T004 Add the shared verification steps to
   `.github/workflows/deploy.yml`: `actions/checkout`, `actions/setup-go`
   + `go vet ./...` + `go test ./...` (working directory `backend/`),
   `actions/setup-node` + frontend `tsc -b` + `eslint .` + `vitest run`
   (working directory `frontend/`), then `make build` from the repo root —
   reusing Slice 18's Makefile target exactly, producing
   `backend/patchplanner`. (Depends on T001.)
-- [ ] T005 Add an SSH setup step to `.github/workflows/deploy.yml`, after
+- [X] T005 Add an SSH setup step to `.github/workflows/deploy.yml`, after
   the steps from T004: write `secrets.DEPLOY_SSH_KEY` to
   `~/.ssh/id_ed25519` (mode `600`) and `secrets.DEPLOY_KNOWN_HOSTS`
   verbatim to `~/.ssh/known_hosts`, using only the OpenSSH client already
   on the runner — no third-party SSH/SCP actions, per research.md's
-  deploy-transport decision. (Depends on T004.)
-- [ ] T006 Add `concurrency: {group: production-deploy, cancel-in-progress: false}`
+  deploy-transport decision. Implemented via `env:` (not direct `${{ }}`
+  interpolation in `run:`) so the multiline private key survives intact —
+  a bug caught during implementation, also fixed in
+  `contracts/remote-deploy-script.md`. (Depends on T004.)
+- [X] T006 Add `concurrency: {group: production-deploy, cancel-in-progress: false}`
   at the workflow level in `.github/workflows/deploy.yml`, so overlapping
   runs queue instead of racing each other to the server (spec edge case:
   two merges in quick succession). (Depends on T001; independent of
@@ -108,21 +111,22 @@ with no one touching the server.
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] Add `on: {push: {branches: [main]}}` to
+- [X] T007 [US1] Add `on: {push: {branches: [main]}}` to
   `.github/workflows/deploy.yml`. (Depends on T006.)
-- [ ] T008 [US1] Add an `scp` step to `.github/workflows/deploy.yml`,
+- [X] T008 [US1] Add an `scp` step to `.github/workflows/deploy.yml`,
   after the SSH setup step, transferring the built
   `backend/patchplanner` binary and `backend/migrations/` to
   `/opt/patchplanner/incoming/` on the VPS, using
   `secrets.DEPLOY_SSH_HOST`/`DEPLOY_SSH_USER`. (Depends on T007.)
-- [ ] T009 [US1] Add an `ssh` step to `.github/workflows/deploy.yml`,
+- [X] T009 [US1] Add an `ssh` step to `.github/workflows/deploy.yml`,
   immediately after T008's transfer step, invoking
-  `sudo -n /opt/patchplanner/deploy.sh /opt/patchplanner/incoming` on the
-  VPS exactly per the invocation contract in
-  `contracts/remote-deploy-script.md`, and failing the job (non-zero exit
-  propagated) if the remote script exits non-zero. (Depends on T008 and
-  T003.)
-- [ ] T010 [P] [US1] Add a line to the README.md "Deployment" section
+  `/opt/patchplanner/deploy.sh /opt/patchplanner/incoming` on the VPS
+  (no `sudo` prefix on the whole script — corrected during
+  implementation to match the least-privilege sudoers design; see the
+  fixed `contracts/remote-deploy-script.md`), and failing the job
+  (non-zero exit propagated) if the remote script exits non-zero.
+  (Depends on T008 and T003.)
+- [X] T010 [P] [US1] Add a line to the README.md "Deployment" section
   pointing at `specs/019-cicd-vps-deploy/quickstart.md` for automatic
   deploys, alongside the existing Slice 18 pointer for the initial manual
   setup.
@@ -155,18 +159,22 @@ the previous binary automatically.
 
 ### Implementation for User Story 2
 
-- [ ] T012 [US2] Review `.github/workflows/deploy.yml` end-to-end and
+- [X] T012 [US2] Review `.github/workflows/deploy.yml` end-to-end and
   confirm no step from T004 (build/test) or T005/T008/T009 (deploy) uses
   `continue-on-error: true` or `if: always()` — a failing check step must
   hard-stop the job before any deploy step runs, satisfying FR-002 with
   GitHub Actions' default step-failure behavior alone. Fix the file if any
-  such flag is present. (Depends on T009.)
-- [ ] T013 [US2] Review every step added in T005/T008/T009 of
+  such flag is present. (Depends on T009.) Confirmed: no such flags
+  anywhere in the file.
+- [X] T013 [US2] Review every step added in T005/T008/T009 of
   `.github/workflows/deploy.yml` and confirm no secret value is ever
   echoed, printed via a verbose/`-v` SSH flag, or interpolated into a
   logged shell command — satisfies FR-008's "never appears in plain text
   in pipeline logs." Fix the file if any step is at risk of leaking a
-  secret into its log output. (Depends on T009.)
+  secret into its log output. (Depends on T009.) Confirmed: all four
+  secrets are only ever referenced via `env:` mappings and consumed as
+  `$VAR` inside `run:` blocks — never interpolated directly into a
+  logged command, and never echoed.
 - [ ] T014 [US2] **Manual verification** (requires a real GitHub repo run
   — cannot be automated in this sandbox): push a commit with a
   deliberately failing test to a branch, open a PR/merge it into `main`,
@@ -199,15 +207,16 @@ rebuilt and redeployed through the identical checks.
 
 ### Implementation for User Story 3
 
-- [ ] T016 [US3] Add `workflow_dispatch:` (no inputs) alongside the
+- [X] T016 [US3] Add `workflow_dispatch:` (no inputs) alongside the
   existing `push` trigger in `.github/workflows/deploy.yml`'s `on:` block.
   Because both triggers feed the same single job built in Phases 2-4, no
   further workflow changes are needed for a manual run to go through
   identical build/test/deploy checks (FR-006). (Depends on T009.)
-- [ ] T017 [P] [US3] Reconcile `specs/019-cicd-vps-deploy/quickstart.md`
+- [X] T017 [P] [US3] Reconcile `specs/019-cicd-vps-deploy/quickstart.md`
   step 8 ("Try it") wording against the actual workflow's `name:` field
   (from T001) so the documented "Actions tab → Run workflow" instructions
-  match exactly what an operator will see.
+  match exactly what an operator will see. Confirmed: already said "the
+  `Deploy` workflow," matching `name: Deploy` exactly — no edit needed.
 - [ ] T018 [US3] **Manual verification** (requires a real GitHub repo —
   cannot be automated in this sandbox): without merging any new change,
   trigger the `Deploy` workflow via **Run workflow** in the Actions tab
@@ -223,17 +232,21 @@ automatic deploy, safe failure handling, and on-demand manual redeploy.
 
 **Purpose**: Consistency checks across the whole feature; no new behavior.
 
-- [ ] T019 [P] Reconcile `specs/019-cicd-vps-deploy/quickstart.md` in full
+- [X] T019 [P] Reconcile `specs/019-cicd-vps-deploy/quickstart.md` in full
   against the final `.github/workflows/deploy.yml` and
   `deploy/remote-deploy.sh` — secret names, the exact sudoers line, the
   script's installed path, and the health-check port must all match what
   was actually built, not just what research.md/plan.md originally
-  proposed.
-- [ ] T020 [P] Validate `.github/workflows/deploy.yml`'s YAML/step syntax
+  proposed. Confirmed consistent; no edits needed.
+- [X] T020 [P] Validate `.github/workflows/deploy.yml`'s YAML/step syntax
   (via `actionlint` if available locally, otherwise a careful manual
   read-through) before relying on a real push to `main` to be the first
-  thing that surfaces a syntax error.
-- [ ] T021 [P] Add a "Slice 19 — CI/CD deploy to VPS" section to
+  thing that surfaces a syntax error. Installed `actionlint` for this
+  session (`go install github.com/rhysd/actionlint/cmd/actionlint@latest`)
+  and ran it against the file: 0 errors (the `shellcheck`/`pyflakes`
+  sub-rules were unavailable in this sandbox and skipped by actionlint
+  itself, everything else passed).
+- [X] T021 [P] Add a "Slice 19 — CI/CD deploy to VPS" section to
   `ROADMAP.md`, matching the existing heading/bullet style used by Slices
   14-18, noting it depends on Slice 18, and update the dependency graph at
   the bottom of the file to append `Slice 18 (deployment) ──→ Slice 19

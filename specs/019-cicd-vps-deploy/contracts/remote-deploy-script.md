@@ -8,12 +8,18 @@ this fixed, version-controlled script, already installed at
 ## Invocation
 
 ```bash
-ssh -i <deploy-key> deploy@<host> sudo -n /opt/patchplanner/deploy.sh <staging-dir>
+ssh -i <deploy-key> deploy@<host> /opt/patchplanner/deploy.sh <staging-dir>
 ```
 
-- Run as the `deploy` system user (never `root` directly).
-- `sudo -n` (non-interactive) is only actually required for the two
-  `systemctl` calls the script makes internally — see "Privilege" below.
+- Run as the `deploy` system user (never `root`, and never the whole
+  script under `sudo`).
+- The script itself internally calls `sudo -n systemctl restart
+  patchplanner` (and `status`, for the health-check retry logging) only
+  for those two exact commands — see "Privilege" below. Requiring `sudo`
+  for the whole script would mean the sudoers rule has to trust an
+  entire (version-controlled, but still arbitrary-length) shell script to
+  run as root, rather than trusting only two fixed, harmless commands —
+  a meaningfully larger privileged surface for no benefit.
 
 ## Input
 
