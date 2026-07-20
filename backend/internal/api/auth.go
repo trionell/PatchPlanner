@@ -30,6 +30,14 @@ type AuthHandler struct {
 
 const oauthStateCookieName = "pp_oauth_state"
 
+// requestIsSecure reports whether the request reached us over HTTPS, either
+// directly or via a reverse proxy that terminates TLS and forwards the
+// original scheme. r.TLS alone is always nil behind a proxy like nginx, so
+// the Secure cookie flag would otherwise never be set in production.
+func requestIsSecure(r *http.Request) bool {
+	return r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
+}
+
 // Register wires the unauthenticated auth routes: signing in, completing
 // the OAuth round trip, and signing out are all reachable without an
 // existing session.
@@ -58,7 +66,7 @@ func (h AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   r.TLS != nil,
+		Secure:   requestIsSecure(r),
 		MaxAge:   600,
 	})
 	http.Redirect(w, r, h.Config.Provider.AuthCodeURL(state), http.StatusFound)
@@ -129,7 +137,7 @@ func (h AuthHandler) callback(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   r.TLS != nil,
+		Secure:   requestIsSecure(r),
 		MaxAge:   int(h.Config.SessionTTL.Seconds()),
 	})
 	http.Redirect(w, r, h.Config.FrontendURL+"/", http.StatusFound)

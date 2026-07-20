@@ -22,7 +22,7 @@ description: "Task list for Slice 18 — Production Deployment"
 
 ## Phase 1: Setup
 
-- [ ] T001 Verify a clean baseline on `018-deployment`: `cd backend && go build ./... && go vet ./... && go test ./...`, and `cd frontend && npx tsc -b && npm run lint && npm run test` — all must pass before any Slice 18 edit, so any later failure is attributable to this slice
+- [X] T001 Verify a clean baseline on `018-deployment`: `cd backend && go build ./... && go vet ./... && go test ./...`, and `cd frontend && npx tsc -b && npm run lint && npm run test` — all must pass before any Slice 18 edit, so any later failure is attributable to this slice
 
 ---
 
@@ -32,8 +32,8 @@ description: "Task list for Slice 18 — Production Deployment"
 
 **⚠️ CRITICAL**: No user story's manual verification (T010/T014/T017) can happen until this phase is complete, though the code-level tasks within each story can be written beforehand.
 
-- [ ] T002 Create `Makefile` at the repo root with a `build` target that runs, in order: `npm run build` inside `frontend/` (producing `frontend/dist`); remove any existing `backend/cmd/dist` and copy `frontend/dist` into `backend/cmd/dist` (research.md R2 — `go:embed` cannot reach `frontend/dist` directly since it lives outside the `backend/` Go module and embed patterns forbid `..`); then `go build -o patchplanner ./cmd` inside `backend/`. Each step must complete before the next (research.md R3)
-- [ ] T003 [P] Create `backend/cmd/.gitignore` containing `dist/` — mirrors `frontend/.gitignore`'s own `dist` entry, since `backend/cmd/dist` is a build artifact copied in by `make build` (T002), never committed
+- [X] T002 Create `Makefile` at the repo root with a `build` target that runs, in order: `npm run build` inside `frontend/` (producing `frontend/dist`); remove any existing `backend/cmd/dist` and copy `frontend/dist` into `backend/cmd/dist` (research.md R2 — `go:embed` cannot reach `frontend/dist` directly since it lives outside the `backend/` Go module and embed patterns forbid `..`); then `go build -o patchplanner ./cmd` inside `backend/`. Each step must complete before the next (research.md R3)
+- [X] T003 [P] Create `backend/cmd/.gitignore` containing `dist/` — mirrors `frontend/.gitignore`'s own `dist` entry, since `backend/cmd/dist` is a build artifact copied in by `make build` (T002), never committed
 
 **Checkpoint**: `make build` produces a runnable binary (even though, until T006/T007/T008 land, it has nothing embedded yet — this phase's job is just the build plumbing).
 
@@ -47,12 +47,12 @@ description: "Task list for Slice 18 — Production Deployment"
 
 ### Implementation for User Story 1
 
-- [ ] T004 [US1] Edit `frontend/src/api/client.ts`: change `API_BASE` from the hardcoded `http://localhost:7331/api/v1` to the relative `/api/v1` (research.md R1)
-- [ ] T005 [US1] Edit `frontend/vite.config.ts`: add a `server.proxy` entry forwarding `/api` and `/health` to `http://localhost:7331`, so `npm run dev` keeps working exactly as before now that `API_BASE` is relative (research.md R4) (depends on T004)
-- [ ] T006 [US1] Create `backend/internal/api/static.go`: `NewStaticHandler(fsys fs.FS) http.Handler` (or equivalent) that serves static files from `fsys` and falls back to serving `index.html` for any request path that isn't an existing file and doesn't start with `/api/` or equal `/health` — the standard SPA-with-a-client-side-router serving pattern (research.md R2). Takes an `fs.FS` parameter (not the embed directly) so it's testable without a real embedded build
-- [ ] T007 [P] [US1] Write `backend/internal/api/static_test.go`: using an `fstest.MapFS` fixture (an `index.html` plus one fake asset file), assert a request for the real asset returns its content; a request for an unknown path (e.g. `/events/12`) returns `index.html`'s content; and confirm the handler itself never intercepts anything — this is a unit test of the handler alone, not the full router (depends on T006)
-- [ ] T008 [US1] Edit `backend/cmd/main.go`: add `//go:embed dist` (`var frontendFS embed.FS`) and mount `api.NewStaticHandler` (via `fs.Sub(frontendFS, "dist")`) as the catch-all route on the top-level router, registered so it never shadows the existing `/health` route or the `/api/v1` mount (research.md R2) (depends on T002, T006)
-- [ ] T009 [US1] Manually verify: run `make build`, start the resulting `backend/patchplanner` binary locally with no `vite dev` process running, confirm the full application loads at `http://localhost:$PATCHPLANNER_ADDR`, and confirm a browser refresh on a deep link (e.g. an event detail page) loads correctly instead of a 404 (depends on T004, T005, T008)
+- [X] T004 [US1] Edit `frontend/src/api/client.ts`: change `API_BASE` from the hardcoded `http://localhost:7331/api/v1` to the relative `/api/v1` (research.md R1)
+- [X] T005 [US1] Edit `frontend/vite.config.ts`: add a `server.proxy` entry forwarding `/api` and `/health` to `http://localhost:7331`, so `npm run dev` keeps working exactly as before now that `API_BASE` is relative (research.md R4) (depends on T004)
+- [X] T006 [US1] Create `backend/internal/api/static.go`: `NewStaticHandler(fsys fs.FS) http.Handler` (or equivalent) that serves static files from `fsys` and falls back to serving `index.html` for any request path that isn't an existing file and doesn't start with `/api/` or equal `/health` — the standard SPA-with-a-client-side-router serving pattern (research.md R2). Takes an `fs.FS` parameter (not the embed directly) so it's testable without a real embedded build
+- [X] T007 [P] [US1] Write `backend/internal/api/static_test.go`: using an `fstest.MapFS` fixture (an `index.html` plus one fake asset file), assert a request for the real asset returns its content; a request for an unknown path (e.g. `/events/12`) returns `index.html`'s content; and confirm the handler itself never intercepts anything — this is a unit test of the handler alone, not the full router (depends on T006)
+- [X] T008 [US1] Edit `backend/cmd/main.go`: add `//go:embed dist` (`var frontendFS embed.FS`) and mount `api.NewStaticHandler` (via `fs.Sub(frontendFS, "dist")`) as the catch-all route on the top-level router, registered so it never shadows the existing `/health` route or the `/api/v1` mount (research.md R2) (depends on T002, T006)
+- [X] T009 [US1] Manually verify: run `make build`, start the resulting `backend/patchplanner` binary locally with no `vite dev` process running, confirm the full application loads at `http://localhost:$PATCHPLANNER_ADDR`, and confirm a browser refresh on a deep link (e.g. an event detail page) loads correctly instead of a 404 (depends on T004, T005, T008)
 
 **Checkpoint**: The application runs as one process at one address, including correct client-side-route fallback behavior. This alone is a demoable MVP — Slice 18's core deliverable.
 
@@ -66,9 +66,9 @@ description: "Task list for Slice 18 — Production Deployment"
 
 ### Implementation for User Story 2
 
-- [ ] T010 [US2] Edit `backend/internal/api/auth.go`: add a small helper (e.g. `requestIsSecure(r *http.Request) bool`) that returns true when `r.TLS != nil` **or** the request carries `X-Forwarded-Proto: https`; use it in place of the current bare `r.TLS != nil` at both cookie-setting call sites (login and logout) (research.md R5)
-- [ ] T011 [P] [US2] Extend `backend/internal/api/auth_test.go`: a request with header `X-Forwarded-Proto: https` (and `r.TLS == nil`, i.e. simulating a request that already passed through a TLS-terminating proxy) results in a cookie with `Secure=true`; a plain request with neither `r.TLS` nor the header results in `Secure=false` (depends on T010)
-- [ ] T012 [US2] Create `deploy/nginx.conf.example`: an HTTP server block that redirects every request to the HTTPS equivalent (nginx does not do this automatically), plus an HTTPS server block reverse-proxying to `127.0.0.1:$PATCHPLANNER_ADDR` that explicitly sets `proxy_set_header X-Forwarded-Proto $scheme;`, `X-Forwarded-For`, and `Host` (research.md R6 — nginx does not add these on its own, unlike some alternatives, so the example must set them explicitly or T010's fix has nothing to trust)
+- [X] T010 [US2] Edit `backend/internal/api/auth.go`: add a small helper (e.g. `requestIsSecure(r *http.Request) bool`) that returns true when `r.TLS != nil` **or** the request carries `X-Forwarded-Proto: https`; use it in place of the current bare `r.TLS != nil` at both cookie-setting call sites (login and logout) (research.md R5)
+- [X] T011 [P] [US2] Extend `backend/internal/api/auth_test.go`: a request with header `X-Forwarded-Proto: https` (and `r.TLS == nil`, i.e. simulating a request that already passed through a TLS-terminating proxy) results in a cookie with `Secure=true`; a plain request with neither `r.TLS` nor the header results in `Secure=false` (depends on T010)
+- [X] T012 [US2] Create `deploy/nginx.conf.example`: an HTTP server block that redirects every request to the HTTPS equivalent (nginx does not do this automatically), plus an HTTPS server block reverse-proxying to `127.0.0.1:$PATCHPLANNER_ADDR` that explicitly sets `proxy_set_header X-Forwarded-Proto $scheme;`, `X-Forwarded-For`, and `Host` (research.md R6 — nginx does not add these on its own, unlike some alternatives, so the example must set them explicitly or T010's fix has nothing to trust)
 - [ ] T013 [US2] Manually verify per `specs/018-deployment/quickstart.md`'s "Setting up the reverse proxy" and "Verifying the deployment" sections, against a real domain: plain HTTP is redirected to HTTPS; signing in produces no browser security warning; the session persists across a repeat visit (depends on T009, T012)
 
 **Checkpoint**: Production traffic is encrypted end-to-end, with sign-in sessions correctly marked secure behind the reverse proxy.
@@ -83,9 +83,9 @@ description: "Task list for Slice 18 — Production Deployment"
 
 ### Implementation for User Story 3
 
-- [ ] T014 [US3] Create `deploy/patchplanner.service`: a systemd unit running the built binary, `Restart=on-failure`, `RestartSec` set to a short delay, `EnvironmentFile=` pointing at the production env file (research.md R7's `patchplanner.env`), and `WantedBy=multi-user.target` so `systemctl enable` makes it start on boot
-- [ ] T015 [P] [US3] Create `deploy/backup.sh.example`: a shell script that runs `sqlite3 "$DB_PATH" ".backup '$BACKUP_DIR/patchplanner-$(date +%F).db'"` (SQLite's own safe-copy command, not a raw file copy which risks capturing a mid-write file — research.md R8), with `DB_PATH`/`BACKUP_DIR` as script variables an operator sets once
-- [ ] T016 [US3] Manually verify against a **copy** of the real dev DB, never the live file ([[db-safety-rule]]): run `deploy/backup.sh.example`'s `.backup` command against the copy, confirm the resulting file opens correctly with `sqlite3` and contains the expected tables and row counts matching the source
+- [X] T014 [US3] Create `deploy/patchplanner.service`: a systemd unit running the built binary, `Restart=on-failure`, `RestartSec` set to a short delay, `EnvironmentFile=` pointing at the production env file (research.md R7's `patchplanner.env`), and `WantedBy=multi-user.target` so `systemctl enable` makes it start on boot
+- [X] T015 [P] [US3] Create `deploy/backup.sh.example`: a shell script that runs `sqlite3 "$DB_PATH" ".backup '$BACKUP_DIR/patchplanner-$(date +%F).db'"` (SQLite's own safe-copy command, not a raw file copy which risks capturing a mid-write file — research.md R8), with `DB_PATH`/`BACKUP_DIR` as script variables an operator sets once
+- [X] T016 [US3] Manually verify against a **copy** of the real dev DB, never the live file ([[db-safety-rule]]): run `deploy/backup.sh.example`'s `.backup` command against the copy, confirm the resulting file opens correctly with `sqlite3` and contains the expected tables and row counts matching the source
 - [ ] T017 [US3] Manually verify per `specs/018-deployment/quickstart.md`'s systemd steps, against a scratch/test deployment: killing the process results in automatic restart within a few seconds; confirm the unit is enabled for start-on-boot (`systemctl is-enabled patchplanner`) (depends on T009, T014)
 
 **Checkpoint**: All three user stories independently verified — single-origin serving, secure access, and operational resilience all work end-to-end.
@@ -94,12 +94,12 @@ description: "Task list for Slice 18 — Production Deployment"
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T018 Edit `README.md`: add a "Deployment" section summarizing the production topology and pointing at `specs/018-deployment/quickstart.md` for the full runbook; note `PATCHPLANNER_ADDR`'s production convention of binding to `127.0.0.1` behind the reverse proxy, not a public interface
-- [ ] T019 Amend `.specify/memory/constitution.md` (PATCH version bump): Principle III's "MAY serve the compiled frontend... revisit this once deployed... tracked as roadmap Slice 16" bullet updated to state this is now how the application is actually built and deployed, correcting the stale slice number; the Technology Stack table's "Build/deploy" row updated to match (research.md R9)
-- [ ] T020 Edit `PROJECT.md` §4.3: the "Embedding the Vite build output using Go's `embed` package is planned but not implemented" note updated to describe the shipped approach (research.md R9)
-- [ ] T021 Edit `specs/014-auth/quickstart.md`: the placeholder *"Before deploying to production (Slice 16): come back here and add the real production callback URL"* note updated with the correct slice number and a pointer to `specs/018-deployment/quickstart.md`'s concrete steps, rather than left as a bare reminder (research.md R9)
-- [ ] T022 [P] Run `go vet ./...` and `golangci-lint run` in `backend/`, and `tsc -b` + ESLint in `frontend/`, per the constitution's Development Workflow gates — fix anything they flag
-- [ ] T023 Run the full backend (`go test ./...`) and frontend (`npm run test`) suites one final time to confirm zero regressions
+- [X] T018 Edit `README.md`: add a "Deployment" section summarizing the production topology and pointing at `specs/018-deployment/quickstart.md` for the full runbook; note `PATCHPLANNER_ADDR`'s production convention of binding to `127.0.0.1` behind the reverse proxy, not a public interface
+- [X] T019 Amend `.specify/memory/constitution.md` (PATCH version bump): Principle III's "MAY serve the compiled frontend... revisit this once deployed... tracked as roadmap Slice 16" bullet updated to state this is now how the application is actually built and deployed, correcting the stale slice number; the Technology Stack table's "Build/deploy" row updated to match (research.md R9)
+- [X] T020 Edit `PROJECT.md` §4.3: the "Embedding the Vite build output using Go's `embed` package is planned but not implemented" note updated to describe the shipped approach (research.md R9)
+- [X] T021 Edit `specs/014-auth/quickstart.md`: the placeholder *"Before deploying to production (Slice 16): come back here and add the real production callback URL"* note updated with the correct slice number and a pointer to `specs/018-deployment/quickstart.md`'s concrete steps, rather than left as a bare reminder (research.md R9)
+- [X] T022 [P] Run `go vet ./...` and `golangci-lint run` in `backend/`, and `tsc -b` + ESLint in `frontend/`, per the constitution's Development Workflow gates — fix anything they flag
+- [X] T023 Run the full backend (`go test ./...`) and frontend (`npm run test`) suites one final time to confirm zero regressions
 
 ---
 

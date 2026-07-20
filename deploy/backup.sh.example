@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Example SQLite backup script for PatchPlanner.
+#
+# Copy to the server, adjust DB_PATH/BACKUP_DIR below, and schedule via
+# cron (see quickstart.md), e.g.:
+#   0 3 * * * /opt/patchplanner/backup.sh
+#
+# Uses SQLite's own `.backup` command rather than a raw file copy —
+# `.backup` is safe to run against a live database and never captures a
+# mid-write, corrupted snapshot the way `cp` could.
+set -euo pipefail
+
+DB_PATH="/opt/patchplanner/patchplanner.db"
+BACKUP_DIR="/opt/patchplanner/backups"
+
+mkdir -p "$BACKUP_DIR"
+sqlite3 "$DB_PATH" ".backup '$BACKUP_DIR/patchplanner-$(date +%F).db'"
+
+# Keep the last 30 daily backups, discard older ones.
+find "$BACKUP_DIR" -name 'patchplanner-*.db' -mtime +30 -delete

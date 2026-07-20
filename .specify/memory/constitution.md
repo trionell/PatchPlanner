@@ -1,6 +1,34 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change: 0.3.0 → 0.3.1
+Modified principles:
+  - III. Full-Stack Monorepo Architecture — the single-binary-deploy
+    bullet no longer describes this as optional/future work: production
+    deployment shipped as roadmap Slice 18 (`make build` + `go:embed`),
+    correcting the stale "tracked as roadmap Slice 16" pointer (Slice 16
+    became inventory ownership during planning; deployment moved to
+    Slice 18). Local dev is now described accurately (Vite dev-server
+    proxy forwards `/api` and `/health`, since the frontend's API base
+    URL became relative in this same slice).
+Added sections: none
+Removed sections: none
+Technology Stack: "Build/deploy" row updated to state the single-binary
+  production build concretely instead of calling it optional.
+Templates checked:
+  ✅ plan-template.md — no hardcoded principle text to update
+  ✅ spec-template.md — no constitution references
+  ✅ tasks-template.md — no constitution references
+  ✅ commands/*.md — none present in this project
+This is a documentation-only PATCH clarifying wording after Slice 18
+(production deployment) shipped — no principle was added, removed, or
+redefined.
+Deferred TODOs: none
+-->
+
+<!--
+PRIOR SYNC IMPACT REPORT (0.2.0 → 0.3.0)
+==================
 Version change: 0.2.0 → 0.3.0
 Modified principles:
   - III. Full-Stack Monorepo Architecture — package-layout bullet now
@@ -83,11 +111,11 @@ This project is a single-repo full-stack web application: Go REST API backend + 
 frontend, with SQLite as the embedded database.
 
 - Repository layout MUST follow: `backend/` (Go) and `frontend/` (React/TypeScript + Vite).
-- The backend MAY serve the compiled frontend as static files in production for a single
-  deployable binary; today the two run as separate dev processes (`go run` + `vite dev`)
-  with no build step wiring them together — revisit this once the tool is deployed beyond
-  a single local machine (tracked as roadmap Slice 16, which depends on the authentication
-  and event-sharing slices landing first).
+- The backend serves the compiled frontend as embedded static files in production for a
+  single deployable binary (`make build`; `//go:embed dist` in `backend/cmd/main.go`,
+  shipped as roadmap Slice 18); in local development the two still run as separate
+  processes (`go run` + `vite dev`), with a Vite dev-server proxy forwarding `/api` and
+  `/health` to the backend.
 - The REST API MUST use JSON and follow resource-oriented URL conventions (`/api/v1/...`).
 - Database migrations MUST be versioned and applied automatically on startup.
 - Go packages MUST be organized under `backend/internal/`: `api/` for HTTP handlers and
@@ -141,7 +169,7 @@ Start with the simplest solution that solves the problem. Avoid speculative infr
 | UI components      | To be decided per feature (prefer minimal deps)                          |
 | API style          | REST JSON (`/api/v1/...`)                                               |
 | Auth               | Google OAuth 2.0 (authorization-code flow) + DB-backed sessions (SQLite `sessions` table + `HttpOnly` cookie) |
-| Build/deploy       | Separate dev processes today; single-binary static embed remains optional (see Principle III) |
+| Build/deploy       | Single Go binary in production (`make build` embeds the built frontend via `go:embed`); separate dev processes locally via a Vite proxy (see Principle III) |
 | Testing (BE)       | Go standard `testing` package + `httptest`                              |
 | Testing (FE)       | Vitest, with lightweight custom render helpers (no React Testing Library) |
 
@@ -195,4 +223,4 @@ inventory/
 - Complexity violations (e.g., adding a new runtime dependency, adding a second database)
   MUST be documented in the relevant plan.md with rationale.
 
-**Version**: 0.3.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-20
+**Version**: 0.3.1 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-21

@@ -170,9 +170,9 @@ Shipped as part of the `001-rental-order-correctness` feature: every rental line
 
 Shipped as part of the `005-print-signal-flow` feature: the input patch, output patch, and lighting rig tabs each have a Print button that opens the browser print dialog on a dedicated paper-friendly sheet — event header, black-on-white static table (no form controls or app chrome), column headers repeating on every page. Save-as-PDF is covered by the same dialog. A shareable read-only web link for remote collaboration remains post-v1.
 
-### 3.8 Production Binary (Frontend Embedded in Backend)
+### 3.8 Production Binary (Frontend Embedded in Backend) — ✅ implemented (2026-07-21, Slice 18)
 
-The constitution requires the final production deployment to be a **single Go binary** that serves the compiled frontend as embedded static files. Currently the frontend must be served separately (Vite dev server in development, or a separate static file server). Embedding the Vite build output using Go's `embed` package is planned but not implemented.
+Shipped as part of `018-deployment`: `make build` compiles the frontend, copies its `dist/` output into `backend/cmd/dist`, and `go build` embeds that directory via `//go:embed dist`. The resulting single Go binary serves the API and the compiled frontend from one origin, with a catch-all SPA-fallback route for client-side routes. See `specs/018-deployment/quickstart.md` for the deployment runbook (nginx + Certbot reverse proxy, systemd process supervision, SQLite backups).
 
 ### 3.9 Owned / Non-Rental Equipment — ✅ implemented (2026-07-07)
 
@@ -210,7 +210,7 @@ For recurring productions or multi-day tours using the same rig, there is no way
 
 **Why TypeScript:** The API surface is non-trivial — many closely-related domain objects with optional fields. TypeScript's structural typing catches mismatches between the Go JSON response shapes and the frontend code at compile time, before they become runtime bugs.
 
-**Why Vite:** Faster dev-server startup and HMR than Webpack/CRA. Straightforward configuration. Compatible with the planned `go:embed` production deployment.
+**Why Vite:** Faster dev-server startup and HMR than Webpack/CRA. Straightforward configuration. Its build output is what the backend's `go:embed` production deployment (§3.8) embeds.
 
 **Key dependencies:**
 

@@ -160,6 +160,77 @@ func TestAuthLoginCallbackAllowedEmail(t *testing.T) {
 	}
 }
 
+// TestAuthCallbackSecureCookieBehindProxy covers research.md R5: a
+// TLS-terminating reverse proxy (nginx) forwards X-Forwarded-Proto: https,
+// and the session cookie set on that request must come back Secure even
+// though r.TLS is nil for the Go process itself.
+func TestAuthCallbackSecureCookieBehindProxy(t *testing.T) {
+	profile := service.Profile{Sub: "google-sub-2", Email: "proxied@example.com", Name: "Proxied", PictureURL: "https://example.com/pic.jpg"}
+	server, _ := newAuthTestServer(t, fakeIdentityProvider{profile: profile}, []string{"proxied@example.com"})
+	client := noRedirectClient(t)
+
+	loginResp, err := client.Get(server.URL + "/auth/google/login")
+	if err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	defer func() { _ = loginResp.Body.Close() }()
+	location, err := url.Parse(loginResp.Header.Get("Location"))
+	if err != nil {
+		t.Fatalf("parse location: %v", err)
+	}
+	state := location.Query().Get("state")
+
+	req, err := http.NewRequest(http.MethodGet, server.URL+"/auth/google/callback?code=fake-code&state="+state, nil)
+	if err != nil {
+		t.Fatalf("build callback request: %v", err)
+	}
+	req.Header.Set("X-Forwarded-Proto", "https")
+	for _, c := range client.Jar.Cookies(req.URL) {
+		req.AddCookie(c)
+	}
+	callbackResp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("callback: %v", err)
+	}
+	defer func() { _ = callbackResp.Body.Close() }()
+
+	var sessionCookie *http.Cookie
+	for _, c := range callbackResp.Cookies() {
+		if c.Name == middleware.SessionCookieName {
+			sessionCookie = c
+		}
+	}
+	if sessionCookie == nil {
+		t.Fatal("expected a session cookie to be set")
+	}
+	if !sessionCookie.Secure {
+		t.Error("session cookie must be Secure when X-Forwarded-Proto is https")
+	}
+}
+
+func TestRequestIsSecure(t *testing.T) {
+	tests := []struct {
+		name    string
+		headers map[string]string
+		want    bool
+	}{
+		{name: "plain request", want: false},
+		{name: "forwarded https from TLS-terminating proxy", headers: map[string]string{"X-Forwarded-Proto": "https"}, want: true},
+		{name: "forwarded http", headers: map[string]string{"X-Forwarded-Proto": "http"}, want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			for k, v := range tt.headers {
+				req.Header.Set(k, v)
+			}
+			if got := requestIsSecure(req); got != tt.want {
+				t.Errorf("requestIsSecure() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestAuthCallbackStateMismatch(t *testing.T) {
 	server, _ := newAuthTestServer(t, fakeIdentityProvider{}, []string{"person@example.com"})
 	client := noRedirectClient(t)
