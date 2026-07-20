@@ -145,17 +145,24 @@ and operated, not what it exposes).
 ```text
 backend/
 ├── cmd/
-│   └── main.go                     # EDITED — go:embed frontend/dist;
-│                                    #          catch-all static/SPA-fallback route
-│                                    #          (excluding /api/*, /health)
+│   ├── main.go                     # EDITED — //go:embed dist (embed.FS);
+│   │                                #          catch-all static/SPA-fallback route
+│   │                                #          (excluding /api/*, /health)
+│   └── dist/                       # NEW, gitignored — frontend/dist copied in by
+│                                    #          `make build` (research.md R2); the
+│                                    #          directory go:embed actually reads,
+│                                    #          since it can't cross the backend/
+│                                    #          module boundary with `..`
 ├── internal/
 │   └── api/
 │       ├── auth.go                 # EDITED — Secure cookie flag trusts
 │       │                           #          X-Forwarded-Proto (research.md R5)
 │       ├── auth_test.go            # EDITED — covers the new Secure-flag logic
 │       ├── static.go               # NEW — the embedded-frontend serving handler,
-│       │                           #        kept separate from router.go's API
-│       │                           #        route tree for a clean boundary
+│       │                           #        takes an fs.FS (testable with
+│       │                           #        fstest.MapFS, no real embed needed in
+│       │                           #        tests), kept separate from router.go's
+│       │                           #        API route tree for a clean boundary
 │       └── static_test.go          # NEW
 └── (no migrations — no schema change)
 
@@ -168,8 +175,11 @@ frontend/
                                      #          /health to :7331 (research.md R4)
 
 Makefile                             # NEW — `make build`: npm run build,
-                                     #        then go build, in that order
-                                     #        (research.md R3)
+                                     #        copy frontend/dist to
+                                     #        backend/cmd/dist, then go build,
+                                     #        in that order (research.md R2/R3)
+backend/cmd/.gitignore               # NEW — ignores dist/ (mirrors
+                                     #        frontend/.gitignore's own dist entry)
 
 deploy/                              # NEW — ops reference material, not
 ├── patchplanner.service             #        application code:

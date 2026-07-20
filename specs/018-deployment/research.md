@@ -36,10 +36,18 @@ where the hardcoded value happens to already be correct.
   project targets (dev proxy, and single-origin production) with zero
   configuration.
 
-## R2 — Single-binary serving: `go:embed` the frontend, not the migrations
+## R2 — Single-binary serving: `go:embed` the frontend via a copied-in build directory, not the migrations
 
-**Decision**: `backend/cmd/main.go` embeds `frontend/dist` (via
-`//go:embed`) and adds a catch-all route serving it as static files,
+**Decision**: `//go:embed` cannot reach `frontend/dist` directly —
+Go's embed patterns are forbidden from containing `..` path elements,
+and `frontend/dist` sits outside `backend/`'s own module tree (`backend/`
+is its own Go module; `frontend/` is a sibling directory, not a
+subdirectory of it). So `make build` (R3) copies `frontend/dist` into
+`backend/cmd/dist` (gitignored, regenerated on every build, never
+committed — mirrors `frontend/dist` itself already being gitignored)
+*before* running `go build`. `backend/cmd/main.go` then embeds that
+copied-in directory (`//go:embed dist` → `embed.FS`) and passes it to a
+new handler (`internal/api/static.go`) that serves it as static files,
 falling back to `index.html` for any path that isn't a static asset and
 doesn't start with `/api/` or `/health` — the standard SPA-with-a-router
 serving pattern, needed because `react-router-dom` handles routes
@@ -53,15 +61,26 @@ alongside the binary, not embedded.
 exactly this ("The backend MAY serve the compiled frontend as static
 files in production for a single deployable binary... revisit this once
 the tool is deployed beyond a single local machine") — this slice is
-that revisit. Migrations are deliberately left as-is: they already work
-correctly via a simple env var, switching golang-migrate's source driver
-from `file://` to an embedded `iofs.FS` would be a real (if small)
-mechanical change for no requirement in spec.md — FR-001 asks for one
-*address*, not a single *file* on disk; shipping the binary plus its
-`migrations/` directory together (e.g. via `scp` or a deploy script)
-fully satisfies "one thing to start" without touching working code.
+that revisit. The copy-into-the-module-tree step is not a workaround
+being invented here; it's the standard, well-established pattern for
+embedding a frontend build from a sibling directory in a two-module
+repo layout like this one (`go:embed`'s restriction against `..` is a
+hard compiler rule, not a style preference — confirmed by direct
+reading of the constraint, not assumed). Migrations are deliberately
+left as-is: they already work correctly via a simple env var, switching
+golang-migrate's source driver from `file://` to an embedded `iofs.FS`
+would be a real (if small) mechanical change for no requirement in
+spec.md — FR-001 asks for one *address*, not a single *file* on disk;
+shipping the binary plus its `migrations/` directory together (e.g. via
+`scp` or a deploy script) fully satisfies "one thing to start" without
+touching working code.
 
 **Alternatives considered**:
+- A build-time symlink (`backend/cmd/dist -> ../../frontend/dist`)
+  instead of a copy — rejected: `go:embed` follows symlinks
+  inconsistently across platforms/toolchains and this isn't a pattern
+  the Go team documents as supported; a plain file copy in the Makefile
+  is simple, portable, and unambiguous.
 - Embed migrations too, for a literal single-file deployment — rejected
   as unnecessary scope: no functional requirement asks for zero
   auxiliary files, and it would touch `db.Open`'s migration-source
@@ -70,10 +89,15 @@ fully satisfies "one thing to start" without touching working code.
 ## R3 — Build ordering: a single script, deliberately shaped for a future GitHub Actions workflow
 
 **Decision**: One build script (`Makefile` target, e.g. `make build`)
-runs `npm run build` (frontend) first, then `go build` (backend) —
-`go:embed` reads `frontend/dist` at Go compile time, so the frontend
-build must complete first or the Go build fails outright (a directory
-`go:embed` can see must already contain the built files). No CI/CD
+runs, in order: `npm run build` (frontend, producing `frontend/dist`),
+then a copy of `frontend/dist` into `backend/cmd/dist` (R2 — the
+directory `go:embed` actually reads, since it can't reach outside its
+own module tree), then `go build` (backend). Each step must complete
+before the next — `go:embed` reads `backend/cmd/dist` at Go compile
+time, so both the frontend build and the copy step must happen first or
+the Go build fails outright (a directory `go:embed` can see must
+already contain the built files, or the build fails with a clear "no
+matching files found" compile error). No CI/CD
 pipeline is introduced in this slice, but the deploy target is a VPS
 with GitHub Actions as the intended future CI/CD (per direct user
 instruction), so every choice here is made to need no rework later: a

@@ -35,10 +35,12 @@ From the repository root:
 make build
 ```
 
-This runs `npm run build` (frontend) first, producing `frontend/dist`,
-then `go build` (backend), which embeds that directory into the
-resulting binary. The output is a single executable at
-`backend/patchplanner` — that binary, plus the `backend/migrations/`
+This runs `npm run build` (frontend, producing `frontend/dist`), copies
+that build output into `backend/cmd/dist` (the directory `go:embed`
+actually reads — it can't reach `frontend/dist` directly since that
+lives outside the backend Go module), then `go build` (backend), which
+embeds it into the resulting binary. The output is a single executable
+at `backend/patchplanner` — that binary, plus the `backend/migrations/`
 directory, are the only two things that need to reach the server.
 
 ## Getting the build onto the server
