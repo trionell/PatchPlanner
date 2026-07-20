@@ -18,7 +18,7 @@ An AVL (Audio, Video, Lighting) event planning tool for live productions. Plan p
 - **Excel Export** — One click produces a copy of LL.xlsx with the order quantities filled into the *Antal Ljud* / *Antal Ljus* columns at the right rows, ready to send to the renter unmodified; lines that can't be placed are reported, never silently dropped
 - **Owned Gear & Equipment Lists** — A personal catalog of equipment you own (never on the rental order), plannable per event with quantities and notes; the Equipment tab shows everything beyond the patch and rig: owned gear plus rented extras
 - **Configurable Reference Data** — Every planning vocabulary (signal types, preamp connectors, signal/speaker cable types, output types, mic stands, power connectors, truss types) is stored data, editable on the Settings page: add values for new gear, rename labels, delete unused ones (values in use by a plan are protected). Lighting fixture models carry DMX mode definitions (name + channel count) that auto-fill the channel count when patching
-- **Inventory** — Full catalog imported directly from the LL.xlsx price list (308 items across 27 categories: audio, lighting, rigging)
+- **Inventories** — Each user owns their own independent equipment catalogs, imported from a price-list `.xlsx` file (e.g. 308 items across 27 categories: audio, lighting, rigging); duplicate an inventory to spin off a variant without re-importing, and pick which one an event uses when you create it — contributors get read access to it, only its owner can manage it
 - **Print Sheets** — Every planning tab (input patch, output patch, lighting rig) has a Print button that produces a clean paper/PDF sheet via the browser print dialog: event header, black-on-white table, repeating column headers, no UI chrome
 - **Signal Flow** — A read-only per-channel trace on its own event tab: inputs read source → cable → stagebox/multi channel → console; outputs read console → cable → node → cable → node → … → destination, walking the same graph the canvas edits, branching when a device fans out to more than one destination. Incomplete routing is flagged so patching errors are caught before load-in, and the view prints like the sheets
 
@@ -63,7 +63,7 @@ Configuration (all optional, via environment variables):
 | `PATCHPLANNER_DB` | `./patchplanner.db` | SQLite database file |
 | `PATCHPLANNER_MIGRATIONS` | `./migrations` | Migrations directory |
 | `PATCHPLANNER_CORS_ORIGIN` | `http://localhost:5173` | Allowed dev-server origin |
-| `INVENTORY_PATH` | `../LL.xlsx` | Price list used by the import endpoint |
+| `INVENTORY_PATH` | `../LL.xlsx` | One-time-only: read on first startup after upgrading to per-inventory ownership, to seed the legacy shared catalog's template into its new owner-less bootstrap inventory row. Not used by ongoing imports, which are per-inventory file uploads through the UI. |
 
 Authentication (Google sign-in — see `specs/014-auth/quickstart.md` for the
 first-time Google Cloud Console setup walkthrough):
@@ -89,19 +89,25 @@ npm run dev
 
 The frontend opens on **http://localhost:5173**
 
-### 4. Import the inventory
+### 4. Import an inventory
 
-Once the backend is running, import the equipment catalog from `LL.xlsx`:
+Every user gets their own independent inventories (equipment catalogs) — no
+more one shared global catalog. Sign in, go to **Inventories** in the
+sidebar, create an inventory (or use the one created for you automatically
+on first sign-in), and upload a price-list `.xlsx` file (e.g. `LL.xlsx`)
+through **"Import price list (.xlsx)"**. This is a real file upload
+(multipart form), scoped to that one inventory — it no longer reads a fixed
+server-side path.
 
-```bash
-curl -X POST http://localhost:7331/api/v1/inventory/import-xlsx
-```
+Importing the sample `LL.xlsx` produces **308 items** across **27
+categories** (speakers, microphones, mixers, stageboxes, lighting fixtures,
+truss, cables, power distribution, and more).
 
-Or click **"Import from LL.xlsx"** on the Inventory page in the UI.
-
-This imports **308 items** across **27 categories** (speakers, microphones, mixers, stageboxes, lighting fixtures, truss, cables, power distribution, and more).
-
-> Re-running the import updates the catalog in place: matched items keep their identity (and every plan reference to them), prices and stock counts are refreshed, and items that disappeared from the price list are marked *discontinued* rather than deleted. Event data is never touched by an import.
+> Re-running the import updates that inventory's catalog in place: matched
+> items keep their identity (and every plan reference to them), prices and
+> stock counts are refreshed, and items that disappeared from the price
+> list are marked *discontinued* rather than deleted. Event data, and
+> every other inventory, is never touched by an import.
 
 ---
 
@@ -112,7 +118,8 @@ This imports **308 items** across **27 categories** (speakers, microphones, mixe
 1. Go to **Events** in the sidebar
 2. Click **New Event**
 3. Fill in name, date, and venue
-4. Click **Create**
+4. Pick which of your inventories this event uses (defaults automatically if you only have one)
+5. Click **Create**
 
 ### Building an audio patch
 

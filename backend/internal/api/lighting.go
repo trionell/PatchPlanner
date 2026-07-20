@@ -51,7 +51,15 @@ func (h LightingHandler) getLightingRig(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h LightingHandler) createFixture(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	rigID, ok := parseID(w, chi.URLParam(r, "rigID"))
+	if !ok {
+		return
+	}
+	inventoryID, ok := inventoryIDForEvent(h.DB, w, eventID)
 	if !ok {
 		return
 	}
@@ -64,6 +72,9 @@ func (h LightingHandler) createFixture(w http.ResponseWriter, r *http.Request) {
 	if !validFixtureNumber(w, payload.FixtureNumber) {
 		return
 	}
+	if !validInventoryItemRef(h.DB, w, "inventory_item_id", inventoryID, payload.InventoryItemID) {
+		return
+	}
 	created, err := dbstore.CreateLightingFixture(h.DB, payload)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -73,7 +84,15 @@ func (h LightingHandler) createFixture(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h LightingHandler) updateFixture(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	fixtureID, ok := parseID(w, chi.URLParam(r, "fixtureID"))
+	if !ok {
+		return
+	}
+	inventoryID, ok := inventoryIDForEvent(h.DB, w, eventID)
 	if !ok {
 		return
 	}
@@ -83,6 +102,9 @@ func (h LightingHandler) updateFixture(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !validFixtureNumber(w, payload.FixtureNumber) {
+		return
+	}
+	if !validInventoryItemRef(h.DB, w, "inventory_item_id", inventoryID, payload.InventoryItemID) {
 		return
 	}
 	updated, err := dbstore.UpdateLightingFixture(h.DB, fixtureID, payload)
@@ -109,7 +131,15 @@ func (h LightingHandler) deleteFixture(w http.ResponseWriter, r *http.Request) {
 // slice 7 contract: shared settings, incrementing fixture numbers, positions
 // and DMX addresses appended, all-or-nothing.
 func (h LightingHandler) bulkCreateFixtures(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	rigID, ok := parseID(w, chi.URLParam(r, "rigID"))
+	if !ok {
+		return
+	}
+	inventoryID, ok := inventoryIDForEvent(h.DB, w, eventID)
 	if !ok {
 		return
 	}
@@ -129,12 +159,7 @@ func (h LightingHandler) bulkCreateFixtures(w http.ResponseWriter, r *http.Reque
 	if !validFixtureNumber(w, payload.FixtureNumberStart) {
 		return
 	}
-	if _, err := dbstore.GetInventoryItem(h.DB, payload.InventoryItemID); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			writeError(w, http.StatusBadRequest, "inventory_item_id references an unknown inventory item")
-			return
-		}
-		writeError(w, http.StatusInternalServerError, err.Error())
+	if !validInventoryItemRef(h.DB, w, "inventory_item_id", inventoryID, &payload.InventoryItemID) {
 		return
 	}
 	fixtures, err := dbstore.BulkCreateLightingFixtures(h.DB, rigID, payload)

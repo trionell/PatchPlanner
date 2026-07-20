@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, X } from 'lucide-react'
-import { listInventoryItems } from '../../api/inventory'
+import { listEventInventoryItems } from '../../api/inventory'
 import { getLightingRig } from '../../api/lighting'
 import {
   attachPlotTrussFixture,
@@ -50,8 +50,8 @@ export interface PlacedTrussElement {
 export function PlotTrussManager({ eventId, trusses, open, onClose, onChanged, onPlace, placedTrussIds, placedElements, onRotate, readOnly = false }: PlotTrussManagerProps) {
   const queryClient = useQueryClient()
   const trussItemsQuery = useQuery({
-    queryKey: ['inventory-truss-items'],
-    queryFn: () => listInventoryItems({ role: 'truss' }),
+    queryKey: ['inventory-truss-items', eventId],
+    queryFn: () => listEventInventoryItems(eventId, { role: 'truss' }),
     enabled: open,
   })
   const lightingQuery = useQuery({ queryKey: ['lighting-rig', eventId], queryFn: () => getLightingRig(eventId), enabled: open })

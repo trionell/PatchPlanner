@@ -179,11 +179,12 @@ func (h StagePlotsHandler) createTrussPiece(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusBadRequest, "length_cm must be positive")
 		return
 	}
-	if req.InventoryItemID != nil {
-		if _, err := dbstore.GetInventoryItem(h.DB, *req.InventoryItemID); err != nil {
-			writeError(w, http.StatusNotFound, "inventory item not found")
-			return
-		}
+	inventoryID, ok := inventoryIDForEvent(h.DB, w, eventID)
+	if !ok {
+		return
+	}
+	if !validInventoryItemRef(h.DB, w, "inventory_item_id", inventoryID, req.InventoryItemID) {
+		return
 	}
 	if _, err := dbstore.CreatePlotTrussPiece(h.DB, trussID, req.InventoryItemID, req.Label, req.LengthCm); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -221,8 +222,11 @@ func (h StagePlotsHandler) updateTrussPiece(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if patch.InventoryItemID != nil {
-		if _, err := dbstore.GetInventoryItem(h.DB, *patch.InventoryItemID); err != nil {
-			writeError(w, http.StatusNotFound, "inventory item not found")
+		inventoryID, ok := inventoryIDForEvent(h.DB, w, eventID)
+		if !ok {
+			return
+		}
+		if !validInventoryItemRef(h.DB, w, "inventory_item_id", inventoryID, patch.InventoryItemID) {
 			return
 		}
 		piece.InventoryItemID = patch.InventoryItemID

@@ -2,33 +2,100 @@ package api
 
 import (
 	"database/sql"
-	"encoding/json"
-	"errors"
 	"net/http"
-	"os"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	dbstore "github.com/trionell/patchplanner/internal/db"
 	"github.com/trionell/patchplanner/internal/domain"
-	"github.com/trionell/patchplanner/internal/service"
 )
 
-type InventoryHandler struct {
+// EventInventoryHandler serves an event's bound inventory read-only,
+// inside the /events/{eventID} group behind the existing RequireEventAccess
+// (research.md R3) — any role gets a GET, so no new authorization code is
+// needed here at all; the handler just resolves the event's inventory_id
+// and delegates to the (now inventory-scoped) db read functions.
+type EventInventoryHandler struct {
 	DB *sql.DB
 }
 
-func (h InventoryHandler) Register(r chi.Router) {
-	r.Route("/inventory", func(r chi.Router) {
-		r.Get("/categories", h.listCategories)
-		r.Patch("/categories/{categoryID}", h.updateCategoryPickerRole)
-		r.Get("/items", h.listItems)
-		r.Post("/import-xlsx", h.importXLSX)
-	})
+func (h EventInventoryHandler) Register(r chi.Router) {
+	r.Get("/inventory", h.getInventory)
+	r.Get("/inventory/categories", h.listCategories)
+	r.Get("/inventory/items", h.listItems)
 }
 
-func (h InventoryHandler) listCategories(w http.ResponseWriter, r *http.Request) {
-	categories, err := dbstore.ListInventoryCategories(h.DB)
+// getInventory returns the event's bound inventory's public fields (name,
+// source filename) to any role — a collaborator needs to know which
+// inventory an event uses even though only its owner can manage it (US3).
+func (h EventInventoryHandler) getInventory(w http.ResponseWriter, r *http.Request) {
+	inventoryID, ok := h.eventInventoryID(w, r)
+	if !ok {
+		return
+	}
+	inventory, err := dbstore.GetInventory(h.DB, inventoryID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "inventory not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, inventory)
+}
+
+func (h EventInventoryHandler) eventInventoryID(w http.ResponseWriter, r *http.Request) (int64, bool) {
+	return resolveEventInventoryID(h.DB, w, r)
+}
+
+// resolveEventInventoryID resolves {eventID}'s bound inventory, writing a
+// 404 and returning ok=false if the event doesn't exist. Shared by every
+// handler that needs to validate a picked catalog item against the
+// event's own inventory (research.md R6).
+func resolveEventInventoryID(db *sql.DB, w http.ResponseWriter, r *http.Request) (int64, bool) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return 0, false
+	}
+	return inventoryIDForEvent(db, w, eventID)
+}
+
+// inventoryIDForEvent looks up eventID's bound inventory, writing a 404
+// and returning ok=false if the event doesn't exist — for handlers that
+// have already resolved eventID (from the URL, or from an existing row's
+// own event_id) rather than needing to parse it fresh.
+func inventoryIDForEvent(db *sql.DB, w http.ResponseWriter, eventID int64) (int64, bool) {
+	event, err := dbstore.GetEvent(db, eventID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "event not found")
+		return 0, false
+	}
+	return event.InventoryID, true
+}
+
+// validInventoryItemRef writes a 400 and returns false when itemID is
+// non-nil and doesn't belong to inventoryID — either because it doesn't
+// exist at all or because it belongs to a different inventory
+// (research.md R6): picking equipment from the wrong catalog must be
+// rejected, not silently accepted.
+func validInventoryItemRef(db *sql.DB, w http.ResponseWriter, field string, inventoryID int64, itemID *int64) bool {
+	if itemID == nil {
+		return true
+	}
+	belongs, err := dbstore.ItemBelongsToInventory(db, *itemID, inventoryID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return false
+	}
+	if !belongs {
+		writeError(w, http.StatusBadRequest, field+" references an item from a different inventory")
+		return false
+	}
+	return true
+}
+
+func (h EventInventoryHandler) listCategories(w http.ResponseWriter, r *http.Request) {
+	inventoryID, ok := h.eventInventoryID(w, r)
+	if !ok {
+		return
+	}
+	categories, err := dbstore.ListInventoryCategories(h.DB, inventoryID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -39,12 +106,15 @@ func (h InventoryHandler) listCategories(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, categories)
 }
 
-func (h InventoryHandler) listItems(w http.ResponseWriter, r *http.Request) {
+func (h EventInventoryHandler) listItems(w http.ResponseWriter, r *http.Request) {
+	inventoryID, ok := h.eventInventoryID(w, r)
+	if !ok {
+		return
+	}
 	var categoryID *int64
 	if raw := r.URL.Query().Get("category_id"); raw != "" {
-		parsed, err := strconv.ParseInt(raw, 10, 64)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid category_id")
+		parsed, ok := parseID(w, raw)
+		if !ok {
 			return
 		}
 		categoryID = &parsed
@@ -55,7 +125,7 @@ func (h InventoryHandler) listItems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	includeDiscontinued := r.URL.Query().Get("include_discontinued") == "true"
-	items, err := dbstore.ListInventoryItems(h.DB, categoryID, r.URL.Query().Get("category_type"), role, includeDiscontinued)
+	items, err := dbstore.ListInventoryItems(h.DB, inventoryID, categoryID, r.URL.Query().Get("category_type"), role, includeDiscontinued)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -64,56 +134,4 @@ func (h InventoryHandler) listItems(w http.ResponseWriter, r *http.Request) {
 		items = []domain.InventoryItem{}
 	}
 	writeJSON(w, http.StatusOK, items)
-}
-
-// updateCategoryPickerRole sets or clears which planning picker (cable /
-// stand) a category feeds. null clears the role.
-func (h InventoryHandler) updateCategoryPickerRole(w http.ResponseWriter, r *http.Request) {
-	categoryID, ok := parseID(w, chi.URLParam(r, "categoryID"))
-	if !ok {
-		return
-	}
-	var payload struct {
-		PickerRole *string `json:"picker_role"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid json body")
-		return
-	}
-	role := ""
-	if payload.PickerRole != nil {
-		role = *payload.PickerRole
-	}
-	if role != "" && role != "cable" && role != "stand" && role != "truss" {
-		writeError(w, http.StatusBadRequest, "invalid picker_role: must be 'cable', 'stand', 'truss', or null")
-		return
-	}
-	category, err := dbstore.UpdateCategoryPickerRole(h.DB, categoryID, role)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			writeError(w, http.StatusNotFound, "inventory category not found")
-			return
-		}
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	writeJSON(w, http.StatusOK, category)
-}
-
-// inventoryFilePath resolves the renter's price-list file, shared by the
-// import and rental-export endpoints.
-func inventoryFilePath() string {
-	if path := os.Getenv("INVENTORY_PATH"); path != "" {
-		return path
-	}
-	return "../LL.xlsx"
-}
-
-func (h InventoryHandler) importXLSX(w http.ResponseWriter, r *http.Request) {
-	result, err := service.InventoryService{DB: h.DB}.ImportFromXLSX(inventoryFilePath())
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	writeJSON(w, http.StatusOK, result)
 }

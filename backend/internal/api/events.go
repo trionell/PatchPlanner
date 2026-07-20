@@ -79,7 +79,16 @@ func (h EventsHandler) create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "name is required")
 		return
 	}
-	created, err := dbstore.CreateEvent(h.DB, event, user.ID)
+	if event.InventoryID == 0 {
+		writeError(w, http.StatusBadRequest, "inventoryId is required")
+		return
+	}
+	inventory, err := dbstore.GetInventory(h.DB, event.InventoryID)
+	if err != nil || inventory.OwnerUserID != user.ID {
+		writeError(w, http.StatusBadRequest, "inventoryId must be an inventory you own")
+		return
+	}
+	created, err := dbstore.CreateEvent(h.DB, event, user.ID, event.InventoryID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

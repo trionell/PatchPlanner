@@ -109,6 +109,14 @@ func (h AuthHandler) callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Slice 16: guarantee the user owns at least one inventory — claims
+	// the legacy bootstrap catalog if still unowned, else creates a fresh
+	// empty one; a no-op if they already own one (research.md R4).
+	if err := db.EnsureUserHasInventory(h.DB, user.ID); err != nil {
+		writeError(w, http.StatusInternalServerError, "ensure user inventory")
+		return
+	}
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     middleware.SessionCookieName,
 		Value:    token,

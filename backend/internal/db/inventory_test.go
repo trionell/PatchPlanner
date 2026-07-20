@@ -21,9 +21,9 @@ func importFixture() ([]domain.InventoryCategory, []domain.InventoryItem) {
 	return categories, items
 }
 
-func allItemsByName(t *testing.T, database *sql.DB) map[string][]domain.InventoryItem {
+func allItemsByName(t *testing.T, database *sql.DB, inventoryID int64) map[string][]domain.InventoryItem {
 	t.Helper()
-	items, err := ListInventoryItems(database, nil, "", "", true)
+	items, err := ListInventoryItems(database, inventoryID, nil, "", "", true)
 	if err != nil {
 		t.Fatalf("list inventory items: %v", err)
 	}
@@ -34,16 +34,32 @@ func allItemsByName(t *testing.T, database *sql.DB) map[string][]domain.Inventor
 	return byName
 }
 
+// testInventory creates a fresh inventory owned by an ad-hoc test user, for
+// tests that only need somewhere to import/list against.
+func testInventory(t *testing.T, database *sql.DB) int64 {
+	t.Helper()
+	owner, err := UpsertUserByGoogleSub(database, "inventory-test-owner-sub", "inventory-test-owner@example.com", "Inventory Test Owner", "")
+	if err != nil {
+		t.Fatalf("seed inventory test owner: %v", err)
+	}
+	inventory, err := CreateInventory(database, owner.ID, "Test Inventory")
+	if err != nil {
+		t.Fatalf("create test inventory: %v", err)
+	}
+	return inventory.ID
+}
+
 // TestUpsertInventoryPreservesIdentity verifies FR-007/FR-008: re-import
 // updates matched items in place, flags missing items discontinued instead of
 // deleting, and revives them when they reappear.
 func TestUpsertInventoryPreservesIdentity(t *testing.T) {
 	database := openTestDB(t)
+	inventoryID := testInventory(t, database)
 	categories, items := importFixture()
-	if err := UpsertInventory(database, categories, items); err != nil {
+	if err := UpsertInventory(database, inventoryID, categories, items); err != nil {
 		t.Fatalf("initial import: %v", err)
 	}
-	before := allItemsByName(t, database)
+	before := allItemsByName(t, database, inventoryID)
 	micID := before["Shure SM58"][0].ID
 	akgID := before["AKG C414"][0].ID
 
@@ -58,7 +74,7 @@ func TestUpsertInventoryPreservesIdentity(t *testing.T) {
 		{CategoryName: "Kablar", Name: "XLR-kabel", Description: "10 m", QuantityAvailable: 20, PriceExVAT: 15, XLSXRow: 21},
 		{CategoryName: "Mikrofoner", Name: "Sennheiser e935", QuantityAvailable: 3, PriceExVAT: 120, XLSXRow: 12},
 	}
-	if err := UpsertInventory(database, categories, updated); err != nil {
+	if err := UpsertInventory(database, inventoryID, categories, updated); err != nil {
 		t.Fatalf("second import: %v", err)
 	}
 
@@ -85,7 +101,7 @@ func TestUpsertInventoryPreservesIdentity(t *testing.T) {
 	}
 
 	// Discontinued items are hidden from default listings.
-	visible, err := ListInventoryItems(database, nil, "", "", false)
+	visible, err := ListInventoryItems(database, inventoryID, nil, "", "", false)
 	if err != nil {
 		t.Fatalf("list visible items: %v", err)
 	}
@@ -97,7 +113,7 @@ func TestUpsertInventoryPreservesIdentity(t *testing.T) {
 
 	// Third import: AKG reappears and is revived under its original id.
 	revived := append(updated, domain.InventoryItem{CategoryName: "Mikrofoner", Name: "AKG C414", QuantityAvailable: 1, PriceExVAT: 320, XLSXRow: 11})
-	if err := UpsertInventory(database, categories, revived); err != nil {
+	if err := UpsertInventory(database, inventoryID, categories, revived); err != nil {
 		t.Fatalf("third import: %v", err)
 	}
 	akg, err = GetInventoryItem(database, akgID)
@@ -113,19 +129,20 @@ func TestUpsertInventoryPreservesIdentity(t *testing.T) {
 // fallback: same-named items keep their identity by order of appearance.
 func TestUpsertInventoryDuplicateNamesMatchByPosition(t *testing.T) {
 	database := openTestDB(t)
+	inventoryID := testInventory(t, database)
 	categories, items := importFixture()
-	if err := UpsertInventory(database, categories, items); err != nil {
+	if err := UpsertInventory(database, inventoryID, categories, items); err != nil {
 		t.Fatalf("initial import: %v", err)
 	}
-	before := allItemsByName(t, database)["XLR-kabel"]
+	before := allItemsByName(t, database, inventoryID)["XLR-kabel"]
 	if len(before) != 2 {
 		t.Fatalf("got %d XLR-kabel items, want 2", len(before))
 	}
 
-	if err := UpsertInventory(database, categories, items); err != nil {
+	if err := UpsertInventory(database, inventoryID, categories, items); err != nil {
 		t.Fatalf("re-import: %v", err)
 	}
-	after := allItemsByName(t, database)["XLR-kabel"]
+	after := allItemsByName(t, database, inventoryID)["XLR-kabel"]
 	if len(after) != 2 {
 		t.Fatalf("after re-import: got %d XLR-kabel items, want 2 (no duplicates inserted)", len(after))
 	}
@@ -148,19 +165,20 @@ func TestUpsertInventoryDuplicateNamesMatchByPosition(t *testing.T) {
 // leaves the catalog byte-for-byte unchanged, including discontinued flags.
 func TestUpsertInventoryRollsBackOnFailure(t *testing.T) {
 	database := openTestDB(t)
+	inventoryID := testInventory(t, database)
 	categories, items := importFixture()
-	if err := UpsertInventory(database, categories, items); err != nil {
+	if err := UpsertInventory(database, inventoryID, categories, items); err != nil {
 		t.Fatalf("initial import: %v", err)
 	}
 
 	// A category type violating the schema CHECK constraint fails mid-import,
 	// after the transaction has already flagged everything discontinued.
 	bad := []domain.InventoryCategory{{Name: "Trasig", CategoryType: "not-a-type"}}
-	if err := UpsertInventory(database, bad, nil); err == nil {
+	if err := UpsertInventory(database, inventoryID, bad, nil); err == nil {
 		t.Fatalf("import with invalid category type succeeded, want error")
 	}
 
-	items2, err := ListInventoryItems(database, nil, "", "", false)
+	items2, err := ListInventoryItems(database, inventoryID, nil, "", "", false)
 	if err != nil {
 		t.Fatalf("list items after failed import: %v", err)
 	}

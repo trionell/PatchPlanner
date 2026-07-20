@@ -1,7 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useQuery } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
+import { listMyInventories } from '../api/inventories'
 import type { Event } from '../types'
 import { Button } from './ui/Button'
 import { Dialog } from './ui/Dialog'
@@ -12,6 +14,7 @@ const eventSchema = z.object({
   date: z.string().optional(),
   venue: z.string().optional(),
   notes: z.string().optional(),
+  inventoryId: z.number().positive('Choose an inventory'),
 })
 
 type EventFormValues = {
@@ -19,6 +22,7 @@ type EventFormValues = {
   date: string
   venue: string
   notes: string
+  inventoryId: number
 }
 
 interface EventFormDialogProps {
@@ -40,6 +44,8 @@ export function EventFormDialog({
   initialValues,
   submitting,
 }: EventFormDialogProps) {
+  const inventoriesQuery = useQuery({ queryKey: ['inventories'], queryFn: listMyInventories, enabled: open })
+
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventSchema),
     defaultValues: {
@@ -47,6 +53,7 @@ export function EventFormDialog({
       date: initialValues?.date ?? '',
       venue: initialValues?.venue ?? '',
       notes: initialValues?.notes ?? '',
+      inventoryId: initialValues?.inventoryId ?? 0,
     },
   })
 
@@ -56,8 +63,17 @@ export function EventFormDialog({
       date: initialValues?.date ?? '',
       venue: initialValues?.venue ?? '',
       notes: initialValues?.notes ?? '',
+      inventoryId: initialValues?.inventoryId ?? 0,
     })
   }, [form, initialValues, open])
+
+  // Silently default to the user's only inventory once the list loads —
+  // most users will only ever have one.
+  useEffect(() => {
+    if (!initialValues?.inventoryId && inventoriesQuery.data?.length === 1 && !form.getValues('inventoryId')) {
+      form.setValue('inventoryId', inventoriesQuery.data[0].id)
+    }
+  }, [form, initialValues, inventoriesQuery.data])
 
   return (
     <Dialog open={open} onClose={onClose} title={title}>
@@ -89,6 +105,25 @@ export function EventFormDialog({
             className="min-h-28 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-500"
             {...form.register('notes')}
           />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm text-zinc-300">Inventory</label>
+          <select
+            className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-500"
+            {...form.register('inventoryId', { valueAsNumber: true })}
+          >
+            <option value={0} disabled>
+              Select an inventory...
+            </option>
+            {(inventoriesQuery.data ?? []).map((inventory) => (
+              <option key={inventory.id} value={inventory.id}>
+                {inventory.name}
+              </option>
+            ))}
+          </select>
+          {form.formState.errors.inventoryId && (
+            <p className="mt-1 text-sm text-red-400">{form.formState.errors.inventoryId.message}</p>
+          )}
         </div>
         <div className="flex justify-end gap-3">
           <Button type="button" variant="ghost" onClick={onClose}>

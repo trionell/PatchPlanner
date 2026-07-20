@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -43,13 +45,51 @@ func writeExportFixture(t *testing.T) string {
 	return path
 }
 
+// uploadInventoryXLSX POSTs path as a multipart "file" upload to
+// inventoryID's import-xlsx endpoint, mirroring what the real upload form
+// sends.
+func uploadInventoryXLSX(t *testing.T, serverURL string, inventoryID int64, path string) (int, []byte) {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("file", filepath.Base(path))
+	if err != nil {
+		t.Fatalf("create form file: %v", err)
+	}
+	if _, err := part.Write(data); err != nil {
+		t.Fatalf("write form file: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close multipart writer: %v", err)
+	}
+	request, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/inventories/%d/import-xlsx", serverURL, inventoryID), &body)
+	if err != nil {
+		t.Fatalf("build upload request: %v", err)
+	}
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	response, err := httpClient.Do(request)
+	if err != nil {
+		t.Fatalf("upload xlsx: %v", err)
+	}
+	defer func() { _ = response.Body.Close() }()
+	raw, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read upload response: %v", err)
+	}
+	return response.StatusCode, raw
+}
+
 // TestRentalExportEndpoints covers the download and report contracts.
 func TestRentalExportEndpoints(t *testing.T) {
 	server, database := newTestServer(t)
-	t.Setenv("INVENTORY_PATH", writeExportFixture(t))
+	inventoryID := testOwnerInventoryID(t, server.URL)
 
 	// Import the fixture through the API so xlsx_row positions are recorded.
-	if status, raw := doJSON(t, http.MethodPost, server.URL+"/inventory/import-xlsx", nil); status != http.StatusOK {
+	if status, raw := uploadInventoryXLSX(t, server.URL, inventoryID, writeExportFixture(t)); status != http.StatusOK {
 		t.Fatalf("import: status %d body %s", status, raw)
 	}
 	eventID := seedEvent(t, server.URL)
@@ -123,12 +163,25 @@ func TestRentalExportEndpoints(t *testing.T) {
 	if status, _ := doJSON(t, http.MethodGet, server.URL+"/events/99999/rental-export", nil); status != http.StatusNotFound {
 		t.Errorf("unknown event: status %d, want 404", status)
 	}
-	t.Setenv("INVENTORY_PATH", filepath.Join(t.TempDir(), "missing.xlsx"))
-	status, raw = doJSON(t, http.MethodGet, fmt.Sprintf("%s/events/%d/rental-export", server.URL, eventID), nil)
-	if status != http.StatusInternalServerError {
-		t.Errorf("missing source: status %d body %s, want 500 JSON error", status, raw)
+
+	// An event bound to an inventory with no imported template yet.
+	status, raw = doJSON(t, http.MethodPost, server.URL+"/inventories", map[string]any{"name": "Empty Inventory"})
+	if status != http.StatusCreated {
+		t.Fatalf("create empty inventory: status %d body %s", status, raw)
+	}
+	emptyInventoryID := decodeJSON[domain.Inventory](t, raw).ID
+	status, raw = doJSON(t, http.MethodPost, server.URL+"/events", map[string]any{"name": "No Template Event", "inventoryId": emptyInventoryID})
+	if status != http.StatusCreated {
+		t.Fatalf("create event on empty inventory: status %d body %s", status, raw)
+	}
+	noTemplateEventID := decodeJSON[struct {
+		ID int64 `json:"id"`
+	}](t, raw).ID
+	status, raw = doJSON(t, http.MethodGet, fmt.Sprintf("%s/events/%d/rental-export", server.URL, noTemplateEventID), nil)
+	if status != http.StatusBadRequest {
+		t.Errorf("missing template: status %d body %s, want 400", status, raw)
 	}
 	if !strings.Contains(string(raw), "error") {
-		t.Errorf("missing source: body %s, want JSON error", raw)
+		t.Errorf("missing template: body %s, want JSON error", raw)
 	}
 }

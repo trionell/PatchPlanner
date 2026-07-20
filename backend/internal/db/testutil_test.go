@@ -49,6 +49,7 @@ func execMigrationFile(t *testing.T, database *sql.DB, filename string) {
 
 // catalog holds the ids of the seeded inventory fixture.
 type catalog struct {
+	InventoryID        int64
 	AudioCategoryID    int64
 	LightingCategoryID int64
 	Mic                int64 // "Shure SM58", stock 4, 150 kr
@@ -60,25 +61,31 @@ type catalog struct {
 	Fixture            int64 // "Robe LEDWash 600", stock 6, 250 kr
 }
 
+// seedCatalog seeds a fixed catalog fixture into a fresh, disposable
+// inventory and returns both the item ids and that inventory's id, so
+// callers that need to re-import against the same catalog (matching
+// existing rows by name) can pass it to UpsertInventory.
 func seedCatalog(t *testing.T, database *sql.DB) catalog {
 	t.Helper()
+	inventoryID := testInventory(t, database)
 	c := catalog{
-		AudioCategoryID:    insertCategory(t, database, "Mikrofoner", "audio"),
-		LightingCategoryID: insertCategory(t, database, "Ljusarmaturer", "lighting"),
+		InventoryID:        inventoryID,
+		AudioCategoryID:    insertCategory(t, database, inventoryID, "Mikrofoner", "audio"),
+		LightingCategoryID: insertCategory(t, database, inventoryID, "Ljusarmaturer", "lighting"),
 	}
-	c.Mic = insertItem(t, database, c.AudioCategoryID, "Shure SM58", 4, 150, 10)
-	c.DI = insertItem(t, database, c.AudioCategoryID, "BSS AR-133", 2, 100, 11)
-	c.Amp = insertItem(t, database, c.AudioCategoryID, "Lab.Gruppen FP2400", 1, 400, 12)
-	c.Speaker = insertItem(t, database, c.AudioCategoryID, "JBL SRX835P", 4, 500, 13)
-	c.Stagebox = insertItem(t, database, c.AudioCategoryID, "Behringer S32", 1, 700, 14)
-	c.Multi = insertItem(t, database, c.AudioCategoryID, "Multikabel 24/4", 1, 300, 15)
-	c.Fixture = insertItem(t, database, c.LightingCategoryID, "Robe LEDWash 600", 6, 250, 20)
+	c.Mic = insertItem(t, database, inventoryID, c.AudioCategoryID, "Shure SM58", 4, 150, 10)
+	c.DI = insertItem(t, database, inventoryID, c.AudioCategoryID, "BSS AR-133", 2, 100, 11)
+	c.Amp = insertItem(t, database, inventoryID, c.AudioCategoryID, "Lab.Gruppen FP2400", 1, 400, 12)
+	c.Speaker = insertItem(t, database, inventoryID, c.AudioCategoryID, "JBL SRX835P", 4, 500, 13)
+	c.Stagebox = insertItem(t, database, inventoryID, c.AudioCategoryID, "Behringer S32", 1, 700, 14)
+	c.Multi = insertItem(t, database, inventoryID, c.AudioCategoryID, "Multikabel 24/4", 1, 300, 15)
+	c.Fixture = insertItem(t, database, inventoryID, c.LightingCategoryID, "Robe LEDWash 600", 6, 250, 20)
 	return c
 }
 
-func insertCategory(t *testing.T, database *sql.DB, name, categoryType string) int64 {
+func insertCategory(t *testing.T, database *sql.DB, inventoryID int64, name, categoryType string) int64 {
 	t.Helper()
-	result, err := database.Exec(`INSERT INTO inventory_categories (name, category_type) VALUES (?, ?)`, name, categoryType)
+	result, err := database.Exec(`INSERT INTO inventory_categories (inventory_id, name, category_type) VALUES (?, ?, ?)`, inventoryID, name, categoryType)
 	if err != nil {
 		t.Fatalf("insert category %s: %v", name, err)
 	}
@@ -86,10 +93,10 @@ func insertCategory(t *testing.T, database *sql.DB, name, categoryType string) i
 	return id
 }
 
-func insertItem(t *testing.T, database *sql.DB, categoryID int64, name string, quantity int, price float64, xlsxRow int) int64 {
+func insertItem(t *testing.T, database *sql.DB, inventoryID, categoryID int64, name string, quantity int, price float64, xlsxRow int) int64 {
 	t.Helper()
-	result, err := database.Exec(`INSERT INTO inventory_items (category_id, name, quantity_available, price_ex_vat, xlsx_row) VALUES (?, ?, ?, ?, ?)`,
-		categoryID, name, quantity, price, xlsxRow)
+	result, err := database.Exec(`INSERT INTO inventory_items (inventory_id, category_id, name, quantity_available, price_ex_vat, xlsx_row) VALUES (?, ?, ?, ?, ?, ?)`,
+		inventoryID, categoryID, name, quantity, price, xlsxRow)
 	if err != nil {
 		t.Fatalf("insert item %s: %v", name, err)
 	}
@@ -103,7 +110,11 @@ func createTestEvent(t *testing.T, database *sql.DB) int64 {
 	if err != nil {
 		t.Fatalf("seed test owner: %v", err)
 	}
-	event, err := CreateEvent(database, domain.Event{Name: "Test Gig"}, owner.ID)
+	inventory, err := CreateInventory(database, owner.ID, "Test Inventory")
+	if err != nil {
+		t.Fatalf("create test inventory: %v", err)
+	}
+	event, err := CreateEvent(database, domain.Event{Name: "Test Gig"}, owner.ID, inventory.ID)
 	if err != nil {
 		t.Fatalf("create event: %v", err)
 	}

@@ -2,6 +2,7 @@ package domain
 
 type InventoryCategory struct {
 	ID           int64  `json:"id"`
+	InventoryID  int64  `json:"inventoryId"`
 	Name         string `json:"name"`
 	CategoryType string `json:"category_type"`
 	// PickerRole marks the category as a source for planning pickers:
@@ -13,6 +14,7 @@ type InventoryCategory struct {
 
 type InventoryItem struct {
 	ID                int64   `json:"id"`
+	InventoryID       int64   `json:"inventoryId"`
 	CategoryID        int64   `json:"category_id"`
 	CategoryName      string  `json:"category_name,omitempty"`
 	CategoryType      string  `json:"category_type,omitempty"`
@@ -31,4 +33,15 @@ type InventoryItem struct {
 type InventoryImportResult struct {
 	CategoriesImported int `json:"categories_imported"`
 	ItemsImported      int `json:"items_imported"`
+}
+
+// Inventory is an owned, independent catalog (Slice 16). The uploaded
+// source spreadsheet's bytes live in the DB (source_xlsx) but are never
+// serialized to JSON — only its filename is, for display.
+type Inventory struct {
+	ID             int64  `json:"id"`
+	OwnerUserID    int64  `json:"-"`
+	Name           string `json:"name"`
+	SourceFilename string `json:"sourceFilename,omitempty"`
+	CreatedAt      string `json:"createdAt"`
 }

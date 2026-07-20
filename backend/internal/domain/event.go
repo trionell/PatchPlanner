@@ -10,4 +10,5 @@ type Event struct {
 	UpdatedAt   string `json:"updated_at"`
 	OwnerUserID *int64 `json:"-"`
 	YourRole    string `json:"yourRole,omitempty"`
+	InventoryID int64  `json:"inventoryId"`
 }

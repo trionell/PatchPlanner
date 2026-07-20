@@ -100,6 +100,11 @@ func seedSession(t *testing.T, database *sql.DB) string {
 	if err != nil {
 		t.Fatalf("seed user: %v", err)
 	}
+	// Mirrors what a real login does (auth.go's callback) — every test
+	// event created via seedEvent needs an inventory to bind to.
+	if err := db.EnsureUserHasInventory(database, user.ID); err != nil {
+		t.Fatalf("seed test owner inventory: %v", err)
+	}
 	token, err := db.CreateSession(database, user.ID, time.Hour)
 	if err != nil {
 		t.Fatalf("seed session: %v", err)
@@ -169,14 +174,35 @@ func decodeJSON[T any](t *testing.T, raw []byte) T {
 	return value
 }
 
+// testOwnerInventoryIDFromDB looks up the seeded test owner's inventory
+// directly against the database (no HTTP round-trip) — used by helpers
+// that insert catalog rows straight into the database and need to attach
+// them to the owner's real inventory, matching the inventory-scoped
+// queries every read/write path now uses. seedSession (called from
+// newTestServer) guarantees exactly one exists by the time any test
+// reaches this point.
+func testOwnerInventoryIDFromDB(t *testing.T, database *sql.DB) int64 {
+	t.Helper()
+	var inventoryID int64
+	err := database.QueryRow(`
+		SELECT i.id FROM inventories i
+		JOIN users u ON u.id = i.owner_user_id
+		WHERE u.google_sub = 'test-google-sub'`).Scan(&inventoryID)
+	if err != nil {
+		t.Fatalf("find test owner inventory: %v", err)
+	}
+	return inventoryID
+}
+
 func seedItem(t *testing.T, database *sql.DB, name string, quantity int, price float64) int64 {
 	t.Helper()
-	result, err := database.Exec(`INSERT INTO inventory_categories (name, category_type) VALUES (?, 'audio')`, name+" kategori")
+	inventoryID := testOwnerInventoryIDFromDB(t, database)
+	result, err := database.Exec(`INSERT INTO inventory_categories (inventory_id, name, category_type) VALUES (?, ?, 'audio')`, inventoryID, name+" kategori")
 	if err != nil {
 		t.Fatalf("insert category: %v", err)
 	}
 	categoryID, _ := result.LastInsertId()
-	result, err = database.Exec(`INSERT INTO inventory_items (category_id, name, quantity_available, price_ex_vat) VALUES (?, ?, ?, ?)`, categoryID, name, quantity, price)
+	result, err = database.Exec(`INSERT INTO inventory_items (inventory_id, category_id, name, quantity_available, price_ex_vat) VALUES (?, ?, ?, ?, ?)`, inventoryID, categoryID, name, quantity, price)
 	if err != nil {
 		t.Fatalf("insert item: %v", err)
 	}
@@ -188,11 +214,12 @@ func seedItem(t *testing.T, database *sql.DB, name string, quantity int, price f
 // ('cable' or 'stand'), reusing the category on repeated calls.
 func seedRoleItem(t *testing.T, database *sql.DB, role, name, description string, quantity int, price float64) int64 {
 	t.Helper()
+	inventoryID := testOwnerInventoryIDFromDB(t, database)
 	categoryName := role + " kategori"
 	var categoryID int64
-	err := database.QueryRow(`SELECT id FROM inventory_categories WHERE name = ?`, categoryName).Scan(&categoryID)
+	err := database.QueryRow(`SELECT id FROM inventory_categories WHERE name = ? AND inventory_id = ?`, categoryName, inventoryID).Scan(&categoryID)
 	if err == sql.ErrNoRows {
-		result, insertErr := database.Exec(`INSERT INTO inventory_categories (name, category_type, picker_role) VALUES (?, 'audio', ?)`, categoryName, role)
+		result, insertErr := database.Exec(`INSERT INTO inventory_categories (inventory_id, name, category_type, picker_role) VALUES (?, ?, 'audio', ?)`, inventoryID, categoryName, role)
 		if insertErr != nil {
 			t.Fatalf("insert role category: %v", insertErr)
 		}
@@ -200,7 +227,7 @@ func seedRoleItem(t *testing.T, database *sql.DB, role, name, description string
 	} else if err != nil {
 		t.Fatalf("find role category: %v", err)
 	}
-	result, err := database.Exec(`INSERT INTO inventory_items (category_id, name, description, quantity_available, price_ex_vat) VALUES (?, ?, ?, ?, ?)`, categoryID, name, description, quantity, price)
+	result, err := database.Exec(`INSERT INTO inventory_items (inventory_id, category_id, name, description, quantity_available, price_ex_vat) VALUES (?, ?, ?, ?, ?, ?)`, inventoryID, categoryID, name, description, quantity, price)
 	if err != nil {
 		t.Fatalf("insert role item: %v", err)
 	}
@@ -210,11 +237,29 @@ func seedRoleItem(t *testing.T, database *sql.DB, role, name, description string
 
 func seedEvent(t *testing.T, serverURL string) int64 {
 	t.Helper()
-	status, raw := doJSON(t, http.MethodPost, serverURL+"/events", map[string]string{"name": "API Test Event"})
+	status, raw := doJSON(t, http.MethodPost, serverURL+"/events", map[string]any{"name": "API Test Event", "inventoryId": testOwnerInventoryID(t, serverURL)})
 	if status != http.StatusCreated {
 		t.Fatalf("create event: status %d body %s", status, raw)
 	}
 	return decodeJSON[struct {
 		ID int64 `json:"id"`
 	}](t, raw).ID
+}
+
+// testOwnerInventoryID returns the seeded test owner's (only) inventory —
+// EnsureUserHasInventory (called from seedSession) guarantees exactly one
+// exists by the time any test reaches this point.
+func testOwnerInventoryID(t *testing.T, serverURL string) int64 {
+	t.Helper()
+	status, raw := doJSON(t, http.MethodGet, serverURL+"/inventories", nil)
+	if status != http.StatusOK {
+		t.Fatalf("list inventories: status %d body %s", status, raw)
+	}
+	inventories := decodeJSON[[]struct {
+		ID int64 `json:"id"`
+	}](t, raw)
+	if len(inventories) == 0 {
+		t.Fatal("test owner has no inventory")
+	}
+	return inventories[0].ID
 }

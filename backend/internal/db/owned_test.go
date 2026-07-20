@@ -56,7 +56,8 @@ func TestOwnedItemCatalog(t *testing.T) {
 
 	// Price-list import leaves the owned catalog alone.
 	categories, items := importFixture()
-	if err := UpsertInventory(database, categories, items); err != nil {
+	inventoryID := testInventory(t, database)
+	if err := UpsertInventory(database, inventoryID, categories, items); err != nil {
 		t.Fatalf("import: %v", err)
 	}
 	after, err := ListOwnedItems(database)

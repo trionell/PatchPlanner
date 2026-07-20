@@ -7,7 +7,7 @@ import { cn } from '../lib/utils'
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/events', label: 'Events', icon: CalendarRange },
-  { to: '/inventory', label: 'Inventory', icon: Package2 },
+  { to: '/inventories', label: 'Inventories', icon: Package2 },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 

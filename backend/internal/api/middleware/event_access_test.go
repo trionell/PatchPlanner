@@ -71,7 +71,11 @@ func TestRequireEventAccess(t *testing.T) {
 	viewer, _ := db.UpsertUserByGoogleSub(database, "viewer-sub", "viewer@example.com", "Viewer", "")
 	stranger, _ := db.UpsertUserByGoogleSub(database, "stranger-sub", "stranger@example.com", "Stranger", "")
 
-	event, err := db.CreateEvent(database, domain.Event{Name: "Gig"}, owner.ID)
+	inventory, err := db.CreateInventory(database, owner.ID, "Inventory")
+	if err != nil {
+		t.Fatalf("create inventory: %v", err)
+	}
+	event, err := db.CreateEvent(database, domain.Event{Name: "Gig"}, owner.ID, inventory.ID)
 	if err != nil {
 		t.Fatalf("create event: %v", err)
 	}

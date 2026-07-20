@@ -12,8 +12,12 @@ func TestCreateEventSetsOwner(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed owner: %v", err)
 	}
+	inventory, err := CreateInventory(database, owner.ID, "Test Inventory")
+	if err != nil {
+		t.Fatalf("create inventory: %v", err)
+	}
 
-	created, err := CreateEvent(database, testEvent("Gig"), owner.ID)
+	created, err := CreateEvent(database, testEvent("Gig"), owner.ID, inventory.ID)
 	if err != nil {
 		t.Fatalf("create event: %v", err)
 	}
@@ -41,11 +45,15 @@ func TestListEventsForUserScoping(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed stranger: %v", err)
 	}
+	inventory, err := CreateInventory(database, owner.ID, "Test Inventory")
+	if err != nil {
+		t.Fatalf("create inventory: %v", err)
+	}
 
-	if _, err := CreateEvent(database, testEvent("Owned Gig"), owner.ID); err != nil {
+	if _, err := CreateEvent(database, testEvent("Owned Gig"), owner.ID, inventory.ID); err != nil {
 		t.Fatalf("create owned event: %v", err)
 	}
-	shared, err := CreateEvent(database, testEvent("Shared Gig"), owner.ID)
+	shared, err := CreateEvent(database, testEvent("Shared Gig"), owner.ID, inventory.ID)
 	if err != nil {
 		t.Fatalf("create shared event: %v", err)
 	}
@@ -91,7 +99,11 @@ func TestGetEventRole(t *testing.T) {
 	owner, _ := UpsertUserByGoogleSub(database, "owner-sub", "owner@example.com", "Owner", "")
 	viewer, _ := UpsertUserByGoogleSub(database, "viewer-sub", "viewer@example.com", "Viewer", "")
 	stranger, _ := UpsertUserByGoogleSub(database, "stranger-sub", "stranger@example.com", "Stranger", "")
-	event, err := CreateEvent(database, testEvent("Gig"), owner.ID)
+	inventory, err := CreateInventory(database, owner.ID, "Test Inventory")
+	if err != nil {
+		t.Fatalf("create inventory: %v", err)
+	}
+	event, err := CreateEvent(database, testEvent("Gig"), owner.ID, inventory.ID)
 	if err != nil {
 		t.Fatalf("create event: %v", err)
 	}

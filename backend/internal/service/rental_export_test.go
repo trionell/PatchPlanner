@@ -50,16 +50,25 @@ func writeRenterFixtureXLSX(t *testing.T, dir string) string {
 	return path
 }
 
-// exportSetup imports the renter fixture, creates an event, and returns
-// everything the export tests need.
+// exportSetup imports the renter fixture into a fresh owned inventory,
+// creates an event bound to it, and returns everything the export tests
+// need.
 func exportSetup(t *testing.T) (database *sql.DB, sourcePath string, eventID int64, ids map[string]int64) {
 	t.Helper()
 	database = openTestDB(t)
 	sourcePath = writeRenterFixtureXLSX(t, t.TempDir())
-	if _, err := (InventoryService{DB: database}).ImportFromXLSX(sourcePath); err != nil {
+	owner, err := db.UpsertUserByGoogleSub(database, "test-owner-sub", "owner@example.com", "Test Owner", "")
+	if err != nil {
+		t.Fatalf("seed test owner: %v", err)
+	}
+	inventory, err := db.CreateInventory(database, owner.ID, "Test Inventory")
+	if err != nil {
+		t.Fatalf("create inventory: %v", err)
+	}
+	if _, err := importFixture(t, InventoryService{DB: database}, inventory.ID, sourcePath); err != nil {
 		t.Fatalf("import fixture: %v", err)
 	}
-	items, err := db.ListInventoryItems(database, nil, "", "", true)
+	items, err := db.ListInventoryItems(database, inventory.ID, nil, "", "", true)
 	if err != nil {
 		t.Fatalf("list items: %v", err)
 	}
@@ -67,20 +76,16 @@ func exportSetup(t *testing.T) (database *sql.DB, sourcePath string, eventID int
 	for _, item := range items {
 		ids[item.Name] = item.ID
 	}
-	owner, err := db.UpsertUserByGoogleSub(database, "test-owner-sub", "owner@example.com", "Test Owner", "")
-	if err != nil {
-		t.Fatalf("seed test owner: %v", err)
-	}
-	event, err := db.CreateEvent(database, domain.Event{Name: "Sommarfest", Date: "2026-08-01"}, owner.ID)
+	event, err := db.CreateEvent(database, domain.Event{Name: "Sommarfest", Date: "2026-08-01"}, owner.ID, inventory.ID)
 	if err != nil {
 		t.Fatalf("create event: %v", err)
 	}
 	return database, sourcePath, event.ID, ids
 }
 
-func exportToRows(t *testing.T, database *sql.DB, eventID int64, sourcePath string) (domain.RentalExportReport, [][]string, []byte) {
+func exportToRows(t *testing.T, database *sql.DB, eventID int64) (domain.RentalExportReport, [][]string, []byte) {
 	t.Helper()
-	file, report, err := (ExportService{DB: database}).BuildRentalExport(eventID, sourcePath)
+	file, report, err := (ExportService{DB: database}).BuildRentalExport(eventID)
 	if err != nil {
 		t.Fatalf("build export: %v", err)
 	}
@@ -136,7 +141,7 @@ func TestExportPlacesQuantities(t *testing.T) {
 		t.Fatalf("manual speaker line: %v", err)
 	}
 
-	report, rows, _ := exportToRows(t, database, eventID, sourcePath)
+	report, rows, _ := exportToRows(t, database, eventID)
 
 	if got := cellAt(rows, 4, colAntalLjud); got != "3" {
 		t.Errorf("SM58 Antal Ljud = %q, want 3", got)
@@ -192,8 +197,8 @@ func TestExportPlacesQuantities(t *testing.T) {
 // TestExportEmptyOrder covers FR-008: a clean copy with empty quantity
 // columns (stale values still cleared).
 func TestExportEmptyOrder(t *testing.T) {
-	database, sourcePath, eventID, _ := exportSetup(t)
-	report, rows, _ := exportToRows(t, database, eventID, sourcePath)
+	database, _, eventID, _ := exportSetup(t)
+	report, rows, _ := exportToRows(t, database, eventID)
 	if report.PlacedLines != 0 || len(report.UnplacedLines) != 0 {
 		t.Errorf("report for empty order: %+v", report)
 	}
@@ -210,18 +215,22 @@ func TestExportEmptyOrder(t *testing.T) {
 // TestExportRoundTrip covers SC-001 / research R7: an exported file
 // re-imports without changing the catalog.
 func TestExportRoundTrip(t *testing.T) {
-	database, sourcePath, eventID, ids := exportSetup(t)
+	database, _, eventID, ids := exportSetup(t)
 	micID := ids["Shure SM58"]
 	if err := db.UpsertManualRental(database, eventID, micID, domain.ManualRentalRequest{QuantityAudio: 3}); err != nil {
 		t.Fatalf("manual line: %v", err)
 	}
-	_, _, exported := exportToRows(t, database, eventID, sourcePath)
+	_, _, exported := exportToRows(t, database, eventID)
 
 	exportedPath := filepath.Join(t.TempDir(), "exported.xlsx")
 	if err := os.WriteFile(exportedPath, exported, 0o644); err != nil {
 		t.Fatalf("write exported file: %v", err)
 	}
-	if _, err := (InventoryService{DB: database}).ImportFromXLSX(exportedPath); err != nil {
+	event, err := db.GetEvent(database, eventID)
+	if err != nil {
+		t.Fatalf("get event: %v", err)
+	}
+	if _, err := importFixture(t, InventoryService{DB: database}, event.InventoryID, exportedPath); err != nil {
 		t.Fatalf("re-import exported file: %v", err)
 	}
 	item, err := db.GetInventoryItem(database, micID)
@@ -236,7 +245,7 @@ func TestExportRoundTrip(t *testing.T) {
 // TestExportUnplacedLines covers US2/T009: discontinued, row drift, and
 // missing-row lines are reported, everything else still places.
 func TestExportUnplacedLines(t *testing.T) {
-	database, sourcePath, eventID, ids := exportSetup(t)
+	database, _, eventID, ids := exportSetup(t)
 	micID, akgID, jblID := ids["Shure SM58"], ids["AKG C414"], ids["JBL SRX835P"]
 	for id, req := range map[int64]domain.ManualRentalRequest{
 		micID: {QuantityAudio: 2},
@@ -256,7 +265,7 @@ func TestExportUnplacedLines(t *testing.T) {
 		t.Fatalf("drift row: %v", err)
 	}
 
-	report, rows, _ := exportToRows(t, database, eventID, sourcePath)
+	report, rows, _ := exportToRows(t, database, eventID)
 
 	if got := cellAt(rows, 4, colAntalLjud); got != "2" {
 		t.Errorf("placeable SM58 not written: %q", got)
@@ -283,7 +292,7 @@ func TestExportUnplacedLines(t *testing.T) {
 	if _, err := database.Exec(`UPDATE inventory_items SET discontinued = 0, xlsx_row = 0 WHERE id = ?`, akgID); err != nil {
 		t.Fatalf("clear row: %v", err)
 	}
-	report, _, _ = exportToRows(t, database, eventID, sourcePath)
+	report, _, _ = exportToRows(t, database, eventID)
 	reasons = make(map[int64]string)
 	for _, line := range report.UnplacedLines {
 		reasons[line.InventoryItemID] = line.Reason
@@ -310,15 +319,39 @@ func TestExportMissingQuantityColumns(t *testing.T) {
 		t.Fatalf("save broken fixture: %v", err)
 	}
 
-	if _, _, err := (ExportService{DB: database}).BuildRentalExport(eventID, brokenPath); err == nil {
+	// Re-import the broken sheet into the event's inventory, replacing its
+	// stored template, so the export reads the broken layout.
+	event, err := db.GetEvent(database, eventID)
+	if err != nil {
+		t.Fatalf("get event: %v", err)
+	}
+	if _, err := importFixture(t, InventoryService{DB: database}, event.InventoryID, brokenPath); err != nil {
+		t.Fatalf("import broken fixture: %v", err)
+	}
+
+	if _, _, err := (ExportService{DB: database}).BuildRentalExport(eventID); err == nil {
 		t.Fatalf("export against a sheet without quantity columns succeeded, want error")
 	}
 }
 
-// TestExportMissingSourceFile covers FR-009.
+// TestExportMissingSourceFile covers FR-009: an event bound to an
+// inventory that has never had a price list imported has nothing to
+// export into.
 func TestExportMissingSourceFile(t *testing.T) {
-	database, _, eventID, _ := exportSetup(t)
-	if _, _, err := (ExportService{DB: database}).BuildRentalExport(eventID, filepath.Join(t.TempDir(), "nope.xlsx")); err == nil {
-		t.Fatalf("export with missing source succeeded, want error")
+	database := openTestDB(t)
+	owner, err := db.UpsertUserByGoogleSub(database, "test-owner-sub", "owner@example.com", "Test Owner", "")
+	if err != nil {
+		t.Fatalf("seed test owner: %v", err)
+	}
+	inventory, err := db.CreateInventory(database, owner.ID, "Test Inventory")
+	if err != nil {
+		t.Fatalf("create inventory: %v", err)
+	}
+	event, err := db.CreateEvent(database, domain.Event{Name: "Sommarfest"}, owner.ID, inventory.ID)
+	if err != nil {
+		t.Fatalf("create event: %v", err)
+	}
+	if _, _, err := (ExportService{DB: database}).BuildRentalExport(event.ID); err == nil {
+		t.Fatalf("export with no imported template succeeded, want error")
 	}
 }

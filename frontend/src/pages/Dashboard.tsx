@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { createEvent, listEvents } from '../api/events'
-import { listInventoryItems } from '../api/inventory'
+import { listMyInventories } from '../api/inventories'
 import { EventFormDialog } from '../components/EventFormDialog'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
@@ -13,7 +13,7 @@ export function DashboardPage() {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const eventsQuery = useQuery({ queryKey: ['events'], queryFn: listEvents })
-  const inventoryQuery = useQuery({ queryKey: ['inventory-items'], queryFn: () => listInventoryItems() })
+  const inventoriesQuery = useQuery({ queryKey: ['inventories'], queryFn: listMyInventories })
 
   const createMutation = useMutation({
     mutationFn: createEvent,
@@ -36,7 +36,7 @@ export function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard label="Total events" value={String(eventsQuery.data?.length ?? 0)} />
         <StatCard label="Upcoming events" value={String(upcomingEvents)} accent="warning" />
-        <StatCard label="Inventory items" value={String(inventoryQuery.data?.length ?? 0)} accent="success" />
+        <StatCard label="Inventories" value={String(inventoriesQuery.data?.length ?? 0)} accent="success" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">

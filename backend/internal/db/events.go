@@ -13,7 +13,7 @@ import (
 // role on is completely absent, not just unlisted).
 func ListEventsForUser(db *sql.DB, userID int64) ([]domain.Event, error) {
 	rows, err := db.Query(`
-		SELECT e.id, e.name, COALESCE(e.date, ''), COALESCE(e.venue, ''), COALESCE(e.notes, ''), COALESCE(e.created_at, ''), COALESCE(e.updated_at, ''),
+		SELECT e.id, e.name, COALESCE(e.date, ''), COALESCE(e.venue, ''), COALESCE(e.notes, ''), COALESCE(e.created_at, ''), COALESCE(e.updated_at, ''), COALESCE(e.inventory_id, 0),
 			CASE WHEN e.owner_user_id = ? THEN 'owner' ELSE m.role END AS your_role
 		FROM events e
 		LEFT JOIN event_memberships m ON m.event_id = e.id AND m.user_id = ?
@@ -27,7 +27,7 @@ func ListEventsForUser(db *sql.DB, userID int64) ([]domain.Event, error) {
 	events := make([]domain.Event, 0)
 	for rows.Next() {
 		var event domain.Event
-		if err := rows.Scan(&event.ID, &event.Name, &event.Date, &event.Venue, &event.Notes, &event.CreatedAt, &event.UpdatedAt, &event.YourRole); err != nil {
+		if err := rows.Scan(&event.ID, &event.Name, &event.Date, &event.Venue, &event.Notes, &event.CreatedAt, &event.UpdatedAt, &event.InventoryID, &event.YourRole); err != nil {
 			return nil, fmt.Errorf("scan event: %w", err)
 		}
 		events = append(events, event)
@@ -81,22 +81,22 @@ func ClaimOwnerlessEvents(db *sql.DB, userID int64) (int64, error) {
 
 func GetEvent(db *sql.DB, id int64) (domain.Event, error) {
 	var event domain.Event
-	err := db.QueryRow(`SELECT id, name, COALESCE(date, ''), COALESCE(venue, ''), COALESCE(notes, ''), COALESCE(created_at, ''), COALESCE(updated_at, '') FROM events WHERE id = ?`, id).
-		Scan(&event.ID, &event.Name, &event.Date, &event.Venue, &event.Notes, &event.CreatedAt, &event.UpdatedAt)
+	err := db.QueryRow(`SELECT id, name, COALESCE(date, ''), COALESCE(venue, ''), COALESCE(notes, ''), COALESCE(created_at, ''), COALESCE(updated_at, ''), COALESCE(inventory_id, 0) FROM events WHERE id = ?`, id).
+		Scan(&event.ID, &event.Name, &event.Date, &event.Venue, &event.Notes, &event.CreatedAt, &event.UpdatedAt, &event.InventoryID)
 	if err != nil {
 		return domain.Event{}, err
 	}
 	return event, nil
 }
 
-func CreateEvent(db *sql.DB, event domain.Event, ownerUserID int64) (domain.Event, error) {
+func CreateEvent(db *sql.DB, event domain.Event, ownerUserID, inventoryID int64) (domain.Event, error) {
 	tx, err := db.Begin()
 	if err != nil {
 		return domain.Event{}, fmt.Errorf("create event: %w", err)
 	}
 	defer tx.Rollback()
 
-	result, err := tx.Exec(`INSERT INTO events (name, date, venue, notes, owner_user_id, updated_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`, event.Name, nullString(event.Date), nullString(event.Venue), nullString(event.Notes), ownerUserID)
+	result, err := tx.Exec(`INSERT INTO events (name, date, venue, notes, owner_user_id, inventory_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`, event.Name, nullString(event.Date), nullString(event.Venue), nullString(event.Notes), ownerUserID, inventoryID)
 	if err != nil {
 		return domain.Event{}, fmt.Errorf("create event: %w", err)
 	}

@@ -5,6 +5,31 @@ import (
 	"testing"
 )
 
+// legacyInsertCategory/legacyInsertItem insert against the pre-023 schema
+// (before the inventory_id column existed), for tests that replay
+// migrations only partway. The shared insertCategory/insertItem helpers
+// assume the current schema and would fail against this older one.
+func legacyInsertCategory(t *testing.T, database *sql.DB, name, categoryType string) int64 {
+	t.Helper()
+	result, err := database.Exec(`INSERT INTO inventory_categories (name, category_type) VALUES (?, ?)`, name, categoryType)
+	if err != nil {
+		t.Fatalf("insert category %s: %v", name, err)
+	}
+	id, _ := result.LastInsertId()
+	return id
+}
+
+func legacyInsertItem(t *testing.T, database *sql.DB, categoryID int64, name string, quantity int, price float64, xlsxRow int) int64 {
+	t.Helper()
+	result, err := database.Exec(`INSERT INTO inventory_items (category_id, name, quantity_available, price_ex_vat, xlsx_row) VALUES (?, ?, ?, ?, ?)`,
+		categoryID, name, quantity, price, xlsxRow)
+	if err != nil {
+		t.Fatalf("insert item %s: %v", name, err)
+	}
+	id, _ := result.LastInsertId()
+	return id
+}
+
 // TestOutputChainsMigration replays migration 023 on a pre-023 schema
 // seeded with every shape of pre-existing output row and verifies the
 // conversion into output_chain_hops/output_devices exactly matches
@@ -17,10 +42,10 @@ func TestOutputChainsMigration(t *testing.T) {
 	database := openMigratedTo(t, 22)
 
 	mustExec(t, database, `INSERT INTO events (name) VALUES ('Gig A')`)
-	cat := insertCategory(t, database, "Audio", "audio")
-	amp := insertItem(t, database, cat, "Lab.Gruppen FP2400", 1, 400, 12)
-	speaker := insertItem(t, database, cat, "JBL SRX835P", 4, 500, 13)
-	cable := insertItem(t, database, cat, "Speakon cable 10m", 10, 50, 14)
+	cat := legacyInsertCategory(t, database, "Audio", "audio")
+	amp := legacyInsertItem(t, database, cat, "Lab.Gruppen FP2400", 1, 400, 12)
+	speaker := legacyInsertItem(t, database, cat, "JBL SRX835P", 4, 500, 13)
+	cable := legacyInsertItem(t, database, cat, "Speakon cable 10m", 10, 50, 14)
 
 	mustExec(t, database, `INSERT INTO stageboxes (event_id, name) VALUES (1, 'FOH Rack')`)
 	mustExec(t, database, `INSERT INTO stage_multis (event_id, name) VALUES (1, 'Multi A')`)

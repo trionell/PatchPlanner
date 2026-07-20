@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2 } from 'lucide-react'
-import { listInventoryItems } from '../../api/inventory'
+import { listEventInventoryItems } from '../../api/inventory'
 import { deleteEventOwnedEquipment, listEventOwnedEquipment, listOwnedItems, putEventOwnedEquipment } from '../../api/owned'
 import { deleteManualRental, getRentalSummary, putManualRental } from '../../api/rentals'
 import type { ManualRentalRequest, OwnedEquipmentRequest } from '../../types'
@@ -25,7 +25,7 @@ export function EquipmentTab({ eventId, readOnly = false }: { eventId: number; r
   const ownedCatalogQuery = useQuery({ queryKey: ['owned-items'], queryFn: listOwnedItems })
   const ownedLinesQuery = useQuery({ queryKey: ['owned-equipment', eventId], queryFn: () => listEventOwnedEquipment(eventId) })
   const rentalQuery = useQuery({ queryKey: ['rental-summary', eventId], queryFn: () => getRentalSummary(eventId) })
-  const allInventoryQuery = useQuery({ queryKey: ['inventory-all-items'], queryFn: () => listInventoryItems() })
+  const allInventoryQuery = useQuery({ queryKey: ['inventory-all-items', eventId], queryFn: () => listEventInventoryItems(eventId) })
 
   const [ownedDraft, setOwnedDraft] = useState(emptyOwnedDraft)
   const [rentedDraft, setRentedDraft] = useState(emptyRentedDraft)

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"io"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -65,6 +66,19 @@ func writeFixtureXLSX(t *testing.T) string {
 	return path
 }
 
+// importFixture opens path and imports it as inventoryID's catalog — the
+// new signature (research.md R1) takes a reader, not a path, so tests open
+// the fixture file themselves rather than passing the path straight through.
+func importFixture(t *testing.T, svc InventoryService, inventoryID int64, path string) (domain.InventoryImportResult, error) {
+	t.Helper()
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("open fixture xlsx: %v", err)
+	}
+	defer func() { _ = f.Close() }()
+	return svc.ImportFromXLSX(inventoryID, filepath.Base(path), f)
+}
+
 // TestImportRoundTripPreservesReferences verifies the full import path: parse
 // the sheet, plan against the resulting catalog, re-import the same file, and
 // confirm every reference still resolves to the same item ids (FR-007).
@@ -73,7 +87,16 @@ func TestImportRoundTripPreservesReferences(t *testing.T) {
 	path := writeFixtureXLSX(t)
 	svc := InventoryService{DB: database}
 
-	result, err := svc.ImportFromXLSX(path)
+	owner, err := db.UpsertUserByGoogleSub(database, "test-owner-sub", "owner@example.com", "Test Owner", "")
+	if err != nil {
+		t.Fatalf("seed test owner: %v", err)
+	}
+	inventory, err := db.CreateInventory(database, owner.ID, "Test Inventory")
+	if err != nil {
+		t.Fatalf("create inventory: %v", err)
+	}
+
+	result, err := importFixture(t, svc, inventory.ID, path)
 	if err != nil {
 		t.Fatalf("initial import: %v", err)
 	}
@@ -81,7 +104,7 @@ func TestImportRoundTripPreservesReferences(t *testing.T) {
 		t.Fatalf("imported %d categories / %d items, want 2 / 3", result.CategoriesImported, result.ItemsImported)
 	}
 
-	items, err := db.ListInventoryItems(database, nil, "", "", false)
+	items, err := db.ListInventoryItems(database, inventory.ID, nil, "", "", false)
 	if err != nil {
 		t.Fatalf("list items: %v", err)
 	}
@@ -111,11 +134,7 @@ func TestImportRoundTripPreservesReferences(t *testing.T) {
 		}
 	}
 
-	owner, err := db.UpsertUserByGoogleSub(database, "test-owner-sub", "owner@example.com", "Test Owner", "")
-	if err != nil {
-		t.Fatalf("seed test owner: %v", err)
-	}
-	event, err := db.CreateEvent(database, domain.Event{Name: "Roundtrip"}, owner.ID)
+	event, err := db.CreateEvent(database, domain.Event{Name: "Roundtrip"}, owner.ID, inventory.ID)
 	if err != nil {
 		t.Fatalf("create event: %v", err)
 	}
@@ -134,7 +153,7 @@ func TestImportRoundTripPreservesReferences(t *testing.T) {
 		t.Fatalf("create output cable: %v", err)
 	}
 
-	if _, err := svc.ImportFromXLSX(path); err != nil {
+	if _, err := importFixture(t, svc, inventory.ID, path); err != nil {
 		t.Fatalf("re-import: %v", err)
 	}
 

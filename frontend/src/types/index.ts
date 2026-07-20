@@ -7,6 +7,15 @@ export interface Event {
   created_at: string
   updated_at: string
   yourRole?: 'owner' | 'contributor' | 'viewer'
+  inventoryId: number
+}
+
+/** An owned, independent equipment catalog (Slice 16). */
+export interface Inventory {
+  id: number
+  name: string
+  sourceFilename?: string
+  createdAt: string
 }
 
 export interface CurrentUser {

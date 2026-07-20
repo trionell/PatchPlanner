@@ -300,7 +300,7 @@ func TestFixtureModes(t *testing.T) {
 
 	// Re-importing the price list must leave modes untouched (FR-011): the
 	// fixture model is matched by name, never deleted and recreated.
-	if err := UpsertInventory(database,
+	if err := UpsertInventory(database, c.InventoryID,
 		[]domain.InventoryCategory{{Name: "Ljusarmaturer", CategoryType: "lighting"}},
 		[]domain.InventoryItem{{CategoryName: "Ljusarmaturer", Name: "Robe LEDWash 600", QuantityAvailable: 6, PriceExVAT: 250, XLSXRow: 20}},
 	); err != nil {

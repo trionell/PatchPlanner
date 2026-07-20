@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { LayoutGrid, Table2 } from 'lucide-react'
 import { getAudioPatch } from '../../api/audioPatch'
-import { listInventoryItems } from '../../api/inventory'
+import { listEventInventoryItems } from '../../api/inventory'
 import { listOwnedItems } from '../../api/owned'
 import { nodeName, nodeZone, type PortRef } from '../../lib/inputGraph'
 import { itemLabel } from '../../lib/utils'
@@ -23,9 +23,18 @@ import { StageboxMultiSection } from './StageboxMultiSection'
 export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number; readOnly?: boolean }) {
   const queryClient = useQueryClient()
   const audioQuery = useQuery({ queryKey: ['audio-patch', eventId], queryFn: ({ signal }) => getAudioPatch(eventId, signal) })
-  const inventoryQuery = useQuery({ queryKey: ['inventory-audio-items'], queryFn: () => listInventoryItems({ categoryType: 'audio' }) })
-  const cableQuery = useQuery({ queryKey: ['inventory-items', 'role', 'cable'], queryFn: () => listInventoryItems({ role: 'cable' }) })
-  const standQuery = useQuery({ queryKey: ['inventory-items', 'role', 'stand'], queryFn: () => listInventoryItems({ role: 'stand' }) })
+  const inventoryQuery = useQuery({
+    queryKey: ['inventory-audio-items', eventId],
+    queryFn: () => listEventInventoryItems(eventId, { categoryType: 'audio' }),
+  })
+  const cableQuery = useQuery({
+    queryKey: ['inventory-items', eventId, 'role', 'cable'],
+    queryFn: () => listEventInventoryItems(eventId, { role: 'cable' }),
+  })
+  const standQuery = useQuery({
+    queryKey: ['inventory-items', eventId, 'role', 'stand'],
+    queryFn: () => listEventInventoryItems(eventId, { role: 'stand' }),
+  })
   const ownedQuery = useQuery({ queryKey: ['owned-items'], queryFn: listOwnedItems })
 
   const [viewMode, setViewMode] = useState<'graph' | 'table'>('graph')

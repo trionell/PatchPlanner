@@ -1,16 +1,34 @@
 package db
 
-import "testing"
+import (
+	"database/sql"
+	"testing"
+
+	"github.com/trionell/patchplanner/internal/domain"
+)
+
+// createTestEventForOwner is this file's local convenience wrapper —
+// every test here needs a fresh event owned by a specific test user,
+// which now also requires an inventory to bind to.
+func createTestEventForOwner(t *testing.T, database *sql.DB, ownerID int64) domain.Event {
+	t.Helper()
+	inventory, err := CreateInventory(database, ownerID, "Test Inventory")
+	if err != nil {
+		t.Fatalf("create inventory: %v", err)
+	}
+	event, err := CreateEvent(database, testEvent("Gig"), ownerID, inventory.ID)
+	if err != nil {
+		t.Fatalf("create event: %v", err)
+	}
+	return event
+}
 
 func TestListEventMembersOwnerFirst(t *testing.T) {
 	database := openTestDB(t)
 	owner, _ := UpsertUserByGoogleSub(database, "owner-sub", "owner@example.com", "Owner", "")
 	contributor, _ := UpsertUserByGoogleSub(database, "contributor-sub", "contributor@example.com", "Contributor", "")
 	viewer, _ := UpsertUserByGoogleSub(database, "viewer-sub", "viewer@example.com", "Viewer", "")
-	event, err := CreateEvent(database, testEvent("Gig"), owner.ID)
-	if err != nil {
-		t.Fatalf("create event: %v", err)
-	}
+	event := createTestEventForOwner(t, database, owner.ID)
 	if err := UpsertEventMembership(database, event.ID, contributor.ID, "contributor", owner.ID); err != nil {
 		t.Fatalf("invite contributor: %v", err)
 	}
@@ -34,10 +52,7 @@ func TestUpsertEventMembershipIsIdempotent(t *testing.T) {
 	database := openTestDB(t)
 	owner, _ := UpsertUserByGoogleSub(database, "owner-sub", "owner@example.com", "Owner", "")
 	person, _ := UpsertUserByGoogleSub(database, "person-sub", "person@example.com", "Person", "")
-	event, err := CreateEvent(database, testEvent("Gig"), owner.ID)
-	if err != nil {
-		t.Fatalf("create event: %v", err)
-	}
+	event := createTestEventForOwner(t, database, owner.ID)
 
 	if err := UpsertEventMembership(database, event.ID, person.ID, "viewer", owner.ID); err != nil {
 		t.Fatalf("invite as viewer: %v", err)
@@ -69,10 +84,7 @@ func TestRemoveEventMembership(t *testing.T) {
 	database := openTestDB(t)
 	owner, _ := UpsertUserByGoogleSub(database, "owner-sub", "owner@example.com", "Owner", "")
 	person, _ := UpsertUserByGoogleSub(database, "person-sub", "person@example.com", "Person", "")
-	event, err := CreateEvent(database, testEvent("Gig"), owner.ID)
-	if err != nil {
-		t.Fatalf("create event: %v", err)
-	}
+	event := createTestEventForOwner(t, database, owner.ID)
 	if err := UpsertEventMembership(database, event.ID, person.ID, "viewer", owner.ID); err != nil {
 		t.Fatalf("invite: %v", err)
 	}

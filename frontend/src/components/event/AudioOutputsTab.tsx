@@ -15,7 +15,7 @@ import {
   updateStagebox,
   updateStageMulti,
 } from '../../api/audioPatch'
-import { listInventoryItems } from '../../api/inventory'
+import { listEventInventoryItems } from '../../api/inventory'
 import { listOwnedItems } from '../../api/owned'
 import { useDraftState } from '../../hooks/useDraftState'
 import { useReferenceData } from '../../hooks/useReferenceData'
@@ -60,8 +60,14 @@ function parsePortKey(key: string): { kind: PortRef['kind']; id: number; port: n
 export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number; readOnly?: boolean }) {
   const queryClient = useQueryClient()
   const audioQuery = useQuery({ queryKey: ['audio-patch', eventId], queryFn: ({ signal }) => getAudioPatch(eventId, signal) })
-  const inventoryQuery = useQuery({ queryKey: ['inventory-audio-items'], queryFn: () => listInventoryItems({ categoryType: 'audio' }) })
-  const cableQuery = useQuery({ queryKey: ['inventory-items', 'role', 'cable'], queryFn: () => listInventoryItems({ role: 'cable' }) })
+  const inventoryQuery = useQuery({
+    queryKey: ['inventory-audio-items', eventId],
+    queryFn: () => listEventInventoryItems(eventId, { categoryType: 'audio' }),
+  })
+  const cableQuery = useQuery({
+    queryKey: ['inventory-items', eventId, 'role', 'cable'],
+    queryFn: () => listEventInventoryItems(eventId, { role: 'cable' }),
+  })
   const ownedQuery = useQuery({ queryKey: ['owned-items'], queryFn: listOwnedItems })
 
   const [outputs, setOutputs] = useDraftState(audioQuery.data, (data) => data.outputs, [] as AudioPatchOutput[])

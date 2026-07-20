@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -106,10 +107,12 @@ func TestReferenceValueEndpoints(t *testing.T) {
 
 func TestFixtureModeEndpoints(t *testing.T) {
 	server, database := newTestServer(t)
+	inventoryID := testOwnerInventoryID(t, server.URL)
 	itemID := seedItem(t, database, "Robe LEDWash 600", 6, 250)
-	modesURL := server.URL + "/inventory/items/" + itoa(itemID) + "/fixture-modes"
+	inventoryURL := fmt.Sprintf("%s/inventories/%d", server.URL, inventoryID)
+	modesURL := inventoryURL + "/items/" + itoa(itemID) + "/fixture-modes"
 
-	if status, raw := doJSON(t, http.MethodGet, server.URL+"/inventory/items/99999/fixture-modes", nil); status != http.StatusNotFound {
+	if status, raw := doJSON(t, http.MethodGet, inventoryURL+"/items/99999/fixture-modes", nil); status != http.StatusNotFound {
 		t.Fatalf("unknown item: expected 404, got %d: %s", status, raw)
 	}
 	if status, raw := doJSON(t, http.MethodPost, modesURL, map[string]any{"name": "Bad", "channel_count": 0}); status != http.StatusBadRequest {
@@ -134,7 +137,7 @@ func TestFixtureModeEndpoints(t *testing.T) {
 		t.Fatalf("expected [Extended], got %+v", modes)
 	}
 
-	status, raw = doJSON(t, http.MethodPatch, server.URL+"/fixture-modes/"+itoa(extended.ID), map[string]any{"name": "Extended", "channel_count": 40})
+	status, raw = doJSON(t, http.MethodPatch, inventoryURL+"/fixture-modes/"+itoa(extended.ID), map[string]any{"name": "Extended", "channel_count": 40})
 	if status != http.StatusOK {
 		t.Fatalf("update mode: expected 200, got %d: %s", status, raw)
 	}
@@ -142,10 +145,10 @@ func TestFixtureModeEndpoints(t *testing.T) {
 		t.Errorf("expected channel_count 40, got %+v", updated)
 	}
 
-	if status, _ := doJSON(t, http.MethodDelete, server.URL+"/fixture-modes/"+itoa(extended.ID), nil); status != http.StatusNoContent {
+	if status, _ := doJSON(t, http.MethodDelete, inventoryURL+"/fixture-modes/"+itoa(extended.ID), nil); status != http.StatusNoContent {
 		t.Fatalf("delete mode: expected 204, got %d", status)
 	}
-	if status, _ := doJSON(t, http.MethodDelete, server.URL+"/fixture-modes/"+itoa(extended.ID), nil); status != http.StatusNotFound {
+	if status, _ := doJSON(t, http.MethodDelete, inventoryURL+"/fixture-modes/"+itoa(extended.ID), nil); status != http.StatusNotFound {
 		t.Fatalf("delete twice: expected 404, got %d", status)
 	}
 }

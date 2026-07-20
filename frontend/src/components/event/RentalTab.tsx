@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Cable, Plus, Trash2 } from 'lucide-react'
-import { listInventoryItems } from '../../api/inventory'
+import { listEventInventoryItems } from '../../api/inventory'
 import { deleteManualRental, getRentalExportReport, getRentalSummary, putManualRental, rentalExportUrl } from '../../api/rentals'
 import type { ManualRentalRequest, UnplacedLine } from '../../types'
 import { Badge } from '../ui/Badge'
@@ -16,7 +16,7 @@ const emptyManualDraft = { itemId: '', quantityAudio: 0, quantityLighting: 0, no
 export function RentalTab({ eventId, readOnly = false }: { eventId: number; readOnly?: boolean }) {
   const queryClient = useQueryClient()
   const rentalQuery = useQuery({ queryKey: ['rental-summary', eventId], queryFn: () => getRentalSummary(eventId) })
-  const allInventoryQuery = useQuery({ queryKey: ['inventory-all-items'], queryFn: () => listInventoryItems() })
+  const allInventoryQuery = useQuery({ queryKey: ['inventory-all-items', eventId], queryFn: () => listEventInventoryItems(eventId) })
 
   const [manualDraft, setManualDraft] = useState(emptyManualDraft)
   const [unplacedLines, setUnplacedLines] = useState<UnplacedLine[]>([])

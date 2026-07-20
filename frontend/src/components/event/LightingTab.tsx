@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Copy, Link2, Plus, Sparkles, Trash2 } from 'lucide-react'
-import { listInventoryItems } from '../../api/inventory'
+import { getEvent } from '../../api/events'
+import { listEventInventoryItems } from '../../api/inventory'
+import { listFixtureModes } from '../../api/inventories'
 import {
   autoAssignDMX,
   bulkAddFixtures,
@@ -10,7 +12,6 @@ import {
   getLightingRig,
   updateLightingFixture,
 } from '../../api/lighting'
-import { listFixtureModes } from '../../api/reference'
 import { useDraftState } from '../../hooks/useDraftState'
 import { useReferenceData } from '../../hooks/useReferenceData'
 import { duplicateFixtureNumbers, nextFixtureNumber } from '../../lib/lightingRig'
@@ -40,7 +41,12 @@ const emptyBulkDraft = {
 export function LightingTab({ eventId, readOnly = false }: { eventId: number; readOnly?: boolean }) {
   const queryClient = useQueryClient()
   const lightingQuery = useQuery({ queryKey: ['lighting-rig', eventId], queryFn: () => getLightingRig(eventId) })
-  const lightingInventoryQuery = useQuery({ queryKey: ['inventory-lighting'], queryFn: () => listInventoryItems({ categoryType: 'lighting' }) })
+  const eventQuery = useQuery({ queryKey: ['event', eventId], queryFn: () => getEvent(eventId) })
+  const inventoryId = eventQuery.data?.inventoryId
+  const lightingInventoryQuery = useQuery({
+    queryKey: ['inventory-lighting', eventId],
+    queryFn: () => listEventInventoryItems(eventId, { categoryType: 'lighting' }),
+  })
   const { options } = useReferenceData()
 
   const [fixtures, setFixtures] = useDraftState(lightingQuery.data, (data) => data.fixtures, [] as LightingFixture[])
@@ -97,8 +103,8 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
   const draftItemId = toOptionalNumber(fixtureDraft.inventory_item_id)
   const draftModesQuery = useQuery({
     queryKey: ['fixture-modes', draftItemId],
-    queryFn: () => listFixtureModes(draftItemId!),
-    enabled: fixtureDialogOpen && draftItemId !== undefined,
+    queryFn: () => listFixtureModes(inventoryId!, draftItemId!),
+    enabled: fixtureDialogOpen && draftItemId !== undefined && inventoryId !== undefined,
   })
   const draftModes = fixtureDialogOpen && draftItemId !== undefined ? draftModesQuery.data ?? [] : []
 
@@ -106,8 +112,8 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
   const bulkItemId = toOptionalNumber(bulkDraft.inventory_item_id)
   const bulkModesQuery = useQuery({
     queryKey: ['fixture-modes', bulkItemId],
-    queryFn: () => listFixtureModes(bulkItemId!),
-    enabled: bulkDialogOpen && bulkItemId !== undefined,
+    queryFn: () => listFixtureModes(inventoryId!, bulkItemId!),
+    enabled: bulkDialogOpen && bulkItemId !== undefined && inventoryId !== undefined,
   })
   const bulkModes = bulkDialogOpen && bulkItemId !== undefined ? bulkModesQuery.data ?? [] : []
 
@@ -199,6 +205,7 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
                       <TableCell>
                         <FixtureModeCell
                           fixture={fixture}
+                          inventoryId={inventoryId}
                           onApply={(mode) => {
                             updateDraft(index, 'dmx_channel_mode', mode.name)
                             updateDraft(index, 'dmx_channel_count', mode.channel_count)
@@ -412,12 +419,14 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
  */
 function FixtureModeCell({
   fixture,
+  inventoryId,
   onApply,
   onModeText,
   onPersist,
   readOnly = false,
 }: {
   fixture: LightingFixture
+  inventoryId: number | undefined
   onApply: (mode: FixtureMode) => void
   onModeText: (value: string) => void
   onPersist: () => void
@@ -426,8 +435,8 @@ function FixtureModeCell({
   const itemId = fixture.inventory_item_id
   const modesQuery = useQuery({
     queryKey: ['fixture-modes', itemId],
-    queryFn: () => listFixtureModes(itemId!),
-    enabled: !!itemId,
+    queryFn: () => listFixtureModes(inventoryId!, itemId!),
+    enabled: !!itemId && inventoryId !== undefined,
   })
   const modes = modesQuery.data ?? []
   const selected = modes.find((m) => m.name === fixture.dmx_channel_mode && m.channel_count === fixture.dmx_channel_count)
