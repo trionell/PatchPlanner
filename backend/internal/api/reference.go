@@ -24,6 +24,10 @@ type ReferenceHandler struct {
 	DB *sql.DB
 }
 
+// Register wires the event-scoped reference-data routes inside the
+// existing /events/{eventID} group, behind RequireEventAccess — no new
+// middleware (any role reads, owner/contributor mutates, exactly like
+// every other mutating event-scoped resource; Slice 17 research.md R3).
 func (h ReferenceHandler) Register(r chi.Router) {
 	r.Route("/reference-data", func(r chi.Router) {
 		r.Get("/", h.getReferenceData)
@@ -66,6 +70,10 @@ func requireVocabulary(w http.ResponseWriter, r *http.Request) (string, bool) {
 }
 
 func (h ReferenceHandler) createValue(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	vocabulary, ok := requireVocabulary(w, r)
 	if !ok {
 		return
@@ -81,7 +89,7 @@ func (h ReferenceHandler) createValue(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "value and label are required")
 		return
 	}
-	created, err := dbstore.CreateReferenceValue(h.DB, vocabulary, payload)
+	created, err := dbstore.CreateReferenceValue(h.DB, eventID, vocabulary, payload)
 	if err != nil {
 		if errors.Is(err, dbstore.ErrDuplicate) {
 			writeError(w, http.StatusConflict, err.Error())
@@ -94,6 +102,10 @@ func (h ReferenceHandler) createValue(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h ReferenceHandler) updateValue(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	vocabulary, ok := requireVocabulary(w, r)
 	if !ok {
 		return
@@ -112,7 +124,7 @@ func (h ReferenceHandler) updateValue(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "label is required")
 		return
 	}
-	updated, err := dbstore.UpdateReferenceValueLabel(h.DB, vocabulary, valueID, label)
+	updated, err := dbstore.UpdateReferenceValueLabel(h.DB, eventID, vocabulary, valueID, label)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			writeError(w, http.StatusNotFound, "reference value not found")
@@ -125,6 +137,10 @@ func (h ReferenceHandler) updateValue(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h ReferenceHandler) deleteValue(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	vocabulary, ok := requireVocabulary(w, r)
 	if !ok {
 		return
@@ -133,7 +149,7 @@ func (h ReferenceHandler) deleteValue(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := dbstore.DeleteReferenceValue(h.DB, vocabulary, valueID); err != nil {
+	if err := dbstore.DeleteReferenceValue(h.DB, eventID, vocabulary, valueID); err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
 			writeError(w, http.StatusNotFound, "reference value not found")
@@ -148,7 +164,11 @@ func (h ReferenceHandler) deleteValue(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h ReferenceHandler) getReferenceData(w http.ResponseWriter, r *http.Request) {
-	data, err := dbstore.ListReferenceData(h.DB)
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
+	data, err := dbstore.ListReferenceData(h.DB, eventID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

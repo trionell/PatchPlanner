@@ -17,11 +17,12 @@ var Vocabularies = []string{
 	"channel_colors",
 }
 
-// ReferenceValue is one choice within a vocabulary. Value is the stable
-// token stored on planning rows; Label is the human-facing text and the only
-// editable part after creation.
+// ReferenceValue is one choice within a vocabulary, scoped to one event.
+// Value is the stable token stored on planning rows; Label is the
+// human-facing text and the only editable part after creation.
 type ReferenceValue struct {
 	ID         int64  `json:"id"`
+	EventID    int64  `json:"eventId"`
 	Vocabulary string `json:"vocabulary"`
 	Value      string `json:"value"`
 	Label      string `json:"label"`
@@ -36,6 +37,17 @@ type ReferenceData map[string][]ReferenceValue
 type ReferenceValueRequest struct {
 	Value string `json:"value"`
 	Label string `json:"label"`
+}
+
+// ReferenceTemplateValue is one choice within a vocabulary, scoped to one
+// user's personal template (Slice 17) — the seed copied into a new
+// event's own ReferenceValue rows at creation time, never itself
+// referenced by any planning row.
+type ReferenceTemplateValue struct {
+	ID         int64  `json:"id"`
+	Vocabulary string `json:"vocabulary"`
+	Value      string `json:"value"`
+	Label      string `json:"label"`
 }
 
 // FixtureMode is a DMX operating mode of one catalog fixture model. Picking

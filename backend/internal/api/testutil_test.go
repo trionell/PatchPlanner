@@ -101,9 +101,13 @@ func seedSession(t *testing.T, database *sql.DB) string {
 		t.Fatalf("seed user: %v", err)
 	}
 	// Mirrors what a real login does (auth.go's callback) — every test
-	// event created via seedEvent needs an inventory to bind to.
+	// event created via seedEvent needs an inventory to bind to, and a
+	// personal reference template to copy its vocabulary from.
 	if err := db.EnsureUserHasInventory(database, user.ID); err != nil {
 		t.Fatalf("seed test owner inventory: %v", err)
+	}
+	if err := db.EnsureUserHasReferenceTemplate(database, user.ID); err != nil {
+		t.Fatalf("seed test owner reference template: %v", err)
 	}
 	token, err := db.CreateSession(database, user.ID, time.Hour)
 	if err != nil {

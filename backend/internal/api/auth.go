@@ -116,6 +116,12 @@ func (h AuthHandler) callback(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "ensure user inventory")
 		return
 	}
+	// Idempotent copy-from-seed, not a claim — every user gets their own
+	// personal vocabulary template (Slice 17 research.md R5).
+	if err := db.EnsureUserHasReferenceTemplate(h.DB, user.ID); err != nil {
+		writeError(w, http.StatusInternalServerError, "ensure user reference template")
+		return
+	}
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     middleware.SessionCookieName,

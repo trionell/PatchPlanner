@@ -8,7 +8,7 @@ const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/events', label: 'Events', icon: CalendarRange },
   { to: '/inventories', label: 'Inventories', icon: Package2 },
-  { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/my-defaults', label: 'My Defaults', icon: Settings },
 ]
 
 function getPageTitle(pathname: string) {

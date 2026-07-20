@@ -14,8 +14,9 @@ func itoa(id int64) string { return strconv.FormatInt(id, 10) }
 
 func TestGetReferenceData(t *testing.T) {
 	server, _ := newTestServer(t)
+	eventID := seedEvent(t, server.URL)
 
-	status, raw := doJSON(t, http.MethodGet, server.URL+"/reference-data", nil)
+	status, raw := doJSON(t, http.MethodGet, fmt.Sprintf("%s/events/%d/reference-data", server.URL, eventID), nil)
 	if status != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", status, raw)
 	}
@@ -47,12 +48,14 @@ func TestGetReferenceData(t *testing.T) {
 
 func TestReferenceValueEndpoints(t *testing.T) {
 	server, database := newTestServer(t)
+	eventID := seedEvent(t, server.URL)
+	eventURL := fmt.Sprintf("%s/events/%d/reference-data", server.URL, eventID)
 	// preamp_connectors (Slice 12: input_sources.connector_type is its real
 	// home now, reference.go's vocabularyUsage) is used here rather than
 	// signal_cable_types, which no longer tracks usage at all.
-	valuesURL := server.URL + "/reference-data/preamp_connectors/values"
+	valuesURL := eventURL + "/preamp_connectors/values"
 
-	if status, raw := doJSON(t, http.MethodPost, server.URL+"/reference-data/starships/values", map[string]any{"value": "x", "label": "X"}); status != http.StatusNotFound {
+	if status, raw := doJSON(t, http.MethodPost, eventURL+"/starships/values", map[string]any{"value": "x", "label": "X"}); status != http.StatusNotFound {
 		t.Fatalf("unknown vocabulary: expected 404, got %d: %s", status, raw)
 	}
 	if status, raw := doJSON(t, http.MethodPost, valuesURL, map[string]any{"value": " ", "label": "X"}); status != http.StatusBadRequest {
@@ -81,8 +84,8 @@ func TestReferenceValueEndpoints(t *testing.T) {
 		t.Fatalf("rename unknown id: expected 404, got %d: %s", status, raw)
 	}
 
-	// A planning row using the value blocks deletion with 409.
-	eventID := seedEvent(t, server.URL)
+	// A planning row using the value, in the same event, blocks deletion
+	// with 409.
 	if _, err := database.Exec(`INSERT INTO input_sources (event_id, name, kind, connector_type, width) VALUES (?, 'Test', 'line', 'dmx5', 'mono')`, eventID); err != nil {
 		t.Fatalf("insert referencing input source: %v", err)
 	}

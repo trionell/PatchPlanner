@@ -108,6 +108,15 @@ func CreateEvent(db *sql.DB, event domain.Event, ownerUserID, inventoryID int64)
 	if _, err := tx.Exec(`INSERT INTO mixer_groups (event_id, name, is_builtin) VALUES (?, 'LR', 1)`, id); err != nil {
 		return domain.Event{}, fmt.Errorf("seed LR group: %w", err)
 	}
+	// The event's vocabulary starts as a one-time snapshot of the
+	// creator's current personal template — a flat copy with no
+	// id-remapping, since nothing references reference_values.id by
+	// foreign key (Slice 17 research.md R1).
+	if _, err := tx.Exec(`
+		INSERT INTO reference_values (event_id, vocabulary, value, label)
+		SELECT ?, vocabulary, value, label FROM reference_templates WHERE owner_user_id = ?`, id, ownerUserID); err != nil {
+		return domain.Event{}, fmt.Errorf("seed event vocabulary from template: %w", err)
+	}
 	if err := tx.Commit(); err != nil {
 		return domain.Event{}, fmt.Errorf("create event: %w", err)
 	}

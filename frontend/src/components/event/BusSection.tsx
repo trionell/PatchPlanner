@@ -53,6 +53,7 @@ export function BusSection({
   return (
     <div className="mb-6 grid gap-4 lg:grid-cols-2">
       <BusManagerCard
+        eventId={eventId}
         title="Groups"
         noun="group"
         buses={groups}
@@ -64,6 +65,7 @@ export function BusSection({
         readOnly={readOnly}
       />
       <BusManagerCard
+        eventId={eventId}
         title="DCAs"
         noun="DCA"
         buses={dcas}
@@ -79,6 +81,7 @@ export function BusSection({
 }
 
 function BusManagerCard({
+  eventId,
   title,
   noun,
   buses,
@@ -89,6 +92,7 @@ function BusManagerCard({
   error,
   readOnly = false,
 }: {
+  eventId: number
   title: string
   noun: string
   buses: Bus[]
@@ -124,7 +128,7 @@ function BusManagerCard({
             {readOnly ? (
               <span aria-hidden className="h-4 w-4 shrink-0 rounded border border-zinc-600" style={bus.color ? { backgroundColor: bus.color } : undefined} />
             ) : (
-              <ColorSelect value={bus.color} onChange={(color) => onUpdate(bus.id, { name: bus.name, color })} />
+              <ColorSelect eventId={eventId} value={bus.color} onChange={(color) => onUpdate(bus.id, { name: bus.name, color })} />
             )}
             {bus.is_builtin ? (
               <>
@@ -154,7 +158,7 @@ function BusManagerCard({
         ))}
         {!readOnly && (
           <div className="flex items-center gap-2 pt-2">
-            <ColorSelect value={draftColor || undefined} onChange={setDraftColor} />
+            <ColorSelect eventId={eventId} value={draftColor || undefined} onChange={setDraftColor} />
             <Input
               value={draftName}
               placeholder={`New ${noun} name`}

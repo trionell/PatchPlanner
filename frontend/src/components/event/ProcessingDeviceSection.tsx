@@ -38,7 +38,7 @@ export function ProcessingDeviceSection({
   readOnly?: boolean
 }) {
   const queryClient = useQueryClient()
-  const { options } = useReferenceData()
+  const { options } = useReferenceData(eventId)
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['audio-patch', eventId] })
     await queryClient.invalidateQueries({ queryKey: ['rental-summary', eventId] })

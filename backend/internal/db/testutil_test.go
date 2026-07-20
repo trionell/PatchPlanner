@@ -114,6 +114,9 @@ func createTestEvent(t *testing.T, database *sql.DB) int64 {
 	if err != nil {
 		t.Fatalf("create test inventory: %v", err)
 	}
+	if err := EnsureUserHasReferenceTemplate(database, owner.ID); err != nil {
+		t.Fatalf("ensure test owner reference template: %v", err)
+	}
 	event, err := CreateEvent(database, domain.Event{Name: "Test Gig"}, owner.ID, inventory.ID)
 	if err != nil {
 		t.Fatalf("create event: %v", err)

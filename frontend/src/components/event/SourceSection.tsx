@@ -45,7 +45,7 @@ export function SourceSection({
 }) {
   const queryClient = useQueryClient()
   const colorContext = { channels, devices, stageboxes, stageMultis, cables }
-  const { options } = useReferenceData()
+  const { options } = useReferenceData(eventId)
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['audio-patch', eventId] })
     await queryClient.invalidateQueries({ queryKey: ['rental-summary', eventId] })

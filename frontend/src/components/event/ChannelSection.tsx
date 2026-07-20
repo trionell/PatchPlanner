@@ -175,7 +175,7 @@ export function ChannelSection({
                     {readOnly ? (
                       <span aria-hidden className="inline-block h-4 w-4 rounded border border-zinc-600" style={channel.color ? { backgroundColor: channel.color } : undefined} />
                     ) : (
-                      <ColorSelect value={channel.color} onChange={(color) => saveField(channel, { color })} />
+                      <ColorSelect eventId={eventId} value={channel.color} onChange={(color) => saveField(channel, { color })} />
                     )}
                   </TableCell>
                   <TableCell>

@@ -159,6 +159,79 @@ func TestClaimOwnerlessEvents(t *testing.T) {
 	}
 }
 
+// TestCreateEventCopiesTemplateAsOneTimeSnapshot covers Slice 17 US2: the
+// event's vocabulary starts as a copy of the creator's template at that
+// exact moment, and from then on neither side ever affects the other.
+func TestCreateEventCopiesTemplateAsOneTimeSnapshot(t *testing.T) {
+	database := openTestDB(t)
+	owner, err := UpsertUserByGoogleSub(database, "owner-sub", "owner@example.com", "Owner", "")
+	if err != nil {
+		t.Fatalf("seed owner: %v", err)
+	}
+	inventory, err := CreateInventory(database, owner.ID, "Test Inventory")
+	if err != nil {
+		t.Fatalf("create inventory: %v", err)
+	}
+	if err := EnsureUserHasReferenceTemplate(database, owner.ID); err != nil {
+		t.Fatalf("ensure owner reference template: %v", err)
+	}
+	templateBefore, err := ListReferenceTemplate(database, owner.ID)
+	if err != nil {
+		t.Fatalf("list template: %v", err)
+	}
+	templateValue := templateBefore["preamp_connectors"][0]
+
+	event, err := CreateEvent(database, testEvent("Gig"), owner.ID, inventory.ID)
+	if err != nil {
+		t.Fatalf("create event: %v", err)
+	}
+	eventData, err := ListReferenceData(database, event.ID)
+	if err != nil {
+		t.Fatalf("list event data: %v", err)
+	}
+	if len(eventData["preamp_connectors"]) != len(templateBefore["preamp_connectors"]) {
+		t.Fatalf("event vocabulary size = %d, want %d (full copy of template at creation)", len(eventData["preamp_connectors"]), len(templateBefore["preamp_connectors"]))
+	}
+	var eventValueID int64
+	for _, v := range eventData["preamp_connectors"] {
+		if v.Value == templateValue.Value {
+			eventValueID = v.ID
+		}
+	}
+	if eventValueID == 0 {
+		t.Fatalf("event's copy of %q not found", templateValue.Value)
+	}
+
+	// Editing the template afterward never changes the already-created
+	// event.
+	if _, err := UpdateReferenceTemplateValueLabel(database, owner.ID, "preamp_connectors", templateValue.ID, "Edited after event creation"); err != nil {
+		t.Fatalf("edit template after event creation: %v", err)
+	}
+	eventDataAfter, err := ListReferenceData(database, event.ID)
+	if err != nil {
+		t.Fatalf("list event data after template edit: %v", err)
+	}
+	for _, v := range eventDataAfter["preamp_connectors"] {
+		if v.Label == "Edited after event creation" {
+			t.Errorf("template edit leaked into the already-created event: %+v", v)
+		}
+	}
+
+	// Editing the event's vocabulary never changes the creator's template.
+	if _, err := UpdateReferenceValueLabel(database, event.ID, "preamp_connectors", eventValueID, "Edited on the event"); err != nil {
+		t.Fatalf("edit event vocabulary: %v", err)
+	}
+	templateAfter, err := ListReferenceTemplate(database, owner.ID)
+	if err != nil {
+		t.Fatalf("list template after event edit: %v", err)
+	}
+	for _, v := range templateAfter["preamp_connectors"] {
+		if v.Label == "Edited on the event" {
+			t.Errorf("event edit leaked into the creator's template: %+v", v)
+		}
+	}
+}
+
 func testEvent(name string) domain.Event {
 	return domain.Event{Name: name}
 }

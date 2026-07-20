@@ -47,7 +47,7 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
     queryKey: ['inventory-lighting', eventId],
     queryFn: () => listEventInventoryItems(eventId, { categoryType: 'lighting' }),
   })
-  const { options } = useReferenceData()
+  const { options } = useReferenceData(eventId)
 
   const [fixtures, setFixtures] = useDraftState(lightingQuery.data, (data) => data.fixtures, [] as LightingFixture[])
   const [fixtureDialogOpen, setFixtureDialogOpen] = useState(false)

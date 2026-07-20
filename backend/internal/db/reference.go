@@ -18,8 +18,15 @@ var ErrInUse = errors.New("in use")
 
 // vocabularyUsage maps each vocabulary to the planning columns that store
 // its values. Delete protection probes exactly these columns; keep in sync
-// with data-model.md §Usage map.
-var vocabularyUsage = map[string][]struct{ table, column string }{
+// with data-model.md §Usage map. join and eventIDColumn are only set when
+// table has no event_id column of its own — join is an extra JOIN clause
+// and eventIDColumn the qualified column to reach event_id through it;
+// left empty, countReferenceUsage assumes "<table>.event_id" directly.
+var vocabularyUsage = map[string][]struct {
+	table, column string
+	join          string
+	eventIDColumn string
+}{
 	// signal_types (mic/line/di/return/aux) had no real home left after
 	// Slice 12: InputSource.Kind is a Go-validated "mic"/"line" enum, not a
 	// reference vocabulary (the input graph's mirror of ValidWidths etc.) —
@@ -27,7 +34,7 @@ var vocabularyUsage = map[string][]struct{ table, column string }{
 	// preamp_connectors moved from audio_patch_inputs.preamp_connector
 	// (flat model) to input_sources.connector_type (Slice 12's graph) — a
 	// Source's declared connector is this vocabulary's real home today.
-	"preamp_connectors": {{"input_sources", "connector_type"}},
+	"preamp_connectors": {{table: "input_sources", column: "connector_type"}},
 	// signal_cable_types and mic_stands (both audio_patch_inputs legacy
 	// pre-catalog fallback text) had no replacement introduced in Slice 12
 	// — a cable is now always a catalog input_cables.cable_item_id pick,
@@ -38,9 +45,15 @@ var vocabularyUsage = map[string][]struct{ table, column string }{
 	// output_devices' per-side connector type (Slice 11's graph, research.md
 	// R2/R7) — a device's declared input/output connector is this
 	// vocabulary's real home today.
-	"speaker_cable_types": {{"output_devices", "input_connector_type"}, {"output_devices", "output_connector_type"}},
-	"output_types":        {{"audio_patch_outputs", "output_type"}},
-	"power_connectors":    {{"lighting_fixtures", "power_connector_in"}, {"lighting_fixtures", "power_connector_out"}},
+	"speaker_cable_types": {{table: "output_devices", column: "input_connector_type"}, {table: "output_devices", column: "output_connector_type"}},
+	"output_types":        {{table: "audio_patch_outputs", column: "output_type"}},
+	// lighting_fixtures carries no event_id column of its own — only its
+	// parent lighting_rigs does — so this entry needs a join (Slice 17
+	// research.md R6), unlike every other entry above.
+	"power_connectors": {
+		{table: "lighting_fixtures", column: "power_connector_in", join: "JOIN lighting_rigs g ON g.id = lighting_fixtures.rig_id", eventIDColumn: "g.event_id"},
+		{table: "lighting_fixtures", column: "power_connector_out", join: "JOIN lighting_rigs g ON g.id = lighting_fixtures.rig_id", eventIDColumn: "g.event_id"},
+	},
 	// truss_types lost its consuming column when Slice 13 dropped
 	// truss_sections (plot truss pieces are catalog picks, not typed) —
 	// the vocabulary remains, untracked, like signal_types before it.
@@ -59,16 +72,17 @@ func (e InUseError) Error() string {
 
 func (e InUseError) Is(target error) bool { return target == ErrInUse }
 
-// ListReferenceData returns every vocabulary with its values label-sorted.
-// All vocabularies from domain.Vocabularies are always present, empty ones
-// as empty slices, so consumers never need existence checks.
-func ListReferenceData(database *sql.DB) (domain.ReferenceData, error) {
+// ListReferenceData returns every vocabulary with its values label-sorted,
+// scoped to one event. All vocabularies from domain.Vocabularies are always
+// present, empty ones as empty slices, so consumers never need existence
+// checks.
+func ListReferenceData(database *sql.DB, eventID int64) (domain.ReferenceData, error) {
 	data := make(domain.ReferenceData, len(domain.Vocabularies))
 	for _, vocabulary := range domain.Vocabularies {
 		data[vocabulary] = []domain.ReferenceValue{}
 	}
 
-	rows, err := database.Query(`SELECT id, vocabulary, value, label FROM reference_values ORDER BY vocabulary, label COLLATE NOCASE`)
+	rows, err := database.Query(`SELECT id, event_id, vocabulary, value, label FROM reference_values WHERE event_id = ? ORDER BY vocabulary, label COLLATE NOCASE`, eventID)
 	if err != nil {
 		return nil, fmt.Errorf("list reference values: %w", err)
 	}
@@ -76,7 +90,7 @@ func ListReferenceData(database *sql.DB) (domain.ReferenceData, error) {
 
 	for rows.Next() {
 		var v domain.ReferenceValue
-		if err := rows.Scan(&v.ID, &v.Vocabulary, &v.Value, &v.Label); err != nil {
+		if err := rows.Scan(&v.ID, &v.EventID, &v.Vocabulary, &v.Value, &v.Label); err != nil {
 			return nil, fmt.Errorf("scan reference value: %w", err)
 		}
 		if _, known := data[v.Vocabulary]; !known {
@@ -91,12 +105,13 @@ func ListReferenceData(database *sql.DB) (domain.ReferenceData, error) {
 	return data, nil
 }
 
-// CreateReferenceValue adds a value to a vocabulary. Duplicate values within
-// the vocabulary yield ErrDuplicate. Uniqueness is pre-checked rather than
-// derived from the driver's constraint error: single-user tool, no races.
-func CreateReferenceValue(database *sql.DB, vocabulary string, req domain.ReferenceValueRequest) (domain.ReferenceValue, error) {
+// CreateReferenceValue adds a value to one event's vocabulary. Duplicate
+// values within the same event's vocabulary yield ErrDuplicate. Uniqueness
+// is pre-checked rather than derived from the driver's constraint error:
+// single-user tool, no races.
+func CreateReferenceValue(database *sql.DB, eventID int64, vocabulary string, req domain.ReferenceValueRequest) (domain.ReferenceValue, error) {
 	var exists bool
-	err := database.QueryRow(`SELECT EXISTS(SELECT 1 FROM reference_values WHERE vocabulary = ? AND value = ?)`, vocabulary, req.Value).Scan(&exists)
+	err := database.QueryRow(`SELECT EXISTS(SELECT 1 FROM reference_values WHERE event_id = ? AND vocabulary = ? AND value = ?)`, eventID, vocabulary, req.Value).Scan(&exists)
 	if err != nil {
 		return domain.ReferenceValue{}, fmt.Errorf("check duplicate reference value: %w", err)
 	}
@@ -104,7 +119,7 @@ func CreateReferenceValue(database *sql.DB, vocabulary string, req domain.Refere
 		return domain.ReferenceValue{}, fmt.Errorf("%w: value %q already exists in %s", ErrDuplicate, req.Value, vocabulary)
 	}
 
-	result, err := database.Exec(`INSERT INTO reference_values (vocabulary, value, label) VALUES (?, ?, ?)`, vocabulary, req.Value, req.Label)
+	result, err := database.Exec(`INSERT INTO reference_values (event_id, vocabulary, value, label) VALUES (?, ?, ?, ?)`, eventID, vocabulary, req.Value, req.Label)
 	if err != nil {
 		return domain.ReferenceValue{}, fmt.Errorf("insert reference value: %w", err)
 	}
@@ -112,15 +127,15 @@ func CreateReferenceValue(database *sql.DB, vocabulary string, req domain.Refere
 	if err != nil {
 		return domain.ReferenceValue{}, fmt.Errorf("reference value id: %w", err)
 	}
-	return domain.ReferenceValue{ID: id, Vocabulary: vocabulary, Value: req.Value, Label: req.Label}, nil
+	return domain.ReferenceValue{ID: id, EventID: eventID, Vocabulary: vocabulary, Value: req.Value, Label: req.Label}, nil
 }
 
-// UpdateReferenceValueLabel renames a value's display label. The value token
-// itself is immutable — planning rows store it, so renaming the label never
-// modifies any row. Returns sql.ErrNoRows when the id is not in the
-// vocabulary.
-func UpdateReferenceValueLabel(database *sql.DB, vocabulary string, id int64, label string) (domain.ReferenceValue, error) {
-	result, err := database.Exec(`UPDATE reference_values SET label = ? WHERE id = ? AND vocabulary = ?`, label, id, vocabulary)
+// UpdateReferenceValueLabel renames a value's display label within one
+// event. The value token itself is immutable — planning rows store it, so
+// renaming the label never modifies any row. Returns sql.ErrNoRows when the
+// id is not in that event's vocabulary.
+func UpdateReferenceValueLabel(database *sql.DB, eventID int64, vocabulary string, id int64, label string) (domain.ReferenceValue, error) {
+	result, err := database.Exec(`UPDATE reference_values SET label = ? WHERE id = ? AND event_id = ? AND vocabulary = ?`, label, id, eventID, vocabulary)
 	if err != nil {
 		return domain.ReferenceValue{}, fmt.Errorf("update reference label: %w", err)
 	}
@@ -131,19 +146,20 @@ func UpdateReferenceValueLabel(database *sql.DB, vocabulary string, id int64, la
 	if affected == 0 {
 		return domain.ReferenceValue{}, sql.ErrNoRows
 	}
-	return getReferenceValue(database, vocabulary, id)
+	return getReferenceValue(database, eventID, vocabulary, id)
 }
 
-// DeleteReferenceValue removes a value unless any planning row references it
-// (InUseError, matching ErrInUse). Returns sql.ErrNoRows when the id is not
-// in the vocabulary.
-func DeleteReferenceValue(database *sql.DB, vocabulary string, id int64) error {
-	value, err := getReferenceValue(database, vocabulary, id)
+// DeleteReferenceValue removes a value from one event's vocabulary unless
+// any planning row in that same event references it (InUseError, matching
+// ErrInUse). Returns sql.ErrNoRows when the id is not in that event's
+// vocabulary.
+func DeleteReferenceValue(database *sql.DB, eventID int64, vocabulary string, id int64) error {
+	value, err := getReferenceValue(database, eventID, vocabulary, id)
 	if err != nil {
 		return err
 	}
 
-	count, err := countReferenceUsage(database, vocabulary, value.Value)
+	count, err := countReferenceUsage(database, eventID, vocabulary, value.Value)
 	if err != nil {
 		return err
 	}
@@ -157,10 +173,10 @@ func DeleteReferenceValue(database *sql.DB, vocabulary string, id int64) error {
 	return nil
 }
 
-func getReferenceValue(database *sql.DB, vocabulary string, id int64) (domain.ReferenceValue, error) {
+func getReferenceValue(database *sql.DB, eventID int64, vocabulary string, id int64) (domain.ReferenceValue, error) {
 	var v domain.ReferenceValue
-	err := database.QueryRow(`SELECT id, vocabulary, value, label FROM reference_values WHERE id = ? AND vocabulary = ?`, id, vocabulary).
-		Scan(&v.ID, &v.Vocabulary, &v.Value, &v.Label)
+	err := database.QueryRow(`SELECT id, event_id, vocabulary, value, label FROM reference_values WHERE id = ? AND event_id = ? AND vocabulary = ?`, id, eventID, vocabulary).
+		Scan(&v.ID, &v.EventID, &v.Vocabulary, &v.Value, &v.Label)
 	if err != nil {
 		return domain.ReferenceValue{}, err
 	}
@@ -266,14 +282,18 @@ func checkModeNameFree(database *sql.DB, itemID int64, name string, excludeID in
 	return nil
 }
 
-func countReferenceUsage(database *sql.DB, vocabulary, value string) (int, error) {
+func countReferenceUsage(database *sql.DB, eventID int64, vocabulary, value string) (int, error) {
 	total := 0
 	for _, usage := range vocabularyUsage[vocabulary] {
-		// Table and column names come from the static usage map above, never
-		// from input.
-		query := fmt.Sprintf(`SELECT COUNT(*) FROM %s WHERE %s = ?`, usage.table, usage.column)
+		// Table/column/join names come from the static usage map above,
+		// never from input.
+		eventIDColumn := usage.eventIDColumn
+		if eventIDColumn == "" {
+			eventIDColumn = usage.table + ".event_id"
+		}
+		query := fmt.Sprintf(`SELECT COUNT(*) FROM %s %s WHERE %s.%s = ? AND %s = ?`, usage.table, usage.join, usage.table, usage.column, eventIDColumn)
 		var count int
-		if err := database.QueryRow(query, value).Scan(&count); err != nil {
+		if err := database.QueryRow(query, value, eventID).Scan(&count); err != nil {
 			return 0, fmt.Errorf("count usage in %s.%s: %w", usage.table, usage.column, err)
 		}
 		total += count

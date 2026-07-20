@@ -17,7 +17,7 @@ An AVL (Audio, Video, Lighting) event planning tool for live productions. Plan p
 - **Rental Order** — Per-event summary of all rented equipment, derived automatically from the plan (mics, DI/IEM, stageboxes, multicores, amplifiers, speakers, cables, mic stands, fixtures) plus manual line items for anything else; flags lines that exceed the renter's stock. Which catalog categories feed the cable/stand pickers is itself data: each category on the Inventory page carries an editable picker role
 - **Excel Export** — One click produces a copy of LL.xlsx with the order quantities filled into the *Antal Ljud* / *Antal Ljus* columns at the right rows, ready to send to the renter unmodified; lines that can't be placed are reported, never silently dropped
 - **Owned Gear & Equipment Lists** — A personal catalog of equipment you own (never on the rental order), plannable per event with quantities and notes; the Equipment tab shows everything beyond the patch and rig: owned gear plus rented extras
-- **Configurable Reference Data** — Every planning vocabulary (signal types, preamp connectors, signal/speaker cable types, output types, mic stands, power connectors, truss types) is stored data, editable on the Settings page: add values for new gear, rename labels, delete unused ones (values in use by a plan are protected). Lighting fixture models carry DMX mode definitions (name + channel count) that auto-fill the channel count when patching
+- **Configurable Reference Data** — Every planning vocabulary (signal types, preamp connectors, signal/speaker cable types, output types, mic stands, power connectors, truss types, channel colors) is stored data: add values for new gear, rename labels, delete unused ones (values in use by a plan are protected). Each event has its own independent vocabulary, editable on that event's Settings tab; every user also keeps a personal "My Defaults" template that seeds a new event's vocabulary at creation time — a one-time copy, never a live link back to the template or to any other event. Lighting fixture models carry DMX mode definitions (name + channel count) that auto-fill the channel count when patching
 - **Inventories** — Each user owns their own independent equipment catalogs, imported from a price-list `.xlsx` file (e.g. 308 items across 27 categories: audio, lighting, rigging); duplicate an inventory to spin off a variant without re-importing, and pick which one an event uses when you create it — contributors get read access to it, only its owner can manage it
 - **Print Sheets** — Every planning tab (input patch, output patch, lighting rig) has a Print button that produces a clean paper/PDF sheet via the browser print dialog: event header, black-on-white table, repeating column headers, no UI chrome
 - **Signal Flow** — A read-only per-channel trace on its own event tab: inputs read source → cable → stagebox/multi channel → console; outputs read console → cable → node → cable → node → … → destination, walking the same graph the canvas edits, branching when a device fans out to more than one destination. Incomplete routing is flagged so patching errors are caught before load-in, and the view prints like the sheets
@@ -158,7 +158,7 @@ Color inheritance below) instead of carrying a color of its own.
 | Source (from graph) | Read-only summary of whatever currently feeds this channel, resolved from the graph below |
 | Groups | Mix groups the channel routes to (LR is built-in and the default; remove it per channel if needed) |
 | DCA | DCA membership (a channel can be in several) |
-| Color | Console channel-strip color from the palette (Settings → channel_colors) — the only place color is ever stored on the input side |
+| Color | Console channel-strip color from the palette (this event's Settings tab → channel_colors) — the only place color is ever stored on the input side |
 | Notes | Free-text notes |
 
 Groups and DCAs are managed in the two cards above the tables: create,
@@ -323,10 +323,17 @@ Base URL: `http://localhost:7331/api/v1`
 | PATCH | `/events/:id/members/:userId` | Change a collaborator's role — owner/contributor only, rejects targeting the owner |
 | DELETE | `/events/:id/members/:userId` | Remove a collaborator — owner/contributor only, rejects targeting the owner |
 | GET | `/users` | List everyone who has signed in at least once (invite picker) |
-| GET | `/inventory/categories` | List inventory categories (incl. `picker_role`) |
-| PATCH | `/inventory/categories/:id` | Set or clear a category's picker role (`{"picker_role": "cable" \| "stand" \| null}`) |
-| GET | `/inventory/items` | List inventory items (filters: `?category_type=lighting`, `?category_id=1`, `?role=cable`, `?include_discontinued=true`) |
-| POST | `/inventory/import-xlsx` | Re-import catalog from LL.xlsx (non-destructive upsert; picker roles survive) |
+| GET | `/inventories` | List inventories the caller owns |
+| POST | `/inventories` | Create a new, empty inventory owned by the caller (`{"name"}`) |
+| GET/PATCH/DELETE | `/inventories/:id` | Get/rename/delete an inventory — owner-only; delete is `400` while any event still uses it |
+| POST | `/inventories/:id/duplicate` | Deep-copy an inventory (categories, items, fixture modes, source file) into a new one, same owner |
+| GET | `/inventories/:id/categories` | List inventory categories (incl. `picker_role`) |
+| PATCH | `/inventories/:id/categories/:categoryId` | Set or clear a category's picker role (`{"picker_role": "cable" \| "stand" \| "truss" \| null}`) |
+| GET | `/inventories/:id/items` | List inventory items (filters: `?category_type=lighting`, `?category_id=1`, `?role=cable`, `?include_discontinued=true`) |
+| POST | `/inventories/:id/import-xlsx` | Import/re-import a price list from an uploaded `.xlsx` file (multipart; non-destructive upsert, picker roles survive) |
+| GET | `/events/:id/inventory` | The event's bound inventory's public fields (name, source filename) — any role |
+| GET | `/events/:id/inventory/categories` | The event's bound inventory's categories, read-only — any role |
+| GET | `/events/:id/inventory/items` | The event's bound inventory's items, read-only — any role; this is what every planning picker reads from |
 | GET | `/events/:id/audio-patch` | Full audio patch: stageboxes, stage multis, groups, DCAs, input sources, input channels, input devices, input cables, outputs, output devices, output cables |
 | POST | `/events/:id/groups` | Add a mix group (`{"name", "color"?}`; 409 on duplicate name) |
 | PATCH | `/events/:id/groups/:groupId` | Rename/recolor a group (LR: recolor only) |
@@ -379,14 +386,18 @@ Base URL: `http://localhost:7331/api/v1`
 | GET | `/events/:id/owned-equipment` | List the event's owned-gear lines |
 | PUT | `/events/:id/owned-equipment/:itemId` | Create/update an owned-gear line (quantity 0 removes) |
 | DELETE | `/events/:id/owned-equipment/:itemId` | Remove an owned-gear line |
-| GET | `/reference-data` | All planning vocabularies with their values (drives every dropdown) |
-| POST | `/reference-data/:vocabulary/values` | Add a vocabulary value (409 on duplicates) |
-| PATCH | `/reference-data/:vocabulary/values/:valueId` | Rename a value's display label (the stored value is immutable) |
-| DELETE | `/reference-data/:vocabulary/values/:valueId` | Delete a value (409 while any planning row uses it) |
-| GET | `/inventory/items/:itemId/fixture-modes` | List a fixture model's DMX modes |
-| POST | `/inventory/items/:itemId/fixture-modes` | Add a DMX mode (name + channel count) |
-| PATCH | `/fixture-modes/:modeId` | Update a mode (patched fixtures keep their copied values) |
-| DELETE | `/fixture-modes/:modeId` | Delete a mode |
+| GET | `/events/:id/reference-data` | This event's own planning vocabularies with their values (drives every dropdown on that event) — any role |
+| POST | `/events/:id/reference-data/:vocabulary/values` | Add a value to this event's vocabulary (409 on duplicates) — owner/contributor only |
+| PATCH | `/events/:id/reference-data/:vocabulary/values/:valueId` | Rename a value's display label (the stored value is immutable) — owner/contributor only |
+| DELETE | `/events/:id/reference-data/:vocabulary/values/:valueId` | Delete a value from this event's vocabulary (409 while any planning row in this event uses it) — owner/contributor only |
+| GET | `/reference-templates` | The caller's own personal vocabulary template — seeds every new event they create |
+| POST | `/reference-templates/:vocabulary/values` | Add a value to the caller's template (409 on duplicates) |
+| PATCH | `/reference-templates/:vocabulary/values/:valueId` | Rename a template value's label |
+| DELETE | `/reference-templates/:vocabulary/values/:valueId` | Delete a template value (never blocked — a template is never referenced by a plan) |
+| GET | `/inventories/:id/items/:itemId/fixture-modes` | List a fixture model's DMX modes — owner-only |
+| POST | `/inventories/:id/items/:itemId/fixture-modes` | Add a DMX mode (name + channel count) — owner-only |
+| PATCH | `/inventories/:id/fixture-modes/:modeId` | Update a mode (patched fixtures keep their copied values) — owner-only |
+| DELETE | `/inventories/:id/fixture-modes/:modeId` | Delete a mode — owner-only |
 
 Health check: `GET http://localhost:7331/health` (outside `/api/v1`).
 

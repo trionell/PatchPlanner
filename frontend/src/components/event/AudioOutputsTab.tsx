@@ -116,6 +116,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
     <>
       <div className="print:hidden space-y-6">
         <OutputChannelsSection
+          eventId={eventId}
           outputs={outputs}
           onUpdateDraft={updateDraft}
           onPersist={(index) => persistOutput(outputs[index])}
@@ -195,6 +196,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
 
 /** Compact table for output-channel (mixer port group) CRUD — feeds the graph's mixer node. */
 function OutputChannelsSection({
+  eventId,
   outputs,
   onUpdateDraft,
   onPersist,
@@ -203,6 +205,7 @@ function OutputChannelsSection({
   onDelete,
   readOnly,
 }: {
+  eventId: number
   outputs: AudioPatchOutput[]
   onUpdateDraft: <K extends keyof AudioPatchOutput>(index: number, key: K, value: AudioPatchOutput[K]) => void
   onPersist: (index: number) => void
@@ -211,7 +214,7 @@ function OutputChannelsSection({
   onDelete: (id: number) => void
   readOnly: boolean
 }) {
-  const { options } = useReferenceData()
+  const { options } = useReferenceData(eventId)
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
@@ -247,7 +250,7 @@ function OutputChannelsSection({
                       </Select>
                     </div>
                   </TableCell>
-                  <TableCell><ColorSelect value={row.color} onChange={(color) => onUpdateAndPersist(index, { color })} disabled={readOnly} /></TableCell>
+                  <TableCell><ColorSelect eventId={eventId} value={row.color} onChange={(color) => onUpdateAndPersist(index, { color })} disabled={readOnly} /></TableCell>
                   <TableCell><Input value={row.notes ?? ''} onChange={(e) => onUpdateDraft(index, 'notes', e.target.value)} onBlur={() => onPersist(index)} disabled={readOnly} className="min-w-36" /></TableCell>
                   <TableCell>{!readOnly && <Button size="sm" variant="ghost" onClick={() => onDelete(row.id)}><Trash2 className="h-4 w-4" /></Button>}</TableCell>
                 </TableRow>

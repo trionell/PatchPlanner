@@ -11,6 +11,7 @@ import { LightingTab } from '../components/event/LightingTab'
 import { OverviewTab } from '../components/event/OverviewTab'
 import { ReadOnlyBanner } from '../components/event/ReadOnlyBanner'
 import { RentalTab } from '../components/event/RentalTab'
+import { SettingsTab } from '../components/event/SettingsTab'
 import { SignalFlowTab } from '../components/event/SignalFlowTab'
 import { StagePlotTab } from '../components/event/StagePlotTab'
 import { Button } from '../components/ui/Button'
@@ -61,6 +62,7 @@ export function EventDetailPage() {
           <Tab value="signal-flow">Signal Flow</Tab>
           <Tab value="equipment">Equipment</Tab>
           <Tab value="rentals">Rental Order</Tab>
+          <Tab value="settings">Settings</Tab>
         </TabList>
 
         <TabPanel value="overview"><OverviewTab eventId={eventId} readOnly={readOnly} /></TabPanel>
@@ -71,6 +73,7 @@ export function EventDetailPage() {
         <TabPanel value="signal-flow"><SignalFlowTab eventId={eventId} /></TabPanel>
         <TabPanel value="equipment"><EquipmentTab eventId={eventId} readOnly={readOnly} /></TabPanel>
         <TabPanel value="rentals"><RentalTab eventId={eventId} readOnly={readOnly} /></TabPanel>
+        <TabPanel value="settings"><SettingsTab eventId={eventId} readOnly={readOnly} /></TabPanel>
       </Tabs>
     </div>
   )

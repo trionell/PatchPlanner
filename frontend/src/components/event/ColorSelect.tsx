@@ -8,15 +8,17 @@ import { Select } from '../ui/Select'
  * removing a palette entry never blanks existing rows.
  */
 export function ColorSelect({
+  eventId,
   value,
   onChange,
   disabled,
 }: {
+  eventId: number
   value?: string
   onChange: (color: string) => void
   disabled?: boolean
 }) {
-  const { options } = useReferenceData()
+  const { options } = useReferenceData(eventId)
 
   return (
     <div className="flex min-w-28 items-center gap-1.5">
