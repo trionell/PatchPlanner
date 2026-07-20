@@ -40,12 +40,13 @@ code will work, aimed at someone setting up OAuth for the first time.
    verification step.
 5. Save. Copy the generated **Client ID** and **Client Secret**.
 
-**Before deploying to production (Slice 16)**: come back here and add the
-real production callback URL (e.g.
+**Before deploying to production**: come back here and add the real
+production callback URL (e.g.
 `https://your-domain.example/api/v1/auth/google/callback`) and the
 production origin to the same client — forgetting this step is the single
 most common cause of a `redirect_uri_mismatch` error on a freshly deployed
-instance.
+instance. See `specs/018-deployment/quickstart.md` for the full production
+deployment runbook, including this step.
 
 ## 4. Configure the backend
 

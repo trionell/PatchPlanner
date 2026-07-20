@@ -1,6 +1,8 @@
 package main
 
 import (
+	"embed"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -12,6 +14,9 @@ import (
 	"github.com/trionell/patchplanner/internal/db"
 	"github.com/trionell/patchplanner/internal/service"
 )
+
+//go:embed dist
+var frontendFS embed.FS
 
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
@@ -59,6 +64,13 @@ func main() {
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 	r.Mount("/api/v1", api.NewRouter(database, authConfig))
+
+	staticFS, err := fs.Sub(frontendFS, "dist")
+	if err != nil {
+		logger.Error("failed to load embedded frontend", slog.Any("error", err))
+		os.Exit(1)
+	}
+	r.NotFound(api.NewStaticHandler(staticFS).ServeHTTP)
 
 	logger.Info("starting server", slog.String("addr", addr), slog.String("db", dbPath))
 	if err := http.ListenAndServe(addr, r); err != nil {

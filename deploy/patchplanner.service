@@ -1,0 +1,21 @@
+# Example systemd unit for PatchPlanner.
+#
+# Copy to /etc/systemd/system/patchplanner.service, adjust the paths
+# below if you didn't use /opt/patchplanner, then:
+#   systemctl daemon-reload
+#   systemctl enable --now patchplanner
+
+[Unit]
+Description=PatchPlanner
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/opt/patchplanner/patchplanner
+WorkingDirectory=/opt/patchplanner
+EnvironmentFile=/opt/patchplanner/patchplanner.env
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

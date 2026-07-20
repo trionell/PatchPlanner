@@ -307,6 +307,26 @@ patcherPlanner/
 
 ---
 
+## Deployment
+
+In production, the Go backend serves the built frontend itself — `make
+build` compiles the frontend, embeds it into the backend binary via
+`go:embed`, and produces a single executable (`backend/patchplanner`)
+plus the `backend/migrations/` directory as the only two deployment
+artifacts. A reverse proxy (nginx + Certbot) terminates HTTPS in front
+of it and a systemd unit keeps it running.
+
+`PATCHPLANNER_ADDR` should bind to `127.0.0.1` in production (e.g.
+`127.0.0.1:7331`), not a public interface — the Go process is only ever
+reached through the reverse proxy, never directly.
+
+See [`specs/018-deployment/quickstart.md`](specs/018-deployment/quickstart.md)
+for the full runbook: server/domain prerequisites, building, configuring
+the environment, setting up nginx + Certbot, the systemd service,
+verifying the deployment, and setting up backups.
+
+---
+
 ## API Reference
 
 Base URL: `http://localhost:7331/api/v1`
