@@ -27,6 +27,7 @@ export function EventDetailPage() {
   if (eventQuery.isError || !eventQuery.data) return <p className="text-sm text-red-400">Failed to load event.</p>
 
   const canManageMembers = eventQuery.data.yourRole !== 'viewer'
+  const readOnly = eventQuery.data.yourRole === 'viewer'
 
   return (
     <div className="space-y-6">
@@ -62,14 +63,14 @@ export function EventDetailPage() {
           <Tab value="rentals">Rental Order</Tab>
         </TabList>
 
-        <TabPanel value="overview"><OverviewTab eventId={eventId} /></TabPanel>
-        <TabPanel value="audio-inputs"><AudioInputsTab eventId={eventId} /></TabPanel>
-        <TabPanel value="audio-outputs"><AudioOutputsTab eventId={eventId} /></TabPanel>
-        <TabPanel value="lighting-rig"><LightingTab eventId={eventId} /></TabPanel>
-        <TabPanel value="stage-plots"><StagePlotTab eventId={eventId} /></TabPanel>
+        <TabPanel value="overview"><OverviewTab eventId={eventId} readOnly={readOnly} /></TabPanel>
+        <TabPanel value="audio-inputs"><AudioInputsTab eventId={eventId} readOnly={readOnly} /></TabPanel>
+        <TabPanel value="audio-outputs"><AudioOutputsTab eventId={eventId} readOnly={readOnly} /></TabPanel>
+        <TabPanel value="lighting-rig"><LightingTab eventId={eventId} readOnly={readOnly} /></TabPanel>
+        <TabPanel value="stage-plots"><StagePlotTab eventId={eventId} readOnly={readOnly} /></TabPanel>
         <TabPanel value="signal-flow"><SignalFlowTab eventId={eventId} /></TabPanel>
-        <TabPanel value="equipment"><EquipmentTab eventId={eventId} /></TabPanel>
-        <TabPanel value="rentals"><RentalTab eventId={eventId} /></TabPanel>
+        <TabPanel value="equipment"><EquipmentTab eventId={eventId} readOnly={readOnly} /></TabPanel>
+        <TabPanel value="rentals"><RentalTab eventId={eventId} readOnly={readOnly} /></TabPanel>
       </Tabs>
     </div>
   )

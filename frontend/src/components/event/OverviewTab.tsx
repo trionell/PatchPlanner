@@ -6,7 +6,7 @@ import { Button } from '../ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
 import { Input } from '../ui/Input'
 
-export function OverviewTab({ eventId }: { eventId: number }) {
+export function OverviewTab({ eventId, readOnly = false }: { eventId: number; readOnly?: boolean }) {
   const queryClient = useQueryClient()
   const eventQuery = useQuery({ queryKey: ['event', eventId], queryFn: () => getEvent(eventId) })
   const rentalQuery = useQuery({ queryKey: ['rental-summary', eventId], queryFn: () => getRentalSummary(eventId) })
@@ -33,23 +33,24 @@ export function OverviewTab({ eventId }: { eventId: number }) {
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label className="mb-1 block text-sm text-zinc-300">Name</label>
-            <Input value={overview.name} onChange={(e) => setOverview((prev) => ({ ...prev, name: e.target.value }))} />
+            <Input value={overview.name} onChange={(e) => setOverview((prev) => ({ ...prev, name: e.target.value }))} disabled={readOnly} />
           </div>
           <div>
             <label className="mb-1 block text-sm text-zinc-300">Venue</label>
-            <Input value={overview.venue} onChange={(e) => setOverview((prev) => ({ ...prev, venue: e.target.value }))} />
+            <Input value={overview.venue} onChange={(e) => setOverview((prev) => ({ ...prev, venue: e.target.value }))} disabled={readOnly} />
           </div>
           <div>
             <label className="mb-1 block text-sm text-zinc-300">Date</label>
-            <Input type="date" value={overview.date} onChange={(e) => setOverview((prev) => ({ ...prev, date: e.target.value }))} />
+            <Input type="date" value={overview.date} onChange={(e) => setOverview((prev) => ({ ...prev, date: e.target.value }))} disabled={readOnly} />
           </div>
         </div>
         <div>
           <label className="mb-1 block text-sm text-zinc-300">Notes</label>
           <textarea
-            className="min-h-32 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-500"
+            className="min-h-32 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-500 disabled:opacity-60"
             value={overview.notes}
             onChange={(e) => setOverview((prev) => ({ ...prev, notes: e.target.value }))}
+            disabled={readOnly}
           />
         </div>
         <div className="grid gap-4 md:grid-cols-3">
@@ -57,11 +58,13 @@ export function OverviewTab({ eventId }: { eventId: number }) {
           <MiniStat label="Rental quantity" value={String(rentalQuery.data?.total_quantity ?? 0)} />
           <MiniStat label="Ex VAT total" value={`${(rentalQuery.data?.total_ex_vat ?? 0).toFixed(2)} kr`} />
         </div>
-        <div className="flex justify-end">
-          <Button onClick={() => eventMutation.mutate(overview)} disabled={eventMutation.isPending || !overview.name.trim()}>
-            {eventMutation.isPending ? 'Saving...' : 'Save event'}
-          </Button>
-        </div>
+        {!readOnly && (
+          <div className="flex justify-end">
+            <Button onClick={() => eventMutation.mutate(overview)} disabled={eventMutation.isPending || !overview.name.trim()}>
+              {eventMutation.isPending ? 'Saving...' : 'Save event'}
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

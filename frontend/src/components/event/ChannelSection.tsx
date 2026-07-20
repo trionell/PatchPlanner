@@ -3,6 +3,8 @@ import { Plus, Trash2 } from 'lucide-react'
 import { createInputChannel, deleteInputChannel, updateInputChannel } from '../../api/audioPatch'
 import { buildInputChannelFlow } from '../../lib/inputSignalFlow'
 import type { InputCable, InputChannel, InputDevice, InputSource, MixerDCA, MixerGroup, Stagebox, StageMulti } from '../../types'
+import { busTint } from '../../lib/utils'
+import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
 import { Input } from '../ui/Input'
@@ -10,6 +12,21 @@ import { Select } from '../ui/Select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table'
 import { BusMultiSelect } from './BusMultiSelect'
 import { ColorSelect } from './ColorSelect'
+
+/** Read-only fallback for BusMultiSelect (a shared component with no
+ * disabled prop) — assigned buses only, no remove/add affordances. */
+function ReadOnlyBusBadges({ selected, options }: { selected: number[]; options: { id: number; name: string; color?: string }[] }) {
+  if (selected.length === 0) return <span className="text-sm text-zinc-500">—</span>
+  const byId = new Map(options.map((option) => [option.id, option]))
+  return (
+    <div className="flex flex-wrap gap-1">
+      {selected.map((id) => {
+        const bus = byId.get(id)
+        return <Badge key={id} style={busTint(bus?.color)}>{bus?.name ?? `#${id}`}</Badge>
+      })}
+    </div>
+  )
+}
 
 /**
  * Manager for input Channels — the console strip only (name, width,
@@ -29,6 +46,7 @@ export function ChannelSection({
   cables,
   groups,
   dcas,
+  readOnly = false,
 }: {
   eventId: number
   channels: InputChannel[]
@@ -39,6 +57,7 @@ export function ChannelSection({
   cables: InputCable[]
   groups: MixerGroup[]
   dcas: MixerDCA[]
+  readOnly?: boolean
 }) {
   const queryClient = useQueryClient()
   const invalidate = async () => {
@@ -90,7 +109,7 @@ export function ChannelSection({
     <Card className="mb-6">
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Channels</CardTitle>
-        <Button size="sm" onClick={addChannel}><Plus className="mr-2 h-4 w-4" />Add channel</Button>
+        {!readOnly && <Button size="sm" onClick={addChannel}><Plus className="mr-2 h-4 w-4" />Add channel</Button>}
       </CardHeader>
       <CardContent>
         <p className="mb-2 text-sm text-zinc-400">
@@ -110,6 +129,7 @@ export function ChannelSection({
                     <Input
                       type="number"
                       defaultValue={channel.channel_number}
+                      disabled={readOnly}
                       onBlur={(e) => saveField(channel, { channel_number: Number(e.target.value) || channel.channel_number })}
                       className="w-16"
                     />
@@ -117,42 +137,60 @@ export function ChannelSection({
                   <TableCell>
                     <Input
                       defaultValue={channel.channel_name ?? ''}
+                      disabled={readOnly}
                       onBlur={(e) => saveField(channel, { channel_name: e.target.value })}
                       className="min-w-36"
                     />
                   </TableCell>
                   <TableCell>
-                    <Select value={channel.width} onChange={(e) => saveField(channel, { width: e.target.value as InputChannel['width'] })} className="min-w-24">
+                    <Select value={channel.width} disabled={readOnly} onChange={(e) => saveField(channel, { width: e.target.value as InputChannel['width'] })} className="min-w-24">
                       <option value="mono">Mono</option>
                       <option value="stereo">Stereo</option>
                     </Select>
                   </TableCell>
                   <TableCell className="text-sm text-zinc-400">{feedSummary(channel)}</TableCell>
                   <TableCell>
-                    <BusMultiSelect
-                      selected={channel.group_ids ?? []}
-                      options={groups}
-                      onChange={(ids) => saveField(channel, { group_ids: ids })}
-                    />
+                    {readOnly ? (
+                      <ReadOnlyBusBadges selected={channel.group_ids ?? []} options={groups} />
+                    ) : (
+                      <BusMultiSelect
+                        selected={channel.group_ids ?? []}
+                        options={groups}
+                        onChange={(ids) => saveField(channel, { group_ids: ids })}
+                      />
+                    )}
                   </TableCell>
                   <TableCell>
-                    <BusMultiSelect
-                      selected={channel.dca_ids ?? []}
-                      options={dcas}
-                      onChange={(ids) => saveField(channel, { dca_ids: ids })}
-                    />
+                    {readOnly ? (
+                      <ReadOnlyBusBadges selected={channel.dca_ids ?? []} options={dcas} />
+                    ) : (
+                      <BusMultiSelect
+                        selected={channel.dca_ids ?? []}
+                        options={dcas}
+                        onChange={(ids) => saveField(channel, { dca_ids: ids })}
+                      />
+                    )}
                   </TableCell>
                   <TableCell>
-                    <ColorSelect value={channel.color} onChange={(color) => saveField(channel, { color })} />
+                    {readOnly ? (
+                      <span aria-hidden className="inline-block h-4 w-4 rounded border border-zinc-600" style={channel.color ? { backgroundColor: channel.color } : undefined} />
+                    ) : (
+                      <ColorSelect value={channel.color} onChange={(color) => saveField(channel, { color })} />
+                    )}
                   </TableCell>
                   <TableCell>
                     <Input
                       defaultValue={channel.notes ?? ''}
+                      disabled={readOnly}
                       onBlur={(e) => saveField(channel, { notes: e.target.value })}
                       className="min-w-36"
                     />
                   </TableCell>
-                  <TableCell><Button size="sm" variant="ghost" onClick={() => deleteM.mutate(channel.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
+                  <TableCell>
+                    {!readOnly && (
+                      <Button size="sm" variant="ghost" onClick={() => deleteM.mutate(channel.id)}><Trash2 className="h-4 w-4" /></Button>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

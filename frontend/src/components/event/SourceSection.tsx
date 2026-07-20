@@ -30,6 +30,7 @@ export function SourceSection({
   stageboxes,
   stageMultis,
   cables,
+  readOnly = false,
 }: {
   eventId: number
   sources: InputSource[]
@@ -40,6 +41,7 @@ export function SourceSection({
   stageboxes: Stagebox[]
   stageMultis: StageMulti[]
   cables: InputCable[]
+  readOnly?: boolean
 }) {
   const queryClient = useQueryClient()
   const colorContext = { channels, devices, stageboxes, stageMultis, cables }
@@ -105,7 +107,7 @@ export function SourceSection({
     <Card className="mb-6">
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Sources</CardTitle>
-        <Button size="sm" onClick={addSource}><Plus className="mr-2 h-4 w-4" />Add source</Button>
+        {!readOnly && <Button size="sm" onClick={addSource}><Plus className="mr-2 h-4 w-4" />Add source</Button>}
       </CardHeader>
       <CardContent>
         <p className="mb-2 text-sm text-zinc-400">
@@ -126,6 +128,7 @@ export function SourceSection({
                   <TableCell style={color ? { boxShadow: `inset 3px 0 0 0 ${color}` } : undefined}>
                     <Input
                       defaultValue={source.name}
+                      disabled={readOnly}
                       onBlur={(e) => {
                         const name = e.target.value.trim()
                         if (name && name !== source.name) saveField(source, { name })
@@ -136,7 +139,7 @@ export function SourceSection({
                   <TableCell>
                     <div className="min-w-24 space-y-2">
                       <Badge variant={source.kind === 'mic' ? 'mic' : 'line'}>{source.kind}</Badge>
-                      <Select value={source.kind} onChange={(e) => saveField(source, { kind: e.target.value as InputSource['kind'] })}>
+                      <Select value={source.kind} disabled={readOnly} onChange={(e) => saveField(source, { kind: e.target.value as InputSource['kind'] })}>
                         <option value="mic">Mic</option>
                         <option value="line">Line</option>
                       </Select>
@@ -144,7 +147,7 @@ export function SourceSection({
                   </TableCell>
                   <TableCell>
                     {source.kind === 'mic' ? (
-                      <Select value={source.mic_item_id ?? ''} onChange={(e) => saveField(source, { mic_item_id: toOptionalNumber(e.target.value) })} className="min-w-40">
+                      <Select value={source.mic_item_id ?? ''} disabled={readOnly} onChange={(e) => saveField(source, { mic_item_id: toOptionalNumber(e.target.value) })} className="min-w-40">
                         <option value="">—</option>
                         {micItems.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                       </Select>
@@ -154,7 +157,7 @@ export function SourceSection({
                   </TableCell>
                   <TableCell>
                     {source.kind === 'mic' ? (
-                      <Select value={source.stand_item_id ?? ''} onChange={(e) => saveField(source, { stand_item_id: toOptionalNumber(e.target.value) })} className="min-w-36">
+                      <Select value={source.stand_item_id ?? ''} disabled={readOnly} onChange={(e) => saveField(source, { stand_item_id: toOptionalNumber(e.target.value) })} className="min-w-36">
                         <option value="">—</option>
                         {standItems.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                       </Select>
@@ -167,6 +170,7 @@ export function SourceSection({
                       <input
                         type="checkbox"
                         checked={source.phantom_power}
+                        disabled={readOnly}
                         onChange={(e) => saveField(source, { phantom_power: e.target.checked })}
                         className="h-4 w-4 accent-amber-500"
                       />
@@ -175,18 +179,22 @@ export function SourceSection({
                     )}
                   </TableCell>
                   <TableCell>
-                    <Select value={source.connector_type} onChange={(e) => saveField(source, { connector_type: e.target.value })} className="min-w-28">
+                    <Select value={source.connector_type} disabled={readOnly} onChange={(e) => saveField(source, { connector_type: e.target.value })} className="min-w-28">
                       <option value="">—</option>
                       {options('preamp_connectors', source.connector_type).map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
                     </Select>
                   </TableCell>
                   <TableCell>
-                    <Select value={source.width} onChange={(e) => saveField(source, { width: e.target.value as InputSource['width'] })} className="min-w-24">
+                    <Select value={source.width} disabled={readOnly} onChange={(e) => saveField(source, { width: e.target.value as InputSource['width'] })} className="min-w-24">
                       <option value="mono">Mono</option>
                       <option value="stereo">Stereo</option>
                     </Select>
                   </TableCell>
-                  <TableCell><Button size="sm" variant="ghost" onClick={() => remove(source)}><Trash2 className="h-4 w-4" /></Button></TableCell>
+                  <TableCell>
+                    {!readOnly && (
+                      <Button size="sm" variant="ghost" onClick={() => remove(source)}><Trash2 className="h-4 w-4" /></Button>
+                    )}
+                  </TableCell>
                 </TableRow>
                 )
               })}

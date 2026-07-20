@@ -20,7 +20,7 @@ import { InputGraphCanvas } from './InputGraphCanvas'
 import { SourceSection } from './SourceSection'
 import { StageboxMultiSection } from './StageboxMultiSection'
 
-export function AudioInputsTab({ eventId }: { eventId: number }) {
+export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number; readOnly?: boolean }) {
   const queryClient = useQueryClient()
   const audioQuery = useQuery({ queryKey: ['audio-patch', eventId], queryFn: ({ signal }) => getAudioPatch(eventId, signal) })
   const inventoryQuery = useQuery({ queryKey: ['inventory-audio-items'], queryFn: () => listInventoryItems({ categoryType: 'audio' }) })
@@ -58,7 +58,7 @@ export function AudioInputsTab({ eventId }: { eventId: number }) {
   return (
     <>
       <div className="print:hidden space-y-6">
-        <BusSection eventId={eventId} groups={groups} dcas={dcas} channels={channels} />
+        <BusSection eventId={eventId} groups={groups} dcas={dcas} channels={channels} readOnly={readOnly} />
         <ChannelSection
           eventId={eventId}
           channels={channels}
@@ -69,9 +69,10 @@ export function AudioInputsTab({ eventId }: { eventId: number }) {
           cables={cables}
           groups={groups}
           dcas={dcas}
+          readOnly={readOnly}
         />
-        <StageboxMultiSection eventId={eventId} stageboxes={stageboxes} stageMultis={stageMultis} audioItems={allAudioItems} />
-        <InputDeviceSection eventId={eventId} devices={devices} audioItems={allAudioItems} ownedItems={ownedItems} />
+        <StageboxMultiSection eventId={eventId} stageboxes={stageboxes} stageMultis={stageMultis} audioItems={allAudioItems} readOnly={readOnly} />
+        <InputDeviceSection eventId={eventId} devices={devices} audioItems={allAudioItems} ownedItems={ownedItems} readOnly={readOnly} />
         <SourceSection
           eventId={eventId}
           sources={sources}
@@ -82,6 +83,7 @@ export function AudioInputsTab({ eventId }: { eventId: number }) {
           stageboxes={stageboxes}
           stageMultis={stageMultis}
           cables={cables}
+          readOnly={readOnly}
         />
         <Card>
           <CardHeader className="flex-row items-center justify-between">
@@ -110,6 +112,7 @@ export function AudioInputsTab({ eventId }: { eventId: number }) {
                 cables={cables}
                 cableItems={cableItems}
                 onChanged={invalidate}
+                readOnly={readOnly}
               />
             ) : (
               <InputResourceTable

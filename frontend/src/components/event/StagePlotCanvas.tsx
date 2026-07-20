@@ -50,6 +50,10 @@ interface StagePlotCanvasProps {
    *  marker along the bar, or dropping a free fixture element onto it
    *  (consumeElementId: that element is replaced by the attachment). */
   onAttachFixture?: (args: { trussId: number; fixtureId: number; offsetCm: number; side: TrussSide; consumeElementId?: number }) => void
+  /** A viewer may pan/zoom/select/inspect but never move, resize, rotate,
+   *  or attach anything — element drags never start, and resize/rotate
+   *  handles don't render. */
+  readOnly?: boolean
 }
 
 const DEFAULT_LAYER_COLOR = '#a1a1aa'
@@ -96,6 +100,7 @@ export function StagePlotCanvas({
   fillParent,
   fixtureNameById,
   onAttachFixture,
+  readOnly = false,
 }: StagePlotCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
@@ -215,12 +220,14 @@ export function StagePlotCanvas({
     event.stopPropagation()
     svgRef.current?.setPointerCapture(event.pointerId)
     onSelectElement(element.id)
+    // A viewer may select/inspect an element but never drag it.
+    if (readOnly) return
     const point = clientToCm(event.clientX, event.clientY)
     setDrag({ kind: 'move', elementId: element.id, startU: point.u, startV: point.v, origin: element, moved: false })
   }
 
   const handleFixturePointerDown = (event: ReactPointerEvent, element: StagePlotElement, trussId: number, fixture: { fixture_id: number; side: TrussSide }, offsetCm: number) => {
-    if (event.button !== 0 || !onAttachFixture) return
+    if (event.button !== 0 || !onAttachFixture || readOnly) return
     if (layerById.get(element.layer_id)?.locked) return
     event.stopPropagation()
     svgRef.current?.setPointerCapture(event.pointerId)
@@ -228,7 +235,7 @@ export function StagePlotCanvas({
   }
 
   const handleHandlePointerDown = (event: ReactPointerEvent, element: StagePlotElement, mode: 'resize' | 'rotate') => {
-    if (event.button !== 0) return
+    if (event.button !== 0 || readOnly) return
     event.stopPropagation()
     svgRef.current?.setPointerCapture(event.pointerId)
     setDrag(mode === 'resize' ? { kind: 'resize', elementId: element.id, origin: element } : { kind: 'rotate', elementId: element.id, origin: element })
@@ -690,26 +697,32 @@ export function StagePlotCanvas({
               strokeWidth={1.5 / zoom}
               strokeDasharray={`${5 / zoom} ${4 / zoom}`}
             />
-            {/* SE resize handle */}
-            <rect
-              x={halfW - handlePx / 2}
-              y={halfH - handlePx / 2}
-              width={handlePx}
-              height={handlePx}
-              fill="#6366f1"
-              className="cursor-nwse-resize"
-              onPointerDown={(event) => handleHandlePointerDown(event, element, 'resize')}
-            />
-            {/* Rotate handle: plan rotation in the top view, tilt
-                (rake) in the front view. */}
-            {view !== 'side' && (
-              <circle
-                cy={-halfH - 18 / zoom}
-                r={handlePx / 2}
-                fill="#6366f1"
-                className="cursor-grab"
-                onPointerDown={(event) => handleHandlePointerDown(event, element, 'rotate')}
-              />
+            {/* A viewer sees the selection outline but never the
+                resize/rotate handles — nothing they render draggable. */}
+            {!readOnly && (
+              <>
+                {/* SE resize handle */}
+                <rect
+                  x={halfW - handlePx / 2}
+                  y={halfH - handlePx / 2}
+                  width={handlePx}
+                  height={handlePx}
+                  fill="#6366f1"
+                  className="cursor-nwse-resize"
+                  onPointerDown={(event) => handleHandlePointerDown(event, element, 'resize')}
+                />
+                {/* Rotate handle: plan rotation in the top view, tilt
+                    (rake) in the front view. */}
+                {view !== 'side' && (
+                  <circle
+                    cy={-halfH - 18 / zoom}
+                    r={handlePx / 2}
+                    fill="#6366f1"
+                    className="cursor-grab"
+                    onPointerDown={(event) => handleHandlePointerDown(event, element, 'rotate')}
+                  />
+                )}
+              </>
             )}
           </g>
         )}

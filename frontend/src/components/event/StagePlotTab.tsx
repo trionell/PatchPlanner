@@ -35,7 +35,7 @@ import { StagePlotPalette } from './StagePlotPalette'
 
 /** The per-event Stage Plots section: plot tabs, toolbar, and the
  *  draw.io-style palette / canvas / inspector editor (Slice 13). */
-export function StagePlotTab({ eventId }: { eventId: number }) {
+export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; readOnly?: boolean }) {
   const queryClient = useQueryClient()
   const plotsQuery = useQuery({ queryKey: ['stage-plots', eventId], queryFn: () => listStagePlots(eventId) })
   const plots = useMemo(() => plotsQuery.data ?? [], [plotsQuery.data])
@@ -194,7 +194,7 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
     // Re-pointed after every render so the window listener sees the
     // current selection (refs must not be written during render).
     deleteSelectedRef.current = () => {
-      if (selectedElementId == null || !response) return
+      if (readOnly || selectedElementId == null || !response) return
       const element = response.elements.find((entry) => entry.id === selectedElementId)
       if (!element) return
       const layer = response.layers.find((entry) => entry.id === element.layer_id)
@@ -219,6 +219,9 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
   const handleViewStateChange = (state: PlotViewState) => {
     if (activePlotId == null) return
     setViewStates((prev) => ({ ...prev, [activePlotId]: state }))
+    // Pan/zoom itself is a local view interaction a viewer may still do
+    // freely — only persisting it back to the server is gated.
+    if (readOnly) return
     if (persistTimer.current) clearTimeout(persistTimer.current)
     persistTimer.current = setTimeout(() => {
       updatePlotSettings.mutate({ zoom: state.zoom, pan_x_cm: roundCm(state.panX), pan_y_cm: roundCm(state.panY) })
@@ -344,7 +347,7 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
               {plot.name}
             </button>
           ))}
-          {creatingName == null ? (
+          {!readOnly && (creatingName == null ? (
             <button
               type="button"
               onClick={() => setCreatingName('')}
@@ -369,10 +372,10 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
                 <X className="h-4 w-4" />
               </Button>
             </form>
-          )}
+          ))}
         </div>
 
-        {activePlotId != null && response && (
+        {activePlotId != null && response && !readOnly && (
           <div className="flex items-center gap-1">
             {renamingName == null ? (
               <>
@@ -444,6 +447,7 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
                 className="accent-amber-500"
                 checked={response.plot.grid_visible}
                 onChange={(e) => updatePlotSettings.mutate({ grid_visible: e.target.checked })}
+                disabled={readOnly}
               />
               Grid
             </label>
@@ -459,6 +463,7 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
                 }}
                 onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
                 aria-label="Grid size (cm)"
+                disabled={readOnly}
               />
               cm
             </label>
@@ -468,6 +473,7 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
                 className="accent-amber-500"
                 checked={response.plot.snap_grid}
                 onChange={(e) => updatePlotSettings.mutate({ snap_grid: e.target.checked })}
+                disabled={readOnly}
               />
               Snap to grid
             </label>
@@ -477,6 +483,7 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
                 className="accent-amber-500"
                 checked={response.plot.snap_objects}
                 onChange={(e) => updatePlotSettings.mutate({ snap_objects: e.target.checked })}
+                disabled={readOnly}
               />
               Snap to objects
             </label>
@@ -488,11 +495,12 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
                 <button
                   key={viewOption}
                   type="button"
+                  disabled={readOnly}
                   onClick={() => updatePlotSettings.mutate({ active_view: viewOption })}
                   className={
                     response.plot.active_view === viewOption
                       ? 'rounded bg-amber-500 px-2.5 py-1 text-xs font-medium text-zinc-950'
-                      : 'rounded px-2.5 py-1 text-xs text-zinc-400 hover:text-zinc-200'
+                      : 'rounded px-2.5 py-1 text-xs text-zinc-400 hover:text-zinc-200 disabled:opacity-40'
                   }
                 >
                   {viewOption === 'top' ? 'Top' : viewOption === 'front' ? 'Front' : 'Side'}
@@ -500,9 +508,11 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
               ))}
             </div>
             <span className="h-5 w-px bg-zinc-800" aria-hidden />
-            <Button variant="outline" size="sm" onClick={() => setTrussManagerOpen(true)}>
-              Trusses…
-            </Button>
+            {!readOnly && (
+              <Button variant="outline" size="sm" onClick={() => setTrussManagerOpen(true)}>
+                Trusses…
+              </Button>
+            )}
             <PrintButton />
             <span className="ml-auto text-xs text-zinc-500">1 square = {response.plot.grid_size_cm} cm · canvas is true to scale</span>
             <Button
@@ -519,7 +529,7 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
           const palette = (
             <StagePlotPalette
               onPlace={handlePlace}
-              disabled={activeLayerId == null || createElementMutation.isPending}
+              disabled={readOnly || activeLayerId == null || createElementMutation.isPending}
               rigFixtures={rigFixtures.map((fixture) => ({
                 id: fixture.id,
                 name: fixtureNameById.get(fixture.id) ?? `Fixture ${fixture.id}`,
@@ -548,6 +558,7 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
                 fixtureNameById={fixtureNameById}
                 onAttachFixture={(args) => attachFixtureMutation.mutate(args)}
                 fillParent={fullscreen}
+                readOnly={readOnly}
               />
           )
 
@@ -563,6 +574,7 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
                 onAddLink={(elementId, role, entityKind, entityId, sortOrder) => addLinkMutation.mutate({ elementId, role, entityKind, entityId, sortOrder })}
                 onReorderLink={(elementId, linkId, sortOrder) => reorderLinkMutation.mutate({ elementId, linkId, sortOrder })}
                 onDeleteLink={(elementId, linkId) => deleteLinkMutation.mutate({ elementId, linkId })}
+                readOnly={readOnly}
               />
               <StagePlotLayersPanel
                 layers={response.layers}
@@ -571,20 +583,21 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
                 onCreate={(name) => createLayerMutation.mutate(name)}
                 onUpdate={(layerId, patch) => updateLayerMutation.mutate({ layerId, patch })}
                 onDelete={(layerId) => deleteLayerMutation.mutate(layerId)}
+                readOnly={readOnly}
               />
               <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
                 <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Fixture labels</p>
                 <div className="flex flex-col gap-1.5 text-sm text-zinc-400">
                   <label className="flex items-center gap-1.5">
-                    <input type="checkbox" className="accent-amber-500" checked={response.plot.show_fixture_name} onChange={(e) => updatePlotSettings.mutate({ show_fixture_name: e.target.checked })} />
+                    <input type="checkbox" className="accent-amber-500" checked={response.plot.show_fixture_name} onChange={(e) => updatePlotSettings.mutate({ show_fixture_name: e.target.checked })} disabled={readOnly} />
                     Name
                   </label>
                   <label className="flex items-center gap-1.5">
-                    <input type="checkbox" className="accent-amber-500" checked={response.plot.show_fixture_fid} onChange={(e) => updatePlotSettings.mutate({ show_fixture_fid: e.target.checked })} />
+                    <input type="checkbox" className="accent-amber-500" checked={response.plot.show_fixture_fid} onChange={(e) => updatePlotSettings.mutate({ show_fixture_fid: e.target.checked })} disabled={readOnly} />
                     Fixture ID (FID)
                   </label>
                   <label className="flex items-center gap-1.5">
-                    <input type="checkbox" className="accent-amber-500" checked={response.plot.show_fixture_dmx} onChange={(e) => updatePlotSettings.mutate({ show_fixture_dmx: e.target.checked })} />
+                    <input type="checkbox" className="accent-amber-500" checked={response.plot.show_fixture_dmx} onChange={(e) => updatePlotSettings.mutate({ show_fixture_dmx: e.target.checked })} disabled={readOnly} />
                     DMX universe · address
                   </label>
                 </div>
@@ -598,6 +611,7 @@ export function StagePlotTab({ eventId }: { eventId: number }) {
               trusses={response.trusses}
               open={trussManagerOpen}
               onClose={() => setTrussManagerOpen(false)}
+              readOnly={readOnly}
               onChanged={invalidatePlot}
               onPlace={handlePlaceTruss}
               placedTrussIds={placedTrussIds}

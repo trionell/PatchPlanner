@@ -22,6 +22,7 @@ interface StagePlotInspectorProps {
   onAddLink: (elementId: number, role: StagePlotLinkRole, entityKind: StagePlotEntityKind, entityId: number, sortOrder: number) => void
   onReorderLink: (elementId: number, linkId: number, sortOrder: number) => void
   onDeleteLink: (elementId: number, linkId: number) => void
+  readOnly?: boolean
 }
 
 const ENTITY_KIND_LABELS: Record<StagePlotEntityKind, string> = {
@@ -78,11 +79,12 @@ export interface LayersPanelProps {
   onCreate: (name: string) => void
   onUpdate: (id: number, patch: Partial<Omit<StagePlotLayer, 'id' | 'plot_id'>>) => void
   onDelete: (id: number) => void
+  readOnly?: boolean
 }
 
 /** Layer list: active-layer selection, visibility, lock, color,
  *  rename, reorder, and delete-with-confirmation (US3). */
-export function StagePlotLayersPanel({ layers, activeLayerId, onSetActive, onCreate, onUpdate, onDelete }: LayersPanelProps) {
+export function StagePlotLayersPanel({ layers, activeLayerId, onSetActive, onCreate, onUpdate, onDelete, readOnly = false }: LayersPanelProps) {
   const [newName, setNewName] = useState<string | null>(null)
   const [renamingId, setRenamingId] = useState<number | null>(null)
   const [renameValue, setRenameValue] = useState('')
@@ -112,7 +114,8 @@ export function StagePlotLayersPanel({ layers, activeLayerId, onSetActive, onCre
             type="color"
             value={layer.color || '#a1a1aa'}
             onChange={(e) => onUpdate(layer.id, { color: e.target.value })}
-            className="h-4 w-4 flex-none cursor-pointer appearance-none rounded border-0 bg-transparent p-0"
+            disabled={readOnly}
+            className="h-4 w-4 flex-none cursor-pointer appearance-none rounded border-0 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-40"
             title="Layer color"
           />
           {renamingId === layer.id ? (
@@ -124,7 +127,7 @@ export function StagePlotLayersPanel({ layers, activeLayerId, onSetActive, onCre
                 setRenamingId(null)
               }}
             >
-              <Input autoFocus className="h-6 px-1.5 text-sm" value={renameValue} onChange={(e) => setRenameValue(e.target.value)} onBlur={() => setRenamingId(null)} />
+              <Input autoFocus disabled={readOnly} className="h-6 px-1.5 text-sm" value={renameValue} onChange={(e) => setRenameValue(e.target.value)} onBlur={() => setRenamingId(null)} />
             </form>
           ) : (
             <button
@@ -132,40 +135,47 @@ export function StagePlotLayersPanel({ layers, activeLayerId, onSetActive, onCre
               className="min-w-0 flex-1 truncate text-left"
               onClick={() => onSetActive(layer.id)}
               onDoubleClick={() => {
+                if (readOnly) return
                 setRenamingId(layer.id)
                 setRenameValue(layer.name)
               }}
-              title="Click to activate, double-click to rename"
+              title={readOnly ? layer.name : 'Click to activate, double-click to rename'}
             >
               {layer.name}
             </button>
           )}
-          <button type="button" className="text-zinc-500 hover:text-zinc-200 disabled:opacity-30" disabled={index === 0} onClick={() => swapOrder(index, -1)} title="Move up">
-            <ArrowUp className="h-3.5 w-3.5" />
-          </button>
-          <button type="button" className="text-zinc-500 hover:text-zinc-200 disabled:opacity-30" disabled={index === ordered.length - 1} onClick={() => swapOrder(index, 1)} title="Move down">
-            <ArrowDown className="h-3.5 w-3.5" />
-          </button>
-          <button type="button" className="text-zinc-500 hover:text-zinc-200" onClick={() => onUpdate(layer.id, { visible: !layer.visible })} title={layer.visible ? 'Hide layer' : 'Show layer'}>
+          {!readOnly && (
+            <>
+              <button type="button" className="text-zinc-500 hover:text-zinc-200 disabled:opacity-30" disabled={index === 0} onClick={() => swapOrder(index, -1)} title="Move up">
+                <ArrowUp className="h-3.5 w-3.5" />
+              </button>
+              <button type="button" className="text-zinc-500 hover:text-zinc-200 disabled:opacity-30" disabled={index === ordered.length - 1} onClick={() => swapOrder(index, 1)} title="Move down">
+                <ArrowDown className="h-3.5 w-3.5" />
+              </button>
+            </>
+          )}
+          <button type="button" className="text-zinc-500 hover:text-zinc-200 disabled:opacity-30" disabled={readOnly} onClick={() => onUpdate(layer.id, { visible: !layer.visible })} title={layer.visible ? 'Hide layer' : 'Show layer'}>
             {layer.visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
           </button>
-          <button type="button" className="text-zinc-500 hover:text-zinc-200" onClick={() => onUpdate(layer.id, { locked: !layer.locked })} title={layer.locked ? 'Unlock layer' : 'Lock layer'}>
+          <button type="button" className="text-zinc-500 hover:text-zinc-200 disabled:opacity-30" disabled={readOnly} onClick={() => onUpdate(layer.id, { locked: !layer.locked })} title={layer.locked ? 'Unlock layer' : 'Lock layer'}>
             {layer.locked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
           </button>
-          <button
-            type="button"
-            className="text-zinc-500 hover:text-red-400 disabled:opacity-30"
-            disabled={ordered.length <= 1}
-            onClick={() => {
-              if (window.confirm(`Delete layer "${layer.name}" and every element on it?`)) onDelete(layer.id)
-            }}
-            title={ordered.length <= 1 ? 'A plot always keeps at least one layer' : 'Delete layer and its elements'}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+          {!readOnly && (
+            <button
+              type="button"
+              className="text-zinc-500 hover:text-red-400 disabled:opacity-30"
+              disabled={ordered.length <= 1}
+              onClick={() => {
+                if (window.confirm(`Delete layer "${layer.name}" and every element on it?`)) onDelete(layer.id)
+              }}
+              title={ordered.length <= 1 ? 'A plot always keeps at least one layer' : 'Delete layer and its elements'}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       ))}
-      {newName == null ? (
+      {!readOnly && (newName == null ? (
         <button type="button" className="mt-0.5 self-start text-xs text-amber-400 hover:text-amber-300" onClick={() => setNewName('')}>
           <Plus className="mr-0.5 inline h-3 w-3" />
           Add layer
@@ -181,7 +191,7 @@ export function StagePlotLayersPanel({ layers, activeLayerId, onSetActive, onCre
         >
           <Input autoFocus className="h-7 text-sm" placeholder="Layer name" value={newName} onChange={(e) => setNewName(e.target.value)} onBlur={() => setNewName(null)} />
         </form>
-      )}
+      ))}
     </div>
   )
 }
@@ -241,33 +251,37 @@ function LinksSection({ eventId, element, disabled, onAdd, onReorder, onRemove }
   const renderStackRow = (link: StagePlotLink, index: number) => (
     <div key={link.id} className="flex items-center gap-1.5 rounded-md border border-zinc-800 px-1.5 py-1 text-xs text-zinc-300">
       <span className="min-w-0 flex-1 truncate">{link.display_name}</span>
-      <button
-        type="button"
-        className="text-zinc-500 hover:text-zinc-200 disabled:opacity-30"
-        disabled={disabled || index === 0}
-        onClick={() => {
-          onReorder(link.id, stack[index - 1].sort_order)
-          onReorder(stack[index - 1].id, link.sort_order)
-        }}
-        title="Move up in stack"
-      >
-        <ArrowUp className="h-3 w-3" />
-      </button>
-      <button
-        type="button"
-        className="text-zinc-500 hover:text-zinc-200 disabled:opacity-30"
-        disabled={disabled || index === stack.length - 1}
-        onClick={() => {
-          onReorder(link.id, stack[index + 1].sort_order)
-          onReorder(stack[index + 1].id, link.sort_order)
-        }}
-        title="Move down in stack"
-      >
-        <ArrowDown className="h-3 w-3" />
-      </button>
-      <button type="button" className="text-zinc-500 hover:text-red-400" disabled={disabled} onClick={() => onRemove(link.id)} title="Remove from stack">
-        <X className="h-3 w-3" />
-      </button>
+      {!disabled && (
+        <>
+          <button
+            type="button"
+            className="text-zinc-500 hover:text-zinc-200 disabled:opacity-30"
+            disabled={index === 0}
+            onClick={() => {
+              onReorder(link.id, stack[index - 1].sort_order)
+              onReorder(stack[index - 1].id, link.sort_order)
+            }}
+            title="Move up in stack"
+          >
+            <ArrowUp className="h-3 w-3" />
+          </button>
+          <button
+            type="button"
+            className="text-zinc-500 hover:text-zinc-200 disabled:opacity-30"
+            disabled={index === stack.length - 1}
+            onClick={() => {
+              onReorder(link.id, stack[index + 1].sort_order)
+              onReorder(stack[index + 1].id, link.sort_order)
+            }}
+            title="Move down in stack"
+          >
+            <ArrowDown className="h-3 w-3" />
+          </button>
+          <button type="button" className="text-zinc-500 hover:text-red-400" onClick={() => onRemove(link.id)} title="Remove from stack">
+            <X className="h-3 w-3" />
+          </button>
+        </>
+      )}
     </div>
   )
 
@@ -296,28 +310,30 @@ function LinksSection({ eventId, element, disabled, onAdd, onReorder, onRemove }
           {assignments.map((link) => (
             <span key={link.id} className="inline-flex items-center gap-1 rounded-full border border-zinc-700 bg-zinc-800 px-2 py-0.5 text-xs text-zinc-300">
               {link.display_name}
-              <button type="button" className="text-zinc-500 hover:text-red-400" disabled={disabled} onClick={() => onRemove(link.id)} title="Remove assignment">
-                <X className="h-3 w-3" />
-              </button>
+              {!disabled && (
+                <button type="button" className="text-zinc-500 hover:text-red-400" onClick={() => onRemove(link.id)} title="Remove assignment">
+                  <X className="h-3 w-3" />
+                </button>
+              )}
             </span>
           ))}
         </div>
-        {addingRole === 'assignment' ? addForm : (
-          <button type="button" className="mt-1 text-xs text-amber-400 hover:text-amber-300 disabled:opacity-40" disabled={disabled} onClick={() => startAdd('assignment')}>
+        {!disabled && (addingRole === 'assignment' ? addForm : (
+          <button type="button" className="mt-1 text-xs text-amber-400 hover:text-amber-300" onClick={() => startAdd('assignment')}>
             <Plus className="mr-0.5 inline h-3 w-3" />
             Assign source / channel / device
           </button>
-        )}
+        ))}
       </div>
       <div>
         <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Stack — {stack.length} item{stack.length === 1 ? '' : 's'}</p>
         <div className="flex flex-col gap-1">{stack.map(renderStackRow)}</div>
-        {addingRole === 'stack' ? addForm : (
-          <button type="button" className="mt-1 text-xs text-amber-400 hover:text-amber-300 disabled:opacity-40" disabled={disabled} onClick={() => startAdd('stack')}>
+        {!disabled && (addingRole === 'stack' ? addForm : (
+          <button type="button" className="mt-1 text-xs text-amber-400 hover:text-amber-300" onClick={() => startAdd('stack')}>
             <Plus className="mr-0.5 inline h-3 w-3" />
             Add to stack
           </button>
-        )}
+        ))}
       </div>
     </div>
   )
@@ -325,7 +341,7 @@ function LinksSection({ eventId, element, disabled, onAdd, onReorder, onRemove }
 
 /** Right-hand inspector: exact numeric editing of the selected element.
  *  Values commit on blur or Enter (FR-022). */
-export function StagePlotInspector({ eventId, element, layers, onUpdate, onDuplicate, onDelete, onAddLink, onReorderLink, onDeleteLink }: StagePlotInspectorProps) {
+export function StagePlotInspector({ eventId, element, layers, onUpdate, onDuplicate, onDelete, onAddLink, onReorderLink, onDeleteLink, readOnly = false }: StagePlotInspectorProps) {
   const [draft, setDraft] = useDraftState<StagePlotElement, ElementDraft>(element ?? undefined, toDraft, {
     name: '', x: '0', y: '0', z: '0', width: '0', depth: '0', height: '0', rotation: '0', tilt: '0',
   })
@@ -370,7 +386,7 @@ export function StagePlotInspector({ eventId, element, layers, onUpdate, onDupli
         <p className="text-xs text-zinc-500">{kindTitle}{layer ? ` · ${layer.name}` : ''}{locked ? ' · locked' : ''}</p>
       </div>
 
-      <fieldset disabled={locked} className="flex flex-col gap-2">
+      <fieldset disabled={locked || readOnly} className="flex flex-col gap-2">
         <Row label="Name">
           <Input
             className="h-8"
@@ -497,43 +513,45 @@ export function StagePlotInspector({ eventId, element, layers, onUpdate, onDupli
         <LinksSection
           eventId={eventId}
           element={element}
-          disabled={locked}
+          disabled={locked || readOnly}
           onAdd={(role, entityKind, entityId, sortOrder) => onAddLink(element.id, role, entityKind, entityId, sortOrder)}
           onReorder={(linkId, sortOrder) => onReorderLink(element.id, linkId, sortOrder)}
           onRemove={(linkId) => onDeleteLink(element.id, linkId)}
         />
       )}
 
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={locked || element.kind === 'truss' || element.kind === 'fixture'}
-          onClick={() =>
-            onDuplicate({
-              layer_id: element.layer_id,
-              kind: element.kind,
-              shape_kind: element.shape_kind,
-              icon: element.icon,
-              name: element.name,
-              x_cm: element.x_cm + 30,
-              y_cm: element.y_cm + 30,
-              z_cm: element.z_cm,
-              width_cm: element.width_cm,
-              depth_cm: element.depth_cm,
-              height_cm: element.height_cm,
-              rotation_deg: element.rotation_deg,
-              tilt_deg: element.tilt_deg,
-              notes: element.notes,
-            })
-          }
-        >
-          <Copy className="mr-1.5 h-3.5 w-3.5" /> Duplicate
-        </Button>
-        <Button variant="destructive" size="sm" disabled={locked} onClick={() => onDelete(element.id)}>
-          <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
-        </Button>
-      </div>
+      {!readOnly && (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={locked || element.kind === 'truss' || element.kind === 'fixture'}
+            onClick={() =>
+              onDuplicate({
+                layer_id: element.layer_id,
+                kind: element.kind,
+                shape_kind: element.shape_kind,
+                icon: element.icon,
+                name: element.name,
+                x_cm: element.x_cm + 30,
+                y_cm: element.y_cm + 30,
+                z_cm: element.z_cm,
+                width_cm: element.width_cm,
+                depth_cm: element.depth_cm,
+                height_cm: element.height_cm,
+                rotation_deg: element.rotation_deg,
+                tilt_deg: element.tilt_deg,
+                notes: element.notes,
+              })
+            }
+          >
+            <Copy className="mr-1.5 h-3.5 w-3.5" /> Duplicate
+          </Button>
+          <Button variant="destructive" size="sm" disabled={locked} onClick={() => onDelete(element.id)}>
+            <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

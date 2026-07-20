@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 
 const emptyManualDraft = { itemId: '', quantityAudio: 0, quantityLighting: 0, notes: '' }
 
-export function RentalTab({ eventId }: { eventId: number }) {
+export function RentalTab({ eventId, readOnly = false }: { eventId: number; readOnly?: boolean }) {
   const queryClient = useQueryClient()
   const rentalQuery = useQuery({ queryKey: ['rental-summary', eventId], queryFn: () => getRentalSummary(eventId) })
   const allInventoryQuery = useQuery({ queryKey: ['inventory-all-items'], queryFn: () => listInventoryItems() })
@@ -81,39 +81,41 @@ export function RentalTab({ eventId }: { eventId: number }) {
             </ul>
           </div>
         )}
-        <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
-          <div className="min-w-64 flex-1">
-            <label className="mb-1 block text-sm text-zinc-300">Manual line — catalog item</label>
-            <Select value={manualDraft.itemId} onChange={(e) => setManualDraft((prev) => ({ ...prev, itemId: e.target.value }))}>
-              <option value="">Select item…</option>
-              {(allInventoryQuery.data ?? []).map((item) => (
-                <option key={item.id} value={item.id}>{item.category_name ? `${item.category_name} — ${item.name}` : item.name}</option>
-              ))}
-            </Select>
+        {!readOnly && (
+          <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
+            <div className="min-w-64 flex-1">
+              <label className="mb-1 block text-sm text-zinc-300">Manual line — catalog item</label>
+              <Select value={manualDraft.itemId} onChange={(e) => setManualDraft((prev) => ({ ...prev, itemId: e.target.value }))}>
+                <option value="">Select item…</option>
+                {(allInventoryQuery.data ?? []).map((item) => (
+                  <option key={item.id} value={item.id}>{item.category_name ? `${item.category_name} — ${item.name}` : item.name}</option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm text-zinc-300">Audio qty</label>
+              <Input type="number" min={0} value={manualDraft.quantityAudio} onChange={(e) => setManualDraft((prev) => ({ ...prev, quantityAudio: Math.max(0, Number(e.target.value)) }))} className="w-24" />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm text-zinc-300">Lighting qty</label>
+              <Input type="number" min={0} value={manualDraft.quantityLighting} onChange={(e) => setManualDraft((prev) => ({ ...prev, quantityLighting: Math.max(0, Number(e.target.value)) }))} className="w-24" />
+            </div>
+            <div className="min-w-40">
+              <label className="mb-1 block text-sm text-zinc-300">Note</label>
+              <Input value={manualDraft.notes} onChange={(e) => setManualDraft((prev) => ({ ...prev, notes: e.target.value }))} placeholder="e.g. spares" />
+            </div>
+            <Button
+              size="sm"
+              disabled={!manualDraft.itemId || manualPutMutation.isPending}
+              onClick={() => manualPutMutation.mutate({
+                itemId: Number(manualDraft.itemId),
+                payload: { quantity_audio: manualDraft.quantityAudio, quantity_lighting: manualDraft.quantityLighting, notes: manualDraft.notes || undefined },
+              })}
+            >
+              <Plus className="mr-2 h-4 w-4" />{manualPutMutation.isPending ? 'Saving…' : 'Set line'}
+            </Button>
           </div>
-          <div>
-            <label className="mb-1 block text-sm text-zinc-300">Audio qty</label>
-            <Input type="number" min={0} value={manualDraft.quantityAudio} onChange={(e) => setManualDraft((prev) => ({ ...prev, quantityAudio: Math.max(0, Number(e.target.value)) }))} className="w-24" />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm text-zinc-300">Lighting qty</label>
-            <Input type="number" min={0} value={manualDraft.quantityLighting} onChange={(e) => setManualDraft((prev) => ({ ...prev, quantityLighting: Math.max(0, Number(e.target.value)) }))} className="w-24" />
-          </div>
-          <div className="min-w-40">
-            <label className="mb-1 block text-sm text-zinc-300">Note</label>
-            <Input value={manualDraft.notes} onChange={(e) => setManualDraft((prev) => ({ ...prev, notes: e.target.value }))} placeholder="e.g. spares" />
-          </div>
-          <Button
-            size="sm"
-            disabled={!manualDraft.itemId || manualPutMutation.isPending}
-            onClick={() => manualPutMutation.mutate({
-              itemId: Number(manualDraft.itemId),
-              payload: { quantity_audio: manualDraft.quantityAudio, quantity_lighting: manualDraft.quantityLighting, notes: manualDraft.notes || undefined },
-            })}
-          >
-            <Plus className="mr-2 h-4 w-4" />{manualPutMutation.isPending ? 'Saving…' : 'Set line'}
-          </Button>
-        </div>
+        )}
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -151,7 +153,7 @@ export function RentalTab({ eventId }: { eventId: number }) {
                   <TableCell>{item.price_ex_vat.toFixed(2)}</TableCell>
                   <TableCell>{item.subtotal_ex_vat.toFixed(2)}</TableCell>
                   <TableCell>
-                    {(item.manual_quantity_audio > 0 || item.manual_quantity_lighting > 0) && (
+                    {!readOnly && (item.manual_quantity_audio > 0 || item.manual_quantity_lighting > 0) && (
                       <div className="flex items-center gap-1">
                         <Button size="sm" variant="ghost" title="Edit manual line" onClick={() => setManualDraft({ itemId: String(item.inventory_item_id), quantityAudio: item.manual_quantity_audio, quantityLighting: item.manual_quantity_lighting, notes: item.manual_notes ?? '' })}>
                           Edit

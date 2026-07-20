@@ -37,7 +37,7 @@ const emptyBulkDraft = {
   power_connector_in: 'schuko',
 }
 
-export function LightingTab({ eventId }: { eventId: number }) {
+export function LightingTab({ eventId, readOnly = false }: { eventId: number; readOnly?: boolean }) {
   const queryClient = useQueryClient()
   const lightingQuery = useQuery({ queryKey: ['lighting-rig', eventId], queryFn: () => getLightingRig(eventId) })
   const lightingInventoryQuery = useQuery({ queryKey: ['inventory-lighting'], queryFn: () => listInventoryItems({ categoryType: 'lighting' }) })
@@ -130,21 +130,25 @@ export function LightingTab({ eventId }: { eventId: number }) {
             </div>
             <div className="flex gap-2">
               <PrintButton />
-              <Button variant="secondary" size="sm" onClick={() => autoAssignMutation.mutate()} disabled={autoAssignMutation.isPending || !rigId}>
-                <Sparkles className="mr-2 h-4 w-4" />Auto-assign DMX
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  setBulkDraft({ ...emptyBulkDraft, fixture_number_start: String(nextFixtureNumber(fixtures)) })
-                  setBulkDialogOpen(true)
-                }}
-                disabled={!rigId}
-              >
-                <Copy className="mr-2 h-4 w-4" />Bulk Add
-              </Button>
-              <Button size="sm" onClick={() => setFixtureDialogOpen(true)} disabled={!rigId}><Plus className="mr-2 h-4 w-4" />Add Fixture</Button>
+              {!readOnly && (
+                <>
+                  <Button variant="secondary" size="sm" onClick={() => autoAssignMutation.mutate()} disabled={autoAssignMutation.isPending || !rigId}>
+                    <Sparkles className="mr-2 h-4 w-4" />Auto-assign DMX
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setBulkDraft({ ...emptyBulkDraft, fixture_number_start: String(nextFixtureNumber(fixtures)) })
+                      setBulkDialogOpen(true)
+                    }}
+                    disabled={!rigId}
+                  >
+                    <Copy className="mr-2 h-4 w-4" />Bulk Add
+                  </Button>
+                  <Button size="sm" onClick={() => setFixtureDialogOpen(true)} disabled={!rigId}><Plus className="mr-2 h-4 w-4" />Add Fixture</Button>
+                </>
+              )}
             </div>
           </CardHeader>
           <CardContent>
@@ -171,11 +175,12 @@ export function LightingTab({ eventId }: { eventId: number }) {
                           value={fixture.fixture_number ?? ''}
                           onChange={(e) => updateDraft(index, 'fixture_number', toOptionalNumber(e.target.value))}
                           onBlur={() => persist(fixtures[index])}
+                          disabled={readOnly}
                           title={fixture.fixture_number != null && duplicateNumbers.has(fixture.fixture_number) ? 'Duplicate fixture ID — the console needs unique numbers' : 'Console (GrandMA) fixture ID'}
                           className={cn('min-w-20', fixture.fixture_number != null && duplicateNumbers.has(fixture.fixture_number) && 'border-amber-500 text-amber-300')}
                         />
                       </TableCell>
-                      <TableCell className="min-w-48"><div className="space-y-2"><div className="font-medium">{fixture.inventory_item_name || fixture.custom_name || 'Unnamed fixture'}</div><Input value={fixture.custom_name ?? ''} onChange={(e) => updateDraft(index, 'custom_name', e.target.value)} onBlur={() => persist(fixtures[index])} placeholder="Custom label" /></div></TableCell>
+                      <TableCell className="min-w-48"><div className="space-y-2"><div className="font-medium">{fixture.inventory_item_name || fixture.custom_name || 'Unnamed fixture'}</div><Input value={fixture.custom_name ?? ''} onChange={(e) => updateDraft(index, 'custom_name', e.target.value)} onBlur={() => persist(fixtures[index])} disabled={readOnly} placeholder="Custom label" /></div></TableCell>
                       <TableCell className="min-w-32 whitespace-nowrap text-zinc-300" title="Assigned by placing the fixture on a truss in the Stage Plots tab">
                         {fixture.truss_name ? (
                           <>
@@ -186,10 +191,10 @@ export function LightingTab({ eventId }: { eventId: number }) {
                           <span className="text-zinc-600">—</span>
                         )}
                       </TableCell>
-                      <TableCell><Input type="number" value={fixture.position_index} onChange={(e) => updateDraft(index, 'position_index', Number(e.target.value))} onBlur={() => persist(fixtures[index])} className="min-w-20" /></TableCell>
-                      <TableCell><div className="flex items-center gap-2"><Select value={fixture.power_connection} onChange={(e) => updateDraft(index, 'power_connection', e.target.value as LightingFixture['power_connection'])} onBlur={() => persist(fixtures[index])} className="min-w-24"><option value="grid">grid</option><option value="chain">chain</option></Select>{fixture.power_connection === 'chain' && <Link2 className="h-4 w-4 text-amber-400" />}</div></TableCell>
-                      <TableCell><Select value={fixture.power_connector_in} onChange={(e) => updateDraft(index, 'power_connector_in', e.target.value)} onBlur={() => persist(fixtures[index])} className="min-w-44">{options('power_connectors', fixture.power_connector_in).map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</Select></TableCell>
-                      <TableCell><Input type="number" value={fixture.dmx_universe} onChange={(e) => updateDraft(index, 'dmx_universe', Number(e.target.value))} onBlur={() => persist(fixtures[index])} className="min-w-20" /></TableCell>
+                      <TableCell><Input type="number" value={fixture.position_index} onChange={(e) => updateDraft(index, 'position_index', Number(e.target.value))} onBlur={() => persist(fixtures[index])} disabled={readOnly} className="min-w-20" /></TableCell>
+                      <TableCell><div className="flex items-center gap-2"><Select value={fixture.power_connection} onChange={(e) => updateDraft(index, 'power_connection', e.target.value as LightingFixture['power_connection'])} onBlur={() => persist(fixtures[index])} disabled={readOnly} className="min-w-24"><option value="grid">grid</option><option value="chain">chain</option></Select>{fixture.power_connection === 'chain' && <Link2 className="h-4 w-4 text-amber-400" />}</div></TableCell>
+                      <TableCell><Select value={fixture.power_connector_in} onChange={(e) => updateDraft(index, 'power_connector_in', e.target.value)} onBlur={() => persist(fixtures[index])} disabled={readOnly} className="min-w-44">{options('power_connectors', fixture.power_connector_in).map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</Select></TableCell>
+                      <TableCell><Input type="number" value={fixture.dmx_universe} onChange={(e) => updateDraft(index, 'dmx_universe', Number(e.target.value))} onBlur={() => persist(fixtures[index])} disabled={readOnly} className="min-w-20" /></TableCell>
                       <TableCell className="min-w-24">{formatDMXRange(fixture.dmx_start_address, fixture.dmx_channel_count)}</TableCell>
                       <TableCell>
                         <FixtureModeCell
@@ -201,12 +206,13 @@ export function LightingTab({ eventId }: { eventId: number }) {
                           }}
                           onModeText={(value) => updateDraft(index, 'dmx_channel_mode', value)}
                           onPersist={() => persist(fixtures[index])}
+                          readOnly={readOnly}
                         />
                       </TableCell>
-                      <TableCell><Input type="number" value={fixture.dmx_channel_count} onChange={(e) => updateDraft(index, 'dmx_channel_count', Number(e.target.value))} onBlur={() => persist(fixtures[index])} className="min-w-20" /></TableCell>
+                      <TableCell><Input type="number" value={fixture.dmx_channel_count} onChange={(e) => updateDraft(index, 'dmx_channel_count', Number(e.target.value))} onBlur={() => persist(fixtures[index])} disabled={readOnly} className="min-w-20" /></TableCell>
                       <TableCell>{fixture.dmx_chain_parent_id ?? '—'}</TableCell>
-                      <TableCell><Input value={fixture.notes ?? ''} onChange={(e) => updateDraft(index, 'notes', e.target.value)} onBlur={() => persist(fixtures[index])} className="min-w-36" /></TableCell>
-                      <TableCell><Button size="sm" variant="ghost" onClick={() => deleteFixtureMutation.mutate(fixture.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
+                      <TableCell><Input value={fixture.notes ?? ''} onChange={(e) => updateDraft(index, 'notes', e.target.value)} onBlur={() => persist(fixtures[index])} disabled={readOnly} className="min-w-36" /></TableCell>
+                      <TableCell>{!readOnly && <Button size="sm" variant="ghost" onClick={() => deleteFixtureMutation.mutate(fixture.id)}><Trash2 className="h-4 w-4" /></Button>}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -409,11 +415,13 @@ function FixtureModeCell({
   onApply,
   onModeText,
   onPersist,
+  readOnly = false,
 }: {
   fixture: LightingFixture
   onApply: (mode: FixtureMode) => void
   onModeText: (value: string) => void
   onPersist: () => void
+  readOnly?: boolean
 }) {
   const itemId = fixture.inventory_item_id
   const modesQuery = useQuery({
@@ -429,6 +437,7 @@ function FixtureModeCell({
       {modes.length > 0 && (
         <Select
           value={selected?.id ?? ''}
+          disabled={readOnly}
           onChange={(e) => {
             const mode = modes.find((m) => m.id === Number(e.target.value))
             if (mode) onApply(mode)
@@ -438,7 +447,7 @@ function FixtureModeCell({
           {modes.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.channel_count} ch)</option>)}
         </Select>
       )}
-      <Input value={fixture.dmx_channel_mode ?? ''} onChange={(e) => onModeText(e.target.value)} onBlur={onPersist} className="min-w-24" />
+      <Input value={fixture.dmx_channel_mode ?? ''} onChange={(e) => onModeText(e.target.value)} onBlur={onPersist} disabled={readOnly} className="min-w-24" />
     </div>
   )
 }

@@ -14,6 +14,10 @@ interface EventMembersDialogProps {
   eventId: number
   open: boolean
   onClose: () => void
+  /** Defense in depth: this dialog's only trigger (the Invite button) is
+   *  already hidden for viewers, but gate internally too in case it's ever
+   *  reachable another way. */
+  readOnly?: boolean
 }
 
 /**
@@ -22,7 +26,7 @@ interface EventMembersDialogProps {
  * the invite picker client-side (research.md R6) — the server has no
  * "exclude already-invited" query of its own.
  */
-export function EventMembersDialog({ eventId, open, onClose }: EventMembersDialogProps) {
+export function EventMembersDialog({ eventId, open, onClose, readOnly = false }: EventMembersDialogProps) {
   const queryClient = useQueryClient()
   const membersQuery = useQuery({ queryKey: ['event-members', eventId], queryFn: () => listMembers(eventId), enabled: open })
   const usersQuery = useQuery({ queryKey: ['users'], queryFn: listUsers, enabled: open })
@@ -77,6 +81,8 @@ export function EventMembersDialog({ eventId, open, onClose }: EventMembersDialo
                 <div className="flex items-center gap-2">
                   {member.role === 'owner' ? (
                     <Badge variant={ROLE_BADGE.owner}>Owner</Badge>
+                  ) : readOnly ? (
+                    <Badge variant={ROLE_BADGE[member.role]}>{member.role}</Badge>
                   ) : (
                     <>
                       <Select
@@ -101,6 +107,7 @@ export function EventMembersDialog({ eventId, open, onClose }: EventMembersDialo
           </div>
         </div>
 
+        {!readOnly && (
         <div className="border-t border-zinc-800 pt-4">
           <h4 className="mb-2 text-sm font-medium text-zinc-300">Invite someone</h4>
           {availableUsers.length === 0 ? (
@@ -139,6 +146,7 @@ export function EventMembersDialog({ eventId, open, onClose }: EventMembersDialo
             </p>
           )}
         </div>
+        )}
       </div>
     </Dialog>
   )

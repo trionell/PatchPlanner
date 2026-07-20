@@ -27,11 +27,13 @@ export function BusSection({
   groups,
   dcas,
   channels,
+  readOnly = false,
 }: {
   eventId: number
   groups: Bus[]
   dcas: Bus[]
   channels: InputChannel[]
+  readOnly?: boolean
 }) {
   const queryClient = useQueryClient()
   const invalidate = async () => {
@@ -59,6 +61,7 @@ export function BusSection({
         onUpdate={(id, d) => updateGroupM.mutate({ id, d })}
         onDelete={(id) => deleteGroupM.mutate(id)}
         error={createGroupM.error ?? updateGroupM.error ?? deleteGroupM.error}
+        readOnly={readOnly}
       />
       <BusManagerCard
         title="DCAs"
@@ -69,6 +72,7 @@ export function BusSection({
         onUpdate={(id, d) => updateDcaM.mutate({ id, d })}
         onDelete={(id) => deleteDcaM.mutate(id)}
         error={createDcaM.error ?? updateDcaM.error ?? deleteDcaM.error}
+        readOnly={readOnly}
       />
     </div>
   )
@@ -83,6 +87,7 @@ function BusManagerCard({
   onUpdate,
   onDelete,
   error,
+  readOnly = false,
 }: {
   title: string
   noun: string
@@ -92,6 +97,7 @@ function BusManagerCard({
   onUpdate: (id: number, d: BusRequest) => void
   onDelete: (id: number) => void
   error: Error | null
+  readOnly?: boolean
 }) {
   const [draftName, setDraftName] = useState('')
   const [draftColor, setDraftColor] = useState('')
@@ -115,7 +121,11 @@ function BusManagerCard({
       <CardContent className="space-y-2">
         {buses.map((bus) => (
           <div key={bus.id} className="flex items-center gap-2">
-            <ColorSelect value={bus.color} onChange={(color) => onUpdate(bus.id, { name: bus.name, color })} />
+            {readOnly ? (
+              <span aria-hidden className="h-4 w-4 shrink-0 rounded border border-zinc-600" style={bus.color ? { backgroundColor: bus.color } : undefined} />
+            ) : (
+              <ColorSelect value={bus.color} onChange={(color) => onUpdate(bus.id, { name: bus.name, color })} />
+            )}
             {bus.is_builtin ? (
               <>
                 <span className="flex-1 px-3 text-sm">{bus.name}</span>
@@ -126,30 +136,35 @@ function BusManagerCard({
                 <Input
                   key={`${bus.id}-${bus.name}`}
                   defaultValue={bus.name}
+                  disabled={readOnly}
                   onBlur={(e) => {
                     const name = e.target.value.trim()
                     if (name && name !== bus.name) onUpdate(bus.id, { name, color: bus.color })
                   }}
                   className="flex-1"
                 />
-                <Button size="sm" variant="ghost" aria-label={`Delete ${bus.name}`} onClick={() => remove(bus)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                {!readOnly && (
+                  <Button size="sm" variant="ghost" aria-label={`Delete ${bus.name}`} onClick={() => remove(bus)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
               </>
             )}
           </div>
         ))}
-        <div className="flex items-center gap-2 pt-2">
-          <ColorSelect value={draftColor || undefined} onChange={setDraftColor} />
-          <Input
-            value={draftName}
-            placeholder={`New ${noun} name`}
-            onChange={(e) => setDraftName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') add() }}
-            className="flex-1"
-          />
-          <Button size="sm" onClick={add} disabled={!draftName.trim()}><Plus className="mr-1 h-4 w-4" />Add</Button>
-        </div>
+        {!readOnly && (
+          <div className="flex items-center gap-2 pt-2">
+            <ColorSelect value={draftColor || undefined} onChange={setDraftColor} />
+            <Input
+              value={draftName}
+              placeholder={`New ${noun} name`}
+              onChange={(e) => setDraftName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') add() }}
+              className="flex-1"
+            />
+            <Button size="sm" onClick={add} disabled={!draftName.trim()}><Plus className="mr-1 h-4 w-4" />Add</Button>
+          </div>
+        )}
         {error && <p className="text-sm text-red-400">{error.message}</p>}
       </CardContent>
     </Card>

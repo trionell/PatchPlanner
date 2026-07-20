@@ -7,7 +7,15 @@ import { Select } from '../ui/Select'
  * palette stays offered on this row (the options() legacy merge), so
  * removing a palette entry never blanks existing rows.
  */
-export function ColorSelect({ value, onChange }: { value?: string; onChange: (color: string) => void }) {
+export function ColorSelect({
+  value,
+  onChange,
+  disabled,
+}: {
+  value?: string
+  onChange: (color: string) => void
+  disabled?: boolean
+}) {
   const { options } = useReferenceData()
 
   return (
@@ -17,7 +25,7 @@ export function ColorSelect({ value, onChange }: { value?: string; onChange: (co
         className="h-4 w-4 shrink-0 rounded border border-zinc-600"
         style={value ? { backgroundColor: value } : undefined}
       />
-      <Select value={value ?? ''} onChange={(e) => onChange(e.target.value)}>
+      <Select value={value ?? ''} onChange={(e) => onChange(e.target.value)} disabled={disabled}>
         <option value="">—</option>
         {options('channel_colors', value).map((color) => (
           <option key={color.value} value={color.value}>{color.label}</option>

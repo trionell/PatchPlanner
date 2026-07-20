@@ -57,7 +57,7 @@ function parsePortKey(key: string): { kind: PortRef['kind']; id: number; port: n
   return { kind: kind as PortRef['kind'], id: Number(id), port: Number(port), direction: direction as 'in' | 'out' }
 }
 
-export function AudioOutputsTab({ eventId }: { eventId: number }) {
+export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number; readOnly?: boolean }) {
   const queryClient = useQueryClient()
   const audioQuery = useQuery({ queryKey: ['audio-patch', eventId], queryFn: ({ signal }) => getAudioPatch(eventId, signal) })
   const inventoryQuery = useQuery({ queryKey: ['inventory-audio-items'], queryFn: () => listInventoryItems({ categoryType: 'audio' }) })
@@ -116,10 +116,11 @@ export function AudioOutputsTab({ eventId }: { eventId: number }) {
           onUpdateAndPersist={updateAndPersistOutput}
           onAdd={addOutputRow}
           onDelete={(id) => deleteOutputMutation.mutate(id)}
+          readOnly={readOnly}
         />
-        <StageboxMultiSection eventId={eventId} stageboxes={stageboxes} stageMultis={stageMultis} audioItems={allAudioItems} />
-        <ProcessingDeviceSection eventId={eventId} devices={outputDevices} audioItems={allAudioItems} ownedItems={ownedItems} />
-        <TrueOutputDeviceSection eventId={eventId} devices={outputDevices} audioItems={allAudioItems} ownedItems={ownedItems} />
+        <StageboxMultiSection eventId={eventId} stageboxes={stageboxes} stageMultis={stageMultis} audioItems={allAudioItems} readOnly={readOnly} />
+        <ProcessingDeviceSection eventId={eventId} devices={outputDevices} audioItems={allAudioItems} ownedItems={ownedItems} readOnly={readOnly} />
+        <TrueOutputDeviceSection eventId={eventId} devices={outputDevices} audioItems={allAudioItems} ownedItems={ownedItems} readOnly={readOnly} />
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle>Signal flow</CardTitle>
@@ -157,6 +158,7 @@ export function AudioOutputsTab({ eventId }: { eventId: number }) {
                 mixerPositionY={mixerPositionY}
                 cableItems={cableItems}
                 onChanged={invalidate}
+                readOnly={readOnly}
               />
             ) : (
               <OutputResourceTable
@@ -193,6 +195,7 @@ function OutputChannelsSection({
   onUpdateAndPersist,
   onAdd,
   onDelete,
+  readOnly,
 }: {
   outputs: AudioPatchOutput[]
   onUpdateDraft: <K extends keyof AudioPatchOutput>(index: number, key: K, value: AudioPatchOutput[K]) => void
@@ -200,13 +203,14 @@ function OutputChannelsSection({
   onUpdateAndPersist: (index: number, patch: Partial<AudioPatchOutput>) => void
   onAdd: () => void
   onDelete: (id: number) => void
+  readOnly: boolean
 }) {
   const { options } = useReferenceData()
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Output channels</CardTitle>
-        <Button size="sm" onClick={onAdd}><Plus className="mr-2 h-4 w-4" />Add channel</Button>
+        {!readOnly && <Button size="sm" onClick={onAdd}><Plus className="mr-2 h-4 w-4" />Add channel</Button>}
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
@@ -219,27 +223,27 @@ function OutputChannelsSection({
             <TableBody>
               {outputs.map((row, index) => (
                 <TableRow key={row.id}>
-                  <TableCell><Input type="number" value={row.output_number} onChange={(e) => onUpdateDraft(index, 'output_number', Number(e.target.value))} onBlur={() => onPersist(index)} className="w-20" /></TableCell>
-                  <TableCell><Input value={row.output_name ?? ''} onChange={(e) => onUpdateDraft(index, 'output_name', e.target.value)} onBlur={() => onPersist(index)} className="min-w-36" /></TableCell>
+                  <TableCell><Input type="number" value={row.output_number} onChange={(e) => onUpdateDraft(index, 'output_number', Number(e.target.value))} onBlur={() => onPersist(index)} disabled={readOnly} className="w-20" /></TableCell>
+                  <TableCell><Input value={row.output_name ?? ''} onChange={(e) => onUpdateDraft(index, 'output_name', e.target.value)} onBlur={() => onPersist(index)} disabled={readOnly} className="min-w-36" /></TableCell>
                   <TableCell>
                     <div className="space-y-2 min-w-28">
                       <Badge variant={row.output_type === 'aux' ? 'warning' : row.output_type}>{row.output_type}</Badge>
-                      <Select value={row.output_type} onChange={(e) => onUpdateDraft(index, 'output_type', e.target.value)} onBlur={() => onPersist(index)}>
+                      <Select value={row.output_type} onChange={(e) => onUpdateDraft(index, 'output_type', e.target.value)} onBlur={() => onPersist(index)} disabled={readOnly}>
                         {options('output_types', row.output_type).map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
                       </Select>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="min-w-24">
-                      <Select value={row.width} onChange={(e) => onUpdateAndPersist(index, { width: e.target.value as AudioPatchOutput['width'] })}>
+                      <Select value={row.width} onChange={(e) => onUpdateAndPersist(index, { width: e.target.value as AudioPatchOutput['width'] })} disabled={readOnly}>
                         <option value="mono">Mono</option>
                         <option value="stereo">Stereo</option>
                       </Select>
                     </div>
                   </TableCell>
-                  <TableCell><ColorSelect value={row.color} onChange={(color) => onUpdateAndPersist(index, { color })} /></TableCell>
-                  <TableCell><Input value={row.notes ?? ''} onChange={(e) => onUpdateDraft(index, 'notes', e.target.value)} onBlur={() => onPersist(index)} className="min-w-36" /></TableCell>
-                  <TableCell><Button size="sm" variant="ghost" onClick={() => onDelete(row.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
+                  <TableCell><ColorSelect value={row.color} onChange={(color) => onUpdateAndPersist(index, { color })} disabled={readOnly} /></TableCell>
+                  <TableCell><Input value={row.notes ?? ''} onChange={(e) => onUpdateDraft(index, 'notes', e.target.value)} onBlur={() => onPersist(index)} disabled={readOnly} className="min-w-36" /></TableCell>
+                  <TableCell>{!readOnly && <Button size="sm" variant="ghost" onClick={() => onDelete(row.id)}><Trash2 className="h-4 w-4" /></Button>}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -299,6 +303,7 @@ function OutputGraphCanvas({
   mixerPositionY,
   cableItems,
   onChanged,
+  readOnly = false,
 }: {
   eventId: number
   outputs: AudioPatchOutput[]
@@ -309,6 +314,7 @@ function OutputGraphCanvas({
   mixerPositionY: number
   cableItems: InventoryItem[]
   onChanged: () => Promise<void>
+  readOnly?: boolean
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -557,6 +563,9 @@ function OutputGraphCanvas({
       setInfoCable(cableAtPort(port.kind, port.id, port.port, port.direction, cables) ?? null)
       return
     }
+    // Viewing an existing cable's info (above) stays available; starting
+    // a brand-new connection does not.
+    if (readOnly) return
     if (!pendingPort) {
       setPendingPort(port)
       return
@@ -586,6 +595,7 @@ function OutputGraphCanvas({
       handlePortClick(port)
       return
     }
+    if (readOnly) return
     const startX = event.clientX
     const startY = event.clientY
     let dragged = false
@@ -692,7 +702,7 @@ function OutputGraphCanvas({
                     onPortClick={handlePortClick}
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
-                    onDragStart={(e) => startNodeDrag('mixer', 0, 'y-only', e)}
+                    onDragStart={readOnly ? undefined : (e) => startNodeDrag('mixer', 0, 'y-only', e)}
                   />
                 )
               }
@@ -710,7 +720,7 @@ function OutputGraphCanvas({
                     onPortClick={handlePortClick}
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
-                    onDragStart={(e) => startNodeDrag('stagebox', sb.id, 'free', e)}
+                    onDragStart={readOnly ? undefined : (e) => startNodeDrag('stagebox', sb.id, 'free', e)}
                   />
                 )
               }
@@ -728,7 +738,7 @@ function OutputGraphCanvas({
                     onPortClick={handlePortClick}
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
-                    onDragStart={(e) => startNodeDrag('stage_multi', sm.id, 'free', e)}
+                    onDragStart={readOnly ? undefined : (e) => startNodeDrag('stage_multi', sm.id, 'free', e)}
                   />
                 )
               }
@@ -745,8 +755,8 @@ function OutputGraphCanvas({
                   onPortClick={handlePortClick}
                   onPortPointerDown={handlePortPointerDown}
                   registerPort={registerPort}
-                  onDragStart={(e) => startNodeDrag('device', device.id, node.zone === 'processing' ? 'free' : 'y-only', e)}
-                  onDelete={() => deleteDeviceMutation.mutate(device.id)}
+                  onDragStart={readOnly ? undefined : (e) => startNodeDrag('device', device.id, node.zone === 'processing' ? 'free' : 'y-only', e)}
+                  onDelete={readOnly ? undefined : () => deleteDeviceMutation.mutate(device.id)}
                 />
               )
             })}
@@ -785,6 +795,7 @@ function OutputGraphCanvas({
         <CableInfoDialog
           cable={infoCable}
           cableItems={cableItems}
+          readOnly={readOnly}
           onClose={() => setInfoCable(null)}
           onChangeItem={(cableItemId) => {
             updateCableMutation.mutate({ id: infoCable.id, cableItemId })
@@ -912,7 +923,7 @@ function MixerNode({ x, y, outputs, cables, pendingPort, onPortClick, onPortPoin
   onPortClick: (port: PortRef) => void
   onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
   registerPort: (key: string) => (el: HTMLElement | null) => void
-  onDragStart: (e: ReactPointerEvent) => void
+  onDragStart?: (e: ReactPointerEvent) => void
 }) {
   const ports = mixerPorts(outputs)
   return (
@@ -934,7 +945,7 @@ function StageboxNode({ x, y, stagebox, cables, pendingPort, onPortClick, onPort
   onPortClick: (port: PortRef) => void
   onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
   registerPort: (key: string) => (el: HTMLElement | null) => void
-  onDragStart: (e: ReactPointerEvent) => void
+  onDragStart?: (e: ReactPointerEvent) => void
 }) {
   const { inputs, outputs } = stageboxPorts(stagebox)
   return (
@@ -964,7 +975,7 @@ function StageMultiNode({ x, y, stageMulti, cables, pendingPort, onPortClick, on
   onPortClick: (port: PortRef) => void
   onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
   registerPort: (key: string) => (el: HTMLElement | null) => void
-  onDragStart: (e: ReactPointerEvent) => void
+  onDragStart?: (e: ReactPointerEvent) => void
 }) {
   const { inputs, outputs } = stageMultiPorts(stageMulti)
   return (
@@ -994,8 +1005,8 @@ function DeviceNode({ x, y, device, cables, pendingPort, onPortClick, onPortPoin
   onPortClick: (port: PortRef) => void
   onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
   registerPort: (key: string) => (el: HTMLElement | null) => void
-  onDragStart: (e: ReactPointerEvent) => void
-  onDelete: () => void
+  onDragStart?: (e: ReactPointerEvent) => void
+  onDelete?: () => void
 }) {
   const { inputs, outputs, links } = devicePorts(device)
   return (
@@ -1044,9 +1055,10 @@ function CableItemPicker({ from, to, cableItems, onCancel, onConfirm }: {
   )
 }
 
-function CableInfoDialog({ cable, cableItems, onClose, onChangeItem, onDelete }: {
+function CableInfoDialog({ cable, cableItems, readOnly, onClose, onChangeItem, onDelete }: {
   cable: OutputCable
   cableItems: InventoryItem[]
+  readOnly?: boolean
   onClose: () => void
   onChangeItem: (cableItemId: number | undefined) => void
   onDelete: () => void
@@ -1063,17 +1075,17 @@ function CableInfoDialog({ cable, cableItems, onClose, onChangeItem, onDelete }:
         ) : (
           <>
             <p className="text-sm text-zinc-400">Catalog item for this run.</p>
-            <Select value={selected ?? ''} onChange={(e) => setSelected(e.target.value ? Number(e.target.value) : undefined)}>
+            <Select value={selected ?? ''} onChange={(e) => setSelected(e.target.value ? Number(e.target.value) : undefined)} disabled={readOnly}>
               <option value="">No cable picked</option>
               {cableItems.map((item) => <option key={item.id} value={item.id}>{itemLabel(item)}</option>)}
             </Select>
           </>
         )}
         <div className="flex justify-between gap-2">
-          <Button variant="destructive" onClick={onDelete}><Unplug className="mr-2 h-4 w-4" />Disconnect</Button>
+          {readOnly ? <span /> : <Button variant="destructive" onClick={onDelete}><Unplug className="mr-2 h-4 w-4" />Disconnect</Button>}
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose}>Close</Button>
-            {!isBuiltIn && <Button onClick={() => onChangeItem(selected)}>Save</Button>}
+            {!isBuiltIn && !readOnly && <Button onClick={() => onChangeItem(selected)}>Save</Button>}
           </div>
         </div>
       </div>

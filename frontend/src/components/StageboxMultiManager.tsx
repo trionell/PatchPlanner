@@ -29,6 +29,7 @@ interface Props {
   onUpdateStageMulti: (id: number, data: Omit<StageMulti, 'id'>) => void
   onDeleteStageMulti: (id: number) => void
   eventId: number
+  readOnly?: boolean
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -37,6 +38,7 @@ export function StageboxMultiManager({
   onCreateStagebox, onUpdateStagebox, onDeleteStagebox,
   onCreateStageMulti, onUpdateStageMulti, onDeleteStageMulti,
   eventId,
+  readOnly = false,
 }: Props) {
   const [boxOpen, setBoxOpen] = useState(true)
   const [multiOpen, setMultiOpen] = useState(true)
@@ -139,12 +141,14 @@ export function StageboxMultiManager({
             Stageboxes
             <span className="rounded-full bg-zinc-700 px-2 py-0.5 text-xs text-zinc-300">{stageboxes.length}</span>
           </span>
-          <Button
-            size="sm" variant="ghost"
-            onClick={e => { e.stopPropagation(); setAddingBox(true); setBoxOpen(true) }}
-          >
-            <Plus className="h-3.5 w-3.5 mr-1" />Add
-          </Button>
+          {!readOnly && (
+            <Button
+              size="sm" variant="ghost"
+              onClick={e => { e.stopPropagation(); setAddingBox(true); setBoxOpen(true) }}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />Add
+            </Button>
+          )}
         </button>
 
         {boxOpen && (
@@ -159,10 +163,11 @@ export function StageboxMultiManager({
                 audioItems={boxItems}
                 onUpdate={data => onUpdateStagebox(sb.id, data)}
                 onDelete={() => onDeleteStagebox(sb.id)}
+                readOnly={readOnly}
               />
             ))}
 
-            {addingBox && (
+            {!readOnly && addingBox && (
               <div className="border-t border-zinc-700 bg-zinc-850 px-4 py-3 space-y-3">
                 <p className="text-xs font-medium text-amber-400">New stagebox</p>
                 <div className="grid grid-cols-2 gap-2">
@@ -213,12 +218,14 @@ export function StageboxMultiManager({
             Stage Multis
             <span className="rounded-full bg-zinc-700 px-2 py-0.5 text-xs text-zinc-300">{stageMultis.length}</span>
           </span>
-          <Button
-            size="sm" variant="ghost"
-            onClick={e => { e.stopPropagation(); setAddingMulti(true); setMultiOpen(true) }}
-          >
-            <Plus className="h-3.5 w-3.5 mr-1" />Add
-          </Button>
+          {!readOnly && (
+            <Button
+              size="sm" variant="ghost"
+              onClick={e => { e.stopPropagation(); setAddingMulti(true); setMultiOpen(true) }}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />Add
+            </Button>
+          )}
         </button>
 
         {multiOpen && (
@@ -233,10 +240,11 @@ export function StageboxMultiManager({
                 audioItems={multiItems}
                 onUpdate={data => onUpdateStageMulti(sm.id, data)}
                 onDelete={() => onDeleteStageMulti(sm.id)}
+                readOnly={readOnly}
               />
             ))}
 
-            {addingMulti && (
+            {!readOnly && addingMulti && (
               <div className="border-t border-zinc-700 bg-zinc-850 px-4 py-3 space-y-3">
                 <p className="text-xs font-medium text-amber-400">New stage multi</p>
                 <div className="grid grid-cols-2 gap-2">
@@ -280,11 +288,12 @@ export function StageboxMultiManager({
 }
 
 // ─── Inline-editable stagebox row ─────────────────────────────────────────────
-function StageboxRow({ sb, audioItems, onUpdate, onDelete }: {
+function StageboxRow({ sb, audioItems, onUpdate, onDelete, readOnly = false }: {
   sb: Stagebox
   audioItems: InventoryItem[]
   onUpdate: (data: Omit<Stagebox, 'id'>) => void
   onDelete: () => void
+  readOnly?: boolean
 }) {
   const [draft, setDraft] = useState(sb)
   const save = () => onUpdate({ ...draft })
@@ -293,6 +302,7 @@ function StageboxRow({ sb, audioItems, onUpdate, onDelete }: {
     <div className="grid grid-cols-[1fr_1fr_auto_auto_auto_auto] items-center gap-2 border-b border-zinc-800 px-4 py-2 last:border-b-0">
       <Input
         value={draft.name}
+        disabled={readOnly}
         onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
         onBlur={save}
         placeholder="Name"
@@ -300,6 +310,7 @@ function StageboxRow({ sb, audioItems, onUpdate, onDelete }: {
       />
       <Select
         value={draft.inventory_item_id ?? ''}
+        disabled={readOnly}
         onChange={e => {
           const item = audioItems.find(i => String(i.id) === e.target.value)
           const parsed = item ? parseInOut(item.description ?? '') : null
@@ -319,26 +330,27 @@ function StageboxRow({ sb, audioItems, onUpdate, onDelete }: {
       </Select>
       <div className="flex items-center gap-1">
         <span className="text-xs text-zinc-500">In</span>
-        <Input type="number" min={0} value={draft.input_count} onChange={e => setDraft(d => ({ ...d, input_count: Number(e.target.value) }))} onBlur={save} className="w-14 text-xs text-center" />
+        <Input type="number" min={0} value={draft.input_count} disabled={readOnly} onChange={e => setDraft(d => ({ ...d, input_count: Number(e.target.value) }))} onBlur={save} className="w-14 text-xs text-center" />
       </div>
       <div className="flex items-center gap-1">
         <span className="text-xs text-zinc-500">Out</span>
-        <Input type="number" min={0} value={draft.output_count} onChange={e => setDraft(d => ({ ...d, output_count: Number(e.target.value) }))} onBlur={save} className="w-14 text-xs text-center" />
+        <Input type="number" min={0} value={draft.output_count} disabled={readOnly} onChange={e => setDraft(d => ({ ...d, output_count: Number(e.target.value) }))} onBlur={save} className="w-14 text-xs text-center" />
       </div>
-      <Select value={draft.connection_type} onChange={e => setDraft(d => ({ ...d, connection_type: e.target.value }))} onBlur={save} className="text-xs w-24">
+      <Select value={draft.connection_type} disabled={readOnly} onChange={e => setDraft(d => ({ ...d, connection_type: e.target.value }))} onBlur={save} className="text-xs w-24">
         {connectionTypes.map(t => <option key={t} value={t}>{t}</option>)}
       </Select>
-      <Button size="sm" variant="ghost" onClick={onDelete}><Trash2 className="h-3.5 w-3.5" /></Button>
+      {!readOnly && <Button size="sm" variant="ghost" onClick={onDelete}><Trash2 className="h-3.5 w-3.5" /></Button>}
     </div>
   )
 }
 
 // ─── Inline-editable stage multi row ─────────────────────────────────────────
-function StageMultiRow({ sm, audioItems, onUpdate, onDelete }: {
+function StageMultiRow({ sm, audioItems, onUpdate, onDelete, readOnly = false }: {
   sm: StageMulti
   audioItems: InventoryItem[]
   onUpdate: (data: Omit<StageMulti, 'id'>) => void
   onDelete: () => void
+  readOnly?: boolean
 }) {
   const [draft, setDraft] = useState(sm)
   const save = () => onUpdate({ ...draft })
@@ -347,6 +359,7 @@ function StageMultiRow({ sm, audioItems, onUpdate, onDelete }: {
     <div className="grid grid-cols-[1fr_1fr_auto_auto_auto_auto] items-center gap-2 border-b border-zinc-800 px-4 py-2 last:border-b-0">
       <Input
         value={draft.name}
+        disabled={readOnly}
         onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
         onBlur={save}
         placeholder="Name"
@@ -354,6 +367,7 @@ function StageMultiRow({ sm, audioItems, onUpdate, onDelete }: {
       />
       <Select
         value={draft.inventory_item_id ?? ''}
+        disabled={readOnly}
         onChange={e => {
           const item = audioItems.find(i => String(i.id) === e.target.value)
           const ch = item ? parseChannels(item.description ?? '') : null
@@ -371,16 +385,16 @@ function StageMultiRow({ sm, audioItems, onUpdate, onDelete }: {
       </Select>
       <div className="flex items-center gap-1">
         <span className="text-xs text-zinc-500">Ch</span>
-        <Input type="number" min={1} value={draft.channels} onChange={e => setDraft(d => ({ ...d, channels: Number(e.target.value) }))} onBlur={save} className="w-14 text-xs text-center" />
+        <Input type="number" min={1} value={draft.channels} disabled={readOnly} onChange={e => setDraft(d => ({ ...d, channels: Number(e.target.value) }))} onBlur={save} className="w-14 text-xs text-center" />
       </div>
       <div className="flex items-center gap-1">
         <span className="text-xs text-zinc-500">m</span>
-        <Input type="number" min={0} step={0.5} value={draft.length_m || ''} onChange={e => setDraft(d => ({ ...d, length_m: Number(e.target.value) }))} onBlur={save} className="w-16 text-xs text-center" />
+        <Input type="number" min={0} step={0.5} value={draft.length_m || ''} disabled={readOnly} onChange={e => setDraft(d => ({ ...d, length_m: Number(e.target.value) }))} onBlur={save} className="w-16 text-xs text-center" />
       </div>
-      <Select value={draft.connector_type} onChange={e => setDraft(d => ({ ...d, connector_type: e.target.value }))} onBlur={save} className="text-xs w-20">
+      <Select value={draft.connector_type} disabled={readOnly} onChange={e => setDraft(d => ({ ...d, connector_type: e.target.value }))} onBlur={save} className="text-xs w-20">
         {multiConnectors.map(c => <option key={c} value={c}>{c.toUpperCase()}</option>)}
       </Select>
-      <Button size="sm" variant="ghost" onClick={onDelete}><Trash2 className="h-3.5 w-3.5" /></Button>
+      {!readOnly && <Button size="sm" variant="ghost" onClick={onDelete}><Trash2 className="h-3.5 w-3.5" /></Button>}
     </div>
   )
 }

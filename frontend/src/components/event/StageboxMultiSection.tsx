@@ -8,13 +8,14 @@ interface StageboxMultiSectionProps {
   stageboxes: Stagebox[]
   stageMultis: StageMulti[]
   audioItems: InventoryItem[]
+  readOnly?: boolean
 }
 
 /**
  * StageboxMultiManager wired with its own mutations, shared by the audio
  * inputs and outputs tabs.
  */
-export function StageboxMultiSection({ eventId, stageboxes, stageMultis, audioItems }: StageboxMultiSectionProps) {
+export function StageboxMultiSection({ eventId, stageboxes, stageMultis, audioItems, readOnly = false }: StageboxMultiSectionProps) {
   const queryClient = useQueryClient()
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['audio-patch', eventId] })
@@ -40,6 +41,7 @@ export function StageboxMultiSection({ eventId, stageboxes, stageMultis, audioIt
       onCreateStageMulti={(d) => createSm.mutate(d)}
       onUpdateStageMulti={(id, d) => updateSm.mutate({ id, d })}
       onDeleteStageMulti={(id) => deleteSm.mutate(id)}
+      readOnly={readOnly}
     />
   )
 }
