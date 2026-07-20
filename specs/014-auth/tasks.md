@@ -117,7 +117,7 @@ description: "Task list for Slice 14 — Authentication"
 
 - [X] T035 [P] Write `frontend/src/api/client.test.ts` (Vitest): mock global `fetch`, assert the 401→redirect branch fires for a non-`/auth` path and is skipped for `/auth/me` (depends on T026)
 - [X] T036 Run `go vet ./...` and `golangci-lint run` in `backend/`, and `tsc -b` (not `tsc --noEmit`) + ESLint in `frontend/`, per the constitution's Development Workflow gates — fix anything they flag
-- [ ] T037 Manually verify against `quickstart.md`: complete Google Cloud Console setup (consent screen, test users, OAuth client, redirect URIs), then run the real browser round-trip for all three stories (successful sign-in, a test-user-but-not-allow-listed rejection, and sign-out) — this is the one thing genuinely untestable in `httptest`
+- [X] T037 Manually verify against `quickstart.md`: complete Google Cloud Console setup (consent screen, test users, OAuth client, redirect URIs), then run the real browser round-trip for all three stories (successful sign-in, a test-user-but-not-allow-listed rejection, and sign-out) — this is the one thing genuinely untestable in `httptest`
 
 ---
 
