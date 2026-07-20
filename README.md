@@ -17,8 +17,8 @@ An AVL (Audio, Video, Lighting) event planning tool for live productions. Plan p
 - **Rental Order** — Per-event summary of all rented equipment, derived automatically from the plan (mics, DI/IEM, stageboxes, multicores, amplifiers, speakers, cables, mic stands, fixtures) plus manual line items for anything else; flags lines that exceed the renter's stock. Which catalog categories feed the cable/stand pickers is itself data: each category on the Inventory page carries an editable picker role
 - **Excel Export** — One click produces a copy of LL.xlsx with the order quantities filled into the *Antal Ljud* / *Antal Ljus* columns at the right rows, ready to send to the renter unmodified; lines that can't be placed are reported, never silently dropped
 - **Owned Gear & Equipment Lists** — A personal catalog of equipment you own (never on the rental order), plannable per event with quantities and notes; the Equipment tab shows everything beyond the patch and rig: owned gear plus rented extras
-- **Configurable Reference Data** — Every planning vocabulary (signal types, preamp connectors, signal/speaker cable types, output types, mic stands, power connectors, truss types) is stored data, editable on the Settings page: add values for new gear, rename labels, delete unused ones (values in use by a plan are protected). Lighting fixture models carry DMX mode definitions (name + channel count) that auto-fill the channel count when patching
-- **Inventory** — Full catalog imported directly from the LL.xlsx price list (308 items across 27 categories: audio, lighting, rigging)
+- **Configurable Reference Data** — Every planning vocabulary (signal types, preamp connectors, signal/speaker cable types, output types, mic stands, power connectors, truss types, channel colors) is stored data: add values for new gear, rename labels, delete unused ones (values in use by a plan are protected). Each event has its own independent vocabulary, editable on that event's Settings tab; every user also keeps a personal "My Defaults" template that seeds a new event's vocabulary at creation time — a one-time copy, never a live link back to the template or to any other event. Lighting fixture models carry DMX mode definitions (name + channel count) that auto-fill the channel count when patching
+- **Inventories** — Each user owns their own independent equipment catalogs, imported from a price-list `.xlsx` file (e.g. 308 items across 27 categories: audio, lighting, rigging); duplicate an inventory to spin off a variant without re-importing, and pick which one an event uses when you create it — contributors get read access to it, only its owner can manage it
 - **Print Sheets** — Every planning tab (input patch, output patch, lighting rig) has a Print button that produces a clean paper/PDF sheet via the browser print dialog: event header, black-on-white table, repeating column headers, no UI chrome
 - **Signal Flow** — A read-only per-channel trace on its own event tab: inputs read source → cable → stagebox/multi channel → console; outputs read console → cable → node → cable → node → … → destination, walking the same graph the canvas edits, branching when a device fans out to more than one destination. Incomplete routing is flagged so patching errors are caught before load-in, and the view prints like the sheets
 
@@ -63,7 +63,19 @@ Configuration (all optional, via environment variables):
 | `PATCHPLANNER_DB` | `./patchplanner.db` | SQLite database file |
 | `PATCHPLANNER_MIGRATIONS` | `./migrations` | Migrations directory |
 | `PATCHPLANNER_CORS_ORIGIN` | `http://localhost:5173` | Allowed dev-server origin |
-| `INVENTORY_PATH` | `../LL.xlsx` | Price list used by the import endpoint |
+| `INVENTORY_PATH` | `../LL.xlsx` | One-time-only: read on first startup after upgrading to per-inventory ownership, to seed the legacy shared catalog's template into its new owner-less bootstrap inventory row. Not used by ongoing imports, which are per-inventory file uploads through the UI. |
+
+Authentication (Google sign-in — see `specs/014-auth/quickstart.md` for the
+first-time Google Cloud Console setup walkthrough):
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `PATCHPLANNER_GOOGLE_CLIENT_ID` | *(required)* | OAuth 2.0 client ID from Google Cloud Console |
+| `PATCHPLANNER_GOOGLE_CLIENT_SECRET` | *(required)* | OAuth 2.0 client secret |
+| `PATCHPLANNER_GOOGLE_REDIRECT_URL` | *(required)* | Must exactly match a redirect URI registered on the OAuth client |
+| `PATCHPLANNER_FRONTEND_URL` | `http://localhost:5173` | Where the login/logout/error flow redirects back to |
+| `PATCHPLANNER_ALLOWED_EMAILS` | *(required)* | Comma-separated, case-insensitive allow-list of Google emails permitted to sign in |
+| `PATCHPLANNER_SESSION_TTL` | `720h` | Go duration string; how long a signed-in session lasts |
 
 ### 3. Start the frontend
 
@@ -77,19 +89,25 @@ npm run dev
 
 The frontend opens on **http://localhost:5173**
 
-### 4. Import the inventory
+### 4. Import an inventory
 
-Once the backend is running, import the equipment catalog from `LL.xlsx`:
+Every user gets their own independent inventories (equipment catalogs) — no
+more one shared global catalog. Sign in, go to **Inventories** in the
+sidebar, create an inventory (or use the one created for you automatically
+on first sign-in), and upload a price-list `.xlsx` file (e.g. `LL.xlsx`)
+through **"Import price list (.xlsx)"**. This is a real file upload
+(multipart form), scoped to that one inventory — it no longer reads a fixed
+server-side path.
 
-```bash
-curl -X POST http://localhost:7331/api/v1/inventory/import-xlsx
-```
+Importing the sample `LL.xlsx` produces **308 items** across **27
+categories** (speakers, microphones, mixers, stageboxes, lighting fixtures,
+truss, cables, power distribution, and more).
 
-Or click **"Import from LL.xlsx"** on the Inventory page in the UI.
-
-This imports **308 items** across **27 categories** (speakers, microphones, mixers, stageboxes, lighting fixtures, truss, cables, power distribution, and more).
-
-> Re-running the import updates the catalog in place: matched items keep their identity (and every plan reference to them), prices and stock counts are refreshed, and items that disappeared from the price list are marked *discontinued* rather than deleted. Event data is never touched by an import.
+> Re-running the import updates that inventory's catalog in place: matched
+> items keep their identity (and every plan reference to them), prices and
+> stock counts are refreshed, and items that disappeared from the price
+> list are marked *discontinued* rather than deleted. Event data, and
+> every other inventory, is never touched by an import.
 
 ---
 
@@ -100,7 +118,8 @@ This imports **308 items** across **27 categories** (speakers, microphones, mixe
 1. Go to **Events** in the sidebar
 2. Click **New Event**
 3. Fill in name, date, and venue
-4. Click **Create**
+4. Pick which of your inventories this event uses (defaults automatically if you only have one)
+5. Click **Create**
 
 ### Building an audio patch
 
@@ -139,7 +158,7 @@ Color inheritance below) instead of carrying a color of its own.
 | Source (from graph) | Read-only summary of whatever currently feeds this channel, resolved from the graph below |
 | Groups | Mix groups the channel routes to (LR is built-in and the default; remove it per channel if needed) |
 | DCA | DCA membership (a channel can be in several) |
-| Color | Console channel-strip color from the palette (Settings → channel_colors) — the only place color is ever stored on the input side |
+| Color | Console channel-strip color from the palette (this event's Settings tab → channel_colors) — the only place color is ever stored on the input side |
 | Notes | Free-text notes |
 
 Groups and DCAs are managed in the two cards above the tables: create,
@@ -294,15 +313,27 @@ Base URL: `http://localhost:7331/api/v1`
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/events` | List all events |
-| POST | `/events` | Create an event |
-| GET | `/events/:id` | Get a single event |
-| PATCH | `/events/:id` | Update an event |
-| DELETE | `/events/:id` | Delete an event |
-| GET | `/inventory/categories` | List inventory categories (incl. `picker_role`) |
-| PATCH | `/inventory/categories/:id` | Set or clear a category's picker role (`{"picker_role": "cable" \| "stand" \| null}`) |
-| GET | `/inventory/items` | List inventory items (filters: `?category_type=lighting`, `?category_id=1`, `?role=cable`, `?include_discontinued=true`) |
-| POST | `/inventory/import-xlsx` | Re-import catalog from LL.xlsx (non-destructive upsert; picker roles survive) |
+| GET | `/events` | List events the caller owns or is a member of (each gains `yourRole`) |
+| POST | `/events` | Create an event (caller becomes its owner) |
+| GET | `/events/:id` | Get a single event — 404 if the caller has no role on it |
+| PATCH | `/events/:id` | Update an event — owner/contributor only |
+| DELETE | `/events/:id` | Delete an event — owner/contributor only |
+| GET | `/events/:id/members` | List the owner + every invited collaborator |
+| POST | `/events/:id/members` | Invite an existing known user (`{"userId", "role": "contributor" \| "viewer"}`) — owner/contributor only |
+| PATCH | `/events/:id/members/:userId` | Change a collaborator's role — owner/contributor only, rejects targeting the owner |
+| DELETE | `/events/:id/members/:userId` | Remove a collaborator — owner/contributor only, rejects targeting the owner |
+| GET | `/users` | List everyone who has signed in at least once (invite picker) |
+| GET | `/inventories` | List inventories the caller owns |
+| POST | `/inventories` | Create a new, empty inventory owned by the caller (`{"name"}`) |
+| GET/PATCH/DELETE | `/inventories/:id` | Get/rename/delete an inventory — owner-only; delete is `400` while any event still uses it |
+| POST | `/inventories/:id/duplicate` | Deep-copy an inventory (categories, items, fixture modes, source file) into a new one, same owner |
+| GET | `/inventories/:id/categories` | List inventory categories (incl. `picker_role`) |
+| PATCH | `/inventories/:id/categories/:categoryId` | Set or clear a category's picker role (`{"picker_role": "cable" \| "stand" \| "truss" \| null}`) |
+| GET | `/inventories/:id/items` | List inventory items (filters: `?category_type=lighting`, `?category_id=1`, `?role=cable`, `?include_discontinued=true`) |
+| POST | `/inventories/:id/import-xlsx` | Import/re-import a price list from an uploaded `.xlsx` file (multipart; non-destructive upsert, picker roles survive) |
+| GET | `/events/:id/inventory` | The event's bound inventory's public fields (name, source filename) — any role |
+| GET | `/events/:id/inventory/categories` | The event's bound inventory's categories, read-only — any role |
+| GET | `/events/:id/inventory/items` | The event's bound inventory's items, read-only — any role; this is what every planning picker reads from |
 | GET | `/events/:id/audio-patch` | Full audio patch: stageboxes, stage multis, groups, DCAs, input sources, input channels, input devices, input cables, outputs, output devices, output cables |
 | POST | `/events/:id/groups` | Add a mix group (`{"name", "color"?}`; 409 on duplicate name) |
 | PATCH | `/events/:id/groups/:groupId` | Rename/recolor a group (LR: recolor only) |
@@ -355,14 +386,18 @@ Base URL: `http://localhost:7331/api/v1`
 | GET | `/events/:id/owned-equipment` | List the event's owned-gear lines |
 | PUT | `/events/:id/owned-equipment/:itemId` | Create/update an owned-gear line (quantity 0 removes) |
 | DELETE | `/events/:id/owned-equipment/:itemId` | Remove an owned-gear line |
-| GET | `/reference-data` | All planning vocabularies with their values (drives every dropdown) |
-| POST | `/reference-data/:vocabulary/values` | Add a vocabulary value (409 on duplicates) |
-| PATCH | `/reference-data/:vocabulary/values/:valueId` | Rename a value's display label (the stored value is immutable) |
-| DELETE | `/reference-data/:vocabulary/values/:valueId` | Delete a value (409 while any planning row uses it) |
-| GET | `/inventory/items/:itemId/fixture-modes` | List a fixture model's DMX modes |
-| POST | `/inventory/items/:itemId/fixture-modes` | Add a DMX mode (name + channel count) |
-| PATCH | `/fixture-modes/:modeId` | Update a mode (patched fixtures keep their copied values) |
-| DELETE | `/fixture-modes/:modeId` | Delete a mode |
+| GET | `/events/:id/reference-data` | This event's own planning vocabularies with their values (drives every dropdown on that event) — any role |
+| POST | `/events/:id/reference-data/:vocabulary/values` | Add a value to this event's vocabulary (409 on duplicates) — owner/contributor only |
+| PATCH | `/events/:id/reference-data/:vocabulary/values/:valueId` | Rename a value's display label (the stored value is immutable) — owner/contributor only |
+| DELETE | `/events/:id/reference-data/:vocabulary/values/:valueId` | Delete a value from this event's vocabulary (409 while any planning row in this event uses it) — owner/contributor only |
+| GET | `/reference-templates` | The caller's own personal vocabulary template — seeds every new event they create |
+| POST | `/reference-templates/:vocabulary/values` | Add a value to the caller's template (409 on duplicates) |
+| PATCH | `/reference-templates/:vocabulary/values/:valueId` | Rename a template value's label |
+| DELETE | `/reference-templates/:vocabulary/values/:valueId` | Delete a template value (never blocked — a template is never referenced by a plan) |
+| GET | `/inventories/:id/items/:itemId/fixture-modes` | List a fixture model's DMX modes — owner-only |
+| POST | `/inventories/:id/items/:itemId/fixture-modes` | Add a DMX mode (name + channel count) — owner-only |
+| PATCH | `/inventories/:id/fixture-modes/:modeId` | Update a mode (patched fixtures keep their copied values) — owner-only |
+| DELETE | `/inventories/:id/fixture-modes/:modeId` | Delete a mode — owner-only |
 
 Health check: `GET http://localhost:7331/health` (outside `/api/v1`).
 

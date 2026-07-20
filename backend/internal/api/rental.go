@@ -21,11 +21,11 @@ type RentalHandler struct {
 }
 
 func (h RentalHandler) Register(r chi.Router) {
-	r.Get("/events/{eventID}/rentals", h.getSummary)
-	r.Put("/events/{eventID}/rentals/manual/{itemID}", h.putManualLine)
-	r.Delete("/events/{eventID}/rentals/manual/{itemID}", h.deleteManualLine)
-	r.Get("/events/{eventID}/rental-export", h.exportFile)
-	r.Get("/events/{eventID}/rental-export/report", h.exportReport)
+	r.Get("/rentals", h.getSummary)
+	r.Put("/rentals/manual/{itemID}", h.putManualLine)
+	r.Delete("/rentals/manual/{itemID}", h.deleteManualLine)
+	r.Get("/rental-export", h.exportFile)
+	r.Get("/rental-export/report", h.exportReport)
 }
 
 const xlsxContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -72,13 +72,16 @@ func (h RentalHandler) exportReport(w http.ResponseWriter, r *http.Request) {
 // buildExport runs the export writer and maps its errors onto HTTP
 // responses. Returns ok=false when a response has already been written.
 func (h RentalHandler) buildExport(w http.ResponseWriter, eventID int64) (*excelize.File, domain.RentalExportReport, bool) {
-	file, report, err := service.ExportService{DB: h.DB}.BuildRentalExport(eventID, inventoryFilePath())
+	file, report, err := service.ExportService{DB: h.DB}.BuildRentalExport(eventID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
 			writeError(w, http.StatusNotFound, "event not found")
-			return nil, domain.RentalExportReport{}, false
+		case errors.Is(err, service.ErrNoInventoryTemplate):
+			writeError(w, http.StatusBadRequest, err.Error())
+		default:
+			writeError(w, http.StatusInternalServerError, err.Error())
 		}
-		writeError(w, http.StatusInternalServerError, err.Error())
 		return nil, domain.RentalExportReport{}, false
 	}
 	return file, report, true
@@ -150,7 +153,8 @@ func (h RentalHandler) deleteManualLine(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h RentalHandler) requireEventAndItem(w http.ResponseWriter, eventID, itemID int64) bool {
-	if _, err := dbstore.GetEvent(h.DB, eventID); err != nil {
+	event, err := dbstore.GetEvent(h.DB, eventID)
+	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			writeError(w, http.StatusNotFound, "event not found")
 			return false
@@ -158,12 +162,13 @@ func (h RentalHandler) requireEventAndItem(w http.ResponseWriter, eventID, itemI
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return false
 	}
-	if _, err := dbstore.GetInventoryItem(h.DB, itemID); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			writeError(w, http.StatusNotFound, "inventory item not found")
-			return false
-		}
+	belongs, err := dbstore.ItemBelongsToInventory(h.DB, itemID, event.InventoryID)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
+		return false
+	}
+	if !belongs {
+		writeError(w, http.StatusNotFound, "inventory item not found")
 		return false
 	}
 	return true

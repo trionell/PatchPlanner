@@ -41,52 +41,52 @@ type busRequest struct {
 }
 
 func (h AudioPatchHandler) Register(r chi.Router) {
-	r.Get("/events/{eventID}/audio-patch", h.getAudioPatch)
+	r.Get("/audio-patch", h.getAudioPatch)
 	// Stageboxes
-	r.Post("/events/{eventID}/stageboxes", h.createStagebox)
-	r.Patch("/events/{eventID}/stageboxes/{sbID}", h.updateStagebox)
-	r.Delete("/events/{eventID}/stageboxes/{sbID}", h.deleteStagebox)
+	r.Post("/stageboxes", h.createStagebox)
+	r.Patch("/stageboxes/{sbID}", h.updateStagebox)
+	r.Delete("/stageboxes/{sbID}", h.deleteStagebox)
 	// Stage multis
-	r.Post("/events/{eventID}/stage-multis", h.createStageMulti)
-	r.Patch("/events/{eventID}/stage-multis/{smID}", h.updateStageMulti)
-	r.Delete("/events/{eventID}/stage-multis/{smID}", h.deleteStageMulti)
+	r.Post("/stage-multis", h.createStageMulti)
+	r.Patch("/stage-multis/{smID}", h.updateStageMulti)
+	r.Delete("/stage-multis/{smID}", h.deleteStageMulti)
 	// Groups & DCAs
-	r.Post("/events/{eventID}/groups", h.createGroup)
-	r.Patch("/events/{eventID}/groups/{groupID}", h.updateGroup)
-	r.Delete("/events/{eventID}/groups/{groupID}", h.deleteGroup)
-	r.Post("/events/{eventID}/dcas", h.createDCA)
-	r.Patch("/events/{eventID}/dcas/{dcaID}", h.updateDCA)
-	r.Delete("/events/{eventID}/dcas/{dcaID}", h.deleteDCA)
+	r.Post("/groups", h.createGroup)
+	r.Patch("/groups/{groupID}", h.updateGroup)
+	r.Delete("/groups/{groupID}", h.deleteGroup)
+	r.Post("/dcas", h.createDCA)
+	r.Patch("/dcas/{dcaID}", h.updateDCA)
+	r.Delete("/dcas/{dcaID}", h.deleteDCA)
 	// Input channels (console strip identity — Slice 12)
-	r.Post("/events/{eventID}/input-channels", h.createInputChannel)
-	r.Patch("/events/{eventID}/input-channels/{channelID}", h.updateInputChannel)
-	r.Delete("/events/{eventID}/input-channels/{channelID}", h.deleteInputChannel)
+	r.Post("/input-channels", h.createInputChannel)
+	r.Patch("/input-channels/{channelID}", h.updateInputChannel)
+	r.Delete("/input-channels/{channelID}", h.deleteInputChannel)
 	// Input sources (physical origin — Slice 12)
-	r.Post("/events/{eventID}/input-sources", h.createInputSource)
-	r.Patch("/events/{eventID}/input-sources/{sourceID}", h.updateInputSource)
-	r.Delete("/events/{eventID}/input-sources/{sourceID}", h.deleteInputSource)
+	r.Post("/input-sources", h.createInputSource)
+	r.Patch("/input-sources/{sourceID}", h.updateInputSource)
+	r.Delete("/input-sources/{sourceID}", h.deleteInputSource)
 	// Input devices (Processing zone gear, e.g. DI boxes — Slice 12)
-	r.Post("/events/{eventID}/input-devices", h.createInputDevice)
-	r.Patch("/events/{eventID}/input-devices/{deviceID}", h.updateInputDevice)
-	r.Delete("/events/{eventID}/input-devices/{deviceID}", h.deleteInputDevice)
+	r.Post("/input-devices", h.createInputDevice)
+	r.Patch("/input-devices/{deviceID}", h.updateInputDevice)
+	r.Delete("/input-devices/{deviceID}", h.deleteInputDevice)
 	// Input cables (the input signal-flow graph's edges — Slice 12)
-	r.Post("/events/{eventID}/input-cables", h.createInputCable)
-	r.Patch("/events/{eventID}/input-cables/{cableID}", h.updateInputCable)
-	r.Delete("/events/{eventID}/input-cables/{cableID}", h.deleteInputCable)
+	r.Post("/input-cables", h.createInputCable)
+	r.Patch("/input-cables/{cableID}", h.updateInputCable)
+	r.Delete("/input-cables/{cableID}", h.deleteInputCable)
 	// Outputs
-	r.Post("/events/{eventID}/audio-outputs", h.createOutput)
-	r.Patch("/events/{eventID}/audio-outputs/{outputID}", h.updateOutput)
-	r.Delete("/events/{eventID}/audio-outputs/{outputID}", h.deleteOutput)
+	r.Post("/audio-outputs", h.createOutput)
+	r.Patch("/audio-outputs/{outputID}", h.updateOutput)
+	r.Delete("/audio-outputs/{outputID}", h.deleteOutput)
 	// Output devices (shared, per event)
-	r.Post("/events/{eventID}/output-devices", h.createOutputDevice)
-	r.Patch("/events/{eventID}/output-devices/{deviceID}", h.updateOutputDevice)
-	r.Delete("/events/{eventID}/output-devices/{deviceID}", h.deleteOutputDevice)
+	r.Post("/output-devices", h.createOutputDevice)
+	r.Patch("/output-devices/{deviceID}", h.updateOutputDevice)
+	r.Delete("/output-devices/{deviceID}", h.deleteOutputDevice)
 	// Output cables (the signal-flow graph's edges)
-	r.Post("/events/{eventID}/output-cables", h.createOutputCable)
-	r.Patch("/events/{eventID}/output-cables/{cableID}", h.updateOutputCable)
-	r.Delete("/events/{eventID}/output-cables/{cableID}", h.deleteOutputCable)
+	r.Post("/output-cables", h.createOutputCable)
+	r.Patch("/output-cables/{cableID}", h.updateOutputCable)
+	r.Delete("/output-cables/{cableID}", h.deleteOutputCable)
 	// Mixer node position (a single implicit node per event, Sources rail)
-	r.Patch("/events/{eventID}/output-mixer-position", h.updateOutputMixerPosition)
+	r.Patch("/output-mixer-position", h.updateOutputMixerPosition)
 }
 
 func (h AudioPatchHandler) getAudioPatch(w http.ResponseWriter, r *http.Request) {
@@ -437,6 +437,10 @@ func (h AudioPatchHandler) createStagebox(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
+	inventoryID, ok := inventoryIDForEvent(h.DB, w, eventID)
+	if !ok {
+		return
+	}
 	var payload domain.Stagebox
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json body")
@@ -445,6 +449,9 @@ func (h AudioPatchHandler) createStagebox(w http.ResponseWriter, r *http.Request
 	payload.EventID = eventID
 	if payload.ConnectionType == "" {
 		payload.ConnectionType = "analog"
+	}
+	if !h.validItemRef(w, inventoryID, "inventory_item_id", payload.InventoryItemID) {
+		return
 	}
 	created, err := dbstore.CreateStagebox(h.DB, payload)
 	if err != nil {
@@ -459,9 +466,25 @@ func (h AudioPatchHandler) updateStagebox(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
+	existing, err := dbstore.GetStagebox(h.DB, sbID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "stagebox not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	inventoryID, ok := inventoryIDForEvent(h.DB, w, existing.EventID)
+	if !ok {
+		return
+	}
 	var payload domain.Stagebox
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if !h.validItemRef(w, inventoryID, "inventory_item_id", payload.InventoryItemID) {
 		return
 	}
 	updated, err := dbstore.UpdateStagebox(h.DB, sbID, payload)
@@ -489,6 +512,10 @@ func (h AudioPatchHandler) createStageMulti(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
+	inventoryID, ok := inventoryIDForEvent(h.DB, w, eventID)
+	if !ok {
+		return
+	}
 	var payload domain.StageMulti
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json body")
@@ -500,6 +527,9 @@ func (h AudioPatchHandler) createStageMulti(w http.ResponseWriter, r *http.Reque
 	}
 	if payload.Channels == 0 {
 		payload.Channels = 24
+	}
+	if !h.validItemRef(w, inventoryID, "inventory_item_id", payload.InventoryItemID) {
+		return
 	}
 	created, err := dbstore.CreateStageMulti(h.DB, payload)
 	if err != nil {
@@ -514,9 +544,25 @@ func (h AudioPatchHandler) updateStageMulti(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
+	existing, err := dbstore.GetStageMulti(h.DB, smID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "stage multi not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	inventoryID, ok := inventoryIDForEvent(h.DB, w, existing.EventID)
+	if !ok {
+		return
+	}
 	var payload domain.StageMulti
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if !h.validItemRef(w, inventoryID, "inventory_item_id", payload.InventoryItemID) {
 		return
 	}
 	updated, err := dbstore.UpdateStageMulti(h.DB, smID, payload)
@@ -605,7 +651,7 @@ func (h AudioPatchHandler) deleteInputChannel(w http.ResponseWriter, r *http.Req
 // requires mic_item_id (stand_item_id/phantom_power are optional but only
 // meaningful for this kind); "line" forbids all three. connector_type and
 // width are required/validated regardless of kind.
-func (h AudioPatchHandler) validInputSource(w http.ResponseWriter, source domain.InputSource) bool {
+func (h AudioPatchHandler) validInputSource(w http.ResponseWriter, inventoryID int64, source domain.InputSource) bool {
 	if !slices.Contains(domain.ValidInputSourceKinds, source.Kind) {
 		writeError(w, http.StatusBadRequest, "kind must be one of: mic, line")
 		return false
@@ -626,14 +672,18 @@ func (h AudioPatchHandler) validInputSource(w http.ResponseWriter, source domain
 	if !h.validWidth(w, source.Width) {
 		return false
 	}
-	if !h.validItemRef(w, "mic_item_id", source.MicItemID) {
+	if !h.validItemRef(w, inventoryID, "mic_item_id", source.MicItemID) {
 		return false
 	}
-	return h.validItemRef(w, "stand_item_id", source.StandItemID)
+	return h.validItemRef(w, inventoryID, "stand_item_id", source.StandItemID)
 }
 
 func (h AudioPatchHandler) createInputSource(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
+	inventoryID, ok := inventoryIDForEvent(h.DB, w, eventID)
 	if !ok {
 		return
 	}
@@ -646,7 +696,7 @@ func (h AudioPatchHandler) createInputSource(w http.ResponseWriter, r *http.Requ
 	if payload.Width == "" {
 		payload.Width = "mono"
 	}
-	if !h.validInputSource(w, payload) {
+	if !h.validInputSource(w, inventoryID, payload) {
 		return
 	}
 	created, err := dbstore.CreateInputSource(h.DB, payload)
@@ -662,6 +712,19 @@ func (h AudioPatchHandler) updateInputSource(w http.ResponseWriter, r *http.Requ
 	if !ok {
 		return
 	}
+	existing, err := dbstore.GetInputSource(h.DB, sourceID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "input source not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	inventoryID, ok := inventoryIDForEvent(h.DB, w, existing.EventID)
+	if !ok {
+		return
+	}
 	var payload domain.InputSource
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json body")
@@ -670,7 +733,7 @@ func (h AudioPatchHandler) updateInputSource(w http.ResponseWriter, r *http.Requ
 	if payload.Width == "" {
 		payload.Width = "mono"
 	}
-	if !h.validInputSource(w, payload) {
+	if !h.validInputSource(w, inventoryID, payload) {
 		return
 	}
 	updated, err := dbstore.UpdateInputSource(h.DB, sourceID, payload)
@@ -696,7 +759,7 @@ func (h AudioPatchHandler) deleteInputSource(w http.ResponseWriter, r *http.Requ
 // validInputDeviceItemRefs writes a 400 and returns false unless exactly
 // one of InventoryItemID/OwnedItemID is set and it resolves to a real row
 // (mirrors validOutputDeviceItemRefs).
-func (h AudioPatchHandler) validInputDeviceItemRefs(w http.ResponseWriter, device domain.InputDevice) bool {
+func (h AudioPatchHandler) validInputDeviceItemRefs(w http.ResponseWriter, inventoryID int64, device domain.InputDevice) bool {
 	set := 0
 	if device.InventoryItemID != nil {
 		set++
@@ -708,7 +771,7 @@ func (h AudioPatchHandler) validInputDeviceItemRefs(w http.ResponseWriter, devic
 		writeError(w, http.StatusBadRequest, "exactly one of inventory_item_id or owned_item_id must be set")
 		return false
 	}
-	if !h.validItemRef(w, "inventory_item_id", device.InventoryItemID) {
+	if !h.validItemRef(w, inventoryID, "inventory_item_id", device.InventoryItemID) {
 		return false
 	}
 	return h.validOwnedItemRef(w, device.OwnedItemID)
@@ -765,6 +828,10 @@ func (h AudioPatchHandler) createInputDevice(w http.ResponseWriter, r *http.Requ
 	if !ok {
 		return
 	}
+	inventoryID, ok := inventoryIDForEvent(h.DB, w, eventID)
+	if !ok {
+		return
+	}
 	var payload domain.InputDevice
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json body")
@@ -776,7 +843,7 @@ func (h AudioPatchHandler) createInputDevice(w http.ResponseWriter, r *http.Requ
 		writeError(w, http.StatusBadRequest, "name must not be empty")
 		return
 	}
-	if !h.validInputDeviceItemRefs(w, payload) || !h.validInputDevicePorts(w, eventID, nil, payload) {
+	if !h.validInputDeviceItemRefs(w, inventoryID, payload) || !h.validInputDevicePorts(w, eventID, nil, payload) {
 		return
 	}
 	created, err := dbstore.CreateInputDevice(h.DB, payload)
@@ -801,6 +868,10 @@ func (h AudioPatchHandler) updateInputDevice(w http.ResponseWriter, r *http.Requ
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	inventoryID, ok := inventoryIDForEvent(h.DB, w, existing.EventID)
+	if !ok {
+		return
+	}
 	var payload domain.InputDevice
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json body")
@@ -811,7 +882,7 @@ func (h AudioPatchHandler) updateInputDevice(w http.ResponseWriter, r *http.Requ
 		writeError(w, http.StatusBadRequest, "name must not be empty")
 		return
 	}
-	if !h.validInputDeviceItemRefs(w, payload) || !h.validInputDevicePorts(w, existing.EventID, &deviceID, payload) {
+	if !h.validInputDeviceItemRefs(w, inventoryID, payload) || !h.validInputDevicePorts(w, existing.EventID, &deviceID, payload) {
 		return
 	}
 	updated, err := dbstore.UpdateInputDevice(h.DB, deviceID, payload)
@@ -886,7 +957,11 @@ func (h AudioPatchHandler) updateInputCable(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusBadRequest, "cable_item_id must be null for a stage multi's output side or a stagebox's console-side hop into a channel (research.md R5)")
 		return
 	}
-	if !h.validItemRef(w, "cable_item_id", payload.CableItemID) {
+	inventoryID, ok := inventoryIDForEvent(h.DB, w, existing.EventID)
+	if !ok {
+		return
+	}
+	if !h.validItemRef(w, inventoryID, "cable_item_id", payload.CableItemID) {
 		return
 	}
 	updated, err := dbstore.UpdateInputCable(h.DB, cableID, payload.CableItemID)
@@ -954,7 +1029,11 @@ func (h AudioPatchHandler) validInputCable(w http.ResponseWriter, eventID int64,
 		writeError(w, http.StatusBadRequest, "cable_item_id must be null for a stage multi's output side or a stagebox's console-side hop into a channel (research.md R5)")
 		return false
 	}
-	if !h.validItemRef(w, "cable_item_id", cable.CableItemID) {
+	inventoryID, ok := inventoryIDForEvent(h.DB, w, eventID)
+	if !ok {
+		return false
+	}
+	if !h.validItemRef(w, inventoryID, "cable_item_id", cable.CableItemID) {
 		return false
 	}
 	existingCables, err := dbstore.ListInputCables(h.DB, eventID)
@@ -1161,6 +1240,10 @@ func (h AudioPatchHandler) createOutputDevice(w http.ResponseWriter, r *http.Req
 	if !ok {
 		return
 	}
+	inventoryID, ok := inventoryIDForEvent(h.DB, w, eventID)
+	if !ok {
+		return
+	}
 	var payload domain.OutputDevice
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json body")
@@ -1172,7 +1255,7 @@ func (h AudioPatchHandler) createOutputDevice(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusBadRequest, "name must not be empty")
 		return
 	}
-	if !h.validOutputDeviceItemRefs(w, payload) || !h.validOutputDevicePorts(w, eventID, nil, payload) {
+	if !h.validOutputDeviceItemRefs(w, inventoryID, payload) || !h.validOutputDevicePorts(w, eventID, nil, payload) {
 		return
 	}
 	created, err := dbstore.CreateOutputDevice(h.DB, payload)
@@ -1197,6 +1280,10 @@ func (h AudioPatchHandler) updateOutputDevice(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	inventoryID, ok := inventoryIDForEvent(h.DB, w, existing.EventID)
+	if !ok {
+		return
+	}
 	var payload domain.OutputDevice
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json body")
@@ -1207,7 +1294,7 @@ func (h AudioPatchHandler) updateOutputDevice(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusBadRequest, "name must not be empty")
 		return
 	}
-	if !h.validOutputDeviceItemRefs(w, payload) || !h.validOutputDevicePorts(w, existing.EventID, &deviceID, payload) {
+	if !h.validOutputDeviceItemRefs(w, inventoryID, payload) || !h.validOutputDevicePorts(w, existing.EventID, &deviceID, payload) {
 		return
 	}
 	updated, err := dbstore.UpdateOutputDevice(h.DB, deviceID, payload)
@@ -1232,7 +1319,7 @@ func (h AudioPatchHandler) deleteOutputDevice(w http.ResponseWriter, r *http.Req
 
 // validOutputDeviceItemRefs writes a 400 and returns false unless exactly
 // one of InventoryItemID/OwnedItemID is set and it resolves to a real row.
-func (h AudioPatchHandler) validOutputDeviceItemRefs(w http.ResponseWriter, device domain.OutputDevice) bool {
+func (h AudioPatchHandler) validOutputDeviceItemRefs(w http.ResponseWriter, inventoryID int64, device domain.OutputDevice) bool {
 	set := 0
 	if device.InventoryItemID != nil {
 		set++
@@ -1244,7 +1331,7 @@ func (h AudioPatchHandler) validOutputDeviceItemRefs(w http.ResponseWriter, devi
 		writeError(w, http.StatusBadRequest, "exactly one of inventory_item_id or owned_item_id must be set")
 		return false
 	}
-	if !h.validItemRef(w, "inventory_item_id", device.InventoryItemID) {
+	if !h.validItemRef(w, inventoryID, "inventory_item_id", device.InventoryItemID) {
 		return false
 	}
 	return h.validOwnedItemRef(w, device.OwnedItemID)
@@ -1360,7 +1447,11 @@ func (h AudioPatchHandler) updateOutputCable(w http.ResponseWriter, r *http.Requ
 		writeError(w, http.StatusBadRequest, "cable_item_id must be null for a cable into a stage multi or stagebox (FR-013)")
 		return
 	}
-	if !h.validItemRef(w, "cable_item_id", payload.CableItemID) {
+	inventoryID, ok := inventoryIDForEvent(h.DB, w, existing.EventID)
+	if !ok {
+		return
+	}
+	if !h.validItemRef(w, inventoryID, "cable_item_id", payload.CableItemID) {
 		return
 	}
 	updated, err := dbstore.UpdateOutputCable(h.DB, cableID, payload.CableItemID)
@@ -1415,7 +1506,11 @@ func (h AudioPatchHandler) validOutputCable(w http.ResponseWriter, eventID int64
 		writeError(w, http.StatusBadRequest, "cable_item_id must be null for a cable into a stage multi or stagebox (FR-013)")
 		return false
 	}
-	if !h.validItemRef(w, "cable_item_id", cable.CableItemID) {
+	inventoryID, ok := inventoryIDForEvent(h.DB, w, eventID)
+	if !ok {
+		return false
+	}
+	if !h.validItemRef(w, inventoryID, "cable_item_id", cable.CableItemID) {
 		return false
 	}
 	existingCables, err := dbstore.ListOutputCables(h.DB, eventID)
@@ -1559,20 +1654,11 @@ func (h AudioPatchHandler) nodeInputPortCount(w http.ResponseWriter, eventID int
 }
 
 // validItemRef writes a 400/500 response and returns false when a non-nil
-// inventory item reference does not resolve to a catalog item.
-func (h AudioPatchHandler) validItemRef(w http.ResponseWriter, field string, itemID *int64) bool {
-	if itemID == nil {
-		return true
-	}
-	if _, err := dbstore.GetInventoryItem(h.DB, *itemID); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			writeError(w, http.StatusBadRequest, field+" references an unknown inventory item")
-			return false
-		}
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return false
-	}
-	return true
+// inventory item reference does not belong to inventoryID — either it
+// doesn't exist at all, or it belongs to a different inventory
+// (research.md R6).
+func (h AudioPatchHandler) validItemRef(w http.ResponseWriter, inventoryID int64, field string, itemID *int64) bool {
+	return validInventoryItemRef(h.DB, w, field, inventoryID, itemID)
 }
 
 func (h AudioPatchHandler) deleteOutput(w http.ResponseWriter, r *http.Request) {

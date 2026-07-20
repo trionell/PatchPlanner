@@ -110,8 +110,17 @@ func TestMicBackfillMigration(t *testing.T) {
 	// test), rather than through current Go business logic that now
 	// targets input_sources instead (covered by TestInputGraphRentalCounting).
 	database := openMigratedTo(t, 28)
-	cat := seedCatalog(t, database)
-	eventID := createTestEvent(t, database)
+	// This pinned schema predates the inventory_id column (migration 038),
+	// so seedCatalog (which seeds into a real owned inventory) can't be
+	// used here — a direct legacy insert, same technique as
+	// output_chains_migration_test.go, is schema-version-appropriate.
+	audioCategory := legacyInsertCategory(t, database, "Mikrofoner", "audio")
+	micID := legacyInsertItem(t, database, audioCategory, "Shure SM58", 4, 150, 10)
+	// createTestEvent (and CreateEvent) targets the current schema, which
+	// at this pinned version doesn't have owner_user_id yet — a direct
+	// insert, the same technique already used by this file's migration-28
+	// siblings, is schema-version-appropriate here.
+	eventID := mustInsertID(t, database, `INSERT INTO events (name) VALUES (?)`, "Test Gig")
 
 	// Legacy rows written the way the pre-feature app did: text only.
 	mustExec(t, database, `INSERT INTO audio_patch_inputs (event_id, channel_number, mic_model) VALUES (?, 1, 'shure sm58')`, eventID)
@@ -141,8 +150,8 @@ func TestMicBackfillMigration(t *testing.T) {
 		t.Fatalf("got %d inputs, want 2", len(got))
 	}
 	matched, unmatched := got[0], got[1]
-	if matched.micItemID == nil || *matched.micItemID != cat.Mic {
-		t.Errorf("matched row: mic_item_id=%v, want %d", matched.micItemID, cat.Mic)
+	if matched.micItemID == nil || *matched.micItemID != micID {
+		t.Errorf("matched row: mic_item_id=%v, want %d", matched.micItemID, micID)
 	}
 	if unmatched.micItemID != nil {
 		t.Errorf("unmatched row: mic_item_id=%v, want nil", unmatched.micItemID)
@@ -223,7 +232,7 @@ func TestStockValidation(t *testing.T) {
 	}
 
 	// A zero-stock item planned once is over stock too.
-	zeroStock := insertItem(t, database, cat.AudioCategoryID, "Rare Ribbon Mic", 0, 900, 30)
+	zeroStock := insertItem(t, database, cat.InventoryID, cat.AudioCategoryID, "Rare Ribbon Mic", 0, 900, 30)
 	otherEvent := createTestEvent(t, database)
 	if err := UpsertManualRental(database, otherEvent, zeroStock, domain.ManualRentalRequest{QuantityAudio: 1}); err != nil {
 		t.Fatalf("manual rental: %v", err)
@@ -254,7 +263,7 @@ func TestStereoRentalDoubling(t *testing.T) {
 	database := openTestDB(t)
 	cat := seedCatalog(t, database)
 	eventID := createTestEvent(t, database)
-	outputCable := insertItem(t, database, cat.AudioCategoryID, "Speakon Cable", 10, 25, 42)
+	outputCable := insertItem(t, database, cat.InventoryID, cat.AudioCategoryID, "Speakon Cable", 10, 25, 42)
 
 	// Stereo output: one shared amp fed by both mixer sides (a real
 	// two-input-port device now, not a width flag) feeding two separate
@@ -328,9 +337,9 @@ func TestInputGraphRentalCounting(t *testing.T) {
 	database := openTestDB(t)
 	cat := seedCatalog(t, database)
 	eventID := createTestEvent(t, database)
-	cable := insertItem(t, database, cat.AudioCategoryID, "Mikrofonkabel", 10, 20, 40)
-	stand := insertItem(t, database, cat.AudioCategoryID, "Mic Stand", 10, 30, 41)
-	sourceCable := insertItem(t, database, cat.AudioCategoryID, "Linekabel Tele-tele", 10, 15, 43)
+	cable := insertItem(t, database, cat.InventoryID, cat.AudioCategoryID, "Mikrofonkabel", 10, 20, 40)
+	stand := insertItem(t, database, cat.InventoryID, cat.AudioCategoryID, "Mic Stand", 10, 30, 41)
+	sourceCable := insertItem(t, database, cat.InventoryID, cat.AudioCategoryID, "Linekabel Tele-tele", 10, 15, 43)
 
 	// A stereo mic pair: two independent Source rows, each with its own
 	// mic/stand/cable pick (here the same catalog items, as a real stereo
@@ -413,7 +422,7 @@ func TestInputGraphRentalCounting(t *testing.T) {
 	// side's cable_item_id set, the other left NULL — billed once, not
 	// twice (research.md R6).
 	splitterEvent := createTestEvent(t, database)
-	splitterCable := insertItem(t, database, cat.AudioCategoryID, "TRS-2xTS Splitter", 10, 25, 44)
+	splitterCable := insertItem(t, database, cat.InventoryID, cat.AudioCategoryID, "TRS-2xTS Splitter", 10, 25, 44)
 	stereoDI, err := CreateInputDevice(database, domain.InputDevice{EventID: splitterEvent, Name: "Stereo DI", InventoryItemID: &cat.DI, InputPortCount: 2, InputConnectorType: "jack_ts", OutputPortCount: 2, OutputConnectorType: "xlr"})
 	if err != nil {
 		t.Fatalf("create stereo DI device: %v", err)
@@ -453,7 +462,7 @@ func TestOutputGraphRentalCounting(t *testing.T) {
 	database := openTestDB(t)
 	cat := seedCatalog(t, database)
 	eventID := createTestEvent(t, database)
-	cable := insertItem(t, database, cat.AudioCategoryID, "Speakon Cable", 10, 25, 50)
+	cable := insertItem(t, database, cat.InventoryID, cat.AudioCategoryID, "Speakon Cable", 10, 25, 50)
 
 	// Two separate device rows, same catalog item, standing in for a
 	// stereo channel's two independent physical speakers: quantity 2.
@@ -492,7 +501,7 @@ func TestOutputGraphRentalCounting(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create monitor: %v", err)
 	}
-	multiOutputCable := insertItem(t, database, cat.AudioCategoryID, "Multi output cable", 10, 15, 51)
+	multiOutputCable := insertItem(t, database, cat.InventoryID, cat.AudioCategoryID, "Multi output cable", 10, 15, 51)
 	if _, err := CreateOutputCable(database, domain.OutputCable{EventID: eventID, FromKind: "device", FromID: amp.ID, FromPort: 2, ToKind: "stage_multi", ToID: multi.ID, ToPort: 0}); err != nil {
 		t.Fatalf("create amp->multi input cable: %v", err)
 	}
@@ -599,7 +608,7 @@ func TestTrussPieceRentalCounting(t *testing.T) {
 	database := openTestDB(t)
 	cat := seedCatalog(t, database)
 	eventID := createTestEvent(t, database)
-	trussItem := insertItem(t, database, cat.LightingCategoryID, "Tross F34 2m", 10, 100, 30)
+	trussItem := insertItem(t, database, cat.InventoryID, cat.LightingCategoryID, "Tross F34 2m", 10, 100, 30)
 
 	before, err := GetRentalSummary(database, eventID)
 	if err != nil {

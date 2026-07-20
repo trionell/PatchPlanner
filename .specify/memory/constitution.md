@@ -1,40 +1,38 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 0.1.0 → 0.2.0
+Version change: 0.2.0 → 0.3.0
 Modified principles:
-  - I. Domain-First Data Model — added a bullet codifying the port/cable
-    signal-flow graph convention established by the Output and Input
-    audio graphs, as the pattern for any future signal-routing feature.
-  - II. Extensibility by Design — clarified that "new equipment
-    categories addable by adding data" refers to inventory *categories*
-    from the LL.xlsx catalog (a domain entity referencing inventory
-    items generically never needs a new endpoint just because a new
-    catalog category appears). This does NOT claim that new domain
-    *node kinds* in the planning data model (e.g. Slice 12 splitting
-    Source from Channel) can be added without new tables/endpoints —
-    that is normal, expected structural work.
-  - III. Full-Stack Monorepo Architecture — corrected the documented Go
-    package layout to match reality (`backend/internal/{api,db,domain,
-    service}`, `backend/cmd/main.go`), and downgraded the "single
-    deployable binary" claim from MUST to MAY since it isn't
-    implemented today (frontend and backend run as two separate dev
-    processes; revisit if the tool is ever distributed beyond its
-    current single-user, locally-run setup per Principle V).
-  - V. Pragmatic Simplicity — reconciled the frontend state-management
-    rule with established practice: TanStack React Query is the
-    project-wide convention for server state (not an exception to
-    avoid), while local/UI state still defaults to React's built-in
-    primitives.
-Added sections: none (no new principles; bullet/paragraph-level
-  corrections and clarifications only)
+  - III. Full-Stack Monorepo Architecture — package-layout bullet now
+    names `api/middleware/` as the home for cross-cutting request
+    handling (authentication), the first subpackage of its kind in the
+    project. Also dropped a dangling "(Principle V)" cross-reference in
+    the single-binary-deploy bullet (it pointed at the "single-user"
+    clause removed from Principle V below) and replaced it with a
+    pointer to roadmap Slice 16, the actual trigger for revisiting that
+    decision.
+  - V. Pragmatic Simplicity — struck the "Authentication is out of
+    scope for v1; the tool is single-user, locally hosted" bullet
+    (factually superseded by roadmap Slice 14) and replaced it with the
+    chosen authentication approach: Google OAuth 2.0 with DB-backed
+    sessions, explicitly not JWT, explicitly not a new external
+    session-store service — framed as consistent with, not an
+    exception to, the "SQLite is the only database" rule in the same
+    principle.
+Added sections: none (no new principles)
 Removed sections: none
+Technology Stack: added an "Auth" row (Google OAuth 2.0 authorization-code
+  flow + DB-backed sessions) and added `internal/api/middleware/` to the
+  documented backend project structure.
 Templates checked:
   ✅ plan-template.md — Constitution Check section is generic, no
      hardcoded principle text to update
   ✅ spec-template.md — no constitution references
   ✅ tasks-template.md — no constitution references
-  ✅ commands/*.md — no agent-specific or outdated principle references found
+  ✅ commands/*.md — none present in this project
+  ✅ PROJECT.md §4.3 — "No authentication (v1)" architecture-decision
+     bullet updated to point at the new Slice 14 direction instead of
+     the superseded constitution line
 Deferred TODOs: none
 -->
 
@@ -87,14 +85,16 @@ frontend, with SQLite as the embedded database.
 - Repository layout MUST follow: `backend/` (Go) and `frontend/` (React/TypeScript + Vite).
 - The backend MAY serve the compiled frontend as static files in production for a single
   deployable binary; today the two run as separate dev processes (`go run` + `vite dev`)
-  with no build step wiring them together — revisit this only if the tool needs to be
-  distributed beyond its current single-user, locally-run setup (Principle V).
+  with no build step wiring them together — revisit this once the tool is deployed beyond
+  a single local machine (tracked as roadmap Slice 16, which depends on the authentication
+  and event-sharing slices landing first).
 - The REST API MUST use JSON and follow resource-oriented URL conventions (`/api/v1/...`).
 - Database migrations MUST be versioned and applied automatically on startup.
-- Go packages MUST be organized under `backend/internal/`: `api/` for HTTP handlers, `db/`
-  for data access, `domain/` for pure domain structs (no DB tags), `service/` for
-  cross-cutting business logic (e.g., inventory import, rental export); `backend/cmd/main.go`
-  is the sole entry point.
+- Go packages MUST be organized under `backend/internal/`: `api/` for HTTP handlers and
+  routing (including `api/middleware/` for cross-cutting request handling such as
+  authentication), `db/` for data access, `domain/` for pure domain structs (no DB tags),
+  `service/` for cross-cutting business logic (e.g., inventory import, rental export,
+  Google OAuth); `backend/cmd/main.go` is the sole entry point.
 
 ### IV. Inventory-Driven Rental Workflow
 
@@ -117,7 +117,10 @@ Start with the simplest solution that solves the problem. Avoid speculative infr
   requires them.
 - SQLite is the only database. No external services (Redis, message queues, etc.) unless
   a feature explicitly demands it and is approved.
-- Authentication is out of scope for v1; the tool is single-user, locally hosted.
+- Authentication is Google OAuth 2.0 (authorization-code flow) with DB-backed sessions —
+  a SQLite `sessions` table plus an `HttpOnly` cookie, not JWT. This is consistent with,
+  not an exception to, the SQLite-only rule above: it introduces no new session-store
+  service and needs no signing-secret to manage or rotate.
 - Server state (data fetched from the API) MUST be managed via TanStack React Query
   (`useQuery`/`useMutation`) — this is the established, project-wide convention, not an
   exception to avoid. Purely local/UI state (form drafts, dialog open/close, canvas drag
@@ -137,6 +140,7 @@ Start with the simplest solution that solves the problem. Avoid speculative infr
 | Routing (FE)       | react-router-dom                                                         |
 | UI components      | To be decided per feature (prefer minimal deps)                          |
 | API style          | REST JSON (`/api/v1/...`)                                               |
+| Auth               | Google OAuth 2.0 (authorization-code flow) + DB-backed sessions (SQLite `sessions` table + `HttpOnly` cookie) |
 | Build/deploy       | Separate dev processes today; single-binary static embed remains optional (see Principle III) |
 | Testing (BE)       | Go standard `testing` package + `httptest`                              |
 | Testing (FE)       | Vitest, with lightweight custom render helpers (no React Testing Library) |
@@ -149,9 +153,10 @@ backend/
 │   └── main.go   # Entry point
 ├── internal/
 │   ├── api/      # HTTP handlers and routing
+│   │   └── middleware/  # Cross-cutting request handling (e.g., authentication)
 │   ├── db/       # SQLite access, migrations, queries
 │   ├── domain/   # Pure Go structs (no DB tags)
-│   └── service/  # Cross-cutting business logic (e.g., inventory import)
+│   └── service/  # Cross-cutting business logic (e.g., inventory import, Google OAuth)
 └── migrations/   # Versioned SQL migration files
 
 frontend/
@@ -190,4 +195,4 @@ inventory/
 - Complexity violations (e.g., adding a new runtime dependency, adding a second database)
   MUST be documented in the relevant plan.md with rationale.
 
-**Version**: 0.2.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-13
+**Version**: 0.3.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-20

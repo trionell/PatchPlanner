@@ -13,7 +13,7 @@ export function LightingRigSheet({
   eventId: number
   fixtures: LightingFixture[]
 }) {
-  const { label } = useReferenceData()
+  const { label } = useReferenceData(eventId)
   const rows = [...fixtures].sort((a, b) => a.position_index - b.position_index)
 
   const powerText = (fixture: LightingFixture): string => {

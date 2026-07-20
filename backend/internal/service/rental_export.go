@@ -1,7 +1,9 @@
 package service
 
 import (
+	"bytes"
 	"database/sql"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -25,12 +27,18 @@ type ExportService struct {
 	DB *sql.DB
 }
 
-// BuildRentalExport produces a copy of the price-list workbook at sourcePath
-// with the event's rental quantities written into the Antal Ljud / Antal
-// Ljus columns, plus a report of any lines that could not be placed. The
-// source file is opened read-only; the returned workbook lives in memory
-// until written to a response. The caller must Close the returned file.
-func (s ExportService) BuildRentalExport(eventID int64, sourcePath string) (*excelize.File, domain.RentalExportReport, error) {
+// ErrNoInventoryTemplate signals that the event's bound inventory has
+// never had a price-list file imported/duplicated into it, so there is
+// nothing to export into (research.md R2 — each inventory carries its
+// own template now, not one fixed server file).
+var ErrNoInventoryTemplate = errors.New("inventory has no imported price list yet")
+
+// BuildRentalExport produces a copy of the event's bound inventory's
+// stored price-list template with the event's rental quantities written
+// into the Antal Ljud / Antal Ljus columns, plus a report of any lines
+// that could not be placed. The returned workbook lives in memory until
+// written to a response. The caller must Close the returned file.
+func (s ExportService) BuildRentalExport(eventID int64) (*excelize.File, domain.RentalExportReport, error) {
 	event, err := db.GetEvent(s.DB, eventID)
 	if err != nil {
 		return nil, domain.RentalExportReport{}, fmt.Errorf("load event: %w", err)
@@ -40,7 +48,15 @@ func (s ExportService) BuildRentalExport(eventID int64, sourcePath string) (*exc
 		return nil, domain.RentalExportReport{}, err
 	}
 
-	file, err := excelize.OpenFile(sourcePath)
+	sourceXLSX, err := db.GetInventorySourceXLSX(s.DB, event.InventoryID)
+	if err != nil {
+		return nil, domain.RentalExportReport{}, fmt.Errorf("load inventory template: %w", err)
+	}
+	if sourceXLSX == nil {
+		return nil, domain.RentalExportReport{}, ErrNoInventoryTemplate
+	}
+
+	file, err := excelize.OpenReader(bytes.NewReader(sourceXLSX))
 	if err != nil {
 		return nil, domain.RentalExportReport{}, fmt.Errorf("open price list: %w", err)
 	}

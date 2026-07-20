@@ -161,6 +161,7 @@ func TestConvertLegacyInputChannels(t *testing.T) {
 	}
 	if sideACable == nil || sideBCable == nil {
 		t.Fatalf("expected cables at both stage-multi channels for E, got %+v", cablesToMultiChanE)
+		return
 	}
 	if sideACable.CableItemID == nil || *sideACable.CableItemID != cable2 || sideBCable.CableItemID == nil || *sideBCable.CableItemID != cable2 {
 		t.Fatalf("channel E both sides expected cable2 (only option in old model): A=%+v B=%+v", sideACable, sideBCable)

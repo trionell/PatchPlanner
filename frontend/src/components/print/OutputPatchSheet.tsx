@@ -84,7 +84,7 @@ export function OutputPatchSheet({
   /** Catalog item labels (name — description) for device/cable picks. */
   itemLabelById: Map<number, string>
 }) {
-  const { label } = useReferenceData()
+  const { label } = useReferenceData(eventId)
   const rows = [...outputs].sort((a, b) => a.output_number - b.output_number)
   const context: PathContext = { outputs, stageboxes, stageMultis, devices: outputDevices, cables: outputCables, itemLabelById }
 

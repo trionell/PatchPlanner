@@ -8,15 +8,19 @@ import (
 	"github.com/trionell/patchplanner/internal/domain"
 )
 
-// TestListItemsRoleFilter covers ?role= on GET /inventory/items: only items
-// whose category carries the picker_role are returned; unknown roles 400.
+// TestListItemsRoleFilter covers ?role= on GET /inventories/{id}/items: only
+// items whose category carries the picker_role are returned; unknown roles
+// 400.
 func TestListItemsRoleFilter(t *testing.T) {
 	server, database := newTestServer(t)
+	inventoryID := testOwnerInventoryID(t, server.URL)
 	cableID := seedRoleItem(t, database, "cable", "Mikrofonkabel", "4m", 6, 7)
 	standID := seedRoleItem(t, database, "stand", "Mikrofonstativ Med bom", "", 16, 20)
 	seedItem(t, database, "Shure SM58", 4, 150) // role-less category
 
-	status, raw := doJSON(t, http.MethodGet, server.URL+"/inventory/items?role=cable", nil)
+	itemsURL := fmt.Sprintf("%s/inventories/%d/items", server.URL, inventoryID)
+
+	status, raw := doJSON(t, http.MethodGet, itemsURL+"?role=cable", nil)
 	if status != http.StatusOK {
 		t.Fatalf("GET role=cable: status %d body %s", status, raw)
 	}
@@ -25,7 +29,7 @@ func TestListItemsRoleFilter(t *testing.T) {
 		t.Errorf("role=cable returned %+v, want only the 4m Mikrofonkabel", cables)
 	}
 
-	status, raw = doJSON(t, http.MethodGet, server.URL+"/inventory/items?role=stand", nil)
+	status, raw = doJSON(t, http.MethodGet, itemsURL+"?role=stand", nil)
 	if status != http.StatusOK {
 		t.Fatalf("GET role=stand: status %d body %s", status, raw)
 	}
@@ -34,7 +38,7 @@ func TestListItemsRoleFilter(t *testing.T) {
 		t.Errorf("role=stand returned %+v, want only the boom stand", stands)
 	}
 
-	if status, raw = doJSON(t, http.MethodGet, server.URL+"/inventory/items?role=banana", nil); status != http.StatusBadRequest {
+	if status, raw = doJSON(t, http.MethodGet, itemsURL+"?role=banana", nil); status != http.StatusBadRequest {
 		t.Errorf("role=banana: status %d body %s, want 400", status, raw)
 	}
 
@@ -42,7 +46,7 @@ func TestListItemsRoleFilter(t *testing.T) {
 	if _, err := database.Exec(`UPDATE inventory_items SET discontinued = 1 WHERE id = ?`, cableID); err != nil {
 		t.Fatalf("discontinue cable: %v", err)
 	}
-	status, raw = doJSON(t, http.MethodGet, server.URL+"/inventory/items?role=cable", nil)
+	status, raw = doJSON(t, http.MethodGet, itemsURL+"?role=cable", nil)
 	if status != http.StatusOK {
 		t.Fatalf("GET role=cable after discontinue: status %d body %s", status, raw)
 	}
@@ -51,7 +55,7 @@ func TestListItemsRoleFilter(t *testing.T) {
 	}
 
 	// The category listing exposes the seeded roles.
-	status, raw = doJSON(t, http.MethodGet, server.URL+"/inventory/categories", nil)
+	status, raw = doJSON(t, http.MethodGet, fmt.Sprintf("%s/inventories/%d/categories", server.URL, inventoryID), nil)
 	if status != http.StatusOK {
 		t.Fatalf("GET categories: status %d body %s", status, raw)
 	}
@@ -67,15 +71,17 @@ func TestListItemsRoleFilter(t *testing.T) {
 	}
 }
 
-// TestUpdateCategoryPickerRole covers PATCH /inventory/categories/{id}.
+// TestUpdateCategoryPickerRole covers PATCH /inventories/{id}/categories/{id}.
 func TestUpdateCategoryPickerRole(t *testing.T) {
 	server, database := newTestServer(t)
+	inventoryID := testOwnerInventoryID(t, server.URL)
 	itemID := seedItem(t, database, "Mikrofonkabel", 6, 7)
 	var categoryID int64
 	if err := database.QueryRow(`SELECT category_id FROM inventory_items WHERE id = ?`, itemID).Scan(&categoryID); err != nil {
 		t.Fatalf("category id: %v", err)
 	}
-	url := fmt.Sprintf("%s/inventory/categories/%d", server.URL, categoryID)
+	url := fmt.Sprintf("%s/inventories/%d/categories/%d", server.URL, inventoryID, categoryID)
+	itemsURL := fmt.Sprintf("%s/inventories/%d/items", server.URL, inventoryID)
 
 	// Assign a role: the category's items start feeding the picker.
 	status, raw := doJSON(t, http.MethodPatch, url, map[string]any{"picker_role": "cable"})
@@ -85,7 +91,7 @@ func TestUpdateCategoryPickerRole(t *testing.T) {
 	if category := decodeJSON[domain.InventoryCategory](t, raw); category.PickerRole != "cable" {
 		t.Errorf("picker_role=%q, want cable", category.PickerRole)
 	}
-	status, raw = doJSON(t, http.MethodGet, server.URL+"/inventory/items?role=cable", nil)
+	status, raw = doJSON(t, http.MethodGet, itemsURL+"?role=cable", nil)
 	if status != http.StatusOK {
 		t.Fatalf("GET role=cable: status %d body %s", status, raw)
 	}
@@ -106,7 +112,7 @@ func TestUpdateCategoryPickerRole(t *testing.T) {
 	if status, raw = doJSON(t, http.MethodPatch, url, map[string]any{"picker_role": "banana"}); status != http.StatusBadRequest {
 		t.Errorf("invalid role: status %d body %s, want 400", status, raw)
 	}
-	if status, raw = doJSON(t, http.MethodPatch, server.URL+"/inventory/categories/99999", map[string]any{"picker_role": "cable"}); status != http.StatusNotFound {
+	if status, raw = doJSON(t, http.MethodPatch, fmt.Sprintf("%s/inventories/%d/categories/99999", server.URL, inventoryID), map[string]any{"picker_role": "cable"}); status != http.StatusNotFound {
 		t.Errorf("unknown category: status %d body %s, want 404", status, raw)
 	}
 }

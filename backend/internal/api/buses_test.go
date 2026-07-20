@@ -291,7 +291,7 @@ func TestChannelColors(t *testing.T) {
 	}
 
 	// The palette ships as a reference vocabulary.
-	status, raw = doJSON(t, http.MethodGet, server.URL+"/reference-data", nil)
+	status, raw = doJSON(t, http.MethodGet, fmt.Sprintf("%s/events/%d/reference-data", server.URL, eventID), nil)
 	if status != http.StatusOK {
 		t.Fatalf("GET reference-data: status %d body %s", status, raw)
 	}

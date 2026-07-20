@@ -19,13 +19,24 @@ async function parseResponse<T>(response: Response): Promise<T> {
 }
 
 export async function request<T>(path: string, init?: RequestInit) {
+  // FormData bodies (multipart file uploads) must not get a manual
+  // Content-Type — the browser sets one itself with the multipart
+  // boundary, which a fixed 'application/json' would clobber.
+  const isFormData = init?.body instanceof FormData
   const response = await fetch(`${BASE}${path}`, {
+    credentials: 'include',
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(init?.headers ?? {}),
     },
     ...init,
   })
+  // A 401 from any endpoint other than /auth/me means the session expired
+  // mid-use; /auth/me's own 401 is the expected "not signed in" signal
+  // useCurrentUser checks for, so it must not trigger this redirect.
+  if (response.status === 401 && !path.startsWith('/auth/')) {
+    window.location.href = '/login'
+  }
   return parseResponse<T>(response)
 }
 

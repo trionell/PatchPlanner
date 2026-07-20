@@ -121,5 +121,13 @@ func runMigrations(db *sql.DB, migrationsPath string, logger *slog.Logger) error
 		return fmt.Errorf("run migrations: %w", err)
 	}
 
+	// Slice 16's legacy inventory template read (migration 038 is purely
+	// additive, so no version-sequencing gate is needed — this runs
+	// unconditionally after m.Up(), before the HTTP server starts
+	// accepting any request, guarded by its own data-state check).
+	if err := convertLegacyInventoryTemplate(db, logger); err != nil {
+		return fmt.Errorf("convert legacy inventory template: %w", err)
+	}
+
 	return nil
 }

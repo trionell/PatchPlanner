@@ -2,21 +2,59 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
+	"github.com/trionell/patchplanner/internal/api/middleware"
 	"github.com/trionell/patchplanner/internal/db"
+	"github.com/trionell/patchplanner/internal/service"
 )
 
-// newTestServer boots the real router on a fresh migrated database.
-func newTestServer(t *testing.T) (*httptest.Server, *sql.DB) {
+// httpClient is used by doJSON for every request. newTestServer points it
+// at a client whose cookie jar is preloaded with an authenticated test
+// session, so every existing test transparently becomes authenticated with
+// no per-file changes; no test in this package uses t.Parallel today, so a
+// single package-level variable reset per newTestServer call is safe.
+var httpClient = http.DefaultClient
+
+// stubIdentityProvider satisfies service.IdentityProvider for tests that
+// don't exercise the OAuth flow itself; auth_test.go uses its own
+// configurable fake for that.
+type stubIdentityProvider struct{}
+
+func (stubIdentityProvider) AuthCodeURL(state string) string {
+	return "https://accounts.google.test/auth?state=" + state
+}
+
+func (stubIdentityProvider) Exchange(context.Context, string) (service.Profile, error) {
+	return service.Profile{}, errors.New("stub identity provider: Exchange not implemented")
+}
+
+func testAuthConfig() AuthConfig {
+	return AuthConfig{
+		Provider:      stubIdentityProvider{},
+		AllowedEmails: []string{"test@example.com"},
+		FrontendURL:   "http://localhost:5173",
+		SessionTTL:    time.Hour,
+	}
+}
+
+// openMigratedTestDB opens a fresh, fully-migrated SQLite database in a
+// temp dir — the shared setup behind newTestServer, also used directly by
+// auth_test.go to build its own router with a per-test AuthConfig.
+func openMigratedTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 	_, thisFile, _, ok := runtime.Caller(0)
 	if !ok {
@@ -27,12 +65,55 @@ func newTestServer(t *testing.T) (*httptest.Server, *sql.DB) {
 	if err != nil {
 		t.Fatalf("open test db: %v", err)
 	}
-	server := httptest.NewServer(NewRouter(database))
-	t.Cleanup(func() {
-		server.Close()
-		_ = database.Close()
-	})
+	t.Cleanup(func() { _ = database.Close() })
+	return database
+}
+
+// newTestServer boots the real router on a fresh migrated database,
+// authenticated by default as a seeded test user.
+func newTestServer(t *testing.T) (*httptest.Server, *sql.DB) {
+	t.Helper()
+	database := openMigratedTestDB(t)
+	server := httptest.NewServer(NewRouter(database, testAuthConfig()))
+	t.Cleanup(server.Close)
+
+	token := seedSession(t, database)
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		t.Fatalf("create cookie jar: %v", err)
+	}
+	serverURL, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatalf("parse server url: %v", err)
+	}
+	jar.SetCookies(serverURL, []*http.Cookie{{Name: middleware.SessionCookieName, Value: token}})
+	httpClient = &http.Client{Jar: jar}
+
 	return server, database
+}
+
+// seedSession creates a signed-in test user and returns a valid session
+// token for it.
+func seedSession(t *testing.T, database *sql.DB) string {
+	t.Helper()
+	user, err := db.UpsertUserByGoogleSub(database, "test-google-sub", "test@example.com", "Test User", "")
+	if err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+	// Mirrors what a real login does (auth.go's callback) — every test
+	// event created via seedEvent needs an inventory to bind to, and a
+	// personal reference template to copy its vocabulary from.
+	if err := db.EnsureUserHasInventory(database, user.ID); err != nil {
+		t.Fatalf("seed test owner inventory: %v", err)
+	}
+	if err := db.EnsureUserHasReferenceTemplate(database, user.ID); err != nil {
+		t.Fatalf("seed test owner reference template: %v", err)
+	}
+	token, err := db.CreateSession(database, user.ID, time.Hour)
+	if err != nil {
+		t.Fatalf("seed session: %v", err)
+	}
+	return token
 }
 
 // doJSON sends a request with a JSON body (or none) and returns the status
@@ -52,7 +133,7 @@ func doJSON(t *testing.T, method, url string, payload any) (int, []byte) {
 		t.Fatalf("build request: %v", err)
 	}
 	request.Header.Set("Content-Type", "application/json")
-	response, err := http.DefaultClient.Do(request)
+	response, err := httpClient.Do(request)
 	if err != nil {
 		t.Fatalf("%s %s: %v", method, url, err)
 	}
@@ -64,6 +145,30 @@ func doJSON(t *testing.T, method, url string, payload any) (int, []byte) {
 	return response.StatusCode, raw
 }
 
+// jsonBody marshals payload for use directly with an http.Client call
+// (e.g. client.Post(url, "application/json", jsonBody(t, payload))) —
+// for requests made with a client other than the package-level
+// httpClient, where doJSON isn't usable.
+func jsonBody(t *testing.T, payload any) io.Reader {
+	t.Helper()
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+	return bytes.NewReader(encoded)
+}
+
+// decodeBody reads and JSON-decodes an *http.Response directly, for
+// responses obtained via a client other than the package-level httpClient.
+func decodeBody(t *testing.T, response *http.Response, target any) error {
+	t.Helper()
+	raw, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	return json.Unmarshal(raw, target)
+}
+
 func decodeJSON[T any](t *testing.T, raw []byte) T {
 	t.Helper()
 	var value T
@@ -73,14 +178,35 @@ func decodeJSON[T any](t *testing.T, raw []byte) T {
 	return value
 }
 
+// testOwnerInventoryIDFromDB looks up the seeded test owner's inventory
+// directly against the database (no HTTP round-trip) — used by helpers
+// that insert catalog rows straight into the database and need to attach
+// them to the owner's real inventory, matching the inventory-scoped
+// queries every read/write path now uses. seedSession (called from
+// newTestServer) guarantees exactly one exists by the time any test
+// reaches this point.
+func testOwnerInventoryIDFromDB(t *testing.T, database *sql.DB) int64 {
+	t.Helper()
+	var inventoryID int64
+	err := database.QueryRow(`
+		SELECT i.id FROM inventories i
+		JOIN users u ON u.id = i.owner_user_id
+		WHERE u.google_sub = 'test-google-sub'`).Scan(&inventoryID)
+	if err != nil {
+		t.Fatalf("find test owner inventory: %v", err)
+	}
+	return inventoryID
+}
+
 func seedItem(t *testing.T, database *sql.DB, name string, quantity int, price float64) int64 {
 	t.Helper()
-	result, err := database.Exec(`INSERT INTO inventory_categories (name, category_type) VALUES (?, 'audio')`, name+" kategori")
+	inventoryID := testOwnerInventoryIDFromDB(t, database)
+	result, err := database.Exec(`INSERT INTO inventory_categories (inventory_id, name, category_type) VALUES (?, ?, 'audio')`, inventoryID, name+" kategori")
 	if err != nil {
 		t.Fatalf("insert category: %v", err)
 	}
 	categoryID, _ := result.LastInsertId()
-	result, err = database.Exec(`INSERT INTO inventory_items (category_id, name, quantity_available, price_ex_vat) VALUES (?, ?, ?, ?)`, categoryID, name, quantity, price)
+	result, err = database.Exec(`INSERT INTO inventory_items (inventory_id, category_id, name, quantity_available, price_ex_vat) VALUES (?, ?, ?, ?, ?)`, inventoryID, categoryID, name, quantity, price)
 	if err != nil {
 		t.Fatalf("insert item: %v", err)
 	}
@@ -92,11 +218,12 @@ func seedItem(t *testing.T, database *sql.DB, name string, quantity int, price f
 // ('cable' or 'stand'), reusing the category on repeated calls.
 func seedRoleItem(t *testing.T, database *sql.DB, role, name, description string, quantity int, price float64) int64 {
 	t.Helper()
+	inventoryID := testOwnerInventoryIDFromDB(t, database)
 	categoryName := role + " kategori"
 	var categoryID int64
-	err := database.QueryRow(`SELECT id FROM inventory_categories WHERE name = ?`, categoryName).Scan(&categoryID)
+	err := database.QueryRow(`SELECT id FROM inventory_categories WHERE name = ? AND inventory_id = ?`, categoryName, inventoryID).Scan(&categoryID)
 	if err == sql.ErrNoRows {
-		result, insertErr := database.Exec(`INSERT INTO inventory_categories (name, category_type, picker_role) VALUES (?, 'audio', ?)`, categoryName, role)
+		result, insertErr := database.Exec(`INSERT INTO inventory_categories (inventory_id, name, category_type, picker_role) VALUES (?, ?, 'audio', ?)`, inventoryID, categoryName, role)
 		if insertErr != nil {
 			t.Fatalf("insert role category: %v", insertErr)
 		}
@@ -104,7 +231,7 @@ func seedRoleItem(t *testing.T, database *sql.DB, role, name, description string
 	} else if err != nil {
 		t.Fatalf("find role category: %v", err)
 	}
-	result, err := database.Exec(`INSERT INTO inventory_items (category_id, name, description, quantity_available, price_ex_vat) VALUES (?, ?, ?, ?, ?)`, categoryID, name, description, quantity, price)
+	result, err := database.Exec(`INSERT INTO inventory_items (inventory_id, category_id, name, description, quantity_available, price_ex_vat) VALUES (?, ?, ?, ?, ?, ?)`, inventoryID, categoryID, name, description, quantity, price)
 	if err != nil {
 		t.Fatalf("insert role item: %v", err)
 	}
@@ -114,11 +241,29 @@ func seedRoleItem(t *testing.T, database *sql.DB, role, name, description string
 
 func seedEvent(t *testing.T, serverURL string) int64 {
 	t.Helper()
-	status, raw := doJSON(t, http.MethodPost, serverURL+"/events", map[string]string{"name": "API Test Event"})
+	status, raw := doJSON(t, http.MethodPost, serverURL+"/events", map[string]any{"name": "API Test Event", "inventoryId": testOwnerInventoryID(t, serverURL)})
 	if status != http.StatusCreated {
 		t.Fatalf("create event: status %d body %s", status, raw)
 	}
 	return decodeJSON[struct {
 		ID int64 `json:"id"`
 	}](t, raw).ID
+}
+
+// testOwnerInventoryID returns the seeded test owner's (only) inventory —
+// EnsureUserHasInventory (called from seedSession) guarantees exactly one
+// exists by the time any test reaches this point.
+func testOwnerInventoryID(t *testing.T, serverURL string) int64 {
+	t.Helper()
+	status, raw := doJSON(t, http.MethodGet, serverURL+"/inventories", nil)
+	if status != http.StatusOK {
+		t.Fatalf("list inventories: status %d body %s", status, raw)
+	}
+	inventories := decodeJSON[[]struct {
+		ID int64 `json:"id"`
+	}](t, raw)
+	if len(inventories) == 0 {
+		t.Fatal("test owner has no inventory")
+	}
+	return inventories[0].ID
 }

@@ -2,7 +2,7 @@ import { Fragment, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { getAudioPatch } from '../../api/audioPatch'
-import { listInventoryItems } from '../../api/inventory'
+import { listEventInventoryItems } from '../../api/inventory'
 import { buildInputChannelFlows, type FlowHop as InputFlowHop } from '../../lib/inputSignalFlow'
 import { buildOutputChannelFlows, type FlowHop } from '../../lib/signalFlow'
 import { busTint, cn, itemLabel } from '../../lib/utils'
@@ -21,8 +21,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
  */
 export function SignalFlowTab({ eventId }: { eventId: number }) {
   const audioQuery = useQuery({ queryKey: ['audio-patch', eventId], queryFn: ({ signal }) => getAudioPatch(eventId, signal) })
-  const inventoryQuery = useQuery({ queryKey: ['inventory-audio-items'], queryFn: () => listInventoryItems({ categoryType: 'audio' }) })
-  const cableQuery = useQuery({ queryKey: ['inventory-items', 'role', 'cable'], queryFn: () => listInventoryItems({ role: 'cable' }) })
+  const inventoryQuery = useQuery({
+    queryKey: ['inventory-audio-items', eventId],
+    queryFn: () => listEventInventoryItems(eventId, { categoryType: 'audio' }),
+  })
+  const cableQuery = useQuery({
+    queryKey: ['inventory-items', eventId, 'role', 'cable'],
+    queryFn: () => listEventInventoryItems(eventId, { role: 'cable' }),
+  })
 
   const itemLabelById = useMemo(
     () => new Map([...(inventoryQuery.data ?? []), ...(cableQuery.data ?? [])].map((item) => [item.id, itemLabel(item)])),

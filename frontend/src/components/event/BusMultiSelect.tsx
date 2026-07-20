@@ -18,10 +18,12 @@ export function BusMultiSelect({
   selected,
   options,
   onChange,
+  disabled,
 }: {
   selected: number[]
   options: BusOption[]
   onChange: (ids: number[]) => void
+  disabled?: boolean
 }) {
   const byId = new Map(options.map((option) => [option.id, option]))
   const remaining = options.filter((option) => !selected.includes(option.id))
@@ -35,20 +37,22 @@ export function BusMultiSelect({
             return (
               <Badge key={id} style={busTint(bus?.color)}>
                 {bus?.name ?? `#${id}`}
-                <button
-                  type="button"
-                  aria-label={`Remove ${bus?.name ?? id}`}
-                  onClick={() => onChange(selected.filter((selectedID) => selectedID !== id))}
-                  className="ml-1 leading-none opacity-60 hover:opacity-100"
-                >
-                  ×
-                </button>
+                {!disabled && (
+                  <button
+                    type="button"
+                    aria-label={`Remove ${bus?.name ?? id}`}
+                    onClick={() => onChange(selected.filter((selectedID) => selectedID !== id))}
+                    className="ml-1 leading-none opacity-60 hover:opacity-100"
+                  >
+                    ×
+                  </button>
+                )}
               </Badge>
             )
           })}
         </div>
       )}
-      {remaining.length > 0 && (
+      {!disabled && remaining.length > 0 && (
         <Select
           value=""
           onChange={(e) => {

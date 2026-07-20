@@ -80,6 +80,7 @@ export function InputGraphCanvas({
   cables,
   cableItems,
   onChanged,
+  readOnly = false,
 }: {
   eventId: number
   sources: InputSource[]
@@ -90,6 +91,7 @@ export function InputGraphCanvas({
   cables: InputCable[]
   cableItems: InventoryItem[]
   onChanged: () => Promise<void>
+  readOnly?: boolean
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -236,6 +238,7 @@ export function InputGraphCanvas({
   }
 
   function startNodeDrag(kind: PortRef['kind'], id: number, event: ReactPointerEvent) {
+    if (readOnly) return
     const node = layout.find((n) => n.kind === kind && n.id === id)
     if (!node) return
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -310,6 +313,7 @@ export function InputGraphCanvas({
       setInfoCable(cableAtPort(port.kind, port.id, port.port, port.direction, cables) ?? null)
       return
     }
+    if (readOnly) return
     if (!pendingPort) {
       setPendingPort(port)
       return
@@ -334,6 +338,7 @@ export function InputGraphCanvas({
       handlePortClick(port)
       return
     }
+    if (readOnly) return
     const startX = event.clientX
     const startY = event.clientY
     let dragged = false
@@ -558,6 +563,7 @@ export function InputGraphCanvas({
             deleteCableMutation.mutate(infoCable.id)
             setInfoCable(null)
           }}
+          readOnly={readOnly}
         />
       )}
     </div>
@@ -841,12 +847,13 @@ function CableItemPicker({ from, to, cableItems, suggestedItemId, onCancel, onCo
   )
 }
 
-function CableInfoDialog({ cable, cableItems, onClose, onChangeItem, onDelete }: {
+function CableInfoDialog({ cable, cableItems, onClose, onChangeItem, onDelete, readOnly = false }: {
   cable: InputCable
   cableItems: InventoryItem[]
   onClose: () => void
   onChangeItem: (cableItemId: number | undefined) => void
   onDelete: () => void
+  readOnly?: boolean
 }) {
   const [selected, setSelected] = useState<number | undefined>(cable.cable_item_id)
   const isBuiltIn = isCablelessEdge(cable.from_kind, cable.to_kind)
@@ -860,17 +867,17 @@ function CableInfoDialog({ cable, cableItems, onClose, onChangeItem, onDelete }:
         ) : (
           <>
             <p className="text-sm text-zinc-400">Catalog item for this run.</p>
-            <Select value={selected ?? ''} onChange={(e) => setSelected(e.target.value ? Number(e.target.value) : undefined)}>
+            <Select value={selected ?? ''} disabled={readOnly} onChange={(e) => setSelected(e.target.value ? Number(e.target.value) : undefined)}>
               <option value="">No cable picked</option>
               {cableItems.map((item) => <option key={item.id} value={item.id}>{itemLabel(item)}</option>)}
             </Select>
           </>
         )}
         <div className="flex justify-between gap-2">
-          <Button variant="destructive" onClick={onDelete}><Unplug className="mr-2 h-4 w-4" />Disconnect</Button>
+          {!readOnly && <Button variant="destructive" onClick={onDelete}><Unplug className="mr-2 h-4 w-4" />Disconnect</Button>}
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose}>Close</Button>
-            {!isBuiltIn && <Button onClick={() => onChangeItem(selected)}>Save</Button>}
+            {!isBuiltIn && !readOnly && <Button onClick={() => onChangeItem(selected)}>Save</Button>}
           </div>
         </div>
       </div>

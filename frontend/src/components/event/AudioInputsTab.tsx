@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { LayoutGrid, Table2 } from 'lucide-react'
 import { getAudioPatch } from '../../api/audioPatch'
-import { listInventoryItems } from '../../api/inventory'
+import { listEventInventoryItems } from '../../api/inventory'
 import { listOwnedItems } from '../../api/owned'
 import { nodeName, nodeZone, type PortRef } from '../../lib/inputGraph'
 import { itemLabel } from '../../lib/utils'
@@ -20,12 +20,21 @@ import { InputGraphCanvas } from './InputGraphCanvas'
 import { SourceSection } from './SourceSection'
 import { StageboxMultiSection } from './StageboxMultiSection'
 
-export function AudioInputsTab({ eventId }: { eventId: number }) {
+export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number; readOnly?: boolean }) {
   const queryClient = useQueryClient()
   const audioQuery = useQuery({ queryKey: ['audio-patch', eventId], queryFn: ({ signal }) => getAudioPatch(eventId, signal) })
-  const inventoryQuery = useQuery({ queryKey: ['inventory-audio-items'], queryFn: () => listInventoryItems({ categoryType: 'audio' }) })
-  const cableQuery = useQuery({ queryKey: ['inventory-items', 'role', 'cable'], queryFn: () => listInventoryItems({ role: 'cable' }) })
-  const standQuery = useQuery({ queryKey: ['inventory-items', 'role', 'stand'], queryFn: () => listInventoryItems({ role: 'stand' }) })
+  const inventoryQuery = useQuery({
+    queryKey: ['inventory-audio-items', eventId],
+    queryFn: () => listEventInventoryItems(eventId, { categoryType: 'audio' }),
+  })
+  const cableQuery = useQuery({
+    queryKey: ['inventory-items', eventId, 'role', 'cable'],
+    queryFn: () => listEventInventoryItems(eventId, { role: 'cable' }),
+  })
+  const standQuery = useQuery({
+    queryKey: ['inventory-items', eventId, 'role', 'stand'],
+    queryFn: () => listEventInventoryItems(eventId, { role: 'stand' }),
+  })
   const ownedQuery = useQuery({ queryKey: ['owned-items'], queryFn: listOwnedItems })
 
   const [viewMode, setViewMode] = useState<'graph' | 'table'>('graph')
@@ -58,7 +67,7 @@ export function AudioInputsTab({ eventId }: { eventId: number }) {
   return (
     <>
       <div className="print:hidden space-y-6">
-        <BusSection eventId={eventId} groups={groups} dcas={dcas} channels={channels} />
+        <BusSection eventId={eventId} groups={groups} dcas={dcas} channels={channels} readOnly={readOnly} />
         <ChannelSection
           eventId={eventId}
           channels={channels}
@@ -69,9 +78,10 @@ export function AudioInputsTab({ eventId }: { eventId: number }) {
           cables={cables}
           groups={groups}
           dcas={dcas}
+          readOnly={readOnly}
         />
-        <StageboxMultiSection eventId={eventId} stageboxes={stageboxes} stageMultis={stageMultis} audioItems={allAudioItems} />
-        <InputDeviceSection eventId={eventId} devices={devices} audioItems={allAudioItems} ownedItems={ownedItems} />
+        <StageboxMultiSection eventId={eventId} stageboxes={stageboxes} stageMultis={stageMultis} audioItems={allAudioItems} readOnly={readOnly} />
+        <InputDeviceSection eventId={eventId} devices={devices} audioItems={allAudioItems} ownedItems={ownedItems} readOnly={readOnly} />
         <SourceSection
           eventId={eventId}
           sources={sources}
@@ -82,6 +92,7 @@ export function AudioInputsTab({ eventId }: { eventId: number }) {
           stageboxes={stageboxes}
           stageMultis={stageMultis}
           cables={cables}
+          readOnly={readOnly}
         />
         <Card>
           <CardHeader className="flex-row items-center justify-between">
@@ -110,6 +121,7 @@ export function AudioInputsTab({ eventId }: { eventId: number }) {
                 cables={cables}
                 cableItems={cableItems}
                 onChanged={invalidate}
+                readOnly={readOnly}
               />
             ) : (
               <InputResourceTable

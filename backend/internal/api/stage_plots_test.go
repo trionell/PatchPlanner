@@ -272,7 +272,7 @@ func TestPlotTrusses(t *testing.T) {
 	if status, _ = doJSON(t, http.MethodPost, trussURL+"/pieces", map[string]any{"length_cm": 0}); status != http.StatusBadRequest {
 		t.Errorf("zero-length piece accepted: %d", status)
 	}
-	if status, _ = doJSON(t, http.MethodPost, trussURL+"/pieces", map[string]any{"inventory_item_id": 99999, "length_cm": 200}); status != http.StatusNotFound {
+	if status, _ = doJSON(t, http.MethodPost, trussURL+"/pieces", map[string]any{"inventory_item_id": 99999, "length_cm": 200}); status != http.StatusBadRequest {
 		t.Errorf("missing item accepted: %d", status)
 	}
 	for i := 0; i < 3; i++ {

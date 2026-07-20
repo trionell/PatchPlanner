@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2 } from 'lucide-react'
-import { createFixtureMode, deleteFixtureMode, listFixtureModes, updateFixtureMode } from '../api/reference'
+import { createFixtureMode, deleteFixtureMode, listFixtureModes, updateFixtureMode } from '../api/inventories'
 import type { FixtureMode } from '../types'
 import { Button } from './ui/Button'
 import { Input } from './ui/Input'
@@ -11,12 +11,12 @@ import { Input } from './ui/Input'
  * templates: patching copies name + channel count onto the rig fixture, so
  * edits and deletions here never rewrite existing rigs.
  */
-export function FixtureModeManager({ itemId }: { itemId: number }) {
+export function FixtureModeManager({ inventoryId, itemId }: { inventoryId: number; itemId: number }) {
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState({ name: '', channels: '' })
   const [error, setError] = useState('')
 
-  const modesQuery = useQuery({ queryKey: ['fixture-modes', itemId], queryFn: () => listFixtureModes(itemId) })
+  const modesQuery = useQuery({ queryKey: ['fixture-modes', itemId], queryFn: () => listFixtureModes(inventoryId, itemId) })
 
   const invalidate = async () => {
     setError('')
@@ -25,7 +25,7 @@ export function FixtureModeManager({ itemId }: { itemId: number }) {
   const onError = (mutationError: Error) => setError(mutationError.message)
 
   const addMutation = useMutation({
-    mutationFn: () => createFixtureMode(itemId, draft.name.trim(), Number(draft.channels)),
+    mutationFn: () => createFixtureMode(inventoryId, itemId, draft.name.trim(), Number(draft.channels)),
     onSuccess: async () => {
       setDraft({ name: '', channels: '' })
       await invalidate()
@@ -34,11 +34,15 @@ export function FixtureModeManager({ itemId }: { itemId: number }) {
   })
   const updateMutation = useMutation({
     mutationFn: ({ mode, name, channels }: { mode: FixtureMode; name: string; channels: number }) =>
-      updateFixtureMode(mode.id, name, channels),
+      updateFixtureMode(inventoryId, mode.id, name, channels),
     onSuccess: invalidate,
     onError,
   })
-  const deleteMutation = useMutation({ mutationFn: (modeId: number) => deleteFixtureMode(modeId), onSuccess: invalidate, onError })
+  const deleteMutation = useMutation({
+    mutationFn: (modeId: number) => deleteFixtureMode(inventoryId, modeId),
+    onSuccess: invalidate,
+    onError,
+  })
 
   const modes = modesQuery.data ?? []
 

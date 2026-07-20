@@ -8,13 +8,14 @@ import (
 	"github.com/trionell/patchplanner/internal/domain"
 )
 
-func ListInventoryCategories(db *sql.DB) ([]domain.InventoryCategory, error) {
+func ListInventoryCategories(db *sql.DB, inventoryID int64) ([]domain.InventoryCategory, error) {
 	rows, err := db.Query(`
-		SELECT c.id, c.name, c.category_type, COALESCE(c.picker_role, ''), COUNT(i.id) AS item_count
+		SELECT c.id, c.inventory_id, c.name, c.category_type, COALESCE(c.picker_role, ''), COUNT(i.id) AS item_count
 		FROM inventory_categories c
 		LEFT JOIN inventory_items i ON i.category_id = c.id AND i.discontinued = 0
+		WHERE c.inventory_id = ?
 		GROUP BY c.id, c.name, c.category_type, c.picker_role
-		ORDER BY c.name ASC`)
+		ORDER BY c.name ASC`, inventoryID)
 	if err != nil {
 		return nil, fmt.Errorf("list inventory categories: %w", err)
 	}
@@ -23,7 +24,7 @@ func ListInventoryCategories(db *sql.DB) ([]domain.InventoryCategory, error) {
 	categories := make([]domain.InventoryCategory, 0)
 	for rows.Next() {
 		var category domain.InventoryCategory
-		if err := rows.Scan(&category.ID, &category.Name, &category.CategoryType, &category.PickerRole, &category.ItemCount); err != nil {
+		if err := rows.Scan(&category.ID, &category.InventoryID, &category.Name, &category.CategoryType, &category.PickerRole, &category.ItemCount); err != nil {
 			return nil, fmt.Errorf("scan inventory category: %w", err)
 		}
 		categories = append(categories, category)
@@ -32,10 +33,12 @@ func ListInventoryCategories(db *sql.DB) ([]domain.InventoryCategory, error) {
 }
 
 // UpdateCategoryPickerRole sets or clears (empty role) a category's picker
-// role and returns the updated category. Returns sql.ErrNoRows if the
-// category does not exist.
-func UpdateCategoryPickerRole(db *sql.DB, id int64, role string) (domain.InventoryCategory, error) {
-	result, err := db.Exec(`UPDATE inventory_categories SET picker_role = ? WHERE id = ?`, nullString(role), id)
+// role and returns the updated category. Scoped to inventoryID so an owner
+// can't touch a category belonging to a different inventory by guessing an
+// id. Returns sql.ErrNoRows if the category does not exist in that
+// inventory.
+func UpdateCategoryPickerRole(db *sql.DB, inventoryID, id int64, role string) (domain.InventoryCategory, error) {
+	result, err := db.Exec(`UPDATE inventory_categories SET picker_role = ? WHERE id = ? AND inventory_id = ?`, nullString(role), id, inventoryID)
 	if err != nil {
 		return domain.InventoryCategory{}, fmt.Errorf("update category picker role: %w", err)
 	}
@@ -43,42 +46,39 @@ func UpdateCategoryPickerRole(db *sql.DB, id int64, role string) (domain.Invento
 		return domain.InventoryCategory{}, sql.ErrNoRows
 	}
 	row := db.QueryRow(`
-		SELECT c.id, c.name, c.category_type, COALESCE(c.picker_role, ''),
+		SELECT c.id, c.inventory_id, c.name, c.category_type, COALESCE(c.picker_role, ''),
 			(SELECT COUNT(*) FROM inventory_items i WHERE i.category_id = c.id AND i.discontinued = 0)
 		FROM inventory_categories c WHERE c.id = ?`, id)
 	var category domain.InventoryCategory
-	if err := row.Scan(&category.ID, &category.Name, &category.CategoryType, &category.PickerRole, &category.ItemCount); err != nil {
+	if err := row.Scan(&category.ID, &category.InventoryID, &category.Name, &category.CategoryType, &category.PickerRole, &category.ItemCount); err != nil {
 		return domain.InventoryCategory{}, fmt.Errorf("get inventory category: %w", err)
 	}
 	return category, nil
 }
 
-const inventoryItemColumns = `i.id, COALESCE(i.category_id, 0), COALESCE(c.name, ''), COALESCE(c.category_type, ''), i.name, COALESCE(i.description, ''), COALESCE(i.quantity_available, 0), COALESCE(i.price_ex_vat, 0), COALESCE(i.xlsx_row, 0), i.discontinued, COALESCE(i.created_at, '')`
+const inventoryItemColumns = `i.id, COALESCE(i.inventory_id, 0), COALESCE(i.category_id, 0), COALESCE(c.name, ''), COALESCE(c.category_type, ''), i.name, COALESCE(i.description, ''), COALESCE(i.quantity_available, 0), COALESCE(i.price_ex_vat, 0), COALESCE(i.xlsx_row, 0), i.discontinued, COALESCE(i.created_at, '')`
 
-func ListInventoryItems(db *sql.DB, categoryID *int64, categoryType, pickerRole string, includeDiscontinued bool) ([]domain.InventoryItem, error) {
+func ListInventoryItems(db *sql.DB, inventoryID int64, categoryID *int64, categoryType, pickerRole string, includeDiscontinued bool) ([]domain.InventoryItem, error) {
 	query := `
 		SELECT ` + inventoryItemColumns + `
 		FROM inventory_items i
-		LEFT JOIN inventory_categories c ON c.id = i.category_id`
-	args := make([]any, 0)
-	conditions := make([]string, 0)
+		LEFT JOIN inventory_categories c ON c.id = i.category_id
+		WHERE i.inventory_id = ?`
+	args := []any{inventoryID}
 	if categoryID != nil {
-		conditions = append(conditions, "i.category_id = ?")
+		query += " AND i.category_id = ?"
 		args = append(args, *categoryID)
 	}
 	if categoryType != "" {
-		conditions = append(conditions, "c.category_type = ?")
+		query += " AND c.category_type = ?"
 		args = append(args, categoryType)
 	}
 	if pickerRole != "" {
-		conditions = append(conditions, "c.picker_role = ?")
+		query += " AND c.picker_role = ?"
 		args = append(args, pickerRole)
 	}
 	if !includeDiscontinued {
-		conditions = append(conditions, "i.discontinued = 0")
-	}
-	if len(conditions) > 0 {
-		query += " WHERE " + strings.Join(conditions, " AND ")
+		query += " AND i.discontinued = 0"
 	}
 	query += " ORDER BY c.name ASC, i.name ASC"
 
@@ -99,6 +99,11 @@ func ListInventoryItems(db *sql.DB, categoryID *int64, categoryType, pickerRole 
 	return items, rows.Err()
 }
 
+// GetInventoryItem fetches one item by its global id, unscoped by
+// inventory — used project-wide as a simple "does this item exist"
+// existence/detail check wherever a handler accepts a picked catalog item.
+// Cross-inventory correctness (does this item belong to the event's bound
+// inventory) is a separate, additional check: ItemBelongsToInventory.
 func GetInventoryItem(db *sql.DB, id int64) (domain.InventoryItem, error) {
 	row := db.QueryRow(`
 		SELECT `+inventoryItemColumns+`
@@ -111,7 +116,7 @@ func GetInventoryItem(db *sql.DB, id int64) (domain.InventoryItem, error) {
 func scanInventoryItem(row scanner) (domain.InventoryItem, error) {
 	var item domain.InventoryItem
 	var discontinued int
-	if err := row.Scan(&item.ID, &item.CategoryID, &item.CategoryName, &item.CategoryType, &item.Name, &item.Description, &item.QuantityAvailable, &item.PriceExVAT, &item.XLSXRow, &discontinued, &item.CreatedAt); err != nil {
+	if err := row.Scan(&item.ID, &item.InventoryID, &item.CategoryID, &item.CategoryName, &item.CategoryType, &item.Name, &item.Description, &item.QuantityAvailable, &item.PriceExVAT, &item.XLSXRow, &discontinued, &item.CreatedAt); err != nil {
 		if err == sql.ErrNoRows {
 			return domain.InventoryItem{}, fmt.Errorf("get inventory item: %w", err)
 		}
@@ -121,32 +126,36 @@ func scanInventoryItem(row scanner) (domain.InventoryItem, error) {
 	return item, nil
 }
 
-// UpsertInventory replaces the catalog contents without ever deleting a row,
-// so planning data referencing inventory items always survives a re-import.
-// Incoming items are matched to existing ones by case-insensitive name; when
-// several items share a name, the nth occurrence in the sheet matches the nth
-// existing item (in sheet order). Matched items are updated in place (id
-// preserved); new items are inserted; existing items missing from the import
-// are flagged discontinued. Everything runs in one transaction, so a failed
-// import leaves the catalog untouched.
-func UpsertInventory(db *sql.DB, categories []domain.InventoryCategory, items []domain.InventoryItem) error {
+// UpsertInventory replaces one inventory's catalog contents without ever
+// deleting a row, so planning data referencing inventory items always
+// survives a re-import. Incoming items are matched to existing ones (within
+// the same inventoryID only) by case-insensitive name; when several items
+// share a name, the nth occurrence in the sheet matches the nth existing
+// item (in sheet order). Matched items are updated in place (id preserved);
+// new items are inserted; existing items missing from the import are
+// flagged discontinued. Everything runs in one transaction, so a failed
+// import leaves the catalog untouched. Scoped to inventoryID throughout —
+// re-importing one user's price list must never touch another user's
+// catalog.
+func UpsertInventory(db *sql.DB, inventoryID int64, categories []domain.InventoryCategory, items []domain.InventoryItem) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("begin inventory upsert: %w", err)
 	}
 	defer tx.Rollback()
 
-	categoryIDs, err := upsertCategories(tx, categories)
+	categoryIDs, err := upsertCategories(tx, inventoryID, categories)
 	if err != nil {
 		return err
 	}
 
-	// Every item starts presumed gone; each incoming row revives or inserts.
-	if _, err := tx.Exec(`UPDATE inventory_items SET discontinued = 1`); err != nil {
+	// Every item in this inventory starts presumed gone; each incoming
+	// row revives or inserts.
+	if _, err := tx.Exec(`UPDATE inventory_items SET discontinued = 1 WHERE inventory_id = ?`, inventoryID); err != nil {
 		return fmt.Errorf("flag inventory items: %w", err)
 	}
 
-	pool, err := loadItemIDsByName(tx)
+	pool, err := loadItemIDsByName(tx, inventoryID)
 	if err != nil {
 		return err
 	}
@@ -165,8 +174,8 @@ func UpsertInventory(db *sql.DB, categories []domain.InventoryCategory, items []
 			}
 			continue
 		}
-		if _, err := tx.Exec(`INSERT INTO inventory_items (category_id, name, description, quantity_available, price_ex_vat, xlsx_row, discontinued) VALUES (?, ?, ?, ?, ?, ?, 0)`,
-			categoryID, item.Name, nullString(item.Description), item.QuantityAvailable, item.PriceExVAT, item.XLSXRow); err != nil {
+		if _, err := tx.Exec(`INSERT INTO inventory_items (inventory_id, category_id, name, description, quantity_available, price_ex_vat, xlsx_row, discontinued) VALUES (?, ?, ?, ?, ?, ?, ?, 0)`,
+			inventoryID, categoryID, item.Name, nullString(item.Description), item.QuantityAvailable, item.PriceExVAT, item.XLSXRow); err != nil {
 			return fmt.Errorf("insert inventory item: %w", err)
 		}
 	}
@@ -177,11 +186,12 @@ func UpsertInventory(db *sql.DB, categories []domain.InventoryCategory, items []
 	return nil
 }
 
-// upsertCategories matches categories by case-insensitive name and returns a
-// map from the incoming category name to its row id. Categories absent from
-// the import are kept as-is (harmless once their items are discontinued).
-func upsertCategories(tx *sql.Tx, categories []domain.InventoryCategory) (map[string]int64, error) {
-	rows, err := tx.Query(`SELECT id, name FROM inventory_categories`)
+// upsertCategories matches categories (within inventoryID only) by
+// case-insensitive name and returns a map from the incoming category name
+// to its row id. Categories absent from the import are kept as-is
+// (harmless once their items are discontinued).
+func upsertCategories(tx *sql.Tx, inventoryID int64, categories []domain.InventoryCategory) (map[string]int64, error) {
+	rows, err := tx.Query(`SELECT id, name FROM inventory_categories WHERE inventory_id = ?`, inventoryID)
 	if err != nil {
 		return nil, fmt.Errorf("load inventory categories: %w", err)
 	}
@@ -209,7 +219,7 @@ func upsertCategories(tx *sql.Tx, categories []domain.InventoryCategory) (map[st
 			categoryIDs[category.Name] = id
 			continue
 		}
-		result, err := tx.Exec(`INSERT INTO inventory_categories (name, category_type) VALUES (?, ?)`, category.Name, category.CategoryType)
+		result, err := tx.Exec(`INSERT INTO inventory_categories (inventory_id, name, category_type) VALUES (?, ?, ?)`, inventoryID, category.Name, category.CategoryType)
 		if err != nil {
 			return nil, fmt.Errorf("insert inventory category: %w", err)
 		}
@@ -223,10 +233,11 @@ func upsertCategories(tx *sql.Tx, categories []domain.InventoryCategory) (map[st
 	return categoryIDs, nil
 }
 
-// loadItemIDsByName returns existing item ids keyed by lowercased name, each
-// list ordered by sheet position so duplicate names match positionally.
-func loadItemIDsByName(tx *sql.Tx) (map[string][]int64, error) {
-	rows, err := tx.Query(`SELECT id, name FROM inventory_items ORDER BY COALESCE(xlsx_row, 0) ASC, id ASC`)
+// loadItemIDsByName returns existing item ids (within inventoryID only)
+// keyed by lowercased name, each list ordered by sheet position so
+// duplicate names match positionally.
+func loadItemIDsByName(tx *sql.Tx, inventoryID int64) (map[string][]int64, error) {
+	rows, err := tx.Query(`SELECT id, name FROM inventory_items WHERE inventory_id = ? ORDER BY COALESCE(xlsx_row, 0) ASC, id ASC`, inventoryID)
 	if err != nil {
 		return nil, fmt.Errorf("load inventory items: %w", err)
 	}

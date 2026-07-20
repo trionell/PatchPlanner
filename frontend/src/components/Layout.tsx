@@ -1,12 +1,14 @@
-import { Cable, CalendarRange, LayoutDashboard, Package2, Settings } from 'lucide-react'
+import { Cable, CalendarRange, LayoutDashboard, LogOut, Package2, Settings } from 'lucide-react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { logout } from '../api/auth'
+import { useCurrentUser } from '../hooks/useCurrentUser'
 import { cn } from '../lib/utils'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/events', label: 'Events', icon: CalendarRange },
-  { to: '/inventory', label: 'Inventory', icon: Package2 },
-  { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/inventories', label: 'Inventories', icon: Package2 },
+  { to: '/my-defaults', label: 'My Defaults', icon: Settings },
 ]
 
 function getPageTitle(pathname: string) {
@@ -18,6 +20,12 @@ function getPageTitle(pathname: string) {
 export function Layout() {
   const location = useLocation()
   const title = getPageTitle(location.pathname)
+  const { user } = useCurrentUser()
+
+  async function handleLogout() {
+    await logout()
+    window.location.href = '/login'
+  }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -56,8 +64,29 @@ export function Layout() {
         </nav>
       </aside>
       <div className="ml-60 min-h-screen print:ml-0">
-        <header className="sticky top-0 z-20 border-b border-zinc-800 bg-zinc-950/95 px-8 py-5 backdrop-blur print:hidden">
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-zinc-800 bg-zinc-950/95 px-8 py-5 backdrop-blur print:hidden">
           <h1 className="text-2xl font-semibold text-zinc-100">{title}</h1>
+          {user && (
+            <div className="flex items-center gap-3">
+              {user.pictureUrl && (
+                <img
+                  src={user.pictureUrl}
+                  alt=""
+                  referrerPolicy="no-referrer"
+                  className="h-8 w-8 rounded-full"
+                />
+              )}
+              <span className="text-sm text-zinc-300">{user.name}</span>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 rounded-md border border-zinc-700 px-3 py-1.5 text-xs text-zinc-400 transition-colors hover:bg-zinc-850 hover:text-zinc-100"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                Sign out
+              </button>
+            </div>
+          )}
         </header>
         <main className="px-8 py-6 print:p-0">
           <Outlet />

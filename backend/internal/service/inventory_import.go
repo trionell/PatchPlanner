@@ -1,8 +1,10 @@
 package service
 
 import (
+	"bytes"
 	"database/sql"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 
@@ -15,8 +17,17 @@ type InventoryService struct {
 	DB *sql.DB
 }
 
-func (s InventoryService) ImportFromXLSX(path string) (domain.InventoryImportResult, error) {
-	file, err := excelize.OpenFile(path)
+// ImportFromXLSX parses a price-list spreadsheet and upserts its contents
+// into inventoryID's catalog, then stores the raw file itself as the
+// inventory's template so a later rental export has something to write
+// quantities into (research.md R2). Takes an io.Reader (research.md R1) —
+// the per-inventory upload replaces the old single-fixed-file-path design.
+func (s InventoryService) ImportFromXLSX(inventoryID int64, filename string, r io.Reader) (domain.InventoryImportResult, error) {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return domain.InventoryImportResult{}, fmt.Errorf("read xlsx: %w", err)
+	}
+	file, err := excelize.OpenReader(bytes.NewReader(data))
 	if err != nil {
 		return domain.InventoryImportResult{}, fmt.Errorf("open xlsx: %w", err)
 	}
@@ -68,7 +79,10 @@ func (s InventoryService) ImportFromXLSX(path string) (domain.InventoryImportRes
 		})
 	}
 
-	if err := db.UpsertInventory(s.DB, categories, items); err != nil {
+	if err := db.UpsertInventory(s.DB, inventoryID, categories, items); err != nil {
+		return domain.InventoryImportResult{}, err
+	}
+	if err := db.SetInventorySourceXLSX(s.DB, inventoryID, data, filename); err != nil {
 		return domain.InventoryImportResult{}, err
 	}
 

@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/trionell/patchplanner/internal/api/middleware"
 	dbstore "github.com/trionell/patchplanner/internal/db"
 	"github.com/trionell/patchplanner/internal/domain"
 )
@@ -16,20 +17,27 @@ type EventsHandler struct {
 	DB *sql.DB
 }
 
+// Register wires /events (list, scoped to the caller; create, owned by
+// the caller) — routes with no specific event yet, so they sit in the
+// outer authenticated group, not behind RequireEventAccess.
 func (h EventsHandler) Register(r chi.Router) {
 	r.Route("/events", func(r chi.Router) {
 		r.Get("/", h.list)
 		r.Post("/", h.create)
-		r.Route("/{eventID}", func(r chi.Router) {
-			r.Get("/", h.get)
-			r.Patch("/", h.update)
-			r.Delete("/", h.delete)
-		})
 	})
 }
 
+// RegisterEvent wires the single-event routes (get/update/delete) inside
+// the shared /events/{eventID} group, behind RequireEventAccess.
+func (h EventsHandler) RegisterEvent(r chi.Router) {
+	r.Get("/", h.get)
+	r.Patch("/", h.update)
+	r.Delete("/", h.delete)
+}
+
 func (h EventsHandler) list(w http.ResponseWriter, r *http.Request) {
-	events, err := dbstore.ListEvents(h.DB)
+	user, _ := middleware.UserFromContext(r.Context())
+	events, err := dbstore.ListEventsForUser(h.DB, user.ID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -54,10 +62,14 @@ func (h EventsHandler) get(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if role, ok := middleware.EventRoleFromContext(r.Context()); ok {
+		event.YourRole = role
+	}
 	writeJSON(w, http.StatusOK, event)
 }
 
 func (h EventsHandler) create(w http.ResponseWriter, r *http.Request) {
+	user, _ := middleware.UserFromContext(r.Context())
 	var event domain.Event
 	if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json body")
@@ -67,11 +79,21 @@ func (h EventsHandler) create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "name is required")
 		return
 	}
-	created, err := dbstore.CreateEvent(h.DB, event)
+	if event.InventoryID == 0 {
+		writeError(w, http.StatusBadRequest, "inventoryId is required")
+		return
+	}
+	inventory, err := dbstore.GetInventory(h.DB, event.InventoryID)
+	if err != nil || inventory.OwnerUserID != user.ID {
+		writeError(w, http.StatusBadRequest, "inventoryId must be an inventory you own")
+		return
+	}
+	created, err := dbstore.CreateEvent(h.DB, event, user.ID, event.InventoryID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	created.YourRole = "owner"
 	writeJSON(w, http.StatusCreated, created)
 }
 

@@ -27,8 +27,9 @@ var seedCounts = map[string]int{
 
 func TestReferenceSeedAndListing(t *testing.T) {
 	database := openTestDB(t)
+	eventID := createTestEvent(t, database)
 
-	data, err := ListReferenceData(database)
+	data, err := ListReferenceData(database, eventID)
 	if err != nil {
 		t.Fatalf("list reference data: %v", err)
 	}
@@ -160,40 +161,41 @@ func TestRebuildMigrationsPreserveRows(t *testing.T) {
 
 func TestReferenceValueCRUD(t *testing.T) {
 	database := openTestDB(t)
+	eventID := createTestEvent(t, database)
 
-	created, err := CreateReferenceValue(database, "signal_cable_types", domain.ReferenceValueRequest{Value: "dmx5", Label: "DMX 5-pin"})
+	created, err := CreateReferenceValue(database, eventID, "signal_cable_types", domain.ReferenceValueRequest{Value: "dmx5", Label: "DMX 5-pin"})
 	if err != nil {
 		t.Fatalf("create value: %v", err)
 	}
-	if created.Value != "dmx5" || created.Label != "DMX 5-pin" || created.Vocabulary != "signal_cable_types" {
+	if created.Value != "dmx5" || created.Label != "DMX 5-pin" || created.Vocabulary != "signal_cable_types" || created.EventID != eventID {
 		t.Errorf("created value mismatch: %+v", created)
 	}
 
-	if _, err := CreateReferenceValue(database, "signal_cable_types", domain.ReferenceValueRequest{Value: "dmx5", Label: "Again"}); !errors.Is(err, ErrDuplicate) {
+	if _, err := CreateReferenceValue(database, eventID, "signal_cable_types", domain.ReferenceValueRequest{Value: "dmx5", Label: "Again"}); !errors.Is(err, ErrDuplicate) {
 		t.Errorf("expected ErrDuplicate for same value in same vocabulary, got %v", err)
 	}
-	if _, err := CreateReferenceValue(database, "speaker_cable_types", domain.ReferenceValueRequest{Value: "dmx5", Label: "DMX 5-pin"}); err != nil {
+	if _, err := CreateReferenceValue(database, eventID, "speaker_cable_types", domain.ReferenceValueRequest{Value: "dmx5", Label: "DMX 5-pin"}); err != nil {
 		t.Errorf("same value in another vocabulary must be allowed, got %v", err)
 	}
 
-	renamed, err := UpdateReferenceValueLabel(database, "signal_cable_types", created.ID, "DMX 5-pin (110 Ω)")
+	renamed, err := UpdateReferenceValueLabel(database, eventID, "signal_cable_types", created.ID, "DMX 5-pin (110 Ω)")
 	if err != nil {
 		t.Fatalf("rename label: %v", err)
 	}
 	if renamed.Label != "DMX 5-pin (110 Ω)" || renamed.Value != "dmx5" {
 		t.Errorf("rename must change label only: %+v", renamed)
 	}
-	if _, err := UpdateReferenceValueLabel(database, "signal_cable_types", 99999, "X"); !errors.Is(err, sql.ErrNoRows) {
+	if _, err := UpdateReferenceValueLabel(database, eventID, "signal_cable_types", 99999, "X"); !errors.Is(err, sql.ErrNoRows) {
 		t.Errorf("expected ErrNoRows for unknown id, got %v", err)
 	}
-	if _, err := UpdateReferenceValueLabel(database, "truss_types", created.ID, "X"); !errors.Is(err, sql.ErrNoRows) {
+	if _, err := UpdateReferenceValueLabel(database, eventID, "truss_types", created.ID, "X"); !errors.Is(err, sql.ErrNoRows) {
 		t.Errorf("expected ErrNoRows for id outside vocabulary, got %v", err)
 	}
 
-	if err := DeleteReferenceValue(database, "signal_cable_types", created.ID); err != nil {
+	if err := DeleteReferenceValue(database, eventID, "signal_cable_types", created.ID); err != nil {
 		t.Fatalf("delete unused value: %v", err)
 	}
-	data, err := ListReferenceData(database)
+	data, err := ListReferenceData(database, eventID)
 	if err != nil {
 		t.Fatalf("list after delete: %v", err)
 	}
@@ -202,8 +204,45 @@ func TestReferenceValueCRUD(t *testing.T) {
 			t.Error("deleted value still listed")
 		}
 	}
-	if err := DeleteReferenceValue(database, "signal_cable_types", created.ID); !errors.Is(err, sql.ErrNoRows) {
+	if err := DeleteReferenceValue(database, eventID, "signal_cable_types", created.ID); !errors.Is(err, sql.ErrNoRows) {
 		t.Errorf("expected ErrNoRows deleting twice, got %v", err)
+	}
+}
+
+// TestReferenceValueScopedToEvent covers T006: basic event-scoped CRUD
+// correctness — a value created on one event is invisible to, and doesn't
+// collide with, another event's identically-named value.
+func TestReferenceValueScopedToEvent(t *testing.T) {
+	database := openTestDB(t)
+	eventA := createTestEvent(t, database)
+	eventB := createTestEvent(t, database)
+
+	valueA, err := CreateReferenceValue(database, eventA, "signal_cable_types", domain.ReferenceValueRequest{Value: "dmx5", Label: "A's DMX 5-pin"})
+	if err != nil {
+		t.Fatalf("create value on event A: %v", err)
+	}
+	// The identical (vocabulary, value) pair on a different event must not
+	// collide with event A's row.
+	if _, err := CreateReferenceValue(database, eventB, "signal_cable_types", domain.ReferenceValueRequest{Value: "dmx5", Label: "B's DMX 5-pin"}); err != nil {
+		t.Fatalf("create identical value on event B: %v", err)
+	}
+
+	dataB, err := ListReferenceData(database, eventB)
+	if err != nil {
+		t.Fatalf("list event B data: %v", err)
+	}
+	for _, v := range dataB["signal_cable_types"] {
+		if v.Value == "dmx5" && v.Label != "B's DMX 5-pin" {
+			t.Errorf("event B sees event A's label: %+v", v)
+		}
+	}
+
+	// event A's own value is not reachable through event B's scope.
+	if _, err := UpdateReferenceValueLabel(database, eventB, "signal_cable_types", valueA.ID, "Hijacked"); !errors.Is(err, sql.ErrNoRows) {
+		t.Errorf("event B updated event A's value: err=%v, want ErrNoRows", err)
+	}
+	if err := DeleteReferenceValue(database, eventB, "signal_cable_types", valueA.ID); !errors.Is(err, sql.ErrNoRows) {
+		t.Errorf("event B deleted event A's value: err=%v, want ErrNoRows", err)
 	}
 }
 
@@ -230,22 +269,22 @@ func TestDeleteReferenceValueInUse(t *testing.T) {
 		"output_types":        "iem",
 	}
 	for vocabulary, value := range inUse {
-		id := referenceValueID(t, database, vocabulary, value)
-		if err := DeleteReferenceValue(database, vocabulary, id); !errors.Is(err, ErrInUse) {
+		id := referenceValueID(t, database, eventID, vocabulary, value)
+		if err := DeleteReferenceValue(database, eventID, vocabulary, id); !errors.Is(err, ErrInUse) {
 			t.Errorf("%s %q: expected ErrInUse, got %v", vocabulary, value, err)
 		}
 	}
 	// power_connectors is consumed by two columns; both must protect.
 	for _, value := range []string{"cee16", "powercon_true1"} {
-		id := referenceValueID(t, database, "power_connectors", value)
-		if err := DeleteReferenceValue(database, "power_connectors", id); !errors.Is(err, ErrInUse) {
+		id := referenceValueID(t, database, eventID, "power_connectors", value)
+		if err := DeleteReferenceValue(database, eventID, "power_connectors", id); !errors.Is(err, ErrInUse) {
 			t.Errorf("power_connectors %q: expected ErrInUse, got %v", value, err)
 		}
 	}
 
 	// truss_types lost its consuming column with Slice 13 — deleting one
 	// of its values is always allowed now.
-	if err := DeleteReferenceValue(database, "truss_types", referenceValueID(t, database, "truss_types", "ladder")); err != nil {
+	if err := DeleteReferenceValue(database, eventID, "truss_types", referenceValueID(t, database, eventID, "truss_types", "ladder")); err != nil {
 		t.Errorf("delete untracked truss_types value: %v", err)
 	}
 }
@@ -300,7 +339,7 @@ func TestFixtureModes(t *testing.T) {
 
 	// Re-importing the price list must leave modes untouched (FR-011): the
 	// fixture model is matched by name, never deleted and recreated.
-	if err := UpsertInventory(database,
+	if err := UpsertInventory(database, c.InventoryID,
 		[]domain.InventoryCategory{{Name: "Ljusarmaturer", CategoryType: "lighting"}},
 		[]domain.InventoryItem{{CategoryName: "Ljusarmaturer", Name: "Robe LEDWash 600", QuantityAvailable: 6, PriceExVAT: 250, XLSXRow: 20}},
 	); err != nil {
@@ -328,10 +367,10 @@ func TestFixtureModes(t *testing.T) {
 	}
 }
 
-func referenceValueID(t *testing.T, database *sql.DB, vocabulary, value string) int64 {
+func referenceValueID(t *testing.T, database *sql.DB, eventID int64, vocabulary, value string) int64 {
 	t.Helper()
 	var id int64
-	if err := database.QueryRow(`SELECT id FROM reference_values WHERE vocabulary = ? AND value = ?`, vocabulary, value).Scan(&id); err != nil {
+	if err := database.QueryRow(`SELECT id FROM reference_values WHERE event_id = ? AND vocabulary = ? AND value = ?`, eventID, vocabulary, value).Scan(&id); err != nil {
 		t.Fatalf("look up %s/%s: %v", vocabulary, value, err)
 	}
 	return id

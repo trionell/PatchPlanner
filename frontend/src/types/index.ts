@@ -6,6 +6,35 @@ export interface Event {
   notes?: string
   created_at: string
   updated_at: string
+  yourRole?: 'owner' | 'contributor' | 'viewer'
+  inventoryId: number
+}
+
+/** An owned, independent equipment catalog (Slice 16). */
+export interface Inventory {
+  id: number
+  name: string
+  sourceFilename?: string
+  createdAt: string
+}
+
+export interface CurrentUser {
+  id: number
+  email: string
+  name: string
+  pictureUrl?: string
+  createdAt: string
+  lastLoginAt: string
+}
+
+export interface EventMember {
+  userId: number
+  email: string
+  name: string
+  pictureUrl?: string
+  role: 'owner' | 'contributor' | 'viewer'
+  invitedBy?: number
+  createdAt: string
 }
 
 export interface InventoryCategory {

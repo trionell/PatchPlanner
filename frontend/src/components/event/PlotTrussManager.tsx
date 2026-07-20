@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, X } from 'lucide-react'
-import { listInventoryItems } from '../../api/inventory'
+import { listEventInventoryItems } from '../../api/inventory'
 import { getLightingRig } from '../../api/lighting'
 import {
   attachPlotTrussFixture,
@@ -35,6 +35,7 @@ interface PlotTrussManagerProps {
   placedElements: Map<number, PlacedTrussElement>
   /** Patch a placed truss element's rotation/tilt. */
   onRotate: (elementId: number, patch: { rotation_deg?: number; tilt_deg?: number }) => void
+  readOnly?: boolean
 }
 
 export interface PlacedTrussElement {
@@ -46,11 +47,11 @@ export interface PlacedTrussElement {
 /** Event-level truss manager (US5): assemble trusses from inventory
  *  truss pieces (lengths auto-suggested from catalog names), set hang
  *  height, and attach rig fixtures at offsets along the truss. */
-export function PlotTrussManager({ eventId, trusses, open, onClose, onChanged, onPlace, placedTrussIds, placedElements, onRotate }: PlotTrussManagerProps) {
+export function PlotTrussManager({ eventId, trusses, open, onClose, onChanged, onPlace, placedTrussIds, placedElements, onRotate, readOnly = false }: PlotTrussManagerProps) {
   const queryClient = useQueryClient()
   const trussItemsQuery = useQuery({
-    queryKey: ['inventory-truss-items'],
-    queryFn: () => listInventoryItems({ role: 'truss' }),
+    queryKey: ['inventory-truss-items', eventId],
+    queryFn: () => listEventInventoryItems(eventId, { role: 'truss' }),
     enabled: open,
   })
   const lightingQuery = useQuery({ queryKey: ['lighting-rig', eventId], queryFn: () => getLightingRig(eventId), enabled: open })
@@ -92,21 +93,24 @@ export function PlotTrussManager({ eventId, trusses, open, onClose, onChanged, o
             placed={placedTrussIds.has(truss.id)}
             element={placedElements.get(truss.id)}
             onRotate={onRotate}
+            readOnly={readOnly}
           />
         ))}
-        <form
-          className="flex items-center gap-2"
-          onSubmit={(e) => {
-            e.preventDefault()
-            if (newName.trim()) createMutation.mutate(newName.trim())
-          }}
-        >
-          <Input className="h-9" placeholder="New truss name (e.g. Front truss)" value={newName} onChange={(e) => setNewName(e.target.value)} />
-          <Button type="submit" size="sm" disabled={!newName.trim() || createMutation.isPending}>
-            <Plus className="mr-1 h-4 w-4" />
-            Add
-          </Button>
-        </form>
+        {!readOnly && (
+          <form
+            className="flex items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (newName.trim()) createMutation.mutate(newName.trim())
+            }}
+          >
+            <Input className="h-9" placeholder="New truss name (e.g. Front truss)" value={newName} onChange={(e) => setNewName(e.target.value)} />
+            <Button type="submit" size="sm" disabled={!newName.trim() || createMutation.isPending}>
+              <Plus className="mr-1 h-4 w-4" />
+              Add
+            </Button>
+          </form>
+        )}
       </div>
     </Dialog>
   )
@@ -123,9 +127,10 @@ interface TrussEditorProps {
   /** The truss's placement on the current plot, when placed. */
   element?: PlacedTrussElement
   onRotate: (elementId: number, patch: { rotation_deg?: number; tilt_deg?: number }) => void
+  readOnly?: boolean
 }
 
-function TrussEditor({ eventId, truss, trussItems, fixtures, onChanged, onPlace, placed, element, onRotate }: TrussEditorProps) {
+function TrussEditor({ eventId, truss, trussItems, fixtures, onChanged, onPlace, placed, element, onRotate, readOnly = false }: TrussEditorProps) {
   const [heightDraft, setHeightDraft] = useDraftState(truss.height_cm, String, '0')
   const [nameDraft, setNameDraft] = useDraftState(truss.name, (v) => v, '')
   const [rotationDraft, setRotationDraft] = useDraftState(element?.rotation_deg, String, '0')
@@ -191,6 +196,7 @@ function TrussEditor({ eventId, truss, trussItems, fixtures, onChanged, onPlace,
           value={nameDraft}
           onChange={(e) => setNameDraft(e.target.value)}
           onBlur={() => nameDraft.trim() && nameDraft !== truss.name && updateMutation.mutate({ name: nameDraft.trim() })}
+          disabled={readOnly}
         />
         <label className="flex flex-none items-center gap-1.5 text-xs text-zinc-400">
           Height
@@ -202,22 +208,27 @@ function TrussEditor({ eventId, truss, trussItems, fixtures, onChanged, onPlace,
               const parsed = Number(heightDraft.replace(',', '.'))
               if (Number.isFinite(parsed) && parsed >= 0 && parsed !== truss.height_cm) updateMutation.mutate({ height_cm: parsed })
             }}
+            disabled={readOnly}
           />
           cm
         </label>
-        <Button size="sm" variant="outline" disabled={placed} title={placed ? 'Already on this plot' : 'Place on the current plot'} onClick={onPlace}>
-          {placed ? 'On plot' : 'Place'}
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          title="Delete truss (pieces and placements go with it; rig fixtures stay)"
-          onClick={() => {
-            if (window.confirm(`Delete truss "${truss.name}"? Its pieces and plot placements are removed; the rig's fixtures are kept.`)) deleteMutation.mutate()
-          }}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        {!readOnly && (
+          <Button size="sm" variant="outline" disabled={placed} title={placed ? 'Already on this plot' : 'Place on the current plot'} onClick={onPlace}>
+            {placed ? 'On plot' : 'Place'}
+          </Button>
+        )}
+        {!readOnly && (
+          <Button
+            size="sm"
+            variant="ghost"
+            title="Delete truss (pieces and placements go with it; rig fixtures stay)"
+            onClick={() => {
+              if (window.confirm(`Delete truss "${truss.name}"? Its pieces and plot placements are removed; the rig's fixtures are kept.`)) deleteMutation.mutate()
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
       {element && (
@@ -236,6 +247,7 @@ function TrussEditor({ eventId, truss, trussItems, fixtures, onChanged, onPlace,
               }}
               onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
               aria-label={`Top-view rotation for ${truss.name} (degrees)`}
+              disabled={readOnly}
             />
             °
           </label>
@@ -253,6 +265,7 @@ function TrussEditor({ eventId, truss, trussItems, fixtures, onChanged, onPlace,
               }}
               onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
               aria-label={`Front-view rotation for ${truss.name} (degrees)`}
+              disabled={readOnly}
             />
             °
           </label>
@@ -271,42 +284,46 @@ function TrussEditor({ eventId, truss, trussItems, fixtures, onChanged, onPlace,
               {!piece.inventory_item_id && <span className="ml-1 text-amber-400" title="Legacy piece — not on the rental order until re-picked from the catalog">(legacy)</span>}
             </span>
             <span className="tabular-nums text-zinc-400">{piece.length_cm} cm</span>
-            <button type="button" className="text-zinc-500 hover:text-red-400" onClick={() => removePieceMutation.mutate(piece.id)} title="Remove piece">
-              <X className="h-3.5 w-3.5" />
-            </button>
+            {!readOnly && (
+              <button type="button" className="text-zinc-500 hover:text-red-400" onClick={() => removePieceMutation.mutate(piece.id)} title="Remove piece">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         ))}
       </div>
-      <div className="mb-3 flex items-center gap-2">
-        <Select
-          className="h-8 flex-1 text-xs"
-          value={pieceItemId}
-          onChange={(e) => {
-            setPieceItemId(e.target.value)
-            const item = trussItems.find((entry) => entry.id === Number(e.target.value))
-            const suggested = item ? parseLengthFromName(item.name) : null
-            if (suggested != null) setPieceLength(String(suggested))
-          }}
-        >
-          <option value="">Pick truss piece…</option>
-          {trussItems.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-              {item.description ? ` — ${item.description}` : ''}
-            </option>
-          ))}
-        </Select>
-        <Input
-          className="h-8 w-20 text-right text-xs tabular-nums"
-          placeholder="cm"
-          value={pieceLength}
-          onChange={(e) => setPieceLength(e.target.value)}
-          aria-label="Piece length (cm)"
-        />
-        <Button size="sm" className="h-8" disabled={!pieceItemId || !Number.isFinite(lengthValue) || lengthValue <= 0 || addPieceMutation.isPending} onClick={() => addPieceMutation.mutate()}>
-          Add
-        </Button>
-      </div>
+      {!readOnly && (
+        <div className="mb-3 flex items-center gap-2">
+          <Select
+            className="h-8 flex-1 text-xs"
+            value={pieceItemId}
+            onChange={(e) => {
+              setPieceItemId(e.target.value)
+              const item = trussItems.find((entry) => entry.id === Number(e.target.value))
+              const suggested = item ? parseLengthFromName(item.name) : null
+              if (suggested != null) setPieceLength(String(suggested))
+            }}
+          >
+            <option value="">Pick truss piece…</option>
+            {trussItems.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+                {item.description ? ` — ${item.description}` : ''}
+              </option>
+            ))}
+          </Select>
+          <Input
+            className="h-8 w-20 text-right text-xs tabular-nums"
+            placeholder="cm"
+            value={pieceLength}
+            onChange={(e) => setPieceLength(e.target.value)}
+            aria-label="Piece length (cm)"
+          />
+          <Button size="sm" className="h-8" disabled={!pieceItemId || !Number.isFinite(lengthValue) || lengthValue <= 0 || addPieceMutation.isPending} onClick={() => addPieceMutation.mutate()}>
+            Add
+          </Button>
+        </div>
+      )}
 
       <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Fixtures</p>
       <div className="mb-2 flex flex-col gap-1">
@@ -316,30 +333,33 @@ function TrussEditor({ eventId, truss, trussItems, fixtures, onChanged, onPlace,
             fixture={fixture}
             onReposition={(offsetCm, side) => repositionMutation.mutate({ fixtureId: fixture.fixture_id, offsetCm, side })}
             onDetach={() => detachMutation.mutate(fixture.fixture_id)}
+            readOnly={readOnly}
           />
         ))}
       </div>
-      <div className="flex items-center gap-2">
-        <Select className="h-8 flex-1 text-xs" value={attachFixtureId} onChange={(e) => setAttachFixtureId(e.target.value)}>
-          <option value="">Attach fixture…</option>
-          {attachableFixtures.map((fixture) => (
-            <option key={fixture.id} value={fixture.id}>
-              {fixtureName(fixture)}
-              {fixture.truss_name ? ` (on ${fixture.truss_name})` : ''}
-            </option>
-          ))}
-        </Select>
-        <Input
-          className="h-8 w-20 text-right text-xs tabular-nums"
-          placeholder="offset cm"
-          value={attachOffset}
-          onChange={(e) => setAttachOffset(e.target.value)}
-          aria-label="Offset along truss (cm)"
-        />
-        <Button size="sm" className="h-8" disabled={!attachFixtureId || attachMutation.isPending} onClick={() => attachMutation.mutate()}>
-          Attach
-        </Button>
-      </div>
+      {!readOnly && (
+        <div className="flex items-center gap-2">
+          <Select className="h-8 flex-1 text-xs" value={attachFixtureId} onChange={(e) => setAttachFixtureId(e.target.value)}>
+            <option value="">Attach fixture…</option>
+            {attachableFixtures.map((fixture) => (
+              <option key={fixture.id} value={fixture.id}>
+                {fixtureName(fixture)}
+                {fixture.truss_name ? ` (on ${fixture.truss_name})` : ''}
+              </option>
+            ))}
+          </Select>
+          <Input
+            className="h-8 w-20 text-right text-xs tabular-nums"
+            placeholder="offset cm"
+            value={attachOffset}
+            onChange={(e) => setAttachOffset(e.target.value)}
+            aria-label="Offset along truss (cm)"
+          />
+          <Button size="sm" className="h-8" disabled={!attachFixtureId || attachMutation.isPending} onClick={() => attachMutation.mutate()}>
+            Attach
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
@@ -350,10 +370,12 @@ function AttachedFixtureRow({
   fixture,
   onReposition,
   onDetach,
+  readOnly = false,
 }: {
   fixture: PlotTrussFixture
   onReposition: (offsetCm: number | null, side: TrussSide) => void
   onDetach: () => void
+  readOnly?: boolean
 }) {
   const [offsetDraft, setOffsetDraft] = useDraftState(fixture.offset_cm, String, '')
   return (
@@ -374,20 +396,24 @@ function AttachedFixtureRow({
         }}
         onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
         aria-label={`Offset along truss for ${fixture.fixture_name} (cm)`}
+        disabled={readOnly}
       />
       <Select
         className="h-7 w-24 text-xs"
         value={fixture.side}
         onChange={(e) => onReposition(fixture.offset_cm ?? null, e.target.value as TrussSide)}
         aria-label={`Lane for ${fixture.fixture_name}`}
+        disabled={readOnly}
       >
         <option value="top">Top</option>
         <option value="middle">Middle</option>
         <option value="bottom">Bottom</option>
       </Select>
-      <button type="button" className="text-zinc-500 hover:text-red-400" onClick={onDetach} title="Detach (fixture stays in the rig)">
-        <X className="h-3.5 w-3.5" />
-      </button>
+      {!readOnly && (
+        <button type="button" className="text-zinc-500 hover:text-red-400" onClick={onDetach} title="Detach (fixture stays in the rig)">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
     </div>
   )
 }
