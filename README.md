@@ -306,11 +306,16 @@ Base URL: `http://localhost:7331/api/v1`
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/events` | List all events |
-| POST | `/events` | Create an event |
-| GET | `/events/:id` | Get a single event |
-| PATCH | `/events/:id` | Update an event |
-| DELETE | `/events/:id` | Delete an event |
+| GET | `/events` | List events the caller owns or is a member of (each gains `yourRole`) |
+| POST | `/events` | Create an event (caller becomes its owner) |
+| GET | `/events/:id` | Get a single event — 404 if the caller has no role on it |
+| PATCH | `/events/:id` | Update an event — owner/contributor only |
+| DELETE | `/events/:id` | Delete an event — owner/contributor only |
+| GET | `/events/:id/members` | List the owner + every invited collaborator |
+| POST | `/events/:id/members` | Invite an existing known user (`{"userId", "role": "contributor" \| "viewer"}`) — owner/contributor only |
+| PATCH | `/events/:id/members/:userId` | Change a collaborator's role — owner/contributor only, rejects targeting the owner |
+| DELETE | `/events/:id/members/:userId` | Remove a collaborator — owner/contributor only, rejects targeting the owner |
+| GET | `/users` | List everyone who has signed in at least once (invite picker) |
 | GET | `/inventory/categories` | List inventory categories (incl. `picker_role`) |
 | PATCH | `/inventory/categories/:id` | Set or clear a category's picker role (`{"picker_role": "cable" \| "stand" \| null}`) |
 | GET | `/inventory/items` | List inventory items (filters: `?category_type=lighting`, `?category_id=1`, `?role=cable`, `?include_discontinued=true`) |

@@ -99,7 +99,11 @@ func insertItem(t *testing.T, database *sql.DB, categoryID int64, name string, q
 
 func createTestEvent(t *testing.T, database *sql.DB) int64 {
 	t.Helper()
-	event, err := CreateEvent(database, domain.Event{Name: "Test Gig"})
+	owner, err := UpsertUserByGoogleSub(database, "test-owner-sub", "owner@example.com", "Test Owner", "")
+	if err != nil {
+		t.Fatalf("seed test owner: %v", err)
+	}
+	event, err := CreateEvent(database, domain.Event{Name: "Test Gig"}, owner.ID)
 	if err != nil {
 		t.Fatalf("create event: %v", err)
 	}

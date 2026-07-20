@@ -21,12 +21,12 @@ type lightingRigResponse struct {
 }
 
 func (h LightingHandler) Register(r chi.Router) {
-	r.Get("/events/{eventID}/lighting-rigs", h.getLightingRig)
-	r.Post("/events/{eventID}/lighting-rigs/{rigID}/fixtures", h.createFixture)
-	r.Patch("/events/{eventID}/lighting-rigs/{rigID}/fixtures/{fixtureID}", h.updateFixture)
-	r.Delete("/events/{eventID}/lighting-rigs/{rigID}/fixtures/{fixtureID}", h.deleteFixture)
-	r.Post("/events/{eventID}/lighting-rigs/{rigID}/fixtures/bulk", h.bulkCreateFixtures)
-	r.Post("/events/{eventID}/lighting-rigs/{rigID}/fixtures/auto-assign-dmx", h.autoAssignDMX)
+	r.Get("/lighting-rigs", h.getLightingRig)
+	r.Post("/lighting-rigs/{rigID}/fixtures", h.createFixture)
+	r.Patch("/lighting-rigs/{rigID}/fixtures/{fixtureID}", h.updateFixture)
+	r.Delete("/lighting-rigs/{rigID}/fixtures/{fixtureID}", h.deleteFixture)
+	r.Post("/lighting-rigs/{rigID}/fixtures/bulk", h.bulkCreateFixtures)
+	r.Post("/lighting-rigs/{rigID}/fixtures/auto-assign-dmx", h.autoAssignDMX)
 }
 
 func (h LightingHandler) getLightingRig(w http.ResponseWriter, r *http.Request) {

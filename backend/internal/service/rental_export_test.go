@@ -67,7 +67,11 @@ func exportSetup(t *testing.T) (database *sql.DB, sourcePath string, eventID int
 	for _, item := range items {
 		ids[item.Name] = item.ID
 	}
-	event, err := db.CreateEvent(database, domain.Event{Name: "Sommarfest", Date: "2026-08-01"})
+	owner, err := db.UpsertUserByGoogleSub(database, "test-owner-sub", "owner@example.com", "Test Owner", "")
+	if err != nil {
+		t.Fatalf("seed test owner: %v", err)
+	}
+	event, err := db.CreateEvent(database, domain.Event{Name: "Sommarfest", Date: "2026-08-01"}, owner.ID)
 	if err != nil {
 		t.Fatalf("create event: %v", err)
 	}

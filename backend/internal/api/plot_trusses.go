@@ -15,7 +15,7 @@ import (
 // StagePlotsHandler.Register.
 
 func (h StagePlotsHandler) registerTrussRoutes(r chi.Router) {
-	r.Route("/events/{eventID}/plot-trusses", func(r chi.Router) {
+	r.Route("/plot-trusses", func(r chi.Router) {
 		r.Get("/", h.listTrusses)
 		r.Post("/", h.createTruss)
 		r.Route("/{trussID}", func(r chi.Router) {

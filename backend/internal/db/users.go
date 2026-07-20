@@ -34,6 +34,26 @@ func GetUserByID(database *sql.DB, id int64) (domain.User, error) {
 	return scanUser(row)
 }
 
+// ListUsers returns every known user (anyone who has signed in at least
+// once), ordered by name — feeds the invite picker (research.md R6).
+func ListUsers(database *sql.DB) ([]domain.User, error) {
+	rows, err := database.Query(`SELECT ` + userColumns + ` FROM users ORDER BY name ASC`)
+	if err != nil {
+		return nil, fmt.Errorf("list users: %w", err)
+	}
+	defer rows.Close()
+
+	users := make([]domain.User, 0)
+	for rows.Next() {
+		user, err := scanUser(rows)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+	return users, rows.Err()
+}
+
 func getUserByGoogleSub(database *sql.DB, googleSub string) (domain.User, error) {
 	row := database.QueryRow(`SELECT `+userColumns+` FROM users WHERE google_sub = ?`, googleSub)
 	return scanUser(row)

@@ -136,6 +136,30 @@ func doJSON(t *testing.T, method, url string, payload any) (int, []byte) {
 	return response.StatusCode, raw
 }
 
+// jsonBody marshals payload for use directly with an http.Client call
+// (e.g. client.Post(url, "application/json", jsonBody(t, payload))) —
+// for requests made with a client other than the package-level
+// httpClient, where doJSON isn't usable.
+func jsonBody(t *testing.T, payload any) io.Reader {
+	t.Helper()
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+	return bytes.NewReader(encoded)
+}
+
+// decodeBody reads and JSON-decodes an *http.Response directly, for
+// responses obtained via a client other than the package-level httpClient.
+func decodeBody(t *testing.T, response *http.Response, target any) error {
+	t.Helper()
+	raw, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	return json.Unmarshal(raw, target)
+}
+
 func decodeJSON[T any](t *testing.T, raw []byte) T {
 	t.Helper()
 	var value T

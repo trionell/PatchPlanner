@@ -111,7 +111,11 @@ func TestMicBackfillMigration(t *testing.T) {
 	// targets input_sources instead (covered by TestInputGraphRentalCounting).
 	database := openMigratedTo(t, 28)
 	cat := seedCatalog(t, database)
-	eventID := createTestEvent(t, database)
+	// createTestEvent (and CreateEvent) targets the current schema, which
+	// at this pinned version doesn't have owner_user_id yet — a direct
+	// insert, the same technique already used by this file's migration-28
+	// siblings, is schema-version-appropriate here.
+	eventID := mustInsertID(t, database, `INSERT INTO events (name) VALUES (?)`, "Test Gig")
 
 	// Legacy rows written the way the pre-feature app did: text only.
 	mustExec(t, database, `INSERT INTO audio_patch_inputs (event_id, channel_number, mic_model) VALUES (?, 1, 'shure sm58')`, eventID)

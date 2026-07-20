@@ -15,14 +15,22 @@ func NewRouter(db *sql.DB, auth AuthConfig) http.Handler {
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.RequireAuth(db))
 		authHandler.RegisterMe(r)
+		UsersHandler{DB: db}.Register(r)
 		EventsHandler{DB: db}.Register(r)
 		InventoryHandler{DB: db}.Register(r)
-		AudioPatchHandler{DB: db}.Register(r)
-		LightingHandler{DB: db}.Register(r)
-		RentalHandler{DB: db}.Register(r)
 		OwnedHandler{DB: db}.Register(r)
 		ReferenceHandler{DB: db}.Register(r)
-		StagePlotsHandler{DB: db}.Register(r)
+
+		r.Route("/events/{eventID}", func(er chi.Router) {
+			er.Use(middleware.RequireEventAccess(db))
+			EventsHandler{DB: db}.RegisterEvent(er)
+			EventMembersHandler{DB: db}.Register(er)
+			AudioPatchHandler{DB: db}.Register(er)
+			LightingHandler{DB: db}.Register(er)
+			RentalHandler{DB: db}.Register(er)
+			OwnedHandler{DB: db}.RegisterEventEquipment(er)
+			StagePlotsHandler{DB: db}.Register(er)
+		})
 	})
 	return r
 }

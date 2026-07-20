@@ -111,7 +111,11 @@ func TestImportRoundTripPreservesReferences(t *testing.T) {
 		}
 	}
 
-	event, err := db.CreateEvent(database, domain.Event{Name: "Roundtrip"})
+	owner, err := db.UpsertUserByGoogleSub(database, "test-owner-sub", "owner@example.com", "Test Owner", "")
+	if err != nil {
+		t.Fatalf("seed test owner: %v", err)
+	}
+	event, err := db.CreateEvent(database, domain.Event{Name: "Roundtrip"}, owner.ID)
 	if err != nil {
 		t.Fatalf("create event: %v", err)
 	}

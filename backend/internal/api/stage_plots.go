@@ -20,7 +20,7 @@ type StagePlotsHandler struct {
 }
 
 func (h StagePlotsHandler) Register(r chi.Router) {
-	r.Route("/events/{eventID}/stage-plots", func(r chi.Router) {
+	r.Route("/stage-plots", func(r chi.Router) {
 		r.Get("/", h.listPlots)
 		r.Post("/", h.createPlot)
 		r.Route("/{plotID}", func(r chi.Router) {

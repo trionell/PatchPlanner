@@ -100,6 +100,15 @@ func (h AuthHandler) callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Claim any event that predates Slice 15 (owner_user_id still NULL).
+	// The WHERE clause is the atomic guard (research.md R3): whoever logs
+	// in first after this ships claims every such event, and this call is
+	// a no-op for everyone after that — no separate "am I first" check.
+	if _, err := db.ClaimOwnerlessEvents(h.DB, user.ID); err != nil {
+		writeError(w, http.StatusInternalServerError, "claim ownerless events")
+		return
+	}
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     middleware.SessionCookieName,
 		Value:    token,

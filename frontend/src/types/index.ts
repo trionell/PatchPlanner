@@ -6,6 +6,7 @@ export interface Event {
   notes?: string
   created_at: string
   updated_at: string
+  yourRole?: 'owner' | 'contributor' | 'viewer'
 }
 
 export interface CurrentUser {
@@ -15,6 +16,16 @@ export interface CurrentUser {
   pictureUrl?: string
   createdAt: string
   lastLoginAt: string
+}
+
+export interface EventMember {
+  userId: number
+  email: string
+  name: string
+  pictureUrl?: string
+  role: 'owner' | 'contributor' | 'viewer'
+  invitedBy?: number
+  createdAt: string
 }
 
 export interface InventoryCategory {

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { createEvent, listEvents } from '../api/events'
 import { EventFormDialog } from '../components/EventFormDialog'
+import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, CardContent } from '../components/ui/Card'
 
@@ -33,9 +34,14 @@ export function EventsPage() {
           <Link key={event.id} to={`/events/${event.id}`}>
             <Card className="h-full transition hover:border-amber-500/50">
               <CardContent className="space-y-3 py-5">
-                <div>
-                  <h3 className="text-lg font-semibold text-zinc-100">{event.name}</h3>
-                  <p className="text-sm text-zinc-400">{event.venue || 'Venue TBD'}</p>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h3 className="text-lg font-semibold text-zinc-100">{event.name}</h3>
+                    <p className="text-sm text-zinc-400">{event.venue || 'Venue TBD'}</p>
+                  </div>
+                  {event.yourRole && event.yourRole !== 'owner' && (
+                    <Badge variant={event.yourRole === 'viewer' ? 'warning' : 'default'}>{event.yourRole}</Badge>
+                  )}
                 </div>
                 <div className="text-sm text-zinc-300">{event.date || 'Date not set'}</div>
                 <p className="line-clamp-3 text-sm text-zinc-500">{event.notes || 'No notes yet.'}</p>

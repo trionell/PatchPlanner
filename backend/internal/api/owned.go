@@ -19,6 +19,8 @@ type OwnedHandler struct {
 	DB *sql.DB
 }
 
+// Register wires the /owned-items catalog — not event-scoped, sits in
+// the outer authenticated group.
 func (h OwnedHandler) Register(r chi.Router) {
 	r.Route("/owned-items", func(r chi.Router) {
 		r.Get("/", h.listItems)
@@ -26,9 +28,14 @@ func (h OwnedHandler) Register(r chi.Router) {
 		r.Patch("/{itemID}", h.updateItem)
 		r.Delete("/{itemID}", h.deleteItem)
 	})
-	r.Get("/events/{eventID}/owned-equipment", h.listEventEquipment)
-	r.Put("/events/{eventID}/owned-equipment/{ownedItemID}", h.putEventEquipment)
-	r.Delete("/events/{eventID}/owned-equipment/{ownedItemID}", h.deleteEventEquipment)
+}
+
+// RegisterEventEquipment wires the per-event owned-equipment routes
+// inside the shared /events/{eventID} group, behind RequireEventAccess.
+func (h OwnedHandler) RegisterEventEquipment(r chi.Router) {
+	r.Get("/owned-equipment", h.listEventEquipment)
+	r.Put("/owned-equipment/{ownedItemID}", h.putEventEquipment)
+	r.Delete("/owned-equipment/{ownedItemID}", h.deleteEventEquipment)
 }
 
 func (h OwnedHandler) listItems(w http.ResponseWriter, r *http.Request) {

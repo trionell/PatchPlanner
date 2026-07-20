@@ -21,11 +21,11 @@ type RentalHandler struct {
 }
 
 func (h RentalHandler) Register(r chi.Router) {
-	r.Get("/events/{eventID}/rentals", h.getSummary)
-	r.Put("/events/{eventID}/rentals/manual/{itemID}", h.putManualLine)
-	r.Delete("/events/{eventID}/rentals/manual/{itemID}", h.deleteManualLine)
-	r.Get("/events/{eventID}/rental-export", h.exportFile)
-	r.Get("/events/{eventID}/rental-export/report", h.exportReport)
+	r.Get("/rentals", h.getSummary)
+	r.Put("/rentals/manual/{itemID}", h.putManualLine)
+	r.Delete("/rentals/manual/{itemID}", h.deleteManualLine)
+	r.Get("/rental-export", h.exportFile)
+	r.Get("/rental-export/report", h.exportReport)
 }
 
 const xlsxContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

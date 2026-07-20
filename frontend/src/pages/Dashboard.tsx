@@ -58,7 +58,12 @@ export function DashboardPage() {
                     <div className="font-medium text-zinc-100">{event.name}</div>
                     <div className="text-zinc-400">{event.venue || 'Venue TBD'}</div>
                   </div>
-                  <Badge variant="warning">{event.date || 'No date'}</Badge>
+                  <div className="flex items-center gap-2">
+                    {event.yourRole && event.yourRole !== 'owner' && (
+                      <Badge variant={event.yourRole === 'viewer' ? 'warning' : 'default'}>{event.yourRole}</Badge>
+                    )}
+                    <Badge variant="warning">{event.date || 'No date'}</Badge>
+                  </div>
                 </Link>
               ))
             )}
