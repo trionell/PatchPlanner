@@ -65,6 +65,18 @@ Configuration (all optional, via environment variables):
 | `PATCHPLANNER_CORS_ORIGIN` | `http://localhost:5173` | Allowed dev-server origin |
 | `INVENTORY_PATH` | `../LL.xlsx` | Price list used by the import endpoint |
 
+Authentication (Google sign-in — see `specs/014-auth/quickstart.md` for the
+first-time Google Cloud Console setup walkthrough):
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `PATCHPLANNER_GOOGLE_CLIENT_ID` | *(required)* | OAuth 2.0 client ID from Google Cloud Console |
+| `PATCHPLANNER_GOOGLE_CLIENT_SECRET` | *(required)* | OAuth 2.0 client secret |
+| `PATCHPLANNER_GOOGLE_REDIRECT_URL` | *(required)* | Must exactly match a redirect URI registered on the OAuth client |
+| `PATCHPLANNER_FRONTEND_URL` | `http://localhost:5173` | Where the login/logout/error flow redirects back to |
+| `PATCHPLANNER_ALLOWED_EMAILS` | *(required)* | Comma-separated, case-insensitive allow-list of Google emails permitted to sign in |
+| `PATCHPLANNER_SESSION_TTL` | `720h` | Go duration string; how long a signed-in session lasts |
+
 ### 3. Start the frontend
 
 In a second terminal:

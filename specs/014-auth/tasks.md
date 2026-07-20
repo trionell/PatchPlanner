@@ -24,8 +24,8 @@ description: "Task list for Slice 14 — Authentication"
 
 **Purpose**: Add the one new dependency and document the new configuration surface before any code is written.
 
-- [ ] T001 Add `golang.org/x/oauth2` and `golang.org/x/oauth2/google` to `backend/go.mod`/`go.sum` (`go get golang.org/x/oauth2`)
-- [ ] T002 [P] Extend the environment variable table in `README.md` with `PATCHPLANNER_GOOGLE_CLIENT_ID`, `PATCHPLANNER_GOOGLE_CLIENT_SECRET`, `PATCHPLANNER_GOOGLE_REDIRECT_URL`, `PATCHPLANNER_FRONTEND_URL`, `PATCHPLANNER_ALLOWED_EMAILS`, `PATCHPLANNER_SESSION_TTL` (default `720h`), per contracts/auth-api.md and quickstart.md
+- [X] T001 Add `golang.org/x/oauth2` and `golang.org/x/oauth2/google` to `backend/go.mod`/`go.sum` (`go get golang.org/x/oauth2`)
+- [X] T002 [P] Extend the environment variable table in `README.md` with `PATCHPLANNER_GOOGLE_CLIENT_ID`, `PATCHPLANNER_GOOGLE_CLIENT_SECRET`, `PATCHPLANNER_GOOGLE_REDIRECT_URL`, `PATCHPLANNER_FRONTEND_URL`, `PATCHPLANNER_ALLOWED_EMAILS`, `PATCHPLANNER_SESSION_TTL` (default `720h`), per contracts/auth-api.md and quickstart.md
 
 ---
 
@@ -35,22 +35,22 @@ description: "Task list for Slice 14 — Authentication"
 
 **⚠️ CRITICAL**: No user story task can start until this phase is complete.
 
-- [ ] T003 Write `backend/migrations/036_auth.up.sql` creating `users` (id, google_sub UNIQUE, email UNIQUE COLLATE NOCASE, name, picture_url, created_at, last_login_at) and `sessions` (token_hash PRIMARY KEY, user_id REFERENCES users(id) ON DELETE CASCADE, created_at, expires_at) plus `idx_sessions_user_id`, per data-model.md
-- [ ] T004 Write `backend/migrations/036_auth.down.sql` dropping both tables and the index
-- [ ] T005 [P] Create `backend/internal/domain/user.go` with the `User` struct (ID, GoogleSub, Email, Name, PictureURL, CreatedAt, LastLoginAt), no DB tags, alongside the existing `domain/*.go` files
-- [ ] T006 Create `backend/internal/db/users.go` with `UpsertUserByGoogleSub(db, googleSub, email, name, pictureURL string) (domain.User, error)` (keyed on `google_sub`; refreshes email/name/picture_url and bumps `last_login_at` on every call) and `GetUserByID(db, id int64) (domain.User, error)` (depends on T003, T005)
-- [ ] T007 [P] Create `backend/internal/db/sessions.go` with `CreateSession(db, userID int64, ttl time.Duration) (token string, err error)` (generates 32 random bytes via `crypto/rand`, stores only the SHA-256 hash), `GetSessionUser(db, token string) (domain.User, error)` (hashes, joins sessions⋈users, checks `expires_at`), and `DeleteSession(db, token string) error` (depends on T003)
-- [ ] T008 [P] Create `backend/internal/service/allowlist.go` with a pure `isAllowedEmail(email string, allowed []string) bool` (case-insensitive) and a `ParseAllowedEmails(raw string) []string` that splits `PATCHPLANNER_ALLOWED_EMAILS` on commas and trims whitespace
-- [ ] T009 [P] Create `backend/internal/service/google_oauth.go` defining an `IdentityProvider` interface (`AuthCodeURL(state string) string`, `Exchange(ctx context.Context, code string) (Profile, error)`) and a Google-backed implementation using `golang.org/x/oauth2` + `golang.org/x/oauth2/google` (token exchange, then a plain HTTP GET to `https://www.googleapis.com/oauth2/v2/userinfo` for the profile — no ID-token signature verification, per research.md R1) (depends on T001)
-- [ ] T010 Create `backend/internal/api/middleware/auth.go` with `RequireAuth(db *sql.DB) func(http.Handler) http.Handler` (reads the `pp_session` cookie, calls `db.GetSessionUser`, 401s via the existing `writeError` helper on failure, otherwise stores the user in request context via a typed unexported key) and exported `UserFromContext(ctx context.Context) (domain.User, bool)` (depends on T007)
-- [ ] T011 Edit `backend/internal/api/router.go`: change `NewRouter(db *sql.DB) http.Handler` to `NewRouter(db *sql.DB, auth AuthConfig) http.Handler`; register the (still-to-be-created) `AuthHandler`'s unauthenticated routes directly, then wrap every existing handler's `Register(r)` call in one `r.Group(func(r chi.Router) { r.Use(middleware.RequireAuth(db)); ... })` (depends on T010)
-- [ ] T012 Edit `backend/cmd/main.go`: add `envOr()` reads for the six new env vars, build an `api.AuthConfig{...}`, pass it to `api.NewRouter(database, authConfig)`, and flip the CORS `AllowCredentials` option to `true` (depends on T011)
-- [ ] T013 Edit `backend/internal/api/testutil_test.go`: give `newTestServer` a fixed test `AuthConfig` (dummy client id/secret, never dials Google), seed one `users` row and one valid `sessions` row directly via SQL (mirroring the existing `seedItem`/`seedRoleItem` pattern), replace `doJSON`'s `http.DefaultClient` reference with a package-level `httpClient` variable that `newTestServer` points at an `http.Client` with a cookie jar preloaded with that session's cookie (depends on T003, T006, T007, T011)
-- [ ] T014 [P] Write `backend/internal/db/users_test.go`: upsert idempotence (same `google_sub` twice updates in place, bumps `last_login_at`), distinct users get distinct rows, an email collision on a different `google_sub` surfaces a clear error (depends on T006)
-- [ ] T015 [P] Write `backend/internal/db/sessions_test.go`: create → lookup-by-token succeeds, expired row is rejected, delete removes the row and a subsequent lookup fails (depends on T007)
-- [ ] T016 [P] Write `backend/internal/service/allowlist_test.go`: table-driven case-insensitivity, empty list, exact match, no match (depends on T008)
-- [ ] T017 [P] Write `backend/internal/service/google_oauth_test.go`: exchange logic against a fake `httptest.Server` standing in for Google's token + userinfo endpoints (the `oauth2.Config`'s `Endpoint` field is overridable) (depends on T009)
-- [ ] T018 [P] Write `backend/internal/api/middleware/auth_test.go`: table-driven 401s (no cookie, garbage cookie, expired session row) vs. 200 + populated context user (depends on T010)
+- [X] T003 Write `backend/migrations/036_auth.up.sql` creating `users` (id, google_sub UNIQUE, email UNIQUE COLLATE NOCASE, name, picture_url, created_at, last_login_at) and `sessions` (token_hash PRIMARY KEY, user_id REFERENCES users(id) ON DELETE CASCADE, created_at, expires_at) plus `idx_sessions_user_id`, per data-model.md
+- [X] T004 Write `backend/migrations/036_auth.down.sql` dropping both tables and the index
+- [X] T005 [P] Create `backend/internal/domain/user.go` with the `User` struct (ID, GoogleSub, Email, Name, PictureURL, CreatedAt, LastLoginAt), no DB tags, alongside the existing `domain/*.go` files
+- [X] T006 Create `backend/internal/db/users.go` with `UpsertUserByGoogleSub(db, googleSub, email, name, pictureURL string) (domain.User, error)` (keyed on `google_sub`; refreshes email/name/picture_url and bumps `last_login_at` on every call) and `GetUserByID(db, id int64) (domain.User, error)` (depends on T003, T005)
+- [X] T007 [P] Create `backend/internal/db/sessions.go` with `CreateSession(db, userID int64, ttl time.Duration) (token string, err error)` (generates 32 random bytes via `crypto/rand`, stores only the SHA-256 hash), `GetSessionUser(db, token string) (domain.User, error)` (hashes, joins sessions⋈users, checks `expires_at`), and `DeleteSession(db, token string) error` (depends on T003)
+- [X] T008 [P] Create `backend/internal/service/allowlist.go` with a pure `isAllowedEmail(email string, allowed []string) bool` (case-insensitive) and a `ParseAllowedEmails(raw string) []string` that splits `PATCHPLANNER_ALLOWED_EMAILS` on commas and trims whitespace
+- [X] T009 [P] Create `backend/internal/service/google_oauth.go` defining an `IdentityProvider` interface (`AuthCodeURL(state string) string`, `Exchange(ctx context.Context, code string) (Profile, error)`) and a Google-backed implementation using `golang.org/x/oauth2` + `golang.org/x/oauth2/google` (token exchange, then a plain HTTP GET to `https://www.googleapis.com/oauth2/v2/userinfo` for the profile — no ID-token signature verification, per research.md R1) (depends on T001)
+- [X] T010 Create `backend/internal/api/middleware/auth.go` with `RequireAuth(db *sql.DB) func(http.Handler) http.Handler` (reads the `pp_session` cookie, calls `db.GetSessionUser`, 401s via the existing `writeError` helper on failure, otherwise stores the user in request context via a typed unexported key) and exported `UserFromContext(ctx context.Context) (domain.User, bool)` (depends on T007)
+- [X] T011 Edit `backend/internal/api/router.go`: change `NewRouter(db *sql.DB) http.Handler` to `NewRouter(db *sql.DB, auth AuthConfig) http.Handler`; register the (still-to-be-created) `AuthHandler`'s unauthenticated routes directly, then wrap every existing handler's `Register(r)` call in one `r.Group(func(r chi.Router) { r.Use(middleware.RequireAuth(db)); ... })` (depends on T010)
+- [X] T012 Edit `backend/cmd/main.go`: add `envOr()` reads for the six new env vars, build an `api.AuthConfig{...}`, pass it to `api.NewRouter(database, authConfig)`, and flip the CORS `AllowCredentials` option to `true` (depends on T011)
+- [X] T013 Edit `backend/internal/api/testutil_test.go`: give `newTestServer` a fixed test `AuthConfig` (dummy client id/secret, never dials Google), seed one `users` row and one valid `sessions` row directly via SQL (mirroring the existing `seedItem`/`seedRoleItem` pattern), replace `doJSON`'s `http.DefaultClient` reference with a package-level `httpClient` variable that `newTestServer` points at an `http.Client` with a cookie jar preloaded with that session's cookie (depends on T003, T006, T007, T011)
+- [X] T014 [P] Write `backend/internal/db/users_test.go`: upsert idempotence (same `google_sub` twice updates in place, bumps `last_login_at`), distinct users get distinct rows, an email collision on a different `google_sub` surfaces a clear error (depends on T006)
+- [X] T015 [P] Write `backend/internal/db/sessions_test.go`: create → lookup-by-token succeeds, expired row is rejected, delete removes the row and a subsequent lookup fails (depends on T007)
+- [X] T016 [P] Write `backend/internal/service/allowlist_test.go`: table-driven case-insensitivity, empty list, exact match, no match (depends on T008)
+- [X] T017 [P] Write `backend/internal/service/google_oauth_test.go`: exchange logic against a fake `httptest.Server` standing in for Google's token + userinfo endpoints (the `oauth2.Config`'s `Endpoint` field is overridable) (depends on T009)
+- [X] T018 [P] Write `backend/internal/api/middleware/auth_test.go`: table-driven 401s (no cookie, garbage cookie, expired session row) vs. 200 + populated context user (depends on T010)
 
 **Checkpoint**: Schema, data access, service layer, middleware, and the test harness all exist and compile; every pre-existing `_test.go` in `internal/api` still passes unmodified. User story work can now begin.
 
@@ -66,15 +66,15 @@ description: "Task list for Slice 14 — Authentication"
 
 ### Implementation for User Story 1
 
-- [ ] T019 [US1] Create `backend/internal/api/auth.go` with `AuthHandler{DB *sql.DB, Config AuthConfig, Provider service.IdentityProvider}` and `Register(r chi.Router)` wiring `GET /auth/google/login` (random `state` cookie + 302 to `Provider.AuthCodeURL(state)`) and `GET /auth/google/callback` (validates `state`, exchanges the code, upserts the user via `db.UpsertUserByGoogleSub`, creates a session via `db.CreateSession`, sets the `pp_session` cookie — `HttpOnly`, `SameSite=Lax`, `Secure` iff `r.TLS != nil` — and 302s to `${FRONTEND_URL}/`); also add a `RegisterMe(r chi.Router)` method for `GET /auth/me` returning the context-injected user as JSON (depends on Foundational phase, especially T009/T010)
-- [ ] T020 [US1] Write `backend/internal/api/auth_test.go` happy-path cases: full login→callback flow against a fake `IdentityProvider` for an allow-listed email (asserts the `users` row, the session cookie's `HttpOnly`/`SameSite`/`Secure`-false-over-plain-http shape, and the 302 target), plus `/auth/me` returning the correct shape when authenticated (depends on T019)
-- [ ] T021 [P] [US1] Create `frontend/src/api/auth.ts` exporting `loginUrl` (`${API_BASE}/auth/google/login`) and `getCurrentUser(): Promise<CurrentUser | null>` (calls `/auth/me`, resolves `null` on any thrown error)
-- [ ] T022 [P] [US1] Create `frontend/src/hooks/useCurrentUser.ts`: `useQuery({ queryKey: ['auth','me'], queryFn: getCurrentUser, retry: false })` exposing `{ user, isLoading, isAuthenticated }`
-- [ ] T023 [US1] Create `frontend/src/components/RequireAuth.tsx`: while loading render nothing; if unauthenticated `<Navigate to="/login" replace />`; else `<Outlet/>` (depends on T022)
-- [ ] T024 [US1] Create `frontend/src/pages/Login.tsx`: heading + "Sign in with Google" `<a href={loginUrl}>` plain navigation link (no error banner yet — added in Phase 4) (depends on T021)
-- [ ] T025 [US1] Edit `frontend/src/App.tsx`: wrap the existing `<Route path="/" element={<Layout/>}>` subtree in the `RequireAuth` guard, add an unguarded `/login` route rendering `Login.tsx` (depends on T023, T024)
-- [ ] T026 [US1] Edit `frontend/src/api/client.ts`: add `credentials: 'include'` to every fetch call in `request()`, and add a 401→`window.location.href = '/login'` branch in the response handler, excluding any `/auth/*` path (so `/auth/me`'s expected 401 doesn't loop)
-- [ ] T027 [US1] Edit `frontend/src/components/Layout.tsx`: show the current signed-in user's name/picture in the header via `useCurrentUser` (logout action itself is added in Phase 5) (depends on T022)
+- [X] T019 [US1] Create `backend/internal/api/auth.go` with `AuthHandler{DB *sql.DB, Config AuthConfig, Provider service.IdentityProvider}` and `Register(r chi.Router)` wiring `GET /auth/google/login` (random `state` cookie + 302 to `Provider.AuthCodeURL(state)`) and `GET /auth/google/callback` (validates `state`, exchanges the code, upserts the user via `db.UpsertUserByGoogleSub`, creates a session via `db.CreateSession`, sets the `pp_session` cookie — `HttpOnly`, `SameSite=Lax`, `Secure` iff `r.TLS != nil` — and 302s to `${FRONTEND_URL}/`); also add a `RegisterMe(r chi.Router)` method for `GET /auth/me` returning the context-injected user as JSON (depends on Foundational phase, especially T009/T010)
+- [X] T020 [US1] Write `backend/internal/api/auth_test.go` happy-path cases: full login→callback flow against a fake `IdentityProvider` for an allow-listed email (asserts the `users` row, the session cookie's `HttpOnly`/`SameSite`/`Secure`-false-over-plain-http shape, and the 302 target), plus `/auth/me` returning the correct shape when authenticated (depends on T019)
+- [X] T021 [P] [US1] Create `frontend/src/api/auth.ts` exporting `loginUrl` (`${API_BASE}/auth/google/login`) and `getCurrentUser(): Promise<CurrentUser | null>` (calls `/auth/me`, resolves `null` on any thrown error)
+- [X] T022 [P] [US1] Create `frontend/src/hooks/useCurrentUser.ts`: `useQuery({ queryKey: ['auth','me'], queryFn: getCurrentUser, retry: false })` exposing `{ user, isLoading, isAuthenticated }`
+- [X] T023 [US1] Create `frontend/src/components/RequireAuth.tsx`: while loading render nothing; if unauthenticated `<Navigate to="/login" replace />`; else `<Outlet/>` (depends on T022)
+- [X] T024 [US1] Create `frontend/src/pages/Login.tsx`: heading + "Sign in with Google" `<a href={loginUrl}>` plain navigation link (no error banner yet — added in Phase 4) (depends on T021)
+- [X] T025 [US1] Edit `frontend/src/App.tsx`: wrap the existing `<Route path="/" element={<Layout/>}>` subtree in the `RequireAuth` guard, add an unguarded `/login` route rendering `Login.tsx` (depends on T023, T024)
+- [X] T026 [US1] Edit `frontend/src/api/client.ts`: add `credentials: 'include'` to every fetch call in `request()`, and add a 401→`window.location.href = '/login'` branch in the response handler, excluding any `/auth/*` path (so `/auth/me`'s expected 401 doesn't loop)
+- [X] T027 [US1] Edit `frontend/src/components/Layout.tsx`: show the current signed-in user's name/picture in the header via `useCurrentUser` (logout action itself is added in Phase 5) (depends on T022)
 
 **Checkpoint**: An approved person can sign in end-to-end and reach the Dashboard; returning visits recognize the same account; the frontend redirects unauthenticated visitors to `/login`.
 
@@ -88,9 +88,9 @@ description: "Task list for Slice 14 — Authentication"
 
 ### Implementation for User Story 2
 
-- [ ] T028 [US2] Edit `backend/internal/api/auth.go`'s callback handler: call `service.isAllowedEmail` on the exchanged profile's email **before** calling `db.UpsertUserByGoogleSub`; on rejection, create no user row and no session, and 302 to `${FRONTEND_URL}/login?error=not_allowed&email=<addr>` instead (depends on T008, T019)
-- [ ] T029 [US2] Extend `backend/internal/api/auth_test.go` with rejection-path cases: an email not in the configured allow-list gets a 302 to the `not_allowed` error URL, and a follow-up query confirms no `users` row exists for that email (depends on T028)
-- [ ] T030 [US2] Edit `frontend/src/pages/Login.tsx`: read `error`/`email` from `useSearchParams()` and render a plain "This Google account isn't authorized for PatchPlanner" banner when `error=not_allowed` (depends on T024)
+- [X] T028 [US2] Edit `backend/internal/api/auth.go`'s callback handler: call `service.isAllowedEmail` on the exchanged profile's email **before** calling `db.UpsertUserByGoogleSub`; on rejection, create no user row and no session, and 302 to `${FRONTEND_URL}/login?error=not_allowed&email=<addr>` instead (depends on T008, T019)
+- [X] T029 [US2] Extend `backend/internal/api/auth_test.go` with rejection-path cases: an email not in the configured allow-list gets a 302 to the `not_allowed` error URL, and a follow-up query confirms no `users` row exists for that email (depends on T028)
+- [X] T030 [US2] Edit `frontend/src/pages/Login.tsx`: read `error`/`email` from `useSearchParams()` and render a plain "This Google account isn't authorized for PatchPlanner" banner when `error=not_allowed` (depends on T024)
 
 **Checkpoint**: Both approved sign-in (US1) and rejection of unapproved accounts (US2) are verified — this is the minimum safe, deployable combination (see Implementation Strategy).
 
@@ -104,10 +104,10 @@ description: "Task list for Slice 14 — Authentication"
 
 ### Implementation for User Story 3
 
-- [ ] T031 [US3] Edit `backend/internal/api/auth.go`: add a `POST /auth/logout` route that deletes the `sessions` row for the current cookie's hash (if any) via `db.DeleteSession`, clears the `pp_session` cookie (`Max-Age: -1`), and always responds `204` (depends on T007, T019)
-- [ ] T032 [US3] Extend `backend/internal/api/auth_test.go` with logout cases: logging out deletes the session row (a subsequent `/auth/me` returns 401), and calling logout again (or with no session at all) is a harmless `204` (depends on T031)
-- [ ] T033 [P] [US3] Edit `frontend/src/api/auth.ts`: add `logout(): Promise<void>` calling `POST /auth/logout`
-- [ ] T034 [US3] Edit `frontend/src/components/Layout.tsx`: add a logout action in the header calling `logout()` then hard-navigating to `/login` (depends on T027, T033)
+- [X] T031 [US3] Edit `backend/internal/api/auth.go`: add a `POST /auth/logout` route that deletes the `sessions` row for the current cookie's hash (if any) via `db.DeleteSession`, clears the `pp_session` cookie (`Max-Age: -1`), and always responds `204` (depends on T007, T019)
+- [X] T032 [US3] Extend `backend/internal/api/auth_test.go` with logout cases: logging out deletes the session row (a subsequent `/auth/me` returns 401), and calling logout again (or with no session at all) is a harmless `204` (depends on T031)
+- [X] T033 [P] [US3] Edit `frontend/src/api/auth.ts`: add `logout(): Promise<void>` calling `POST /auth/logout`
+- [X] T034 [US3] Edit `frontend/src/components/Layout.tsx`: add a logout action in the header calling `logout()` then hard-navigating to `/login` (depends on T027, T033)
 
 **Checkpoint**: All three user stories are independently functional — sign-in, rejection, and sign-out all work end-to-end.
 
@@ -115,8 +115,8 @@ description: "Task list for Slice 14 — Authentication"
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T035 [P] Write `frontend/src/api/client.test.ts` (Vitest): mock global `fetch`, assert the 401→redirect branch fires for a non-`/auth` path and is skipped for `/auth/me` (depends on T026)
-- [ ] T036 Run `go vet ./...` and `golangci-lint run` in `backend/`, and `tsc -b` (not `tsc --noEmit`) + ESLint in `frontend/`, per the constitution's Development Workflow gates — fix anything they flag
+- [X] T035 [P] Write `frontend/src/api/client.test.ts` (Vitest): mock global `fetch`, assert the 401→redirect branch fires for a non-`/auth` path and is skipped for `/auth/me` (depends on T026)
+- [X] T036 Run `go vet ./...` and `golangci-lint run` in `backend/`, and `tsc -b` (not `tsc --noEmit`) + ESLint in `frontend/`, per the constitution's Development Workflow gates — fix anything they flag
 - [ ] T037 Manually verify against `quickstart.md`: complete Google Cloud Console setup (consent screen, test users, OAuth client, redirect URIs), then run the real browser round-trip for all three stories (successful sign-in, a test-user-but-not-allow-listed rejection, and sign-out) — this is the one thing genuinely untestable in `httptest`
 
 ---

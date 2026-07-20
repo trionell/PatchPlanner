@@ -8,6 +8,15 @@ export interface Event {
   updated_at: string
 }
 
+export interface CurrentUser {
+  id: number
+  email: string
+  name: string
+  pictureUrl?: string
+  createdAt: string
+  lastLoginAt: string
+}
+
 export interface InventoryCategory {
   id: number
   name: string

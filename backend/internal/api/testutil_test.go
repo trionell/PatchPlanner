@@ -2,21 +2,59 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
+	"github.com/trionell/patchplanner/internal/api/middleware"
 	"github.com/trionell/patchplanner/internal/db"
+	"github.com/trionell/patchplanner/internal/service"
 )
 
-// newTestServer boots the real router on a fresh migrated database.
-func newTestServer(t *testing.T) (*httptest.Server, *sql.DB) {
+// httpClient is used by doJSON for every request. newTestServer points it
+// at a client whose cookie jar is preloaded with an authenticated test
+// session, so every existing test transparently becomes authenticated with
+// no per-file changes; no test in this package uses t.Parallel today, so a
+// single package-level variable reset per newTestServer call is safe.
+var httpClient = http.DefaultClient
+
+// stubIdentityProvider satisfies service.IdentityProvider for tests that
+// don't exercise the OAuth flow itself; auth_test.go uses its own
+// configurable fake for that.
+type stubIdentityProvider struct{}
+
+func (stubIdentityProvider) AuthCodeURL(state string) string {
+	return "https://accounts.google.test/auth?state=" + state
+}
+
+func (stubIdentityProvider) Exchange(context.Context, string) (service.Profile, error) {
+	return service.Profile{}, errors.New("stub identity provider: Exchange not implemented")
+}
+
+func testAuthConfig() AuthConfig {
+	return AuthConfig{
+		Provider:      stubIdentityProvider{},
+		AllowedEmails: []string{"test@example.com"},
+		FrontendURL:   "http://localhost:5173",
+		SessionTTL:    time.Hour,
+	}
+}
+
+// openMigratedTestDB opens a fresh, fully-migrated SQLite database in a
+// temp dir — the shared setup behind newTestServer, also used directly by
+// auth_test.go to build its own router with a per-test AuthConfig.
+func openMigratedTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 	_, thisFile, _, ok := runtime.Caller(0)
 	if !ok {
@@ -27,12 +65,46 @@ func newTestServer(t *testing.T) (*httptest.Server, *sql.DB) {
 	if err != nil {
 		t.Fatalf("open test db: %v", err)
 	}
-	server := httptest.NewServer(NewRouter(database))
-	t.Cleanup(func() {
-		server.Close()
-		_ = database.Close()
-	})
+	t.Cleanup(func() { _ = database.Close() })
+	return database
+}
+
+// newTestServer boots the real router on a fresh migrated database,
+// authenticated by default as a seeded test user.
+func newTestServer(t *testing.T) (*httptest.Server, *sql.DB) {
+	t.Helper()
+	database := openMigratedTestDB(t)
+	server := httptest.NewServer(NewRouter(database, testAuthConfig()))
+	t.Cleanup(server.Close)
+
+	token := seedSession(t, database)
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		t.Fatalf("create cookie jar: %v", err)
+	}
+	serverURL, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatalf("parse server url: %v", err)
+	}
+	jar.SetCookies(serverURL, []*http.Cookie{{Name: middleware.SessionCookieName, Value: token}})
+	httpClient = &http.Client{Jar: jar}
+
 	return server, database
+}
+
+// seedSession creates a signed-in test user and returns a valid session
+// token for it.
+func seedSession(t *testing.T, database *sql.DB) string {
+	t.Helper()
+	user, err := db.UpsertUserByGoogleSub(database, "test-google-sub", "test@example.com", "Test User", "")
+	if err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+	token, err := db.CreateSession(database, user.ID, time.Hour)
+	if err != nil {
+		t.Fatalf("seed session: %v", err)
+	}
+	return token
 }
 
 // doJSON sends a request with a JSON body (or none) and returns the status
@@ -52,7 +124,7 @@ func doJSON(t *testing.T, method, url string, payload any) (int, []byte) {
 		t.Fatalf("build request: %v", err)
 	}
 	request.Header.Set("Content-Type", "application/json")
-	response, err := http.DefaultClient.Do(request)
+	response, err := httpClient.Do(request)
 	if err != nil {
 		t.Fatalf("%s %s: %v", method, url, err)
 	}

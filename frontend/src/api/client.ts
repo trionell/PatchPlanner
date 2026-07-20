@@ -20,12 +20,19 @@ async function parseResponse<T>(response: Response): Promise<T> {
 
 export async function request<T>(path: string, init?: RequestInit) {
   const response = await fetch(`${BASE}${path}`, {
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...(init?.headers ?? {}),
     },
     ...init,
   })
+  // A 401 from any endpoint other than /auth/me means the session expired
+  // mid-use; /auth/me's own 401 is the expected "not signed in" signal
+  // useCurrentUser checks for, so it must not trigger this redirect.
+  if (response.status === 401 && !path.startsWith('/auth/')) {
+    window.location.href = '/login'
+  }
   return parseResponse<T>(response)
 }
 

@@ -75,7 +75,7 @@ func TestRentalExportEndpoints(t *testing.T) {
 	}
 
 	// Download endpoint: headers + a readable workbook with the quantity.
-	response, err := http.Get(fmt.Sprintf("%s/events/%d/rental-export", server.URL, eventID))
+	response, err := httpClient.Get(fmt.Sprintf("%s/events/%d/rental-export", server.URL, eventID))
 	if err != nil {
 		t.Fatalf("download: %v", err)
 	}
