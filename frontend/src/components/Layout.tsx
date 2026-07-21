@@ -24,7 +24,7 @@ export function Layout() {
 
   async function handleLogout() {
     await logout()
-    window.location.href = '/login'
+    window.location.href = '/'
   }
 
   return (
