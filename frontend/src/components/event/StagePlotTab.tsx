@@ -21,8 +21,9 @@ import {
   type StagePlotElementCreate,
   type StagePlotElementPatch,
 } from '../../api/stagePlots'
-import type { PlotTruss, StagePlotResponse, TrussSide } from '../../types'
+import type { PlotTruss, StagePlotResponse, StagePlotView, TrussSide } from '../../types'
 import { useDraftState } from '../../hooks/useDraftState'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { roundCm } from '../../lib/stagePlot'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
@@ -37,6 +38,12 @@ import { StagePlotPalette } from './StagePlotPalette'
  *  draw.io-style palette / canvas / inspector editor (Slice 13). */
 export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; readOnly?: boolean }) {
   const queryClient = useQueryClient()
+  const isMobile = useIsMobile()
+  // Stage Plots is a viewer on phone-width screens for every role (FR-011)
+  // — pan/zoom stays free (handleViewStateChange already keeps that purely
+  // local for a read-only viewer), but no plot/element mutation is ever
+  // attempted from mobile, regardless of the signed-in user's real role.
+  const editingAllowed = !readOnly && !isMobile
   const plotsQuery = useQuery({ queryKey: ['stage-plots', eventId], queryFn: () => listStagePlots(eventId) })
   const plots = useMemo(() => plotsQuery.data ?? [], [plotsQuery.data])
 
@@ -80,6 +87,12 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
       document.body.style.overflow = previousOverflow
     }
   }, [fullscreen])
+
+  // Mobile's own view choice — local-only, never persisted (mirrors
+  // handleViewStateChange's "pan/zoom stays local for a viewer" pattern):
+  // active_view is a shared plot setting written for every viewer, which
+  // mobile must never do since it's a viewer for every role there.
+  const [mobileView, setMobileView] = useState<StagePlotView>('top')
 
   // Viewport state lives here (not in the canvas) so the palette can
   // place elements at the visible centre; persisted debounced.
@@ -347,7 +360,7 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
               {plot.name}
             </button>
           ))}
-          {!readOnly && (creatingName == null ? (
+          {editingAllowed && (creatingName == null ? (
             <button
               type="button"
               onClick={() => setCreatingName('')}
@@ -375,7 +388,7 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
           ))}
         </div>
 
-        {activePlotId != null && response && !readOnly && (
+        {activePlotId != null && response && editingAllowed && (
           <div className="flex items-center gap-1">
             {renamingName == null ? (
               <>
@@ -561,6 +574,62 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
                 readOnly={readOnly}
               />
           )
+
+          if (isMobile) {
+            return (
+              <>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm text-zinc-400">
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="sm" title="Zoom out" onClick={() => zoomBy(1 / 1.25)}>
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                    <span className="w-12 text-center tabular-nums text-zinc-200">{Math.round(viewState.zoom * 100)}%</span>
+                    <Button variant="ghost" size="sm" title="Zoom in" onClick={() => zoomBy(1.25)}>
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="inline-flex rounded-md border border-zinc-700 bg-zinc-900 p-0.5">
+                    {(['top', 'front', 'side'] as const).map((viewOption) => (
+                      <button
+                        key={viewOption}
+                        type="button"
+                        onClick={() => setMobileView(viewOption)}
+                        className={
+                          mobileView === viewOption
+                            ? 'rounded bg-amber-500 px-2.5 py-1 text-xs font-medium text-zinc-950'
+                            : 'rounded px-2.5 py-1 text-xs text-zinc-400'
+                        }
+                      >
+                        {viewOption === 'top' ? 'Top' : viewOption === 'front' ? 'Front' : 'Side'}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="ml-auto text-[11px] uppercase tracking-wide text-zinc-500">Viewer only</span>
+                </div>
+                <div className="h-[65vh] min-h-[360px]">
+                  <StagePlotCanvas
+                    key={activePlotId}
+                    plot={response.plot}
+                    trusses={response.trusses}
+                    layers={response.layers}
+                    elements={response.elements}
+                    view={mobileView}
+                    viewState={viewState}
+                    onViewStateChange={handleViewStateChange}
+                    selectedElementId={selectedElementId}
+                    onSelectElement={setSelectedElementId}
+                    onUpdateElement={() => {}}
+                    onCanvasSize={(size) => {
+                      canvasSize.current = size
+                    }}
+                    fixtureNameById={fixtureNameById}
+                    fillParent
+                    readOnly
+                  />
+                </div>
+              </>
+            )
+          }
 
           const sidePanels = (
             <div className="flex w-64 flex-none flex-col gap-3">

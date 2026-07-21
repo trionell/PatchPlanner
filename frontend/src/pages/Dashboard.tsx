@@ -4,6 +4,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { createEvent, listEvents } from '../api/events'
 import { listMyInventories } from '../api/inventories'
 import { EventFormDialog } from '../components/EventFormDialog'
+import { useIsMobile } from '../hooks/useIsMobile'
+import { cn } from '../lib/utils'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
@@ -11,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 export function DashboardPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const [open, setOpen] = useState(false)
   const eventsQuery = useQuery({ queryKey: ['events'], queryFn: listEvents })
   const inventoriesQuery = useQuery({ queryKey: ['inventories'], queryFn: listMyInventories })
@@ -52,13 +55,16 @@ export function DashboardPage() {
                 <Link
                   key={event.id}
                   to={`/events/${event.id}`}
-                  className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm hover:border-amber-500/50"
+                  className={cn(
+                    'flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900 hover:border-amber-500/50',
+                    isMobile ? 'gap-2 px-2.5 py-1.5' : 'px-4 py-3 text-sm',
+                  )}
                 >
-                  <div>
-                    <div className="font-medium text-zinc-100">{event.name}</div>
-                    <div className="text-zinc-400">{event.venue || 'Venue TBD'}</div>
+                  <div className="min-w-0">
+                    <div className={cn('truncate font-medium text-zinc-100', isMobile ? 'text-[13px] leading-tight' : undefined)}>{event.name}</div>
+                    <div className={cn('truncate text-zinc-400', isMobile ? 'text-[11px] leading-tight' : undefined)}>{event.venue || 'Venue TBD'}</div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-2">
                     {event.yourRole && event.yourRole !== 'owner' && (
                       <Badge variant={event.yourRole === 'viewer' ? 'warning' : 'default'}>{event.yourRole}</Badge>
                     )}
