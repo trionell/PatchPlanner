@@ -50,6 +50,37 @@ func (h LightingHandler) getLightingRig(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, lightingRigResponse{Rig: rig, Fixtures: fixtures})
 }
 
+// requireRigForEvent writes a 404 and returns false unless rigID belongs to
+// eventID — without this, any event a caller has a role on could be used to
+// reach another event's lighting rig by guessing its id.
+func (h LightingHandler) requireRigForEvent(w http.ResponseWriter, eventID, rigID int64) bool {
+	var count int
+	if err := h.DB.QueryRow(`SELECT COUNT(*) FROM lighting_rigs WHERE id = ? AND event_id = ?`, rigID, eventID).Scan(&count); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return false
+	}
+	if count != 1 {
+		writeError(w, http.StatusNotFound, "lighting rig not found")
+		return false
+	}
+	return true
+}
+
+// requireFixtureForRig writes a 404 and returns false unless fixtureID
+// belongs to rigID (mirrors requireRigForEvent, one level down).
+func (h LightingHandler) requireFixtureForRig(w http.ResponseWriter, rigID, fixtureID int64) bool {
+	var count int
+	if err := h.DB.QueryRow(`SELECT COUNT(*) FROM lighting_fixtures WHERE id = ? AND rig_id = ?`, fixtureID, rigID).Scan(&count); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return false
+	}
+	if count != 1 {
+		writeError(w, http.StatusNotFound, "fixture not found")
+		return false
+	}
+	return true
+}
+
 func (h LightingHandler) createFixture(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
 	if !ok {
@@ -57,6 +88,9 @@ func (h LightingHandler) createFixture(w http.ResponseWriter, r *http.Request) {
 	}
 	rigID, ok := parseID(w, chi.URLParam(r, "rigID"))
 	if !ok {
+		return
+	}
+	if !h.requireRigForEvent(w, eventID, rigID) {
 		return
 	}
 	inventoryID, ok := inventoryIDForEvent(h.DB, w, eventID)
@@ -88,8 +122,15 @@ func (h LightingHandler) updateFixture(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	rigID, ok := parseID(w, chi.URLParam(r, "rigID"))
+	if !ok {
+		return
+	}
 	fixtureID, ok := parseID(w, chi.URLParam(r, "fixtureID"))
 	if !ok {
+		return
+	}
+	if !h.requireRigForEvent(w, eventID, rigID) || !h.requireFixtureForRig(w, rigID, fixtureID) {
 		return
 	}
 	inventoryID, ok := inventoryIDForEvent(h.DB, w, eventID)
@@ -116,8 +157,19 @@ func (h LightingHandler) updateFixture(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h LightingHandler) deleteFixture(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
+	rigID, ok := parseID(w, chi.URLParam(r, "rigID"))
+	if !ok {
+		return
+	}
 	fixtureID, ok := parseID(w, chi.URLParam(r, "fixtureID"))
 	if !ok {
+		return
+	}
+	if !h.requireRigForEvent(w, eventID, rigID) || !h.requireFixtureForRig(w, rigID, fixtureID) {
 		return
 	}
 	if err := dbstore.DeleteLightingFixture(h.DB, fixtureID); err != nil {
@@ -137,6 +189,9 @@ func (h LightingHandler) bulkCreateFixtures(w http.ResponseWriter, r *http.Reque
 	}
 	rigID, ok := parseID(w, chi.URLParam(r, "rigID"))
 	if !ok {
+		return
+	}
+	if !h.requireRigForEvent(w, eventID, rigID) {
 		return
 	}
 	inventoryID, ok := inventoryIDForEvent(h.DB, w, eventID)
@@ -188,8 +243,15 @@ func validFixtureNumber(w http.ResponseWriter, number *int) bool {
 }
 
 func (h LightingHandler) autoAssignDMX(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	rigID, ok := parseID(w, chi.URLParam(r, "rigID"))
 	if !ok {
+		return
+	}
+	if !h.requireRigForEvent(w, eventID, rigID) {
 		return
 	}
 	fixtures, err := dbstore.AutoAssignDMX(h.DB, rigID)

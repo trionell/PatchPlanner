@@ -307,8 +307,41 @@ func (h InventoriesHandler) createFixtureMode(w http.ResponseWriter, r *http.Req
 	writeJSON(w, http.StatusCreated, created)
 }
 
-func (h InventoriesHandler) updateFixtureMode(w http.ResponseWriter, r *http.Request) {
+// requireFixtureMode validates modeID both exists and belongs to an item of
+// inventoryID (mirrors requireInventoryItem above — a different inventory's
+// owner must not manage a mode that isn't theirs just by guessing its id).
+func (h InventoriesHandler) requireFixtureMode(w http.ResponseWriter, r *http.Request, inventoryID int64) (int64, bool) {
 	modeID, ok := parseID(w, chi.URLParam(r, "modeID"))
+	if !ok {
+		return 0, false
+	}
+	mode, err := dbstore.GetFixtureMode(h.DB, modeID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "fixture mode not found")
+			return 0, false
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return 0, false
+	}
+	belongs, err := dbstore.ItemBelongsToInventory(h.DB, mode.InventoryItemID, inventoryID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return 0, false
+	}
+	if !belongs {
+		writeError(w, http.StatusNotFound, "fixture mode not found")
+		return 0, false
+	}
+	return modeID, true
+}
+
+func (h InventoriesHandler) updateFixtureMode(w http.ResponseWriter, r *http.Request) {
+	inventoryID, ok := parseID(w, chi.URLParam(r, "inventoryID"))
+	if !ok {
+		return
+	}
+	modeID, ok := h.requireFixtureMode(w, r, inventoryID)
 	if !ok {
 		return
 	}
@@ -332,7 +365,11 @@ func (h InventoriesHandler) updateFixtureMode(w http.ResponseWriter, r *http.Req
 }
 
 func (h InventoriesHandler) deleteFixtureMode(w http.ResponseWriter, r *http.Request) {
-	modeID, ok := parseID(w, chi.URLParam(r, "modeID"))
+	inventoryID, ok := parseID(w, chi.URLParam(r, "inventoryID"))
+	if !ok {
+		return
+	}
+	modeID, ok := h.requireFixtureMode(w, r, inventoryID)
 	if !ok {
 		return
 	}

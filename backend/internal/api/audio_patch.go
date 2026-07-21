@@ -462,6 +462,10 @@ func (h AudioPatchHandler) createStagebox(w http.ResponseWriter, r *http.Request
 }
 
 func (h AudioPatchHandler) updateStagebox(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	sbID, ok := parseID(w, chi.URLParam(r, "sbID"))
 	if !ok {
 		return
@@ -473,6 +477,10 @@ func (h AudioPatchHandler) updateStagebox(w http.ResponseWriter, r *http.Request
 			return
 		}
 		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if existing.EventID != eventID {
+		writeError(w, http.StatusNotFound, "stagebox not found")
 		return
 	}
 	inventoryID, ok := inventoryIDForEvent(h.DB, w, existing.EventID)
@@ -496,8 +504,16 @@ func (h AudioPatchHandler) updateStagebox(w http.ResponseWriter, r *http.Request
 }
 
 func (h AudioPatchHandler) deleteStagebox(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	sbID, ok := parseID(w, chi.URLParam(r, "sbID"))
 	if !ok {
+		return
+	}
+	if !h.itemBelongsToEvent("stageboxes", eventID, sbID) {
+		writeError(w, http.StatusNotFound, "stagebox not found")
 		return
 	}
 	if err := dbstore.DeleteStagebox(h.DB, sbID); err != nil {
@@ -540,6 +556,10 @@ func (h AudioPatchHandler) createStageMulti(w http.ResponseWriter, r *http.Reque
 }
 
 func (h AudioPatchHandler) updateStageMulti(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	smID, ok := parseID(w, chi.URLParam(r, "smID"))
 	if !ok {
 		return
@@ -551,6 +571,10 @@ func (h AudioPatchHandler) updateStageMulti(w http.ResponseWriter, r *http.Reque
 			return
 		}
 		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if existing.EventID != eventID {
+		writeError(w, http.StatusNotFound, "stage multi not found")
 		return
 	}
 	inventoryID, ok := inventoryIDForEvent(h.DB, w, existing.EventID)
@@ -574,8 +598,16 @@ func (h AudioPatchHandler) updateStageMulti(w http.ResponseWriter, r *http.Reque
 }
 
 func (h AudioPatchHandler) deleteStageMulti(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	smID, ok := parseID(w, chi.URLParam(r, "smID"))
 	if !ok {
+		return
+	}
+	if !h.itemBelongsToEvent("stage_multis", eventID, smID) {
+		writeError(w, http.StatusNotFound, "stage multi not found")
 		return
 	}
 	if err := dbstore.DeleteStageMulti(h.DB, smID); err != nil {
@@ -617,6 +649,10 @@ func (h AudioPatchHandler) updateInputChannel(w http.ResponseWriter, r *http.Req
 	if !ok {
 		return
 	}
+	if !h.itemBelongsToEvent("input_channels", eventID, channelID) {
+		writeError(w, http.StatusNotFound, "input channel not found")
+		return
+	}
 	var payload domain.InputChannel
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json body")
@@ -635,8 +671,16 @@ func (h AudioPatchHandler) updateInputChannel(w http.ResponseWriter, r *http.Req
 }
 
 func (h AudioPatchHandler) deleteInputChannel(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	channelID, ok := parseID(w, chi.URLParam(r, "channelID"))
 	if !ok {
+		return
+	}
+	if !h.itemBelongsToEvent("input_channels", eventID, channelID) {
+		writeError(w, http.StatusNotFound, "input channel not found")
 		return
 	}
 	if err := dbstore.DeleteInputChannel(h.DB, channelID); err != nil {
@@ -708,6 +752,10 @@ func (h AudioPatchHandler) createInputSource(w http.ResponseWriter, r *http.Requ
 }
 
 func (h AudioPatchHandler) updateInputSource(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	sourceID, ok := parseID(w, chi.URLParam(r, "sourceID"))
 	if !ok {
 		return
@@ -719,6 +767,10 @@ func (h AudioPatchHandler) updateInputSource(w http.ResponseWriter, r *http.Requ
 			return
 		}
 		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if existing.EventID != eventID {
+		writeError(w, http.StatusNotFound, "input source not found")
 		return
 	}
 	inventoryID, ok := inventoryIDForEvent(h.DB, w, existing.EventID)
@@ -745,8 +797,16 @@ func (h AudioPatchHandler) updateInputSource(w http.ResponseWriter, r *http.Requ
 }
 
 func (h AudioPatchHandler) deleteInputSource(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	sourceID, ok := parseID(w, chi.URLParam(r, "sourceID"))
 	if !ok {
+		return
+	}
+	if !h.itemBelongsToEvent("input_sources", eventID, sourceID) {
+		writeError(w, http.StatusNotFound, "input source not found")
 		return
 	}
 	if err := dbstore.DeleteInputSource(h.DB, sourceID); err != nil {
@@ -855,6 +915,10 @@ func (h AudioPatchHandler) createInputDevice(w http.ResponseWriter, r *http.Requ
 }
 
 func (h AudioPatchHandler) updateInputDevice(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	deviceID, ok := parseID(w, chi.URLParam(r, "deviceID"))
 	if !ok {
 		return
@@ -866,6 +930,10 @@ func (h AudioPatchHandler) updateInputDevice(w http.ResponseWriter, r *http.Requ
 			return
 		}
 		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if existing.EventID != eventID {
+		writeError(w, http.StatusNotFound, "input device not found")
 		return
 	}
 	inventoryID, ok := inventoryIDForEvent(h.DB, w, existing.EventID)
@@ -894,8 +962,16 @@ func (h AudioPatchHandler) updateInputDevice(w http.ResponseWriter, r *http.Requ
 }
 
 func (h AudioPatchHandler) deleteInputDevice(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	deviceID, ok := parseID(w, chi.URLParam(r, "deviceID"))
 	if !ok {
+		return
+	}
+	if !h.itemBelongsToEvent("input_devices", eventID, deviceID) {
+		writeError(w, http.StatusNotFound, "input device not found")
 		return
 	}
 	if err := dbstore.DeleteInputDevice(h.DB, deviceID); err != nil {
@@ -933,6 +1009,10 @@ func (h AudioPatchHandler) createInputCable(w http.ResponseWriter, r *http.Reque
 // different ports is delete + create (contracts/input-graph-api.md), so
 // port/endpoint validation does not apply here.
 func (h AudioPatchHandler) updateInputCable(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	cableID, ok := parseID(w, chi.URLParam(r, "cableID"))
 	if !ok {
 		return
@@ -944,6 +1024,10 @@ func (h AudioPatchHandler) updateInputCable(w http.ResponseWriter, r *http.Reque
 			return
 		}
 		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if existing.EventID != eventID {
+		writeError(w, http.StatusNotFound, "input cable not found")
 		return
 	}
 	var payload struct {
@@ -973,8 +1057,16 @@ func (h AudioPatchHandler) updateInputCable(w http.ResponseWriter, r *http.Reque
 }
 
 func (h AudioPatchHandler) deleteInputCable(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	cableID, ok := parseID(w, chi.URLParam(r, "cableID"))
 	if !ok {
+		return
+	}
+	if !h.itemBelongsToEvent("input_cables", eventID, cableID) {
+		writeError(w, http.StatusNotFound, "input cable not found")
 		return
 	}
 	if err := dbstore.DeleteInputCable(h.DB, cableID); err != nil {
@@ -1193,8 +1285,16 @@ func (h AudioPatchHandler) createOutput(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h AudioPatchHandler) updateOutput(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	outputID, ok := parseID(w, chi.URLParam(r, "outputID"))
 	if !ok {
+		return
+	}
+	if !h.itemBelongsToEvent("audio_patch_outputs", eventID, outputID) {
+		writeError(w, http.StatusNotFound, "output not found")
 		return
 	}
 	var payload domain.AudioPatchOutput
@@ -1267,6 +1367,10 @@ func (h AudioPatchHandler) createOutputDevice(w http.ResponseWriter, r *http.Req
 }
 
 func (h AudioPatchHandler) updateOutputDevice(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	deviceID, ok := parseID(w, chi.URLParam(r, "deviceID"))
 	if !ok {
 		return
@@ -1278,6 +1382,10 @@ func (h AudioPatchHandler) updateOutputDevice(w http.ResponseWriter, r *http.Req
 			return
 		}
 		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if existing.EventID != eventID {
+		writeError(w, http.StatusNotFound, "output device not found")
 		return
 	}
 	inventoryID, ok := inventoryIDForEvent(h.DB, w, existing.EventID)
@@ -1306,8 +1414,16 @@ func (h AudioPatchHandler) updateOutputDevice(w http.ResponseWriter, r *http.Req
 }
 
 func (h AudioPatchHandler) deleteOutputDevice(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	deviceID, ok := parseID(w, chi.URLParam(r, "deviceID"))
 	if !ok {
+		return
+	}
+	if !h.itemBelongsToEvent("output_devices", eventID, deviceID) {
+		writeError(w, http.StatusNotFound, "output device not found")
 		return
 	}
 	if err := dbstore.DeleteOutputDevice(h.DB, deviceID); err != nil {
@@ -1423,6 +1539,10 @@ func (h AudioPatchHandler) createOutputCable(w http.ResponseWriter, r *http.Requ
 // different ports is delete + create (contracts/output-graph-api.md), so
 // port/endpoint validation does not apply here.
 func (h AudioPatchHandler) updateOutputCable(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	cableID, ok := parseID(w, chi.URLParam(r, "cableID"))
 	if !ok {
 		return
@@ -1434,6 +1554,10 @@ func (h AudioPatchHandler) updateOutputCable(w http.ResponseWriter, r *http.Requ
 			return
 		}
 		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if existing.EventID != eventID {
+		writeError(w, http.StatusNotFound, "output cable not found")
 		return
 	}
 	var payload struct {
@@ -1463,8 +1587,16 @@ func (h AudioPatchHandler) updateOutputCable(w http.ResponseWriter, r *http.Requ
 }
 
 func (h AudioPatchHandler) deleteOutputCable(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	cableID, ok := parseID(w, chi.URLParam(r, "cableID"))
 	if !ok {
+		return
+	}
+	if !h.itemBelongsToEvent("output_cables", eventID, cableID) {
+		writeError(w, http.StatusNotFound, "output cable not found")
 		return
 	}
 	if err := dbstore.DeleteOutputCable(h.DB, cableID); err != nil {
@@ -1662,8 +1794,16 @@ func (h AudioPatchHandler) validItemRef(w http.ResponseWriter, inventoryID int64
 }
 
 func (h AudioPatchHandler) deleteOutput(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
 	outputID, ok := parseID(w, chi.URLParam(r, "outputID"))
 	if !ok {
+		return
+	}
+	if !h.itemBelongsToEvent("audio_patch_outputs", eventID, outputID) {
+		writeError(w, http.StatusNotFound, "output not found")
 		return
 	}
 	if err := dbstore.DeleteAudioPatchOutput(h.DB, outputID); err != nil {
