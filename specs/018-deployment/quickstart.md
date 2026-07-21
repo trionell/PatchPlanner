@@ -83,19 +83,36 @@ directly.
    ln -s /etc/nginx/sites-available/patchplanner /etc/nginx/sites-enabled/
    nginx -t && systemctl reload nginx
    ```
+   If `nginx -t` fails with `could not build server_names_hash, you
+   should increase server_names_hash_bucket_size`, your real domain is
+   longer than the `patchplanner.example.com` placeholder and overflows
+   nginx's default hash bucket (32 bytes). Add
+   `server_names_hash_bucket_size 64;` inside the `http { ... }` block
+   of `/etc/nginx/nginx.conf` and retry — safe at any scale, no
+   downside to the higher value.
 2. Obtain the certificate and let Certbot rewrite the config for HTTPS
    automatically:
    ```bash
-   certbot --nginx -d patchplanner.example.com
+   certbot --nginx -d patchplanner.example.com --redirect
    ```
-   Certbot installs its own systemd timer for automatic renewal — no
-   manual certificate management afterward.
+   Certbot duplicates the server block above into a new `listen 443
+   ssl` block, fills in `ssl_certificate`/`ssl_certificate_key`, and
+   (with `--redirect`) turns the original port-80 block into a
+   redirect to HTTPS. It also installs its own systemd timer for
+   automatic renewal — no manual certificate management afterward.
+   (Omit `--redirect` and answer the interactive prompt instead if you
+   prefer to choose at run time.)
 
-The example config already includes the `X-Forwarded-Proto` header the
-application relies on to mark the session cookie `Secure` correctly
-(unlike some reverse proxies, nginx does not add this header on its
-own) — if you write your own config instead of starting from the
-example, don't drop that line.
+The example config only has the plain HTTP server block — deliberately.
+nginx refuses to start if any `listen ... ssl` block exists without
+`ssl_certificate` directives pointing at real files, so the HTTPS block
+can't exist until step 2 gives Certbot a certificate to point it at;
+that's also why `nginx -t` in step 1 must pass against an HTTP-only
+config. The example config already includes the `X-Forwarded-Proto`
+header the application relies on to mark the session cookie `Secure`
+correctly (unlike some reverse proxies, nginx does not add this header
+on its own) — if you write your own config instead of starting from
+the example, don't drop that line.
 
 ## Setting up the service (systemd)
 
