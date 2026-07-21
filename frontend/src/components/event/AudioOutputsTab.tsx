@@ -18,7 +18,11 @@ import {
 import { listEventInventoryItems } from '../../api/inventory'
 import { listOwnedItems } from '../../api/owned'
 import { useDraftState } from '../../hooks/useDraftState'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { useReferenceData } from '../../hooks/useReferenceData'
+import { buildMobileOutputList } from '../../lib/mobileOutputList'
+import { MobileEntityList } from '../mobile/MobileEntityList'
+import { MobileOutputEditSheet } from '../mobile/MobileOutputEditSheet'
 import {
   cableAtPort,
   devicePorts,
@@ -72,6 +76,8 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
 
   const [outputs, setOutputs] = useDraftState(audioQuery.data, (data) => data.outputs, [] as AudioPatchOutput[])
   const [viewMode, setViewMode] = useState<'graph' | 'table'>('graph')
+  const isMobile = useIsMobile()
+  const [editingOutputId, setEditingOutputId] = useState<number | 'new' | null>(null)
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['audio-patch', eventId] })
@@ -110,6 +116,41 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
   const addOutputRow = () => {
     const lastNumber = outputs.at(-1)?.output_number ?? 0
     addOutputMutation.mutate({ event_id: eventId, output_number: lastNumber + 1, output_name: '', output_type: 'foh', width: 'mono', notes: '' })
+  }
+
+  if (isMobile) {
+    const items = buildMobileOutputList(outputs, { stageboxes, stageMultis, devices: outputDevices, cables: outputCables, itemLabelById }).map((item) => ({
+      id: item.id,
+      number: item.outputNumber,
+      name: item.name,
+      subtitle: item.routingLabel,
+      color: item.color,
+    }))
+    const editingOutput = typeof editingOutputId === 'number' ? outputs.find((o) => o.id === editingOutputId) : undefined
+    return (
+      <div className="print:hidden">
+        <MobileEntityList
+          items={items}
+          onSelect={setEditingOutputId}
+          onAdd={() => setEditingOutputId('new')}
+          readOnly={readOnly}
+          searchPlaceholder="Find an output…"
+          addLabel="Add output"
+          emptyLabel="No output channels yet."
+        />
+        {editingOutputId != null && (
+          <MobileOutputEditSheet
+            eventId={eventId}
+            output={editingOutput}
+            outputs={outputs}
+            stageboxes={stageboxes}
+            cables={outputCables}
+            onClose={() => setEditingOutputId(null)}
+            onSaved={invalidate}
+          />
+        )}
+      </div>
+    )
   }
 
   return (

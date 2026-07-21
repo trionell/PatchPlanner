@@ -2,7 +2,9 @@ import { Cable, CalendarRange, LayoutDashboard, LogOut, Package2, Settings } fro
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { logout } from '../api/auth'
 import { useCurrentUser } from '../hooks/useCurrentUser'
+import { useIsMobile } from '../hooks/useIsMobile'
 import { cn } from '../lib/utils'
+import { MobileNav } from './mobile/MobileNav'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -21,10 +23,33 @@ export function Layout() {
   const location = useLocation()
   const title = getPageTitle(location.pathname)
   const { user } = useCurrentUser()
+  const isMobile = useIsMobile()
 
   async function handleLogout() {
     await logout()
     window.location.href = '/'
+  }
+
+  if (isMobile) {
+    return (
+      <div className="min-h-screen bg-zinc-950 pb-20 text-zinc-100">
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-zinc-800 bg-zinc-950/95 px-4 py-3 backdrop-blur print:hidden">
+          <div className="flex items-center gap-2">
+            <div className="rounded-lg bg-amber-500/15 p-1.5 text-amber-400">
+              <Cable className="h-4 w-4" />
+            </div>
+            <span className="text-base font-semibold text-zinc-100">{title}</span>
+          </div>
+          {user?.pictureUrl && (
+            <img src={user.pictureUrl} alt="" referrerPolicy="no-referrer" className="h-7 w-7 rounded-full" />
+          )}
+        </header>
+        <main className="px-4 py-4 print:p-0">
+          <Outlet />
+        </main>
+        <MobileNav />
+      </div>
+    )
   }
 
   return (

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
+import { useIsMobile } from '../hooks/useIsMobile'
 import type { ReferenceValue } from '../types'
 import { Button } from './ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card'
@@ -30,6 +31,9 @@ export function VocabularyCard({
   const [draft, setDraft] = useState({ value: '', label: '' })
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
+  // The raw stored value is a debugging/reference detail — on a phone it
+  // costs more width than it's worth, so the label input gets the room instead.
+  const isMobile = useIsMobile()
 
   async function run(action: () => Promise<unknown>, onDone?: () => void) {
     setPending(true)
@@ -64,7 +68,9 @@ export function VocabularyCard({
                 }}
                 className="flex-1"
               />
-              <code className="w-32 truncate text-xs text-zinc-500" title={value.value}>{value.value}</code>
+              {!isMobile && (
+                <code className="w-32 truncate text-xs text-zinc-500" title={value.value}>{value.value}</code>
+              )}
               {!readOnly && (
                 <Button size="sm" variant="ghost" title="Delete value" onClick={() => void run(() => onDelete(value.id))}>
                   <Trash2 className="h-4 w-4" />

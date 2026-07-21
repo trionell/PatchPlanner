@@ -3,7 +3,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Cable, Plus, Trash2 } from 'lucide-react'
 import { listEventInventoryItems } from '../../api/inventory'
 import { deleteManualRental, getRentalExportReport, getRentalSummary, putManualRental, rentalExportUrl } from '../../api/rentals'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import type { ManualRentalRequest, UnplacedLine } from '../../types'
+import { CondensedListRow } from '../mobile/CondensedListRow'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
@@ -15,6 +17,9 @@ const emptyManualDraft = { itemId: '', quantityAudio: 0, quantityLighting: 0, no
 
 export function RentalTab({ eventId, readOnly = false }: { eventId: number; readOnly?: boolean }) {
   const queryClient = useQueryClient()
+  const isMobile = useIsMobile()
+  // Rental Order is a read-only lookup on mobile for every role (FR-012).
+  const editable = !readOnly && !isMobile
   const rentalQuery = useQuery({ queryKey: ['rental-summary', eventId], queryFn: () => getRentalSummary(eventId) })
   const allInventoryQuery = useQuery({ queryKey: ['inventory-all-items', eventId], queryFn: () => listEventInventoryItems(eventId) })
 
@@ -81,7 +86,7 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
             </ul>
           </div>
         )}
-        {!readOnly && (
+        {editable && (
           <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
             <div className="min-w-64 flex-1">
               <label className="mb-1 block text-sm text-zinc-300">Manual line — catalog item</label>
@@ -116,6 +121,28 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
             </Button>
           </div>
         )}
+        {isMobile ? (
+          <div className="space-y-1">
+            {(rentalQuery.data?.items ?? []).map((item) => (
+              <CondensedListRow
+                key={item.inventory_item_id}
+                title={
+                  <>
+                    {item.inventory_item_name}
+                    {item.is_discontinued && <span className="ml-1.5 text-[10px] font-bold uppercase text-amber-400">discontinued</span>}
+                  </>
+                }
+                subtitle={`Audio ${item.quantity_audio} · Lighting ${item.quantity_lighting} · ${item.subtotal_ex_vat.toFixed(2)} kr`}
+                trailing={item.is_over_stock ? <span className="text-[10px] font-bold text-red-400">Over stock</span> : undefined}
+              />
+            ))}
+            {(rentalQuery.data?.items ?? []).length === 0 && <p className="px-1 py-2 text-sm text-zinc-500">No rental items yet.</p>}
+            <div className="flex items-center justify-between rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-sm font-semibold text-zinc-100">
+              <span>Total</span>
+              <span>{(rentalQuery.data?.total_ex_vat ?? 0).toFixed(2)} kr</span>
+            </div>
+          </div>
+        ) : (
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -153,7 +180,7 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
                   <TableCell>{item.price_ex_vat.toFixed(2)}</TableCell>
                   <TableCell>{item.subtotal_ex_vat.toFixed(2)}</TableCell>
                   <TableCell>
-                    {!readOnly && (item.manual_quantity_audio > 0 || item.manual_quantity_lighting > 0) && (
+                    {editable && (item.manual_quantity_audio > 0 || item.manual_quantity_lighting > 0) && (
                       <div className="flex items-center gap-1">
                         <Button size="sm" variant="ghost" title="Edit manual line" onClick={() => setManualDraft({ itemId: String(item.inventory_item_id), quantityAudio: item.manual_quantity_audio, quantityLighting: item.manual_quantity_lighting, notes: item.manual_notes ?? '' })}>
                           Edit
@@ -180,6 +207,7 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
             </TableBody>
           </Table>
         </div>
+        )}
       </CardContent>
     </Card>
   )

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Copy, Pencil, SlidersHorizontal, Trash2, Upload } from 'lucide-react'
+import { ArrowLeft, Copy, Filter, Pencil, SlidersHorizontal, Trash2, Upload } from 'lucide-react'
 import {
   createInventory,
   deleteInventory,
@@ -14,6 +14,9 @@ import {
 } from '../api/inventories'
 import { FixtureModeManager } from '../components/FixtureModeManager'
 import { OwnedGearManager } from '../components/OwnedGearManager'
+import { useIsMobile } from '../hooks/useIsMobile'
+import { cn } from '../lib/utils'
+import { CondensedListRow } from '../components/mobile/CondensedListRow'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
@@ -152,11 +155,13 @@ function InventoryList({ inventories, onSelect }: { inventories: Inventory[]; on
 
 function InventoryDetail({ inventory, onBack }: { inventory: Inventory; onBack: () => void }) {
   const inventoryId = inventory.id
+  const isMobile = useIsMobile()
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>()
   const [message, setMessage] = useState('')
   const [modesItem, setModesItem] = useState<InventoryItem | null>(null)
+  const [categoryFilterOpen, setCategoryFilterOpen] = useState(false)
 
   const categoriesQuery = useQuery({ queryKey: ['inventory-categories', inventoryId], queryFn: () => listCategories(inventoryId) })
   const itemsQuery = useQuery({
@@ -220,90 +225,167 @@ function InventoryDetail({ inventory, onBack }: { inventory: Inventory; onBack: 
       </div>
       {message && <p className="text-sm text-emerald-400">{message}</p>}
 
-      <div className="grid gap-6 lg:grid-cols-[320px,1fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Categories</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {(categoriesQuery.data ?? []).map((category) => (
-              <div
-                key={category.id}
-                className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-3 text-sm ${
-                  category.id === selectedCategoryId
-                    ? 'border-amber-500 bg-amber-500/10 text-amber-300'
-                    : 'border-zinc-800 bg-zinc-900 text-zinc-200 hover:border-zinc-700'
-                }`}
-              >
+      <div className={isMobile ? 'space-y-3' : 'grid gap-6 lg:grid-cols-[320px,1fr]'}>
+        {isMobile ? (
+          <>
+            <button
+              type="button"
+              onClick={() => setCategoryFilterOpen(true)}
+              className="flex w-full items-center justify-between gap-2 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-200"
+            >
+              <span className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-zinc-400" />
+                {selectedCategory?.name ?? 'All categories'}
+              </span>
+              <Badge>{selectedCategory?.item_count ?? itemsQuery.data?.length ?? 0}</Badge>
+            </button>
+            {/* Picker-role assignment (which patch picker a category feeds) stays desktop-only here — a rare setup action, not a filter concern. */}
+            <Dialog open={categoryFilterOpen} onClose={() => setCategoryFilterOpen(false)} title="Filter by category">
+              <div className="space-y-1">
                 <button
                   type="button"
-                  onClick={() => setSelectedCategoryId(category.id === selectedCategoryId ? undefined : category.id)}
-                  className="flex-1 text-left"
+                  onClick={() => {
+                    setSelectedCategoryId(undefined)
+                    setCategoryFilterOpen(false)
+                  }}
+                  className={cn(
+                    'flex w-full items-center justify-between gap-2 rounded-md px-3 py-2.5 text-left text-sm',
+                    selectedCategoryId === undefined ? 'bg-amber-500/10 text-amber-300' : 'text-zinc-200 hover:bg-zinc-850',
+                  )}
                 >
-                  <div className="font-medium">{category.name}</div>
-                  <div className="text-xs text-zinc-500">{category.category_type}</div>
+                  All categories
                 </button>
-                <div className="flex flex-col items-end gap-1">
-                  <Badge>{category.item_count ?? 0}</Badge>
-                  <select
-                    value={category.picker_role ?? ''}
-                    onChange={(e) =>
-                      roleMutation.mutate({ categoryId: category.id, role: (e.target.value || null) as InventoryCategory['picker_role'] | null })
-                    }
-                    title="Planning picker role: which patch-row picker this category's items appear in"
-                    className="rounded border border-zinc-700 bg-zinc-900 px-1 py-0.5 text-xs text-zinc-400"
+                {(categoriesQuery.data ?? []).map((category) => (
+                  <button
+                    key={category.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategoryId(category.id === selectedCategoryId ? undefined : category.id)
+                      setCategoryFilterOpen(false)
+                    }}
+                    className={cn(
+                      'flex w-full items-center justify-between gap-2 rounded-md px-3 py-2.5 text-left text-sm',
+                      category.id === selectedCategoryId ? 'bg-amber-500/10 text-amber-300' : 'text-zinc-200 hover:bg-zinc-850',
+                    )}
                   >
-                    <option value="">no picker</option>
-                    <option value="cable">Cable</option>
-                    <option value="stand">Stand</option>
-                    <option value="truss">Truss</option>
-                  </select>
-                </div>
+                    <div>
+                      <div className="font-medium">{category.name}</div>
+                      <div className="text-xs text-zinc-500">{category.category_type}</div>
+                    </div>
+                    <Badge>{category.item_count ?? 0}</Badge>
+                  </button>
+                ))}
+                {(categoriesQuery.data ?? []).length === 0 && (
+                  <p className="px-3 py-2 text-sm text-zinc-500">No categories yet — import a price list above to get started.</p>
+                )}
               </div>
-            ))}
-            {(categoriesQuery.data ?? []).length === 0 && (
-              <p className="text-sm text-zinc-500">No categories yet — import a price list above to get started.</p>
-            )}
-          </CardContent>
-        </Card>
+            </Dialog>
+          </>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Categories</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {(categoriesQuery.data ?? []).map((category) => (
+                <div
+                  key={category.id}
+                  className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-3 text-sm ${
+                    category.id === selectedCategoryId
+                      ? 'border-amber-500 bg-amber-500/10 text-amber-300'
+                      : 'border-zinc-800 bg-zinc-900 text-zinc-200 hover:border-zinc-700'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCategoryId(category.id === selectedCategoryId ? undefined : category.id)}
+                    className="flex-1 text-left"
+                  >
+                    <div className="font-medium">{category.name}</div>
+                    <div className="text-xs text-zinc-500">{category.category_type}</div>
+                  </button>
+                  <div className="flex flex-col items-end gap-1">
+                    <Badge>{category.item_count ?? 0}</Badge>
+                    <select
+                      value={category.picker_role ?? ''}
+                      onChange={(e) =>
+                        roleMutation.mutate({ categoryId: category.id, role: (e.target.value || null) as InventoryCategory['picker_role'] | null })
+                      }
+                      title="Planning picker role: which patch-row picker this category's items appear in"
+                      className="rounded border border-zinc-700 bg-zinc-900 px-1 py-0.5 text-xs text-zinc-400"
+                    >
+                      <option value="">no picker</option>
+                      <option value="cable">Cable</option>
+                      <option value="stand">Stand</option>
+                      <option value="truss">Truss</option>
+                    </select>
+                  </div>
+                </div>
+              ))}
+              {(categoriesQuery.data ?? []).length === 0 && (
+                <p className="text-sm text-zinc-500">No categories yet — import a price list above to get started.</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>
             <CardTitle>{selectedCategory?.name ?? 'All inventory items'}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Item</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Qty</TableHead>
-                    <TableHead>Price ex VAT</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(itemsQuery.data ?? []).map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell className="text-zinc-400">{item.description || '—'}</TableCell>
-                      <TableCell>{item.quantity_available}</TableCell>
-                      <TableCell>{item.price_ex_vat.toFixed(2)}</TableCell>
-                      <TableCell>{item.category_name}</TableCell>
-                      <TableCell>
-                        {item.category_type === 'lighting' && (
-                          <Button size="sm" variant="ghost" title="DMX modes" onClick={() => setModesItem(item)}>
-                            <SlidersHorizontal className="mr-1 h-4 w-4" />Modes
-                          </Button>
-                        )}
-                      </TableCell>
+            {isMobile ? (
+              <div className="space-y-1">
+                {(itemsQuery.data ?? []).map((item) => (
+                  <CondensedListRow
+                    key={item.id}
+                    title={item.name}
+                    subtitle={`${item.category_name} · Qty ${item.quantity_available} · ${item.price_ex_vat.toFixed(2)} kr`}
+                    trailing={
+                      item.category_type === 'lighting' ? (
+                        <button type="button" onClick={() => setModesItem(item)} className="text-zinc-400" title="DMX modes">
+                          <SlidersHorizontal className="h-4 w-4" />
+                        </button>
+                      ) : undefined
+                    }
+                  />
+                ))}
+                {(itemsQuery.data ?? []).length === 0 && <p className="px-1 py-2 text-sm text-zinc-500">No items in this category yet.</p>}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Item</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Qty</TableHead>
+                      <TableHead>Price ex VAT</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead></TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {(itemsQuery.data ?? []).map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium">{item.name}</TableCell>
+                        <TableCell className="text-zinc-400">{item.description || '—'}</TableCell>
+                        <TableCell>{item.quantity_available}</TableCell>
+                        <TableCell>{item.price_ex_vat.toFixed(2)}</TableCell>
+                        <TableCell>{item.category_name}</TableCell>
+                        <TableCell>
+                          {item.category_type === 'lighting' && (
+                            <Button size="sm" variant="ghost" title="DMX modes" onClick={() => setModesItem(item)}>
+                              <SlidersHorizontal className="mr-1 h-4 w-4" />Modes
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

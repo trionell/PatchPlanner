@@ -13,10 +13,13 @@ import {
   updateLightingFixture,
 } from '../../api/lighting'
 import { useDraftState } from '../../hooks/useDraftState'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { useReferenceData } from '../../hooks/useReferenceData'
 import { duplicateFixtureNumbers, nextFixtureNumber } from '../../lib/lightingRig'
 import { cn, formatDMXRange, toOptionalNumber } from '../../lib/utils'
 import type { BulkFixtureRequest, FixtureMode, LightingFixture } from '../../types'
+import { MobileEntityList } from '../mobile/MobileEntityList'
+import { MobileFixtureEditSheet } from '../mobile/MobileFixtureEditSheet'
 import { LightingRigSheet } from '../print/LightingRigSheet'
 import { PrintButton } from '../print/PrintButton'
 import { Button } from '../ui/Button'
@@ -50,6 +53,8 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
   const { options } = useReferenceData(eventId)
 
   const [fixtures, setFixtures] = useDraftState(lightingQuery.data, (data) => data.fixtures, [] as LightingFixture[])
+  const isMobile = useIsMobile()
+  const [editingFixtureId, setEditingFixtureId] = useState<number | 'new' | null>(null)
   const [fixtureDialogOpen, setFixtureDialogOpen] = useState(false)
   const [fixtureDraft, setFixtureDraft] = useState(emptyFixtureDraft)
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false)
@@ -123,6 +128,40 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
 
   async function persist(row: LightingFixture) {
     await saveFixtureMutation.mutateAsync({ id: row.id, payload: row })
+  }
+
+  if (isMobile) {
+    const items = fixtures.map((fixture) => ({
+      id: fixture.id,
+      number: fixture.fixture_number ?? `#${fixture.id}`,
+      name: fixture.inventory_item_name || fixture.custom_name || 'Unnamed fixture',
+      subtitle: `Univ ${fixture.dmx_universe} · Addr ${formatDMXRange(fixture.dmx_start_address, fixture.dmx_channel_count)} · ${fixture.dmx_channel_mode ?? 'Basic'}`,
+    }))
+    const editingFixture = typeof editingFixtureId === 'number' ? fixtures.find((f) => f.id === editingFixtureId) : undefined
+    return (
+      <div className="print:hidden">
+        <MobileEntityList
+          items={items}
+          onSelect={setEditingFixtureId}
+          onAdd={() => rigId != null && setEditingFixtureId('new')}
+          readOnly={readOnly}
+          searchPlaceholder="Find a fixture…"
+          addLabel="Add fixture"
+          emptyLabel="No fixtures yet."
+        />
+        {editingFixtureId != null && rigId != null && (
+          <MobileFixtureEditSheet
+            eventId={eventId}
+            rigId={rigId}
+            inventoryId={inventoryId}
+            fixture={editingFixture}
+            fixtures={fixtures}
+            onClose={() => setEditingFixtureId(null)}
+            onSaved={invalidate}
+          />
+        )}
+      </div>
+    )
   }
 
   return (

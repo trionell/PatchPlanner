@@ -4,9 +4,13 @@ import { LayoutGrid, Table2 } from 'lucide-react'
 import { getAudioPatch } from '../../api/audioPatch'
 import { listEventInventoryItems } from '../../api/inventory'
 import { listOwnedItems } from '../../api/owned'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { nodeName, nodeZone, type PortRef } from '../../lib/inputGraph'
+import { buildMobileChannelList } from '../../lib/mobileChannelList'
 import { itemLabel } from '../../lib/utils'
 import type { InputCable, InputChannel, InputDevice, InputSource, InventoryItem, OwnedItem, StageMulti, Stagebox } from '../../types'
+import { MobileChannelEditSheet } from '../mobile/MobileChannelEditSheet'
+import { MobileEntityList } from '../mobile/MobileEntityList'
 import { InputPatchSheet } from '../print/InputPatchSheet'
 import { PrintButton } from '../print/PrintButton'
 import { Badge } from '../ui/Badge'
@@ -38,6 +42,8 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
   const ownedQuery = useQuery({ queryKey: ['owned-items'], queryFn: listOwnedItems })
 
   const [viewMode, setViewMode] = useState<'graph' | 'table'>('graph')
+  const isMobile = useIsMobile()
+  const [editingChannelId, setEditingChannelId] = useState<number | 'new' | null>(null)
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['audio-patch', eventId] })
@@ -63,6 +69,42 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
     () => new Map([...allAudioItems, ...cableItems, ...standItems].map((item) => [item.id, itemLabel(item)])),
     [allAudioItems, cableItems, standItems],
   )
+
+  if (isMobile) {
+    const items = buildMobileChannelList(channels, { sources, devices, stageboxes, stageMultis, cables, itemLabelById }).map((item) => ({
+      id: item.id,
+      number: item.channelNumber,
+      name: item.name,
+      subtitle: `${item.sourceLabel} · ${item.routingLabel}`,
+      color: item.color,
+    }))
+    const editingChannel = typeof editingChannelId === 'number' ? channels.find((c) => c.id === editingChannelId) : undefined
+    return (
+      <div className="print:hidden">
+        <MobileEntityList
+          items={items}
+          onSelect={setEditingChannelId}
+          onAdd={() => setEditingChannelId('new')}
+          readOnly={readOnly}
+          searchPlaceholder="Find a channel…"
+          addLabel="Add channel"
+          emptyLabel="No input channels yet."
+        />
+        {editingChannelId != null && (
+          <MobileChannelEditSheet
+            eventId={eventId}
+            channel={editingChannel}
+            channels={channels}
+            sources={sources}
+            stageboxes={stageboxes}
+            cables={cables}
+            onClose={() => setEditingChannelId(null)}
+            onSaved={invalidate}
+          />
+        )}
+      </div>
+    )
+  }
 
   return (
     <>
