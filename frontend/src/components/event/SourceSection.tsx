@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2 } from 'lucide-react'
 import { createInputSource, deleteInputSource, updateInputSource } from '../../api/audioPatch'
@@ -81,20 +82,43 @@ export function SourceSection({
     })
   }
 
+  const [draftName, setDraftName] = useState('')
+  const [draftKind, setDraftKind] = useState<InputSource['kind']>('line')
+  const [draftMicItemId, setDraftMicItemId] = useState<number | undefined>(undefined)
+  const [draftStandItemId, setDraftStandItemId] = useState<number | undefined>(undefined)
+  const [draftPhantomPower, setDraftPhantomPower] = useState(false)
+  const [draftConnectorType, setDraftConnectorType] = useState('')
+  const [draftWidth, setDraftWidth] = useState<InputSource['width']>('mono')
+
+  // connector_type is required regardless of kind (domain constraint) — gate
+  // Add until it's picked, instead of posting an empty string that the
+  // server always rejects.
+  const canAdd = Boolean(draftConnectorType)
+
   const addSource = () => {
+    if (!canAdd) return
     // New nodes land staggered, not stacked on the canvas origin — the
     // tech drags them into place afterward.
     const position_x = 24
     const position_y = 24 + sources.length * 32
     createM.mutate({
-      name: `Source ${sources.length + 1}`,
-      kind: 'line',
-      phantom_power: false,
-      connector_type: '',
-      width: 'mono',
+      name: draftName.trim() || `Source ${sources.length + 1}`,
+      kind: draftKind,
+      mic_item_id: draftKind === 'mic' ? draftMicItemId : undefined,
+      stand_item_id: draftKind === 'mic' ? draftStandItemId : undefined,
+      phantom_power: draftKind === 'mic' ? draftPhantomPower : false,
+      connector_type: draftConnectorType,
+      width: draftWidth,
       position_x,
       position_y,
     })
+    setDraftName('')
+    setDraftKind('line')
+    setDraftMicItemId(undefined)
+    setDraftStandItemId(undefined)
+    setDraftPhantomPower(false)
+    setDraftConnectorType('')
+    setDraftWidth('mono')
   }
 
   const remove = (source: InputSource) => {
@@ -105,9 +129,8 @@ export function SourceSection({
 
   return (
     <Card className="mb-6">
-      <CardHeader className="flex-row items-center justify-between">
+      <CardHeader>
         <CardTitle>Sources</CardTitle>
-        {!readOnly && <Button size="sm" onClick={addSource}><Plus className="mr-2 h-4 w-4" />Add source</Button>}
       </CardHeader>
       <CardContent>
         <p className="mb-2 text-sm text-zinc-400">
@@ -198,6 +221,71 @@ export function SourceSection({
                 </TableRow>
                 )
               })}
+              {!readOnly && (
+                <TableRow>
+                  <TableCell>
+                    <Input
+                      value={draftName}
+                      placeholder={`Source ${sources.length + 1}`}
+                      onChange={(e) => setDraftName(e.target.value)}
+                      className="min-w-36"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Select value={draftKind} onChange={(e) => setDraftKind(e.target.value as InputSource['kind'])} className="min-w-24">
+                      <option value="mic">Mic</option>
+                      <option value="line">Line</option>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    {draftKind === 'mic' ? (
+                      <Select value={draftMicItemId ?? ''} onChange={(e) => setDraftMicItemId(toOptionalNumber(e.target.value))} className="min-w-40">
+                        <option value="">—</option>
+                        {micItems.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                      </Select>
+                    ) : (
+                      <span className="px-2 text-xs text-zinc-500">— (no mic)</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {draftKind === 'mic' ? (
+                      <Select value={draftStandItemId ?? ''} onChange={(e) => setDraftStandItemId(toOptionalNumber(e.target.value))} className="min-w-36">
+                        <option value="">—</option>
+                        {standItems.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                      </Select>
+                    ) : (
+                      <span className="px-2 text-xs text-zinc-500">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {draftKind === 'mic' ? (
+                      <input
+                        type="checkbox"
+                        checked={draftPhantomPower}
+                        onChange={(e) => setDraftPhantomPower(e.target.checked)}
+                        className="h-4 w-4 accent-amber-500"
+                      />
+                    ) : (
+                      <span className="text-xs text-zinc-500">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Select value={draftConnectorType} onChange={(e) => setDraftConnectorType(e.target.value)} className="min-w-28">
+                      <option value="">—</option>
+                      {options('preamp_connectors', draftConnectorType).map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Select value={draftWidth} onChange={(e) => setDraftWidth(e.target.value as InputSource['width'])} className="min-w-24">
+                      <option value="mono">Mono</option>
+                      <option value="stereo">Stereo</option>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Button size="sm" onClick={addSource} disabled={!canAdd}><Plus className="h-4 w-4" /></Button>
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>
