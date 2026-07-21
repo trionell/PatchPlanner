@@ -40,6 +40,34 @@ textarea {
  * Tailwind print: variants; these rules force paper-friendly colors even on
  * elements carrying dark-theme utility classes, hence the !important.
  */
+.pp-pulse-dot {
+  fill: #f59e0b;
+  filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.9));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pp-pulse-dot {
+    animation: pp-travel 3.6s ease-in-out infinite;
+  }
+}
+
+@keyframes pp-travel {
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+
 @media print {
   :root,
   body {
