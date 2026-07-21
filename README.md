@@ -325,6 +325,13 @@ for the full runbook: server/domain prerequisites, building, configuring
 the environment, setting up nginx + Certbot, the systemd service,
 verifying the deployment, and setting up backups.
 
+Once that initial setup is done, deploys happen automatically: a GitHub
+Actions workflow (`.github/workflows/deploy.yml`) builds, tests, and
+deploys the app on every push to `main`, plus an on-demand manual trigger
+from the Actions tab. See
+[`specs/019-cicd-vps-deploy/quickstart.md`](specs/019-cicd-vps-deploy/quickstart.md)
+for the one-time GitHub- and VPS-side setup this requires.
+
 ---
 
 ## API Reference
