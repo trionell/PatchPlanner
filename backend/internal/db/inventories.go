@@ -7,7 +7,7 @@ import (
 	"github.com/trionell/patchplanner/internal/domain"
 )
 
-const inventoryColumns = `id, COALESCE(owner_user_id, 0), name, COALESCE(source_filename, ''), created_at`
+const inventoryColumns = `id, COALESCE(owner_user_id, 0), name, COALESCE(source_filename, ''), COALESCE(source_format, ''), created_at`
 
 func CreateInventory(database *sql.DB, ownerUserID int64, name string) (domain.Inventory, error) {
 	result, err := database.Exec(`INSERT INTO inventories (owner_user_id, name) VALUES (?, ?)`, ownerUserID, name)
@@ -55,12 +55,18 @@ func GetInventorySourceXLSX(database *sql.DB, id int64) ([]byte, error) {
 	return data, nil
 }
 
-// SetInventorySourceXLSX stores the raw bytes of an imported price-list
-// file as the inventory's template, so a later rental export has something
-// to write quantities into (research.md R2).
-func SetInventorySourceXLSX(database *sql.DB, id int64, data []byte, filename string) error {
-	if _, err := database.Exec(`UPDATE inventories SET source_xlsx = ?, source_filename = ? WHERE id = ?`, data, nullString(filename), id); err != nil {
-		return fmt.Errorf("set inventory source xlsx: %w", err)
+// SetInventorySource records what an import left behind: the file's raw
+// bytes (LL price lists only, so a later rental export has something to
+// write quantities into — research.md R2), its filename for display, and
+// which format it was (Slice 22, research.md R1).
+//
+// Pass data = nil for formats with nothing to write back into; that also
+// clears any blob a previous LL import left, so an inventory re-imported
+// as generic doesn't keep a stale template it can no longer export to.
+func SetInventorySource(database *sql.DB, id int64, data []byte, filename, format string) error {
+	if _, err := database.Exec(`UPDATE inventories SET source_xlsx = ?, source_filename = ?, source_format = ? WHERE id = ?`,
+		data, nullString(filename), nullString(format), id); err != nil {
+		return fmt.Errorf("set inventory source: %w", err)
 	}
 	return nil
 }
@@ -157,8 +163,11 @@ func DuplicateInventory(database *sql.DB, sourceInventoryID, ownerUserID int64) 
 	}
 	defer tx.Rollback()
 
-	result, err := tx.Exec(`INSERT INTO inventories (owner_user_id, name, source_xlsx, source_filename) VALUES (?, ?, ?, ?)`,
-		ownerUserID, source.Name+" (copy)", sourceXLSX, nullString(source.SourceFilename))
+	// source_format comes along so the copy offers exactly the same exports
+	// as the original (FR-021) — a duplicated LL catalog stays exportable to
+	// LL, a duplicated generic one stays not.
+	result, err := tx.Exec(`INSERT INTO inventories (owner_user_id, name, source_xlsx, source_filename, source_format) VALUES (?, ?, ?, ?, ?)`,
+		ownerUserID, source.Name+" (copy)", sourceXLSX, nullString(source.SourceFilename), nullString(source.SourceFormat))
 	if err != nil {
 		return domain.Inventory{}, fmt.Errorf("create duplicate inventory: %w", err)
 	}
@@ -204,7 +213,7 @@ func DuplicateInventory(database *sql.DB, sourceInventoryID, ownerUserID int64) 
 		categoryIDMap[c.id] = newCategoryID
 	}
 
-	itemRows, err := tx.Query(`SELECT id, category_id, name, COALESCE(description, ''), quantity_available, price_ex_vat, COALESCE(xlsx_row, 0), discontinued FROM inventory_items WHERE inventory_id = ?`, sourceInventoryID)
+	itemRows, err := tx.Query(`SELECT id, category_id, name, COALESCE(description, ''), quantity_available, price_ex_vat, COALESCE(xlsx_row, 0), discontinued, is_manual FROM inventory_items WHERE inventory_id = ?`, sourceInventoryID)
 	if err != nil {
 		return domain.Inventory{}, fmt.Errorf("load source items: %w", err)
 	}
@@ -215,11 +224,12 @@ func DuplicateInventory(database *sql.DB, sourceInventoryID, ownerUserID int64) 
 		priceExVAT        float64
 		xlsxRow           int
 		discontinued      int
+		isManual          int
 	}
 	var items []sourceItem
 	for itemRows.Next() {
 		var it sourceItem
-		if err := itemRows.Scan(&it.id, &it.categoryID, &it.name, &it.description, &it.quantityAvailable, &it.priceExVAT, &it.xlsxRow, &it.discontinued); err != nil {
+		if err := itemRows.Scan(&it.id, &it.categoryID, &it.name, &it.description, &it.quantityAvailable, &it.priceExVAT, &it.xlsxRow, &it.discontinued, &it.isManual); err != nil {
 			itemRows.Close()
 			return domain.Inventory{}, fmt.Errorf("scan source item: %w", err)
 		}
@@ -232,8 +242,10 @@ func DuplicateInventory(database *sql.DB, sourceInventoryID, ownerUserID int64) 
 
 	for _, it := range items {
 		newCategoryID := categoryIDMap[it.categoryID]
-		result, err := tx.Exec(`INSERT INTO inventory_items (inventory_id, category_id, name, description, quantity_available, price_ex_vat, xlsx_row, discontinued) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			newInventoryID, newCategoryID, it.name, nullString(it.description), it.quantityAvailable, it.priceExVAT, it.xlsxRow, it.discontinued)
+		// is_manual comes along too, so hand-entered items in the copy stay
+		// protected from the copy's own future imports (FR-021).
+		result, err := tx.Exec(`INSERT INTO inventory_items (inventory_id, category_id, name, description, quantity_available, price_ex_vat, xlsx_row, discontinued, is_manual) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			newInventoryID, newCategoryID, it.name, nullString(it.description), it.quantityAvailable, it.priceExVAT, it.xlsxRow, it.discontinued, it.isManual)
 		if err != nil {
 			return domain.Inventory{}, fmt.Errorf("create duplicate item: %w", err)
 		}
@@ -293,7 +305,7 @@ func ItemBelongsToInventory(database *sql.DB, itemID, inventoryID int64) (bool, 
 
 func scanInventory(row scanner) (domain.Inventory, error) {
 	var inventory domain.Inventory
-	if err := row.Scan(&inventory.ID, &inventory.OwnerUserID, &inventory.Name, &inventory.SourceFilename, &inventory.CreatedAt); err != nil {
+	if err := row.Scan(&inventory.ID, &inventory.OwnerUserID, &inventory.Name, &inventory.SourceFilename, &inventory.SourceFormat, &inventory.CreatedAt); err != nil {
 		return domain.Inventory{}, fmt.Errorf("scan inventory: %w", err)
 	}
 	return inventory, nil

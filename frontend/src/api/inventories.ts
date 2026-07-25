@@ -1,5 +1,5 @@
 import type { FixtureMode, Inventory, InventoryCategory, InventoryImportResult, InventoryItem } from '../types'
-import { request } from './client'
+import { API_BASE, request } from './client'
 
 // Owner-scoped inventory management (Slice 16) — every route here is
 // gated by RequireInventoryOwner on the backend (404 for anyone but the
@@ -23,6 +23,36 @@ export const updateCategoryPickerRole = (inventoryId: number, categoryId: number
     body: JSON.stringify({ picker_role: role }),
   })
 
+// ---- Manual catalog management (Slice 22) ----
+// Available on any inventory, imported or not. Hand-created items are
+// flagged is_manual by the server so later imports leave them alone.
+
+export type CategoryDraft = { name: string; category_type: InventoryCategory['category_type'] }
+export type ItemDraft = {
+  category_id: number
+  name: string
+  description: string
+  quantity_available: number
+  price_ex_vat: number
+}
+
+export const createCategory = (inventoryId: number, draft: CategoryDraft) =>
+  request<InventoryCategory>(`/inventories/${inventoryId}/categories`, { method: 'POST', body: JSON.stringify(draft) })
+export const updateCategory = (inventoryId: number, categoryId: number, draft: Partial<CategoryDraft>) =>
+  request<InventoryCategory>(`/inventories/${inventoryId}/categories/${categoryId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(draft),
+  })
+export const deleteCategory = (inventoryId: number, categoryId: number) =>
+  request<void>(`/inventories/${inventoryId}/categories/${categoryId}`, { method: 'DELETE' })
+
+export const createItem = (inventoryId: number, draft: ItemDraft) =>
+  request<InventoryItem>(`/inventories/${inventoryId}/items`, { method: 'POST', body: JSON.stringify(draft) })
+export const updateItem = (inventoryId: number, itemId: number, draft: Partial<ItemDraft>) =>
+  request<InventoryItem>(`/inventories/${inventoryId}/items/${itemId}`, { method: 'PATCH', body: JSON.stringify(draft) })
+export const deleteItem = (inventoryId: number, itemId: number) =>
+  request<void>(`/inventories/${inventoryId}/items/${itemId}`, { method: 'DELETE' })
+
 export const listItems = (inventoryId: number, params?: { categoryId?: number; categoryType?: string }) => {
   const search = new URLSearchParams()
   if (params?.categoryId) search.set('category_id', String(params.categoryId))
@@ -30,11 +60,20 @@ export const listItems = (inventoryId: number, params?: { categoryId?: number; c
   return request<InventoryItem[]>(`/inventories/${inventoryId}/items${search.toString() ? `?${search.toString()}` : ''}`)
 }
 
+/**
+ * Imports a catalog spreadsheet. The server works out whether it is an LL
+ * price list or the generic format and reports which on the result, so the
+ * user uploads one file and never has to classify it first.
+ */
 export const importInventoryXlsx = (inventoryId: number, file: File) => {
   const formData = new FormData()
   formData.append('file', file)
   return request<InventoryImportResult>(`/inventories/${inventoryId}/import-xlsx`, { method: 'POST', body: formData })
 }
+
+// Plain URL rather than a fetch: downloads are navigations, matching how
+// the rental exports already work (api/rentals.ts).
+export const inventoryTemplateUrl = () => `${API_BASE}/inventory-template.xlsx`
 
 export const listFixtureModes = (inventoryId: number, itemId: number) =>
   request<FixtureMode[]>(`/inventories/${inventoryId}/items/${itemId}/fixture-modes`)

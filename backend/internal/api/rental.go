@@ -4,10 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
-	"net/url"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 	dbstore "github.com/trionell/patchplanner/internal/db"
@@ -26,9 +23,54 @@ func (h RentalHandler) Register(r chi.Router) {
 	r.Delete("/rentals/manual/{itemID}", h.deleteManualLine)
 	r.Get("/rental-export", h.exportFile)
 	r.Get("/rental-export/report", h.exportReport)
+	// Available for every inventory, whatever its source format — these are
+	// what guarantee no inventory is a dead end (Slice 22).
+	r.Get("/rental-export/pdf", h.exportPDF)
+	r.Get("/rental-export/xlsx", h.exportGenericXLSX)
 }
 
-const xlsxContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+func (h RentalHandler) exportPDF(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
+	data, filename, err := service.ExportService{DB: h.DB}.BuildRentalPDF(eventID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "event not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", pdfContentType)
+	w.Header().Set("Content-Disposition", contentDisposition(filename))
+	_, _ = w.Write(data)
+}
+
+func (h RentalHandler) exportGenericXLSX(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
+	file, filename, err := service.ExportService{DB: h.DB}.BuildGenericRentalXLSX(eventID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "event not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer func() { _ = file.Close() }()
+
+	w.Header().Set("Content-Type", xlsxContentType)
+	w.Header().Set("Content-Disposition", contentDisposition(filename))
+	if err := file.Write(w); err != nil {
+		// Headers are already sent; the client sees a truncated download.
+		return
+	}
+}
 
 func (h RentalHandler) exportFile(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
@@ -41,14 +83,8 @@ func (h RentalHandler) exportFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() { _ = file.Close() }()
 
-	asciiName := strings.Map(func(r rune) rune {
-		if r < 0x20 || r > 0x7e || r == '"' {
-			return '_'
-		}
-		return r
-	}, report.Filename)
 	w.Header().Set("Content-Type", xlsxContentType)
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"; filename*=UTF-8''%s`, asciiName, url.PathEscape(report.Filename)))
+	w.Header().Set("Content-Disposition", contentDisposition(report.Filename))
 	if err := file.Write(w); err != nil {
 		// Headers are already sent; nothing sensible left to do but log-free
 		// abort — the client sees a truncated download.

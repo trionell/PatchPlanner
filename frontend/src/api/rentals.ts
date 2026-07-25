@@ -14,3 +14,9 @@ export const getRentalExportReport = (eventId: number) =>
 
 /** Plain URL for the file download — navigated to directly so the browser handles the attachment. */
 export const rentalExportUrl = (eventId: number) => `${API_BASE}/events/${eventId}/rental-export`
+
+/** PDF order — available for every inventory, however it was populated. */
+export const rentalExportPdfUrl = (eventId: number) => `${API_BASE}/events/${eventId}/rental-export/pdf`
+
+/** Plain spreadsheet order — also available for every inventory. */
+export const rentalExportXlsxUrl = (eventId: number) => `${API_BASE}/events/${eventId}/rental-export/xlsx`

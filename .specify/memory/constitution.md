@@ -1,6 +1,64 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change: 0.3.1 → 0.4.0
+Modified principles:
+  - I. Domain-First Data Model — the inventory-catalog bullet no longer
+    names LL.xlsx as *the* source. The catalog is now defined by its
+    role (the authoritative source of rentable equipment for the event
+    that binds it), with its origin — a supplier price list, a generic
+    spreadsheet, or direct entry — explicitly declared irrelevant to
+    every downstream consumer. Slice 22 makes the tool usable by
+    technicians who rent from any supplier, so hardcoding one
+    supplier's file into a core principle became actively wrong.
+  - II. Extensibility by Design — the "new inventory *categories* from
+    the LL.xlsx catalog" bullet is generalized to categories from any
+    source, including ones the user creates by hand. The substance of
+    the rule (no new endpoints or components; never branch logic on a
+    category name) is unchanged and now covers user-defined categories.
+  - IV. Inventory-Driven Rental Workflow — was written as "the export
+    MUST reproduce the LL.xlsx template format". Restructured into a
+    general obligation (every inventory MUST be exportable in a
+    supplier-neutral form) plus a conditional fidelity requirement (an
+    inventory populated from a supplier's own price-list file MUST be
+    exportable back into that exact file, and MUST NOT offer that
+    export otherwise). This strengthens rather than relaxes the old
+    rule: it adds the negative half, which is the actual new
+    invariant.
+Added sections: none (no new principles)
+Removed sections: none
+Technology Stack: added a "Documents" row naming excelize for
+  spreadsheets and a pure-Go PDF writer for the PDF rental order (the
+  first PDF generation in the project; the dependency itself is
+  justified in specs/022-generic-inventory-formats/plan.md under
+  Complexity Tracking, per Governance).
+Other corrections bundled in (both factual drift, PATCH-level on their
+own — folded into this MINOR amendment rather than deferred):
+  - Project structure block listed `inventory/LL.xlsx` as a read-only
+    input directory. That has not been true since Slice 16: price-list
+    files are per-inventory uploads stored in the database, and the
+    repo-root LL.xlsx is only a bootstrap sample. Block corrected.
+  - Development Workflow required `tsc --noEmit`, which silently checks
+    nothing against this repo's references-only root tsconfig. Changed
+    to `tsc -b`, matching the `typecheck` script CI actually runs.
+Templates checked:
+  ✅ plan-template.md — Constitution Check section is generic, no
+     hardcoded principle text to update
+  ✅ spec-template.md — no constitution references
+  ✅ tasks-template.md — no constitution references
+  ✅ checklist-template.md — no constitution references
+Follow-up required (tracked in the Slice 22 task list, not deferred
+indefinitely):
+  ⚠ PROJECT.md §1 and §2.2 still describe the catalog as sourced from
+     LL.xlsx; to be updated as part of Slice 22's documentation task.
+  ⚠ ROADMAP.md standing invariant (line 27) names "the Excel export";
+     to be reworded to cover all three export formats in the same task.
+Deferred TODOs: none
+-->
+
+<!--
+PRIOR SYNC IMPACT REPORT (0.3.0 → 0.3.1)
+==================
 Version change: 0.3.0 → 0.3.1
 Modified principles:
   - III. Full-Stack Monorepo Architecture — the single-binary-deploy
@@ -26,44 +84,6 @@ redefined.
 Deferred TODOs: none
 -->
 
-<!--
-PRIOR SYNC IMPACT REPORT (0.2.0 → 0.3.0)
-==================
-Version change: 0.2.0 → 0.3.0
-Modified principles:
-  - III. Full-Stack Monorepo Architecture — package-layout bullet now
-    names `api/middleware/` as the home for cross-cutting request
-    handling (authentication), the first subpackage of its kind in the
-    project. Also dropped a dangling "(Principle V)" cross-reference in
-    the single-binary-deploy bullet (it pointed at the "single-user"
-    clause removed from Principle V below) and replaced it with a
-    pointer to roadmap Slice 16, the actual trigger for revisiting that
-    decision.
-  - V. Pragmatic Simplicity — struck the "Authentication is out of
-    scope for v1; the tool is single-user, locally hosted" bullet
-    (factually superseded by roadmap Slice 14) and replaced it with the
-    chosen authentication approach: Google OAuth 2.0 with DB-backed
-    sessions, explicitly not JWT, explicitly not a new external
-    session-store service — framed as consistent with, not an
-    exception to, the "SQLite is the only database" rule in the same
-    principle.
-Added sections: none (no new principles)
-Removed sections: none
-Technology Stack: added an "Auth" row (Google OAuth 2.0 authorization-code
-  flow + DB-backed sessions) and added `internal/api/middleware/` to the
-  documented backend project structure.
-Templates checked:
-  ✅ plan-template.md — Constitution Check section is generic, no
-     hardcoded principle text to update
-  ✅ spec-template.md — no constitution references
-  ✅ tasks-template.md — no constitution references
-  ✅ commands/*.md — none present in this project
-  ✅ PROJECT.md §4.3 — "No authentication (v1)" architecture-decision
-     bullet updated to point at the new Slice 14 direction instead of
-     the superseded constitution line
-Deferred TODOs: none
--->
-
 # PatchPlanner Constitution
 
 ## Core Principles
@@ -78,8 +98,12 @@ real-world AVL concept (mixer channel, fixture, stagebox, DMX address, cable run
   fixture, DMX universe, power circuit, truss, etc.
 - Relationships between entities (e.g., mic → cable → stagebox → multicore → mixer channel)
   MUST be first-class, traversable connections — not free-text fields.
-- The inventory catalog (sourced from LL.xlsx) MUST be the authoritative source for rentable
-  equipment; custom/owned gear may be added as separate catalog entries.
+- An event's bound inventory catalog MUST be the authoritative source for rentable equipment
+  in that event's plans; custom/owned gear may be added as separate catalog entries. How a
+  catalog was populated — imported from a supplier's price-list file, imported from a generic
+  spreadsheet, or entered by hand — MUST be invisible to everything downstream of it: an
+  inventory item is an inventory item, and no planning, aggregation, or validation logic may
+  branch on its origin.
 - Signal-routing features (the Output and Input audio graphs) MUST model connections as an
   explicit, traversable port-and-cable graph — a shared node-zone/`PortRef`/cable convention,
   not flat foreign keys on the entity being routed. This is the established pattern any
@@ -92,11 +116,12 @@ as data, not hard-coded logic, so the system can grow without schema rewrites.
 
 - Fixture channel modes (DMX), connector types (XLR, NL4, Schuko, CEE, etc.), and cable
   types MUST be stored as configurable records, not enums in code.
-- New inventory *categories* from the LL.xlsx catalog (e.g., a new "Video Cameras" or
-  "Rigging" category appearing in the price list) MUST be addable by adding data alone —
-  they MUST NOT require new API endpoints or frontend components, since every domain
-  entity references inventory items generically (`inventory_item_id`/`category_id`) and
-  never branches logic on a category name.
+- New inventory *categories* — whether they appear in an imported price list, arrive in a
+  generic spreadsheet, or are created by the user by hand (e.g., a new "Video Cameras" or
+  "Rigging" category) — MUST be addable by adding data alone. They MUST NOT require new API
+  endpoints or frontend components, since every domain entity references inventory items
+  generically (`inventory_item_id`/`category_id`) and never branches logic on a category
+  name.
 - This does NOT extend to new domain *node kinds* in the planning data model itself (e.g.,
   a new signal-flow node type, or splitting one entity into several as Source/Channel were
   split from the old flat audio-input row) — those are structural additions and MAY require
@@ -126,14 +151,23 @@ frontend, with SQLite as the embedded database.
 
 ### IV. Inventory-Driven Rental Workflow
 
-Planning MUST be grounded in the renter's available inventory. The rental order export
-MUST reproduce the LL.xlsx template format so it can be sent directly to the renter.
+Planning MUST be grounded in the renter's available inventory, and the resulting rental
+order MUST leave the tool in a form a supplier can act on directly.
 
 - Every piece of rented equipment in a plan MUST reference an inventory item from the catalog.
 - Quantities requested in a plan MUST be validated against available stock counts from the
   inventory.
-- The export feature MUST write quantities back into the LL.xlsx template structure (same
-  row layout, columns: Antal Ljud / Antal Ljus) so the file can be submitted unmodified.
+- Every event MUST be exportable as a supplier-neutral rental order that stands on its own —
+  identifying the event, every item, its quantities, and its price — regardless of how the
+  event's inventory was populated. No inventory may be a dead end.
+- Where an inventory was populated from a supplier's own price-list file, the export MUST
+  additionally be able to reproduce that exact file with quantities written into its own
+  order columns, so it can be submitted unmodified. Conversely, an inventory not populated
+  from such a file MUST NOT offer that supplier-specific export — neither in the interface
+  nor on direct request. Fidelity to a supplier's format is earned by having imported it,
+  never assumed.
+- Lines that cannot be represented faithfully in a supplier-specific export MUST be reported
+  to the user, never silently dropped.
 - Owned or generic equipment (rigging hardware, consumables) MAY be tracked outside the
   rental catalog without export constraints.
 
@@ -168,6 +202,7 @@ Start with the simplest solution that solves the problem. Avoid speculative infr
 | Routing (FE)       | react-router-dom                                                         |
 | UI components      | To be decided per feature (prefer minimal deps)                          |
 | API style          | REST JSON (`/api/v1/...`)                                               |
+| Documents          | `xuri/excelize` for reading and writing spreadsheets; a pure-Go (CGO-free) PDF writer for the PDF rental order |
 | Auth               | Google OAuth 2.0 (authorization-code flow) + DB-backed sessions (SQLite `sessions` table + `HttpOnly` cookie) |
 | Build/deploy       | Single Go binary in production (`make build` embeds the built frontend via `go:embed`); separate dev processes locally via a Vite proxy (see Principle III) |
 | Testing (BE)       | Go standard `testing` package + `httptest`                              |
@@ -195,10 +230,13 @@ frontend/
 │   ├── lib/      # Pure functions (graph/signal-flow logic, utils)
 │   └── api/      # typed API client
 └── vite.config.ts
-
-inventory/
-└── LL.xlsx       # Source inventory file (read-only input)
 ```
+
+Inventory source files are **not** a directory in the repository. Each inventory is
+populated by a per-user upload (or by direct entry), and a supplier price-list file is
+retained in the database alongside the inventory it populated, so it can be reproduced on
+export. The repo-root `LL.xlsx` is only a bootstrap sample for the legacy single-catalog
+migration.
 
 ## Development Workflow
 
@@ -208,7 +246,9 @@ inventory/
   request/response) so the frontend can use type-safe API calls.
 - DB schema changes MUST include a migration file; no direct `ALTER TABLE` in application code.
 - `go vet` and `golangci-lint` MUST pass before merging backend changes.
-- `tsc --noEmit` and ESLint MUST pass before merging frontend changes.
+- `tsc -b` (the `typecheck` script) and ESLint MUST pass before merging frontend changes.
+  `tsc --noEmit` MUST NOT be used as the gate: the root `tsconfig.json` is references-only,
+  so `--noEmit` type-checks nothing and passes unconditionally.
 
 ## Governance
 
@@ -223,4 +263,4 @@ inventory/
 - Complexity violations (e.g., adding a new runtime dependency, adding a second database)
   MUST be documented in the relevant plan.md with rationale.
 
-**Version**: 0.3.1 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-21
+**Version**: 0.4.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-25

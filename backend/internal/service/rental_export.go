@@ -27,11 +27,13 @@ type ExportService struct {
 	DB *sql.DB
 }
 
-// ErrNoInventoryTemplate signals that the event's bound inventory has
-// never had a price-list file imported/duplicated into it, so there is
-// nothing to export into (research.md R2 — each inventory carries its
-// own template now, not one fixed server file).
-var ErrNoInventoryTemplate = errors.New("inventory has no imported price list yet")
+// ErrNoInventoryTemplate signals that the event's bound inventory was not
+// populated from an LL price list, so there is no supplier file to write
+// quantities into. Slice 22 moved this from "has no stored bytes" to "was
+// not imported from a price list": those were the same condition only
+// while the LL importer was the only thing that ever stored bytes.
+// Fidelity to a supplier's format is earned by having imported it.
+var ErrNoInventoryTemplate = errors.New("this inventory was not imported from an LL price list, so it cannot be exported to that format - use the PDF or spreadsheet export instead")
 
 // BuildRentalExport produces a copy of the event's bound inventory's
 // stored price-list template with the event's rental quantities written
@@ -48,11 +50,16 @@ func (s ExportService) BuildRentalExport(eventID int64) (*excelize.File, domain.
 		return nil, domain.RentalExportReport{}, err
 	}
 
+	inventory, err := db.GetInventory(s.DB, event.InventoryID)
+	if err != nil {
+		return nil, domain.RentalExportReport{}, fmt.Errorf("load inventory: %w", err)
+	}
 	sourceXLSX, err := db.GetInventorySourceXLSX(s.DB, event.InventoryID)
 	if err != nil {
 		return nil, domain.RentalExportReport{}, fmt.Errorf("load inventory template: %w", err)
 	}
-	if sourceXLSX == nil {
+	// Provenance decides, not the presence of bytes (research.md R1).
+	if inventory.SourceFormat != domain.SourceFormatLL || sourceXLSX == nil {
 		return nil, domain.RentalExportReport{}, ErrNoInventoryTemplate
 	}
 
@@ -95,7 +102,7 @@ func (s ExportService) BuildRentalExport(eventID int64) (*excelize.File, domain.
 	}
 
 	report := domain.RentalExportReport{
-		Filename:      exportFilename(event),
+		Filename:      exportFilename(event, ".xlsx"),
 		UnplacedLines: make([]domain.UnplacedLine, 0),
 	}
 	for _, line := range summary.Items {
@@ -184,9 +191,12 @@ func normalizeHeader(value string) string {
 
 var unsafeFilenameChars = regexp.MustCompile(`[^\p{L}\p{N} ._-]+`)
 
-// exportFilename builds "Hyrorder - {event}[ - {date}].xlsx" with characters
-// unsafe in filenames replaced.
-func exportFilename(event domain.Event) string {
+// exportFilename builds "Hyrorder - {event}[ - {date}]{suffix}" with
+// characters unsafe in filenames replaced. suffix carries the extension and
+// any disambiguator, e.g. ".pdf" or " (lista).xlsx" — the generic
+// spreadsheet needs the latter so it does not collide with the price-list
+// export in a downloads folder when an LL user takes both.
+func exportFilename(event domain.Event, suffix string) string {
 	name := unsafeFilenameChars.ReplaceAllString(event.Name, "_")
 	if name == "" {
 		name = fmt.Sprintf("Event %d", event.ID)
@@ -194,5 +204,5 @@ func exportFilename(event domain.Event) string {
 	if date := strings.TrimSpace(event.Date); date != "" {
 		name += " - " + unsafeFilenameChars.ReplaceAllString(date, "_")
 	}
-	return "Hyrorder - " + name + ".xlsx"
+	return "Hyrorder - " + name + suffix
 }

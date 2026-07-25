@@ -1,16 +1,26 @@
 import { useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Copy, Filter, Pencil, SlidersHorizontal, Trash2, Upload } from 'lucide-react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { ArrowLeft, Copy, Download, Filter, Pencil, SlidersHorizontal, Trash2, Upload } from 'lucide-react'
 import {
+  createCategory,
   createInventory,
+  createItem,
+  deleteCategory,
   deleteInventory,
+  deleteItem,
   duplicateInventory,
   importInventoryXlsx,
+  inventoryTemplateUrl,
   listCategories,
   listItems,
   listMyInventories,
   renameInventory,
+  updateCategory,
   updateCategoryPickerRole,
+  updateItem,
+  type CategoryDraft,
+  type ItemDraft,
 } from '../api/inventories'
 import { FixtureModeManager } from '../components/FixtureModeManager'
 import { OwnedGearManager } from '../components/OwnedGearManager'
@@ -24,7 +34,7 @@ import { Dialog } from '../components/ui/Dialog'
 import { Input } from '../components/ui/Input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table'
 import { Tab, TabList, TabPanel, Tabs } from '../components/ui/Tabs'
-import type { Inventory, InventoryCategory, InventoryItem } from '../types'
+import type { Inventory, InventoryCategory, InventoryImportResult, InventoryItem } from '../types'
 
 export function InventoriesPage() {
   return (
@@ -40,14 +50,40 @@ export function InventoriesPage() {
 }
 
 function MyInventories() {
-  const [selectedId, setSelectedId] = useState<number | null>(null)
+  // Which inventory is open lives in the URL, not in component state, so
+  // an inventory can be linked to directly — an event's Inventory card
+  // sends you to the actual catalog rather than to the list.
+  const { inventoryId } = useParams()
+  const navigate = useNavigate()
   const inventoriesQuery = useQuery({ queryKey: ['inventories'], queryFn: listMyInventories })
+
+  const selectedId = inventoryId ? Number(inventoryId) : null
   const selected = inventoriesQuery.data?.find((inventory) => inventory.id === selectedId)
 
-  if (selected) {
-    return <InventoryDetail inventory={selected} onBack={() => setSelectedId(null)} />
+  if (selectedId !== null) {
+    if (!inventoriesQuery.data) {
+      // Don't flash the list on a deep link while the query is in flight.
+      return <p className="text-sm text-zinc-400">Loading inventory…</p>
+    }
+    if (!selected) {
+      // A stale bookmark, or an inventory belonging to someone else.
+      return (
+        <div className="space-y-4">
+          <p className="text-sm text-zinc-400">That inventory doesn't exist, or isn't yours to manage.</p>
+          <Button size="sm" variant="ghost" onClick={() => navigate('/inventories')}>
+            <ArrowLeft className="mr-2 h-4 w-4" />Back to my inventories
+          </Button>
+        </div>
+      )
+    }
+    return <InventoryDetail inventory={selected} onBack={() => navigate('/inventories')} />
   }
-  return <InventoryList inventories={inventoriesQuery.data ?? []} onSelect={setSelectedId} />
+  return (
+    <InventoryList
+      inventories={inventoriesQuery.data ?? []}
+      onSelect={(id) => navigate(`/inventories/${id}`)}
+    />
+  )
 }
 
 function InventoryList({ inventories, onSelect }: { inventories: Inventory[]; onSelect: (id: number) => void }) {
@@ -153,6 +189,13 @@ function InventoryList({ inventories, onSelect }: { inventories: Inventory[]; on
   )
 }
 
+// Equipment types are a fixed set because planning dropdowns branch on
+// them; category names are free-form.
+const CATEGORY_TYPES: InventoryCategory['category_type'][] = ['audio', 'lighting', 'rigging', 'video', 'misc']
+
+const emptyCategoryDraft: CategoryDraft = { name: '', category_type: 'audio' }
+const emptyItemDraft: ItemDraft = { category_id: 0, name: '', description: '', quantity_available: 0, price_ex_vat: 0 }
+
 function InventoryDetail({ inventory, onBack }: { inventory: Inventory; onBack: () => void }) {
   const inventoryId = inventory.id
   const isMobile = useIsMobile()
@@ -160,8 +203,13 @@ function InventoryDetail({ inventory, onBack }: { inventory: Inventory; onBack: 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>()
   const [message, setMessage] = useState('')
+  const [pageError, setPageError] = useState('')
   const [modesItem, setModesItem] = useState<InventoryItem | null>(null)
   const [categoryFilterOpen, setCategoryFilterOpen] = useState(false)
+  const [categoryDraft, setCategoryDraft] = useState<CategoryDraft>(emptyCategoryDraft)
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null)
+  const [itemDraft, setItemDraft] = useState<ItemDraft>(emptyItemDraft)
+  const [editingItemId, setEditingItemId] = useState<number | null>(null)
 
   const categoriesQuery = useQuery({ queryKey: ['inventory-categories', inventoryId], queryFn: () => listCategories(inventoryId) })
   const itemsQuery = useQuery({
@@ -169,16 +217,29 @@ function InventoryDetail({ inventory, onBack }: { inventory: Inventory; onBack: 
     queryFn: () => listItems(inventoryId, selectedCategoryId ? { categoryId: selectedCategoryId } : undefined),
   })
 
+  // Reporting failures matters: a rejected import comes back naming the
+  // offending sheet rows, which is useless unless shown.
+  const onImportError = (mutationError: Error) => {
+    setMessage('')
+    setPageError(mutationError.message)
+  }
+
   const importMutation = useMutation({
     mutationFn: (file: File) => importInventoryXlsx(inventoryId, file),
-    onSuccess: async (result) => {
-      setMessage(`Imported ${result.categories_imported} categories and ${result.items_imported} items.`)
+    onSuccess: async (result: InventoryImportResult) => {
+      setPageError('')
+      // Name the detected format so the user can confirm the
+      // auto-detection read their file the way they expected.
+      const detected = result.format === 'll' ? ' from the LL price list' : result.format === 'generic' ? ' from the generic list' : ''
+      const warnings = result.warnings?.length ? ` ${result.warnings.join(' ')}` : ''
+      setMessage(`Imported ${result.categories_imported} categories and ${result.items_imported} items${detected}.${warnings}`)
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['inventory-categories', inventoryId] }),
         queryClient.invalidateQueries({ queryKey: ['inventory-items', inventoryId] }),
         queryClient.invalidateQueries({ queryKey: ['inventories'] }),
       ])
     },
+    onError: onImportError,
   })
   const roleMutation = useMutation({
     mutationFn: ({ categoryId, role }: { categoryId: number; role: 'cable' | 'stand' | 'truss' | null }) =>
@@ -189,7 +250,84 @@ function InventoryDetail({ inventory, onBack }: { inventory: Inventory; onBack: 
         queryClient.invalidateQueries({ queryKey: ['inventory-items', inventoryId] }),
       ])
     },
+    onError: onImportError,
   })
+
+  // ---- Manual catalog management (Slice 22) ----
+  const refreshCatalog = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['inventory-categories', inventoryId] }),
+      queryClient.invalidateQueries({ queryKey: ['inventory-items', inventoryId] }),
+    ])
+  }
+  const onCrudError = (mutationError: Error) => {
+    setMessage('')
+    setPageError(mutationError.message)
+  }
+
+  const saveCategoryMutation = useMutation({
+    mutationFn: () =>
+      editingCategoryId === null
+        ? createCategory(inventoryId, categoryDraft)
+        : updateCategory(inventoryId, editingCategoryId, categoryDraft),
+    onSuccess: async () => {
+      setPageError('')
+      setCategoryDraft(emptyCategoryDraft)
+      setEditingCategoryId(null)
+      await refreshCatalog()
+    },
+    onError: onCrudError,
+  })
+  const deleteCategoryMutation = useMutation({
+    mutationFn: (categoryId: number) => deleteCategory(inventoryId, categoryId),
+    onSuccess: async () => {
+      setPageError('')
+      await refreshCatalog()
+    },
+    onError: onCrudError,
+  })
+  const saveItemMutation = useMutation({
+    mutationFn: () =>
+      editingItemId === null ? createItem(inventoryId, itemDraft) : updateItem(inventoryId, editingItemId, itemDraft),
+    onSuccess: async () => {
+      setPageError('')
+      setItemDraft(emptyItemDraft)
+      setEditingItemId(null)
+      await refreshCatalog()
+    },
+    onError: onCrudError,
+  })
+  const deleteItemMutation = useMutation({
+    mutationFn: (itemId: number) => deleteItem(inventoryId, itemId),
+    onSuccess: async () => {
+      setPageError('')
+      await refreshCatalog()
+    },
+    onError: onCrudError,
+  })
+
+  const startCategoryEdit = (category: InventoryCategory) => {
+    setEditingCategoryId(category.id)
+    setCategoryDraft({ name: category.name, category_type: category.category_type })
+  }
+  const startItemEdit = (item: InventoryItem) => {
+    setEditingItemId(item.id)
+    setItemDraft({
+      category_id: item.category_id,
+      name: item.name,
+      description: item.description ?? '',
+      quantity_available: item.quantity_available,
+      price_ex_vat: item.price_ex_vat,
+    })
+  }
+  // The backend refuses a delete that would orphan plan references or
+  // items, so this confirm is about intent, not safety.
+  const confirmDeleteCategory = (category: InventoryCategory) => {
+    if (window.confirm(`Delete the category "${category.name}"?`)) deleteCategoryMutation.mutate(category.id)
+  }
+  const confirmDeleteItem = (item: InventoryItem) => {
+    if (window.confirm(`Delete "${item.name}" from this inventory?`)) deleteItemMutation.mutate(item.id)
+  }
 
   const selectedCategory = useMemo(
     () => categoriesQuery.data?.find((category: InventoryCategory) => category.id === selectedCategoryId),
@@ -205,7 +343,7 @@ function InventoryDetail({ inventory, onBack }: { inventory: Inventory; onBack: 
           </Button>
           <h2 className="text-lg font-semibold text-zinc-100">{inventory.name}</h2>
         </div>
-        <div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <input
             ref={fileInputRef}
             type="file"
@@ -217,13 +355,26 @@ function InventoryDetail({ inventory, onBack }: { inventory: Inventory; onBack: 
               e.target.value = ''
             }}
           />
-          <Button onClick={() => fileInputRef.current?.click()} disabled={importMutation.isPending}>
+          <Button variant="ghost" onClick={() => window.location.assign(inventoryTemplateUrl())}>
+            <Download className="mr-2 h-4 w-4" />
+            Template
+          </Button>
+          {/* One button for every supported format — the server detects
+              which one the file is. */}
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importMutation.isPending}
+            title="Import an LL price list or a generic list — the format is detected automatically"
+          >
             <Upload className="mr-2 h-4 w-4" />
-            {importMutation.isPending ? 'Importing...' : 'Import price list (.xlsx)'}
+            {importMutation.isPending ? 'Importing...' : 'Import (.xlsx)'}
           </Button>
         </div>
       </div>
       {message && <p className="text-sm text-emerald-400">{message}</p>}
+      {pageError && (
+        <p className="rounded-md border border-red-900 bg-red-950/40 px-3 py-2 text-sm text-red-300">{pageError}</p>
+      )}
 
       <div className={isMobile ? 'space-y-3' : 'grid gap-6 lg:grid-cols-[320px,1fr]'}>
         {isMobile ? (
@@ -319,12 +470,73 @@ function InventoryDetail({ inventory, onBack }: { inventory: Inventory; onBack: 
                       <option value="stand">Stand</option>
                       <option value="truss">Truss</option>
                     </select>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => startCategoryEdit(category)}
+                        title="Rename or retype"
+                        className="text-zinc-500 hover:text-zinc-200"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => confirmDeleteCategory(category)}
+                        title="Delete category"
+                        className="text-zinc-500 hover:text-red-400"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
               {(categoriesQuery.data ?? []).length === 0 && (
-                <p className="text-sm text-zinc-500">No categories yet — import a price list above to get started.</p>
+                <p className="text-sm text-zinc-500">No categories yet — import a list above, or add one below.</p>
               )}
+
+              <div className="space-y-2 border-t border-zinc-800 pt-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                  {editingCategoryId === null ? 'Add category' : 'Edit category'}
+                </p>
+                <Input
+                  value={categoryDraft.name}
+                  onChange={(e) => setCategoryDraft({ ...categoryDraft, name: e.target.value })}
+                  placeholder="Category name"
+                />
+                <select
+                  value={categoryDraft.category_type}
+                  onChange={(e) =>
+                    setCategoryDraft({ ...categoryDraft, category_type: e.target.value as InventoryCategory['category_type'] })
+                  }
+                  className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm text-zinc-200"
+                >
+                  {CATEGORY_TYPES.map((type) => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => saveCategoryMutation.mutate()}
+                    disabled={!categoryDraft.name.trim() || saveCategoryMutation.isPending}
+                  >
+                    {editingCategoryId === null ? 'Add' : 'Save'}
+                  </Button>
+                  {editingCategoryId !== null && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setEditingCategoryId(null)
+                        setCategoryDraft(emptyCategoryDraft)
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  )}
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -353,37 +565,121 @@ function InventoryDetail({ inventory, onBack }: { inventory: Inventory; onBack: 
                 {(itemsQuery.data ?? []).length === 0 && <p className="px-1 py-2 text-sm text-zinc-500">No items in this category yet.</p>}
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Item</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Qty</TableHead>
-                      <TableHead>Price ex VAT</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(itemsQuery.data ?? []).map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium">{item.name}</TableCell>
-                        <TableCell className="text-zinc-400">{item.description || '—'}</TableCell>
-                        <TableCell>{item.quantity_available}</TableCell>
-                        <TableCell>{item.price_ex_vat.toFixed(2)}</TableCell>
-                        <TableCell>{item.category_name}</TableCell>
-                        <TableCell>
-                          {item.category_type === 'lighting' && (
-                            <Button size="sm" variant="ghost" title="DMX modes" onClick={() => setModesItem(item)}>
-                              <SlidersHorizontal className="mr-1 h-4 w-4" />Modes
-                            </Button>
-                          )}
-                        </TableCell>
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-end gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
+                  <div className="min-w-[10rem] flex-1">
+                    <label className="mb-1 block text-xs text-zinc-500">Category</label>
+                    <select
+                      value={itemDraft.category_id || ''}
+                      onChange={(e) => setItemDraft({ ...itemDraft, category_id: Number(e.target.value) })}
+                      className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm text-zinc-200"
+                    >
+                      <option value="">Select…</option>
+                      {(categoriesQuery.data ?? []).map((category) => (
+                        <option key={category.id} value={category.id}>{category.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="min-w-[10rem] flex-1">
+                    <label className="mb-1 block text-xs text-zinc-500">Name</label>
+                    <Input
+                      value={itemDraft.name}
+                      onChange={(e) => setItemDraft({ ...itemDraft, name: e.target.value })}
+                      placeholder="e.g. Shure SM58"
+                    />
+                  </div>
+                  <div className="min-w-[10rem] flex-1">
+                    <label className="mb-1 block text-xs text-zinc-500">Description</label>
+                    <Input
+                      value={itemDraft.description}
+                      onChange={(e) => setItemDraft({ ...itemDraft, description: e.target.value })}
+                      placeholder="optional"
+                    />
+                  </div>
+                  <div className="w-24">
+                    <label className="mb-1 block text-xs text-zinc-500">Qty</label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={itemDraft.quantity_available}
+                      onChange={(e) => setItemDraft({ ...itemDraft, quantity_available: Math.max(0, Number(e.target.value)) })}
+                    />
+                  </div>
+                  <div className="w-28">
+                    <label className="mb-1 block text-xs text-zinc-500">Price ex VAT</label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={itemDraft.price_ex_vat}
+                      onChange={(e) => setItemDraft({ ...itemDraft, price_ex_vat: Math.max(0, Number(e.target.value)) })}
+                    />
+                  </div>
+                  <Button
+                    onClick={() => saveItemMutation.mutate()}
+                    disabled={!itemDraft.name.trim() || !itemDraft.category_id || saveItemMutation.isPending}
+                  >
+                    {editingItemId === null ? 'Add item' : 'Save changes'}
+                  </Button>
+                  {editingItemId !== null && (
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setEditingItemId(null)
+                        setItemDraft(emptyItemDraft)
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  )}
+                </div>
+
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Item</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Qty</TableHead>
+                        <TableHead>Price ex VAT</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead></TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {(itemsQuery.data ?? []).map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-medium">
+                            {item.name}
+                            {item.is_manual && (
+                              <span className="ml-2 text-xs font-normal text-zinc-500" title="Added by hand — imports leave it alone">
+                                manual
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-zinc-400">{item.description || '—'}</TableCell>
+                          <TableCell>{item.quantity_available}</TableCell>
+                          <TableCell>{item.price_ex_vat.toFixed(2)}</TableCell>
+                          <TableCell>{item.category_name}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center justify-end gap-1">
+                              {item.category_type === 'lighting' && (
+                                <Button size="sm" variant="ghost" title="DMX modes" onClick={() => setModesItem(item)}>
+                                  <SlidersHorizontal className="mr-1 h-4 w-4" />Modes
+                                </Button>
+                              )}
+                              <Button size="sm" variant="ghost" title="Edit item" onClick={() => startItemEdit(item)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button size="sm" variant="ghost" title="Delete item" onClick={() => confirmDeleteItem(item)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             )}
           </CardContent>

@@ -36,8 +36,9 @@ export function EventInventoryCard({ eventId }: { eventId: number }) {
             {inventoryQuery.data?.sourceFilename ? `Imported from ${inventoryQuery.data.sourceFilename}` : 'No price list imported yet'}
           </div>
         </div>
-        {owns ? (
-          <Link to="/inventories">
+        {owns && inventoryQuery.data ? (
+          // Straight to this event's own inventory, not the list.
+          <Link to={`/inventories/${inventoryQuery.data.id}`}>
             <Button size="sm" variant="secondary">
               <ExternalLink className="mr-2 h-4 w-4" />Manage
             </Button>

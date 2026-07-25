@@ -4,9 +4,16 @@ package domain
 // merged totals of everything the plan references plus the manual share,
 // which is also broken out separately so it can be edited in place.
 type EventRental struct {
-	InventoryItemID        int64   `json:"inventory_item_id"`
-	InventoryItemName      string  `json:"inventory_item_name,omitempty"`
-	Description            string  `json:"description,omitempty"`
+	InventoryItemID   int64  `json:"inventory_item_id"`
+	InventoryItemName string `json:"inventory_item_name,omitempty"`
+	Description       string `json:"description,omitempty"`
+	// Category fields (Slice 22) let the PDF and spreadsheet exports group
+	// lines without a second query. They are purely additive: the summary's
+	// own ORDER BY is unchanged, so the on-screen table and the captured
+	// rental baseline keep their existing flat, name-sorted order.
+	CategoryID             int64   `json:"category_id,omitempty"`
+	CategoryName           string  `json:"category_name,omitempty"`
+	CategoryType           string  `json:"category_type,omitempty"`
 	QuantityAudio          int     `json:"quantity_audio"`
 	QuantityLighting       int     `json:"quantity_lighting"`
 	TotalQuantity          int     `json:"total_quantity"`

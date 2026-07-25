@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/trionell/patchplanner/internal/api/middleware"
@@ -22,6 +24,9 @@ type InventoriesHandler struct {
 func (h InventoriesHandler) Register(r chi.Router) {
 	r.Get("/inventories", h.listMine)
 	r.Post("/inventories", h.create)
+	// Not inventory-scoped: the blank template is the same for everyone,
+	// and a user needs it before they have anything to import into.
+	r.Get("/inventory-template.xlsx", h.downloadTemplate)
 }
 
 // RegisterOwned wires the owner-only management routes inside the shared
@@ -32,8 +37,16 @@ func (h InventoriesHandler) RegisterOwned(r chi.Router) {
 	r.Delete("/", h.delete)
 	r.Post("/duplicate", h.duplicate)
 	r.Get("/categories", h.listCategories)
-	r.Patch("/categories/{categoryID}", h.updateCategoryPickerRole)
+	r.Post("/categories", h.createCategory)
+	r.Patch("/categories/{categoryID}", h.updateCategory)
+	r.Delete("/categories/{categoryID}", h.deleteCategory)
 	r.Get("/items", h.listItems)
+	r.Post("/items", h.createItem)
+	r.Patch("/items/{itemID}", h.updateItem)
+	r.Delete("/items/{itemID}", h.deleteItem)
+	// One route for every supported spreadsheet format; the service works
+	// out which one it was handed. Users have one file and one Import
+	// button, not a format they must classify first.
 	r.Post("/import-xlsx", h.importXLSX)
 	r.Get("/items/{itemID}/fixture-modes", h.listFixtureModes)
 	r.Post("/items/{itemID}/fixture-modes", h.createFixtureMode)
@@ -158,7 +171,54 @@ func (h InventoriesHandler) listCategories(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, http.StatusOK, categories)
 }
 
-func (h InventoriesHandler) updateCategoryPickerRole(w http.ResponseWriter, r *http.Request) {
+// validCategoryTypes mirrors the inventory_categories.category_type CHECK
+// constraint. Types are fixed (planning dropdowns key on them) while
+// category names are free-form.
+var validCategoryTypes = map[string]bool{"audio": true, "lighting": true, "rigging": true, "video": true, "misc": true}
+
+func validPickerRole(role string) bool {
+	return role == "" || role == "cable" || role == "stand" || role == "truss"
+}
+
+func (h InventoriesHandler) createCategory(w http.ResponseWriter, r *http.Request) {
+	inventoryID, ok := parseID(w, chi.URLParam(r, "inventoryID"))
+	if !ok {
+		return
+	}
+	var payload domain.InventoryCategoryRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	payload.Name = strings.TrimSpace(payload.Name)
+	if payload.Name == "" {
+		writeError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	if !validCategoryTypes[payload.CategoryType] {
+		writeError(w, http.StatusBadRequest, "invalid category_type: must be 'audio', 'lighting', 'rigging', 'video' or 'misc'")
+		return
+	}
+	if !validPickerRole(payload.PickerRole) {
+		writeError(w, http.StatusBadRequest, "invalid picker_role: must be 'cable', 'stand', 'truss', or empty")
+		return
+	}
+	category, err := dbstore.CreateInventoryCategory(h.DB, inventoryID, payload.Name, payload.CategoryType, payload.PickerRole)
+	if err != nil {
+		if errors.Is(err, dbstore.ErrDuplicate) {
+			writeError(w, http.StatusConflict, fmt.Sprintf("a category named %q already exists in this inventory", payload.Name))
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusCreated, category)
+}
+
+// updateCategory applies a partial update. It subsumes the picker-role-only
+// PATCH this route used to be, so existing callers sending just
+// {"picker_role": ...} keep working unchanged.
+func (h InventoriesHandler) updateCategory(w http.ResponseWriter, r *http.Request) {
 	inventoryID, ok := parseID(w, chi.URLParam(r, "inventoryID"))
 	if !ok {
 		return
@@ -167,22 +227,95 @@ func (h InventoriesHandler) updateCategoryPickerRole(w http.ResponseWriter, r *h
 	if !ok {
 		return
 	}
-	var payload struct {
-		PickerRole *string `json:"picker_role"`
-	}
+	var payload domain.InventoryCategoryPatch
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json body")
 		return
 	}
-	role := ""
-	if payload.PickerRole != nil {
-		role = *payload.PickerRole
+	if payload.Name != nil {
+		trimmed := strings.TrimSpace(*payload.Name)
+		if trimmed == "" {
+			writeError(w, http.StatusBadRequest, "name cannot be empty")
+			return
+		}
+		payload.Name = &trimmed
 	}
-	if role != "" && role != "cable" && role != "stand" && role != "truss" {
+	if payload.CategoryType != nil && !validCategoryTypes[*payload.CategoryType] {
+		writeError(w, http.StatusBadRequest, "invalid category_type: must be 'audio', 'lighting', 'rigging', 'video' or 'misc'")
+		return
+	}
+	// A null picker_role means "clear it", which is how the existing
+	// picker-role UI turns a role off; both null and "" reach the store as "".
+	if payload.PickerRole == nil {
+		empty := ""
+		payload.PickerRole = &empty
+	}
+	if !validPickerRole(*payload.PickerRole) {
 		writeError(w, http.StatusBadRequest, "invalid picker_role: must be 'cable', 'stand', 'truss', or null")
 		return
 	}
-	category, err := dbstore.UpdateCategoryPickerRole(h.DB, inventoryID, categoryID, role)
+	category, err := dbstore.UpdateInventoryCategory(h.DB, inventoryID, categoryID, payload.Name, payload.CategoryType, payload.PickerRole)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			writeError(w, http.StatusNotFound, "inventory category not found")
+		case errors.Is(err, dbstore.ErrDuplicate):
+			writeError(w, http.StatusConflict, "a category with that name already exists in this inventory")
+		default:
+			writeError(w, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, category)
+}
+
+func (h InventoriesHandler) deleteCategory(w http.ResponseWriter, r *http.Request) {
+	inventoryID, ok := parseID(w, chi.URLParam(r, "inventoryID"))
+	if !ok {
+		return
+	}
+	categoryID, ok := parseID(w, chi.URLParam(r, "categoryID"))
+	if !ok {
+		return
+	}
+	if err := dbstore.DeleteInventoryCategory(h.DB, inventoryID, categoryID); err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			writeError(w, http.StatusNotFound, "inventory category not found")
+		case errors.Is(err, dbstore.ErrInUse):
+			writeError(w, http.StatusConflict, err.Error())
+		default:
+			writeError(w, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h InventoriesHandler) createItem(w http.ResponseWriter, r *http.Request) {
+	inventoryID, ok := parseID(w, chi.URLParam(r, "inventoryID"))
+	if !ok {
+		return
+	}
+	var payload domain.InventoryItemRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	payload.Name = strings.TrimSpace(payload.Name)
+	if payload.Name == "" {
+		writeError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	if payload.CategoryID == 0 {
+		writeError(w, http.StatusBadRequest, "category_id is required")
+		return
+	}
+	if payload.QuantityAvailable < 0 || payload.PriceExVAT < 0 {
+		writeError(w, http.StatusBadRequest, "quantity_available and price_ex_vat cannot be negative")
+		return
+	}
+	item, err := dbstore.CreateInventoryItem(h.DB, inventoryID, payload)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			writeError(w, http.StatusNotFound, "inventory category not found")
@@ -191,7 +324,68 @@ func (h InventoriesHandler) updateCategoryPickerRole(w http.ResponseWriter, r *h
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, category)
+	writeJSON(w, http.StatusCreated, item)
+}
+
+func (h InventoriesHandler) updateItem(w http.ResponseWriter, r *http.Request) {
+	inventoryID, ok := parseID(w, chi.URLParam(r, "inventoryID"))
+	if !ok {
+		return
+	}
+	itemID, ok := h.requireInventoryItem(w, r, inventoryID)
+	if !ok {
+		return
+	}
+	var payload domain.InventoryItemPatch
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if payload.Name != nil {
+		trimmed := strings.TrimSpace(*payload.Name)
+		if trimmed == "" {
+			writeError(w, http.StatusBadRequest, "name cannot be empty")
+			return
+		}
+		payload.Name = &trimmed
+	}
+	if (payload.QuantityAvailable != nil && *payload.QuantityAvailable < 0) || (payload.PriceExVAT != nil && *payload.PriceExVAT < 0) {
+		writeError(w, http.StatusBadRequest, "quantity_available and price_ex_vat cannot be negative")
+		return
+	}
+	item, err := dbstore.UpdateInventoryItem(h.DB, inventoryID, itemID, payload)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "inventory item not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
+}
+
+func (h InventoriesHandler) deleteItem(w http.ResponseWriter, r *http.Request) {
+	inventoryID, ok := parseID(w, chi.URLParam(r, "inventoryID"))
+	if !ok {
+		return
+	}
+	itemID, ok := h.requireInventoryItem(w, r, inventoryID)
+	if !ok {
+		return
+	}
+	if err := dbstore.DeleteInventoryItem(h.DB, inventoryID, itemID); err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			writeError(w, http.StatusNotFound, "inventory item not found")
+		case errors.Is(err, dbstore.ErrInUse):
+			writeError(w, http.StatusConflict, err.Error())
+		default:
+			writeError(w, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h InventoriesHandler) listItems(w http.ResponseWriter, r *http.Request) {
@@ -236,12 +430,40 @@ func (h InventoriesHandler) importXLSX(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() { _ = file.Close() }()
 
-	result, err := service.InventoryService{DB: h.DB}.ImportFromXLSX(inventoryID, header.Filename, file)
+	// Format detection happens in the service; validation failures are the
+	// user's to fix, so they come back as 400 naming the offending sheet
+	// rows rather than as an opaque 500.
+	result, err := service.InventoryService{DB: h.DB}.Import(inventoryID, header.Filename, file)
 	if err != nil {
+		var validation service.ImportValidationError
+		if errors.As(err, &validation) {
+			writeError(w, http.StatusBadRequest, validation.Error())
+			return
+		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+// downloadTemplate serves the blank generic-format template. It is not
+// inventory-scoped — the file is identical for everyone, and a user needs
+// it before they have anything to import into.
+func (h InventoriesHandler) downloadTemplate(w http.ResponseWriter, _ *http.Request) {
+	file, err := service.BuildInventoryTemplate()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer func() { _ = file.Close() }()
+
+	w.Header().Set("Content-Type", xlsxContentType)
+	w.Header().Set("Content-Disposition", contentDisposition(service.TemplateFilename))
+	if err := file.Write(w); err != nil {
+		// Headers are already sent, so the only useful thing left is to
+		// stop writing; the client sees a truncated download.
+		return
+	}
 }
 
 // requireInventoryItem validates itemID both exists and belongs to

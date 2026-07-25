@@ -21,6 +21,9 @@ export default function App() {
             <Route path="events" element={<EventsPage />} />
             <Route path="events/:id" element={<EventDetailPage />} />
             <Route path="inventories" element={<InventoriesPage />} />
+            {/* A picked inventory is addressable, so it can be linked to
+                directly (e.g. from an event's Inventory card). */}
+            <Route path="inventories/:inventoryId" element={<InventoriesPage />} />
             <Route path="my-defaults" element={<MyDefaultsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
