@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Copy, Download, Filter, Pencil, SlidersHorizontal, Trash2, Upload } from 'lucide-react'
 import {
   createCategory,
@@ -49,14 +50,40 @@ export function InventoriesPage() {
 }
 
 function MyInventories() {
-  const [selectedId, setSelectedId] = useState<number | null>(null)
+  // Which inventory is open lives in the URL, not in component state, so
+  // an inventory can be linked to directly — an event's Inventory card
+  // sends you to the actual catalog rather than to the list.
+  const { inventoryId } = useParams()
+  const navigate = useNavigate()
   const inventoriesQuery = useQuery({ queryKey: ['inventories'], queryFn: listMyInventories })
+
+  const selectedId = inventoryId ? Number(inventoryId) : null
   const selected = inventoriesQuery.data?.find((inventory) => inventory.id === selectedId)
 
-  if (selected) {
-    return <InventoryDetail inventory={selected} onBack={() => setSelectedId(null)} />
+  if (selectedId !== null) {
+    if (!inventoriesQuery.data) {
+      // Don't flash the list on a deep link while the query is in flight.
+      return <p className="text-sm text-zinc-400">Loading inventory…</p>
+    }
+    if (!selected) {
+      // A stale bookmark, or an inventory belonging to someone else.
+      return (
+        <div className="space-y-4">
+          <p className="text-sm text-zinc-400">That inventory doesn't exist, or isn't yours to manage.</p>
+          <Button size="sm" variant="ghost" onClick={() => navigate('/inventories')}>
+            <ArrowLeft className="mr-2 h-4 w-4" />Back to my inventories
+          </Button>
+        </div>
+      )
+    }
+    return <InventoryDetail inventory={selected} onBack={() => navigate('/inventories')} />
   }
-  return <InventoryList inventories={inventoriesQuery.data ?? []} onSelect={setSelectedId} />
+  return (
+    <InventoryList
+      inventories={inventoriesQuery.data ?? []}
+      onSelect={(id) => navigate(`/inventories/${id}`)}
+    />
+  )
 }
 
 function InventoryList({ inventories, onSelect }: { inventories: Inventory[]; onSelect: (id: number) => void }) {
