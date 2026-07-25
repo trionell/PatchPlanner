@@ -17,7 +17,7 @@ Today, most working technicians solve this with a combination of spreadsheets, h
 
 ### Who It Is For
 
-PatchPlanner is built for **freelance and small-team AVL technicians** who plan and execute live events — concerts, corporate productions, theatre, festivals — and who regularly rent equipment from the same supplier. The initial target is a single technician who rents from a specific Swedish supplier whose inventory is provided as an Excel price list (`LL.xlsx`).
+PatchPlanner is built for **freelance and small-team AVL technicians** who plan and execute live events — concerts, corporate productions, theatre, festivals — and who regularly rent equipment. The tool was originally built around a specific Swedish supplier whose inventory is provided as an Excel price list (`LL.xlsx`), and still reproduces that file exactly on export. Since Slice 22 it is supplier-agnostic: a catalog can equally come from a generic spreadsheet or be typed in by hand, and every event can be exported as a PDF or plain spreadsheet order regardless of where its catalog came from.
 
 ### The Core Value Proposition
 
@@ -42,13 +42,15 @@ The top-level organizing unit. Each event represents a single production (gig, s
 
 ### 2.2 Inventory Catalog
 
-The equipment catalog is sourced directly from the renter's `LL.xlsx` price list.
+An inventory is an owned catalog of rentable equipment. It can be populated three ways, and how it was populated is recorded on the inventory itself (`source_format`) because that is what decides which export formats it offers.
 
-- **Import**: A single API call (or button click) parses the `"Prislista LL"` sheet and upserts all items into the local database. The import is non-destructive: matched items keep their identity (and all plan references), items missing from the new list are flagged *discontinued* rather than deleted, and a failed import rolls back completely.
-- **308 items** across **27 categories** are imported: microphones, line boxes, IEM systems, mixers, amplifiers, speakers, stageboxes, stage multicores, cables, lighting fixtures, dimmers, DMX equipment, smoke machines, truss, rigging hardware, power distribution, and more.
-- Categories are classified by type (`audio`, `lighting`, `rigging`) using keyword matching on the category name.
-- Each item carries: name, description, available quantity, and ex-VAT price.
-- The inventory page allows browsing all categories and items with type filtering.
+**Price-list import (`LL.xlsx`).** A single API call (or button click) parses the `"Prislista LL"` sheet and upserts all items. **308 items** across **27 categories**: microphones, line boxes, IEM systems, mixers, amplifiers, speakers, stageboxes, stage multicores, cables, lighting fixtures, dimmers, DMX equipment, smoke machines, truss, rigging hardware, power distribution, and more. Categories are classified by type (`audio`, `lighting`, `rigging`) via keyword matching on the Swedish category name. The uploaded file is retained so the rental order can be written back into it.
+
+**Generic spreadsheet import (Slice 22).** A supplier-agnostic format: one flat sheet, one item per row, columns `Category | Type | Name | Description | Quantity | Price (ex VAT)`. Columns are located by heading text (with aliases) rather than by position, so users can reorder them and keep working columns of their own; unrecognised columns are ignored. A blank `Type` defaults to `audio`; an unrecognised one is an error. A file with any problem imports nothing and reports every offending sheet row at once. A blank template is generated on demand with a frozen header row, a `Type` drop-list, and a worked-example sheet the importer never reads — a round-trip test keeps the template and the parser from drifting apart.
+
+**By hand (Slice 22).** Categories and items can be created, edited and deleted directly on any inventory, imported or not. Hand-entered items are flagged `is_manual` and are invisible to imports: they are excluded from both the discontinue sweep *and* the name-matching pool, so an import can neither retire them nor overwrite one that shares a name with a row in the file. Deleting an item referenced by any plan is refused with its reference count; deleting a non-empty category is refused.
+
+Common to all three: the import is non-destructive — matched items keep their identity (and all plan references), items missing from the new list are flagged *discontinued* rather than deleted, and a failed import rolls back completely. Each item carries name, description, available quantity, and ex-VAT price. The inventory page browses all categories and items with type filtering.
 
 ### 2.3 Stagebox and Stage Multi Management
 
@@ -135,6 +137,7 @@ Per-event rental summary, derived automatically from the planning data.
 - Displays unit price (ex-VAT) and line subtotal for each item.
 - Grand total ex-VAT for the entire event.
 - The rental order tab updates in real-time as planning data changes — no manual assembly needed.
+- **Three export formats** (Slice 22). The `LL.xlsx` export is offered only for inventories actually imported from that price list — hidden in the UI and refused by the API otherwise. Every inventory, however it was populated, additionally exports a **PDF order** (grouped by category with per-category subtotals, unit prices, a grand total ex-VAT, over-stock markers explained in a footnote, and repeating column headers across pages) and a **plain spreadsheet order**.
 
 ---
 
@@ -178,7 +181,13 @@ Shipped as part of `018-deployment`: `make build` compiles the frontend, copies 
 
 Shipped as the `003-equipment-lists` feature: a separate owned-gear catalog (Inventory page → Owned gear) with per-event planning lines on the Equipment tab. Owned gear lives in its own tables, so it can never appear on the rental order or in the export — isolation is guaranteed by construction and locked in by tests. Over-planned lines (more than you own) are flagged.
 
-### 3.10 Multi-Event and Tour Planning
+### 3.10 Supplier-Agnostic Catalogs and PDF Orders — ✅ implemented (2026-07-25, Slice 22)
+
+Shipped as `022-generic-inventory-formats`. The tool no longer depends on one supplier's price list: a catalog can come from a generic spreadsheet (with a downloadable template) or be typed in by hand, and every event exports as a category-grouped PDF and a plain spreadsheet in addition to the price-list file. The `LL.xlsx` export became conditional on provenance — an inventory earns it by having imported that file, and is refused it otherwise. See §2.2 and §2.7.
+
+The one behavioural subtlety worth remembering: `UpsertInventory` presumes every item gone before reviving whatever the file contains. Hand-entered items are excluded from that sweep *and* from the name-matching pool; without the second exclusion an imported row would adopt a same-named hand-entered row and silently overwrite its price and quantity.
+
+### 3.11 Multi-Event and Tour Planning
 
 For recurring productions or multi-day tours using the same rig, there is no way to clone an event's planning data or create a template. This would reduce repetitive data entry significantly.
 
@@ -198,7 +207,8 @@ For recurring productions or multi-day tours using the same rig, there is no way
 | `github.com/go-chi/cors` | CORS middleware for allowing the Vite dev server origin during development |
 | `modernc.org/sqlite` | Pure-Go SQLite driver — **no CGO required**, simplifying builds on all platforms |
 | `github.com/golang-migrate/migrate/v4` | Versioned database migrations applied automatically on startup |
-| `github.com/xuri/excelize/v2` | Excel file parsing for reading `LL.xlsx` and (future) writing the rental order export |
+| `github.com/xuri/excelize/v2` | Excel reading and writing: both importers, the blank inventory template, the price-list export, and the generic spreadsheet order |
+| `github.com/go-pdf/fpdf` | PDF rental order (Slice 22). Pure Go, no CGO. Uses built-in Helvetica with a cp1252 translator, so no font files are embedded — which means **every glyph drawn must be cp1252-representable** (`å ä ö é` yes; `▲`, en dash, `·` no). Adds six modules to `go.mod` but only one to the binary: the rest back optional barcode/template subpackages that are never imported |
 
 **Why `modernc.org/sqlite` instead of `mattn/go-sqlite3`:** The mattn driver requires CGO, which complicates cross-compilation (especially to Windows from Linux) and adds a C toolchain requirement for anyone building the project. The modernc pure-Go implementation avoids this entirely at a negligible performance cost for this workload.
 

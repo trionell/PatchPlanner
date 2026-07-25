@@ -1,8 +1,16 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Cable, Plus, Trash2 } from 'lucide-react'
-import { listEventInventoryItems } from '../../api/inventory'
-import { deleteManualRental, getRentalExportReport, getRentalSummary, putManualRental, rentalExportUrl } from '../../api/rentals'
+import { Cable, FileDown, FileSpreadsheet, Plus, Trash2 } from 'lucide-react'
+import { getEventInventory, listEventInventoryItems } from '../../api/inventory'
+import {
+  deleteManualRental,
+  getRentalExportReport,
+  getRentalSummary,
+  putManualRental,
+  rentalExportPdfUrl,
+  rentalExportUrl,
+  rentalExportXlsxUrl,
+} from '../../api/rentals'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import type { ManualRentalRequest, UnplacedLine } from '../../types'
 import { CondensedListRow } from '../mobile/CondensedListRow'
@@ -22,6 +30,11 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
   const editable = !readOnly && !isMobile
   const rentalQuery = useQuery({ queryKey: ['rental-summary', eventId], queryFn: () => getRentalSummary(eventId) })
   const allInventoryQuery = useQuery({ queryKey: ['inventory-all-items', eventId], queryFn: () => listEventInventoryItems(eventId) })
+  // Shares EventInventoryCard's cache entry. The price-list export is
+  // offered only for a catalog actually imported from one; every other
+  // inventory gets the PDF and spreadsheet instead of a dead end.
+  const inventoryQuery = useQuery({ queryKey: ['event-inventory', eventId], queryFn: () => getEventInventory(eventId) })
+  const canExportPriceList = inventoryQuery.data?.sourceFormat === 'll'
 
   const [manualDraft, setManualDraft] = useState(emptyManualDraft)
   const [unplacedLines, setUnplacedLines] = useState<UnplacedLine[]>([])
@@ -58,9 +71,19 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Rental order</CardTitle>
-        <Button variant="secondary" size="sm" onClick={() => exportMutation.mutate()} disabled={exportMutation.isPending}>
-          <Cable className="mr-2 h-4 w-4" />{exportMutation.isPending ? 'Exporting…' : 'Export LL.xlsx'}
-        </Button>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {canExportPriceList && (
+            <Button variant="secondary" size="sm" onClick={() => exportMutation.mutate()} disabled={exportMutation.isPending}>
+              <Cable className="mr-2 h-4 w-4" />{exportMutation.isPending ? 'Exporting…' : 'Export LL.xlsx'}
+            </Button>
+          )}
+          <Button variant="secondary" size="sm" onClick={() => window.location.assign(rentalExportXlsxUrl(eventId))}>
+            <FileSpreadsheet className="mr-2 h-4 w-4" />Export .xlsx
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => window.location.assign(rentalExportPdfUrl(eventId))}>
+            <FileDown className="mr-2 h-4 w-4" />Export PDF
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {rentalQuery.data?.has_over_stock && (

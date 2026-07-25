@@ -23,10 +23,11 @@ Revised 2026-07-08 after field feedback on slices 0–5: five new slices
 mixer groups & DCAs, mono/stereo channels & DI cabling, and detailed output
 signal chains. Production packaging (the old Slice 6) is dropped from the
 roadmap — not of interest (2026-07-08 decision). Standing invariant from
-Slice 6 onward: **every planned item that exists in the price list appears
-on the rental order and in the Excel export** — any later slice that adds a
-new place where equipment is selected must extend the rental aggregation in
-the same slice.
+Slice 6 onward: **every planned item that exists in the catalog appears on
+the rental order and in every export format** (price-list xlsx where the
+inventory earns it, plus the PDF and generic spreadsheet from Slice 22) —
+any later slice that adds a new place where equipment is selected must
+extend the rental aggregation in the same slice.
 
 ## Slice 0 — Hardening & tooling (no spec needed; bug fixes) ✅ done 2026-07-07
 
@@ -679,11 +680,62 @@ already exist — this slice only automates getting new builds onto it).
   `main` on demand, going through the identical checks as an automatic
   run.
 
+## Slice 20 — Start page redesign (spec: `start-page-redesign`) ✅ done 2026-07-21
+
+Reworked the signed-out landing page and the signed-in dashboard so the
+first screen explains what the tool is and gets a returning user to their
+current event in one click.
+
+## Slice 21 — Mobile-friendly redesign (spec: `mobile-friendly-redesign`) ✅ done 2026-07-24
+
+Made the whole app usable on a phone without disturbing the desktop
+layouts. Every mobile view is an additive `useIsMobile()` branch inside an
+existing component — desktop code paths are never modified in place, and
+desktop rendering is pixel-unchanged.
+
+- Bottom tab bar (`MobileNav`) replacing the fixed sidebar below 768px,
+  with a "More" bottom sheet and safe-area padding.
+- Shared mobile primitives in `frontend/src/components/mobile/`:
+  `CondensedListRow`, `MobileEntityList`, `SectionSwitcher`, and the
+  `Mobile*EditSheet` editors.
+- Equipment and Rental Order are read-only on mobile for **every** role —
+  a deliberate density decision, not a permission one.
+- No new runtime dependency and zero backend changes.
+
+## Slice 22 — Generic inventory formats & PDF order (spec: `generic-inventory-formats`)
+
+Ends the tool's dependency on one supplier's price list. A technician who
+rents anywhere can now build a catalog and get an order out of it. Depends
+on Slice 16 (per-inventory ownership is what `source_format` hangs off).
+
+- **Generic Excel import** alongside the LL import: one flat sheet
+  (`Category | Type | Name | Description | Quantity | Price`), columns
+  found by heading rather than position, extra columns ignored. A bad file
+  is rejected whole, naming every offending sheet row.
+- **Downloadable template**, generated server-side with a frozen header
+  row, a `Type` drop-list, and a worked-example sheet the importer never
+  reads. A round-trip test binds the template to the parser so the two
+  cannot drift apart.
+- **Manual catalog management** on any inventory: create, edit and delete
+  categories and items. Hand-entered items carry `is_manual` and are
+  excluded from both halves of the import's upsert, so imports can neither
+  discontinue nor overwrite them. Deleting an item referenced by a plan is
+  refused with its reference count.
+- **Format-aware export**: the LL.xlsx export is gated on
+  `inventories.source_format = 'll'` — hidden in the UI and refused by the
+  API otherwise. Every inventory additionally gets a category-grouped PDF
+  order (server-rendered, `go-pdf/fpdf`) and a plain spreadsheet order.
+- Constitution amended to v0.4.0: Principles I and IV no longer name
+  LL.xlsx as *the* inventory source and export target, and IV gains the
+  negative half — fidelity to a supplier's format is earned by having
+  imported it, never assumed.
+
 ## Dependency graph
 
 ```
-Slices 0–18 ✅ done
+Slices 0–21 ✅ done
 Slice 18 (deployment) ──→ Slice 19 (CI/CD deploy to VPS)
+Slice 16 (inventory ownership) ──→ Slice 22 (generic inventory formats & PDF order)
 Slice 10 (output chains) ──→ Slice 11 (output signal graph, replaces it) ✅
 Slice 11 (output signal graph) ──→ Slice 12 (input signal graph, same pattern reversed) ✅
 Slice 7 (lighting rig) + Slice 12 ──→ Slice 13 (stage plots; supersedes Slice 0's truss sections) ✅

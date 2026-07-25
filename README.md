@@ -15,10 +15,10 @@ An AVL (Audio, Video, Lighting) event planning tool for live productions. Plan p
 - **Stage Multis as Real Pass-Throughs** — A stage multi's channels each connect independently in the graph — different sources, different destinations per channel — and its own built-in wiring never prompts for a cable pick or adds a rental line; only a channel's genuine onward run does
 - **Lighting Rig** — Add fixtures (one by one or in bulk batches with shared settings, auto-incrementing console fixture IDs, and sequential DMX addresses), assign them to truss sections, configure power connections (grid or daisy-chain), set DMX universe/address and channel mode (catalog-defined modes are offered right in the add dialog), give every fixture its GrandMA fixture ID (duplicates flagged), auto-assign DMX addresses in sequence
 - **Rental Order** — Per-event summary of all rented equipment, derived automatically from the plan (mics, DI/IEM, stageboxes, multicores, amplifiers, speakers, cables, mic stands, fixtures) plus manual line items for anything else; flags lines that exceed the renter's stock. Which catalog categories feed the cable/stand pickers is itself data: each category on the Inventory page carries an editable picker role
-- **Excel Export** — One click produces a copy of LL.xlsx with the order quantities filled into the *Antal Ljud* / *Antal Ljus* columns at the right rows, ready to send to the renter unmodified; lines that can't be placed are reported, never silently dropped
+- **Order Export, three formats** — A **PDF** order grouped by category with per-category subtotals, unit prices, a grand total ex VAT, over-stock markers explained in a footnote and column headers repeating across pages; a plain **spreadsheet** of the same order; and, for catalogs actually imported from `LL.xlsx`, a copy of that file with the quantities filled into the *Antal Ljud* / *Antal Ljus* columns at the right rows, ready to send unmodified — lines that can't be placed are reported, never silently dropped. The LL export is offered only where it was earned: an inventory built any other way gets the PDF and spreadsheet instead of a dead end
 - **Owned Gear & Equipment Lists** — A personal catalog of equipment you own (never on the rental order), plannable per event with quantities and notes; the Equipment tab shows everything beyond the patch and rig: owned gear plus rented extras
 - **Configurable Reference Data** — Every planning vocabulary (signal types, preamp connectors, signal/speaker cable types, output types, mic stands, power connectors, truss types, channel colors) is stored data: add values for new gear, rename labels, delete unused ones (values in use by a plan are protected). Each event has its own independent vocabulary, editable on that event's Settings tab; every user also keeps a personal "My Defaults" template that seeds a new event's vocabulary at creation time — a one-time copy, never a live link back to the template or to any other event. Lighting fixture models carry DMX mode definitions (name + channel count) that auto-fill the channel count when patching
-- **Inventories** — Each user owns their own independent equipment catalogs, imported from a price-list `.xlsx` file (e.g. 308 items across 27 categories: audio, lighting, rigging); duplicate an inventory to spin off a variant without re-importing, and pick which one an event uses when you create it — contributors get read access to it, only its owner can manage it
+- **Inventories** — Each user owns their own independent equipment catalogs, populated three ways: a supplier price list (`LL.xlsx`, e.g. 308 items across 27 categories), a **generic spreadsheet** in a simple flat format with a downloadable template, or **by hand** in the UI. Hand-entered items survive later imports untouched. Duplicate an inventory to spin off a variant without re-importing, and pick which one an event uses when you create it — contributors get read access to it, only its owner can manage it
 - **Print Sheets** — Every planning tab (input patch, output patch, lighting rig) has a Print button that produces a clean paper/PDF sheet via the browser print dialog: event header, black-on-white table, repeating column headers, no UI chrome
 - **Signal Flow** — A read-only per-channel trace on its own event tab: inputs read source → cable → stagebox/multi channel → console; outputs read console → cable → node → cable → node → … → destination, walking the same graph the canvas edits, branching when a device fans out to more than one destination. Incomplete routing is flagged so patching errors are caught before load-in, and the view prints like the sheets
 
@@ -93,21 +93,40 @@ The frontend opens on **http://localhost:5173**
 
 Every user gets their own independent inventories (equipment catalogs) — no
 more one shared global catalog. Sign in, go to **Inventories** in the
-sidebar, create an inventory (or use the one created for you automatically
-on first sign-in), and upload a price-list `.xlsx` file (e.g. `LL.xlsx`)
-through **"Import price list (.xlsx)"**. This is a real file upload
-(multipart form), scoped to that one inventory — it no longer reads a fixed
-server-side path.
+sidebar, and create an inventory (or use the one created for you
+automatically on first sign-in). Then fill it any of three ways.
 
-Importing the sample `LL.xlsx` produces **308 items** across **27
-categories** (speakers, microphones, mixers, stageboxes, lighting fixtures,
-truss, cables, power distribution, and more).
+**A supplier price list.** Upload `LL.xlsx` through **"Import price list
+(.xlsx)"**. A real multipart upload scoped to that one inventory — it does
+not read a fixed server-side path. The sample file produces **308 items**
+across **27 categories** (speakers, microphones, mixers, stageboxes,
+lighting fixtures, truss, cables, power distribution, and more). Only an
+inventory filled this way can export back into that exact file.
 
-> Re-running the import updates that inventory's catalog in place: matched
+**A generic spreadsheet.** Click **"Template"** for a blank workbook, fill
+in the `Inventory` sheet — one item per row, columns
+`Category | Type | Name | Description | Quantity | Price (ex VAT)` — and
+upload it through **"Import list (.xlsx)"**. `Type` is one of `audio`,
+`lighting`, `rigging`, `video`, `misc` and comes with a drop-list in the
+template. Columns are matched by heading, not position, so you can reorder
+them and keep notes columns of your own. Only `Category` and `Name` are
+required. If anything is wrong the whole file is rejected and every
+offending row is reported by its sheet row number, so nothing is
+half-imported.
+
+**By hand.** Add categories and items directly on the inventory page. Use
+this for a one-off item a supplier mentioned on the phone, or to build a
+whole catalog without touching a spreadsheet.
+
+> Re-running an import updates that inventory's catalog in place: matched
 > items keep their identity (and every plan reference to them), prices and
-> stock counts are refreshed, and items that disappeared from the price
-> list are marked *discontinued* rather than deleted. Event data, and
-> every other inventory, is never touched by an import.
+> stock counts are refreshed, and items that disappeared from the file are
+> marked *discontinued* rather than deleted. Event data, and every other
+> inventory, is never touched by an import.
+>
+> **Hand-entered items are never touched by an import** either — not
+> discontinued, and not overwritten even when the file contains an item of
+> the same name (you get two rows to reconcile, not silent data loss).
 
 ---
 
@@ -273,6 +292,8 @@ Click **Auto-assign DMX** to automatically fill in sequential addresses for all 
 
 The **Rental Order** tab shows a summary of all inventory items referenced across the event (from both the audio patch and lighting rig — including every picked cable and mic stand), with quantities split by audio and lighting use, pricing per unit, and a total.
 
+Export it with **Export PDF** (a category-grouped order document to send a supplier) or **Export .xlsx** (the same order as a plain spreadsheet, if they would rather edit numbers). If the event's inventory was imported from `LL.xlsx`, a third button — **Export LL.xlsx** — writes the quantities back into a copy of that exact file. That button is hidden for every other inventory, because there is no supplier file to write into.
+
 ---
 
 ## Project Structure
@@ -285,7 +306,7 @@ patcherPlanner/
 │   │   ├── api/                     # HTTP handlers (one file per resource)
 │   │   ├── db/                      # SQLite query functions
 │   │   ├── domain/                  # Pure Go structs (no DB tags)
-│   │   └── service/                 # Business logic (inventory import)
+│   │   └── service/                 # Business logic (imports, template, exports)
 │   ├── migrations/                  # Versioned SQL migration files
 │   ├── go.mod
 │   └── patchplanner.db            # Created at runtime (gitignored)
@@ -355,9 +376,16 @@ Base URL: `http://localhost:7331/api/v1`
 | GET/PATCH/DELETE | `/inventories/:id` | Get/rename/delete an inventory — owner-only; delete is `400` while any event still uses it |
 | POST | `/inventories/:id/duplicate` | Deep-copy an inventory (categories, items, fixture modes, source file) into a new one, same owner |
 | GET | `/inventories/:id/categories` | List inventory categories (incl. `picker_role`) |
-| PATCH | `/inventories/:id/categories/:categoryId` | Set or clear a category's picker role (`{"picker_role": "cable" \| "stand" \| "truss" \| null}`) |
+| POST | `/inventories/:id/categories` | Create a category by hand (`{"name", "category_type"}`); `409` if the name is already taken in this inventory |
+| PATCH | `/inventories/:id/categories/:categoryId` | Partial update: rename, retype, and/or set or clear the picker role (`{"picker_role": "cable" \| "stand" \| "truss" \| null}`) |
+| DELETE | `/inventories/:id/categories/:categoryId` | Delete a category — `409` while it still holds items |
 | GET | `/inventories/:id/items` | List inventory items (filters: `?category_type=lighting`, `?category_id=1`, `?role=cable`, `?include_discontinued=true`) |
+| POST | `/inventories/:id/items` | Create an item by hand (`{"category_id", "name", "description", "quantity_available", "price_ex_vat"}`); the server sets `is_manual`, so imports leave it alone |
+| PATCH | `/inventories/:id/items/:itemId` | Partial item update; `is_manual` is not client-settable |
+| DELETE | `/inventories/:id/items/:itemId` | Delete an item — `409` with the reference count while any plan uses it |
 | POST | `/inventories/:id/import-xlsx` | Import/re-import a price list from an uploaded `.xlsx` file (multipart; non-destructive upsert, picker roles survive) |
+| POST | `/inventories/:id/import-generic-xlsx` | Import the generic format (multipart). `400` lists every bad row by sheet row number; nothing is written |
+| GET | `/inventory-template.xlsx` | Download the blank generic-format template |
 | GET | `/events/:id/inventory` | The event's bound inventory's public fields (name, source filename) — any role |
 | GET | `/events/:id/inventory/categories` | The event's bound inventory's categories, read-only — any role |
 | GET | `/events/:id/inventory/items` | The event's bound inventory's items, read-only — any role; this is what every planning picker reads from |
@@ -404,8 +432,10 @@ Base URL: `http://localhost:7331/api/v1`
 | GET | `/events/:id/rentals` | Rental order summary (with stock validation flags) |
 | PUT | `/events/:id/rentals/manual/:itemId` | Create/update a manual rental line |
 | DELETE | `/events/:id/rentals/manual/:itemId` | Remove a manual rental line |
-| GET | `/events/:id/rental-export` | Download the order as a filled-in copy of LL.xlsx |
+| GET | `/events/:id/rental-export` | Download the order as a filled-in copy of LL.xlsx — `400` unless the inventory was imported from one |
 | GET | `/events/:id/rental-export/report` | Export dry-run: filename + lines that cannot be placed |
+| GET | `/events/:id/rental-export/pdf` | Download the order as a category-grouped PDF — any inventory |
+| GET | `/events/:id/rental-export/xlsx` | Download the order as a plain spreadsheet — any inventory |
 | GET | `/owned-items` | List the owned-gear catalog |
 | POST | `/owned-items` | Add an owned item |
 | PATCH | `/owned-items/:itemId` | Update an owned item |

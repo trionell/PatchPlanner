@@ -122,7 +122,7 @@ func TestDuplicateInventory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create source inventory: %v", err)
 	}
-	if err := SetInventorySourceXLSX(database, source.ID, []byte("fake xlsx bytes"), "LL.xlsx"); err != nil {
+	if err := SetInventorySource(database, source.ID, []byte("fake xlsx bytes"), "LL.xlsx", domain.SourceFormatLL); err != nil {
 		t.Fatalf("set source template: %v", err)
 	}
 
@@ -145,6 +145,11 @@ func TestDuplicateInventory(t *testing.T) {
 	}
 	if duplicate.SourceFilename != "LL.xlsx" {
 		t.Errorf("duplicate source filename = %q, want LL.xlsx", duplicate.SourceFilename)
+	}
+	// Slice 22 (FR-021): the copy must offer the same exports as the
+	// original, which means carrying source_format, not just the blob.
+	if duplicate.SourceFormat != domain.SourceFormatLL {
+		t.Errorf("duplicate source format = %q, want %q so the copy keeps the LL export", duplicate.SourceFormat, domain.SourceFormatLL)
 	}
 	copyXLSX, err := GetInventorySourceXLSX(database, duplicate.ID)
 	if err != nil || string(copyXLSX) != "fake xlsx bytes" {
@@ -187,6 +192,51 @@ func TestDuplicateInventory(t *testing.T) {
 	}
 	if copyMicAfter.PriceExVAT == 111 {
 		t.Errorf("editing the original changed the copy")
+	}
+}
+
+// TestDuplicateInventoryCarriesManualFlag covers the other half of FR-021:
+// a hand-entered item must arrive in the copy still marked manual. If the
+// flag were dropped, the copy's next import would discontinue it — the
+// exact data loss is_manual exists to prevent, resurfacing one duplicate
+// later.
+func TestDuplicateInventoryCarriesManualFlag(t *testing.T) {
+	database := openTestDB(t)
+	owner, _ := UpsertUserByGoogleSub(database, "owner-sub", "owner@example.com", "Owner", "")
+	source, err := CreateInventory(database, owner.ID, "Original")
+	if err != nil {
+		t.Fatalf("create source inventory: %v", err)
+	}
+	categories, items := importFixture()
+	if err := UpsertInventory(database, source.ID, categories, items); err != nil {
+		t.Fatalf("seed source catalog: %v", err)
+	}
+
+	var categoryID int64
+	if err := database.QueryRow(`SELECT id FROM inventory_categories WHERE inventory_id = ? LIMIT 1`, source.ID).Scan(&categoryID); err != nil {
+		t.Fatalf("find seeded category: %v", err)
+	}
+	if _, err := database.Exec(
+		`INSERT INTO inventory_items (inventory_id, category_id, name, quantity_available, price_ex_vat, is_manual) VALUES (?, ?, 'Hand-entered DI box', 3, 75, 1)`,
+		source.ID, categoryID); err != nil {
+		t.Fatalf("seed manual item: %v", err)
+	}
+
+	duplicate, err := DuplicateInventory(database, source.ID, owner.ID)
+	if err != nil {
+		t.Fatalf("duplicate inventory: %v", err)
+	}
+
+	copies := allItemsByName(t, database, duplicate.ID)
+	manual, ok := copies["Hand-entered DI box"]
+	if !ok || len(manual) != 1 {
+		t.Fatalf("manual item missing from the copy: %+v", copies)
+	}
+	if !manual[0].IsManual {
+		t.Errorf("copied manual item has is_manual = false; the copy's next import would discontinue it")
+	}
+	if imported := copies["Shure SM58"]; len(imported) == 0 || imported[0].IsManual {
+		t.Errorf("copied imported item should stay is_manual = false, got %+v", imported)
 	}
 }
 

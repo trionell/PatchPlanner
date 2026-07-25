@@ -54,9 +54,17 @@ func uploadInventoryXLSX(t *testing.T, serverURL string, inventoryID int64, path
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}
+	return uploadInventoryFile(t, serverURL, inventoryID, "import-xlsx", filepath.Base(path), data)
+}
+
+// uploadInventoryFile POSTs data as a multipart "file" upload to one of
+// inventoryID's import routes. Shared by the price-list and generic
+// importers, which take the same multipart shape.
+func uploadInventoryFile(t *testing.T, serverURL string, inventoryID int64, route, filename string, data []byte) (int, []byte) {
+	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
-	part, err := writer.CreateFormFile("file", filepath.Base(path))
+	part, err := writer.CreateFormFile("file", filename)
 	if err != nil {
 		t.Fatalf("create form file: %v", err)
 	}
@@ -66,7 +74,7 @@ func uploadInventoryXLSX(t *testing.T, serverURL string, inventoryID int64, path
 	if err := writer.Close(); err != nil {
 		t.Fatalf("close multipart writer: %v", err)
 	}
-	request, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/inventories/%d/import-xlsx", serverURL, inventoryID), &body)
+	request, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/inventories/%d/%s", serverURL, inventoryID, route), &body)
 	if err != nil {
 		t.Fatalf("build upload request: %v", err)
 	}

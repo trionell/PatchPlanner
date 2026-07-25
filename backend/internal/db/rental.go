@@ -85,11 +85,13 @@ const rentalSummaryQuery = `
 	SELECT i.id, i.name, COALESCE(i.description, ''),
 		COALESCE(SUM(c.quantity_audio), 0), COALESCE(SUM(c.quantity_lighting), 0),
 		COALESCE(er.quantity_audio, 0), COALESCE(er.quantity_lighting, 0), COALESCE(er.notes, ''),
-		COALESCE(i.price_ex_vat, 0), COALESCE(i.quantity_available, 0), i.discontinued
+		COALESCE(i.price_ex_vat, 0), COALESCE(i.quantity_available, 0), i.discontinued,
+		COALESCE(i.category_id, 0), COALESCE(cat.name, ''), COALESCE(cat.category_type, '')
 	FROM combined c
 	JOIN inventory_items i ON i.id = c.inventory_item_id
+	LEFT JOIN inventory_categories cat ON cat.id = i.category_id
 	LEFT JOIN event_rentals er ON er.event_id = ? AND er.inventory_item_id = i.id
-	GROUP BY i.id, i.name, i.description, er.quantity_audio, er.quantity_lighting, er.notes, i.price_ex_vat, i.quantity_available, i.discontinued
+	GROUP BY i.id, i.name, i.description, er.quantity_audio, er.quantity_lighting, er.notes, i.price_ex_vat, i.quantity_available, i.discontinued, i.category_id, cat.name, cat.category_type
 	ORDER BY i.name ASC, i.id ASC`
 
 func GetRentalSummary(db *sql.DB, eventID int64) (domain.RentalSummary, error) {
@@ -107,7 +109,8 @@ func GetRentalSummary(db *sql.DB, eventID int64) (domain.RentalSummary, error) {
 		if err := rows.Scan(&item.InventoryItemID, &item.InventoryItemName, &item.Description,
 			&item.QuantityAudio, &item.QuantityLighting,
 			&item.ManualQuantityAudio, &item.ManualQuantityLighting, &item.ManualNotes,
-			&item.PriceExVAT, &item.QuantityAvailable, &discontinued); err != nil {
+			&item.PriceExVAT, &item.QuantityAvailable, &discontinued,
+			&item.CategoryID, &item.CategoryName, &item.CategoryType); err != nil {
 			return domain.RentalSummary{}, fmt.Errorf("scan rental summary row: %w", err)
 		}
 		item.TotalQuantity = item.QuantityAudio + item.QuantityLighting

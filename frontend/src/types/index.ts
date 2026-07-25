@@ -15,6 +15,12 @@ export interface Inventory {
   id: number
   name: string
   sourceFilename?: string
+  /**
+   * How the catalog was populated. Only 'll' earns the price-list export;
+   * 'generic' and absent (hand-entered / never imported) get the PDF and
+   * spreadsheet exports only.
+   */
+  sourceFormat?: 'll' | 'generic'
   createdAt: string
 }
 
@@ -57,6 +63,8 @@ export interface InventoryItem {
   price_ex_vat: number
   xlsx_row?: number
   discontinued: boolean
+  /** True for items typed in by hand; imports leave these alone. */
+  is_manual?: boolean
   created_at?: string
 }
 
@@ -450,6 +458,8 @@ export interface LightingRigResponse {
 export interface InventoryImportResult {
   categories_imported: number
   items_imported: number
+  /** Non-fatal notes about the file; the import still succeeded. */
+  warnings?: string[]
 }
 
 // ---- Stage plots (Slice 13) ----

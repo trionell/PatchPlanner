@@ -191,3 +191,96 @@ func TestUpsertInventoryRollsBackOnFailure(t *testing.T) {
 		}
 	}
 }
+
+// TestUpsertInventoryLeavesManualItemsAlone covers FR-017 / SC-004, the
+// sharpest regression risk in Slice 22. UpsertInventory presumes every item
+// gone before reviving whatever the file contains; applied to hand-entered
+// items that would silently discontinue them (hiding them from every
+// planning dropdown) on the next import.
+func TestUpsertInventoryLeavesManualItemsAlone(t *testing.T) {
+	database := openTestDB(t)
+	inventoryID := testInventory(t, database)
+	categories, items := importFixture()
+	if err := UpsertInventory(database, inventoryID, categories, items); err != nil {
+		t.Fatalf("initial import: %v", err)
+	}
+
+	var categoryID int64
+	if err := database.QueryRow(`SELECT id FROM inventory_categories WHERE inventory_id = ? AND name = 'Mikrofoner'`, inventoryID).Scan(&categoryID); err != nil {
+		t.Fatalf("find seeded category: %v", err)
+	}
+	// One manual item the file never mentions, and one whose name collides
+	// with a row the file does contain.
+	for _, seed := range []struct {
+		name  string
+		price float64
+	}{
+		{"Hand-entered DI box", 75},
+		{"Shure SM58", 999},
+	} {
+		if _, err := database.Exec(
+			`INSERT INTO inventory_items (inventory_id, category_id, name, quantity_available, price_ex_vat, is_manual) VALUES (?, ?, ?, 3, ?, 1)`,
+			inventoryID, categoryID, seed.name, seed.price); err != nil {
+			t.Fatalf("seed manual item %q: %v", seed.name, err)
+		}
+	}
+
+	// Re-import the same file. Nothing about it concerns the manual rows.
+	if err := UpsertInventory(database, inventoryID, categories, items); err != nil {
+		t.Fatalf("re-import: %v", err)
+	}
+
+	byName := allItemsByName(t, database, inventoryID)
+
+	di := byName["Hand-entered DI box"]
+	if len(di) != 1 {
+		t.Fatalf("manual item count = %d, want 1 (it must not be deleted or duplicated)", len(di))
+	}
+	if di[0].Discontinued {
+		t.Errorf("manual item was discontinued by an import it has nothing to do with")
+	}
+	if !di[0].IsManual || di[0].PriceExVAT != 75 || di[0].QuantityAvailable != 3 {
+		t.Errorf("manual item altered by import: %+v", di[0])
+	}
+
+	// The name collision must produce two independent rows, not one adopted
+	// one: if the import claimed the manual row from the matching pool, its
+	// price would have been overwritten with the file's 150.
+	sm58 := byName["Shure SM58"]
+	if len(sm58) != 2 {
+		t.Fatalf("Shure SM58 rows = %d, want 2 (one imported, one manual)", len(sm58))
+	}
+	var manual, imported *domain.InventoryItem
+	for i := range sm58 {
+		if sm58[i].IsManual {
+			manual = &sm58[i]
+		} else {
+			imported = &sm58[i]
+		}
+	}
+	if manual == nil || imported == nil {
+		t.Fatalf("expected one manual and one imported Shure SM58, got %+v", sm58)
+	}
+	if manual.PriceExVAT != 999 {
+		t.Errorf("manual Shure SM58 price = %v, want 999 - the import adopted and overwrote the hand-entered row", manual.PriceExVAT)
+	}
+	if imported.PriceExVAT != 150 {
+		t.Errorf("imported Shure SM58 price = %v, want 150 from the file", imported.PriceExVAT)
+	}
+
+	// A later import that drops a row still discontinues the imported copy
+	// only - the manual row is untouched either way.
+	shrunk := []domain.InventoryItem{items[1], items[2], items[3]}
+	if err := UpsertInventory(database, inventoryID, categories, shrunk); err != nil {
+		t.Fatalf("shrunk re-import: %v", err)
+	}
+	byName = allItemsByName(t, database, inventoryID)
+	for _, item := range byName["Shure SM58"] {
+		if item.IsManual && item.Discontinued {
+			t.Errorf("manual Shure SM58 discontinued when the imported one vanished from the file")
+		}
+		if !item.IsManual && !item.Discontinued {
+			t.Errorf("imported Shure SM58 should be discontinued once absent from the file")
+		}
+	}
+}

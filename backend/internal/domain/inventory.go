@@ -26,14 +26,67 @@ type InventoryItem struct {
 	// Discontinued marks items that disappeared from the most recent price
 	// list import. They are hidden from planning dropdowns but never
 	// deleted, so existing plan references keep resolving.
-	Discontinued bool   `json:"discontinued"`
-	CreatedAt    string `json:"created_at,omitempty"`
+	Discontinued bool `json:"discontinued"`
+	// IsManual marks items the user typed in rather than ones an import
+	// created (Slice 22). Imports own their own rows and may discontinue or
+	// overwrite them; manual rows are none of an import's business, so
+	// UpsertInventory excludes them from both its discontinue sweep and its
+	// name-matching pool. Set by the server on create and immutable after.
+	IsManual  bool   `json:"is_manual"`
+	CreatedAt string `json:"created_at,omitempty"`
+}
+
+// InventoryCategoryRequest creates a category by hand (Slice 22).
+type InventoryCategoryRequest struct {
+	Name         string `json:"name"`
+	CategoryType string `json:"category_type"`
+	PickerRole   string `json:"picker_role,omitempty"`
+}
+
+// InventoryCategoryPatch is a partial category update; nil fields are left
+// untouched, so a rename need not resend the type.
+type InventoryCategoryPatch struct {
+	Name         *string `json:"name"`
+	CategoryType *string `json:"category_type"`
+	PickerRole   *string `json:"picker_role"`
+}
+
+// InventoryItemRequest creates an item by hand. There is deliberately no
+// IsManual field: the server decides that, so a client cannot create an
+// item that imports will treat as their own (or vice versa).
+type InventoryItemRequest struct {
+	CategoryID        int64   `json:"category_id"`
+	Name              string  `json:"name"`
+	Description       string  `json:"description,omitempty"`
+	QuantityAvailable int     `json:"quantity_available"`
+	PriceExVAT        float64 `json:"price_ex_vat"`
+}
+
+// InventoryItemPatch is a partial item update; nil fields are untouched.
+type InventoryItemPatch struct {
+	CategoryID        *int64   `json:"category_id"`
+	Name              *string  `json:"name"`
+	Description       *string  `json:"description"`
+	QuantityAvailable *int     `json:"quantity_available"`
+	PriceExVAT        *float64 `json:"price_ex_vat"`
 }
 
 type InventoryImportResult struct {
 	CategoriesImported int `json:"categories_imported"`
 	ItemsImported      int `json:"items_imported"`
+	// Warnings are non-fatal notes about the imported file (e.g. one
+	// category name appearing with two different types). The import
+	// succeeded; these are for the user's attention, not errors.
+	Warnings []string `json:"warnings,omitempty"`
 }
+
+// Inventory source formats (Slice 22). SourceFormatLL is the only value
+// that earns the supplier price-list export: fidelity to a supplier's file
+// comes from having imported it, never from assumption.
+const (
+	SourceFormatLL      = "ll"      // imported from an LL price list; source_xlsx holds it
+	SourceFormatGeneric = "generic" // imported from the generic spreadsheet; no file retained
+)
 
 // Inventory is an owned, independent catalog (Slice 16). The uploaded
 // source spreadsheet's bytes live in the DB (source_xlsx) but are never
@@ -43,5 +96,10 @@ type Inventory struct {
 	OwnerUserID    int64  `json:"-"`
 	Name           string `json:"name"`
 	SourceFilename string `json:"sourceFilename,omitempty"`
-	CreatedAt      string `json:"createdAt"`
+	// SourceFormat records how the catalog was populated: SourceFormatLL,
+	// SourceFormatGeneric, or empty (created empty and/or filled in by
+	// hand). It is what gates the price-list export — "has stored bytes"
+	// stopped being the same question once a second importer existed.
+	SourceFormat string `json:"sourceFormat,omitempty"`
+	CreatedAt    string `json:"createdAt"`
 }

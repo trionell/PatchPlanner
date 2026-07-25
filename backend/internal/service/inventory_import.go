@@ -82,7 +82,7 @@ func (s InventoryService) ImportFromXLSX(inventoryID int64, filename string, r i
 	if err := db.UpsertInventory(s.DB, inventoryID, categories, items); err != nil {
 		return domain.InventoryImportResult{}, err
 	}
-	if err := db.SetInventorySourceXLSX(s.DB, inventoryID, data, filename); err != nil {
+	if err := db.SetInventorySource(s.DB, inventoryID, data, filename, domain.SourceFormatLL); err != nil {
 		return domain.InventoryImportResult{}, err
 	}
 
