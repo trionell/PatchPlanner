@@ -53,22 +53,37 @@ button.
 
 ---
 
-## Generic spreadsheet import
+## Spreadsheet import (both formats, auto-detected)
 
-### `POST /inventories/{inventoryID}/import-generic-xlsx`
+### `POST /inventories/{inventoryID}/import-xlsx`
 
-Multipart form, field name `file` — identical to the existing `import-xlsx` route so the
-frontend upload helper and the `uploadInventoryXLSX` test helper both apply.
+Multipart form, field name `file`. **One route for every supported format** — the service
+detects which one the upload is and dispatches to the matching parser. Users have one
+spreadsheet and one Import button; classifying the file is not their job.
 
-Deliberately a **separate route** from `import-xlsx` rather than a `format` parameter, so the
-LL import path is not modified at all (FR-023, SC-005).
+Detection order:
 
-**200**
+1. A sheet named `Prislista LL` → the price-list importer. This is a sheet-name check
+   because that is precisely what the price-list importer requires (it reads that sheet by
+   name and fails without it), so "detected as LL" and "the LL importer can handle this" are
+   the same statement rather than a guess.
+2. Otherwise, if the generic parser's own column locator finds `Category` and `Name`
+   headings → the generic importer.
+3. Otherwise → 400 describing **both** formats, since the user cannot see which test failed.
+
+Neither check re-implements parsing rules that live in the importers.
+
+The LL parsing path itself is untouched by this (FR-023, SC-005): detection happens before
+it, and dispatches into the existing function unchanged.
+
+**200** — `format` reports what the detection decided, so the UI can confirm it rather than
+leaving the user to infer it:
 
 ```json
 {
   "categories_imported": 7,
   "items_imported": 84,
+  "format": "generic",
   "warnings": [
     "Category \"Truss\" appears with both types \"rigging\" and \"lighting\"; using \"rigging\""
   ]
@@ -82,11 +97,18 @@ LL import path is not modified at all (FR-023, SC-005).
 ```
 
 ```json
-{ "error": "missing required column \"Category\" - download the template for the expected layout" }
+{ "error": "this file matches neither supported format: an LL price list needs a \"Prislista LL\" sheet, and a generic list needs \"Category\" and \"Name\" column headings - download the template for the expected layout" }
 ```
 
-Side effects on success: `source_filename` = the uploaded name, `source_format` = `"generic"`.
-The uploaded bytes are **not** stored (nothing to write quantities back into).
+Side effects on success depend on the detected format:
+
+| Detected | `source_format` | `source_filename` | `source_xlsx` |
+|---|---|---|---|
+| `ll` | `"ll"` | uploaded name | the uploaded bytes, retained for export |
+| `generic` | `"generic"` | uploaded name | cleared — there is no supplier file to write quantities back into |
+
+Re-importing switches the format, because the newer import defines what the catalog now
+mirrors.
 
 ### `GET /inventory-template.xlsx`
 

@@ -44,11 +44,10 @@ func (h InventoriesHandler) RegisterOwned(r chi.Router) {
 	r.Post("/items", h.createItem)
 	r.Patch("/items/{itemID}", h.updateItem)
 	r.Delete("/items/{itemID}", h.deleteItem)
+	// One route for every supported spreadsheet format; the service works
+	// out which one it was handed. Users have one file and one Import
+	// button, not a format they must classify first.
 	r.Post("/import-xlsx", h.importXLSX)
-	// Deliberately a separate route from import-xlsx rather than a format
-	// parameter on it, so the price-list import path is not touched at all
-	// (FR-023).
-	r.Post("/import-generic-xlsx", h.importGenericXLSX)
 	r.Get("/items/{itemID}/fixture-modes", h.listFixtureModes)
 	r.Post("/items/{itemID}/fixture-modes", h.createFixtureMode)
 	r.Patch("/fixture-modes/{modeID}", h.updateFixtureMode)
@@ -431,30 +430,10 @@ func (h InventoriesHandler) importXLSX(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() { _ = file.Close() }()
 
-	result, err := service.InventoryService{DB: h.DB}.ImportFromXLSX(inventoryID, header.Filename, file)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	writeJSON(w, http.StatusOK, result)
-}
-
-// importGenericXLSX imports the supplier-agnostic spreadsheet format.
-// Validation failures are the user's to fix, so they come back as 400 with
-// the offending sheet row numbers rather than as a 500.
-func (h InventoriesHandler) importGenericXLSX(w http.ResponseWriter, r *http.Request) {
-	inventoryID, ok := parseID(w, chi.URLParam(r, "inventoryID"))
-	if !ok {
-		return
-	}
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "missing file upload (field name: file)")
-		return
-	}
-	defer func() { _ = file.Close() }()
-
-	result, err := service.InventoryService{DB: h.DB}.ImportFromGenericXLSX(inventoryID, header.Filename, file)
+	// Format detection happens in the service; validation failures are the
+	// user's to fix, so they come back as 400 naming the offending sheet
+	// rows rather than as an opaque 500.
+	result, err := service.InventoryService{DB: h.DB}.Import(inventoryID, header.Filename, file)
 	if err != nil {
 		var validation service.ImportValidationError
 		if errors.As(err, &validation) {

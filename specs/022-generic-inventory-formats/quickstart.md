@@ -64,7 +64,8 @@ A fresh account, or a throwaway DB copy, is the cleanest starting point.
    column offers a drop-list of `audio / lighting / rigging / video / misc`.
 3. Confirm the `Example` sheet has sample rows and instructions.
 4. Fill in ~6 rows on the `Inventory` sheet across audio, lighting and rigging. Save.
-5. **Import generic list (.xlsx)** → categories and items appear with the right types.
+5. **Import (.xlsx)** → categories and items appear with the right types, and the
+   confirmation names the detected format ("from the generic list").
 6. Open an event bound to this inventory and confirm the items appear in the relevant
    planning dropdowns (a lighting item in the fixture picker, an audio mic in the mic picker).
 
@@ -75,6 +76,18 @@ A fresh account, or a throwaway DB copy, is the cleanest starting point.
 3. The catalog is **unchanged** — no partial import.
 4. Reorder the columns and add a junk column of your own; re-import → still works.
 5. Rename the sheet from `Inventory` to `Blad1`; re-import → still works (first-sheet fallback).
+6. Upload some unrelated spreadsheet → rejected with a message naming **both** expected
+   formats, not just one.
+
+### 2b. Format auto-detection (single import button)
+
+There is one **Import (.xlsx)** button; the server decides which parser to use.
+
+1. Upload `LL.xlsx` → confirmation says "from the LL price list", and the Rental Order tab
+   for an event on this inventory now offers Export LL.xlsx.
+2. Upload a generic list to the *same* inventory → confirmation says "from the generic
+   list", and the LL export button disappears (the format switched).
+3. Neither upload required choosing a format anywhere in the UI.
 
 ### 3. Manual entry (US2)
 

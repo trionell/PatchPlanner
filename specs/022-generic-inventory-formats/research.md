@@ -228,13 +228,14 @@ New routes:
 | `PATCH`/`DELETE` | `/inventories/{id}/categories/{categoryID}` | inventory owner |
 | `POST` | `/inventories/{id}/items` | inventory owner |
 | `PATCH`/`DELETE` | `/inventories/{id}/items/{itemID}` | inventory owner |
-| `POST` | `/inventories/{id}/import-generic-xlsx` | inventory owner |
+| `POST` | `/inventories/{id}/import-xlsx` | inventory owner (handles both formats, auto-detected — see R9) |
 | `GET` | `/inventory-template.xlsx` | authenticated |
 | `GET` | `/events/{id}/rental-export/pdf` | event access (any role) |
 | `GET` | `/events/{id}/rental-export/xlsx` | event access (any role) |
 
-A **separate** generic-import route (rather than a `format` field on the existing one) keeps
-the LL import path completely untouched, which is what FR-023 and SC-005 require.
+Both formats share the one `import-xlsx` route; see R9 for how the format is decided. FR-023
+and SC-005 are satisfied because detection happens *before* the LL parser and dispatches into
+it unchanged — the LL parsing path itself is never modified.
 
 `source_format` is surfaced to the frontend for free: `GET /events/{id}/inventory`
 (`api/inventory.go:29`) already returns the whole `domain.Inventory` to every role, so adding
@@ -269,3 +270,45 @@ safety correct too.
   items outright.
 - *Cascade the delete into plans.* Rejected: destroys planning work to satisfy a catalog
   edit, with no undo.
+
+---
+
+## R9 — One import button, or one per format?
+
+**Decision**: One route and one button. `POST /inventories/{id}/import-xlsx` detects the
+format and dispatches; the detected format comes back on the response so the UI can report
+it.
+
+**Rationale**: Revised after review of the first implementation, which shipped two buttons —
+*Import price list* and *Import list*. That pushed a classification job onto the user that
+the server can do perfectly well and more reliably: a user with one spreadsheet should press
+Import, not first decide which of two formats they are holding. Picking the wrong button
+would have produced a confusing rejection ("missing required column Category") for a file
+that was perfectly valid in the other format.
+
+Detection is cheap and, more importantly, *honest* — neither check guesses:
+
+1. **Price list**: does the workbook contain a sheet named `Prislista LL`? That is exactly
+   what `ImportFromXLSX` requires — it reads that sheet by name and fails without it — so
+   "detected as LL" and "the LL importer can handle this" are the same statement.
+2. **Generic**: hand the sheet to `locateGenericColumns`, the generic parser's own column
+   locator, and see whether it finds `Category` and `Name`.
+
+Neither check re-implements a parsing rule, so neither can drift from the parser it is
+gating. A file matching neither is rejected with a message describing *both* formats, since
+the user cannot see which test failed.
+
+The cost is re-reading the uploaded bytes once (detection opens the workbook, then the chosen
+importer opens it again). For a ~100KB spreadsheet that is negligible, and it buys leaving
+both importers exactly as they were — neither grew a "maybe already parsed" parameter.
+
+**Alternatives considered**:
+
+- *Two routes and two buttons* (the original design). Rejected on the user's review: it
+  exposes an implementation distinction as a UI decision.
+- *One route with a `format` form field* set by the client. Rejected for the same reason —
+  the client still has to know, and now the server trusts a claim it can verify itself.
+- *Sniffing content more deeply* (e.g. checking for `Antal Ljud`/`Antal Ljus` columns as well
+  as the sheet name). Rejected as redundant: the sheet name is already exactly the importer's
+  precondition, and a second condition could only make detection *stricter* than the parser,
+  rejecting files the parser would have handled.

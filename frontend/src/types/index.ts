@@ -458,6 +458,8 @@ export interface LightingRigResponse {
 export interface InventoryImportResult {
   categories_imported: number
   items_imported: number
+  /** Which format the server detected the uploaded file as. */
+  format?: 'll' | 'generic'
   /** Non-fatal notes about the file; the import still succeeded. */
   warnings?: string[]
 }

@@ -9,7 +9,6 @@ import {
   deleteInventory,
   deleteItem,
   duplicateInventory,
-  importInventoryGenericXlsx,
   importInventoryXlsx,
   inventoryTemplateUrl,
   listCategories,
@@ -175,7 +174,6 @@ function InventoryDetail({ inventory, onBack }: { inventory: Inventory; onBack: 
   const isMobile = useIsMobile()
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const genericInputRef = useRef<HTMLInputElement>(null)
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>()
   const [message, setMessage] = useState('')
   const [pageError, setPageError] = useState('')
@@ -192,19 +190,8 @@ function InventoryDetail({ inventory, onBack }: { inventory: Inventory; onBack: 
     queryFn: () => listItems(inventoryId, selectedCategoryId ? { categoryId: selectedCategoryId } : undefined),
   })
 
-  // Both importers share this success/error handling. Reporting failures
-  // matters more than it used to: the generic importer rejects a file by
-  // naming the offending sheet rows, which is useless unless shown.
-  const onImportSuccess = async (result: InventoryImportResult) => {
-    setPageError('')
-    const warnings = result.warnings?.length ? ` ${result.warnings.join(' ')}` : ''
-    setMessage(`Imported ${result.categories_imported} categories and ${result.items_imported} items.${warnings}`)
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['inventory-categories', inventoryId] }),
-      queryClient.invalidateQueries({ queryKey: ['inventory-items', inventoryId] }),
-      queryClient.invalidateQueries({ queryKey: ['inventories'] }),
-    ])
-  }
+  // Reporting failures matters: a rejected import comes back naming the
+  // offending sheet rows, which is useless unless shown.
   const onImportError = (mutationError: Error) => {
     setMessage('')
     setPageError(mutationError.message)
@@ -212,15 +199,21 @@ function InventoryDetail({ inventory, onBack }: { inventory: Inventory; onBack: 
 
   const importMutation = useMutation({
     mutationFn: (file: File) => importInventoryXlsx(inventoryId, file),
-    onSuccess: onImportSuccess,
+    onSuccess: async (result: InventoryImportResult) => {
+      setPageError('')
+      // Name the detected format so the user can confirm the
+      // auto-detection read their file the way they expected.
+      const detected = result.format === 'll' ? ' from the LL price list' : result.format === 'generic' ? ' from the generic list' : ''
+      const warnings = result.warnings?.length ? ` ${result.warnings.join(' ')}` : ''
+      setMessage(`Imported ${result.categories_imported} categories and ${result.items_imported} items${detected}.${warnings}`)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['inventory-categories', inventoryId] }),
+        queryClient.invalidateQueries({ queryKey: ['inventory-items', inventoryId] }),
+        queryClient.invalidateQueries({ queryKey: ['inventories'] }),
+      ])
+    },
     onError: onImportError,
   })
-  const importGenericMutation = useMutation({
-    mutationFn: (file: File) => importInventoryGenericXlsx(inventoryId, file),
-    onSuccess: onImportSuccess,
-    onError: onImportError,
-  })
-  const importing = importMutation.isPending || importGenericMutation.isPending
   const roleMutation = useMutation({
     mutationFn: ({ categoryId, role }: { categoryId: number; role: 'cable' | 'stand' | 'truss' | null }) =>
       updateCategoryPickerRole(inventoryId, categoryId, role),
@@ -335,28 +328,19 @@ function InventoryDetail({ inventory, onBack }: { inventory: Inventory; onBack: 
               e.target.value = ''
             }}
           />
-          <input
-            ref={genericInputRef}
-            type="file"
-            accept=".xlsx"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (file) importGenericMutation.mutate(file)
-              e.target.value = ''
-            }}
-          />
           <Button variant="ghost" onClick={() => window.location.assign(inventoryTemplateUrl())}>
             <Download className="mr-2 h-4 w-4" />
             Template
           </Button>
-          <Button variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={importing}>
+          {/* One button for every supported format — the server detects
+              which one the file is. */}
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importMutation.isPending}
+            title="Import an LL price list or a generic list — the format is detected automatically"
+          >
             <Upload className="mr-2 h-4 w-4" />
-            {importMutation.isPending ? 'Importing...' : 'Import price list (.xlsx)'}
-          </Button>
-          <Button onClick={() => genericInputRef.current?.click()} disabled={importing}>
-            <Upload className="mr-2 h-4 w-4" />
-            {importGenericMutation.isPending ? 'Importing...' : 'Import list (.xlsx)'}
+            {importMutation.isPending ? 'Importing...' : 'Import (.xlsx)'}
           </Button>
         </div>
       </div>

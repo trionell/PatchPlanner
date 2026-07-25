@@ -47,7 +47,7 @@ func TestGenericImportEndpoint(t *testing.T) {
 		{"Microphones", "audio", "Shure SM58", "Dynamic vocal mic", 12, 120},
 		{"Moving heads", "lighting", "Robe Pointe", "20/24ch", 8, 900},
 	})
-	status, raw := uploadInventoryFile(t, server.URL, inventoryID, "import-generic-xlsx", "my-gear.xlsx", data)
+	status, raw := uploadInventoryFile(t, server.URL, inventoryID, "import-xlsx", "my-gear.xlsx", data)
 	if status != http.StatusOK {
 		t.Fatalf("import status = %d, body %s", status, raw)
 	}
@@ -96,7 +96,7 @@ func TestGenericImportValidationFailureIsA400AndChangesNothing(t *testing.T) {
 		apiGenericHeader,
 		{"Microphones", "audio", "Shure SM58", "", 12, 120},
 	})
-	if status, raw := uploadInventoryFile(t, server.URL, inventoryID, "import-generic-xlsx", "good.xlsx", good); status != http.StatusOK {
+	if status, raw := uploadInventoryFile(t, server.URL, inventoryID, "import-xlsx", "good.xlsx", good); status != http.StatusOK {
 		t.Fatalf("seed import status = %d, body %s", status, raw)
 	}
 
@@ -106,7 +106,7 @@ func TestGenericImportValidationFailureIsA400AndChangesNothing(t *testing.T) {
 		{"", "audio", "Orphan", "", 1, 10},
 		{"Moving heads", "lights", "Robe Pointe", "", 8, 900},
 	})
-	status, raw := uploadInventoryFile(t, server.URL, inventoryID, "import-generic-xlsx", "bad.xlsx", bad)
+	status, raw := uploadInventoryFile(t, server.URL, inventoryID, "import-xlsx", "bad.xlsx", bad)
 	if status != http.StatusBadRequest {
 		t.Fatalf("bad import status = %d, want 400; body %s", status, raw)
 	}
@@ -131,7 +131,7 @@ func TestGenericImportRequiresFileField(t *testing.T) {
 	server, _ := newTestServer(t)
 	inventoryID := testOwnerInventoryID(t, server.URL)
 
-	status, raw := doJSON(t, http.MethodPost, fmt.Sprintf("%s/inventories/%d/import-generic-xlsx", server.URL, inventoryID), nil)
+	status, raw := doJSON(t, http.MethodPost, fmt.Sprintf("%s/inventories/%d/import-xlsx", server.URL, inventoryID), nil)
 	if status != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400; body %s", status, raw)
 	}

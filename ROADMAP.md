@@ -712,6 +712,12 @@ on Slice 16 (per-inventory ownership is what `source_format` hangs off).
   (`Category | Type | Name | Description | Quantity | Price`), columns
   found by heading rather than position, extra columns ignored. A bad file
   is rejected whole, naming every offending sheet row.
+- **One import button for both formats.** The server detects which it was
+  handed — a price list by its `Prislista LL` sheet (exactly what the LL
+  parser requires, so detection and capability cannot disagree), a generic
+  list by asking the generic parser's own column locator — and reports the
+  result back so the user can confirm it. Neither check duplicates a
+  parsing rule, and neither importer was modified to accommodate it.
 - **Downloadable template**, generated server-side with a frozen header
   row, a `Type` drop-list, and a worked-example sheet the importer never
   reads. A round-trip test binds the template to the parser so the two

@@ -273,7 +273,7 @@ func TestInventoryCRUDRejectsForeignIDsAndNonOwners(t *testing.T) {
 		{"create item", http.MethodPost, fmt.Sprintf("%s/inventories/%d/items", server.URL, inventoryID), map[string]any{"category_id": ownCategory.ID, "name": "Theirs"}},
 		{"delete category", http.MethodDelete, fmt.Sprintf("%s/inventories/%d/categories/%d", server.URL, inventoryID, ownCategory.ID), nil},
 		{"delete item", http.MethodDelete, fmt.Sprintf("%s/inventories/%d/items/%d", server.URL, inventoryID, ownItem.ID), nil},
-		{"import generic", http.MethodPost, fmt.Sprintf("%s/inventories/%d/import-generic-xlsx", server.URL, inventoryID), nil},
+		{"import", http.MethodPost, fmt.Sprintf("%s/inventories/%d/import-xlsx", server.URL, inventoryID), nil},
 	} {
 		var body io.Reader
 		if probe.body != nil {

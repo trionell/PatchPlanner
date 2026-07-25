@@ -74,6 +74,10 @@ type InventoryItemPatch struct {
 type InventoryImportResult struct {
 	CategoriesImported int `json:"categories_imported"`
 	ItemsImported      int `json:"items_imported"`
+	// Format is which format the uploaded file was detected as, so the UI
+	// can tell the user what the auto-detection decided rather than
+	// leaving them to infer it.
+	Format string `json:"format,omitempty"`
 	// Warnings are non-fatal notes about the imported file (e.g. one
 	// category name appearing with two different types). The import
 	// succeeded; these are for the user's attention, not errors.

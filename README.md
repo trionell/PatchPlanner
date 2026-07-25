@@ -96,23 +96,28 @@ more one shared global catalog. Sign in, go to **Inventories** in the
 sidebar, and create an inventory (or use the one created for you
 automatically on first sign-in). Then fill it any of three ways.
 
-**A supplier price list.** Upload `LL.xlsx` through **"Import price list
-(.xlsx)"**. A real multipart upload scoped to that one inventory — it does
-not read a fixed server-side path. The sample file produces **308 items**
-across **27 categories** (speakers, microphones, mixers, stageboxes,
-lighting fixtures, truss, cables, power distribution, and more). Only an
-inventory filled this way can export back into that exact file.
+There is a single **"Import (.xlsx)"** button for both spreadsheet
+formats — the server works out which one you gave it and says so in the
+confirmation message. You never have to classify your own file.
+
+**A supplier price list.** Upload `LL.xlsx`. Recognised by its
+`Prislista LL` sheet. A real multipart upload scoped to that one inventory
+— it does not read a fixed server-side path. The sample file produces
+**308 items** across **27 categories** (speakers, microphones, mixers,
+stageboxes, lighting fixtures, truss, cables, power distribution, and
+more). Only an inventory filled this way can export back into that exact
+file.
 
 **A generic spreadsheet.** Click **"Template"** for a blank workbook, fill
 in the `Inventory` sheet — one item per row, columns
 `Category | Type | Name | Description | Quantity | Price (ex VAT)` — and
-upload it through **"Import list (.xlsx)"**. `Type` is one of `audio`,
-`lighting`, `rigging`, `video`, `misc` and comes with a drop-list in the
-template. Columns are matched by heading, not position, so you can reorder
-them and keep notes columns of your own. Only `Category` and `Name` are
-required. If anything is wrong the whole file is rejected and every
-offending row is reported by its sheet row number, so nothing is
-half-imported.
+upload it with the same button. `Type` is one of `audio`, `lighting`,
+`rigging`, `video`, `misc` and comes with a drop-list in the template.
+Columns are matched by heading, not position, so you can reorder them and
+keep notes columns of your own. Only `Category` and `Name` are required.
+If anything is wrong the whole file is rejected and every offending row is
+reported by its sheet row number, so nothing is half-imported. A file that
+matches neither format is rejected with a message describing both.
 
 **By hand.** Add categories and items directly on the inventory page. Use
 this for a one-off item a supplier mentioned on the phone, or to build a
@@ -383,8 +388,7 @@ Base URL: `http://localhost:7331/api/v1`
 | POST | `/inventories/:id/items` | Create an item by hand (`{"category_id", "name", "description", "quantity_available", "price_ex_vat"}`); the server sets `is_manual`, so imports leave it alone |
 | PATCH | `/inventories/:id/items/:itemId` | Partial item update; `is_manual` is not client-settable |
 | DELETE | `/inventories/:id/items/:itemId` | Delete an item — `409` with the reference count while any plan uses it |
-| POST | `/inventories/:id/import-xlsx` | Import/re-import a price list from an uploaded `.xlsx` file (multipart; non-destructive upsert, picker roles survive) |
-| POST | `/inventories/:id/import-generic-xlsx` | Import the generic format (multipart). `400` lists every bad row by sheet row number; nothing is written |
+| POST | `/inventories/:id/import-xlsx` | Import/re-import a catalog from an uploaded `.xlsx` file (multipart). Handles **both** formats — an LL price list is recognised by its `Prislista LL` sheet, anything else by its `Category`/`Name` headings — and reports which it detected as `format` on the response. Non-destructive upsert; picker roles and hand-entered items survive. `400` lists every bad row by sheet row number; nothing is written |
 | GET | `/inventory-template.xlsx` | Download the blank generic-format template |
 | GET | `/events/:id/inventory` | The event's bound inventory's public fields (name, source filename) — any role |
 | GET | `/events/:id/inventory/categories` | The event's bound inventory's categories, read-only — any role |

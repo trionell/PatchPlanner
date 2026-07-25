@@ -3,6 +3,9 @@ package service
 import (
 	"bytes"
 	"errors"
+	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -380,5 +383,166 @@ func assertValidationProblem(t *testing.T, err error, fragments ...string) {
 		if !strings.Contains(message, fragment) {
 			t.Errorf("validation message %q does not mention %q", message, fragment)
 		}
+	}
+}
+
+// ---- Format auto-detection (single import button) ----
+
+// llFixtureBytes builds a minimal price list in the renter's layout.
+func llFixtureBytes(t *testing.T, sheet string) []byte {
+	t.Helper()
+	return sheetBytes(t, sheet, [][]any{
+		{"Beskrivning", "Kommentar", "Tot. Antal", "Ex Moms", "Ink Moms", "Antal Ljud", "Antal Ljus"},
+		{"Mikrofoner:"},
+		{"Shure SM58", "Dynamisk sångmikrofon", 4, 150},
+	})
+}
+
+// sheetBytes writes rows to a named sheet and returns the workbook bytes.
+func sheetBytes(t *testing.T, sheet string, rows [][]any) []byte {
+	t.Helper()
+	data, err := io.ReadAll(genericFixture(t, sheet, rows))
+	if err != nil {
+		t.Fatalf("read fixture bytes: %v", err)
+	}
+	return data
+}
+
+// A price list is detected by its sheet name — which is exactly what the
+// price-list importer requires, so detection and capability agree.
+func TestDetectPriceListFormat(t *testing.T) {
+	format, err := detectInventoryFormat(llFixtureBytes(t, priceListSheet))
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if format != domain.SourceFormatLL {
+		t.Errorf("format = %q, want %q", format, domain.SourceFormatLL)
+	}
+}
+
+func TestDetectGenericFormat(t *testing.T) {
+	for _, sheet := range []string{genericSheet, "Blad1"} {
+		data := sheetBytes(t, sheet, [][]any{
+			{"Category", "Type", "Name", "Description", "Quantity", "Price (ex VAT)"},
+			{"Microphones", "audio", "Shure SM58", "", 12, 120},
+		})
+		format, err := detectInventoryFormat(data)
+		if err != nil {
+			t.Fatalf("detect on sheet %q: %v", sheet, err)
+		}
+		if format != domain.SourceFormatGeneric {
+			t.Errorf("sheet %q: format = %q, want %q", sheet, format, domain.SourceFormatGeneric)
+		}
+	}
+}
+
+// A file matching neither shape must say so in terms of both formats —
+// the user cannot see which test failed.
+func TestDetectRejectsUnrecognisedFile(t *testing.T) {
+	data := sheetBytes(t, "Sheet1", [][]any{
+		{"Some", "Random", "Spreadsheet"},
+		{"of", "no", "relevance"},
+	})
+	_, err := detectInventoryFormat(data)
+	assertValidationProblem(t, err, priceListSheet, "Category", "Name", "template")
+}
+
+func TestDetectRejectsNonSpreadsheet(t *testing.T) {
+	_, err := detectInventoryFormat([]byte("this is not a workbook at all"))
+	assertValidationProblem(t, err, "could not be read as a spreadsheet")
+}
+
+// Import dispatches to the right parser and reports which one it used, so
+// the UI can confirm the auto-detection rather than leaving the user to
+// guess what happened to their file.
+func TestImportDispatchesByDetectedFormat(t *testing.T) {
+	svc, inventoryID := newGenericInventory(t)
+
+	generic := sheetBytes(t, genericSheet, [][]any{
+		{"Category", "Type", "Name", "Description", "Quantity", "Price (ex VAT)"},
+		{"Moving heads", "lighting", "Robe Pointe", "20/24ch", 8, 900},
+	})
+	result, err := svc.Import(inventoryID, "gear.xlsx", bytes.NewReader(generic))
+	if err != nil {
+		t.Fatalf("import generic: %v", err)
+	}
+	if result.Format != domain.SourceFormatGeneric {
+		t.Errorf("reported format = %q, want %q", result.Format, domain.SourceFormatGeneric)
+	}
+	if result.ItemsImported != 1 {
+		t.Errorf("items = %d, want 1", result.ItemsImported)
+	}
+	inventory, _ := db.GetInventory(svc.DB, inventoryID)
+	if inventory.SourceFormat != domain.SourceFormatGeneric {
+		t.Errorf("inventory format = %q, want generic", inventory.SourceFormat)
+	}
+
+	// The same inventory, re-imported from a price list, switches format
+	// and gains a stored template.
+	result, err = svc.Import(inventoryID, "LL.xlsx", bytes.NewReader(llFixtureBytes(t, priceListSheet)))
+	if err != nil {
+		t.Fatalf("import price list: %v", err)
+	}
+	if result.Format != domain.SourceFormatLL {
+		t.Errorf("reported format = %q, want %q", result.Format, domain.SourceFormatLL)
+	}
+	inventory, _ = db.GetInventory(svc.DB, inventoryID)
+	if inventory.SourceFormat != domain.SourceFormatLL {
+		t.Errorf("inventory format = %q, want ll", inventory.SourceFormat)
+	}
+	blob, err := db.GetInventorySourceXLSX(svc.DB, inventoryID)
+	if err != nil || blob == nil {
+		t.Errorf("price-list import through Import() stored no template (err %v)", err)
+	}
+}
+
+// Detection must not swallow the parser's row-level diagnostics: a file
+// that is recognisably generic but has bad rows still reports them.
+func TestImportSurfacesRowErrorsAfterDetection(t *testing.T) {
+	svc, inventoryID := newGenericInventory(t)
+	data := sheetBytes(t, genericSheet, [][]any{
+		{"Category", "Type", "Name", "Description", "Quantity", "Price (ex VAT)"},
+		{"", "audio", "Orphan", "", 1, 10},
+	})
+	_, err := svc.Import(inventoryID, "broken.xlsx", bytes.NewReader(data))
+	assertValidationProblem(t, err, "row 2", "no Category")
+}
+
+// The repo-root LL.xlsx is the real supplier file. Detection must route it
+// to the price-list parser — not merely a synthetic fixture shaped like it.
+func TestDetectRealLLFile(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "LL.xlsx"))
+	if err != nil {
+		t.Skipf("real LL.xlsx not available: %v", err)
+	}
+	format, err := detectInventoryFormat(data)
+	if err != nil {
+		t.Fatalf("detect real LL.xlsx: %v", err)
+	}
+	if format != domain.SourceFormatLL {
+		t.Errorf("format = %q, want %q", format, domain.SourceFormatLL)
+	}
+}
+
+// The blank template the app hands out must detect as generic, or a user
+// who downloads it, fills it in and uploads it would be told their file
+// matches neither format.
+func TestDetectGeneratedTemplate(t *testing.T) {
+	file, err := BuildInventoryTemplate()
+	if err != nil {
+		t.Fatalf("build template: %v", err)
+	}
+	buf, err := file.WriteToBuffer()
+	if err != nil {
+		t.Fatalf("write template: %v", err)
+	}
+	_ = file.Close()
+
+	format, err := detectInventoryFormat(buf.Bytes())
+	if err != nil {
+		t.Fatalf("detect template: %v", err)
+	}
+	if format != domain.SourceFormatGeneric {
+		t.Errorf("format = %q, want %q", format, domain.SourceFormatGeneric)
 	}
 }

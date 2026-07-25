@@ -60,7 +60,7 @@ func TestExportGatingByInventoryFormat(t *testing.T) {
 		apiGenericHeader,
 		{"Microphones", "audio", "Shure SM58", "", 12, 120},
 	})
-	if status, raw := uploadInventoryFile(t, server.URL, inventoryID, "import-generic-xlsx", "gear.xlsx", data); status != http.StatusOK {
+	if status, raw := uploadInventoryFile(t, server.URL, inventoryID, "import-xlsx", "gear.xlsx", data); status != http.StatusOK {
 		t.Fatalf("generic import: status %d body %s", status, raw)
 	}
 	status, body, _ = getRaw(t, exportURL)

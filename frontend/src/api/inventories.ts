@@ -60,17 +60,15 @@ export const listItems = (inventoryId: number, params?: { categoryId?: number; c
   return request<InventoryItem[]>(`/inventories/${inventoryId}/items${search.toString() ? `?${search.toString()}` : ''}`)
 }
 
+/**
+ * Imports a catalog spreadsheet. The server works out whether it is an LL
+ * price list or the generic format and reports which on the result, so the
+ * user uploads one file and never has to classify it first.
+ */
 export const importInventoryXlsx = (inventoryId: number, file: File) => {
   const formData = new FormData()
   formData.append('file', file)
   return request<InventoryImportResult>(`/inventories/${inventoryId}/import-xlsx`, { method: 'POST', body: formData })
-}
-
-/** Imports the supplier-agnostic format produced by the downloadable template. */
-export const importInventoryGenericXlsx = (inventoryId: number, file: File) => {
-  const formData = new FormData()
-  formData.append('file', file)
-  return request<InventoryImportResult>(`/inventories/${inventoryId}/import-generic-xlsx`, { method: 'POST', body: formData })
 }
 
 // Plain URL rather than a fetch: downloads are navigations, matching how
