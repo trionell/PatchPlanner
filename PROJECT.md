@@ -99,9 +99,17 @@ destination) and counted once on the order however many cables reference it.
 
 ### 2.4 Audio Inputs
 
-One surface with two views (Slice 23). The toolbar carries the view toggle, a
-search box, the Rig and Buses drawers, print, and one add action; everything else
-on the tab is content.
+One surface with two views (Slice 23), in a single framed panel (Slice 25): a
+toolbar across the top carrying the tab's name, the view toggle, a search box, the
+Rig and Buses drawers, the canvas zoom in Flow, print and one add action — then the
+content, then a status strip closing the panel. Switching view changes what is
+inside the frame and nothing else.
+
+The sheet is dense on purpose: mono uppercase micro-labels for headings on a ground
+darker than the rows, one line per row, striping subtle enough to read as an aid,
+tabular figures so digits align, and the tape colour as a short bar beside the name.
+A hop through the desk's own socket is drawn in amber, because it is the one hop on
+a chain that is not a billable cable.
 
 **Sheet** — the view you land on. One line per channel:
 
@@ -133,8 +141,15 @@ where signal passes through it. Sources are one consolidated scrollable rail of
 above `R`, each side cabled independently. Cables are drawn as bezier runs with
 two independent encodings: **hue** is the channel the run reaches (only when
 every reachable channel agrees), **dash pattern** is what kind of link it is.
-Selecting a node opens an inspector holding a source's mic, stand, connector,
-width and phantom power, and stating what it reaches. Every node on either canvas
+Selecting a node opens an inspector rail on the right, holding a source's mic,
+stand, connector, width and phantom power — each field beside its label — plus a
+note stating what the source reaches and a legend drawing each line style rather
+than describing it. Pressing **Edit in Flow** in the sheet opens the graph with that
+row's own source already selected and its editor open; what is selected belongs to
+the tab and survives switching view. Both graphs draw their boxes, ports and rows
+from one shared set of components, so a box on Inputs and a box on Outputs cannot
+drift apart: a pass-through is one row per jack with its two ports on opposite
+edges, and a port list longer than eight ends with a count of what is hidden. Every node on either canvas
 can be dragged, including the one holding rows that belong to no desk — that one
 keeps its position for the session only, since there is no row to store it on.
 

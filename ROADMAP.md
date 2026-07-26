@@ -814,6 +814,51 @@ causes; two were the UI not having been built to the approved mockup.
   shared controls they needed are touched here.
 
 
+## Slice 25 — The mockup's visual language, for real (spec: `patch-visual-language`)
+
+Second field test of the audio surface. Two things that did not work, three
+that were the surface not having been built to the approved mockup.
+
+- **Edit in Flow forgot the row it was pressed from.** `onEditInFlow={() =>
+  setView('flow')}` ignored its argument, and the canvas owned its selection
+  privately — so it was unmounted while the sheet showed and could not have
+  received one anyway. The selection is now the tab's, which also makes it
+  survive the view toggle in both directions and lets a selected source be
+  scrolled into view on a long rail.
+- **The outputs graph drew every port grey.** Slice 23 gave that graph
+  `derivedCableColor` for its cables and nothing for its ports, so a coloured
+  output was cabled in colour and ported in grey. The backward walk is now
+  `derivedOutputPortColor`, with `derivedCableColor` defined in terms of it —
+  they were always the same question, so a port and its cable cannot disagree.
+- **One framed panel** (`ui/PatchPanel`) instead of three rounded cards with
+  gaps. With three cards the view toggle appears to rebuild the page; with one
+  it changes the content of something that stays put. The lane labels and the
+  zoom control moved out of the strip that used to sit between the toolbar and
+  the canvas — the thing that broke the reading — into the canvas and the bar.
+- **The sheet at the mockup's density** (`ui/SheetTable`): mono micro-label
+  headings on a darker ground, one-line rows, striping you have to look for,
+  tabular figures, and the tape colour as a bar before the name. A chain now
+  reads as a signal path, and a hop through the desk's own socket is **amber** —
+  which is the billable-versus-not distinction made visible for the first time.
+  `ui/Table` and `ui/Badge` are untouched: six other tabs render them.
+- **The inspector as the mockup's rail**: a left border rather than a card,
+  fields beside 44px labels rather than under them, Reaches and Legend as
+  bordered notes, and the legend drawn as stroke samples using the same widths
+  and dash arrays the canvas strokes.
+- **Shared graph primitives** (`components/event/graph/`). Both canvases held
+  their own `NodeShell`, `PortDot` and `PortRow`, which is why their boxes had
+  drifted; each now keeps a thin adapter over one shared set. A pass-through is
+  one row per jack with its two ports on opposite edges — index N in *is* index
+  N out, and two columns only lined up by luck. Port lists truncate at eight
+  with a `⋯ N more` row, so a 32-jack stagebox is legible.
+- **The sources rail** rebuilt row by row: a full-height colour tape, the model
+  in quiet mono, the 48 V bar showing off as well as on, stereo two slots tall
+  with L above R, a count in the header and `+ Source` in the footer.
+- No dependency, no migration, no change to routing, guards or the rental query.
+- **Still a slice of its own:** a typeface for the application, and this language
+  on the other six tabs.
+
+
 ## Dependency graph
 
 ```
@@ -822,7 +867,7 @@ Slice 18 (deployment) ──→ Slice 19 (CI/CD deploy to VPS)
 Slice 16 (inventory ownership) ──→ Slice 22 (generic inventory formats & PDF order)
 Slice 10 (output chains) ──→ Slice 11 (output signal graph, replaces it) ✅
 Slice 11 (output signal graph) ──→ Slice 12 (input signal graph, same pattern reversed) ✅
-Slice 11 + Slice 12 ──→ Slice 23 (audio patch shell & the console) ──→ Slice 24 (second pass: field-test fixes)
+Slice 11 + Slice 12 ──→ Slice 23 (audio patch shell & the console) ──→ Slice 24 (field-test fixes) ──→ Slice 25 (the mockup's visual language)
 Slice 7 (lighting rig) + Slice 12 ──→ Slice 13 (stage plots; supersedes Slice 0's truss sections) ✅
 Slice 14 (auth) ──→ Slice 15 (event ownership & sharing) ──→ Slice 16 (inventory ownership) ──→ Slice 17 (event settings) ──→ Slice 18 (deployment) ✅
 ```
