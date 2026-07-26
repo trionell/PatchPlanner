@@ -50,24 +50,37 @@ export interface ChainCellModel {
 }
 
 /**
- * The node a row's "Edit in Flow" should select (Slice 24 FR-030): the first
- * addressable hop in its chain.
+ * The node a row's "Edit in Flow" should select (Slice 25 FR-003).
  *
- * On the input side that is the source feeding the channel, which is what makes
- * the button mean what its label says — the reason to leave the row editor is to
- * change where the signal comes from. On the output side the desk itself carries
- * no node, so it is the first hop the run reaches. Undefined when nothing is
- * patched yet, in which case there is nothing to select and the button is not
- * offered.
+ * The **source** segment when the chain has one, which on the input side it always
+ * does — that is what makes the button mean what its label says, since the reason to
+ * leave the row editor is to change where the signal comes from.
+ *
+ * Taking merely the *first* segment carrying a node was not the same thing and was
+ * wrong in practice: on a run that goes straight into the desk's own socket, and on
+ * every output chain (whose head, the desk output, carries no node at all), the first
+ * node is the desk's jack panel — so the button opened the console instead of the
+ * source.
+ *
+ * Falling back to the first node is right where there is genuinely no source to
+ * select: an output chain reads outward from the desk, so its first hop is the
+ * nearest thing to "where this run begins".
+ *
+ * Undefined when nothing is patched, in which case there is nothing to select and the
+ * button is not offered.
  */
-export function firstChainNode(model: ChainCellModel): SegmentNode | undefined {
+export function chainSourceNode(model: ChainCellModel): SegmentNode | undefined {
+  let firstNode: SegmentNode | undefined
   for (const line of model.lines) {
     for (const segment of line.segments) {
-      if (segment.node) return segment.node
+      if (!segment.node) continue
+      if (segment.kind === 'source') return segment.node
+      firstNode ??= segment.node
     }
   }
-  return undefined
+  return firstNode
 }
+
 
 /**
  * The catalog item's own name, without its description — `Shure SM58 —

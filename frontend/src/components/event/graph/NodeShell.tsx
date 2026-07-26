@@ -9,7 +9,6 @@ import {
   NODE_CHROME,
   NODE_FOOTER,
   NODE_HEADER,
-  PORT_ROW,
 } from './tokens'
 
 /**
@@ -85,13 +84,4 @@ export function NodeShell({
       {footer && <div className={`${NODE_FOOTER} ${footerAlarm ? 'text-red-400' : ''}`}>{footer}</div>}
     </div>
   )
-}
-
-/**
- * What a box says instead of drawing thirty-two rows (Slice 25 FR-029). A 32-jack
- * stagebox is ordinary, and eight rows plus a count is legible where a wall of
- * thirty-two is not — so this is a readability device, not an apology.
- */
-export function MoreRow({ hidden }: { hidden: number }) {
-  return <div className={`${PORT_ROW} text-zinc-600`}>⋯ {hidden} more</div>
 }

@@ -132,7 +132,7 @@ confirm the two graphs' boxes are indistinguishable.
 - [X] T030 [US5] Create `frontend/src/components/event/graph/NodeShell.tsx` per contracts §5, with `desk` and `selected` variants, a mono badge (not a `Badge` pill), and a footer slot that can go red. Takes a structural port type, not either graph's `PortRef` union — the two differ, and a structural type is the seam that lets both use it (FR-036)
 - [X] T031 [US5] Create `graph/PortDot.tsx` at the mockup's 7px, with a hit area larger than its paint (`p-1 -m-1`) — a 7px target is not clickable, and the mockup is a picture rather than something anyone had to hit (FR-030)
 - [X] T032 [US5] Create `graph/PortRow.tsx` exporting `PortRow` (one-sided, left or right aligned) and `SplitPortRow` (one row per jack, in port on the left edge, out port on the right). `SplitPortRow` is the structural fix: a pass-through's two sides are the same jack, and two independent columns only line up by luck (FR-028)
-- [X] T033 [US5] `MoreRow` lives in `graph/NodeShell.tsx` beside the box it belongs to, and `visiblePorts` in `graph/visiblePorts.ts` — a non-component export from a component file breaks fast refresh, which the linter said so before it could become a habit
+- [X] T033 [US5] ~~Truncate long port lists~~ — **built, then removed on the reporter's instruction.** They confirmed the mockup has the `⋯ N more` row and overruled it anyway: a box that hides eight jacks is not a readable box, it is an incomplete one. `MoreRow` and `visiblePorts` are deleted rather than left unused, and contracts/visual-language.md §5 records the override
 
 ### Both canvases adopt them
 

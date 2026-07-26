@@ -44,10 +44,8 @@ import { itemLabel } from '../../lib/utils'
 import type { AudioPatchOutput, Console, InventoryItem, OutputCable, OutputDevice, OwnedItem, StageMulti, Stagebox } from '../../types'
 import { AudioPatchShell } from './AudioPatchShell'
 import { LaneBands } from './graph/LaneBands'
-import { MoreRow, NodeShell as SharedNodeShell } from './graph/NodeShell'
+import { NodeShell as SharedNodeShell } from './graph/NodeShell'
 import { PortRow as SharedPortRow, SplitPortRow, type PortWiring } from './graph/PortRow'
-import { PORT_ROW_LIMIT } from './graph/tokens'
-import { visiblePorts } from './graph/visiblePorts'
 import { ZoomControl } from './graph/ZoomControl'
 import { ConsoleSection } from './ConsoleSection'
 import { OutputSheet } from './OutputSheet'
@@ -1048,7 +1046,6 @@ function ConsoleNode({ x, y, desk, outputs, cables, pendingPort, onPortClick, on
   onSelect?: () => void
 }) {
   const ports = mixerPorts(outputs)
-  const { shown, hidden } = visiblePorts(ports, PORT_ROW_LIMIT)
   const dimmedIds = new Set(
     outputs.filter((row) => !matchesSearch(search, row.output_number, row.output_name, row.output_type, row.notes)).map((row) => row.id),
   )
@@ -1072,10 +1069,9 @@ function ConsoleNode({ x, y, desk, outputs, cables, pendingPort, onPortClick, on
         </>
       }
     >
-      {shown.map((port) => (
+      {ports.map((port) => (
         <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} colorContext={colorContext} align="right" dimmed={dimmedIds.has(port.id)} />
       ))}
-      {hidden > 0 && <MoreRow hidden={hidden} />}
       {ports.length === 0 && <p className="px-1.5 text-[11px] text-zinc-600">No outputs on this desk yet</p>}
     </NodeShell>
   )
@@ -1109,14 +1105,12 @@ function LocalJackNode({ x, y, desk, cables, pendingPort, onPortClick, onPortPoi
   onSelect?: () => void
 }) {
   const { inputs, outputs } = consoleLocalPorts(desk)
-  const { shown, hidden } = visiblePorts(inputs, PORT_ROW_LIMIT)
   const wiring = wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)
   return (
     <NodeShell x={x} y={y} title={desk.name || 'Console'} badge="LOCAL" onDragStart={onDragStart} dimmed={dimmed} selected={selected} onSelect={onSelect}>
-      {shown.map((inPort, index) => (
+      {inputs.map((inPort, index) => (
         <SplitPortRow key={inPort.port} inPort={inPort} outPort={outputs[index]} label={String(inPort.port + 1)} wiring={wiring} />
       ))}
-      {hidden > 0 && <MoreRow hidden={hidden} />}
     </NodeShell>
   )
 }
@@ -1137,17 +1131,15 @@ function MixerNode({ x, y, outputs, cables, pendingPort, onPortClick, onPortPoin
   onSelect?: () => void
 }) {
   const ports = mixerPorts(outputs)
-  const { shown, hidden } = visiblePorts(ports, PORT_ROW_LIMIT)
   // One node, many rows, so search dims per row rather than per node.
   const dimmedIds = new Set(
     outputs.filter((row) => !matchesSearch(search, row.output_number, row.output_name, row.output_type, row.notes)).map((row) => row.id),
   )
   return (
     <NodeShell x={x} y={y} title="No desk" badge={ports.length > 0 ? String(outputs.length) : undefined} onDragStart={onDragStart} selected={selected} onSelect={onSelect}>
-      {shown.map((port) => (
+      {ports.map((port) => (
         <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} colorContext={colorContext} align="right" dimmed={dimmedIds.has(port.id)} />
       ))}
-      {hidden > 0 && <MoreRow hidden={hidden} />}
       {ports.length === 0 && <p className="px-1.5 text-[11px] text-zinc-600">No outputs without a desk</p>}
     </NodeShell>
   )
@@ -1169,14 +1161,12 @@ function StageboxNode({ x, y, stagebox, cables, pendingPort, onPortClick, onPort
   onSelect?: () => void
 }) {
   const { inputs, outputs } = stageboxPorts(stagebox)
-  const { shown, hidden } = visiblePorts(inputs, PORT_ROW_LIMIT)
   const wiring = wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)
   return (
     <NodeShell x={x} y={y} title={stagebox.name} badge="SB" onDragStart={onDragStart} dimmed={dimmed} selected={selected} onSelect={onSelect}>
-      {shown.map((inPort, index) => (
+      {inputs.map((inPort, index) => (
         <SplitPortRow key={inPort.port} inPort={inPort} outPort={outputs[index]} label={String(inPort.port + 1)} wiring={wiring} />
       ))}
-      {hidden > 0 && <MoreRow hidden={hidden} />}
     </NodeShell>
   )
 }
@@ -1197,14 +1187,12 @@ function StageMultiNode({ x, y, stageMulti, cables, pendingPort, onPortClick, on
   onSelect?: () => void
 }) {
   const { inputs, outputs } = stageMultiPorts(stageMulti)
-  const { shown, hidden } = visiblePorts(inputs, PORT_ROW_LIMIT)
   const wiring = wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)
   return (
     <NodeShell x={x} y={y} title={stageMulti.name} badge="Multi" onDragStart={onDragStart} dimmed={dimmed} selected={selected} onSelect={onSelect}>
-      {shown.map((inPort, index) => (
+      {inputs.map((inPort, index) => (
         <SplitPortRow key={inPort.port} inPort={inPort} outPort={outputs[index]} label={String(inPort.port + 1)} wiring={wiring} />
       ))}
-      {hidden > 0 && <MoreRow hidden={hidden} />}
     </NodeShell>
   )
 }

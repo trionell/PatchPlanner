@@ -6,7 +6,7 @@ import { useRowEditor } from '../../hooks/useRowEditor'
 import { isCablelessToKind } from '../../lib/outputGraph'
 import { boxUsage, cablesPicked, consoleCapacity, type PatchStatus } from '../../lib/patchCapacity'
 import { matchesSearch } from '../../lib/patchSearch'
-import { firstChainNode, outputChainSegments, type ChainCellModel, type SegmentNode } from '../../lib/patchSheet'
+import { chainSourceNode, outputChainSegments, type ChainCellModel, type SegmentNode } from '../../lib/patchSheet'
 import type { OutputFlowContext } from '../../lib/signalFlow'
 import type { AudioPatchOutput, Console, InventoryItem, OutputCable, OutputDevice, StageMulti, Stagebox } from '../../types'
 import { FieldStack } from '../ui/GearList'
@@ -239,7 +239,7 @@ export function OutputSheet({
                             removeOutput.mutate(output.id)
                           }
                         }}
-                        onEditInFlow={onEditInFlow && firstChainNode(chain) ? () => onEditInFlow(firstChainNode(chain)!) : undefined}
+                        onEditInFlow={onEditInFlow && chainSourceNode(chain) ? () => onEditInFlow(chainSourceNode(chain)!) : undefined}
                         onKeyDown={editor.onKeyDown}
                       >
                         <FieldStack label="Out" width="count">

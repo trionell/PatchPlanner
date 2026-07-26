@@ -92,14 +92,22 @@ marking the lanes are removed — a band is the marking.
 | ports container | `py-1`, no horizontal padding — rows own theirs | exact |
 | `PortRow` | `flex items-center gap-1.5 h-[18px] px-1.5 text-[11px] text-zinc-300`; `align="right"` reverses it | carried |
 | `SplitPortRow` | `flex items-center justify-between h-[18px] px-1.5 text-[11px]`, two spans, in port leftmost, out port rightmost | carried |
-| `MoreRow` | `h-[18px] px-1.5 text-[11px] text-zinc-600` reading `⋯ N more` | carried |
+
 | footer | `border-t border-zinc-800 px-1.5 pb-1 pt-0.5 font-mono text-[10px] text-zinc-500`; red when over capacity | carried |
 | `PortDot` | `h-[7px] w-[7px] rounded-full border border-zinc-500 bg-zinc-800`; patched → `border-amber-500 bg-amber-500/75`; coloured → border the colour, background the colour at 75%; selected → solid colour, `ring-2 ring-amber-500/40` | exact |
-| port truncation limit | 8 rows, then `MoreRow` | exact |
+| port truncation | **none** — every port is drawn | overruled |
 
-`PortDot` keeps a hit area larger than its 7 px paint (`p-1 -m-1`), because a 7 px
-target is not clickable and the mockup is a picture rather than something anyone
-had to hit.
+`PortDot` keeps a hit area larger than its 7 px paint, as a transparent padded
+button wrapping the painted dot — because a 7 px target is not clickable and the
+mockup is a picture rather than something anyone had to hit. The padding must not
+paint: putting the border and background on one padded element renders a 15 px dot,
+which is what the third field test reported as "too big".
+
+**Truncation is overruled by the reporter.** The mockup ends a long port list with a
+`⋯ N more` row and this contract originally required it at eight rows. A planner
+working a patch has to see every jack, so boxes now draw all of them and grow;
+the canvas scrolls. `MoreRow` and `visiblePorts` were deleted rather than left
+unused.
 
 ## 6. The sources rail — `InputGraphCanvas.tsx`
 

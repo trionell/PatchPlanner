@@ -30,8 +30,7 @@ import { itemLabel } from '../../lib/utils'
 import type { Console, InputCable, InputChannel, InputDevice, InputSource, InventoryItem, StageMulti, Stagebox } from '../../types'
 import { FlowInspector, type FlowSelection } from './FlowInspector'
 import { LaneBands } from './graph/LaneBands'
-import { MoreRow, NodeShell as SharedNodeShell } from './graph/NodeShell'
-import { visiblePorts } from './graph/visiblePorts'
+import { NodeShell as SharedNodeShell } from './graph/NodeShell'
 import { PortDot as SharedPortDot } from './graph/PortDot'
 import { PortRow as SharedPortRow, SplitPortRow, type PortWiring } from './graph/PortRow'
 import {
@@ -40,9 +39,8 @@ import {
   NODE_CHROME,
   PHANTOM_BAR,
   PHANTOM_BAR_OFF,
-  PORT_ROW_LIMIT,
   SOURCE_ROW,
-  SOURCE_ROW_STEREO,
+  SOURCE_ROW_HEIGHT,
   TAPE_NEUTRAL,
 } from './graph/tokens'
 import { Button } from '../ui/Button'
@@ -1025,9 +1023,10 @@ function SourceRow({ source, wiring, colorContext, dimmed, selected, modelLabel,
   return (
     <div
       ref={rowRef}
-      className={`${SOURCE_ROW} ${stereo ? SOURCE_ROW_STEREO : ''} transition-opacity ${dimmed ? 'opacity-30' : ''} ${
-        selected ? 'bg-amber-500/10' : ''
-      } last:border-b-0`}
+      // The height is set here rather than in the token, one slot per port, so a
+      // stereo source is genuinely twice as tall and its two dots cannot overlap.
+      style={{ height: ports.length * SOURCE_ROW_HEIGHT }}
+      className={`${SOURCE_ROW} transition-opacity ${dimmed ? 'opacity-30' : ''} ${selected ? 'bg-amber-500/10' : ''} last:border-b-0`}
     >
       <span aria-hidden className="w-[3px] shrink-0 self-stretch" style={{ backgroundColor: tape ?? TAPE_NEUTRAL }} />
       <button type="button" onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-1.5 pl-1 text-left" title={source.name}>
@@ -1043,7 +1042,7 @@ function SourceRow({ source, wiring, colorContext, dimmed, selected, modelLabel,
       />
       <div className="flex shrink-0 flex-col justify-center">
         {ports.map((port) => (
-          <div key={port.port} className="flex h-5 items-center justify-end gap-1">
+          <div key={port.port} className="flex items-center justify-end gap-1" style={{ height: SOURCE_ROW_HEIGHT }}>
             {stereo && <span className="font-mono text-[9px] text-zinc-600">{port.port === 0 ? 'L' : 'R'}</span>}
             <PortDot
               port={port}
@@ -1086,16 +1085,14 @@ function ChannelsNode({ x, y, channels, cables, pendingPort, onPortClick, onPort
   onSelect?: () => void
 }) {
   const ports = channels.flatMap((channel) => channelPorts(channel))
-  const { shown, hidden } = visiblePorts(ports, PORT_ROW_LIMIT)
   const dimmedIds = new Set(
     channels.filter((channel) => !matchesSearch(search, channel.channel_number, channel.channel_name, channel.notes)).map((channel) => channel.id),
   )
   return (
     <NodeShell x={x} y={y} title="No desk" badge={channels.length > 0 ? String(channels.length) : undefined} onDragStart={onDragStart} selected={selected} onSelect={onSelect}>
-      {shown.map((port) => (
+      {ports.map((port) => (
         <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" colorContext={colorContext} dimmed={dimmedIds.has(port.id)} />
       ))}
-      {hidden > 0 && <MoreRow hidden={hidden} />}
       {ports.length === 0 && <p className="px-1.5 text-[11px] text-zinc-600">No channels without a desk</p>}
     </NodeShell>
   )
@@ -1128,7 +1125,6 @@ function ConsoleNode({ x, y, desk, channels, cables, pendingPort, onPortClick, o
   onSelect?: () => void
 }) {
   const ports = channels.flatMap((channel) => channelPorts(channel))
-  const { shown, hidden } = visiblePorts(ports, PORT_ROW_LIMIT)
   const dimmedIds = new Set(
     channels.filter((channel) => !matchesSearch(search, channel.channel_number, channel.channel_name, channel.notes)).map((channel) => channel.id),
   )
@@ -1152,10 +1148,9 @@ function ConsoleNode({ x, y, desk, channels, cables, pendingPort, onPortClick, o
         </>
       }
     >
-      {shown.map((port) => (
+      {ports.map((port) => (
         <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" colorContext={colorContext} dimmed={dimmedIds.has(port.id)} />
       ))}
-      {hidden > 0 && <MoreRow hidden={hidden} />}
       {ports.length === 0 && <p className="px-1.5 text-[11px] text-zinc-600">No channels on this desk yet</p>}
     </NodeShell>
   )
@@ -1191,14 +1186,12 @@ function LocalJackNode({ x, y, desk, cables, pendingPort, onPortClick, onPortPoi
   onSelect?: () => void
 }) {
   const { inputs, outputs } = consoleLocalPorts(desk)
-  const { shown, hidden } = visiblePorts(inputs, PORT_ROW_LIMIT)
   const wiring = wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)
   return (
     <NodeShell x={x} y={y} title={desk.name || 'Console'} badge="LOCAL" onDragStart={onDragStart} dimmed={dimmed} selected={selected} onSelect={onSelect}>
-      {shown.map((inPort, index) => (
+      {inputs.map((inPort, index) => (
         <SplitPortRow key={inPort.port} inPort={inPort} outPort={outputs[index]} label={String(inPort.port + 1)} wiring={wiring} />
       ))}
-      {hidden > 0 && <MoreRow hidden={hidden} />}
     </NodeShell>
   )
 }
@@ -1219,14 +1212,12 @@ function StageboxNode({ x, y, stagebox, cables, pendingPort, onPortClick, onPort
   onSelect?: () => void
 }) {
   const { inputs, outputs } = stageboxPorts(stagebox)
-  const { shown, hidden } = visiblePorts(inputs, PORT_ROW_LIMIT)
   const wiring = wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)
   return (
     <NodeShell x={x} y={y} title={stagebox.name} badge="SB" onDragStart={onDragStart} dimmed={dimmed} selected={selected} onSelect={onSelect}>
-      {shown.map((inPort, index) => (
+      {inputs.map((inPort, index) => (
         <SplitPortRow key={inPort.port} inPort={inPort} outPort={outputs[index]} label={String(inPort.port + 1)} wiring={wiring} />
       ))}
-      {hidden > 0 && <MoreRow hidden={hidden} />}
     </NodeShell>
   )
 }
@@ -1247,14 +1238,12 @@ function StageMultiNode({ x, y, stageMulti, cables, pendingPort, onPortClick, on
   onSelect?: () => void
 }) {
   const { inputs, outputs } = stageMultiPorts(stageMulti)
-  const { shown, hidden } = visiblePorts(inputs, PORT_ROW_LIMIT)
   const wiring = wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)
   return (
     <NodeShell x={x} y={y} title={stageMulti.name} badge="Multi" onDragStart={onDragStart} dimmed={dimmed} selected={selected} onSelect={onSelect}>
-      {shown.map((inPort, index) => (
+      {inputs.map((inPort, index) => (
         <SplitPortRow key={inPort.port} inPort={inPort} outPort={outputs[index]} label={String(inPort.port + 1)} wiring={wiring} />
       ))}
-      {hidden > 0 && <MoreRow hidden={hidden} />}
     </NodeShell>
   )
 }

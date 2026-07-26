@@ -15,13 +15,18 @@ export interface GraphPort {
 }
 
 /**
- * One patchable port, at the mockup's size (Slice 25 FR-030).
+ * One patchable port (Slice 25 FR-030).
  *
- * The paint is 7px; the hit area is deliberately larger. The mockup is a picture
- * that nobody had to click, and a 7px target fails the moment a real hand with a
- * real trackpad tries to start a cable — so the button carries padding and a
- * negative margin, which keeps the dot's *visual* size and rhythm while giving the
- * pointer something to land on.
+ * Two boxes, deliberately: an outer button that is the *hit area* and paints
+ * nothing, and an inner span that is the 7px dot. A 7px target fails the first time
+ * a real hand with a real trackpad tries to start a cable, so the button carries
+ * padding and a negative margin — but the padding must stay invisible, and the first
+ * attempt at this put the border and background on a padded single element, which
+ * paints the padding box and renders a 15px dot (the reported "too big").
+ *
+ * The ref goes on the **inner** span, because the canvas measures these elements to
+ * place its cable endpoints: measuring the hit area would put every cable's end a
+ * few pixels off its own dot.
  *
  * Three states: hollow when nothing is patched, amber when patched, and the run's
  * own colour when the run reaches a channel (or comes from a coloured output).
@@ -51,21 +56,25 @@ export function PortDot({
   return (
     <button
       type="button"
-      ref={registerRef}
-      data-port-key={dataKey}
       onClick={onClick}
       onPointerDown={onPointerDown}
       title={port.label}
-      style={coloured ? { borderColor: color, backgroundColor: selected ? color : `${color}b3` } : undefined}
-      className={`-m-1 box-content h-[7px] w-[7px] shrink-0 cursor-crosshair rounded-full border bg-clip-padding p-1 transition-colors ${
-        coloured
-          ? ''
-          : selected
-            ? 'border-amber-400 bg-amber-400'
-            : connected
-              ? 'border-amber-500 bg-amber-500/75 hover:bg-amber-400'
-              : 'border-zinc-500 bg-zinc-800 hover:border-amber-400 hover:bg-amber-400/30'
-      }`}
-    />
+      className="-m-1 flex shrink-0 cursor-crosshair items-center justify-center bg-transparent p-1"
+    >
+      <span
+        ref={registerRef}
+        data-port-key={dataKey}
+        style={coloured ? { borderColor: color, backgroundColor: selected ? color : `${color}b3` } : undefined}
+        className={`block h-[7px] w-[7px] rounded-full border transition-colors ${
+          coloured
+            ? ''
+            : selected
+              ? 'border-amber-400 bg-amber-400'
+              : connected
+                ? 'border-amber-500 bg-amber-500/75'
+                : 'border-zinc-500 bg-zinc-800'
+        }`}
+      />
+    </button>
   )
 }

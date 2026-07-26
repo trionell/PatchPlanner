@@ -5,7 +5,7 @@ import { useRowEditor } from '../../hooks/useRowEditor'
 import { isCablelessEdge } from '../../lib/inputGraph'
 import { boxUsage, cablesPicked, consoleCapacity, type PatchStatus } from '../../lib/patchCapacity'
 import { matchesSearch } from '../../lib/patchSearch'
-import { firstChainNode, inputChainSegments, type ChainCellModel, type SegmentNode } from '../../lib/patchSheet'
+import { chainSourceNode, inputChainSegments, type ChainCellModel, type SegmentNode } from '../../lib/patchSheet'
 import type { InputFlowContext } from '../../lib/inputSignalFlow'
 import { busTint } from '../../lib/utils'
 import type { Console, InputCable, InputChannel, InputDevice, InputSource, InventoryItem, MixerDCA, MixerGroup, StageMulti, Stagebox } from '../../types'
@@ -238,7 +238,7 @@ export function InputSheet({
                             removeChannel.mutate(channel.id)
                           }
                         }}
-                        onEditInFlow={onEditInFlow && firstChainNode(chain) ? () => onEditInFlow(firstChainNode(chain)!) : undefined}
+                        onEditInFlow={onEditInFlow && chainSourceNode(chain) ? () => onEditInFlow(chainSourceNode(chain)!) : undefined}
                         onKeyDown={editor.onKeyDown}
                       >
                         <FieldStack label="Ch" width="count">

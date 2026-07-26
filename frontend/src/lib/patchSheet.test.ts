@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AudioPatchOutput, Console, InputCable, InputChannel, InputDevice, InputSource, OutputCable, OutputDevice, StageMulti, Stagebox } from '../types'
-import { firstChainNode, inputChainSegments, outputChainSegments, truncateSegments, type ChainSegment } from './patchSheet'
+import { chainSourceNode, inputChainSegments, outputChainSegments, truncateSegments, type ChainSegment } from './patchSheet'
 import type { InputFlowContext } from './inputSignalFlow'
 import type { OutputFlowContext } from './signalFlow'
 
@@ -195,24 +195,42 @@ describe('truncateSegments', () => {
   })
 })
 
-describe('firstChainNode', () => {
+describe('chainSourceNode', () => {
   it('picks the source that feeds a channel, which is what Edit in Flow selects', () => {
     // The point of the button is to change where the signal comes from, so it has
     // to land on the source rather than on the channel being edited (Slice 24
     // FR-030).
     const model = inputChainSegments(channel(), inputContext({ cables: [cable({ id: 1 })] }))
-    expect(firstChainNode(model)).toMatchObject({ kind: 'source', id: 1 })
+    expect(chainSourceNode(model)).toMatchObject({ kind: 'source', id: 1 })
   })
 
   it('is undefined when nothing is patched, so the button is not offered', () => {
     const model = inputChainSegments(channel(), inputContext({ cables: [] }))
-    expect(firstChainNode(model)).toBeUndefined()
+    expect(chainSourceNode(model)).toBeUndefined()
   })
 
   it('picks the first hop on the output side, since the desk itself is not a node', () => {
     const model = outputChainSegments(output(), outputContext({ cables: [outCable()] }), { consoleLabel: 'FOH · SD10' })
     // The desk heads the line but carries no node — it is the row itself.
     expect(model.lines[0].segments[0].node).toBeUndefined()
-    expect(firstChainNode(model)).toMatchObject({ kind: 'device', id: 10 })
+    expect(chainSourceNode(model)).toMatchObject({ kind: 'device', id: 10 })
+  })
+
+  it('picks the source even when the run goes straight into the desk\'s own socket', () => {
+    // The bug this replaced `firstChainNode` for: on this chain the *first* node is
+    // the desk's jack panel, so the button opened the console instead of the source.
+    const desk: Console = {
+      id: 3, event_id: 1, name: 'FOH · SD10', role: 'foh', input_count: 96, output_count: 48,
+      local_input_count: 8, local_output_count: 8, position_x: 0, position_y: 0, input_position_x: 0, input_position_y: 0,
+      local_position_x: 260, local_position_y: 320, local_input_position_x: 260, local_input_position_y: 320,
+    }
+    const talkback = channel({ channel_number: 15, channel_name: 'Talkback' })
+    const cables = [
+      cable({ id: 1, to_kind: 'console_local', to_id: 3, to_port: 0, cable_item_id: 7 }),
+      cable({ id: 2, from_kind: 'console_local', from_id: 3, from_port: 0, to_kind: 'channel', to_id: 1, to_port: 0 }),
+    ]
+    const model = inputChainSegments(talkback, inputContext({ channels: [talkback], cables, consoles: [desk] }))
+    expect(model.lines[0].segments[1].node).toMatchObject({ kind: 'console_local' })
+    expect(chainSourceNode(model)).toMatchObject({ kind: 'source', id: 1 })
   })
 })

@@ -38,16 +38,21 @@ export const NODE_FOOTER = 'border-t border-zinc-800 px-1.5 pb-1 pt-0.5 font-mon
 export const PORT_ROW = 'flex h-[18px] items-center gap-1.5 px-1.5 text-[11px]'
 export const PORT_ROW_TEXT = 'text-zinc-300'
 
-/**
- * How many port rows a node draws before it stops and states the remainder. The
- * mockup's own limit: eight rows plus a count is legible; thirty-two rows is a
- * wall, and a 32-jack stagebox is ordinary.
- */
-export const PORT_ROW_LIMIT = 8
+// No truncation limit here, deliberately. The mockup ends a long port list with a
+// "⋯ N more" row, and it was built that way — but a planner working a patch has to
+// see every jack, and a box that hides eight of them is not a readable box, it is an
+// incomplete one. Boxes grow; the canvas scrolls.
 
-/** A source row in the rail, and a stereo one, which is two port slots tall. */
-export const SOURCE_ROW = 'flex h-5 items-center gap-1.5 border-b border-zinc-800/60 pr-1.5 text-[11px]'
-export const SOURCE_ROW_STEREO = 'h-10'
+/**
+ * A source row in the rail. The height is deliberately *not* in here: a stereo
+ * source is two port slots tall, and two competing height utilities in one class
+ * string is decided by whichever Tailwind happens to emit last — which is how the
+ * stereo rows ended up the same height as the mono ones, with their two port dots
+ * overlapping inside a 20px row.
+ */
+export const SOURCE_ROW = 'flex items-center gap-1.5 border-b border-zinc-800/60 pr-1.5 text-[11px]'
+/** One port slot. A stereo row is two of these; a mono row is one. */
+export const SOURCE_ROW_HEIGHT = 20
 
 /**
  * 48 V is a red bar, never a dot: every circle on this canvas is a port you can
