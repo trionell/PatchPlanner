@@ -60,7 +60,11 @@ Everything the signal passes through is a **named, reusable entity per event**,
 declared once and shared by both audio tabs — never a free-text field on a patch
 row. All of it lives in the **Rig drawer**, reachable from either tab's toolbar,
 and every row in it that names a catalog or owned item is one line on the rental
-order.
+order. Every section reads the same way (Slice 24): a heading with a count and
+an add control, one card per declared item stating its name, the item it stands
+for, its capacity and how much of that capacity the patch uses — and its fields
+only once **Edit** is pressed. Nothing in the drawer is placed beside anything
+else, so every field has the drawer's full width.
 
 **Consoles** (Slice 23). The desk itself: a display name, a role (FOH, monitor,
 broadcast), the catalog or owned item it was booked as, and how many networked
@@ -71,6 +75,13 @@ item, because a desk's usable channel count depends on its card fit and licence;
 a count left at zero simply means undeclared and never warns. The desk's own
 local jacks are patchable, so a talkback mic can go straight into its preamp
 with no stagebox in the path.
+
+Those local jacks are their own node on each graph (Slice 24), drawn as a
+two-sided pass-through exactly as a stagebox is — signal arrives on the left and
+leaves on the right — because that is what they are to the signal, and drawing
+them the same way is what lets either be picked without learning a second idiom.
+The panel is placed independently on each canvas, and no node is drawn for a desk
+that has declared no local jacks.
 
 **Stageboxes.** Name plus an optional inventory item; input and output counts
 auto-parsed from the item's description ("32/16" → 32 in, 16 out) or typed;
@@ -105,22 +116,27 @@ on the tab is content.
 | Notes | Freeform |
 
 Clicking a row opens an editor in place holding the channel's own fields only —
-name, width, tape colour, buses, notes; routing is decided in Flow. One row is
-open at a time, opening another saves and closes the first, `Esc` discards and
-`⌘↵` saves and moves on. A missing link is named in place ("no source"), never
+name, width, tape colour, buses, notes; routing is decided in Flow, reachable
+from the editor itself via **Edit in Flow**, which selects the row's own source.
+One row is open at a time, opening another saves and closes the first, `Esc`
+discards and `⌘↵` saves and moves on. A missing link is named in place ("no source"), never
 an empty cell, and a status rail under the list states the channel count, each
 desk's used-against-declared capacity, per-box usage, cables picked, and any
 gaps — plus an over-capacity warning when the patch has outgrown the booked desk.
 
 **Flow** — the same data seen sideways, one toggle away. Three lanes follow the
-signal (Stage, Rig, Console). Sources are one consolidated scrollable rail of
+signal (Stage, Rig, Console). The desk's channel rail sits in the Console lane;
+its local jack panel sits in the Rig lane with the stageboxes, because that is
+where signal passes through it. Sources are one consolidated scrollable rail of
 20px rows carrying a derived colour tape, the source name, the picked mic, a red
 48 V bar and the patchable port; a stereo source is two port slots tall with `L`
 above `R`, each side cabled independently. Cables are drawn as bezier runs with
 two independent encodings: **hue** is the channel the run reaches (only when
 every reachable channel agrees), **dash pattern** is what kind of link it is.
 Selecting a node opens an inspector holding a source's mic, stand, connector,
-width and phantom power, and stating what it reaches.
+width and phantom power, and stating what it reaches. Every node on either canvas
+can be dragged, including the one holding rows that belong to no desk — that one
+keeps its position for the session only, since there is no row to store it on.
 
 ### 2.5 Audio Outputs
 

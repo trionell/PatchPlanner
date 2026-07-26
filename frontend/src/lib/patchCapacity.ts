@@ -84,16 +84,16 @@ export function overCapacityLine(consoleName: string, used: number, declared: nu
  */
 export function consoleCapacity(
   consoles: Console[],
-  assignedTo: (console: Console) => number,
-  declaredOf: (console: Console) => number,
+  assignedTo: (desk: Console) => number,
+  declaredOf: (desk: Console) => number,
   noun: string,
 ): { labels: string[]; overCapacity: string[] } {
   const labels: string[] = []
   const overCapacity: string[] = []
-  for (const console of consoles) {
-    const name = console.name || 'desk'
-    const used = assignedTo(console)
-    const declared = declaredOf(console)
+  for (const desk of consoles) {
+    const name = desk.name || 'desk'
+    const used = assignedTo(desk)
+    const declared = declaredOf(desk)
     labels.push(declared > 0 ? `${name} ${used}/${declared} ${noun.slice(0, 2)}` : `${name} ${used} ${noun.slice(0, 2)}`)
     const over = overCapacityLine(name, used, declared, noun)
     if (over) overCapacity.push(over)

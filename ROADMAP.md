@@ -768,6 +768,52 @@ chain column is a render of their existing cable walks.
 - No new dependency, no change to the cabling rules, and no mobile code path
   touched.
 
+## Slice 24 — Audio patch shell, second pass (spec: `patch-shell-fixes`)
+
+Four defects found by field-testing Slice 23. Two were real bugs with narrow
+causes; two were the UI not having been built to the approved mockup.
+
+- **A channel kept losing its desk.** The sheet's row editor PATCHed eight
+  fields and not `console_id`, and the update writes that column
+  unconditionally, so a nil became NULL — on the *first save of any field*,
+  not on create. Fixed at both layers: every caller carries the field, and
+  update falls back to the event's only desk exactly as create already did,
+  which also repairs rows that are already detached. With several desks it
+  stays nil rather than guessing, because putting a monitor send on the FOH
+  desk would put a wrong line on a printed sheet. The node holding deskless
+  rows is now draggable too — it had no handler at all, so it sat immovably
+  on top of the desk it covered.
+- **A desk's own sockets led nowhere,** in both directions. The desk node drew
+  them one-sided: only the out side on the output graph, so a bus had nothing
+  to land on; only the in side on the input graph, so a cabled-in source could
+  never reach a channel. They are now their own two-sided node in the
+  processing lane, drawn by the same shape as a stagebox — which is what makes
+  the two interchangeable to look at as well as in the data. Migration 043
+  gives that node its own placement per graph. A second bug fell out of
+  confirming the first: the output chain walker had no `console_local` branch,
+  so a run through a local out read as ending at the desk.
+- **The Rig and Buses drawers** are rebuilt on one design language
+  (`ui/GearList.tsx`): a mono micro-label heading, one card per item reading as
+  a summary line with a spec line and — for a desk — a usage meter, and fields
+  only once Edit is pressed. Stacked full width: `StageboxMultiManager`, whose
+  whole job was to put stageboxes and multis in two columns, is retired, and
+  that two-column layout inside a `max-w-3xl` drawer is why the fields were too
+  narrow to type into. The three near-identical device sections became thin
+  wrappers over one shared list.
+- **The sheet's row editor** is one flowing strip instead of a fixed column
+  track. Notes spanned all but one column, so the actions landed in a 9 rem
+  cell where the buttons shrank — which is what compressed "Save channel"
+  against its padding and squashed the delete icon into a tall sliver. One
+  cause, three of the reported symptoms. Adds the missing **Edit in Flow**,
+  which selects the row's own upstream source.
+- No new dependency, no new table, and no change to the cabling rules or the
+  rental query. A run through a desk's sockets bills exactly the same number
+  of cables as the equivalent run through a stagebox, and a test pins it.
+- **Deliberately left for a slice of its own:** carrying this design language,
+  and a chosen typeface, to the other eight tabs. Only the audio tabs and the
+  shared controls they needed are touched here.
+
+
 ## Dependency graph
 
 ```
@@ -776,7 +822,7 @@ Slice 18 (deployment) ──→ Slice 19 (CI/CD deploy to VPS)
 Slice 16 (inventory ownership) ──→ Slice 22 (generic inventory formats & PDF order)
 Slice 10 (output chains) ──→ Slice 11 (output signal graph, replaces it) ✅
 Slice 11 (output signal graph) ──→ Slice 12 (input signal graph, same pattern reversed) ✅
-Slice 11 + Slice 12 ──→ Slice 23 (audio patch shell & the console)
+Slice 11 + Slice 12 ──→ Slice 23 (audio patch shell & the console) ──→ Slice 24 (second pass: field-test fixes)
 Slice 7 (lighting rig) + Slice 12 ──→ Slice 13 (stage plots; supersedes Slice 0's truss sections) ✅
 Slice 14 (auth) ──→ Slice 15 (event ownership & sharing) ──→ Slice 16 (inventory ownership) ──→ Slice 17 (event settings) ──→ Slice 18 (deployment) ✅
 ```
