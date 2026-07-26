@@ -11,6 +11,7 @@ function cable(overrides: Partial<InputCable>): InputCable {
 
 const status = (overrides: Partial<PatchStatus> = {}): PatchStatus => ({
   rowCount: 16,
+  consoleLabels: [],
   boxes: [],
   cablesPicked: 0,
   gaps: [],

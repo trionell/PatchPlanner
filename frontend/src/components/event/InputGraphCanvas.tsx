@@ -4,6 +4,7 @@ import { Minus, Plus, Trash2, Unplug } from 'lucide-react'
 import {
   createInputCable,
   deleteInputCable,
+  updateConsole,
   updateInputCable,
   updateInputDevice,
   updateStagebox,
@@ -12,6 +13,7 @@ import {
 import {
   cableAtPort,
   channelPorts,
+  consoleLocalPorts,
   derivedPortColor,
   devicePorts,
   isCablelessEdge,
@@ -23,7 +25,7 @@ import {
 import { stageboxPorts, stageMultiPorts } from '../../lib/outputGraph'
 import { matchesSearch } from '../../lib/patchSearch'
 import { itemLabel } from '../../lib/utils'
-import type { InputCable, InputChannel, InputDevice, InputSource, InventoryItem, StageMulti, Stagebox } from '../../types'
+import type { Console, InputCable, InputChannel, InputDevice, InputSource, InventoryItem, StageMulti, Stagebox } from '../../types'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Dialog } from '../ui/Dialog'
@@ -80,6 +82,7 @@ export function InputGraphCanvas({
   stageMultis,
   cables,
   cableItems,
+  consoles,
   search = '',
   onChanged,
   readOnly = false,
@@ -92,6 +95,8 @@ export function InputGraphCanvas({
   stageMultis: StageMulti[]
   cables: InputCable[]
   cableItems: InventoryItem[]
+  /** The event's desks — one node each in the Channels lane (Slice 23). */
+  consoles: Console[]
   /**
    * The shell's search term. A graph never *hides* on search — removing a
    * node would remove edges that exist, so a partly-filtered patch would
@@ -138,7 +143,7 @@ export function InputGraphCanvas({
     return Math.max(min, Math.min(max, x))
   }
 
-  const portContext = { sources, channels, devices, stageboxes, stageMultis }
+  const portContext = { sources, channels, devices, stageboxes, stageMultis, consoles }
   const colorContext = { channels, devices, stageboxes, stageMultis, cables }
 
   const createCableMutation = useMutation({
@@ -165,17 +170,35 @@ export function InputGraphCanvas({
     mutationFn: ({ id, data }: { id: number; data: Omit<StageMulti, 'id'> }) => updateStageMulti(eventId, id, data),
     onSuccess: onChanged,
   })
+  const moveConsoleMutation = useMutation({
+    mutationFn: ({ id, x, y }: { id: number; x: number; y: number }) => updateConsole(eventId, id, { input_position_x: x, input_position_y: y }),
+    onSuccess: onChanged,
+  })
   const registerPort = (key: string) => (el: HTMLElement | null) => {
     if (el) portEls.current.set(key, el)
     else portEls.current.delete(key)
   }
+
+  const orphanChannels = useMemo(() => channels.filter((channel) => channel.console_id == null), [channels])
 
   const layout = useMemo<NodeLayout[]>(() => {
     const nodes: NodeLayout[] = []
     nodes.push({ kind: 'source', id: 0, x: ZONE_SOURCES_X, y: 24 })
 
     const channelsX = zoneChannelsX(canvasWidth)
-    nodes.push({ kind: 'channel', id: 0, x: channelsX, y: 24 })
+    let nextY = 24
+    for (const console of consoles) {
+      const override = positions.get(`console_local:${console.id}`)
+      nodes.push({ kind: 'console_local', id: console.id, x: channelsX, y: override?.y ?? console.input_position_y ?? nextY })
+      nextY += 220
+    }
+    // Channels belonging to no desk keep a node of their own rather than
+    // disappearing — the state an event is in after its only console is
+    // deleted, and it must stay patchable.
+    if (orphanChannels.length > 0 || consoles.length === 0) {
+      const override = positions.get('channel:0')
+      nodes.push({ kind: 'channel', id: 0, x: channelsX, y: override?.y ?? nextY })
+    }
 
     for (const sb of stageboxes) {
       const override = positions.get(`stagebox:${sb.id}`)
@@ -197,7 +220,7 @@ export function InputGraphCanvas({
     }
     return nodes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stageboxes, stageMultis, devices, positions, canvasWidth])
+  }, [consoles, orphanChannels, stageboxes, stageMultis, devices, positions, canvasWidth])
 
   useLayoutEffect(() => {
     const container = canvasRef.current
@@ -229,6 +252,10 @@ export function InputGraphCanvas({
 
   function persistPosition(kind: PortRef['kind'], id: number, x: number, y: number) {
     const onError = (e: unknown) => setError(e instanceof Error ? e.message : 'Failed to save position')
+    if (kind === 'console_local') {
+      moveConsoleMutation.mutate({ id, x, y }, { onError })
+      return
+    }
     if (kind === 'stagebox') {
       const sb = stageboxes.find((s) => s.id === id)
       if (!sb) return
@@ -456,13 +483,34 @@ export function InputGraphCanvas({
                   />
                 )
               }
+              if (node.kind === 'console_local') {
+                const console = consoles.find((c) => c.id === node.id)
+                if (!console) return null
+                return (
+                  <ConsoleNode
+                    key={`console-${console.id}`}
+                    x={node.x}
+                    y={node.y}
+                    console={console}
+                    channels={channels.filter((channel) => channel.console_id === console.id)}
+                    cables={cables}
+                    pendingPort={pendingPort}
+                    onPortClick={handlePortClick}
+                    onPortPointerDown={handlePortPointerDown}
+                    registerPort={registerPort}
+                    colorContext={colorContext}
+                    onDragStart={(e) => startNodeDrag('console_local', console.id, e)}
+                    search={search}
+                  />
+                )
+              }
               if (node.kind === 'channel') {
                 return (
                   <ChannelsNode
                     key="channels"
                     x={node.x}
                     y={node.y}
-                    channels={channels}
+                    channels={orphanChannels.length > 0 ? orphanChannels : channels}
                     cables={cables}
                     pendingPort={pendingPort}
                     onPortClick={handlePortClick}
@@ -745,6 +793,55 @@ function ChannelsNode({ x, y, channels, cables, pendingPort, onPortClick, onPort
         <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" colorContext={colorContext} dimmed={dimmedIds.has(port.id)} />
       ))}
       {ports.length === 0 && <p className="text-[11px] text-zinc-600">No channels yet</p>}
+    </NodeShell>
+  )
+}
+
+/**
+ * The desk on the input graph (Slice 23): its channel strips, then its own
+ * local jacks after a divider. Where the Channels rail used to be an anonymous
+ * list, it now belongs to a named console with a stated capacity — which is
+ * what makes "15 / 96 in" sayable at all.
+ */
+function ConsoleNode({ x, y, console, channels, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext, onDragStart, search = '' }: {
+  x: number
+  y: number
+  console: Console
+  channels: InputChannel[]
+  cables: InputCable[]
+  pendingPort: PortRef | null
+  onPortClick: (port: PortRef) => void
+  onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
+  registerPort: (key: string) => (el: HTMLElement | null) => void
+  colorContext: ColorContext
+  onDragStart?: (e: ReactPointerEvent) => void
+  search?: string
+}) {
+  const ports = channels.flatMap((channel) => channelPorts(channel))
+  const localPorts = consoleLocalPorts(console).inputs
+  const dimmedIds = new Set(
+    channels.filter((channel) => !matchesSearch(search, channel.channel_number, channel.channel_name, channel.notes)).map((channel) => channel.id),
+  )
+  const over = console.input_count > 0 && channels.length > console.input_count
+
+  return (
+    <NodeShell x={x} y={y} title={console.name || 'Console'} badge="DESK" onDragStart={onDragStart}>
+      {ports.map((port) => (
+        <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" colorContext={colorContext} dimmed={dimmedIds.has(port.id)} />
+      ))}
+      {ports.length === 0 && <p className="text-[11px] text-zinc-600">No channels on this desk yet</p>}
+      {localPorts.length > 0 && (
+        <div className="space-y-1 border-t border-zinc-800 pt-1">
+          {localPorts.map((port) => (
+            <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" colorContext={colorContext} />
+          ))}
+        </div>
+      )}
+      <p className={`border-t border-zinc-800 pt-1 font-mono text-[10px] ${over ? 'text-red-400' : 'text-zinc-500'}`}>
+        {channels.length}
+        {console.input_count > 0 ? ` / ${console.input_count}` : ''} in
+        {console.local_input_count > 0 ? ` · local ${console.local_input_count}` : ''}
+      </p>
     </NodeShell>
   )
 }

@@ -1,6 +1,6 @@
 import type { InputFlowContext } from '../../lib/inputSignalFlow'
 import { inputChainSegments, type ChainCellModel } from '../../lib/patchSheet'
-import type { InputCable, InputChannel, InputDevice, InputSource, MixerDCA, MixerGroup, StageMulti, Stagebox } from '../../types'
+import type { Console, InputCable, InputChannel, InputDevice, InputSource, MixerDCA, MixerGroup, StageMulti, Stagebox } from '../../types'
 import { ChainText } from './ChainText'
 import { ColorSwatch, PrintSheet, sheetTd, sheetTh } from './PrintSheet'
 
@@ -18,6 +18,7 @@ export function InputPatchSheet({
   cables,
   groups,
   dcas,
+  consoles,
   itemLabelById,
 }: {
   eventId: number
@@ -29,10 +30,12 @@ export function InputPatchSheet({
   cables: InputCable[]
   groups: MixerGroup[]
   dcas: MixerDCA[]
+  /** The event's desks, so a hop through a local jack names the console. */
+  consoles?: Console[]
   /** Catalog item labels (name — description) for source/cable picks. */
   itemLabelById: Map<number, string>
 }) {
-  const context: InputFlowContext = { sources, channels, devices, stageboxes, stageMultis, cables, itemLabelById }
+  const context: InputFlowContext = { sources, channels, devices, stageboxes, stageMultis, cables, itemLabelById, consoles }
   const rows = [...channels]
     .sort((a, b) => a.channel_number - b.channel_number)
     .map((channel) => ({ channel, chain: inputChainSegments(channel, context) }))

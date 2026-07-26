@@ -10,6 +10,8 @@ interface RigDrawerProps {
   stageboxes: Stagebox[]
   stageMultis: StageMulti[]
   audioItems: InventoryItem[]
+  /** The consoles section, rendered first — signal order starts at the desk. */
+  consoleSection?: ReactNode
   /**
    * The tab's own device sections — processing devices on Inputs, processing
    * plus output devices on Outputs. Passed in rather than branched on here,
@@ -28,8 +30,7 @@ interface RigDrawerProps {
  * event-scoped data, so a stagebox declared on Inputs needs no re-declaring
  * on Outputs.
  *
- * Sections read in signal order. Consoles are added at the top by Slice 23's
- * console pass.
+ * Sections read in signal order, starting at the desk.
  */
 export function RigDrawer({
   open,
@@ -38,6 +39,7 @@ export function RigDrawer({
   stageboxes,
   stageMultis,
   audioItems,
+  consoleSection,
   deviceSections,
   itemCount,
   readOnly = false,
@@ -51,6 +53,7 @@ export function RigDrawer({
       width="wide"
       footer={<>Every row here is one line on the rental order · {itemCount} {itemCount === 1 ? 'item' : 'items'}</>}
     >
+      {consoleSection}
       <StageboxMultiSection
         eventId={eventId}
         stageboxes={stageboxes}

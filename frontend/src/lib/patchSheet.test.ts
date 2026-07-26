@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { AudioPatchOutput, InputCable, InputChannel, InputDevice, InputSource, OutputCable, OutputDevice, StageMulti, Stagebox } from '../types'
+import type { AudioPatchOutput, Console, InputCable, InputChannel, InputDevice, InputSource, OutputCable, OutputDevice, StageMulti, Stagebox } from '../types'
 import { inputChainSegments, outputChainSegments, truncateSegments, type ChainSegment } from './patchSheet'
 import type { InputFlowContext } from './inputSignalFlow'
 import type { OutputFlowContext } from './signalFlow'
@@ -105,6 +105,21 @@ describe('inputChainSegments', () => {
     expect(labels(model.lines[0].segments)).toEqual(['no source', 'ch 3'])
     expect(model.lines[0].segments[0].missing).toBe(true)
     expect(model.hasGap).toBe(true)
+  })
+
+  it('reads a run straight into the desk, with no stagebox in the path', () => {
+    const desk: Console = {
+      id: 3, event_id: 1, name: 'FOH · SD10', role: 'foh', input_count: 96, output_count: 48,
+      local_input_count: 8, local_output_count: 8, position_x: 0, position_y: 0, input_position_x: 0, input_position_y: 0,
+    }
+    const talkback = channel({ channel_number: 15, channel_name: 'Talkback' })
+    const cables = [
+      cable({ id: 1, to_kind: 'console_local', to_id: 3, to_port: 0, cable_item_id: 7 }),
+      cable({ id: 2, from_kind: 'console_local', from_id: 3, from_port: 0, to_kind: 'channel', to_id: 1, to_port: 0 }),
+    ]
+    const model = inputChainSegments(talkback, inputContext({ channels: [talkback], cables, consoles: [desk] }))
+    expect(labels(model.lines[0].segments)).toEqual(['Sennheiser e906', 'FOH · SD10 local in 1', 'ch 15'])
+    expect(model.hasGap).toBe(false)
   })
 
   it('falls back to the source name when no mic is picked', () => {

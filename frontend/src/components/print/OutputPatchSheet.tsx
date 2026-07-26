@@ -1,7 +1,7 @@
 import { useReferenceData } from '../../hooks/useReferenceData'
 import { outputChainSegments } from '../../lib/patchSheet'
 import type { OutputFlowContext } from '../../lib/signalFlow'
-import type { AudioPatchOutput, OutputCable, OutputDevice, StageMulti, Stagebox } from '../../types'
+import type { AudioPatchOutput, Console, OutputCable, OutputDevice, StageMulti, Stagebox } from '../../types'
 import { ChainText } from './ChainText'
 import { ColorSwatch, PrintSheet, sheetTd, sheetTh } from './PrintSheet'
 
@@ -17,7 +17,7 @@ export function OutputPatchSheet({
   outputDevices,
   outputCables,
   itemLabelById,
-  consoleLabel,
+  consoles,
 }: {
   eventId: number
   outputs: AudioPatchOutput[]
@@ -27,14 +27,20 @@ export function OutputPatchSheet({
   outputCables: OutputCable[]
   /** Catalog item labels (name — description) for device/cable picks. */
   itemLabelById: Map<number, string>
-  /** The desk's own name, once the event declares one. */
-  consoleLabel?: string
+  /** The event's desks — each output's chain is headed by the one it comes off. */
+  consoles?: Console[]
 }) {
   const { label } = useReferenceData(eventId)
   const context: OutputFlowContext = { stageboxes, stageMultis, devices: outputDevices, cables: outputCables, itemLabelById }
   const rows = [...outputs]
     .sort((a, b) => a.output_number - b.output_number)
-    .map((output) => ({ output, chain: outputChainSegments(output, context, { consoleLabel }) }))
+    .map((output) => ({
+      output,
+      chain: outputChainSegments(output, context, {
+        consoleLabel: consoles?.find((console) => console.id === output.console_id)?.name || undefined,
+        consoles,
+      }),
+    }))
 
   return (
     <PrintSheet eventId={eventId} title="Output Patch" empty={rows.length === 0}>

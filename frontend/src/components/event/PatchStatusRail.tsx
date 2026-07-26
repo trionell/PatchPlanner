@@ -37,6 +37,10 @@ export function PatchStatusRail({ status, noun, onShowGaps, gapsOnly, onOpenRig 
         {status.rowCount} {status.rowCount === 1 ? noun : `${noun}s`}
       </span>
 
+      {status.consoleLabels.length > 0 && (
+        <span className="font-mono text-zinc-400">{status.consoleLabels.join(' · ')}</span>
+      )}
+
       {status.boxes.length > 0 && (
         <span className="font-mono text-zinc-500">
           {status.boxes.map((box) => `${box.name} ${box.used}/${box.declared}`).join(' · ')}

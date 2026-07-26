@@ -2,13 +2,9 @@ import { isCablelessEdge, type PortRef as InputPortRef } from './inputGraph'
 import { buildInputChannelFlow, type FlowHop as InputFlowHop, type InputFlowContext } from './inputSignalFlow'
 import { isCablelessToKind } from './outputGraph'
 import { buildOutputChannelFlow, type OutputFlowContext } from './signalFlow'
-import type { AudioPatchOutput, InputChannel, InputSource } from '../types'
+import type { AudioPatchOutput, Console, InputChannel, InputSource } from '../types'
 
-/**
- * A node a chain segment addresses — the click target the per-hop picker acts
- * on. `console_local` joins this union with the console pass; the segment
- * builder gains its two branches there rather than carrying dead ones here.
- */
+/** A node a chain segment addresses — the click target the per-hop picker acts on. */
 export interface SegmentNode {
   kind: InputPortRef['kind'] | 'mixer' | 'device_link'
   id: number
@@ -66,6 +62,15 @@ function portLabel(name: string, port: number, portTo?: number): string {
   return portTo != null ? `${name} : ${port + 1}–${portTo + 1}` : `${name} : ${port + 1}`
 }
 
+/**
+ * A console's own jack, which reads as prose rather than as a numbered port:
+ * `SD10 local in 1`, not `SD10 : 1` — the desk's jacks are named on its back
+ * panel that way, and it keeps them distinct from a stagebox jack at a glance.
+ */
+function jackLabel(prefix: string, port: number, portTo?: number): string {
+  return portTo != null ? `${prefix} ${port + 1}–${portTo + 1}` : `${prefix} ${port + 1}`
+}
+
 function nodeNameFor(node: SegmentNode, context: { stageboxes: { id: number; name: string }[]; stageMultis: { id: number; name: string }[]; devices: { id: number; name: string }[] }): string {
   if (node.kind === 'stagebox') return context.stageboxes.find((sb) => sb.id === node.id)?.name ?? `#${node.id}`
   if (node.kind === 'stage_multi') return context.stageMultis.find((sm) => sm.id === node.id)?.name ?? `#${node.id}`
@@ -105,6 +110,13 @@ function inputSegmentsForHops(hops: InputFlowHop[], context: InputFlowContext): 
       // A DI box's port index is noise: they have one or two, and which one
       // carries the signal is visible in Flow, not useful on a sheet line.
       return [{ label: nodeNameFor(node, context), kind: 'device', missing: false, node, cableId: hop.cableId, detail }]
+    }
+    if (hop.node.kind === 'console_local') {
+      // Straight into the desk's own preamp — the run that had to be faked
+      // through a stagebox before the console existed.
+      const desk = context.consoles?.find((console) => console.id === hop.node!.id)
+      const name = desk?.name ? `${desk.name} local in` : 'local in'
+      return [{ label: jackLabel(name, hop.node.port), kind: 'console', missing: false, node, cableId: hop.cableId, detail }]
     }
     return [
       {
@@ -198,7 +210,7 @@ export function inputChainSegments(channel: InputChannel, context: InputFlowCont
 export function outputChainSegments(
   output: AudioPatchOutput,
   context: OutputFlowContext,
-  options: { consoleLabel?: string } = {},
+  options: { consoleLabel?: string; consoles?: Console[] } = {},
 ): ChainCellModel {
   const flow = buildOutputChannelFlow(output, context)
   const consoleLabel = options.consoleLabel ?? 'Mixer'
@@ -219,6 +231,11 @@ export function outputChainSegments(
         : cable && isCablelessToKind(cable.to_kind)
           ? 'built-in'
           : undefined
+      if (hop.node.kind === 'console_local') {
+        const desk = options.consoles?.find((console) => console.id === hop.node!.id)
+        const name = desk?.name ? `${desk.name} local out` : 'local out'
+        return [{ label: jackLabel(name, hop.node.port), kind: 'console', missing: false, node, cableId: hop.cableId, detail }]
+      }
       if (hop.node.kind === 'device' || hop.node.kind === 'device_link') {
         return [{ label: `${nodeNameFor({ ...node, kind: 'device' }, context)} in ${hop.node.port + 1}`, kind: 'device', missing: false, node, cableId: hop.cableId, detail }]
       }

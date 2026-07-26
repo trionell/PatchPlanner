@@ -9,7 +9,7 @@ import {
   getAudioPatch,
   updateOutputCable,
   updateOutputDevice,
-  updateOutputMixerPosition,
+  updateConsole,
   updateStagebox,
   updateStageMulti,
 } from '../../api/audioPatch'
@@ -24,6 +24,7 @@ import { MobileEntityList } from '../mobile/MobileEntityList'
 import { MobileOutputEditSheet } from '../mobile/MobileOutputEditSheet'
 import {
   cableAtPort,
+  consoleLocalPorts,
   devicePorts,
   isCablelessToKind,
   isPortConnected,
@@ -36,8 +37,9 @@ import {
   type Zone,
 } from '../../lib/outputGraph'
 import { itemLabel } from '../../lib/utils'
-import type { AudioPatchOutput, InventoryItem, OutputCable, OutputDevice, OwnedItem, StageMulti, Stagebox } from '../../types'
+import type { AudioPatchOutput, Console, InventoryItem, OutputCable, OutputDevice, OwnedItem, StageMulti, Stagebox } from '../../types'
 import { AudioPatchShell } from './AudioPatchShell'
+import { ConsoleSection } from './ConsoleSection'
 import { OutputSheet } from './OutputSheet'
 import { ProcessingDeviceSection } from './ProcessingDeviceSection'
 import { RigDrawer } from './RigDrawer'
@@ -91,7 +93,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
   const stageMultis = audioQuery.data?.stage_multis ?? []
   const outputDevices = audioQuery.data?.output_devices ?? []
   const outputCables = audioQuery.data?.output_cables ?? []
-  const mixerPositionY = audioQuery.data?.output_mixer_position_y ?? 0
+  const consoles = audioQuery.data?.consoles ?? []
 
   const itemLabelById = useMemo(
     () => new Map([...allAudioItems, ...cableItems].map((item) => [item.id, itemLabel(item)])),
@@ -156,8 +158,19 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
             stageboxes={stageboxes}
             stageMultis={stageMultis}
             audioItems={allAudioItems}
-            itemCount={stageboxes.length + stageMultis.length + outputDevices.length}
+            itemCount={consoles.length + stageboxes.length + stageMultis.length + outputDevices.length}
             readOnly={readOnly}
+            consoleSection={
+              <ConsoleSection
+                eventId={eventId}
+                consoles={consoles}
+                channels={audioQuery.data?.input_channels ?? []}
+                outputs={outputs}
+                audioItems={allAudioItems}
+                ownedItems={ownedItems}
+                readOnly={readOnly}
+              />
+            }
             deviceSections={
               <>
                 <ProcessingDeviceSection eventId={eventId} devices={outputDevices} audioItems={allAudioItems} ownedItems={ownedItems} readOnly={readOnly} />
@@ -175,6 +188,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
             stageMultis={stageMultis}
             devices={outputDevices}
             cables={outputCables}
+            consoles={consoles}
             cableItems={cableItems}
             itemLabelById={itemLabelById}
             search={search}
@@ -190,7 +204,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
             stageMultis={stageMultis}
             devices={outputDevices}
             cables={outputCables}
-            mixerPositionY={mixerPositionY}
+            consoles={consoles}
             cableItems={cableItems}
             search={search}
             onChanged={invalidate}
@@ -205,6 +219,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
         stageMultis={stageMultis}
         outputDevices={outputDevices}
         outputCables={outputCables}
+        consoles={consoles}
         itemLabelById={itemLabelById}
       />
     </>
@@ -258,7 +273,7 @@ function OutputGraphCanvas({
   stageMultis,
   devices,
   cables,
-  mixerPositionY,
+  consoles,
   cableItems,
   search = '',
   onChanged,
@@ -270,7 +285,7 @@ function OutputGraphCanvas({
   stageMultis: StageMulti[]
   devices: OutputDevice[]
   cables: OutputCable[]
-  mixerPositionY: number
+  consoles: Console[]
   cableItems: InventoryItem[]
   /**
    * The shell's search term. Non-matching nodes and rows dim; nothing is
@@ -324,7 +339,7 @@ function OutputGraphCanvas({
     return Math.max(min, Math.min(max, x))
   }
 
-  const portContext = { outputs, stageboxes, stageMultis, devices }
+  const portContext = { outputs, stageboxes, stageMultis, devices, consoles }
 
   const createCableMutation = useMutation({
     mutationFn: (data: Omit<OutputCable, 'id' | 'event_id'>) => createOutputCable(eventId, data),
@@ -350,8 +365,8 @@ function OutputGraphCanvas({
     mutationFn: ({ id, data }: { id: number; data: Omit<StageMulti, 'id'> }) => updateStageMulti(eventId, id, data),
     onSuccess: onChanged,
   })
-  const moveMixerMutation = useMutation({
-    mutationFn: (y: number) => updateOutputMixerPosition(eventId, y),
+  const moveConsoleMutation = useMutation({
+    mutationFn: ({ id, y }: { id: number; y: number }) => updateConsole(eventId, id, { position_y: y }),
     onSuccess: onChanged,
   })
   const deleteDeviceMutation = useMutation({
@@ -377,10 +392,21 @@ function OutputGraphCanvas({
     return override ?? { x: serverX, y: serverY }
   }
 
+  // Outputs with no desk of their own (an event whose only console was
+  // deleted) keep a node of their own rather than being hidden or silently
+  // reassigned — the same reasoning as the sheet's "no source" cell.
+  const orphanOutputs = useMemo(() => outputs.filter((row) => row.console_id == null), [outputs])
+
   const layout = useMemo<NodeLayout[]>(() => {
     const nodes: NodeLayout[] = []
-    const mixerPos = positions.get('mixer:0')
-    nodes.push({ kind: 'mixer', id: 0, x: ZONE_SOURCES_X, y: mixerPos?.y ?? mixerPositionY, zone: 'sources' })
+    for (const console of consoles) {
+      const pos = positions.get(`console_local:${console.id}`)
+      nodes.push({ kind: 'console_local', id: console.id, x: ZONE_SOURCES_X, y: pos?.y ?? console.position_y, zone: 'sources' })
+    }
+    if (orphanOutputs.length > 0 || consoles.length === 0) {
+      const mixerPos = positions.get('mixer:0')
+      nodes.push({ kind: 'mixer', id: 0, x: ZONE_SOURCES_X, y: mixerPos?.y ?? 24, zone: 'sources' })
+    }
 
     for (const device of sourceDevices) {
       const pos = effectivePosition('device', device.id, ZONE_SOURCES_X, device.position_y)
@@ -407,7 +433,7 @@ function OutputGraphCanvas({
     }
     return nodes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mixerPositionY, sourceDevices, destinationDevices, stageboxes, stageMultis, processingDevices, positions, canvasWidth])
+  }, [consoles, orphanOutputs, sourceDevices, destinationDevices, stageboxes, stageMultis, processingDevices, positions, canvasWidth])
 
   useLayoutEffect(() => {
     const container = canvasRef.current
@@ -443,8 +469,12 @@ function OutputGraphCanvas({
 
   function persistPosition(kind: PortRef['kind'], id: number, x: number, y: number) {
     const onError = (e: unknown) => setError(e instanceof Error ? e.message : 'Failed to save position')
+    if (kind === 'console_local') {
+      moveConsoleMutation.mutate({ id, y }, { onError })
+      return
+    }
     if (kind === 'mixer') {
-      moveMixerMutation.mutate(y, { onError })
+      // The placeholder node for outputs with no desk: nothing to persist.
       return
     }
     if (kind === 'stagebox') {
@@ -508,9 +538,9 @@ function OutputGraphCanvas({
 
   function attemptConnect(from: PortRef, to: PortRef) {
     setError(null)
-    if (to.kind === 'stagebox' || to.kind === 'stage_multi') {
+    if (isCablelessToKind(to.kind)) {
       createCableMutation.mutate(
-        { from_kind: from.kind, from_id: from.id, from_port: from.port, to_kind: to.kind, to_id: to.id, to_port: to.port },
+        { from_kind: from.kind, from_id: from.id, from_port: from.port, to_kind: to.kind as OutputCable['to_kind'], to_id: to.id, to_port: to.port },
         { onError: (e) => setError(e instanceof Error ? e.message : 'Failed to connect') },
       )
       return
@@ -655,13 +685,33 @@ function OutputGraphCanvas({
               {ghostPath && <path d={ghostPath} fill="none" stroke="#f59e0b" strokeWidth={2 / zoom} strokeDasharray={`${5 / zoom} ${4 / zoom}`} opacity={0.85} />}
             </svg>
             {layout.map((node) => {
+              if (node.kind === 'console_local') {
+                const console = consoles.find((c) => c.id === node.id)
+                if (!console) return null
+                return (
+                  <ConsoleNode
+                    key={`console-${console.id}`}
+                    x={node.x}
+                    y={node.y}
+                    console={console}
+                    outputs={outputs.filter((row) => row.console_id === console.id)}
+                    cables={cables}
+                    pendingPort={pendingPort}
+                    onPortClick={handlePortClick}
+                    onPortPointerDown={handlePortPointerDown}
+                    registerPort={registerPort}
+                    onDragStart={readOnly ? undefined : (e) => startNodeDrag('console_local', console.id, 'y-only', e)}
+                    search={search}
+                  />
+                )
+              }
               if (node.kind === 'mixer') {
                 return (
                   <MixerNode
                     key="mixer"
                     x={node.x}
                     y={node.y}
-                    outputs={outputs}
+                    outputs={orphanOutputs.length > 0 ? orphanOutputs : outputs}
                     cables={cables}
                     pendingPort={pendingPort}
                     onPortClick={handlePortClick}
@@ -884,6 +934,55 @@ function PortRow({ label, port, cables, pendingPort, onPortClick, onPortPointerD
       {dot}
       <span className="truncate">{label}</span>
     </div>
+  )
+}
+
+/**
+ * The desk itself (Slice 23) — a real node with a real name and real capacity,
+ * where the graph used to draw an anonymous "Mixer" box with id 0. Its rows are
+ * the outputs assigned to it, then its own local jacks after a divider; the
+ * footer states usage against what the desk can take, and turns red when the
+ * patch has outgrown it.
+ */
+function ConsoleNode({ x, y, console, outputs, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, search = '' }: {
+  x: number
+  y: number
+  console: Console
+  outputs: AudioPatchOutput[]
+  cables: OutputCable[]
+  pendingPort: PortRef | null
+  onPortClick: (port: PortRef) => void
+  onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
+  registerPort: (key: string) => (el: HTMLElement | null) => void
+  onDragStart?: (e: ReactPointerEvent) => void
+  search?: string
+}) {
+  const ports = mixerPorts(outputs)
+  const localPorts = consoleLocalPorts(console).outputs
+  const dimmedIds = new Set(
+    outputs.filter((row) => !matchesSearch(search, row.output_number, row.output_name, row.output_type, row.notes)).map((row) => row.id),
+  )
+  const over = console.output_count > 0 && outputs.length > console.output_count
+
+  return (
+    <NodeShell x={x} y={y} title={console.name || 'Console'} badge="DESK" onDragStart={onDragStart}>
+      {ports.map((port) => (
+        <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" dimmed={dimmedIds.has(port.id)} />
+      ))}
+      {ports.length === 0 && <p className="text-[11px] text-zinc-600">No outputs on this desk yet</p>}
+      {localPorts.length > 0 && (
+        <div className="space-y-1 border-t border-zinc-800 pt-1">
+          {localPorts.map((port) => (
+            <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" />
+          ))}
+        </div>
+      )}
+      <p className={`border-t border-zinc-800 pt-1 font-mono text-[10px] ${over ? 'text-red-400' : 'text-zinc-500'}`}>
+        {outputs.length}
+        {console.output_count > 0 ? ` / ${console.output_count}` : ''} out
+        {console.local_output_count > 0 ? ` · local ${console.local_output_count}` : ''}
+      </p>
+    </NodeShell>
   )
 }
 

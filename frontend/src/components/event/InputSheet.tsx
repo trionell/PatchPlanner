@@ -4,12 +4,12 @@ import { Trash2 } from 'lucide-react'
 import { deleteInputCable, deleteInputChannel, updateInputCable, updateInputChannel } from '../../api/audioPatch'
 import { useRowEditor } from '../../hooks/useRowEditor'
 import { isCablelessEdge } from '../../lib/inputGraph'
-import { boxUsage, cablesPicked, type PatchStatus } from '../../lib/patchCapacity'
+import { boxUsage, cablesPicked, consoleCapacity, type PatchStatus } from '../../lib/patchCapacity'
 import { matchesSearch } from '../../lib/patchSearch'
 import { inputChainSegments, type ChainCellModel, type SegmentNode } from '../../lib/patchSheet'
 import type { InputFlowContext } from '../../lib/inputSignalFlow'
 import { busTint } from '../../lib/utils'
-import type { InputCable, InputChannel, InputDevice, InputSource, InventoryItem, MixerDCA, MixerGroup, StageMulti, Stagebox } from '../../types'
+import type { Console, InputCable, InputChannel, InputDevice, InputSource, InventoryItem, MixerDCA, MixerGroup, StageMulti, Stagebox } from '../../types'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
@@ -42,6 +42,7 @@ interface InputSheetProps {
   cables: InputCable[]
   groups: MixerGroup[]
   dcas: MixerDCA[]
+  consoles: Console[]
   cableItems: InventoryItem[]
   itemLabelById: Map<number, string>
   search?: string
@@ -70,6 +71,7 @@ export function InputSheet({
   cables,
   groups,
   dcas,
+  consoles,
   cableItems,
   itemLabelById,
   search = '',
@@ -96,7 +98,7 @@ export function InputSheet({
   const removeCable = useMutation({ mutationFn: (id: number) => deleteInputCable(eventId, id), onSuccess: invalidate })
 
   const ordered = useMemo(() => [...channels].sort((a, b) => a.channel_number - b.channel_number), [channels])
-  const context: InputFlowContext = { sources, channels, devices, stageboxes, stageMultis, cables, itemLabelById }
+  const context: InputFlowContext = { sources, channels, devices, stageboxes, stageMultis, cables, itemLabelById, consoles }
 
   /** One chain model per channel, plus what the row needs derived from it. */
   const rows = useMemo(
@@ -106,7 +108,7 @@ export function InputSheet({
         return { channel, chain, phantom: phantomFor(chain, sources) }
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [ordered, sources, devices, stageboxes, stageMultis, cables, itemLabelById],
+    [ordered, sources, devices, stageboxes, stageMultis, cables, consoles, itemLabelById],
   )
 
   const editor = useRowEditor<InputChannel, ChannelDraft>({
@@ -137,14 +139,21 @@ export function InputSheet({
       }),
   })
 
+  const capacity = consoleCapacity(
+    consoles,
+    (console) => channels.filter((channel) => channel.console_id === console.id).length,
+    (console) => console.input_count,
+    'channel',
+  )
   const status: PatchStatus = {
     rowCount: channels.length,
+    consoleLabels: capacity.labels,
     boxes: boxUsage(stageboxes, stageMultis, cables),
     cablesPicked: cablesPicked(cables),
     gaps: rows
       .filter((row) => row.chain.hasGap)
       .map((row) => `Ch ${row.channel.channel_number} ${row.channel.channel_name || ''} has no source`.replace('  ', ' ')),
-    overCapacity: [],
+    overCapacity: capacity.overCapacity,
   }
 
   const chainText = (chain: ChainCellModel) => chain.lines.flatMap((line) => line.segments.map((segment) => segment.label)).join(' ')
@@ -260,6 +269,28 @@ export function InputSheet({
                             onChange={(ids) => editor.setDraft({ ...editor.draft!, dca_ids: ids })}
                           />
                         </div>
+
+                        {consoles.length > 1 && (
+                          <label className="space-y-1">
+                            <span className="text-[10px] uppercase tracking-wide text-zinc-500">Desk</span>
+                            <Select
+                              value={channel.console_id ?? ''}
+                              onChange={(event) =>
+                                updateChannel.mutate({
+                                  id: channel.id,
+                                  data: { ...channel, console_id: event.target.value ? Number(event.target.value) : undefined },
+                                })
+                              }
+                            >
+                              <option value="">No desk</option>
+                              {consoles.map((console) => (
+                                <option key={console.id} value={console.id}>
+                                  {console.name || 'Console'}
+                                </option>
+                              ))}
+                            </Select>
+                          </label>
+                        )}
 
                         <label className="space-y-1 md:col-span-3">
                           <span className="text-[10px] uppercase tracking-wide text-zinc-500">Notes</span>

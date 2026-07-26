@@ -1,5 +1,5 @@
 import { stageboxPorts, stageMultiPorts } from './outputGraph'
-import type { InputCable, InputChannel, InputDevice, InputSource, StageMulti, Stagebox } from '../types'
+import type { Console, InputCable, InputChannel, InputDevice, InputSource, StageMulti, Stagebox } from '../types'
 
 /** A single port on an input-graph node — the addressable unit a cable connects to/from. */
 export interface PortRef {
@@ -56,10 +56,29 @@ export function devicePorts(device: InputDevice): { inputs: PortRef[]; outputs: 
   return { inputs, outputs }
 }
 
-/** A node's zone: Source always source-role; Stagebox/StageMulti/Device always processing-role; Channel always destination-role. Never a stored flag. */
+/**
+ * A console's own jacks on the input graph (Slice 23): `local_input_count`
+ * physical sockets, each a pass-through pair — a real cable lands on the in
+ * side, and the out side is the desk's own (cableless) hop to a channel. The
+ * same shape a stagebox has here, which is why a direct-into-the-desk run
+ * needed no new cabling rule.
+ */
+export function consoleLocalPorts(console: Console): { inputs: PortRef[]; outputs: PortRef[] } {
+  const make = (direction: 'in' | 'out') =>
+    Array.from({ length: console.local_input_count }, (_, i) => ({
+      kind: 'console_local' as const,
+      id: console.id,
+      port: i,
+      direction,
+      label: `Local ${i + 1}`,
+    }))
+  return { inputs: make('in'), outputs: make('out') }
+}
+
+/** A node's zone: Source always source-role; Stagebox/StageMulti/Device always processing-role; Channel and the console itself always destination-role. Never a stored flag. */
 export function nodeZone(kind: PortRef['kind']): Zone {
   if (kind === 'source') return 'sources'
-  if (kind === 'channel') return 'channels'
+  if (kind === 'channel' || kind === 'console_local') return 'channels'
   return 'processing'
 }
 
@@ -69,6 +88,7 @@ interface ResolveContext {
   devices: InputDevice[]
   stageboxes: Stagebox[]
   stageMultis: StageMulti[]
+  consoles?: Console[]
 }
 
 /**
@@ -107,6 +127,12 @@ export function resolvePortRef(
     const { inputs, outputs } = stageMultiPorts(stageMulti)
     const found = (direction === 'in' ? inputs : outputs).find((p) => p.port === port)
     return found ? { ...found, kind } : undefined
+  }
+  if (kind === 'console_local') {
+    const console = context.consoles?.find((c) => c.id === id)
+    if (!console) return undefined
+    const { inputs, outputs } = consoleLocalPorts(console)
+    return (direction === 'in' ? inputs : outputs).find((p) => p.port === port)
   }
   const device = context.devices.find((d) => d.id === id)
   if (!device) return undefined
@@ -162,6 +188,7 @@ export function nodeKindLabel(kind: PortRef['kind']): string {
     case 'stage_multi': return 'Stage multi'
     case 'device': return 'Device'
     case 'channel': return 'Channel'
+    case 'console_local': return 'Console jack'
   }
 }
 
@@ -180,6 +207,10 @@ export function nodeName(kind: PortRef['kind'], id: number, context: ResolveCont
       return context.stageMultis.find((sm) => sm.id === id)?.name ?? `#${id}`
     case 'device':
       return context.devices.find((d) => d.id === id)?.name ?? `#${id}`
+    case 'console_local': {
+      const console = context.consoles?.find((c) => c.id === id)
+      return console ? console.name || 'Console' : `#${id}`
+    }
   }
 }
 
@@ -196,6 +227,10 @@ export function nodeName(kind: PortRef['kind'], id: number, context: ResolveCont
  */
 export function isCablelessEdge(fromKind: PortRef['kind'], toKind: PortRef['kind']): boolean {
   if (fromKind === 'stage_multi') return true
+  // A console's local jack behaves exactly as a stagebox does: the cable into
+  // the jack is real and billable, the hop from that jack to a channel is the
+  // desk's own routing (Slice 23).
+  if (fromKind === 'console_local' && toKind === 'channel') return true
   return fromKind === 'stagebox' && toKind === 'channel'
 }
 
@@ -210,8 +245,8 @@ export function portsConnectable(a: PortRef, b: PortRef): boolean {
   if (a.direction === b.direction) return false
   const outPort = a.direction === 'out' ? a : b
   const inPort = a.direction === 'out' ? b : a
-  const validFromKinds: PortRef['kind'][] = ['source', 'stagebox', 'stage_multi', 'device']
-  const validToKinds: PortRef['kind'][] = ['stagebox', 'stage_multi', 'device', 'channel']
+  const validFromKinds: PortRef['kind'][] = ['source', 'stagebox', 'stage_multi', 'device', 'console_local']
+  const validToKinds: PortRef['kind'][] = ['stagebox', 'stage_multi', 'device', 'channel', 'console_local']
   return validFromKinds.includes(outPort.kind) && validToKinds.includes(inPort.kind)
 }
 

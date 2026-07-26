@@ -1,4 +1,4 @@
-import type { InputCable, OutputCable, StageMulti, Stagebox } from '../types'
+import type { Console, InputCable, OutputCable, StageMulti, Stagebox } from '../types'
 
 /** One box's declared size against what the patch actually uses. */
 export interface BoxUsage {
@@ -11,11 +11,13 @@ export interface BoxUsage {
 export interface PatchStatus {
   /** How many rows the sheet has (channels or outputs). */
   rowCount: number
+  /** One fragment per console, e.g. `FOH · SD10 15/96 ch`. */
+  consoleLabels: string[]
   boxes: BoxUsage[]
   cablesPicked: number
   /** One line per row that is missing a link, e.g. "Ch 16 Playback L/R has no source". */
   gaps: string[]
-  /** Populated by the console pass; empty until an event declares a desk. */
+  /** Non-empty when a desk's declared count is exceeded (research.md R15). */
   overCapacity: string[]
 }
 
@@ -72,4 +74,29 @@ export function overCapacityLine(consoleName: string, used: number, declared: nu
   if (declared <= 0 || used <= declared) return undefined
   const short = used - declared
   return `${consoleName} takes ${declared} — ${short} ${short === 1 ? `${noun} has` : `${noun}s have`} nowhere to land`
+}
+
+/**
+ * One `desk SD10 · 15 / 96 in` fragment per console, plus an over-capacity line
+ * for any desk the patch has outgrown. `assignedTo` counts the rows (channels or
+ * outputs) belonging to a console; `declaredOf` reads the matching count, which
+ * differs per graph.
+ */
+export function consoleCapacity(
+  consoles: Console[],
+  assignedTo: (console: Console) => number,
+  declaredOf: (console: Console) => number,
+  noun: string,
+): { labels: string[]; overCapacity: string[] } {
+  const labels: string[] = []
+  const overCapacity: string[] = []
+  for (const console of consoles) {
+    const name = console.name || 'desk'
+    const used = assignedTo(console)
+    const declared = declaredOf(console)
+    labels.push(declared > 0 ? `${name} ${used}/${declared} ${noun.slice(0, 2)}` : `${name} ${used} ${noun.slice(0, 2)}`)
+    const over = overCapacityLine(name, used, declared, noun)
+    if (over) overCapacity.push(over)
+  }
+  return { labels, overCapacity }
 }

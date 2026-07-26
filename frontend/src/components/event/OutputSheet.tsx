@@ -5,11 +5,11 @@ import { deleteAudioOutput, deleteOutputCable, updateAudioOutput, updateOutputCa
 import { useReferenceData } from '../../hooks/useReferenceData'
 import { useRowEditor } from '../../hooks/useRowEditor'
 import { isCablelessToKind } from '../../lib/outputGraph'
-import { boxUsage, cablesPicked, type PatchStatus } from '../../lib/patchCapacity'
+import { boxUsage, cablesPicked, consoleCapacity, type PatchStatus } from '../../lib/patchCapacity'
 import { matchesSearch } from '../../lib/patchSearch'
 import { outputChainSegments, type ChainCellModel, type SegmentNode } from '../../lib/patchSheet'
 import type { OutputFlowContext } from '../../lib/signalFlow'
-import type { AudioPatchOutput, InventoryItem, OutputCable, OutputDevice, StageMulti, Stagebox } from '../../types'
+import type { AudioPatchOutput, Console, InventoryItem, OutputCable, OutputDevice, StageMulti, Stagebox } from '../../types'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
@@ -19,7 +19,11 @@ import { ChainCell, type HopCable } from './ChainCell'
 import { ColorSelect } from './ColorSelect'
 import { PatchStatusRail } from './PatchStatusRail'
 
+// The Desk column appears only when the event has more than one console — with
+// one desk there is nothing to disambiguate, and a column of identical values is
+// the kind of clutter this slice exists to remove (FR-021).
 const COLUMNS = ['Out', 'Name', 'Type', 'W', 'Chain', 'Notes']
+const columnsFor = (multiDesk: boolean) => (multiDesk ? ['Out', 'Name', 'Desk', 'Type', 'W', 'Chain', 'Notes'] : COLUMNS)
 
 interface OutputDraft {
   output_number: number
@@ -37,6 +41,7 @@ interface OutputSheetProps {
   stageMultis: StageMulti[]
   devices: OutputDevice[]
   cables: OutputCable[]
+  consoles: Console[]
   cableItems: InventoryItem[]
   itemLabelById: Map<number, string>
   search?: string
@@ -56,6 +61,7 @@ export function OutputSheet({
   stageMultis,
   devices,
   cables,
+  consoles,
   cableItems,
   itemLabelById,
   search = '',
@@ -85,10 +91,12 @@ export function OutputSheet({
   const ordered = useMemo(() => [...outputs].sort((a, b) => a.output_number - b.output_number), [outputs])
   const context: OutputFlowContext = { stageboxes, stageMultis, devices, cables, itemLabelById }
 
+  // The desk's own name heads every chain, once the event has one.
+  const consoleName = (output: AudioPatchOutput) => consoles.find((console) => console.id === output.console_id)?.name || undefined
   const rows = useMemo(
-    () => ordered.map((output) => ({ output, chain: outputChainSegments(output, context) })),
+    () => ordered.map((output) => ({ output, chain: outputChainSegments(output, context, { consoleLabel: consoleName(output), consoles }) })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [ordered, stageboxes, stageMultis, devices, cables, itemLabelById],
+    [ordered, stageboxes, stageMultis, devices, cables, consoles, itemLabelById],
   )
 
   const editor = useRowEditor<AudioPatchOutput, OutputDraft>({
@@ -105,14 +113,21 @@ export function OutputSheet({
     persist: (output, draft) => saveOutput.mutate({ id: output.id, payload: { ...output, ...draft } }),
   })
 
+  const capacity = consoleCapacity(
+    consoles,
+    (console) => outputs.filter((output) => output.console_id === console.id).length,
+    (console) => console.output_count,
+    'output',
+  )
   const status: PatchStatus = {
     rowCount: outputs.length,
+    consoleLabels: capacity.labels,
     boxes: boxUsage(stageboxes, stageMultis, cables),
     cablesPicked: cablesPicked(cables),
     gaps: rows
       .filter((row) => row.chain.hasGap)
       .map((row) => `Out ${row.output.output_number} ${row.output.output_name || ''} is not patched`.replace('  ', ' ')),
-    overCapacity: [],
+    overCapacity: capacity.overCapacity,
   }
 
   const chainText = (chain: ChainCellModel) => chain.lines.flatMap((line) => line.segments.map((segment) => segment.label)).join(' ')
@@ -128,15 +143,34 @@ export function OutputSheet({
     return { id: cable.id, cableItemId: cable.cable_item_id, cableless: isCablelessToKind(cable.to_kind) }
   }
 
+  const multiDesk = consoles.length > 1
+  const columns = columnsFor(multiDesk)
+  const deskLabel = (output: AudioPatchOutput) => consoleName(output) ?? 'no desk'
+  const [deskFilter, setDeskFilter] = useState<number | null>(null)
+  const shown = multiDesk && deskFilter != null ? visible.filter((row) => row.output.console_id === deskFilter) : visible
+
   return (
     <div>
+      {multiDesk && (
+        <div className="mb-2 flex items-center gap-2 text-xs text-zinc-400">
+          <span>Desk</span>
+          <Select className="h-8 w-auto" value={deskFilter ?? ''} onChange={(event) => setDeskFilter(event.target.value ? Number(event.target.value) : null)}>
+            <option value="">All desks</option>
+            {consoles.map((console) => (
+              <option key={console.id} value={console.id}>
+                {console.name || 'Console'}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
       <div className="overflow-x-auto rounded-xl border border-zinc-700 bg-zinc-850">
         <Table>
           <TableHeader>
-            <TableRow>{COLUMNS.map((column) => <TableHead key={column}>{column}</TableHead>)}</TableRow>
+            <TableRow>{columns.map((column) => <TableHead key={column}>{column}</TableHead>)}</TableRow>
           </TableHeader>
           <TableBody>
-            {visible.map(({ output, chain }) => (
+            {shown.map(({ output, chain }) => (
               <Fragment key={output.id}>
                 <TableRow
                   className={readOnly ? undefined : 'cursor-pointer'}
@@ -150,6 +184,7 @@ export function OutputSheet({
                     {output.output_number}
                   </TableCell>
                   <TableCell className="text-zinc-100">{output.output_name || <span className="text-zinc-500">unnamed</span>}</TableCell>
+                  {multiDesk && <TableCell className="text-xs text-zinc-400">{deskLabel(output)}</TableCell>}
                   <TableCell>
                     <Badge variant={output.output_type === 'aux' ? 'warning' : output.output_type}>{output.output_type}</Badge>
                   </TableCell>
@@ -170,7 +205,7 @@ export function OutputSheet({
 
                 {editor.openId === output.id && editor.draft && (
                   <TableRow>
-                    <TableCell colSpan={COLUMNS.length} className="bg-zinc-900/70">
+                    <TableCell colSpan={columns.length} className="bg-zinc-900/70">
                       <div className="grid gap-3 md:grid-cols-[6rem_1fr_10rem_8rem_9rem] md:items-end" onKeyDown={editor.onKeyDown}>
                         <label className="space-y-1">
                           <span className="text-[10px] uppercase tracking-wide text-zinc-500">Out</span>
@@ -216,6 +251,28 @@ export function OutputSheet({
                           <ColorSelect eventId={eventId} value={editor.draft.color} onChange={(color) => editor.setDraft({ ...editor.draft!, color })} />
                         </label>
 
+                        {multiDesk && (
+                          <label className="space-y-1">
+                            <span className="text-[10px] uppercase tracking-wide text-zinc-500">Desk</span>
+                            <Select
+                              value={output.console_id ?? ''}
+                              onChange={(event) =>
+                                saveOutput.mutate({
+                                  id: output.id,
+                                  payload: { ...output, console_id: event.target.value ? Number(event.target.value) : undefined },
+                                })
+                              }
+                            >
+                              <option value="">No desk</option>
+                              {consoles.map((console) => (
+                                <option key={console.id} value={console.id}>
+                                  {console.name || 'Console'}
+                                </option>
+                              ))}
+                            </Select>
+                          </label>
+                        )}
+
                         <label className="space-y-1 md:col-span-4">
                           <span className="text-[10px] uppercase tracking-wide text-zinc-500">Notes</span>
                           <Input value={editor.draft.notes} onChange={(event) => editor.setDraft({ ...editor.draft!, notes: event.target.value })} />
@@ -243,7 +300,7 @@ export function OutputSheet({
             ))}
           </TableBody>
         </Table>
-        {visible.length === 0 && (
+        {shown.length === 0 && (
           <p className="px-4 py-3 text-sm text-zinc-500">
             {outputs.length === 0 ? 'No output channels yet.' : gapsOnly ? 'Every output is patched.' : `Nothing matches “${search}”.`}
           </p>

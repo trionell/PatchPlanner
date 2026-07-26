@@ -13,6 +13,7 @@ import { MobileEntityList } from '../mobile/MobileEntityList'
 import { InputPatchSheet } from '../print/InputPatchSheet'
 import { AudioPatchShell } from './AudioPatchShell'
 import { BusesDrawer } from './BusesDrawer'
+import { ConsoleSection } from './ConsoleSection'
 import { InputDeviceSection } from './InputDeviceSection'
 import { InputGraphCanvas } from './InputGraphCanvas'
 import { InputSheet } from './InputSheet'
@@ -63,6 +64,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
   const stageboxes = audioQuery.data?.stageboxes ?? []
   const stageMultis = audioQuery.data?.stage_multis ?? []
   const cables = audioQuery.data?.input_cables ?? []
+  const consoles = audioQuery.data?.consoles ?? []
   const groups = audioQuery.data?.groups ?? []
   const dcas = audioQuery.data?.dcas ?? []
 
@@ -132,8 +134,19 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
               stageboxes={stageboxes}
               stageMultis={stageMultis}
               audioItems={allAudioItems}
-              itemCount={stageboxes.length + stageMultis.length + devices.length}
+              itemCount={consoles.length + stageboxes.length + stageMultis.length + devices.length}
               readOnly={readOnly}
+              consoleSection={
+                <ConsoleSection
+                  eventId={eventId}
+                  consoles={consoles}
+                  channels={channels}
+                  outputs={audioQuery.data?.outputs ?? []}
+                  audioItems={allAudioItems}
+                  ownedItems={ownedItems}
+                  readOnly={readOnly}
+                />
+              }
               deviceSections={
                 <InputDeviceSection eventId={eventId} devices={devices} audioItems={allAudioItems} ownedItems={ownedItems} readOnly={readOnly} />
               }
@@ -162,6 +175,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
               cables={cables}
               groups={groups}
               dcas={dcas}
+              consoles={consoles}
               cableItems={cableItems}
               itemLabelById={itemLabelById}
               search={search}
@@ -195,6 +209,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
             stageMultis={stageMultis}
             cables={cables}
             cableItems={cableItems}
+            consoles={consoles}
             search={search}
             onChanged={invalidate}
             readOnly={readOnly}
@@ -211,6 +226,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
         cables={cables}
         groups={groups}
         dcas={dcas}
+        consoles={consoles}
         itemLabelById={itemLabelById}
       />
     </>

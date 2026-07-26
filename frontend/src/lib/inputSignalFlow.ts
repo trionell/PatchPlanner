@@ -1,5 +1,5 @@
 import { channelPorts, isCablelessEdge, nodeName, type PortRef } from './inputGraph'
-import type { InputCable, InputChannel, InputDevice, InputSource, StageMulti, Stagebox } from '../types'
+import type { Console, InputCable, InputChannel, InputDevice, InputSource, StageMulti, Stagebox } from '../types'
 
 /** One hop in a channel's signal chain, ordered Source → … → Channel. */
 export interface FlowHop {
@@ -37,6 +37,8 @@ export interface InputChannelFlow {
 
 export interface InputFlowContext {
   sources: InputSource[]
+  /** The event's desks, so a hop through a local jack can name the console. */
+  consoles?: Console[]
   channels: InputChannel[]
   devices: InputDevice[]
   stageboxes: Stagebox[]
