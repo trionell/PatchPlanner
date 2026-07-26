@@ -259,7 +259,42 @@ func CreateInputChannel(db *sql.DB, channel domain.InputChannel) (domain.InputCh
 	return GetInputChannel(db, id)
 }
 
+// consoleIDForUpdate resolves which desk a row belongs to after an update.
+//
+// A PATCH here carries the row's whole state, so a caller that builds its
+// payload field by field and forgets console_id sends nothing — which Go decodes
+// to a nil *int64, and writing that straight through is what used to detach a
+// channel from its desk on the first save of any field (Slice 24, research.md
+// R1). When the event has exactly one desk we re-attach to it, exactly as the
+// create path already does; with none or several we leave it nil rather than
+// guess, because attaching a monitor send to the FOH desk would put a wrong line
+// on a printed patch sheet (FR-002, FR-003).
+//
+// This is the safety net beneath the whole-row convention, not a replacement for
+// it: callers are still expected to send the field. It also means a row that is
+// already detached on a single-desk event repairs itself the next time it is
+// saved, so no repair migration was needed.
+//
+// The event is read from the row rather than taken from the payload, which does
+// not carry EventID on the update path.
+func consoleIDForUpdate(db *sql.DB, table string, rowID int64, sent *int64) *int64 {
+	if sent != nil {
+		return sent
+	}
+	var eventID int64
+	if err := db.QueryRow(`SELECT event_id FROM `+table+` WHERE id = ?`, rowID).Scan(&eventID); err != nil {
+		return nil
+	}
+	defaultID, err := DefaultConsoleID(db, eventID)
+	if err != nil {
+		return nil
+	}
+	return defaultID
+}
+
 func UpdateInputChannel(db *sql.DB, id int64, channel domain.InputChannel) (domain.InputChannel, error) {
+	consoleID := consoleIDForUpdate(db, "input_channels", id, channel.ConsoleID)
+
 	tx, err := db.Begin()
 	if err != nil {
 		return domain.InputChannel{}, fmt.Errorf("update input channel: %w", err)
@@ -267,7 +302,7 @@ func UpdateInputChannel(db *sql.DB, id int64, channel domain.InputChannel) (doma
 	defer tx.Rollback()
 
 	_, err = tx.Exec(`UPDATE input_channels SET channel_number = ?, channel_name = ?, color = ?, width = ?, mixer_behavior = ?, notes = ?, console_id = ? WHERE id = ?`,
-		channel.ChannelNumber, nullString(channel.ChannelName), nullString(channel.Color), channel.Width, channel.MixerBehavior, nullString(channel.Notes), nullInt64(channel.ConsoleID), id)
+		channel.ChannelNumber, nullString(channel.ChannelName), nullString(channel.Color), channel.Width, channel.MixerBehavior, nullString(channel.Notes), nullInt64(consoleID), id)
 	if err != nil {
 		return domain.InputChannel{}, fmt.Errorf("update input channel: %w", err)
 	}
@@ -363,8 +398,9 @@ func CreateAudioPatchOutput(db *sql.DB, output domain.AudioPatchOutput) (domain.
 }
 
 func UpdateAudioPatchOutput(db *sql.DB, id int64, output domain.AudioPatchOutput) (domain.AudioPatchOutput, error) {
+	consoleID := consoleIDForUpdate(db, "audio_patch_outputs", id, output.ConsoleID)
 	_, err := db.Exec(`UPDATE audio_patch_outputs SET output_number = ?, output_name = ?, output_type = ?, color = ?, width = ?, notes = ?, console_id = ? WHERE id = ?`,
-		output.OutputNumber, nullString(output.OutputName), output.OutputType, nullString(output.Color), output.Width, nullString(output.Notes), nullInt64(output.ConsoleID), id)
+		output.OutputNumber, nullString(output.OutputName), output.OutputType, nullString(output.Color), output.Width, nullString(output.Notes), nullInt64(consoleID), id)
 	if err != nil {
 		return domain.AudioPatchOutput{}, fmt.Errorf("update audio output: %w", err)
 	}

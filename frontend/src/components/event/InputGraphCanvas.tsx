@@ -231,8 +231,12 @@ export function InputGraphCanvas({
     let nextY = 24
     for (const desk of consoles) {
       const override = positions.get(`console_local:${desk.id}`)
-      nodes.push({ kind: 'console_local', id: desk.id, x: channelsX, y: override?.y ?? desk.input_position_y ?? nextY })
-      nextY += 220
+      const y = override?.y ?? desk.input_position_y ?? nextY
+      nodes.push({ kind: 'console_local', id: desk.id, x: channelsX, y })
+      // Below the desk actually placed, not below a counter that ignores where
+      // it sits — the arithmetic that let the orphan node open on top of a desk
+      // whose stored y had already moved past it (Slice 24 FR-007).
+      nextY = Math.max(nextY + 220, y + 220)
     }
     // Channels belonging to no desk keep a node of their own rather than
     // disappearing — the state an event is in after its only desk is
@@ -294,6 +298,12 @@ export function InputGraphCanvas({
 
   function persistPosition(kind: PortRef['kind'], id: number, x: number, y: number) {
     const onError = (e: unknown) => setError(e instanceof Error ? e.message : 'Failed to save position')
+    if (kind === 'channel') {
+      // The node holding channels with no desk. It moves for the session — the
+      // canvas's own `positions` map already holds it — but there is no row to
+      // store it on, so nothing is persisted (Slice 24 FR-006, research.md R4).
+      return
+    }
     if (kind === 'console_local') {
       moveConsoleMutation.mutate({ id, x, y }, { onError })
       return
@@ -568,13 +578,14 @@ export function InputGraphCanvas({
                     key="channels"
                     x={node.x}
                     y={node.y}
-                    channels={orphanChannels.length > 0 ? orphanChannels : channels}
+                    channels={orphanChannels}
                     cables={cables}
                     pendingPort={pendingPort}
                     onPortClick={handlePortClick}
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
+                    onDragStart={(e) => startNodeDrag('channel', 0, e)}
                     search={search}
                   />
                 )
@@ -954,7 +965,16 @@ function SourceRow({ source, cables, pendingPort, onPortClick, onPortPointerDown
   )
 }
 
-function ChannelsNode({ x, y, channels, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext, search = '' }: {
+/**
+ * Channels belonging to no desk — the state an event is in after its only desk
+ * is deleted, or while it has several and a channel has not been assigned to one.
+ *
+ * Draggable like every other node (Slice 24 FR-006), but its position is
+ * session-only: there is no row to store it on, and inventing a table for the
+ * placement of a box that should usually be empty is speculative. What matters is
+ * that it can always be moved off whatever it landed on.
+ */
+function ChannelsNode({ x, y, channels, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext, onDragStart, search = '' }: {
   x: number
   y: number
   channels: InputChannel[]
@@ -964,6 +984,7 @@ function ChannelsNode({ x, y, channels, cables, pendingPort, onPortClick, onPort
   onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
   registerPort: (key: string) => (el: HTMLElement | null) => void
   colorContext: ColorContext
+  onDragStart?: (e: ReactPointerEvent) => void
   search?: string
 }) {
   const ports = channels.flatMap((channel) => channelPorts(channel))
@@ -971,11 +992,11 @@ function ChannelsNode({ x, y, channels, cables, pendingPort, onPortClick, onPort
     channels.filter((channel) => !matchesSearch(search, channel.channel_number, channel.channel_name, channel.notes)).map((channel) => channel.id),
   )
   return (
-    <NodeShell x={x} y={y} title="Channels" badge={channels.length > 0 ? String(channels.length) : undefined}>
+    <NodeShell x={x} y={y} title="No desk" badge={channels.length > 0 ? String(channels.length) : undefined} onDragStart={onDragStart}>
       {ports.map((port) => (
         <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" colorContext={colorContext} dimmed={dimmedIds.has(port.id)} />
       ))}
-      {ports.length === 0 && <p className="text-[11px] text-zinc-600">No channels yet</p>}
+      {ports.length === 0 && <p className="text-[11px] text-zinc-600">No channels without a desk</p>}
     </NodeShell>
   )
 }

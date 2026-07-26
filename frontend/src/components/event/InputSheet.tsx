@@ -30,6 +30,14 @@ interface ChannelDraft {
   group_ids: number[]
   dca_ids: number[]
   notes: string
+  /**
+   * Carried in the draft, not written by the Desk select's own mutation
+   * (Slice 24 FR-004). Two reasons: a PATCH here replaces the row's whole
+   * state, so leaving it out wrote NULL and detached the channel from its
+   * desk; and a picker that saved on change while every other field waited
+   * for Save is what made the two fight each other.
+   */
+  console_id?: number
 }
 
 interface InputSheetProps {
@@ -122,6 +130,7 @@ export function InputSheet({
       group_ids: channel.group_ids ?? [],
       dca_ids: channel.dca_ids ?? [],
       notes: channel.notes ?? '',
+      console_id: channel.console_id,
     }),
     persist: (channel, draft) =>
       updateChannel.mutate({
@@ -134,6 +143,7 @@ export function InputSheet({
           group_ids: draft.group_ids,
           dca_ids: draft.dca_ids,
           notes: draft.notes,
+          console_id: draft.console_id,
           mixer_behavior: channel.mixer_behavior,
         },
       }),
@@ -141,8 +151,8 @@ export function InputSheet({
 
   const capacity = consoleCapacity(
     consoles,
-    (console) => channels.filter((channel) => channel.console_id === console.id).length,
-    (console) => console.input_count,
+    (desk) => channels.filter((channel) => channel.console_id === desk.id).length,
+    (desk) => desk.input_count,
     'channel',
   )
   const status: PatchStatus = {
@@ -274,18 +284,15 @@ export function InputSheet({
                           <label className="space-y-1">
                             <span className="text-[10px] uppercase tracking-wide text-zinc-500">Desk</span>
                             <Select
-                              value={channel.console_id ?? ''}
+                              value={editor.draft.console_id ?? ''}
                               onChange={(event) =>
-                                updateChannel.mutate({
-                                  id: channel.id,
-                                  data: { ...channel, console_id: event.target.value ? Number(event.target.value) : undefined },
-                                })
+                                editor.setDraft({ ...editor.draft!, console_id: event.target.value ? Number(event.target.value) : undefined })
                               }
                             >
                               <option value="">No desk</option>
-                              {consoles.map((console) => (
-                                <option key={console.id} value={console.id}>
-                                  {console.name || 'Console'}
+                              {consoles.map((desk) => (
+                                <option key={desk.id} value={desk.id}>
+                                  {desk.name || 'Console'}
                                 </option>
                               ))}
                             </Select>

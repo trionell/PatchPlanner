@@ -32,6 +32,14 @@ interface OutputDraft {
   width: AudioPatchOutput['width']
   color?: string
   notes: string
+  /**
+   * In the draft rather than saved by the Desk select on change (Slice 24
+   * FR-004). This sheet's persist spread `{ ...output, ...draft }`, so unlike
+   * the inputs sheet it never dropped the field — but a picker that saved
+   * immediately while Save spread a possibly-stale `output` could still put the
+   * old desk back. One editor, one Save, no race.
+   */
+  console_id?: number
 }
 
 interface OutputSheetProps {
@@ -92,7 +100,7 @@ export function OutputSheet({
   const context: OutputFlowContext = { stageboxes, stageMultis, devices, cables, itemLabelById }
 
   // The desk's own name heads every chain, once the event has one.
-  const consoleName = (output: AudioPatchOutput) => consoles.find((console) => console.id === output.console_id)?.name || undefined
+  const consoleName = (output: AudioPatchOutput) => consoles.find((desk) => desk.id === output.console_id)?.name || undefined
   const rows = useMemo(
     () => ordered.map((output) => ({ output, chain: outputChainSegments(output, context, { consoleLabel: consoleName(output), consoles }) })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -109,14 +117,15 @@ export function OutputSheet({
       width: output.width,
       color: output.color,
       notes: output.notes ?? '',
+      console_id: output.console_id,
     }),
     persist: (output, draft) => saveOutput.mutate({ id: output.id, payload: { ...output, ...draft } }),
   })
 
   const capacity = consoleCapacity(
     consoles,
-    (console) => outputs.filter((output) => output.console_id === console.id).length,
-    (console) => console.output_count,
+    (desk) => outputs.filter((output) => output.console_id === desk.id).length,
+    (desk) => desk.output_count,
     'output',
   )
   const status: PatchStatus = {
@@ -255,18 +264,15 @@ export function OutputSheet({
                           <label className="space-y-1">
                             <span className="text-[10px] uppercase tracking-wide text-zinc-500">Desk</span>
                             <Select
-                              value={output.console_id ?? ''}
+                              value={editor.draft.console_id ?? ''}
                               onChange={(event) =>
-                                saveOutput.mutate({
-                                  id: output.id,
-                                  payload: { ...output, console_id: event.target.value ? Number(event.target.value) : undefined },
-                                })
+                                editor.setDraft({ ...editor.draft!, console_id: event.target.value ? Number(event.target.value) : undefined })
                               }
                             >
                               <option value="">No desk</option>
-                              {consoles.map((console) => (
-                                <option key={console.id} value={console.id}>
-                                  {console.name || 'Console'}
+                              {consoles.map((desk) => (
+                                <option key={desk.id} value={desk.id}>
+                                  {desk.name || 'Console'}
                                 </option>
                               ))}
                             </Select>

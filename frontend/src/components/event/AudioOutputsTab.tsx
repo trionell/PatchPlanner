@@ -400,13 +400,17 @@ function OutputGraphCanvas({
 
   const layout = useMemo<NodeLayout[]>(() => {
     const nodes: NodeLayout[] = []
+    let nextY = 24
     for (const desk of consoles) {
       const pos = positions.get(`console_local:${desk.id}`)
-      nodes.push({ kind: 'console_local', id: desk.id, x: ZONE_SOURCES_X, y: pos?.y ?? desk.position_y, zone: 'sources' })
+      const y = pos?.y ?? desk.position_y
+      nodes.push({ kind: 'console_local', id: desk.id, x: ZONE_SOURCES_X, y, zone: 'sources' })
+      // Below the desk actually placed — see InputGraphCanvas (Slice 24 FR-007).
+      nextY = Math.max(nextY + 220, y + 220)
     }
     if (orphanOutputs.length > 0 || consoles.length === 0) {
       const mixerPos = positions.get('mixer:0')
-      nodes.push({ kind: 'mixer', id: 0, x: ZONE_SOURCES_X, y: mixerPos?.y ?? 24, zone: 'sources' })
+      nodes.push({ kind: 'mixer', id: 0, x: ZONE_SOURCES_X, y: mixerPos?.y ?? nextY, zone: 'sources' })
     }
 
     for (const device of sourceDevices) {
@@ -481,7 +485,9 @@ function OutputGraphCanvas({
       return
     }
     if (kind === 'mixer') {
-      // The placeholder node for outputs with no desk: nothing to persist.
+      // The node holding outputs with no desk. It moves for the session — the
+      // canvas's `positions` map holds it — but there is no row to store it on
+      // (Slice 24 FR-006, research.md R4).
       return
     }
     if (kind === 'stagebox') {
@@ -729,7 +735,7 @@ function OutputGraphCanvas({
                     key="mixer"
                     x={node.x}
                     y={node.y}
-                    outputs={orphanOutputs.length > 0 ? orphanOutputs : outputs}
+                    outputs={orphanOutputs}
                     cables={cables}
                     pendingPort={pendingPort}
                     onPortClick={handlePortClick}
@@ -1022,11 +1028,11 @@ function MixerNode({ x, y, outputs, cables, pendingPort, onPortClick, onPortPoin
     outputs.filter((row) => !matchesSearch(search, row.output_number, row.output_name, row.output_type, row.notes)).map((row) => row.id),
   )
   return (
-    <NodeShell x={x} y={y} title="Mixer" onDragStart={onDragStart}>
+    <NodeShell x={x} y={y} title="No desk" badge={ports.length > 0 ? String(outputs.length) : undefined} onDragStart={onDragStart}>
       {ports.map((port) => (
         <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" dimmed={dimmedIds.has(port.id)} />
       ))}
-      {ports.length === 0 && <p className="text-[11px] text-zinc-600">No output channels yet</p>}
+      {ports.length === 0 && <p className="text-[11px] text-zinc-600">No outputs without a desk</p>}
     </NodeShell>
   )
 }
