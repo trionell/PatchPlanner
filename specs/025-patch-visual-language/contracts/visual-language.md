@@ -14,8 +14,13 @@ not type-relative — a border width, a corner radius, an alpha. Where it says
 
 ## 1. The framed panel — `ui/PatchPanel.tsx`
 
-One bordered, once-rounded frame holding three slots. Replaces the toolbar's
-`mb-4`, the content's own `rounded-xl border`, and the rail's `mt-3 rounded-lg`.
+One bordered, once-rounded frame holding a bar and the content. Replaces the
+toolbar's `mb-4`, the content's own `rounded-xl border`, and the status strip's
+`mt-3 rounded-lg`.
+
+The strip itself belongs to the **sheet**, not to the panel: the mockup shows it in
+the Sheet view only, so a slot here would be an unused API. It closes the panel from
+inside, with only a top border.
 
 | Part | Value | Kind |
 |---|---|---|
@@ -23,9 +28,9 @@ One bordered, once-rounded frame holding three slots. Replaces the toolbar's
 | bar | `flex flex-wrap items-center gap-2 border-b border-zinc-800 px-3 py-2.5` | carried |
 | bar title | `text-sm font-semibold text-zinc-100`, first, `mr-1` | carried |
 | content | no padding, no border, no radius of its own | — |
-| rail slot | `border-t border-zinc-800 bg-zinc-950/60 px-3 py-2 text-[11px]` | carried |
+| status strip (in `PatchStatusRail`) | `border-t px-3 py-2 text-[11px]` | carried |
 
-The rail's two states tint the ground *and* the top border, as the mockup's
+The strip's two alert states tint the ground *and* the top border, as the mockup's
 `.rail--warn` / `.rail--err` do:
 
 | State | Border top | Ground |
@@ -92,7 +97,6 @@ marking the lanes are removed — a band is the marking.
 | ports container | `py-1`, no horizontal padding — rows own theirs | exact |
 | `PortRow` | `flex items-center gap-1.5 h-[18px] px-1.5 text-[11px] text-zinc-300`; `align="right"` reverses it | carried |
 | `SplitPortRow` | `flex items-center justify-between h-[18px] px-1.5 text-[11px]`, two spans, in port leftmost, out port rightmost | carried |
-
 | footer | `border-t border-zinc-800 px-1.5 pb-1 pt-0.5 font-mono text-[10px] text-zinc-500`; red when over capacity | carried |
 | `PortDot` | `h-[7px] w-[7px] rounded-full border border-zinc-500 bg-zinc-800`; patched → `border-amber-500 bg-amber-500/75`; coloured → border the colour, background the colour at 75%; selected → solid colour, `ring-2 ring-amber-500/40` | exact |
 | port truncation | **none** — every port is drawn | overruled |
@@ -115,12 +119,17 @@ unused.
 |---|---|---|
 | rail body | `NodeShell`, scrolls internally, `max-h-[420px]` | — |
 | header | `flex items-center h-5 px-1.5 bg-zinc-950/60`; label `font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-400`; count `ml-auto font-mono text-[10px] text-zinc-600` | carried |
-| row | `flex items-center gap-1.5 h-5 pr-1.5 border-b border-zinc-800/60 text-[11px] text-zinc-300`; last row no border | carried |
+| row | `flex items-center gap-1.5 pr-1.5 border-b border-zinc-800/60 text-[11px]`; height computed as 20 px **per port**; last row no border | carried |
 | row tape | `w-[3px] self-stretch shrink-0`, the derived colour or `#3f3f46` | exact |
 | row name | `flex-1 min-w-0 truncate pl-1`; `text-zinc-400` when the source reaches no channel | carried |
 | row model | `font-mono text-[10px] text-zinc-500 max-w-[4.5rem] truncate shrink-0` | carried |
 | row 48 V bar | as `PhantomBar`; off → `bg-zinc-700`, no glow | exact |
-| row, stereo | `h-10`, ports a column of two `h-5` slots, side label `font-mono text-[9px] text-zinc-600` | carried |
+| row, stereo | two 20 px port slots stacked, side label `font-mono text-[9px] text-zinc-600` | carried |
+
+The row height is computed from the port count rather than set by a class, because
+two competing height utilities in one class string are resolved by whichever Tailwind
+emits last — which is how the stereo rows shipped at mono height with their two dots
+overlapping.
 | row, selected | `bg-amber-500/10`, name `font-semibold text-zinc-50` | exact |
 | footer | `flex items-center h-6 px-1.5 bg-zinc-950/60`, holding `+ Source` | carried |
 
