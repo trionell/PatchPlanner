@@ -9,11 +9,10 @@ import { matchesSearch } from '../../lib/patchSearch'
 import { firstChainNode, outputChainSegments, type ChainCellModel, type SegmentNode } from '../../lib/patchSheet'
 import type { OutputFlowContext } from '../../lib/signalFlow'
 import type { AudioPatchOutput, Console, InventoryItem, OutputCable, OutputDevice, StageMulti, Stagebox } from '../../types'
-import { Badge } from '../ui/Badge'
 import { FieldStack } from '../ui/GearList'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table'
+import { NumCell, Pill, SheetBody, SheetCell, SheetHead, SheetHeadCell, SheetRow, SheetTable, TapeBar } from '../ui/SheetTable'
 import { ChainCell, type HopCable } from './ChainCell'
 import { ColorSelect } from './ColorSelect'
 import { PatchStatusRail } from './PatchStatusRail'
@@ -24,6 +23,23 @@ import { RowEditor } from './RowEditor'
 // the kind of clutter this slice exists to remove (FR-021).
 const COLUMNS = ['Out', 'Name', 'Type', 'W', 'Chain', 'Notes']
 const columnsFor = (multiDesk: boolean) => (multiDesk ? ['Out', 'Name', 'Desk', 'Type', 'W', 'Chain', 'Notes'] : COLUMNS)
+
+/**
+ * An output type's pill tint. The same vocabulary `Badge` carries, at the sheet's
+ * smaller pill size — a full-size badge two hundred rows deep is what makes a
+ * patch sheet read as a form (Slice 25 FR-017).
+ */
+function outputTypeTint(type: string): string {
+  switch (type) {
+    case 'foh': return 'bg-cyan-500/15 text-cyan-300'
+    case 'monitor': return 'bg-emerald-500/15 text-emerald-300'
+    case 'iem': return 'bg-orange-500/15 text-orange-300'
+    case 'sub': return 'bg-red-500/15 text-red-300'
+    case 'matrix': return 'bg-indigo-500/15 text-indigo-300'
+    case 'aux': return 'bg-pink-500/15 text-pink-300'
+    default: return 'bg-zinc-700 text-zinc-100'
+  }
+}
 
 interface OutputDraft {
   output_number: number
@@ -159,11 +175,11 @@ export function OutputSheet({
   const shown = multiDesk && deskFilter != null ? visible.filter((row) => row.output.console_id === deskFilter) : visible
 
   return (
-    <div>
+    <>
       {multiDesk && (
-        <div className="mb-2 flex items-center gap-2 text-xs text-zinc-400">
-          <span>Desk</span>
-          <Select className="h-8 w-auto" value={deskFilter ?? ''} onChange={(event) => setDeskFilter(event.target.value ? Number(event.target.value) : null)}>
+        <div className="flex items-center gap-2 border-b border-zinc-800 px-3 py-1.5 text-[11px] text-zinc-500">
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em]">Desk</span>
+          <Select size="sm" className="w-auto" value={deskFilter ?? ''} onChange={(event) => setDeskFilter(event.target.value ? Number(event.target.value) : null)}>
             <option value="">All desks</option>
             {consoles.map((desk) => (
               <option key={desk.id} value={desk.id}>
@@ -173,32 +189,31 @@ export function OutputSheet({
           </Select>
         </div>
       )}
-      <div className="overflow-x-auto rounded-xl border border-zinc-700 bg-zinc-850">
-        <Table>
-          <TableHeader>
-            <TableRow>{columns.map((column) => <TableHead key={column}>{column}</TableHead>)}</TableRow>
-          </TableHeader>
-          <TableBody>
-            {shown.map(({ output, chain }) => (
+      <div className="overflow-x-auto">
+        <SheetTable>
+          <SheetHead>
+            <tr>{columns.map((column) => <SheetHeadCell key={column}>{column}</SheetHeadCell>)}</tr>
+          </SheetHead>
+          <SheetBody>
+            {shown.map(({ output, chain }, index) => (
               <Fragment key={output.id}>
-                <TableRow
-                  className={`${readOnly ? '' : 'cursor-pointer '}${editor.openId === output.id ? 'border-b-0 bg-amber-500/[0.04] hover:bg-amber-500/[0.04]' : ''}`}
-                  style={output.color && editor.openId !== output.id ? { backgroundColor: `${output.color}0f` } : undefined}
+                <SheetRow
+                  striped={index % 2 === 1}
+                  open={editor.openId === output.id}
+                  className={readOnly ? undefined : 'cursor-pointer'}
                   onClick={readOnly ? undefined : () => editor.openRow(output)}
                 >
-                  <TableCell
-                    className="font-mono text-zinc-300"
-                    style={output.color ? { boxShadow: `inset 3px 0 0 0 ${output.color}` } : undefined}
-                  >
-                    {output.output_number}
-                  </TableCell>
-                  <TableCell className="text-zinc-100">{output.output_name || <span className="text-zinc-500">unnamed</span>}</TableCell>
-                  {multiDesk && <TableCell className="text-xs text-zinc-400">{deskLabel(output)}</TableCell>}
-                  <TableCell>
-                    <Badge variant={output.output_type === 'aux' ? 'warning' : output.output_type}>{output.output_type}</Badge>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs text-zinc-500">{output.width === 'stereo' ? 'S' : 'M'}</TableCell>
-                  <TableCell onClick={(event) => event.stopPropagation()}>
+                  <NumCell>{output.output_number}</NumCell>
+                  <SheetCell className="whitespace-nowrap text-zinc-100">
+                    <TapeBar color={output.color} />
+                    {output.output_name || <span className="text-zinc-500">unnamed</span>}
+                  </SheetCell>
+                  {multiDesk && <SheetCell className="text-zinc-400">{deskLabel(output)}</SheetCell>}
+                  <SheetCell>
+                    <Pill className={outputTypeTint(output.output_type)}>{output.output_type}</Pill>
+                  </SheetCell>
+                  <NumCell>{output.width === 'stereo' ? 'S' : 'M'}</NumCell>
+                  <SheetCell onClick={(event) => event.stopPropagation()}>
                     <ChainCell
                       model={chain}
                       cableItems={cableItems}
@@ -208,13 +223,13 @@ export function OutputSheet({
                       onEditInFlow={onEditInFlow}
                       readOnly={readOnly}
                     />
-                  </TableCell>
-                  <TableCell className="max-w-48 truncate text-xs text-zinc-500">{output.notes}</TableCell>
-                </TableRow>
+                  </SheetCell>
+                  <SheetCell className="max-w-48 truncate text-zinc-500">{output.notes}</SheetCell>
+                </SheetRow>
 
                 {editor.openId === output.id && editor.draft && (
-                  <TableRow className="border-b-0 hover:bg-transparent">
-                    <TableCell colSpan={columns.length} className="bg-amber-500/[0.04] pt-0">
+                  <SheetRow className="border-b-0 hover:bg-transparent">
+                    <SheetCell colSpan={columns.length} className="bg-amber-500/[0.04] pt-0">
                       <RowEditor
                         saveLabel="Save output"
                         onSave={editor.save}
@@ -291,15 +306,15 @@ export function OutputSheet({
                           <Input size="sm" value={editor.draft.notes} onChange={(event) => editor.setDraft({ ...editor.draft!, notes: event.target.value })} />
                         </FieldStack>
                       </RowEditor>
-                    </TableCell>
-                  </TableRow>
+                    </SheetCell>
+                  </SheetRow>
                 )}
               </Fragment>
             ))}
-          </TableBody>
-        </Table>
+          </SheetBody>
+        </SheetTable>
         {shown.length === 0 && (
-          <p className="px-4 py-3 text-sm text-zinc-500">
+          <p className="px-3 py-3 text-xs text-zinc-500">
             {outputs.length === 0 ? 'No output channels yet.' : gapsOnly ? 'Every output is patched.' : `Nothing matches “${search}”.`}
           </p>
         )}
@@ -314,10 +329,10 @@ export function OutputSheet({
       />
 
       {(saveOutput.error ?? removeOutput.error ?? setCableItem.error ?? removeCable.error) && (
-        <p className="mt-2 text-sm text-red-400">
+        <p className="px-3 pb-2 text-xs text-red-400">
           {(saveOutput.error ?? removeOutput.error ?? setCableItem.error ?? removeCable.error)?.message}
         </p>
       )}
-    </div>
+    </>
   )
 }

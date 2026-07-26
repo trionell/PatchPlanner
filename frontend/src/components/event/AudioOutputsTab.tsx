@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Minus, Plus, Trash2, Unplug } from 'lucide-react'
+import { Trash2, Unplug } from 'lucide-react'
 import {
   createAudioOutput,
   createOutputCable,
@@ -43,6 +43,8 @@ import {
 import { itemLabel } from '../../lib/utils'
 import type { AudioPatchOutput, Console, InventoryItem, OutputCable, OutputDevice, OwnedItem, StageMulti, Stagebox } from '../../types'
 import { AudioPatchShell } from './AudioPatchShell'
+import { LaneBands } from './graph/LaneBands'
+import { ZoomControl } from './graph/ZoomControl'
 import { ConsoleSection } from './ConsoleSection'
 import { OutputSheet } from './OutputSheet'
 import { ProcessingDeviceSection } from './ProcessingDeviceSection'
@@ -83,6 +85,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
   const [view, setView] = usePatchView(eventId, 'outputs')
   const [search, setSearch] = useState('')
   const [rigOpen, setRigOpen] = useState(false)
+  const [zoom, setZoom] = useState(1)
   // Which node the graph marks. Held here rather than in the canvas so it survives
   // the view toggle and so the sheet can set it (Slice 25 FR-001/FR-002). This
   // graph has no inspector — the mockup draws none — so a selection here marks the
@@ -172,6 +175,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
         onSearchChange={setSearch}
         onOpenRig={readOnly ? undefined : () => setRigOpen(true)}
         onAdd={readOnly ? undefined : addOutputRow}
+        toolbarExtras={view === 'flow' ? <ZoomControl zoom={zoom} onZoomChange={setZoom} /> : undefined}
         drawers={
           <RigDrawer
             open={rigOpen}
@@ -232,6 +236,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
             search={search}
             selection={selection}
             onSelectionChange={setSelection}
+            zoom={zoom}
             onChanged={invalidate}
             readOnly={readOnly}
           />
@@ -256,9 +261,6 @@ const NODE_WIDTH = 200
 const CANVAS_HEIGHT = 640
 const CANVAS_MIN_WIDTH = 820
 const ZONE_SOURCES_X = 24
-const ZOOM_MIN = 0.5
-const ZOOM_MAX = 1.5
-const ZOOM_STEP = 0.1
 
 /** Right/middle-zone edges depend on the canvas's live width — the panel resizes with the browser, so these can't be fixed constants. */
 function zoneDestinationsX(canvasWidth: number): number {
@@ -303,6 +305,7 @@ function OutputGraphCanvas({
   search = '',
   selection,
   onSelectionChange,
+  zoom,
   onChanged,
   readOnly = false,
 }: {
@@ -323,6 +326,8 @@ function OutputGraphCanvas({
   /** Which box the graph marks. Owned by the tab (Slice 25 FR-002). */
   selection: { kind: PortRef['kind']; id: number } | null
   onSelectionChange: (selection: { kind: PortRef['kind']; id: number } | null) => void
+  /** Owned by the tab, because its control lives in the panel's toolbar (FR-020). */
+  zoom: number
   onChanged: () => Promise<void>
   readOnly?: boolean
 }) {
@@ -342,7 +347,6 @@ function OutputGraphCanvas({
   // a hardcoded canvas width drifting out of view on any screen narrower
   // than that constant.
   const [wrapperWidth, setWrapperWidth] = useState(1180)
-  const [zoom, setZoom] = useState(1)
   // The canvas's LOGICAL width/height (the coordinate space node
   // positions and zone bounds live in) grow as you zoom out and shrink
   // as you zoom in, while canvasRef's own rendered box is scaled by
@@ -723,36 +727,24 @@ function OutputGraphCanvas({
   }, [dragGhost, zoom])
 
   return (
-    <div className="space-y-2">
-      {error && <div className="rounded border border-red-500/50 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</div>}
+    <div>
+      {error && <div className="border-b border-red-500/40 bg-red-500/10 px-3 py-1.5 text-[11px] text-red-300">{error}</div>}
       {pendingPort && !dragGhost && (
-        <div className="text-xs text-amber-400">
+        <div className="border-b border-amber-500/30 bg-amber-500/[0.05] px-3 py-1.5 text-[11px] text-amber-300">
           Selected {pendingPort.label} — click a free {pendingPort.direction === 'out' ? 'input' : 'output'} port to connect, or click it again to cancel.
         </div>
       )}
-      <div className="flex items-center justify-between px-1">
-        <div className="grid flex-1 grid-cols-3 font-mono text-[10px] uppercase tracking-widest text-zinc-500">
-          <span>Console</span>
-          <span className="text-center">Rig</span>
-          <span className="text-right">Stage</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setZoom((z) => Math.max(ZOOM_MIN, Math.round((z - ZOOM_STEP) * 100) / 100))} title="Zoom out">
-            <Minus className="h-3.5 w-3.5" />
-          </Button>
-          <button type="button" onClick={() => setZoom(1)} className="w-11 text-center font-mono text-[11px] text-zinc-400 hover:text-zinc-200" title="Reset zoom">
-            {Math.round(zoom * 100)}%
-          </button>
-          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setZoom((z) => Math.min(ZOOM_MAX, Math.round((z + ZOOM_STEP) * 100) / 100))} title="Zoom in">
-            <Plus className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </div>
-      <div ref={wrapperRef} className="overflow-auto rounded-lg border border-zinc-800 bg-zinc-950/40" style={{ height: CANVAS_HEIGHT }}>
+      <div ref={wrapperRef} className="overflow-auto" style={{ height: CANVAS_HEIGHT }}>
         <div style={{ width: canvasWidth * zoom, height: canvasHeight * zoom }}>
           <div ref={canvasRef} className="relative" style={{ width: canvasWidth, height: canvasHeight, transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
-            <div className="pointer-events-none absolute inset-y-0 left-0 border-r border-dashed border-zinc-800 bg-white/[0.02]" style={{ width: ZONE_SOURCES_X + NODE_WIDTH + 24 }} />
-            <div className="pointer-events-none absolute inset-y-0 right-0 border-l border-dashed border-zinc-800 bg-white/[0.02]" style={{ width: NODE_WIDTH + 48 }} />
+            <LaneBands
+              height={canvasHeight}
+              lanes={[
+                { label: 'Console', x: 0, width: ZONE_SOURCES_X + NODE_WIDTH + 24 },
+                { label: 'Rig', x: ZONE_SOURCES_X + NODE_WIDTH + 40, width: Math.max(0, zoneDestinationsX(canvasWidth) - (ZONE_SOURCES_X + NODE_WIDTH + 56)) },
+                { label: 'Stage', x: canvasWidth - (NODE_WIDTH + 48), width: NODE_WIDTH + 48 },
+              ]}
+            />
             <svg className="pointer-events-none absolute inset-0" width={canvasWidth} height={canvasHeight}>
               {/* Same two encodings as the input graph (Slice 23): hue is the
                   output this run carries, dash pattern is what kind of link it

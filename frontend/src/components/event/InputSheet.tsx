@@ -9,11 +9,10 @@ import { firstChainNode, inputChainSegments, type ChainCellModel, type SegmentNo
 import type { InputFlowContext } from '../../lib/inputSignalFlow'
 import { busTint } from '../../lib/utils'
 import type { Console, InputCable, InputChannel, InputDevice, InputSource, InventoryItem, MixerDCA, MixerGroup, StageMulti, Stagebox } from '../../types'
-import { Badge } from '../ui/Badge'
 import { FieldStack } from '../ui/GearList'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table'
+import { NumCell, PhantomBar, Pill, SheetBody, SheetCell, SheetHead, SheetHeadCell, SheetRow, SheetTable, TapeBar } from '../ui/SheetTable'
 import { BusMultiSelect } from './BusMultiSelect'
 import { ChainCell, type HopCable } from './ChainCell'
 import { ColorSelect } from './ColorSelect'
@@ -180,29 +179,28 @@ export function InputSheet({
   }
 
   return (
-    <div>
-      <div className="overflow-x-auto rounded-xl border border-zinc-700 bg-zinc-850">
-        <Table>
-          <TableHeader>
-            <TableRow>{COLUMNS.map((column) => <TableHead key={column}>{column}</TableHead>)}</TableRow>
-          </TableHeader>
-          <TableBody>
-            {visible.map(({ channel, chain, phantom }) => (
+    <>
+      <div className="overflow-x-auto">
+        <SheetTable>
+          <SheetHead>
+            <tr>{COLUMNS.map((column) => <SheetHeadCell key={column}>{column}</SheetHeadCell>)}</tr>
+          </SheetHead>
+          <SheetBody>
+            {visible.map(({ channel, chain, phantom }, index) => (
               <Fragment key={channel.id}>
-                <TableRow
-                  className={`${readOnly ? '' : 'cursor-pointer '}${editor.openId === channel.id ? 'border-b-0 bg-amber-500/[0.04] hover:bg-amber-500/[0.04]' : ''}`}
-                  style={channel.color && editor.openId !== channel.id ? { backgroundColor: `${channel.color}0f` } : undefined}
+                <SheetRow
+                  striped={index % 2 === 1}
+                  open={editor.openId === channel.id}
+                  className={readOnly ? undefined : 'cursor-pointer'}
                   onClick={readOnly ? undefined : () => editor.openRow(channel)}
                 >
-                  <TableCell
-                    className="font-mono text-zinc-300"
-                    style={channel.color ? { boxShadow: `inset 3px 0 0 0 ${channel.color}` } : undefined}
-                  >
-                    {channel.channel_number}
-                  </TableCell>
-                  <TableCell className="text-zinc-100">{channel.channel_name || <span className="text-zinc-500">unnamed</span>}</TableCell>
-                  <TableCell className="font-mono text-xs text-zinc-500">{channel.width === 'stereo' ? 'S' : 'M'}</TableCell>
-                  <TableCell onClick={(event) => event.stopPropagation()}>
+                  <NumCell>{channel.channel_number}</NumCell>
+                  <SheetCell className="whitespace-nowrap text-zinc-100">
+                    <TapeBar color={channel.color} />
+                    {channel.channel_name || <span className="text-zinc-500">unnamed</span>}
+                  </SheetCell>
+                  <NumCell>{channel.width === 'stereo' ? 'S' : 'M'}</NumCell>
+                  <SheetCell onClick={(event) => event.stopPropagation()}>
                     <ChainCell
                       model={chain}
                       cableItems={cableItems}
@@ -212,25 +210,25 @@ export function InputSheet({
                       onEditInFlow={onEditInFlow}
                       readOnly={readOnly}
                     />
-                  </TableCell>
-                  <TableCell>{phantom && <PhantomBar />}</TableCell>
-                  <TableCell>
+                  </SheetCell>
+                  <SheetCell>{phantom && <PhantomBar />}</SheetCell>
+                  <SheetCell>
                     <div className="flex flex-wrap gap-1">
                       {[...(channel.group_ids ?? []).map((id) => groups.find((g) => g.id === id)), ...(channel.dca_ids ?? []).map((id) => dcas.find((d) => d.id === id))]
                         .filter((bus): bus is MixerGroup => !!bus)
                         .map((bus) => (
-                          <Badge key={`${bus.id}-${bus.name}`} style={busTint(bus.color)}>
+                          <Pill key={`${bus.id}-${bus.name}`} style={busTint(bus.color)}>
                             {bus.name}
-                          </Badge>
+                          </Pill>
                         ))}
                     </div>
-                  </TableCell>
-                  <TableCell className="max-w-48 truncate text-xs text-zinc-500">{channel.notes}</TableCell>
-                </TableRow>
+                  </SheetCell>
+                  <SheetCell className="max-w-48 truncate text-zinc-500">{channel.notes}</SheetCell>
+                </SheetRow>
 
                 {editor.openId === channel.id && editor.draft && (
-                  <TableRow className="border-b-0 hover:bg-transparent">
-                    <TableCell colSpan={COLUMNS.length} className="bg-amber-500/[0.04] pt-0">
+                  <SheetRow className="border-b-0 hover:bg-transparent">
+                    <SheetCell colSpan={COLUMNS.length} className="bg-amber-500/[0.04] pt-0">
                       <RowEditor
                         saveLabel="Save channel"
                         onSave={editor.save}
@@ -308,15 +306,15 @@ export function InputSheet({
                           <Input size="sm" value={editor.draft.notes} onChange={(event) => editor.setDraft({ ...editor.draft!, notes: event.target.value })} />
                         </FieldStack>
                       </RowEditor>
-                    </TableCell>
-                  </TableRow>
+                    </SheetCell>
+                  </SheetRow>
                 )}
               </Fragment>
             ))}
-          </TableBody>
-        </Table>
+          </SheetBody>
+        </SheetTable>
         {visible.length === 0 && (
-          <p className="px-4 py-3 text-sm text-zinc-500">
+          <p className="px-3 py-3 text-xs text-zinc-500">
             {channels.length === 0 ? 'No input channels yet.' : gapsOnly ? 'No gaps — every channel has a source.' : `Nothing matches “${search}”.`}
           </p>
         )}
@@ -331,22 +329,11 @@ export function InputSheet({
       />
 
       {(updateChannel.error ?? removeChannel.error ?? setCableItem.error ?? removeCable.error) && (
-        <p className="mt-2 text-sm text-red-400">
+        <p className="px-3 pb-2 text-xs text-red-400">
           {(updateChannel.error ?? removeChannel.error ?? setCableItem.error ?? removeCable.error)?.message}
         </p>
       )}
-    </div>
-  )
-}
-
-/** 48 V is red and bar-shaped — every circle in this app's patch surfaces is a port. */
-function PhantomBar() {
-  return (
-    <span
-      title="48 V phantom power on"
-      aria-label="48 V on"
-      className="inline-block h-[3px] w-2 rounded-sm bg-red-500 align-middle shadow-[0_0_5px_rgba(239,68,68,0.65)]"
-    />
+    </>
   )
 }
 

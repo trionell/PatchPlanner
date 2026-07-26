@@ -4,6 +4,7 @@ import type { PatchTab, PatchView } from '../../hooks/usePatchView'
 import { PrintButton } from '../print/PrintButton'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
+import { PatchPanel } from '../ui/PatchPanel'
 
 interface AudioPatchShellProps {
   tab: PatchTab
@@ -25,23 +26,25 @@ interface AudioPatchShellProps {
   drawers?: ReactNode
 }
 
-const NOUNS: Record<PatchTab, { search: string; add: string }> = {
-  inputs: { search: 'Find a channel…', add: 'Channel' },
-  outputs: { search: 'Find an output…', add: 'Output' },
+const NOUNS: Record<PatchTab, { title: string; search: string; add: string }> = {
+  inputs: { title: 'Audio inputs', search: 'Find a channel…', add: 'Channel' },
+  outputs: { title: 'Audio outputs', search: 'Find an output…', add: 'Output' },
 }
 
 /**
- * The one surface both audio tabs render (Slice 23 FR-001/FR-002). Replaces
- * the five-or-six stacked cards each tab used to be with a single toolbar and
- * a single content area: which view you're in, what you're searching for, the
- * drawers, print, add. Everything else on the tab is content.
+ * The one surface both audio tabs render (Slice 23 FR-001/FR-002), now as a single
+ * framed panel (Slice 25 FR-010/FR-011): the bar, the content, the status strip.
  *
- * The two tabs differ only in their columns, their canvas and the nouns above
- * — never in the shell itself, which is why the Rig drawer can be the same
- * component against the same data on both.
+ * The two tabs differ only in their columns, their canvas and the nouns above —
+ * never in the shell itself, which is why the Rig drawer can be the same component
+ * against the same data on both.
  *
- * A restricted role's controls are *omitted*, not disabled (the standing rule
- * from Slice 15): the caller simply passes no `onAdd`/`onOpenRig`.
+ * The bar carries the tab's own name, as the mockup does. It duplicates the tab
+ * strip above it, and that is deliberate: the name is what anchors a panel that now
+ * has a top edge of its own.
+ *
+ * A restricted role's controls are *omitted*, not disabled (the standing rule from
+ * Slice 15): the caller simply passes no `onAdd`/`onOpenRig`.
  */
 export function AudioPatchShell({
   tab,
@@ -60,47 +63,60 @@ export function AudioPatchShell({
 
   return (
     <div className="print:hidden">
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="inline-flex shrink-0 rounded-lg border border-zinc-700 bg-zinc-900 p-1">
-          <Button size="sm" variant={view === 'sheet' ? 'default' : 'ghost'} onClick={() => onViewChange('sheet')} className="h-8">
-            <Table2 className="mr-2 h-4 w-4" />Sheet
-          </Button>
-          <Button size="sm" variant={view === 'flow' ? 'default' : 'ghost'} onClick={() => onViewChange('flow')} className="h-8">
-            <LayoutGrid className="mr-2 h-4 w-4" />Flow
-          </Button>
-        </div>
+      <PatchPanel
+        bar={
+          <>
+            <span className="mr-1 shrink-0 text-sm font-semibold text-zinc-100">{nouns.title}</span>
 
-        <div className="relative min-w-[12rem] flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-          <Input
-            className="h-9 pl-9"
-            placeholder={nouns.search}
-            value={search}
-            onChange={(event) => onSearchChange(event.target.value)}
-          />
-        </div>
+            <div className="inline-flex shrink-0 rounded-md border border-zinc-700 bg-zinc-900 p-0.5">
+              <Button size="sm" variant={view === 'sheet' ? 'default' : 'ghost'} onClick={() => onViewChange('sheet')} className="h-6 px-2 text-xs">
+                <Table2 className="mr-1.5 h-3.5 w-3.5" />Sheet
+              </Button>
+              <Button size="sm" variant={view === 'flow' ? 'default' : 'ghost'} onClick={() => onViewChange('flow')} className="h-6 px-2 text-xs">
+                <LayoutGrid className="mr-1.5 h-3.5 w-3.5" />Flow
+              </Button>
+            </div>
 
-        {toolbarExtras}
+            <div className="relative min-w-[10rem] max-w-xs flex-1">
+              <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+              <Input
+                size="sm"
+                className="pl-7"
+                placeholder={nouns.search}
+                value={search}
+                onChange={(event) => onSearchChange(event.target.value)}
+              />
+            </div>
 
-        {onOpenRig && (
-          <Button size="sm" variant="outline" onClick={onOpenRig}>
-            Rig
-          </Button>
-        )}
-        {onOpenBuses && (
-          <Button size="sm" variant="outline" onClick={onOpenBuses}>
-            Buses
-          </Button>
-        )}
-        <PrintButton />
-        {onAdd && (
-          <Button size="sm" onClick={onAdd}>
-            <Plus className="mr-2 h-4 w-4" />{nouns.add}
-          </Button>
-        )}
-      </div>
+            {onOpenRig && (
+              <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs" onClick={onOpenRig}>
+                Rig
+              </Button>
+            )}
+            {onOpenBuses && (
+              <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs" onClick={onOpenBuses}>
+                Buses
+              </Button>
+            )}
 
-      {children}
+            {/* The zoom control, in Flow. It used to sit in a strip between the
+                toolbar and the canvas, which is the thing that broke the panel's
+                one-frame reading (Slice 25 FR-020). */}
+            {toolbarExtras}
+
+            <span className="flex-1" />
+
+            <PrintButton />
+            {onAdd && (
+              <Button size="sm" className="h-7 px-2.5 text-xs" onClick={onAdd}>
+                <Plus className="mr-1.5 h-3.5 w-3.5" />{nouns.add}
+              </Button>
+            )}
+          </>
+        }
+      >
+        {children}
+      </PatchPanel>
       {drawers}
     </div>
   )

@@ -13,6 +13,7 @@ import { MobileChannelEditSheet } from '../mobile/MobileChannelEditSheet'
 import { MobileEntityList } from '../mobile/MobileEntityList'
 import { InputPatchSheet } from '../print/InputPatchSheet'
 import { AudioPatchShell } from './AudioPatchShell'
+import { ZoomControl } from './graph/ZoomControl'
 import type { FlowSelection } from './FlowInspector'
 import { BusesDrawer } from './BusesDrawer'
 import { ConsoleSection } from './ConsoleSection'
@@ -47,6 +48,9 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
   // can set it (Slice 25 FR-001/FR-002). Deliberately not persisted: it is where
   // the planner is looking, not part of the plan.
   const [selection, setSelection] = useState<FlowSelection | null>(null)
+  // The canvas zoom. Held here because its control lives in the panel's toolbar
+  // (Slice 25 FR-020); the canvas reads it for geometry.
+  const [zoom, setZoom] = useState(1)
   const [drawer, setDrawer] = useState<'rig' | 'buses' | null>(null)
 
   const invalidate = async () => {
@@ -160,6 +164,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
         onOpenRig={readOnly ? undefined : () => setDrawer('rig')}
         onOpenBuses={readOnly ? undefined : () => setDrawer('buses')}
         onAdd={readOnly ? undefined : addChannel}
+        toolbarExtras={view === 'flow' ? <ZoomControl zoom={zoom} onZoomChange={setZoom} /> : undefined}
         drawers={
           <>
             <RigDrawer
@@ -200,26 +205,24 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
         }
       >
         {view === 'sheet' ? (
-          <div>
-            <InputSheet
-              eventId={eventId}
-              channels={channels}
-              sources={sources}
-              devices={devices}
-              stageboxes={stageboxes}
-              stageMultis={stageMultis}
-              cables={cables}
-              groups={groups}
-              dcas={dcas}
-              consoles={consoles}
-              cableItems={cableItems}
-              itemLabelById={itemLabelById}
-              search={search}
-              onEditInFlow={openInFlow}
-              onOpenRig={readOnly ? undefined : () => setDrawer('rig')}
-              readOnly={readOnly}
-            />
-          </div>
+          <InputSheet
+            eventId={eventId}
+            channels={channels}
+            sources={sources}
+            devices={devices}
+            stageboxes={stageboxes}
+            stageMultis={stageMultis}
+            cables={cables}
+            groups={groups}
+            dcas={dcas}
+            consoles={consoles}
+            cableItems={cableItems}
+            itemLabelById={itemLabelById}
+            search={search}
+            onEditInFlow={openInFlow}
+            onOpenRig={readOnly ? undefined : () => setDrawer('rig')}
+            readOnly={readOnly}
+          />
         ) : (
           <InputGraphCanvas
             eventId={eventId}
@@ -237,6 +240,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
             search={search}
             selection={selection}
             onSelectionChange={setSelection}
+            zoom={zoom}
             onChanged={invalidate}
             readOnly={readOnly}
           />

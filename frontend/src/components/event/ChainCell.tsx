@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowRight, Unplug } from 'lucide-react'
+import { Unplug } from 'lucide-react'
 import type { ChainCellModel, ChainSegment, SegmentNode } from '../../lib/patchSheet'
 import { truncateSegments } from '../../lib/patchSheet'
 import { itemLabel } from '../../lib/utils'
@@ -64,15 +64,17 @@ export function ChainCell({
       {model.lines.map((line, lineIndex) => {
         const { segments, hidden } = truncateSegments(line.segments, maxSegments)
         return (
-          <div key={lineIndex} className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-sm">
-            {line.sideLabel && <span className="mr-0.5 font-mono text-[11px] text-zinc-500">{line.sideLabel}</span>}
+          <div key={lineIndex} className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-mono text-[11px] text-zinc-300">
+            {line.sideLabel && <span className="mr-0.5 text-[10px] text-zinc-500">{line.sideLabel}</span>}
             {segments.map((segment, index) => (
-              <span key={`${segment.label}-${index}`} className="flex items-center gap-1">
-                {index > 0 && <ArrowRight className="h-3 w-3 shrink-0 text-zinc-600" aria-hidden />}
+              <span key={`${segment.label}-${index}`} className="flex items-center gap-1.5">
+                {/* An arrow as text, quieter than the hops it joins — an icon at this
+                    size reads as heavy as the words (Slice 25 FR-016). */}
+                {index > 0 && <span aria-hidden className="text-zinc-600">→</span>}
                 {index === 1 && hidden > 0 && (
-                  <span title={`${hidden} more hops`} className="font-mono text-[11px] text-zinc-500">
+                  <span title={`${hidden} more hops`} className="flex items-center gap-1.5 text-[10px] text-zinc-500">
                     ⋯{hidden}
-                    <ArrowRight className="ml-1 inline h-3 w-3 text-zinc-600" aria-hidden />
+                    <span aria-hidden className="text-zinc-600">→</span>
                   </span>
                 )}
                 <HopChip
@@ -117,20 +119,33 @@ export function ChainCell({
   )
 }
 
+/**
+ * One hop. Two things carry meaning here beyond the text (Slice 25 FR-016):
+ *
+ * - A **dotted underline** marks a hop as clickable, which is what the mockup uses
+ *   in place of a button that would turn a chain into a row of chips.
+ * - **Amber** marks a hop through the desk's own socket. That is not decoration:
+ *   it is the one hop on a chain that is *not* a billable cable, so the sheet now
+ *   shows at a glance which parts of a run go on the rental order. `patchSheet`
+ *   has marked these `kind: 'desk'` since the console existed; nothing drew it.
+ */
 function HopChip({ segment, onClick }: { segment: ChainSegment; onClick?: () => void }) {
+  const desk = segment.kind === 'desk'
   const tone = segment.missing
     ? 'text-red-400'
-    : segment.kind === 'channel'
-      ? 'text-zinc-300'
-      : segment.kind === 'source'
-        ? 'text-zinc-200'
-        : 'text-zinc-400'
+    : desk
+      ? 'text-amber-300'
+      : segment.kind === 'channel'
+        ? 'text-zinc-500'
+        : 'text-zinc-300'
   if (!onClick) return <span className={`whitespace-nowrap ${tone}`}>{segment.label}</span>
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`whitespace-nowrap rounded px-1 -mx-1 hover:bg-zinc-800 hover:text-zinc-100 ${tone}`}
+      className={`whitespace-nowrap border-b border-dotted ${
+        desk ? 'border-amber-500/50 hover:border-amber-400' : 'border-zinc-600 hover:border-zinc-400'
+      } hover:text-zinc-100 ${tone}`}
     >
       {segment.label}
     </button>

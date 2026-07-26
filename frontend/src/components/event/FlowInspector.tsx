@@ -1,15 +1,16 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Copy, Trash2, X } from 'lucide-react'
+import { Copy, X } from 'lucide-react'
 import { createInputSource, deleteInputSource, updateInputSource } from '../../api/audioPatch'
 import { useReferenceData } from '../../hooks/useReferenceData'
 import { derivedSourceColor, sourcePorts, type PortRef } from '../../lib/inputGraph'
 import { buildInputChannelFlow } from '../../lib/inputSignalFlow'
 import { toOptionalNumber } from '../../lib/utils'
 import type { Console, InputCable, InputChannel, InputDevice, InputSource, InventoryItem, StageMulti, Stagebox } from '../../types'
-import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
+import { Pill } from '../ui/SheetTable'
 import { Select } from '../ui/Select'
+import { MICRO_LABEL, PHANTOM_BAR } from './graph/tokens'
 
 /** What the canvas has selected — a node, not a port. */
 export interface FlowSelection {
@@ -36,15 +37,19 @@ interface FlowInspectorProps {
 }
 
 /**
- * The Flow view's one editor (Slice 23 FR-032). It replaces the sheet's row
- * editor when the canvas is showing, and for a source it holds every field the
- * old Sources card held — mic, stand, connector, width, phantom power — which
- * is what allowed that card to be retired rather than merely relocated.
+ * The Flow view's one editor (Slice 23 FR-032), rebuilt to the mockup's rail
+ * (Slice 25 US4).
  *
- * A source still has no colour picker: its colour is always derived from
- * whichever channels it reaches, and the "Reaches" line below states that
- * relationship explicitly rather than leaving the user to read it off the
- * cables.
+ * A rail with a left border rather than a floating card, every field beside a short
+ * label in one narrow column rather than under it, what the source reaches and what
+ * the canvas's line styles mean each in a bordered note, and the destructive actions
+ * pinned to the bottom out of the way of the fields.
+ *
+ * For a source it holds every field the old Sources card held — mic, stand,
+ * connector, width, phantom power — which is what allowed that card to be retired
+ * rather than merely relocated. A source still has no colour picker: its colour is
+ * always derived from whichever channels it reaches, and the "Reaches" note states
+ * that relationship rather than leaving it to be read off the cables.
  */
 export function FlowInspector({
   eventId,
@@ -108,50 +113,34 @@ export function FlowInspector({
     })
   }
 
-  const title = source
-    ? source.name
-    : selection.kind === 'stagebox'
-      ? stageboxes.find((box) => box.id === selection.id)?.name ?? 'Stagebox'
-      : selection.kind === 'stage_multi'
-        ? stageMultis.find((multi) => multi.id === selection.id)?.name ?? 'Stage multi'
-        : selection.kind === 'device'
-          ? devices.find((device) => device.id === selection.id)?.name ?? 'Device'
-          : selection.kind === 'console_local'
-            ? // Since Slice 24 this kind selects the desk's *jack panel*, not the
-              // desk's channel rail — say so, or two nodes with the same name
-              // would give the same title.
-              `${consoles.find((desk) => desk.id === selection.id)?.name || 'Console'} · local jacks`
-            : selection.kind === 'channel' && selection.id > 0
-              ? consoles.find((desk) => desk.id === selection.id)?.name || 'Console'
-              : 'Channels with no desk'
+  const { heading, title } = describe(selection, { sources, stageboxes, stageMultis, devices, consoles })
 
   return (
-    <aside className="w-64 shrink-0 space-y-3 rounded-lg border border-zinc-800 bg-zinc-900 p-3">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          {source && <Badge variant={source.kind === 'mic' ? 'mic' : 'line'}>{source.kind}</Badge>}
-          <h4 className="mt-1 text-sm font-semibold text-zinc-100">{title}</h4>
-        </div>
-        <button aria-label="Close inspector" className="text-zinc-500 hover:text-zinc-200" onClick={onClose} type="button">
-          <X className="h-4 w-4" />
+    <aside className="flex w-60 shrink-0 flex-col gap-2.5 border-l border-zinc-800 p-2.5">
+      <div className="flex items-center gap-1.5">
+        <span className={MICRO_LABEL}>{heading}</span>
+        {source && <Pill className={source.kind === 'mic' ? 'bg-sky-500/15 text-sky-300' : 'bg-violet-500/15 text-violet-300'}>{source.kind}</Pill>}
+        <button aria-label="Close inspector" className="ml-auto text-zinc-500 hover:text-zinc-200" onClick={onClose} type="button">
+          <X className="h-3.5 w-3.5" />
         </button>
       </div>
 
       {source ? (
         <>
-          <Field label="Name">
-            <Input
-              defaultValue={source.name}
-              disabled={readOnly}
-              key={`${source.id}-name`}
-              onBlur={(event) => {
-                const name = event.target.value.trim()
-                if (name && name !== source.name) saveSource({ name })
-              }}
-            />
-          </Field>
+          <Input
+            size="sm"
+            className="h-7 font-semibold"
+            defaultValue={source.name}
+            disabled={readOnly}
+            key={`${source.id}-name`}
+            onBlur={(event) => {
+              const name = event.target.value.trim()
+              if (name && name !== source.name) saveSource({ name })
+            }}
+          />
+
           <Field label="Kind">
-            <Select value={source.kind} disabled={readOnly} onChange={(event) => saveSource({ kind: event.target.value as InputSource['kind'] })}>
+            <Select size="sm" value={source.kind} disabled={readOnly} onChange={(event) => saveSource({ kind: event.target.value as InputSource['kind'] })}>
               <option value="mic">Mic</option>
               <option value="line">Line</option>
             </Select>
@@ -159,7 +148,7 @@ export function FlowInspector({
           {source.kind === 'mic' && (
             <>
               <Field label="Mic">
-                <Select value={source.mic_item_id ?? ''} disabled={readOnly} onChange={(event) => saveSource({ mic_item_id: toOptionalNumber(event.target.value) })}>
+                <Select size="sm" value={source.mic_item_id ?? ''} disabled={readOnly} onChange={(event) => saveSource({ mic_item_id: toOptionalNumber(event.target.value) })}>
                   <option value="">—</option>
                   {micItems.map((item) => (
                     <option key={item.id} value={item.id}>
@@ -169,7 +158,7 @@ export function FlowInspector({
                 </Select>
               </Field>
               <Field label="Stand">
-                <Select value={source.stand_item_id ?? ''} disabled={readOnly} onChange={(event) => saveSource({ stand_item_id: toOptionalNumber(event.target.value) })}>
+                <Select size="sm" value={source.stand_item_id ?? ''} disabled={readOnly} onChange={(event) => saveSource({ stand_item_id: toOptionalNumber(event.target.value) })}>
                   <option value="">—</option>
                   {standItems.map((item) => (
                     <option key={item.id} value={item.id}>
@@ -178,20 +167,23 @@ export function FlowInspector({
                   ))}
                 </Select>
               </Field>
-              <label className="flex items-center gap-2 text-xs text-zinc-300">
-                <input
-                  type="checkbox"
-                  checked={source.phantom_power}
-                  disabled={readOnly}
-                  onChange={(event) => saveSource({ phantom_power: event.target.checked })}
-                  className="h-4 w-4 accent-red-500"
-                />
-                48 V phantom power
-              </label>
+              <Field label="48 V">
+                <label className="flex items-center gap-2 text-[11px] text-zinc-400">
+                  <input
+                    type="checkbox"
+                    checked={source.phantom_power}
+                    disabled={readOnly}
+                    onChange={(event) => saveSource({ phantom_power: event.target.checked })}
+                    className="h-3.5 w-3.5 accent-red-500"
+                  />
+                  <span className={source.phantom_power ? PHANTOM_BAR : 'inline-block h-[3px] w-2 rounded-sm bg-zinc-700'} />
+                  {source.phantom_power ? 'on' : 'off'}
+                </label>
+              </Field>
             </>
           )}
-          <Field label="Connector">
-            <Select value={source.connector_type} disabled={readOnly} onChange={(event) => saveSource({ connector_type: event.target.value })}>
+          <Field label="Conn">
+            <Select size="sm" value={source.connector_type} disabled={readOnly} onChange={(event) => saveSource({ connector_type: event.target.value })}>
               <option value="">—</option>
               {options('preamp_connectors', source.connector_type).map((value) => (
                 <option key={value.value} value={value.value}>
@@ -201,19 +193,21 @@ export function FlowInspector({
             </Select>
           </Field>
           <Field label="Width">
-            <Select value={source.width} disabled={readOnly} onChange={(event) => saveSource({ width: event.target.value as InputSource['width'] })}>
+            <Select size="sm" value={source.width} disabled={readOnly} onChange={(event) => saveSource({ width: event.target.value as InputSource['width'] })}>
               <option value="mono">Mono</option>
               <option value="stereo">Stereo</option>
             </Select>
           </Field>
 
           <Reaches source={source} channels={channels} devices={devices} stageboxes={stageboxes} stageMultis={stageMultis} consoles={consoles} cables={cables} itemLabelById={itemLabelById} />
+          <Legend />
 
           {!readOnly && (
-            <div className="flex gap-2 border-t border-zinc-800 pt-2">
+            <div className="mt-auto flex gap-2">
               <Button
                 size="sm"
                 variant="outline"
+                className="h-7 px-2.5 text-xs"
                 onClick={() =>
                   create.mutate({
                     name: `${source.name} copy`,
@@ -228,12 +222,12 @@ export function FlowInspector({
                   })
                 }
               >
-                <Copy className="mr-2 h-4 w-4" />Duplicate
+                <Copy className="mr-1.5 h-3.5 w-3.5" />Duplicate
               </Button>
               <Button
                 size="sm"
                 variant="ghost"
-                title="Delete source"
+                className="h-7 px-2.5 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-300"
                 onClick={() => {
                   if (window.confirm(`Delete source “${source.name}”? Any cable connected to it is removed with it.`)) {
                     remove.mutate(source.id)
@@ -241,38 +235,86 @@ export function FlowInspector({
                   }
                 }}
               >
-                <Trash2 className="h-4 w-4" />
+                Delete
               </Button>
             </div>
           )}
         </>
       ) : (
-        <p className="text-xs text-zinc-500">
-          Rig gear is edited in the Rig drawer — it is declared once per event and shared by both audio tabs. Select a source to edit it here.
-        </p>
+        <>
+          <p className="text-sm font-semibold text-zinc-100">{title}</p>
+          <Note label="Edited in the Rig drawer">
+            <span className="text-[11px] leading-snug text-zinc-400">
+              Rig gear is declared once per event and shared by both audio tabs. Select a source to edit it here.
+            </span>
+          </Note>
+          <Legend />
+        </>
       )}
 
-      <Legend />
-
       {(update.error ?? create.error ?? remove.error) && (
-        <p className="text-xs text-red-400">{(update.error ?? create.error ?? remove.error)?.message}</p>
+        <p className="text-[11px] text-red-400">{(update.error ?? create.error ?? remove.error)?.message}</p>
       )}
     </aside>
   )
 }
 
+/** What the rail is showing, resolved against whichever collection the node is in. */
+function describe(
+  selection: FlowSelection,
+  context: { sources: InputSource[]; stageboxes: Stagebox[]; stageMultis: StageMulti[]; devices: InputDevice[]; consoles: Console[] },
+): { heading: string; title: string } {
+  switch (selection.kind) {
+    case 'source':
+      return { heading: 'Source', title: context.sources.find((s) => s.id === selection.id)?.name ?? 'Source' }
+    case 'stagebox':
+      return { heading: 'Stagebox', title: context.stageboxes.find((box) => box.id === selection.id)?.name ?? 'Stagebox' }
+    case 'stage_multi':
+      return { heading: 'Stage multi', title: context.stageMultis.find((multi) => multi.id === selection.id)?.name ?? 'Stage multi' }
+    case 'device':
+      return { heading: 'Device', title: context.devices.find((device) => device.id === selection.id)?.name ?? 'Device' }
+    case 'console_local':
+      return {
+        heading: 'Local jacks',
+        title: `${context.consoles.find((desk) => desk.id === selection.id)?.name || 'Console'} · local jacks`,
+      }
+    default:
+      // A `channel` node: a desk's own channel rail, or the box holding rows that
+      // belong to no desk (id 0).
+      return {
+        heading: 'Desk',
+        title: selection.id > 0 ? context.consoles.find((desk) => desk.id === selection.id)?.name || 'Console' : 'Channels with no desk',
+      }
+  }
+}
+
+/**
+ * One field, its label beside it in a fixed narrow column (Slice 25 FR-022). Labels
+ * above fields is what made the rail twice as tall as it needed to be; a 44px column
+ * fits every label this inspector uses and keeps the controls on one axis.
+ */
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="block space-y-1">
-      <span className="text-[10px] uppercase tracking-wide text-zinc-500">{label}</span>
+    <label className="grid grid-cols-[44px_minmax(0,1fr)] items-center gap-2">
+      <span className={MICRO_LABEL}>{label}</span>
       {children}
     </label>
   )
 }
 
+/** A bordered note within the rail — for things that are read, not edited. */
+function Note({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1 rounded-[5px] border border-zinc-800 bg-zinc-950/60 p-1.5">
+      <span className={MICRO_LABEL}>{label}</span>
+      {children}
+    </div>
+  )
+}
+
 /**
- * Where this source actually lands — the question the whole graph exists to
- * answer, stated in words so it doesn't have to be traced by eye.
+ * Where this source actually lands — the question the whole graph exists to answer,
+ * stated in words so it doesn't have to be traced by eye.
  */
 function Reaches({
   source,
@@ -301,35 +343,49 @@ function Reaches({
   const ports = sourcePorts(source)
 
   return (
-    <div className="space-y-1 border-t border-zinc-800 pt-2">
-      <span className="text-[10px] uppercase tracking-wide text-zinc-500">Reaches</span>
+    <Note label="Reaches">
       {reached.length === 0 ? (
-        <p className="text-xs text-zinc-500">Nothing yet — this source doesn't land on a channel.</p>
+        <span className="text-[11px] text-zinc-500">Nothing yet — this source doesn't land on a channel.</span>
       ) : (
-        <p className="text-xs" style={color ? { color } : undefined}>
+        <span className="font-mono text-[11px]" style={color ? { color } : undefined}>
           {reached.map((channel) => `ch ${channel.channel_number}${channel.channel_name ? ` ${channel.channel_name}` : ''}`).join(', ')}
-        </p>
+        </span>
       )}
-      <p className="font-mono text-[10px] text-zinc-500">
+      <span className="font-mono text-[10px] text-zinc-500">
         {ports.length} {ports.length === 1 ? 'port' : 'ports'}
         {source.phantom_power ? ' · 48 V on' : ''}
-      </p>
-    </div>
+      </span>
+    </Note>
   )
 }
 
-/** The two encodings a run carries, spelled out once. */
+/**
+ * The two encodings a run carries, drawn rather than described (Slice 25 FR-024).
+ * The samples are the strokes the canvas actually uses — same widths, same dash
+ * arrays — so the legend cannot drift into being a claim about something else.
+ */
 function Legend() {
+  const rows: { stroke: string; dash?: string; meaning: string }[] = [
+    { stroke: '#38bdf8', meaning: 'cable, reaching that channel' },
+    { stroke: '#38bdf8', dash: '6 3', meaning: 'network hop, no cable' },
+    { stroke: '#71717a', dash: '4 3', meaning: 'reaches no channel' },
+  ]
   return (
-    <div className="space-y-1 border-t border-zinc-800 pt-2 text-[10px] text-zinc-500">
-      <p className="uppercase tracking-wide">Legend</p>
-      <p>Colour — the channel this run reaches</p>
-      <p>Dashed long — network hop, no cable</p>
-      <p>Dashed grey — reaches no channel</p>
-      <p>
-        <span className="mr-1 inline-block h-[3px] w-2 rounded-sm bg-red-500 align-middle" />
+    <Note label="Legend">
+      {rows.map((row) => (
+        <span key={row.meaning} className="flex items-center gap-2 text-[10px] text-zinc-400">
+          <svg width="22" height="4" aria-hidden className="shrink-0">
+            <line x1="0" y1="2" x2="22" y2="2" stroke={row.stroke} strokeWidth="1.5" strokeDasharray={row.dash} />
+          </svg>
+          {row.meaning}
+        </span>
+      ))}
+      <span className="flex items-center gap-2 text-[10px] text-zinc-400">
+        <span className="flex w-[22px] shrink-0 justify-center">
+          <span className={PHANTOM_BAR} />
+        </span>
         48 V on
-      </p>
-    </div>
+      </span>
+    </Note>
   )
 }
