@@ -10,7 +10,18 @@ import (
 // rentalSummaryQuery derives the full rental order for one event. Every
 // planning surface that can reference a catalog item contributes one arm of
 // the CTE; manual event_rentals lines are both merged into the totals and
-// re-joined so their share stays editable. Takes the event id 12 times.
+// re-joined so their share stays editable. Takes the event id 13 times.
+//
+// The console arm (Slice 23) closes the last hole in the roadmap's standing
+// invariant: before event_consoles existed, the most expensive item in the
+// truck could only reach this order as a hand-typed manual line. It counts
+// either an inventory or an owned item via COALESCE, following the
+// input_devices arm rather than the stageboxes one — a decision taken with
+// the user on 2026-07-26 (research.md R6): the order doubles as the day's
+// packing list, so a desk you own still has to appear on it. A console with
+// neither item picked contributes nothing, which is the state every event
+// backfilled by migration 042 is in, so the aggregation is unchanged for
+// every existing plan.
 //
 // Stage plot truss pieces (Slice 13) count under the lighting column via
 // the event-scoped stage_plot_trusses join — never through plot
@@ -60,6 +71,10 @@ const rentalSummaryQuery = `
 		FROM stage_multis
 		WHERE event_id = ? AND inventory_item_id IS NOT NULL
 		UNION ALL
+		SELECT COALESCE(inventory_item_id, owned_item_id), 1, 0
+		FROM event_consoles
+		WHERE event_id = ? AND (inventory_item_id IS NOT NULL OR owned_item_id IS NOT NULL)
+		UNION ALL
 		SELECT inventory_item_id, 1, 0
 		FROM output_devices
 		WHERE event_id = ? AND inventory_item_id IS NOT NULL
@@ -96,7 +111,7 @@ const rentalSummaryQuery = `
 
 func GetRentalSummary(db *sql.DB, eventID int64) (domain.RentalSummary, error) {
 	rows, err := db.Query(rentalSummaryQuery,
-		eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID)
+		eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID)
 	if err != nil {
 		return domain.RentalSummary{}, fmt.Errorf("get rental summary: %w", err)
 	}

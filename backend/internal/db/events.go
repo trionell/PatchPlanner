@@ -108,6 +108,15 @@ func CreateEvent(db *sql.DB, event domain.Event, ownerUserID, inventoryID int64)
 	if _, err := tx.Exec(`INSERT INTO mixer_groups (event_id, name, is_builtin) VALUES (?, 'LR', 1)`, id); err != nil {
 		return domain.Event{}, fmt.Errorf("seed LR group: %w", err)
 	}
+	// And one console, unnamed with no item and no declared capacity (Slice
+	// 23) — the same state migration 042 backfilled onto every existing
+	// event, so the new-event and migrated-event paths are identical. It adds
+	// no rental line and raises no capacity warning until a user fills it in,
+	// but it gives both graphs a desk node from the start and lets a channel
+	// know which desk it is a strip on without anyone picking.
+	if _, err := tx.Exec(`INSERT INTO event_consoles (event_id, name, role) VALUES (?, '', 'foh')`, id); err != nil {
+		return domain.Event{}, fmt.Errorf("seed console: %w", err)
+	}
 	// The event's vocabulary starts as a one-time snapshot of the
 	// creator's current personal template — a flat copy with no
 	// id-remapping, since nothing references reference_values.id by

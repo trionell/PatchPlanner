@@ -166,7 +166,7 @@ func DeleteStageMulti(db *sql.DB, id int64) error {
 	return tx.Commit()
 }
 
-const inputChannelColumns = `id, event_id, channel_number, COALESCE(channel_name, ''), COALESCE(color, ''), width, mixer_behavior, COALESCE(notes, '')`
+const inputChannelColumns = `id, event_id, channel_number, COALESCE(channel_name, ''), COALESCE(color, ''), width, mixer_behavior, COALESCE(notes, ''), console_id`
 
 func ListInputChannels(db *sql.DB, eventID int64) ([]domain.InputChannel, error) {
 	rows, err := db.Query(`SELECT `+inputChannelColumns+` FROM input_channels WHERE event_id = ? ORDER BY channel_number ASC, id ASC`, eventID)
@@ -222,8 +222,16 @@ func CreateInputChannel(db *sql.DB, channel domain.InputChannel) (domain.InputCh
 	}
 	defer tx.Rollback()
 
-	result, err := tx.Exec(`INSERT INTO input_channels (event_id, channel_number, channel_name, color, width, mixer_behavior, notes) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		channel.EventID, channel.ChannelNumber, nullString(channel.ChannelName), nullString(channel.Color), channel.Width, channel.MixerBehavior, nullString(channel.Notes))
+	// A channel lands on the event's desk when there is exactly one — asking
+	// which of one is noise. With none or several, console_id stays as sent.
+	consoleID := channel.ConsoleID
+	if consoleID == nil {
+		if defaultID, err := DefaultConsoleID(db, channel.EventID); err == nil {
+			consoleID = defaultID
+		}
+	}
+	result, err := tx.Exec(`INSERT INTO input_channels (event_id, channel_number, channel_name, color, width, mixer_behavior, notes, console_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		channel.EventID, channel.ChannelNumber, nullString(channel.ChannelName), nullString(channel.Color), channel.Width, channel.MixerBehavior, nullString(channel.Notes), nullInt64(consoleID))
 	if err != nil {
 		return domain.InputChannel{}, fmt.Errorf("create input channel: %w", err)
 	}
@@ -258,8 +266,8 @@ func UpdateInputChannel(db *sql.DB, id int64, channel domain.InputChannel) (doma
 	}
 	defer tx.Rollback()
 
-	_, err = tx.Exec(`UPDATE input_channels SET channel_number = ?, channel_name = ?, color = ?, width = ?, mixer_behavior = ?, notes = ? WHERE id = ?`,
-		channel.ChannelNumber, nullString(channel.ChannelName), nullString(channel.Color), channel.Width, channel.MixerBehavior, nullString(channel.Notes), id)
+	_, err = tx.Exec(`UPDATE input_channels SET channel_number = ?, channel_name = ?, color = ?, width = ?, mixer_behavior = ?, notes = ?, console_id = ? WHERE id = ?`,
+		channel.ChannelNumber, nullString(channel.ChannelName), nullString(channel.Color), channel.Width, channel.MixerBehavior, nullString(channel.Notes), nullInt64(channel.ConsoleID), id)
 	if err != nil {
 		return domain.InputChannel{}, fmt.Errorf("update input channel: %w", err)
 	}
@@ -301,13 +309,17 @@ func DeleteInputChannel(db *sql.DB, id int64) error {
 
 func scanInputChannel(row scanner) (domain.InputChannel, error) {
 	var item domain.InputChannel
-	if err := row.Scan(&item.ID, &item.EventID, &item.ChannelNumber, &item.ChannelName, &item.Color, &item.Width, &item.MixerBehavior, &item.Notes); err != nil {
+	var consoleID sql.NullInt64
+	if err := row.Scan(&item.ID, &item.EventID, &item.ChannelNumber, &item.ChannelName, &item.Color, &item.Width, &item.MixerBehavior, &item.Notes, &consoleID); err != nil {
 		return domain.InputChannel{}, fmt.Errorf("scan input channel: %w", err)
+	}
+	if consoleID.Valid {
+		item.ConsoleID = &consoleID.Int64
 	}
 	return item, nil
 }
 
-const audioOutputColumns = `id, event_id, output_number, COALESCE(output_name, ''), COALESCE(output_type, 'foh'), COALESCE(color, ''), width, COALESCE(notes, '')`
+const audioOutputColumns = `id, event_id, output_number, COALESCE(output_name, ''), COALESCE(output_type, 'foh'), COALESCE(color, ''), width, COALESCE(notes, ''), console_id`
 
 func ListAudioPatchOutputs(db *sql.DB, eventID int64) ([]domain.AudioPatchOutput, error) {
 	rows, err := db.Query(`SELECT `+audioOutputColumns+` FROM audio_patch_outputs WHERE event_id = ? ORDER BY output_number ASC, id ASC`, eventID)
@@ -335,8 +347,14 @@ func GetAudioPatchOutput(db *sql.DB, id int64) (domain.AudioPatchOutput, error) 
 }
 
 func CreateAudioPatchOutput(db *sql.DB, output domain.AudioPatchOutput) (domain.AudioPatchOutput, error) {
-	result, err := db.Exec(`INSERT INTO audio_patch_outputs (event_id, output_number, output_name, output_type, color, width, notes) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		output.EventID, output.OutputNumber, nullString(output.OutputName), output.OutputType, nullString(output.Color), output.Width, nullString(output.Notes))
+	consoleID := output.ConsoleID
+	if consoleID == nil {
+		if defaultID, err := DefaultConsoleID(db, output.EventID); err == nil {
+			consoleID = defaultID
+		}
+	}
+	result, err := db.Exec(`INSERT INTO audio_patch_outputs (event_id, output_number, output_name, output_type, color, width, notes, console_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		output.EventID, output.OutputNumber, nullString(output.OutputName), output.OutputType, nullString(output.Color), output.Width, nullString(output.Notes), nullInt64(consoleID))
 	if err != nil {
 		return domain.AudioPatchOutput{}, fmt.Errorf("create audio output: %w", err)
 	}
@@ -345,8 +363,8 @@ func CreateAudioPatchOutput(db *sql.DB, output domain.AudioPatchOutput) (domain.
 }
 
 func UpdateAudioPatchOutput(db *sql.DB, id int64, output domain.AudioPatchOutput) (domain.AudioPatchOutput, error) {
-	_, err := db.Exec(`UPDATE audio_patch_outputs SET output_number = ?, output_name = ?, output_type = ?, color = ?, width = ?, notes = ? WHERE id = ?`,
-		output.OutputNumber, nullString(output.OutputName), output.OutputType, nullString(output.Color), output.Width, nullString(output.Notes), id)
+	_, err := db.Exec(`UPDATE audio_patch_outputs SET output_number = ?, output_name = ?, output_type = ?, color = ?, width = ?, notes = ?, console_id = ? WHERE id = ?`,
+		output.OutputNumber, nullString(output.OutputName), output.OutputType, nullString(output.Color), output.Width, nullString(output.Notes), nullInt64(output.ConsoleID), id)
 	if err != nil {
 		return domain.AudioPatchOutput{}, fmt.Errorf("update audio output: %w", err)
 	}
@@ -854,33 +872,6 @@ func MixerOutputWidth(db *sql.DB, id int64) (string, error) {
 	return width, nil
 }
 
-// OutputMixerPositionY returns the mixer node's canvas Y position for the
-// output signal-flow graph — a single implicit node per event, always
-// pinned to the Sources/Channels rail (X is fixed, so only Y is stored).
-func OutputMixerPositionY(db *sql.DB, eventID int64) (float64, error) {
-	var y float64
-	err := db.QueryRow(`SELECT output_mixer_position_y FROM events WHERE id = ?`, eventID).Scan(&y)
-	if err != nil {
-		return 0, fmt.Errorf("output mixer position: %w", err)
-	}
-	return y, nil
-}
-
-func UpdateOutputMixerPositionY(db *sql.DB, eventID int64, y float64) error {
-	result, err := db.Exec(`UPDATE events SET output_mixer_position_y = ? WHERE id = ?`, y, eventID)
-	if err != nil {
-		return fmt.Errorf("update output mixer position: %w", err)
-	}
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("update output mixer position: %w", err)
-	}
-	if rows == 0 {
-		return sql.ErrNoRows
-	}
-	return nil
-}
-
 type scanner interface {
 	Scan(dest ...any) error
 }
@@ -913,8 +904,12 @@ func nonNilIDs(ids []int64) []int64 {
 
 func scanAudioOutput(row scanner) (domain.AudioPatchOutput, error) {
 	var item domain.AudioPatchOutput
-	if err := row.Scan(&item.ID, &item.EventID, &item.OutputNumber, &item.OutputName, &item.OutputType, &item.Color, &item.Width, &item.Notes); err != nil {
+	var consoleID sql.NullInt64
+	if err := row.Scan(&item.ID, &item.EventID, &item.OutputNumber, &item.OutputName, &item.OutputType, &item.Color, &item.Width, &item.Notes, &consoleID); err != nil {
 		return domain.AudioPatchOutput{}, fmt.Errorf("scan audio output: %w", err)
+	}
+	if consoleID.Valid {
+		item.ConsoleID = &consoleID.Int64
 	}
 	return item, nil
 }

@@ -92,8 +92,14 @@ var (
 	// another device's ordinary input, e.g. sub → sub → top) — a
 	// from_kind only, since a link cable's other end is always an
 	// ordinary device input (to_kind="device"), never its own kind.
-	ValidPortFromKinds = []string{"mixer", "stagebox", "stage_multi", "device", "device_link"}
-	ValidPortToKinds   = []string{"stagebox", "stage_multi", "device"}
+	// console_local is the desk's own output jacks (Slice 23): a
+	// pass-through pair exactly like a stagebox on this graph — an output
+	// row routes into local jack N (cableless, pure desk routing) and a
+	// real cable carries on from that same jack. It is what makes an
+	// off-the-desk feed (a recorder, an aux out at FOH) expressible
+	// without inventing a stagebox that isn't in the truck.
+	ValidPortFromKinds = []string{"mixer", "stagebox", "stage_multi", "device", "device_link", "console_local"}
+	ValidPortToKinds   = []string{"stagebox", "stage_multi", "device", "console_local"}
 	// ValidInputSourceKinds is InputSource.Kind (Slice 12): "mic" requires
 	// MicItemID (StandItemID/PhantomPower meaningful only for this kind);
 	// "line" forbids all three. Go-validated, not a reference vocabulary —
@@ -106,8 +112,19 @@ var (
 	// "channel" has no output side (only ever a to_kind). A Stagebox/
 	// Stage-Multi's own console-side hop into a channel is cableless
 	// (research.md R5) — the mirror image of the output graph's rule.
-	ValidInputCableFromKinds = []string{"source", "stagebox", "stage_multi", "device"}
-	ValidInputCableToKinds   = []string{"stagebox", "stage_multi", "device", "channel"}
+	// console_local mirrors it on this graph: a real cable lands on local
+	// input jack N and a cableless hop carries it from that jack to a
+	// channel — the talkback-straight-into-the-desk run, which before
+	// Slice 23 had to be faked through a stagebox.
+	ValidInputCableFromKinds = []string{"source", "stagebox", "stage_multi", "device", "console_local"}
+	ValidInputCableToKinds   = []string{"stagebox", "stage_multi", "device", "channel", "console_local"}
+	// ValidConsoleRoles is Console.Role (Slice 23) — which desk this is at
+	// a glance, nothing more. Go-validated rather than a reference
+	// vocabulary (research.md R7): no planning, aggregation or validation
+	// logic branches on it, and it is a structural label on a node kind
+	// rather than an equipment attribute, which is the class of thing
+	// Principle II requires to be data.
+	ValidConsoleRoles = []string{"foh", "monitor", "broadcast"}
 )
 
 // OutputDevice is a node in the output signal-flow graph (Slice 11) —
@@ -254,6 +271,11 @@ type InputChannel struct {
 	// a console-number display attribute — never affects routing/rental.
 	MixerBehavior string `json:"mixer_behavior"`
 	Notes         string `json:"notes,omitempty"`
+	// ConsoleID is which desk this channel is a strip on (Slice 23). Nil is
+	// legal and silent — it is what a channel looks like on an event with no
+	// console, or after its only desk was deleted, and the patch keeps
+	// working either way.
+	ConsoleID *int64 `json:"console_id,omitempty"`
 }
 
 // InputSource is the physical origin of a signal (Slice 12) — a
@@ -350,4 +372,44 @@ type AudioPatchOutput struct {
 	// rows/cables now, not a doubling flag).
 	Width string `json:"width"`
 	Notes string `json:"notes,omitempty"`
+	// ConsoleID is which desk this output comes off (Slice 23); nil is legal
+	// and silent, as on InputChannel.
+	ConsoleID *int64 `json:"console_id,omitempty"`
+}
+
+// Console is a mixing desk booked for an event (Slice 23) — the entity the
+// audio model never had. Structurally a sibling of Stagebox: event scoped,
+// at most one of InventoryItemID/OwnedItemID set, port counts typed per
+// event, and a canvas position per graph.
+//
+// The four counts are typed rather than read from the catalog item
+// (research.md R5) for the same reason a stagebox's are: a desk's usable
+// channel count depends on its card fit and licence, not on its model
+// name — and putting console-only columns on inventory_items would force
+// every catalog, including hand-entered ones, to carry them.
+//
+// A count of 0 means "not declared", never "over capacity by every row"
+// (research.md R15): every event backfilled by migration 042 has all four
+// at zero, and none of them may start warning.
+//
+// Local input/output jacks are addressable as ports of kind
+// "console_local", which is what lets a source reach a channel, or an
+// output reach a destination, with no stagebox in the path.
+type Console struct {
+	ID               int64  `json:"id"`
+	EventID          int64  `json:"event_id"`
+	Name             string `json:"name"`
+	Role             string `json:"role"`
+	InventoryItemID  *int64 `json:"inventory_item_id,omitempty"`
+	OwnedItemID      *int64 `json:"owned_item_id,omitempty"`
+	InputCount       int    `json:"input_count"`
+	OutputCount      int    `json:"output_count"`
+	LocalInputCount  int    `json:"local_input_count"`
+	LocalOutputCount int    `json:"local_output_count"`
+	// PositionX/PositionY place the desk on the output canvas;
+	// InputPositionX/Y on the input canvas — migration 031's convention.
+	PositionX      float64 `json:"position_x"`
+	PositionY      float64 `json:"position_y"`
+	InputPositionX float64 `json:"input_position_x"`
+	InputPositionY float64 `json:"input_position_y"`
 }
