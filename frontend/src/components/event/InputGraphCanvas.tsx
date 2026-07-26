@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Plus, Trash2, Unplug } from 'lucide-react'
+import { Plus, Unplug } from 'lucide-react'
 import {
   createInputCable,
   createInputSource,
@@ -30,7 +30,21 @@ import { itemLabel } from '../../lib/utils'
 import type { Console, InputCable, InputChannel, InputDevice, InputSource, InventoryItem, StageMulti, Stagebox } from '../../types'
 import { FlowInspector, type FlowSelection } from './FlowInspector'
 import { LaneBands } from './graph/LaneBands'
-import { Badge } from '../ui/Badge'
+import { MoreRow, NodeShell as SharedNodeShell } from './graph/NodeShell'
+import { visiblePorts } from './graph/visiblePorts'
+import { PortDot as SharedPortDot } from './graph/PortDot'
+import { PortRow as SharedPortRow, SplitPortRow, type PortWiring } from './graph/PortRow'
+import {
+  MICRO_LABEL,
+  NODE_BORDER,
+  NODE_CHROME,
+  PHANTOM_BAR,
+  PHANTOM_BAR_OFF,
+  PORT_ROW_LIMIT,
+  SOURCE_ROW,
+  SOURCE_ROW_STEREO,
+  TAPE_NEUTRAL,
+} from './graph/tokens'
 import { Button } from '../ui/Button'
 import { Dialog } from '../ui/Dialog'
 import { Select } from '../ui/Select'
@@ -577,6 +591,7 @@ export function InputGraphCanvas({
                     selectedId={selection?.kind === 'source' ? selection.id : undefined}
                     onSelect={(source) => onSelectionChange({ kind: 'source', id: source.id })}
                     onScroll={() => setRailScroll((tick) => tick + 1)}
+                    onAdd={readOnly ? undefined : () => addSourceMutation.mutate()}
                   />
                 )
               }
@@ -731,16 +746,11 @@ export function InputGraphCanvas({
       )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        {!readOnly && (
-          <Button size="sm" variant="outline" onClick={() => addSourceMutation.mutate()}>
-            <Plus className="mr-2 h-4 w-4" />Source
-          </Button>
-        )}
-        {devices.length === 0 && stageboxes.length === 0 && stageMultis.length === 0 && (
-          <p className="text-xs text-zinc-500">No processing gear yet — click or drag from a Source's port directly to a Channel to start cabling. Boxes are declared in the Rig drawer.</p>
-        )}
-      </div>
+      {devices.length === 0 && stageboxes.length === 0 && stageMultis.length === 0 && (
+        <p className="border-t border-zinc-800 px-3 py-1.5 text-[11px] text-zinc-500">
+          No processing gear yet — click or drag from a source's port directly to a channel to start cabling. Boxes are declared in the Rig drawer.
+        </p>
+      )}
 
       {pickerPair && (
         <CableItemPicker
@@ -787,15 +797,13 @@ export function InputGraphCanvas({
   )
 }
 
-function PortDot({
-  port,
-  connected,
-  selected,
-  color,
-  onClick,
-  onPointerDown,
-  registerRef,
-}: {
+/**
+ * Adapters over the shared graph primitives (Slice 25 FR-036). The two canvases
+ * used to each hold their own copy of these, which is why their boxes drifted apart;
+ * the drawing now lives in `graph/` and these only bind it to this graph's own
+ * `PortRef` union, port keys and colour rule.
+ */
+function PortDot({ port, connected, selected, color, onClick, onPointerDown, registerRef }: {
   port: PortRef
   connected: boolean
   selected: boolean
@@ -804,67 +812,52 @@ function PortDot({
   onPointerDown: (e: ReactPointerEvent) => void
   registerRef: (el: HTMLElement | null) => void
 }) {
-  const style = color && (connected || selected) ? { borderColor: color, backgroundColor: selected ? color : `${color}b3` } : undefined
   return (
-    <button
-      type="button"
-      ref={registerRef}
-      data-port-key={portKey(port.kind, port.id, port.port, port.direction)}
+    <SharedPortDot
+      port={port}
+      dataKey={portKey(port.kind, port.id, port.port, port.direction)}
+      connected={connected}
+      selected={selected}
+      color={color}
       onClick={onClick}
       onPointerDown={onPointerDown}
-      title={port.label}
-      style={style}
-      className={`h-3 w-3 shrink-0 cursor-crosshair rounded-full border transition-colors ${
-        style
-          ? ''
-          : selected
-            ? 'border-amber-400 bg-amber-400'
-            : connected
-              ? 'border-amber-500 bg-amber-500/70 hover:bg-amber-400'
-              : 'border-zinc-500 bg-zinc-800 hover:border-amber-400 hover:bg-amber-400/30'
-      }`}
+      registerRef={registerRef}
     />
   )
 }
 
-function NodeShell({ x, y, title, badge, dimmed, selected, onDragStart, onDelete, onSelect, children }: {
+function NodeShell({ x, y, title, badge, dimmed, selected, footer, footerAlarm, onDragStart, onDelete, onSelect, children }: {
   x: number
   y: number
   title: string
   badge?: string
-  /** Search is active and this node doesn't match — still drawn, just quiet. */
   dimmed?: boolean
-  /** The inspector is open on this node (Slice 25 FR-001). */
   selected?: boolean
+  footer?: ReactNode
+  footerAlarm?: boolean
   onDragStart?: (e: ReactPointerEvent) => void
   onDelete?: () => void
   onSelect?: () => void
   children: ReactNode
 }) {
   return (
-    <div
-      className={`absolute rounded-lg border bg-zinc-900 shadow-lg transition-opacity ${
-        selected ? 'border-amber-500 ring-2 ring-amber-500/30' : 'border-zinc-700'
-      } ${dimmed ? 'opacity-30' : ''}`}
-      style={{ left: x, top: y, width: NODE_WIDTH }}
+    <SharedNodeShell
+      x={x}
+      y={y}
+      width={NODE_WIDTH}
+      title={title}
+      badge={badge}
+      footer={footer}
+      footerAlarm={footerAlarm}
+      dimmed={dimmed}
+      selected={selected}
+      desk={badge === 'DESK'}
+      onDragStart={onDragStart}
+      onDelete={onDelete}
+      onSelect={onSelect}
     >
-      <div
-        className={`flex items-center justify-between gap-2 rounded-t-lg border-b border-zinc-800 px-2 py-1.5 ${onDragStart ? 'cursor-grab touch-none active:cursor-grabbing' : ''}`}
-        onPointerDown={onDragStart}
-        onClick={onSelect}
-      >
-        <span className="truncate text-xs font-semibold text-zinc-100">{title}</span>
-        <div className="flex items-center gap-1">
-          {badge && <Badge className="shrink-0">{badge}</Badge>}
-          {onDelete && (
-            <button type="button" onPointerDown={(e) => e.stopPropagation()} onClick={onDelete} className="text-zinc-500 hover:text-red-400">
-              <Trash2 className="h-3 w-3" />
-            </button>
-          )}
-        </div>
-      </div>
-      <div className="space-y-1 p-2">{children}</div>
-    </div>
+      {children}
+    </SharedNodeShell>
   )
 }
 
@@ -886,39 +879,58 @@ function PortRow({ label, port, cables, pendingPort, onPortClick, onPortPointerD
   registerPort: (key: string) => (el: HTMLElement | null) => void
   align: 'left' | 'right'
   colorContext: ColorContext
-  /** Search is active and this row doesn't match. */
   dimmed?: boolean
 }) {
-  const key = portKey(port.kind, port.id, port.port, port.direction)
-  const connected = isPortConnected(port.kind, port.id, port.port, port.direction, cables)
-  const selected = !!pendingPort && pendingPort.kind === port.kind && pendingPort.id === port.id && pendingPort.port === port.port && pendingPort.direction === port.direction
-  const color = derivedPortColor(port, colorContext)
-  const dot = (
-    <PortDot port={port} connected={connected} selected={selected} color={color} onClick={() => onPortClick(port)} onPointerDown={(e) => onPortPointerDown(port, e)} registerRef={registerPort(key)} />
-  )
   return (
-    <div
-      className={`flex items-center gap-1.5 text-[11px] transition-opacity ${align === 'right' ? 'flex-row-reverse text-right' : ''} ${color ? '' : 'text-zinc-300'} ${dimmed ? 'opacity-30' : ''}`}
-      style={color ? { color } : undefined}
-    >
-      {dot}
-      <span className="truncate">{label}</span>
-    </div>
+    <SharedPortRow
+      port={port}
+      label={label}
+      align={align}
+      dimmed={dimmed}
+      wiring={wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)}
+    />
   )
 }
 
+/** Binds this graph's cables, gesture state and colour rule to the shared rows. */
+function wiringFor(
+  cables: InputCable[],
+  pendingPort: PortRef | null,
+  colorContext: ColorContext,
+  onPortClick: (port: PortRef) => void,
+  onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void,
+  registerPort: (key: string) => (el: HTMLElement | null) => void,
+): PortWiring {
+  return {
+    isConnected: (port) => isPortConnected(port.kind as PortRef['kind'], port.id, port.port, port.direction, cables),
+    isPending: (port) =>
+      !!pendingPort && pendingPort.kind === port.kind && pendingPort.id === port.id && pendingPort.port === port.port && pendingPort.direction === port.direction,
+    colorOf: (port) => derivedPortColor(port as PortRef, colorContext),
+    keyOf: (port) => portKey(port.kind as PortRef['kind'], port.id, port.port, port.direction),
+    onPortClick: (port) => onPortClick(port as PortRef),
+    onPortPointerDown: (port, event) => onPortPointerDown(port as PortRef, event),
+    registerPort,
+  }
+}
+
 /**
- * The source rail (Slice 23 FR-027/FR-028). One consolidated node of
- * fixed-height rows rather than a card per source: at 54px a card each, a
- * 32-source festival patch is ~1,700px of lane and the graph stops being
- * readable exactly where it matters most. The saved space goes on information
- * the row previously lacked — the derived colour tape, the picked model, and
- * phantom power.
+ * The source rail (Slice 23 FR-027/FR-028), rebuilt to the mockup's row anatomy
+ * (Slice 25 FR-032 to FR-035).
  *
- * The rail scrolls inside its own lane, so the rig and desk lanes never
- * move; `onScroll` is what keeps the cables attached while it does.
+ * One consolidated node of fixed-height rows rather than a card per source: at 54px
+ * a card each, a 32-source festival patch is ~1,700px of lane and the graph stops
+ * being readable exactly where it matters most. The saved space goes on information
+ * the row previously lacked — the derived colour tape, the picked model, and phantom
+ * power.
+ *
+ * The rail scrolls inside its own lane, so the rig and desk lanes never move;
+ * `onScroll` is what keeps the cables attached while it does.
+ *
+ * The mockup's "drag to reorder" hint in the footer is deliberately not reproduced:
+ * sources are not drag-reorderable and this slice does not add it, so the hint would
+ * be a lie (research.md R10).
  */
-function SourcesNode({ x, y, sources, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext, search = '', micLabel, selectedId, onSelect, onScroll }: {
+function SourcesNode({ x, y, sources, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext, search = '', micLabel, selectedId, onSelect, onScroll, onAdd }: {
   x: number
   y: number
   sources: InputSource[]
@@ -934,50 +946,64 @@ function SourcesNode({ x, y, sources, cables, pendingPort, onPortClick, onPortPo
   selectedId?: number
   onSelect?: (source: InputSource) => void
   onScroll?: () => void
+  /** Adds a source, from the rail's own footer where the mockup puts it. */
+  onAdd?: () => void
 }) {
+  const wiring = wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)
   return (
-    <NodeShell x={x} y={y} title="Sources" badge={sources.length > 0 ? String(sources.length) : undefined}>
-      <div className="-mx-2 max-h-[420px] overflow-y-auto px-2" onScroll={onScroll}>
-        <div className="space-y-1">
-          {sources.map((source) => (
-            <SourceRow
-              key={source.id}
-              source={source}
-              cables={cables}
-              pendingPort={pendingPort}
-              onPortClick={onPortClick}
-              onPortPointerDown={onPortPointerDown}
-              registerPort={registerPort}
-              colorContext={colorContext}
-              dimmed={!matchesSearch(search, source.name, micLabel(source))}
-              selected={selectedId === source.id}
-              modelLabel={micLabel(source)}
-              onSelect={onSelect ? () => onSelect(source) : undefined}
-            />
-          ))}
-        </div>
-        {sources.length === 0 && <p className="text-[11px] text-zinc-600">No sources yet</p>}
+    <div
+      className={`absolute ${NODE_CHROME} ${NODE_BORDER} overflow-hidden`}
+      style={{ left: x, top: y, width: NODE_WIDTH }}
+    >
+      <div className="flex h-5 items-center gap-1.5 border-b border-zinc-800 bg-zinc-950/60 px-1.5">
+        <span className={`${MICRO_LABEL} text-zinc-400`}>Sources</span>
+        <span className="ml-auto font-mono text-[10px] tabular-nums text-zinc-600">{sources.length}</span>
       </div>
-    </NodeShell>
+
+      <div className="max-h-[420px] overflow-y-auto" onScroll={onScroll}>
+        {sources.map((source) => (
+          <SourceRow
+            key={source.id}
+            source={source}
+            wiring={wiring}
+            colorContext={colorContext}
+            dimmed={!matchesSearch(search, source.name, micLabel(source))}
+            selected={selectedId === source.id}
+            modelLabel={micLabel(source)}
+            onSelect={onSelect ? () => onSelect(source) : undefined}
+          />
+        ))}
+        {sources.length === 0 && <p className="px-1.5 py-1 text-[11px] text-zinc-600">No sources yet</p>}
+      </div>
+
+      {onAdd && (
+        <div className="flex h-6 items-center border-t border-zinc-800 bg-zinc-950/60 px-1.5">
+          <Button size="sm" variant="ghost" className="h-[18px] px-1.5 text-[10px]" onClick={onAdd}>
+            <Plus className="mr-1 h-3 w-3" />Source
+          </Button>
+        </div>
+      )}
+    </div>
   )
 }
 
 /**
- * One source, one row: colour tape, name, dimmed model, phantom-power bar,
- * port flush right. A stereo source is two port slots tall with `L` above `R`,
- * each side taking its own cable — which is what the data model has always
- * said, since `sourcePorts` returns two independently cablable ports.
+ * One source, one row: a full-height colour tape, the name, the model in quiet mono,
+ * the 48 V bar, the port flush right. A stereo source is two port slots tall with
+ * `L` above `R`, each side taking its own cable — which is what the data model has
+ * always said, since `sourcePorts` returns two independently cablable ports.
  *
- * Phantom power is a **red bar**, never a dot: every circle in this rail is a
- * port you can patch, so the indicator differs from one in both hue and shape.
+ * The tape runs the whole height of the row rather than sitting centred in it, which
+ * is the single most visible difference from the mockup and a one-property fix
+ * (`self-stretch`). It reads as the tape wrapped round the cable end, which is what
+ * it stands for.
+ *
+ * Phantom power is a **red bar**, never a dot: every circle in this rail is a port
+ * you can patch, so the indicator differs from one in both hue and shape.
  */
-function SourceRow({ source, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext, dimmed, selected, modelLabel, onSelect }: {
+function SourceRow({ source, wiring, colorContext, dimmed, selected, modelLabel, onSelect }: {
   source: InputSource
-  cables: InputCable[]
-  pendingPort: PortRef | null
-  onPortClick: (port: PortRef) => void
-  onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
-  registerPort: (key: string) => (el: HTMLElement | null) => void
+  wiring: PortWiring
   colorContext: ColorContext
   dimmed?: boolean
   selected?: boolean
@@ -986,11 +1012,12 @@ function SourceRow({ source, cables, pendingPort, onPortClick, onPortPointerDown
 }) {
   const ports = sourcePorts(source)
   const tape = derivedSourceColor(source, colorContext)
+  const stereo = ports.length > 1
   const rowRef = useRef<HTMLDivElement>(null)
 
-  // A selection arriving from the sheet may point at a row well below the fold of
-  // a 32-source rail, and a selection you cannot see is not a selection
-  // (Slice 25 FR-004). `nearest` is what keeps an already-visible row still.
+  // A selection arriving from the sheet may point at a row well below the fold of a
+  // 32-source rail, and a selection you cannot see is not a selection (Slice 25
+  // FR-004). `nearest` is what keeps an already-visible row still.
   useEffect(() => {
     if (selected) rowRef.current?.scrollIntoView({ block: 'nearest' })
   }, [selected])
@@ -998,39 +1025,34 @@ function SourceRow({ source, cables, pendingPort, onPortClick, onPortPointerDown
   return (
     <div
       ref={rowRef}
-      className={`flex items-stretch gap-1.5 rounded transition-opacity ${dimmed ? 'opacity-30' : ''} ${selected ? 'bg-zinc-800' : ''}`}
+      className={`${SOURCE_ROW} ${stereo ? SOURCE_ROW_STEREO : ''} transition-opacity ${dimmed ? 'opacity-30' : ''} ${
+        selected ? 'bg-amber-500/10' : ''
+      } last:border-b-0`}
     >
-      <span aria-hidden className="w-[3px] shrink-0 rounded-sm" style={{ backgroundColor: tape ?? '#3f3f46' }} />
-      <button
-        type="button"
-        onClick={onSelect}
-        className="flex min-w-0 flex-1 items-center gap-1.5 py-[2px] text-left"
-        title={source.name}
-      >
-        <span className="min-w-0 flex-1 truncate text-[11px] text-zinc-200">{source.name}</span>
-        <span className="max-w-[5.5rem] shrink-0 truncate text-[10px] text-zinc-500">{modelLabel}</span>
+      <span aria-hidden className="w-[3px] shrink-0 self-stretch" style={{ backgroundColor: tape ?? TAPE_NEUTRAL }} />
+      <button type="button" onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-1.5 pl-1 text-left" title={source.name}>
+        <span className={`min-w-0 flex-1 truncate ${selected ? 'font-semibold text-zinc-50' : tape ? 'text-zinc-300' : 'text-zinc-400'}`}>
+          {source.name}
+        </span>
+        <span className="max-w-[4.5rem] shrink-0 truncate font-mono text-[10px] text-zinc-500">{modelLabel}</span>
       </button>
-      {source.phantom_power && (
-        <span
-          aria-label="48 V on"
-          title="48 V phantom power on"
-          className="my-auto h-[3px] w-2 shrink-0 rounded-sm bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.65)]"
-        />
-      )}
-      <div className="flex shrink-0 flex-col justify-center gap-1">
+      <span
+        aria-label={source.phantom_power ? '48 V on' : '48 V off'}
+        title={source.phantom_power ? '48 V phantom power on' : '48 V off'}
+        className={source.phantom_power ? PHANTOM_BAR : PHANTOM_BAR_OFF}
+      />
+      <div className="flex shrink-0 flex-col justify-center">
         {ports.map((port) => (
-          <div key={port.port} className="flex items-center gap-1">
-            {ports.length > 1 && <span className="font-mono text-[9px] text-zinc-500">{port.port === 0 ? 'L' : 'R'}</span>}
+          <div key={port.port} className="flex h-5 items-center justify-end gap-1">
+            {stereo && <span className="font-mono text-[9px] text-zinc-600">{port.port === 0 ? 'L' : 'R'}</span>}
             <PortDot
               port={port}
-              connected={isPortConnected(port.kind, port.id, port.port, 'out', cables)}
-              selected={
-                !!pendingPort && pendingPort.kind === port.kind && pendingPort.id === port.id && pendingPort.port === port.port && pendingPort.direction === 'out'
-              }
-              color={derivedPortColor(port, colorContext)}
-              onClick={() => onPortClick(port)}
-              onPointerDown={(event) => onPortPointerDown(port, event)}
-              registerRef={registerPort(portKey(port.kind, port.id, port.port, 'out'))}
+              connected={wiring.isConnected(port)}
+              selected={wiring.isPending(port)}
+              color={wiring.colorOf(port)}
+              onClick={() => wiring.onPortClick(port)}
+              onPointerDown={(event) => wiring.onPortPointerDown(port, event)}
+              registerRef={wiring.registerPort(portKey(port.kind, port.id, port.port, 'out'))}
             />
           </div>
         ))}
@@ -1064,15 +1086,17 @@ function ChannelsNode({ x, y, channels, cables, pendingPort, onPortClick, onPort
   onSelect?: () => void
 }) {
   const ports = channels.flatMap((channel) => channelPorts(channel))
+  const { shown, hidden } = visiblePorts(ports, PORT_ROW_LIMIT)
   const dimmedIds = new Set(
     channels.filter((channel) => !matchesSearch(search, channel.channel_number, channel.channel_name, channel.notes)).map((channel) => channel.id),
   )
   return (
     <NodeShell x={x} y={y} title="No desk" badge={channels.length > 0 ? String(channels.length) : undefined} onDragStart={onDragStart} selected={selected} onSelect={onSelect}>
-      {ports.map((port) => (
+      {shown.map((port) => (
         <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" colorContext={colorContext} dimmed={dimmedIds.has(port.id)} />
       ))}
-      {ports.length === 0 && <p className="text-[11px] text-zinc-600">No channels without a desk</p>}
+      {hidden > 0 && <MoreRow hidden={hidden} />}
+      {ports.length === 0 && <p className="px-1.5 text-[11px] text-zinc-600">No channels without a desk</p>}
     </NodeShell>
   )
 }
@@ -1104,22 +1128,35 @@ function ConsoleNode({ x, y, desk, channels, cables, pendingPort, onPortClick, o
   onSelect?: () => void
 }) {
   const ports = channels.flatMap((channel) => channelPorts(channel))
+  const { shown, hidden } = visiblePorts(ports, PORT_ROW_LIMIT)
   const dimmedIds = new Set(
     channels.filter((channel) => !matchesSearch(search, channel.channel_number, channel.channel_name, channel.notes)).map((channel) => channel.id),
   )
   const over = desk.input_count > 0 && channels.length > desk.input_count
 
   return (
-    <NodeShell x={x} y={y} title={desk.name || 'Console'} badge="DESK" onDragStart={onDragStart} selected={selected} onSelect={onSelect}>
-      {ports.map((port) => (
+    <NodeShell
+      x={x}
+      y={y}
+      title={desk.name || 'Console'}
+      badge="DESK"
+      onDragStart={onDragStart}
+      selected={selected}
+      onSelect={onSelect}
+      footerAlarm={over}
+      footer={
+        <>
+          {channels.length}
+          {desk.input_count > 0 ? ` / ${desk.input_count}` : ''} in
+          {desk.local_input_count > 0 ? ` · local ${desk.local_input_count}` : ''}
+        </>
+      }
+    >
+      {shown.map((port) => (
         <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" colorContext={colorContext} dimmed={dimmedIds.has(port.id)} />
       ))}
-      {ports.length === 0 && <p className="text-[11px] text-zinc-600">No channels on this desk yet</p>}
-      <p className={`border-t border-zinc-800 pt-1 font-mono text-[10px] ${over ? 'text-red-400' : 'text-zinc-500'}`}>
-        {channels.length}
-        {desk.input_count > 0 ? ` / ${desk.input_count}` : ''} in
-        {desk.local_input_count > 0 ? ` · local ${desk.local_input_count}` : ''}
-      </p>
+      {hidden > 0 && <MoreRow hidden={hidden} />}
+      {ports.length === 0 && <p className="px-1.5 text-[11px] text-zinc-600">No channels on this desk yet</p>}
     </NodeShell>
   )
 }
@@ -1154,20 +1191,14 @@ function LocalJackNode({ x, y, desk, cables, pendingPort, onPortClick, onPortPoi
   onSelect?: () => void
 }) {
   const { inputs, outputs } = consoleLocalPorts(desk)
+  const { shown, hidden } = visiblePorts(inputs, PORT_ROW_LIMIT)
+  const wiring = wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)
   return (
     <NodeShell x={x} y={y} title={desk.name || 'Console'} badge="LOCAL" onDragStart={onDragStart} dimmed={dimmed} selected={selected} onSelect={onSelect}>
-      <div className="grid grid-cols-2 gap-x-2">
-        <div className="space-y-1">
-          {inputs.map((port) => (
-            <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" colorContext={colorContext} />
-          ))}
-        </div>
-        <div className="space-y-1">
-          {outputs.map((port) => (
-            <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" colorContext={colorContext} />
-          ))}
-        </div>
-      </div>
+      {shown.map((inPort, index) => (
+        <SplitPortRow key={inPort.port} inPort={inPort} outPort={outputs[index]} label={String(inPort.port + 1)} wiring={wiring} />
+      ))}
+      {hidden > 0 && <MoreRow hidden={hidden} />}
     </NodeShell>
   )
 }
@@ -1188,20 +1219,14 @@ function StageboxNode({ x, y, stagebox, cables, pendingPort, onPortClick, onPort
   onSelect?: () => void
 }) {
   const { inputs, outputs } = stageboxPorts(stagebox)
+  const { shown, hidden } = visiblePorts(inputs, PORT_ROW_LIMIT)
+  const wiring = wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)
   return (
     <NodeShell x={x} y={y} title={stagebox.name} badge="SB" onDragStart={onDragStart} dimmed={dimmed} selected={selected} onSelect={onSelect}>
-      <div className="grid grid-cols-2 gap-x-2">
-        <div className="space-y-1">
-          {inputs.map((port) => (
-            <PortRow key={portKey('stagebox', port.id, port.port, 'in')} label={port.label} port={{ ...port, kind: 'stagebox' }} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" colorContext={colorContext} />
-          ))}
-        </div>
-        <div className="space-y-1">
-          {outputs.map((port) => (
-            <PortRow key={portKey('stagebox', port.id, port.port, 'out')} label={port.label} port={{ ...port, kind: 'stagebox' }} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" colorContext={colorContext} />
-          ))}
-        </div>
-      </div>
+      {shown.map((inPort, index) => (
+        <SplitPortRow key={inPort.port} inPort={inPort} outPort={outputs[index]} label={String(inPort.port + 1)} wiring={wiring} />
+      ))}
+      {hidden > 0 && <MoreRow hidden={hidden} />}
     </NodeShell>
   )
 }
@@ -1222,20 +1247,14 @@ function StageMultiNode({ x, y, stageMulti, cables, pendingPort, onPortClick, on
   onSelect?: () => void
 }) {
   const { inputs, outputs } = stageMultiPorts(stageMulti)
+  const { shown, hidden } = visiblePorts(inputs, PORT_ROW_LIMIT)
+  const wiring = wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)
   return (
     <NodeShell x={x} y={y} title={stageMulti.name} badge="Multi" onDragStart={onDragStart} dimmed={dimmed} selected={selected} onSelect={onSelect}>
-      <div className="grid grid-cols-2 gap-x-2">
-        <div className="space-y-1">
-          {inputs.map((port) => (
-            <PortRow key={portKey('stage_multi', port.id, port.port, 'in')} label={port.label} port={{ ...port, kind: 'stage_multi' }} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" colorContext={colorContext} />
-          ))}
-        </div>
-        <div className="space-y-1">
-          {outputs.map((port) => (
-            <PortRow key={portKey('stage_multi', port.id, port.port, 'out')} label={port.label} port={{ ...port, kind: 'stage_multi' }} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" colorContext={colorContext} />
-          ))}
-        </div>
-      </div>
+      {shown.map((inPort, index) => (
+        <SplitPortRow key={inPort.port} inPort={inPort} outPort={outputs[index]} label={String(inPort.port + 1)} wiring={wiring} />
+      ))}
+      {hidden > 0 && <MoreRow hidden={hidden} />}
     </NodeShell>
   )
 }
