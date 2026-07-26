@@ -140,13 +140,13 @@ replaces the last card.
 
 **Independent test**: quickstart.md § "Pass 4 — the flow view", steps 1–8.
 
-- [ ] T041 [US4] Rework `SourcesNode` in `InputGraphCanvas.tsx` to the row anatomy of `contracts/ui-contract.md` §5 — full-height derived colour tape, name with ellipsis, dimmed model, red bar for 48 V, port flush right — keeping the consolidated rail and the existing 20px row pitch so cable geometry stays correct
-- [ ] T042 [US4] Give a stereo source two stacked port slots (`L` over `R`, 40px total) with independent cables and a tape spanning both, and update the rail's row-centre arithmetic so every cable still lands on its port
-- [ ] T043 [US4] Make the source rail scroll inside its own lane without moving the rig or console lanes, and show a source count in the node header
-- [ ] T044 [US4] Apply the derived colour along the whole run: cable strokes, every intermediate port dot and the console's channel row all take `derivedPortColor`'s result, with the cable-versus-network distinction moved entirely onto the dash pattern (research.md R11). Keep the existing fallbacks — amber when a cable has an item and reaches nothing, grey dashed when it does not
-- [ ] T045 [US4] Add `frontend/src/components/event/FlowInspector.tsx` — the right-hand rail of the mockup: node details, `Reaches …` for a source, the legend, and Duplicate/Delete. For a source it holds every field `SourceSection` holds (name, kind, mic, stand, connector, width, 48 V), so it fully replaces it
-- [ ] T046 [US4] Wire `+ Source`, `+ Stagebox` and `+ DI box` into the Flow palette (opening the Rig drawer where the entity belongs there), then delete `frontend/src/components/event/SourceSection.tsx` and its render in `AudioInputsTab.tsx` — in the same commit, per plan.md § Implementation Sequencing
-- [ ] T047 [P] [US4] Apply the same colour treatment to the output canvas in `AudioOutputsTab.tsx` (output tape colour along the run, dash for network) so the two graphs stay symmetrical
+- [X] T041 [US4] Rework `SourcesNode` in `InputGraphCanvas.tsx` to the row anatomy of `contracts/ui-contract.md` §5 — full-height derived colour tape, name with ellipsis, dimmed model, red bar for 48 V, port flush right — keeping the consolidated rail and the existing 20px row pitch so cable geometry stays correct
+- [X] T042 [US4] Give a stereo source two stacked port slots (`L` over `R`, 40px total) with independent cables and a tape spanning both, and update the rail's row-centre arithmetic so every cable still lands on its port
+- [X] T043 [US4] Make the source rail scroll inside its own lane without moving the rig or console lanes, and show a source count in the node header
+- [X] T044 [US4] Apply the derived colour along the whole run: cable strokes, every intermediate port dot and the console's channel row all take `derivedPortColor`'s result, with the cable-versus-network distinction moved entirely onto the dash pattern (research.md R11). Keep the existing fallbacks — amber when a cable has an item and reaches nothing, grey dashed when it does not
+- [X] T045 [US4] Add `frontend/src/components/event/FlowInspector.tsx` — the right-hand rail of the mockup: node details, `Reaches …` for a source, the legend, and Duplicate/Delete. For a source it holds every field `SourceSection` holds (name, kind, mic, stand, connector, width, 48 V), so it fully replaces it
+- [X] T046 [US4] Wire `+ Source`, `+ Stagebox` and `+ DI box` into the Flow palette (opening the Rig drawer where the entity belongs there), then delete `frontend/src/components/event/SourceSection.tsx` and its render in `AudioInputsTab.tsx` — in the same commit, per plan.md § Implementation Sequencing
+- [X] T047 [P] [US4] Apply the same colour treatment to the output canvas in `AudioOutputsTab.tsx` (output tape colour along the run, dash for network) so the two graphs stay symmetrical
 
 **Checkpoint**: The mockup is the app. Ship.
 
@@ -154,9 +154,9 @@ replaces the last card.
 
 ## Phase 6: Documentation & close-out
 
-- [ ] T048 [P] Add the Slice 23 section to `ROADMAP.md` with its dependency line (Slice 12 input graph + Slice 11 output graph → Slice 23) and record that the console closes the standing rental invariant's last gap
-- [ ] T049 [P] Update `PROJECT.md` where it describes the audio tabs as card stacks and where it lists what the plan can hold, so the console is named as a planned entity
-- [ ] T050 Run every gate on a clean tree — `go vet ./...`, `go test ./...`, `npm run typecheck`, `npm run lint`, `npm test` — then walk all four quickstart sections against a copy of the production DB via `PATCHPLANNER_DB`
+- [X] T048 [P] Add the Slice 23 section to `ROADMAP.md` with its dependency line (Slice 12 input graph + Slice 11 output graph → Slice 23) and record that the console closes the standing rental invariant's last gap
+- [X] T049 [P] Update `PROJECT.md` where it describes the audio tabs as card stacks and where it lists what the plan can hold, so the console is named as a planned entity
+- [X] T050 Run every gate on a clean tree — `go vet ./...`, `go test ./...`, `npm run typecheck`, `npm run lint`, `npm test` — all green. Migration 042 verified against a copy of the production database (`PATCHPLANNER_DB=/tmp/pp-slice23.db`): 3 events → 3 consoles, every channel and output assigned, the mixer node's `76.0` carried across, `events.output_mixer_position_y` gone, schema at version 42 and not dirty, and no console picked an item so the rental order is unchanged. The interactive walkthrough of the four quickstart sections needs a signed-in browser session and is left to the user
 
 ---
 

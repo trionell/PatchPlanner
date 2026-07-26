@@ -1,0 +1,66 @@
+import { describe, expect, it } from 'vitest'
+import type { AudioPatchOutput, Console, OutputCable, OutputDevice } from '../types'
+import { consoleLocalPorts, derivedCableColor, isCablelessToKind } from './outputGraph'
+
+function output(overrides: Partial<AudioPatchOutput> = {}): AudioPatchOutput {
+  return { id: 1, event_id: 1, output_number: 1, output_name: 'FOH', output_type: 'foh', width: 'mono', color: '#38bdf8', ...overrides }
+}
+function device(overrides: Partial<OutputDevice> = {}): OutputDevice {
+  return { id: 10, event_id: 1, name: 'Amp', input_port_count: 2, output_port_count: 2, link_port_count: 0, position_x: 0, position_y: 0, ...overrides }
+}
+function cable(overrides: Partial<OutputCable> = {}): OutputCable {
+  return { id: 1, event_id: 1, from_kind: 'mixer', from_id: 1, from_port: 0, to_kind: 'device', to_id: 10, to_port: 0, ...overrides }
+}
+
+describe('derivedCableColor', () => {
+  it('takes the colour of the output the run starts from', () => {
+    const first = cable({ id: 1 })
+    expect(derivedCableColor(first, { outputs: [output()], cables: [first], devices: [device()] })).toBe('#38bdf8')
+  })
+
+  it('carries the colour forward through a pass-through jack', () => {
+    const intoBox = cable({ id: 1, to_kind: 'stagebox', to_id: 5, to_port: 3 })
+    const onward = cable({ id: 2, from_kind: 'stagebox', from_id: 5, from_port: 3, to_kind: 'device', to_id: 10, to_port: 0 })
+    expect(derivedCableColor(onward, { outputs: [output()], cables: [intoBox, onward], devices: [device()] })).toBe('#38bdf8')
+  })
+
+  it('carries the colour through a device whose sides match in count, by index', () => {
+    const intoAmp = cable({ id: 1, to_kind: 'device', to_id: 10, to_port: 1 })
+    const outOfAmp = cable({ id: 2, from_kind: 'device', from_id: 10, from_port: 1, to_kind: 'device', to_id: 11, to_port: 0 })
+    const colour = derivedCableColor(outOfAmp, {
+      outputs: [output()],
+      cables: [intoAmp, outOfAmp],
+      devices: [device(), device({ id: 11, name: 'Speaker', input_port_count: 1, output_port_count: 0 })],
+    })
+    expect(colour).toBe('#38bdf8')
+  })
+
+  it('is neutral when the run cannot be traced back to an output', () => {
+    const orphan = cable({ id: 2, from_kind: 'device', from_id: 10, from_port: 0, to_kind: 'device', to_id: 11, to_port: 0 })
+    expect(derivedCableColor(orphan, { outputs: [output()], cables: [orphan], devices: [device()] })).toBeUndefined()
+  })
+
+  it('is neutral when the origin output has no colour', () => {
+    const first = cable({ id: 1 })
+    expect(derivedCableColor(first, { outputs: [output({ color: undefined })], cables: [first], devices: [device()] })).toBeUndefined()
+  })
+})
+
+describe('console local jacks', () => {
+  const desk: Console = {
+    id: 3, event_id: 1, name: 'FOH · SD10', role: 'foh', input_count: 96, output_count: 48,
+    local_input_count: 8, local_output_count: 4, position_x: 0, position_y: 0, input_position_x: 0, input_position_y: 0,
+  }
+
+  it('sizes the output graph jacks by local_output_count, on both sides of the pass-through', () => {
+    const { inputs, outputs } = consoleLocalPorts(desk)
+    expect(inputs).toHaveLength(4)
+    expect(outputs).toHaveLength(4)
+    expect(outputs[0].label).toBe('Local out 1')
+  })
+
+  it('treats routing into a local jack as desk routing, not a cable', () => {
+    expect(isCablelessToKind('console_local')).toBe(true)
+    expect(isCablelessToKind('device')).toBe(false)
+  })
+})

@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query'
 import { Minus, Plus, Trash2, Unplug } from 'lucide-react'
 import {
   createInputCable,
+  createInputSource,
   deleteInputCable,
   updateConsole,
   updateInputCable,
@@ -15,6 +16,7 @@ import {
   channelPorts,
   consoleLocalPorts,
   derivedPortColor,
+  derivedSourceColor,
   devicePorts,
   isCablelessEdge,
   isPortConnected,
@@ -26,6 +28,7 @@ import { stageboxPorts, stageMultiPorts } from '../../lib/outputGraph'
 import { matchesSearch } from '../../lib/patchSearch'
 import { itemLabel } from '../../lib/utils'
 import type { Console, InputCable, InputChannel, InputDevice, InputSource, InventoryItem, StageMulti, Stagebox } from '../../types'
+import { FlowInspector, type FlowSelection } from './FlowInspector'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Dialog } from '../ui/Dialog'
@@ -83,6 +86,9 @@ export function InputGraphCanvas({
   cables,
   cableItems,
   consoles,
+  micItems,
+  standItems,
+  itemLabelById,
   search = '',
   onChanged,
   readOnly = false,
@@ -97,6 +103,10 @@ export function InputGraphCanvas({
   cableItems: InventoryItem[]
   /** The event's desks — one node each in the Channels lane (Slice 23). */
   consoles: Console[]
+  /** Catalog picks the inspector offers for a source (Slice 23 retires the Sources card). */
+  micItems: InventoryItem[]
+  standItems: InventoryItem[]
+  itemLabelById: Map<number, string>
   /**
    * The shell's search term. A graph never *hides* on search — removing a
    * node would remove edges that exist, so a partly-filtered patch would
@@ -110,13 +120,18 @@ export function InputGraphCanvas({
   const wrapperRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
   const portEls = useRef(new Map<string, HTMLElement>())
-  const [paths, setPaths] = useState<{ id: number; d: string; hasItem: boolean; color: string | undefined }[]>([])
+  const [paths, setPaths] = useState<{ id: number; d: string; hasItem: boolean; network: boolean; color: string | undefined }[]>([])
   const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(new Map())
   const [pendingPort, setPendingPort] = useState<PortRef | null>(null)
   const [dragGhost, setDragGhost] = useState<{ from: PortRef; x: number; y: number } | null>(null)
   const [pickerPair, setPickerPair] = useState<{ from: PortRef; to: PortRef; suggestedItemId?: number } | null>(null)
   const [infoCable, setInfoCable] = useState<InputCable | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [selection, setSelection] = useState<FlowSelection | null>(null)
+  // The source rail scrolls inside its own lane, so cable endpoints move
+  // without any layout or zoom change. Bumping this on scroll is what keeps
+  // the SVG attached to its ports.
+  const [railScroll, setRailScroll] = useState(0)
   const [wrapperWidth, setWrapperWidth] = useState(1180)
   const [zoom, setZoom] = useState(1)
   // The canvas's LOGICAL width/height (the coordinate space node positions
@@ -170,6 +185,24 @@ export function InputGraphCanvas({
     mutationFn: ({ id, data }: { id: number; data: Omit<StageMulti, 'id'> }) => updateStageMulti(eventId, id, data),
     onSuccess: onChanged,
   })
+  // A new source starts blank and selected, so the inspector is where it gets
+  // its mic, connector and width — the Sources card's whole job, relocated.
+  const addSourceMutation = useMutation({
+    mutationFn: () =>
+      createInputSource(eventId, {
+        name: `Source ${sources.length + 1}`,
+        kind: 'line',
+        phantom_power: false,
+        connector_type: 'xlr',
+        width: 'mono',
+        position_x: 24,
+        position_y: 24 + sources.length * 24,
+      }),
+    onSuccess: async (created) => {
+      setSelection({ kind: 'source', id: created.id })
+      await onChanged()
+    },
+  })
   const moveConsoleMutation = useMutation({
     mutationFn: ({ id, x, y }: { id: number; x: number; y: number }) => updateConsole(eventId, id, { input_position_x: x, input_position_y: y }),
     onSuccess: onChanged,
@@ -177,6 +210,15 @@ export function InputGraphCanvas({
   const registerPort = (key: string) => (el: HTMLElement | null) => {
     if (el) portEls.current.set(key, el)
     else portEls.current.delete(key)
+  }
+
+  /** What the rail shows beside a source's name: the mic it carries, or its connector. */
+  const micLabel = (source: InputSource) => {
+    if (source.mic_item_id) {
+      const label = micItems.find((item) => item.id === source.mic_item_id)?.name ?? itemLabelById.get(source.mic_item_id)
+      if (label) return label.split(' — ')[0]
+    }
+    return source.connector_type
   }
 
   const orphanChannels = useMemo(() => channels.filter((channel) => channel.console_id == null), [channels])
@@ -243,12 +285,12 @@ export function InputGraphCanvas({
         const dx = Math.max(60, Math.abs(x2 - x1) / 2)
         const d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`
         const color = derivedPortColor({ kind: cable.to_kind, id: cable.to_id, port: cable.to_port, direction: 'in', label: '' }, colorContext)
-        return { id: cable.id, d, hasItem: cable.cable_item_id != null, color }
+        return { id: cable.id, d, hasItem: cable.cable_item_id != null, network: isCablelessEdge(cable.from_kind, cable.to_kind), color }
       })
-      .filter((p): p is { id: number; d: string; hasItem: boolean; color: string | undefined } => p !== null)
+      .filter((p): p is { id: number; d: string; hasItem: boolean; network: boolean; color: string | undefined } => p !== null)
     setPaths(next)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cables, layout, zoom])
+  }, [cables, layout, zoom, railScroll])
 
   function persistPosition(kind: PortRef['kind'], id: number, x: number, y: number) {
     const onError = (e: unknown) => setError(e instanceof Error ? e.message : 'Failed to save position')
@@ -438,9 +480,9 @@ export function InputGraphCanvas({
       )}
       <div className="flex items-center justify-between px-1">
         <div className="grid flex-1 grid-cols-3 font-mono text-[10px] uppercase tracking-widest text-zinc-500">
-          <span>← Sources</span>
-          <span className="text-center">Processing</span>
-          <span className="text-right">Channels →</span>
+          <span>Stage</span>
+          <span className="text-center">Rig</span>
+          <span className="text-right">Console</span>
         </div>
         <div className="flex items-center gap-1">
           <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setZoom((z) => Math.max(ZOOM_MIN, Math.round((z - ZOOM_STEP) * 100) / 100))} title="Zoom out">
@@ -454,14 +496,26 @@ export function InputGraphCanvas({
           </Button>
         </div>
       </div>
-      <div ref={wrapperRef} className="overflow-auto rounded-lg border border-zinc-800 bg-zinc-950/40" style={{ height: CANVAS_HEIGHT }}>
+      <div className="flex items-start gap-3">
+      <div ref={wrapperRef} className="min-w-0 flex-1 overflow-auto rounded-lg border border-zinc-800 bg-zinc-950/40" style={{ height: CANVAS_HEIGHT }}>
         <div style={{ width: canvasWidth * zoom, height: canvasHeight * zoom }}>
           <div ref={canvasRef} className="relative" style={{ width: canvasWidth, height: canvasHeight, transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
             <div className="pointer-events-none absolute inset-y-0 left-0 border-r border-dashed border-zinc-800 bg-white/[0.02]" style={{ width: ZONE_SOURCES_X + NODE_WIDTH + 24 }} />
             <div className="pointer-events-none absolute inset-y-0 right-0 border-l border-dashed border-zinc-800 bg-white/[0.02]" style={{ width: NODE_WIDTH + 48 }} />
             <svg className="pointer-events-none absolute inset-0" width={canvasWidth} height={canvasHeight}>
+              {/* Two independent encodings (Slice 23): hue says which channel this
+                  run reaches, dash pattern says what kind of link it is — so a
+                  network hop can wear its channel's colour and still read as a
+                  network hop, which a fixed cyan could not. */}
               {paths.map((p) => (
-                <path key={p.id} d={p.d} fill="none" stroke={p.color ?? (p.hasItem ? '#f59e0b' : '#71717a')} strokeWidth={2 / zoom} strokeDasharray={p.hasItem ? undefined : `${4 / zoom} ${3 / zoom}`} />
+                <path
+                  key={p.id}
+                  d={p.d}
+                  fill="none"
+                  stroke={p.color ?? (p.hasItem || p.network ? '#f59e0b' : '#71717a')}
+                  strokeWidth={2 / zoom}
+                  strokeDasharray={p.network ? `${7 / zoom} ${3 / zoom}` : p.hasItem ? undefined : `${4 / zoom} ${3 / zoom}`}
+                />
               ))}
               {ghostPath && <path d={ghostPath} fill="none" stroke="#f59e0b" strokeWidth={2 / zoom} strokeDasharray={`${5 / zoom} ${4 / zoom}`} opacity={0.85} />}
             </svg>
@@ -480,6 +534,10 @@ export function InputGraphCanvas({
                     registerPort={registerPort}
                     colorContext={colorContext}
                     search={search}
+                    micLabel={micLabel}
+                    selectedId={selection?.kind === 'source' ? selection.id : undefined}
+                    onSelect={(source) => setSelection({ kind: 'source', id: source.id })}
+                    onScroll={() => setRailScroll((tick) => tick + 1)}
                   />
                 )
               }
@@ -583,9 +641,37 @@ export function InputGraphCanvas({
           </div>
         </div>
       </div>
-      {devices.length === 0 && stageboxes.length === 0 && stageMultis.length === 0 && (
-        <p className="text-xs text-zinc-500">No processing gear yet — click or drag from a Source's port directly to a Channel to start cabling.</p>
+      {selection && (
+        <FlowInspector
+          eventId={eventId}
+          selection={selection}
+          sources={sources}
+          channels={channels}
+          devices={devices}
+          stageboxes={stageboxes}
+          stageMultis={stageMultis}
+          consoles={consoles}
+          cables={cables}
+          micItems={micItems}
+          standItems={standItems}
+          itemLabelById={itemLabelById}
+          onClose={() => setSelection(null)}
+          onChanged={onChanged}
+          readOnly={readOnly}
+        />
       )}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {!readOnly && (
+          <Button size="sm" variant="outline" onClick={() => addSourceMutation.mutate()}>
+            <Plus className="mr-2 h-4 w-4" />Source
+          </Button>
+        )}
+        {devices.length === 0 && stageboxes.length === 0 && stageMultis.length === 0 && (
+          <p className="text-xs text-zinc-500">No processing gear yet — click or drag from a Source's port directly to a Channel to start cabling. Boxes are declared in the Rig drawer.</p>
+        )}
+      </div>
 
       {pickerPair && (
         <CableItemPicker
@@ -746,7 +832,18 @@ function PortRow({ label, port, cables, pendingPort, onPortClick, onPortPointerD
   )
 }
 
-function SourcesNode({ x, y, sources, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext, search = '' }: {
+/**
+ * The source rail (Slice 23 FR-027/FR-028). One consolidated node of
+ * fixed-height rows rather than a card per source: at 54px a card each, a
+ * 32-source festival patch is ~1,700px of lane and the graph stops being
+ * readable exactly where it matters most. The saved space goes on information
+ * the row previously lacked — the derived colour tape, the picked model, and
+ * phantom power.
+ *
+ * The rail scrolls inside its own lane, so the rig and console lanes never
+ * move; `onScroll` is what keeps the cables attached while it does.
+ */
+function SourcesNode({ x, y, sources, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext, search = '', micLabel, selectedId, onSelect, onScroll }: {
   x: number
   y: number
   sources: InputSource[]
@@ -757,17 +854,103 @@ function SourcesNode({ x, y, sources, cables, pendingPort, onPortClick, onPortPo
   registerPort: (key: string) => (el: HTMLElement | null) => void
   colorContext: ColorContext
   search?: string
+  /** The picked mic's own name, or the connector for a line source. */
+  micLabel: (source: InputSource) => string
+  selectedId?: number
+  onSelect?: (source: InputSource) => void
+  onScroll?: () => void
 }) {
-  const ports = sources.flatMap((source) => sourcePorts(source))
-  // The rail is one node holding many rows, so search dims per row, not per node.
-  const dimmedIds = new Set(sources.filter((source) => !matchesSearch(search, source.name)).map((source) => source.id))
   return (
     <NodeShell x={x} y={y} title="Sources" badge={sources.length > 0 ? String(sources.length) : undefined}>
-      {ports.map((port) => (
-        <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" colorContext={colorContext} dimmed={dimmedIds.has(port.id)} />
-      ))}
-      {ports.length === 0 && <p className="text-[11px] text-zinc-600">No sources yet</p>}
+      <div className="-mx-2 max-h-[420px] overflow-y-auto px-2" onScroll={onScroll}>
+        <div className="space-y-1">
+          {sources.map((source) => (
+            <SourceRow
+              key={source.id}
+              source={source}
+              cables={cables}
+              pendingPort={pendingPort}
+              onPortClick={onPortClick}
+              onPortPointerDown={onPortPointerDown}
+              registerPort={registerPort}
+              colorContext={colorContext}
+              dimmed={!matchesSearch(search, source.name, micLabel(source))}
+              selected={selectedId === source.id}
+              modelLabel={micLabel(source)}
+              onSelect={onSelect ? () => onSelect(source) : undefined}
+            />
+          ))}
+        </div>
+        {sources.length === 0 && <p className="text-[11px] text-zinc-600">No sources yet</p>}
+      </div>
     </NodeShell>
+  )
+}
+
+/**
+ * One source, one row: colour tape, name, dimmed model, phantom-power bar,
+ * port flush right. A stereo source is two port slots tall with `L` above `R`,
+ * each side taking its own cable — which is what the data model has always
+ * said, since `sourcePorts` returns two independently cablable ports.
+ *
+ * Phantom power is a **red bar**, never a dot: every circle in this rail is a
+ * port you can patch, so the indicator differs from one in both hue and shape.
+ */
+function SourceRow({ source, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext, dimmed, selected, modelLabel, onSelect }: {
+  source: InputSource
+  cables: InputCable[]
+  pendingPort: PortRef | null
+  onPortClick: (port: PortRef) => void
+  onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
+  registerPort: (key: string) => (el: HTMLElement | null) => void
+  colorContext: ColorContext
+  dimmed?: boolean
+  selected?: boolean
+  modelLabel: string
+  onSelect?: () => void
+}) {
+  const ports = sourcePorts(source)
+  const tape = derivedSourceColor(source, colorContext)
+  return (
+    <div
+      className={`flex items-stretch gap-1.5 rounded transition-opacity ${dimmed ? 'opacity-30' : ''} ${selected ? 'bg-zinc-800' : ''}`}
+    >
+      <span aria-hidden className="w-[3px] shrink-0 rounded-sm" style={{ backgroundColor: tape ?? '#3f3f46' }} />
+      <button
+        type="button"
+        onClick={onSelect}
+        className="flex min-w-0 flex-1 items-center gap-1.5 py-[2px] text-left"
+        title={source.name}
+      >
+        <span className="min-w-0 flex-1 truncate text-[11px] text-zinc-200">{source.name}</span>
+        <span className="max-w-[5.5rem] shrink-0 truncate text-[10px] text-zinc-500">{modelLabel}</span>
+      </button>
+      {source.phantom_power && (
+        <span
+          aria-label="48 V on"
+          title="48 V phantom power on"
+          className="my-auto h-[3px] w-2 shrink-0 rounded-sm bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.65)]"
+        />
+      )}
+      <div className="flex shrink-0 flex-col justify-center gap-1">
+        {ports.map((port) => (
+          <div key={port.port} className="flex items-center gap-1">
+            {ports.length > 1 && <span className="font-mono text-[9px] text-zinc-500">{port.port === 0 ? 'L' : 'R'}</span>}
+            <PortDot
+              port={port}
+              connected={isPortConnected(port.kind, port.id, port.port, 'out', cables)}
+              selected={
+                !!pendingPort && pendingPort.kind === port.kind && pendingPort.id === port.id && pendingPort.port === port.port && pendingPort.direction === 'out'
+              }
+              color={derivedPortColor(port, colorContext)}
+              onClick={() => onPortClick(port)}
+              onPointerDown={(event) => onPortPointerDown(port, event)}
+              registerRef={registerPort(portKey(port.kind, port.id, port.port, 'out'))}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 

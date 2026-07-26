@@ -18,7 +18,6 @@ import { InputDeviceSection } from './InputDeviceSection'
 import { InputGraphCanvas } from './InputGraphCanvas'
 import { InputSheet } from './InputSheet'
 import { RigDrawer } from './RigDrawer'
-import { SourceSection } from './SourceSection'
 
 export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number; readOnly?: boolean }) {
   const queryClient = useQueryClient()
@@ -164,7 +163,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
         }
       >
         {view === 'sheet' ? (
-          <div className="space-y-6">
+          <div>
             <InputSheet
               eventId={eventId}
               channels={channels}
@@ -183,21 +182,6 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
               onOpenRig={readOnly ? undefined : () => setDrawer('rig')}
               readOnly={readOnly}
             />
-            {/* Sources stay here until the Flow inspector can hold a source's
-                mic, stand, connector, width and phantom power — see
-                specs/023-audio-patch-shell/plan.md § Implementation Sequencing. */}
-            <SourceSection
-              eventId={eventId}
-              sources={sources}
-              micItems={micItems}
-              standItems={standItems}
-              channels={channels}
-              devices={devices}
-              stageboxes={stageboxes}
-              stageMultis={stageMultis}
-              cables={cables}
-              readOnly={readOnly}
-            />
           </div>
         ) : (
           <InputGraphCanvas
@@ -210,6 +194,9 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
             cables={cables}
             cableItems={cableItems}
             consoles={consoles}
+            micItems={micItems}
+            standItems={standItems}
+            itemLabelById={itemLabelById}
             search={search}
             onChanged={invalidate}
             readOnly={readOnly}

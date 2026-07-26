@@ -290,6 +290,56 @@ export function portsConnectable(a: PortRef, b: PortRef): boolean {
   return validFromKinds.includes(outPort.kind) && validToKinds.includes(inPort.kind)
 }
 
+/**
+ * The output-side port that carries a given input-side port's signal onward —
+ * the mirror of the input graph's pairing rule: same index through a stagebox or
+ * stage multi (they are physical pass-throughs), and for a device same index
+ * only when its two sides match in count, else its sole output.
+ */
+function pairedForward(kind: PortRef['kind'], id: number, inPort: number, devices: OutputDevice[]): number {
+  if (kind === 'device') {
+    const device = devices.find((d) => d.id === id)
+    if (device && device.input_port_count !== device.output_port_count) return 0
+  }
+  return inPort
+}
+
+/**
+ * A cable's derived colour on the output graph (Slice 23): the colour of the
+ * output row the run originates from, found by walking backward to the mixer
+ * port. Colour therefore answers the same question it does on the input side —
+ * which desk channel this run belongs to — rather than decorating the canvas.
+ *
+ * Undefined when the run cannot be traced back to an output, or that output has
+ * no colour set.
+ */
+export function derivedCableColor(
+  cable: OutputCable,
+  context: { outputs: AudioPatchOutput[]; cables: OutputCable[]; devices: OutputDevice[] },
+): string | undefined {
+  let kind = cable.from_kind
+  let id = cable.from_id
+  let port = cable.from_port
+  const seen = new Set<string>()
+
+  for (let depth = 0; depth < 32; depth++) {
+    if (kind === 'mixer') return context.outputs.find((output) => output.id === id)?.color
+    const key = `${kind}:${id}:${port}`
+    if (seen.has(key)) return undefined
+    seen.add(key)
+    // Which cable landed on this node's matching input-side port?
+    const inbound = context.cables.find((candidate) => {
+      if (candidate.to_kind !== kind || candidate.to_id !== id) return false
+      return pairedForward(candidate.to_kind, candidate.to_id, candidate.to_port, context.devices) === port
+    })
+    if (!inbound) return undefined
+    kind = inbound.from_kind
+    id = inbound.from_id
+    port = inbound.from_port
+  }
+  return undefined
+}
+
 /** Whether a to_kind's input side is pure console/network routing rather than a real physical run (FR-013). */
 export function isCablelessToKind(kind: PortRef['kind']): boolean {
   // console_local joins them (Slice 23): routing an output to one of the desk's

@@ -25,6 +25,7 @@ import { MobileOutputEditSheet } from '../mobile/MobileOutputEditSheet'
 import {
   cableAtPort,
   consoleLocalPorts,
+  derivedCableColor,
   devicePorts,
   isCablelessToKind,
   isPortConnected,
@@ -299,7 +300,7 @@ function OutputGraphCanvas({
   const wrapperRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
   const portEls = useRef(new Map<string, HTMLElement>())
-  const [paths, setPaths] = useState<{ id: number; d: string; hasItem: boolean }[]>([])
+  const [paths, setPaths] = useState<{ id: number; d: string; hasItem: boolean; network: boolean; color: string | undefined }[]>([])
   const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(new Map())
   const [pendingPort, setPendingPort] = useState<PortRef | null>(null)
   const [dragGhost, setDragGhost] = useState<{ from: PortRef; x: number; y: number } | null>(null)
@@ -461,11 +462,17 @@ function OutputGraphCanvas({
         const y2 = (toRect.top + toRect.height / 2 - containerRect.top) / zoom
         const dx = Math.max(60, Math.abs(x2 - x1) / 2)
         const d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`
-        return { id: cable.id, d, hasItem: cable.cable_item_id != null || isCablelessToKind(cable.to_kind) }
+        return {
+          id: cable.id,
+          d,
+          hasItem: cable.cable_item_id != null,
+          network: isCablelessToKind(cable.to_kind),
+          color: derivedCableColor(cable, { outputs, cables, devices }),
+        }
       })
-      .filter((p): p is { id: number; d: string; hasItem: boolean } => p !== null)
+      .filter((p): p is { id: number; d: string; hasItem: boolean; network: boolean; color: string | undefined } => p !== null)
     setPaths(next)
-  }, [cables, layout, zoom])
+  }, [cables, layout, zoom, outputs, devices])
 
   function persistPosition(kind: PortRef['kind'], id: number, x: number, y: number) {
     const onError = (e: unknown) => setError(e instanceof Error ? e.message : 'Failed to save position')
@@ -657,9 +664,9 @@ function OutputGraphCanvas({
       )}
       <div className="flex items-center justify-between px-1">
         <div className="grid flex-1 grid-cols-3 font-mono text-[10px] uppercase tracking-widest text-zinc-500">
-          <span>← Sources</span>
-          <span className="text-center">Processing</span>
-          <span className="text-right">Destinations →</span>
+          <span>Console</span>
+          <span className="text-center">Rig</span>
+          <span className="text-right">Stage</span>
         </div>
         <div className="flex items-center gap-1">
           <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setZoom((z) => Math.max(ZOOM_MIN, Math.round((z - ZOOM_STEP) * 100) / 100))} title="Zoom out">
@@ -679,8 +686,19 @@ function OutputGraphCanvas({
             <div className="pointer-events-none absolute inset-y-0 left-0 border-r border-dashed border-zinc-800 bg-white/[0.02]" style={{ width: ZONE_SOURCES_X + NODE_WIDTH + 24 }} />
             <div className="pointer-events-none absolute inset-y-0 right-0 border-l border-dashed border-zinc-800 bg-white/[0.02]" style={{ width: NODE_WIDTH + 48 }} />
             <svg className="pointer-events-none absolute inset-0" width={canvasWidth} height={canvasHeight}>
+              {/* Same two encodings as the input graph (Slice 23): hue is the
+                  output this run carries, dash pattern is what kind of link it
+                  is. Keeping them independent is what lets a network hop wear
+                  its output's colour. */}
               {paths.map((p) => (
-                <path key={p.id} d={p.d} fill="none" stroke={p.hasItem ? '#f59e0b' : '#71717a'} strokeWidth={2 / zoom} strokeDasharray={p.hasItem ? undefined : `${4 / zoom} ${3 / zoom}`} />
+                <path
+                  key={p.id}
+                  d={p.d}
+                  fill="none"
+                  stroke={p.color ?? (p.hasItem || p.network ? '#f59e0b' : '#71717a')}
+                  strokeWidth={2 / zoom}
+                  strokeDasharray={p.network ? `${7 / zoom} ${3 / zoom}` : p.hasItem ? undefined : `${4 / zoom} ${3 / zoom}`}
+                />
               ))}
               {ghostPath && <path d={ghostPath} fill="none" stroke="#f59e0b" strokeWidth={2 / zoom} strokeDasharray={`${5 / zoom} ${4 / zoom}`} opacity={0.85} />}
             </svg>

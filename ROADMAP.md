@@ -736,6 +736,38 @@ on Slice 16 (per-inventory ownership is what `source_format` hangs off).
   negative half — fidelity to a supplier's format is earned by having
   imported it, never assumed.
 
+## Slice 23 — Audio patch shell: sheet, flow, drawers & the console (spec: `audio-patch-shell`)
+
+Replaces the two audio tabs' stack of six cards with one shell: a Sheet you
+land on, a Flow toggle, and Rig/Buses drawers. Adds the entity the audio
+model never had — the console itself. Depends on Slice 11 (output graph)
+and Slice 12 (input graph): the console is a node in both, and the sheet's
+chain column is a render of their existing cable walks.
+
+- **One toolbar, two views.** `AudioPatchShell` holds the Sheet/Flow toggle,
+  the search box, the drawers, print and one add action, identical on both
+  tabs. Every former card is now a drawer entry or a sheet row; the
+  graph/table toggle and both flat resource tables are gone.
+- **A channel's whole path on one line**, from `lib/patchSheet.ts`, which
+  turns the existing `buildInputChannelFlow`/`buildOutputChannelFlow` walks
+  into addressable segments — shared with the print sheets, so paper and
+  screen cannot drift. A status rail states capacity, gaps and cables picked.
+- **The console** (`event_consoles`, migration 042). Named, with a role, an
+  optional catalog **or owned** item, per-event port counts, and a position
+  on both canvases. Several per event. `console_local` is a new port kind
+  shaped exactly like a stagebox on each graph, so a source can land in the
+  desk directly. One more UNION arm in `rentalSummaryQuery` — **this closes
+  the last hole in the standing invariant above**: the most expensive item in
+  the truck could previously only reach the order as a hand-typed line.
+- **Flow at festival scale.** The source rail keeps one 20px row per source
+  (a card each would be ~1,700px at 32 sources), gains a derived colour tape,
+  the picked model and a red 48 V bar, and stacks a stereo source's ports
+  vertically. Colour now runs end to end along any run that reaches a
+  channel, with cable-versus-network encoded as a dash pattern so the two
+  readings stay independent.
+- No new dependency, no change to the cabling rules, and no mobile code path
+  touched.
+
 ## Dependency graph
 
 ```
@@ -744,6 +776,7 @@ Slice 18 (deployment) ──→ Slice 19 (CI/CD deploy to VPS)
 Slice 16 (inventory ownership) ──→ Slice 22 (generic inventory formats & PDF order)
 Slice 10 (output chains) ──→ Slice 11 (output signal graph, replaces it) ✅
 Slice 11 (output signal graph) ──→ Slice 12 (input signal graph, same pattern reversed) ✅
+Slice 11 + Slice 12 ──→ Slice 23 (audio patch shell & the console)
 Slice 7 (lighting rig) + Slice 12 ──→ Slice 13 (stage plots; supersedes Slice 0's truss sections) ✅
 Slice 14 (auth) ──→ Slice 15 (event ownership & sharing) ──→ Slice 16 (inventory ownership) ──→ Slice 17 (event settings) ──→ Slice 18 (deployment) ✅
 ```
