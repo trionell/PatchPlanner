@@ -38,7 +38,10 @@ describe('buildInputChannelFlow', () => {
   it('builds a direct source-to-channel path with no gap', () => {
     const flow = buildInputChannelFlow(channel({}), inputContext([source({})], [], [cable({ cable_item_id: 7 })]))
     expect(flow.paths).toHaveLength(1)
-    expect(flow.paths[0].hops).toEqual([{ label: 'Shure SM58 — Mikrofonkabel — 4m', kind: 'source', missing: false }])
+    // toMatchObject, not toEqual: hops also carry the addressable node/cableId
+    // fields the sheet's chain cell clicks on (Slice 23). Array length, order and
+    // every asserted field are still exact.
+    expect(flow.paths[0].hops).toMatchObject([{ label: 'Shure SM58 — Mikrofonkabel — 4m', kind: 'source', missing: false }])
     expect(flow.paths[0].sideLabel).toBeUndefined()
     expect(flow.paths[0].sourceName).toBe('Shure SM58')
     expect(flow.hasGap).toBe(false)
@@ -57,9 +60,9 @@ describe('buildInputChannelFlow', () => {
       cable({ id: 2, from_kind: 'stagebox', from_id: 1, from_port: 11, to_kind: 'channel', to_id: 1, to_port: 0 }),
     ]
     const flow = buildInputChannelFlow(channel({}), inputContext([source({})], [], cables))
-    expect(flow.paths[0].hops).toEqual([
-      { label: 'Shure SM58 — Mikrofonkabel — 4m', kind: 'source', missing: false },
-      { label: 'SB Stage L — built-in', kind: 'stagebox', missing: false },
+    expect(flow.paths[0].hops).toMatchObject([
+      { label: 'Shure SM58 — Mikrofonkabel — 4m', kind: 'source', missing: false, node: { kind: 'source', id: 1, port: 0 }, cableId: 1 },
+      { label: 'SB Stage L — built-in', kind: 'stagebox', missing: false, node: { kind: 'stagebox', id: 1, port: 11 }, cableId: 2 },
     ])
     expect(flow.hasGap).toBe(false)
   })
@@ -83,7 +86,7 @@ describe('buildInputChannelFlow', () => {
       channel({}),
       inputContext([source({ name: 'Bass Direct Out', kind: 'line', phantom_power: false })], [device({ name: 'DI (Bass)' })], cables),
     )
-    expect(flow.paths[0].hops).toEqual([
+    expect(flow.paths[0].hops).toMatchObject([
       { label: 'Bass Direct Out — Linekabel Tele-tele — 2m', kind: 'source', missing: false },
       { label: 'DI (Bass)', kind: 'device', missing: false },
     ])
@@ -129,8 +132,8 @@ describe('buildInputChannelFlow', () => {
     ]
     const flow = buildInputChannelFlow(channel({ width: 'stereo', channel_name: 'OH' }), inputContext([sourceL, sourceR], [], cables))
     expect(flow.paths).toHaveLength(2)
-    expect(flow.paths[0]).toEqual({ sideLabel: 'OH L', hops: [{ label: 'OH L', kind: 'source', missing: false }], sourceName: 'OH L' })
-    expect(flow.paths[1]).toEqual({ sideLabel: 'OH R', hops: [{ label: 'OH R', kind: 'source', missing: false }], sourceName: 'OH R' })
+    expect(flow.paths[0]).toMatchObject({ sideLabel: 'OH L', hops: [{ label: 'OH L', kind: 'source', missing: false, node: { kind: 'source', id: 1, port: 0 } }], sourceName: 'OH L' })
+    expect(flow.paths[1]).toMatchObject({ sideLabel: 'OH R', hops: [{ label: 'OH R', kind: 'source', missing: false, node: { kind: 'source', id: 2, port: 0 } }], sourceName: 'OH R' })
     expect(flow.hasGap).toBe(false)
   })
 

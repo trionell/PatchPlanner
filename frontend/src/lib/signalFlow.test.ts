@@ -47,10 +47,12 @@ describe('buildOutputChannelFlow', () => {
     ]
     const flow = buildOutputChannelFlow(output({}), outputContext([amp, speaker], cables))
     expect(flow.paths).toHaveLength(1)
-    expect(flow.paths[0].hops).toEqual([
+    // toMatchObject, not toEqual: a node hop also carries the addressable
+    // node/cableId fields the sheet's chain cell clicks on (Slice 23).
+    expect(flow.paths[0].hops).toMatchObject([
       { label: 'Speakon Cable — 10m', kind: 'cable', missing: false },
-      { label: 'Amp ch 1', kind: 'device', missing: false },
-      { label: 'Speaker ch 1', kind: 'device', missing: false },
+      { label: 'Amp ch 1', kind: 'device', missing: false, node: { kind: 'device', port: 0 } },
+      { label: 'Speaker ch 1', kind: 'device', missing: false, node: { kind: 'device', port: 0 } },
     ])
     expect(flow.hasGap).toBe(false)
   })
@@ -62,8 +64,8 @@ describe('buildOutputChannelFlow', () => {
       cable({ id: 2, from_kind: 'stage_multi', from_id: 5, from_port: 0, to_kind: 'device', to_id: 10, to_port: 0 }),
     ]
     const flow = buildOutputChannelFlow(output({}), outputContext([speaker], cables))
-    expect(flow.paths[0].hops).toEqual([
-      { label: 'Multi A ch 1', kind: 'multi', missing: false },
+    expect(flow.paths[0].hops).toMatchObject([
+      { label: 'Multi A ch 1', kind: 'multi', missing: false, node: { kind: 'stage_multi', port: 0 } },
       { label: 'Speaker ch 1', kind: 'device', missing: false },
     ])
     expect(flow.hasGap).toBe(false)
@@ -92,8 +94,8 @@ describe('buildOutputChannelFlow', () => {
     ]
     const flow = buildOutputChannelFlow(output({ width: 'stereo' }), outputContext([speakerL, speakerR], cables))
     expect(flow.paths).toHaveLength(2)
-    expect(flow.paths[0]).toEqual({ sideLabel: 'Main L', hops: [{ label: 'Speaker L ch 1', kind: 'device', missing: false }] })
-    expect(flow.paths[1]).toEqual({ sideLabel: 'Main R', hops: [{ label: 'Speaker R ch 1', kind: 'device', missing: false }] })
+    expect(flow.paths[0]).toMatchObject({ sideLabel: 'Main L', hops: [{ label: 'Speaker L ch 1', kind: 'device', missing: false, cableId: 1 }] })
+    expect(flow.paths[1]).toMatchObject({ sideLabel: 'Main R', hops: [{ label: 'Speaker R ch 1', kind: 'device', missing: false, cableId: 2 }] })
   })
 
   it('branches into multiple paths when a device fans out to more than one destination', () => {
@@ -123,8 +125,8 @@ describe('buildOutputChannelFlow', () => {
     ]
     const flow = buildOutputChannelFlow(output({}), outputContext([speaker, otherDest], cables))
     expect(flow.paths).toHaveLength(1)
-    expect(flow.paths[0].hops).toEqual([
-      { label: 'SB Stage L ch 3', kind: 'stagebox', missing: false },
+    expect(flow.paths[0].hops).toMatchObject([
+      { label: 'SB Stage L ch 3', kind: 'stagebox', missing: false, node: { kind: 'stagebox', port: 2 } },
       { label: 'Speaker ch 1', kind: 'device', missing: false },
     ])
     expect(flow.hasGap).toBe(false)
@@ -154,7 +156,7 @@ describe('buildOutputChannelFlow', () => {
     ]
     const flow = buildOutputChannelFlow(output({}), outputContext([sub1, sub2, top], cables))
     expect(flow.paths).toHaveLength(1)
-    expect(flow.paths[0].hops).toEqual([
+    expect(flow.paths[0].hops).toMatchObject([
       { label: 'Sub 1 ch 1', kind: 'device', missing: false },
       { label: 'Speakon Cable — 10m', kind: 'cable', missing: false },
       { label: 'Sub 2 ch 1', kind: 'device', missing: false },

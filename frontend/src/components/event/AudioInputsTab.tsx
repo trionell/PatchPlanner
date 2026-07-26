@@ -13,9 +13,9 @@ import { MobileEntityList } from '../mobile/MobileEntityList'
 import { InputPatchSheet } from '../print/InputPatchSheet'
 import { AudioPatchShell } from './AudioPatchShell'
 import { BusesDrawer } from './BusesDrawer'
-import { ChannelSection } from './ChannelSection'
 import { InputDeviceSection } from './InputDeviceSection'
 import { InputGraphCanvas } from './InputGraphCanvas'
+import { InputSheet } from './InputSheet'
 import { RigDrawer } from './RigDrawer'
 import { SourceSection } from './SourceSection'
 
@@ -152,7 +152,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
       >
         {view === 'sheet' ? (
           <div className="space-y-6">
-            <ChannelSection
+            <InputSheet
               eventId={eventId}
               channels={channels}
               sources={sources}
@@ -162,7 +162,11 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
               cables={cables}
               groups={groups}
               dcas={dcas}
+              cableItems={cableItems}
+              itemLabelById={itemLabelById}
               search={search}
+              onEditInFlow={() => setView('flow')}
+              onOpenRig={readOnly ? undefined : () => setDrawer('rig')}
               readOnly={readOnly}
             />
             {/* Sources stay here until the Flow inspector can hold a source's

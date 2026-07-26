@@ -88,8 +88,14 @@ describe('InputPatchSheet', () => {
     expect(html).toContain('Guitar DI')
     expect(html).toContain('FOH Rack')
     expect(html).toContain('built-in')
-    // A channel with nothing feeding it (Playback L) is flagged as a gap.
-    expect(html).toContain('no source connected')
+    // A channel with nothing feeding it (Playback L) is flagged as a gap, in
+    // the same words the on-screen sheet uses (Slice 23 FR-017).
+    expect(html).toContain('no source')
+    // The path reads on one line, in signal order, with the cable in brackets.
+    expect(html).toContain('→')
+    expect(html).toContain('FOH Rack : 12')
+    // The 48 V column carries the feeding source's phantom-power state.
+    expect(html).toContain('48 V')
     // Rows sorted by channel number: Vocal (1) before Guitar (2).
     expect(html.indexOf('Vocal')).toBeLessThan(html.indexOf('Guitar'))
     expect(html).not.toMatch(/<(input|select|button|textarea)\b/)

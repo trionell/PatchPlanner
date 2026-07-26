@@ -9,6 +9,15 @@ export interface FlowHop {
   missing: boolean
   /** Secondary line, e.g. cable length. */
   detail?: string
+  /**
+   * The node this hop lands on and the port it lands on (Slice 23) — what
+   * makes a hop addressable, so the sheet's chain cell can offer to repatch
+   * this hop and nothing else. `label` is unchanged, so the print sheets and
+   * the mobile list are unaffected.
+   */
+  node?: { kind: PortRef['kind']; id: number; port: number }
+  /** The cable this hop arrived through, for the per-hop picker. */
+  cableId?: number
 }
 
 export interface OutputFlowContext {
@@ -86,6 +95,8 @@ function walkFromPort(port: PortRef, context: OutputFlowContext, gapNodes: Set<s
       label: `${destName} ch ${cable.to_port + 1}`,
       kind: cable.to_kind === 'stage_multi' ? 'multi' : cable.to_kind === 'stagebox' ? 'stagebox' : 'device',
       missing: false,
+      node: { kind: cable.to_kind, id: cable.to_id, port: cable.to_port },
+      cableId: cable.id,
     })
 
     // A device mixes/distributes internally, so every declared output

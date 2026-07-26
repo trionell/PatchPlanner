@@ -4,11 +4,9 @@ import { Minus, Plus, Trash2, Unplug } from 'lucide-react'
 import {
   createAudioOutput,
   createOutputCable,
-  deleteAudioOutput,
   deleteOutputCable,
   deleteOutputDevice,
   getAudioPatch,
-  updateAudioOutput,
   updateOutputCable,
   updateOutputDevice,
   updateOutputMixerPosition,
@@ -19,7 +17,6 @@ import { listEventInventoryItems } from '../../api/inventory'
 import { listOwnedItems } from '../../api/owned'
 import { useDraftState } from '../../hooks/useDraftState'
 import { useIsMobile } from '../../hooks/useIsMobile'
-import { useReferenceData } from '../../hooks/useReferenceData'
 import { usePatchView } from '../../hooks/usePatchView'
 import { buildMobileOutputList } from '../../lib/mobileOutputList'
 import { matchesSearch } from '../../lib/patchSearch'
@@ -41,18 +38,15 @@ import {
 import { itemLabel } from '../../lib/utils'
 import type { AudioPatchOutput, InventoryItem, OutputCable, OutputDevice, OwnedItem, StageMulti, Stagebox } from '../../types'
 import { AudioPatchShell } from './AudioPatchShell'
+import { OutputSheet } from './OutputSheet'
 import { ProcessingDeviceSection } from './ProcessingDeviceSection'
 import { RigDrawer } from './RigDrawer'
 import { TrueOutputDeviceSection } from './TrueOutputDeviceSection'
 import { OutputPatchSheet } from '../print/OutputPatchSheet'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
 import { Dialog } from '../ui/Dialog'
-import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table'
-import { ColorSelect } from './ColorSelect'
 
 const portKey = (kind: PortRef['kind'], id: number, port: number, direction: 'in' | 'out') => `${kind}|${id}|${port}|${direction}`
 
@@ -75,7 +69,9 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
   })
   const ownedQuery = useQuery({ queryKey: ['owned-items'], queryFn: listOwnedItems })
 
-  const [outputs, setOutputs] = useDraftState(audioQuery.data, (data) => data.outputs, [] as AudioPatchOutput[])
+  // Still a draft copy because the mobile list and the canvas both read it;
+  // the sheet writes through its own mutations and refetches.
+  const [outputs] = useDraftState(audioQuery.data, (data) => data.outputs, [] as AudioPatchOutput[])
   const isMobile = useIsMobile()
   const [editingOutputId, setEditingOutputId] = useState<number | 'new' | null>(null)
   const [view, setView] = usePatchView(eventId, 'outputs')
@@ -87,8 +83,6 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
     await queryClient.invalidateQueries({ queryKey: ['rental-summary', eventId] })
   }
   const addOutputMutation = useMutation({ mutationFn: (payload: Omit<AudioPatchOutput, 'id'>) => createAudioOutput(eventId, payload), onSuccess: invalidate })
-  const saveOutputMutation = useMutation({ mutationFn: ({ id, payload }: { id: number; payload: Omit<AudioPatchOutput, 'id'> }) => updateAudioOutput(eventId, id, payload), onSuccess: invalidate })
-  const deleteOutputMutation = useMutation({ mutationFn: (id: number) => deleteAudioOutput(eventId, id), onSuccess: invalidate })
 
   const allAudioItems: InventoryItem[] = useMemo(() => inventoryQuery.data ?? [], [inventoryQuery.data])
   const cableItems: InventoryItem[] = useMemo(() => cableQuery.data ?? [], [cableQuery.data])
@@ -104,17 +98,6 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
     [allAudioItems, cableItems],
   )
 
-  function updateDraft<K extends keyof AudioPatchOutput>(index: number, key: K, value: AudioPatchOutput[K]) {
-    setOutputs((current) => current.map((row, rowIndex) => (rowIndex === index ? { ...row, [key]: value } : row)))
-  }
-  async function persistOutput(row: AudioPatchOutput) {
-    await saveOutputMutation.mutateAsync({ id: row.id, payload: row })
-  }
-  function updateAndPersistOutput(index: number, patch: Partial<AudioPatchOutput>) {
-    const updated = { ...outputs[index], ...patch }
-    setOutputs((current) => current.map((row, rowIndex) => (rowIndex === index ? updated : row)))
-    void persistOutput(updated)
-  }
   const addOutputRow = () => {
     const lastNumber = outputs.at(-1)?.output_number ?? 0
     addOutputMutation.mutate({ event_id: eventId, output_number: lastNumber + 1, output_name: '', output_type: 'foh', width: 'mono', notes: '' })
@@ -185,14 +168,18 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
         }
       >
         {view === 'sheet' ? (
-          <OutputChannelsSection
+          <OutputSheet
             eventId={eventId}
             outputs={outputs}
-            onUpdateDraft={updateDraft}
-            onPersist={(index) => persistOutput(outputs[index])}
-            onUpdateAndPersist={updateAndPersistOutput}
-            onDelete={(id) => deleteOutputMutation.mutate(id)}
+            stageboxes={stageboxes}
+            stageMultis={stageMultis}
+            devices={outputDevices}
+            cables={outputCables}
+            cableItems={cableItems}
+            itemLabelById={itemLabelById}
             search={search}
+            onEditInFlow={() => setView('flow')}
+            onOpenRig={readOnly ? undefined : () => setRigOpen(true)}
             readOnly={readOnly}
           />
         ) : (
@@ -224,87 +211,6 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
   )
 }
 
-/** Compact table for output-channel (mixer port group) CRUD — feeds the graph's mixer node. */
-function OutputChannelsSection({
-  eventId,
-  outputs,
-  onUpdateDraft,
-  onPersist,
-  onUpdateAndPersist,
-  onDelete,
-  search = '',
-  readOnly,
-}: {
-  eventId: number
-  outputs: AudioPatchOutput[]
-  onUpdateDraft: <K extends keyof AudioPatchOutput>(index: number, key: K, value: AudioPatchOutput[K]) => void
-  onPersist: (index: number) => void
-  onUpdateAndPersist: (index: number, patch: Partial<AudioPatchOutput>) => void
-  onDelete: (id: number) => void
-  /** The shell's search term; adding an output is the toolbar's job. */
-  search?: string
-  readOnly: boolean
-}) {
-  const { options } = useReferenceData(eventId)
-  const visibleCount = outputs.filter((row) => matchesSearch(search, row.output_number, row.output_name, row.output_type, row.notes)).length
-  return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between">
-        <CardTitle>Output channels</CardTitle>
-        <span className="font-mono text-xs text-zinc-500">
-          {visibleCount === outputs.length ? `${outputs.length} outputs` : `${visibleCount} of ${outputs.length}`}
-        </span>
-      </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {['Out#', 'Name', 'Type', 'Width', 'Color', 'Notes', ''].map((heading) => <TableHead key={heading}>{heading}</TableHead>)}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {outputs.map((row, index) => (
-                // Filtered in place: the draft callbacks address rows by index
-                // into the full list, so the array itself must stay whole.
-                !matchesSearch(search, row.output_number, row.output_name, row.output_type, row.notes) ? null : (
-                <TableRow key={row.id}>
-                  <TableCell><Input type="number" value={row.output_number} onChange={(e) => onUpdateDraft(index, 'output_number', Number(e.target.value))} onBlur={() => onPersist(index)} disabled={readOnly} className="w-20" /></TableCell>
-                  <TableCell><Input value={row.output_name ?? ''} onChange={(e) => onUpdateDraft(index, 'output_name', e.target.value)} onBlur={() => onPersist(index)} disabled={readOnly} className="min-w-36" /></TableCell>
-                  <TableCell>
-                    <div className="space-y-2 min-w-28">
-                      <Badge variant={row.output_type === 'aux' ? 'warning' : row.output_type}>{row.output_type}</Badge>
-                      <Select value={row.output_type} onChange={(e) => onUpdateDraft(index, 'output_type', e.target.value)} onBlur={() => onPersist(index)} disabled={readOnly}>
-                        {options('output_types', row.output_type).map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
-                      </Select>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="min-w-24">
-                      <Select value={row.width} onChange={(e) => onUpdateAndPersist(index, { width: e.target.value as AudioPatchOutput['width'] })} disabled={readOnly}>
-                        <option value="mono">Mono</option>
-                        <option value="stereo">Stereo</option>
-                      </Select>
-                    </div>
-                  </TableCell>
-                  <TableCell><ColorSelect eventId={eventId} value={row.color} onChange={(color) => onUpdateAndPersist(index, { color })} disabled={readOnly} /></TableCell>
-                  <TableCell><Input value={row.notes ?? ''} onChange={(e) => onUpdateDraft(index, 'notes', e.target.value)} onBlur={() => onPersist(index)} disabled={readOnly} className="min-w-36" /></TableCell>
-                  <TableCell>{!readOnly && <Button size="sm" variant="ghost" onClick={() => onDelete(row.id)}><Trash2 className="h-4 w-4" /></Button>}</TableCell>
-                </TableRow>
-                )
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-        {visibleCount === 0 && (
-          <p className="mt-2 text-sm text-zinc-500">
-            {outputs.length === 0 ? 'No output channels yet.' : `Nothing matches “${search}”.`}
-          </p>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
 
 const NODE_WIDTH = 200
 const CANVAS_HEIGHT = 640

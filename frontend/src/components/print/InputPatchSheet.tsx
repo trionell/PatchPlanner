@@ -1,8 +1,11 @@
-import { buildInputChannelFlows, type InputFlowContext } from '../../lib/inputSignalFlow'
+import type { InputFlowContext } from '../../lib/inputSignalFlow'
+import { inputChainSegments, type ChainCellModel } from '../../lib/patchSheet'
 import type { InputCable, InputChannel, InputDevice, InputSource, MixerDCA, MixerGroup, StageMulti, Stagebox } from '../../types'
+import { ChainText } from './ChainText'
 import { ColorSwatch, PrintSheet, sheetTd, sheetTh } from './PrintSheet'
 
-const columns = ['Ch#', 'Name', 'Signal path', 'Groups', 'DCA', 'Notes']
+// Same columns as the on-screen sheet, in the same order (Slice 23 FR-017).
+const columns = ['Ch', 'Name', 'W', 'Chain', '48 V', 'Groups', 'DCA', 'Notes']
 
 /** Paper rendering of the input patch (hidden on screen, shown in print) — walks input_cables backward from each channel (research.md R8), same convention as the output patch sheet's forward walk. */
 export function InputPatchSheet({
@@ -30,48 +33,41 @@ export function InputPatchSheet({
   itemLabelById: Map<number, string>
 }) {
   const context: InputFlowContext = { sources, channels, devices, stageboxes, stageMultis, cables, itemLabelById }
-  const flows = buildInputChannelFlows(channels, context)
-  const channelById = new Map(channels.map((c) => [c.channel_number, c]))
+  const rows = [...channels]
+    .sort((a, b) => a.channel_number - b.channel_number)
+    .map((channel) => ({ channel, chain: inputChainSegments(channel, context) }))
 
   return (
-    <PrintSheet eventId={eventId} title="Input Patch" empty={flows.length === 0}>
+    <PrintSheet eventId={eventId} title="Input Patch" empty={rows.length === 0}>
       <table className="w-full border-collapse">
         <thead>
           <tr>{columns.map((column) => <th key={column} className={sheetTh}>{column}</th>)}</tr>
         </thead>
         <tbody>
-          {flows.map((flow) => {
-            const channel = channelById.get(flow.channelNumber)
-            return (
-              <tr key={flow.channelNumber}>
-                <td className={sheetTd}><ColorSwatch color={channel?.color} />{flow.channelNumber}</td>
-                <td className={sheetTd}>{flow.channelName}</td>
-                <td className={sheetTd}>
-                  {flow.paths.map((path, pathIndex) => (
-                    <div key={pathIndex} className={flow.paths.length > 1 ? 'mb-1' : undefined}>
-                      {path.sideLabel && <span className="text-zinc-500">{path.sideLabel}: </span>}
-                      {path.hops.length === 0 ? (
-                        <span className="text-red-400">no source connected</span>
-                      ) : (
-                        path.hops.map((hop, i) => (
-                          <div key={i} style={{ paddingLeft: i * 12 }}>
-                            {i > 0 && '↳ '}{hop.label}
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  ))}
-                </td>
-                <td className={sheetTd}><BusNames ids={channel?.group_ids} buses={groups} /></td>
-                <td className={sheetTd}><BusNames ids={channel?.dca_ids} buses={dcas} /></td>
-                <td className={sheetTd}>{channel?.notes || ''}</td>
-              </tr>
-            )
-          })}
+          {rows.map(({ channel, chain }) => (
+            <tr key={channel.id}>
+              <td className={sheetTd}><ColorSwatch color={channel.color} />{channel.channel_number}</td>
+              <td className={sheetTd}>{channel.channel_name ?? ''}</td>
+              <td className={sheetTd}>{channel.width === 'stereo' ? 'S' : 'M'}</td>
+              <td className={sheetTd}><ChainText model={chain} /></td>
+              <td className={sheetTd}>{phantomFor(chain, sources) ? '48 V' : ''}</td>
+              <td className={sheetTd}><BusNames ids={channel.group_ids} buses={groups} /></td>
+              <td className={sheetTd}><BusNames ids={channel.dca_ids} buses={dcas} /></td>
+              <td className={sheetTd}>{channel.notes || ''}</td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </PrintSheet>
   )
+}
+
+/** Whether any Source feeding this channel has phantom power switched on. */
+function phantomFor(chain: ChainCellModel, sources: InputSource[]): boolean {
+  const ids = chain.lines.flatMap((line) =>
+    line.segments.filter((segment) => segment.node?.kind === 'source').map((segment) => segment.node!.id),
+  )
+  return sources.some((source) => ids.includes(source.id) && source.phantom_power)
 }
 
 /**
