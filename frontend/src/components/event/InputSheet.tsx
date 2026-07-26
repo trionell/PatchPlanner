@@ -1,17 +1,16 @@
 import { Fragment, useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Trash2 } from 'lucide-react'
 import { deleteInputCable, deleteInputChannel, updateInputCable, updateInputChannel } from '../../api/audioPatch'
 import { useRowEditor } from '../../hooks/useRowEditor'
 import { isCablelessEdge } from '../../lib/inputGraph'
 import { boxUsage, cablesPicked, consoleCapacity, type PatchStatus } from '../../lib/patchCapacity'
 import { matchesSearch } from '../../lib/patchSearch'
-import { inputChainSegments, type ChainCellModel, type SegmentNode } from '../../lib/patchSheet'
+import { firstChainNode, inputChainSegments, type ChainCellModel, type SegmentNode } from '../../lib/patchSheet'
 import type { InputFlowContext } from '../../lib/inputSignalFlow'
 import { busTint } from '../../lib/utils'
 import type { Console, InputCable, InputChannel, InputDevice, InputSource, InventoryItem, MixerDCA, MixerGroup, StageMulti, Stagebox } from '../../types'
 import { Badge } from '../ui/Badge'
-import { Button } from '../ui/Button'
+import { FieldStack } from '../ui/GearList'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table'
@@ -19,6 +18,7 @@ import { BusMultiSelect } from './BusMultiSelect'
 import { ChainCell, type HopCable } from './ChainCell'
 import { ColorSelect } from './ColorSelect'
 import { PatchStatusRail } from './PatchStatusRail'
+import { RowEditor } from './RowEditor'
 
 const COLUMNS = ['Ch', 'Name', 'W', 'Chain', '48 V', 'Buses', 'Notes']
 
@@ -190,8 +190,8 @@ export function InputSheet({
             {visible.map(({ channel, chain, phantom }) => (
               <Fragment key={channel.id}>
                 <TableRow
-                  className={readOnly ? undefined : 'cursor-pointer'}
-                  style={channel.color ? { backgroundColor: `${channel.color}0f` } : undefined}
+                  className={`${readOnly ? '' : 'cursor-pointer '}${editor.openId === channel.id ? 'border-b-0 bg-amber-500/[0.04] hover:bg-amber-500/[0.04]' : ''}`}
+                  style={channel.color && editor.openId !== channel.id ? { backgroundColor: `${channel.color}0f` } : undefined}
                   onClick={readOnly ? undefined : () => editor.openRow(channel)}
                 >
                   <TableCell
@@ -229,61 +229,67 @@ export function InputSheet({
                 </TableRow>
 
                 {editor.openId === channel.id && editor.draft && (
-                  <TableRow>
-                    <TableCell colSpan={COLUMNS.length} className="bg-zinc-900/70">
-                      <div className="grid gap-3 md:grid-cols-[6rem_1fr_8rem_9rem] md:items-end" onKeyDown={editor.onKeyDown}>
-                        <label className="space-y-1">
-                          <span className="text-[10px] uppercase tracking-wide text-zinc-500">Ch</span>
+                  <TableRow className="border-b-0 hover:bg-transparent">
+                    <TableCell colSpan={COLUMNS.length} className="bg-amber-500/[0.04] pt-0">
+                      <RowEditor
+                        saveLabel="Save channel"
+                        onSave={editor.save}
+                        onCancel={editor.close}
+                        onDelete={() => {
+                          if (window.confirm(`Delete channel ${channel.channel_number}${channel.channel_name ? ` ${channel.channel_name}` : ''}? Any cable landing on it is removed with it.`)) {
+                            removeChannel.mutate(channel.id)
+                          }
+                        }}
+                        onEditInFlow={onEditInFlow && firstChainNode(chain) ? () => onEditInFlow(firstChainNode(chain)!) : undefined}
+                        onKeyDown={editor.onKeyDown}
+                      >
+                        <FieldStack label="Ch" width="count">
                           <Input
+                            size="sm"
                             type="number"
                             value={editor.draft.channel_number}
                             onChange={(event) => editor.setDraft({ ...editor.draft!, channel_number: Number(event.target.value) || editor.draft!.channel_number })}
                           />
-                        </label>
-                        <label className="space-y-1">
-                          <span className="text-[10px] uppercase tracking-wide text-zinc-500">Name</span>
+                        </FieldStack>
+                        <FieldStack label="Name" width="grow">
                           <Input
+                            size="sm"
                             autoFocus
                             value={editor.draft.channel_name}
                             onChange={(event) => editor.setDraft({ ...editor.draft!, channel_name: event.target.value })}
                           />
-                        </label>
-                        <label className="space-y-1">
-                          <span className="text-[10px] uppercase tracking-wide text-zinc-500">Width</span>
+                        </FieldStack>
+                        <FieldStack label="Width" width="short">
                           <Select
+                            size="sm"
                             value={editor.draft.width}
                             onChange={(event) => editor.setDraft({ ...editor.draft!, width: event.target.value as InputChannel['width'] })}
                           >
                             <option value="mono">Mono</option>
                             <option value="stereo">Stereo</option>
                           </Select>
-                        </label>
-                        <label className="space-y-1">
-                          <span className="text-[10px] uppercase tracking-wide text-zinc-500">Tape</span>
+                        </FieldStack>
+                        <FieldStack label="Tape" width="short">
                           <ColorSelect eventId={eventId} value={editor.draft.color} onChange={(color) => editor.setDraft({ ...editor.draft!, color })} />
-                        </label>
-
-                        <div className="space-y-1 md:col-span-2">
-                          <span className="text-[10px] uppercase tracking-wide text-zinc-500">Groups</span>
+                        </FieldStack>
+                        <FieldStack label="Groups" width="default">
                           <BusMultiSelect
                             selected={editor.draft.group_ids}
                             options={groups}
                             onChange={(ids) => editor.setDraft({ ...editor.draft!, group_ids: ids })}
                           />
-                        </div>
-                        <div className="space-y-1 md:col-span-2">
-                          <span className="text-[10px] uppercase tracking-wide text-zinc-500">DCA</span>
+                        </FieldStack>
+                        <FieldStack label="DCA" width="default">
                           <BusMultiSelect
                             selected={editor.draft.dca_ids}
                             options={dcas}
                             onChange={(ids) => editor.setDraft({ ...editor.draft!, dca_ids: ids })}
                           />
-                        </div>
-
+                        </FieldStack>
                         {consoles.length > 1 && (
-                          <label className="space-y-1">
-                            <span className="text-[10px] uppercase tracking-wide text-zinc-500">Desk</span>
+                          <FieldStack label="Desk" width="default">
                             <Select
+                              size="sm"
                               value={editor.draft.console_id ?? ''}
                               onChange={(event) =>
                                 editor.setDraft({ ...editor.draft!, console_id: event.target.value ? Number(event.target.value) : undefined })
@@ -296,29 +302,12 @@ export function InputSheet({
                                 </option>
                               ))}
                             </Select>
-                          </label>
+                          </FieldStack>
                         )}
-
-                        <label className="space-y-1 md:col-span-3">
-                          <span className="text-[10px] uppercase tracking-wide text-zinc-500">Notes</span>
-                          <Input value={editor.draft.notes} onChange={(event) => editor.setDraft({ ...editor.draft!, notes: event.target.value })} />
-                        </label>
-
-                        <div className="flex items-center gap-2">
-                          <Button size="sm" onClick={editor.save}>
-                            Save channel
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={editor.close}>
-                            Cancel
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => removeChannel.mutate(channel.id)} title="Delete channel">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                      <p className="mt-2 text-[11px] text-zinc-500">
-                        Console strip only — what feeds this channel is decided in Flow. <kbd>Esc</kbd> discards, <kbd>⌘↵</kbd> saves and opens the next row.
-                      </p>
+                        <FieldStack label="Notes" width="grow">
+                          <Input size="sm" value={editor.draft.notes} onChange={(event) => editor.setDraft({ ...editor.draft!, notes: event.target.value })} />
+                        </FieldStack>
+                      </RowEditor>
                     </TableCell>
                   </TableRow>
                 )}

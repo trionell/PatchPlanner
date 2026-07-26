@@ -1,23 +1,23 @@
 import { Fragment, useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Trash2 } from 'lucide-react'
 import { deleteAudioOutput, deleteOutputCable, updateAudioOutput, updateOutputCable } from '../../api/audioPatch'
 import { useReferenceData } from '../../hooks/useReferenceData'
 import { useRowEditor } from '../../hooks/useRowEditor'
 import { isCablelessToKind } from '../../lib/outputGraph'
 import { boxUsage, cablesPicked, consoleCapacity, type PatchStatus } from '../../lib/patchCapacity'
 import { matchesSearch } from '../../lib/patchSearch'
-import { outputChainSegments, type ChainCellModel, type SegmentNode } from '../../lib/patchSheet'
+import { firstChainNode, outputChainSegments, type ChainCellModel, type SegmentNode } from '../../lib/patchSheet'
 import type { OutputFlowContext } from '../../lib/signalFlow'
 import type { AudioPatchOutput, Console, InventoryItem, OutputCable, OutputDevice, StageMulti, Stagebox } from '../../types'
 import { Badge } from '../ui/Badge'
-import { Button } from '../ui/Button'
+import { FieldStack } from '../ui/GearList'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table'
 import { ChainCell, type HopCable } from './ChainCell'
 import { ColorSelect } from './ColorSelect'
 import { PatchStatusRail } from './PatchStatusRail'
+import { RowEditor } from './RowEditor'
 
 // The Desk column appears only when the event has more than one console — with
 // one desk there is nothing to disambiguate, and a column of identical values is
@@ -165,9 +165,9 @@ export function OutputSheet({
           <span>Desk</span>
           <Select className="h-8 w-auto" value={deskFilter ?? ''} onChange={(event) => setDeskFilter(event.target.value ? Number(event.target.value) : null)}>
             <option value="">All desks</option>
-            {consoles.map((console) => (
-              <option key={console.id} value={console.id}>
-                {console.name || 'Console'}
+            {consoles.map((desk) => (
+              <option key={desk.id} value={desk.id}>
+                {desk.name || 'Console'}
               </option>
             ))}
           </Select>
@@ -182,8 +182,8 @@ export function OutputSheet({
             {shown.map(({ output, chain }) => (
               <Fragment key={output.id}>
                 <TableRow
-                  className={readOnly ? undefined : 'cursor-pointer'}
-                  style={output.color ? { backgroundColor: `${output.color}0f` } : undefined}
+                  className={`${readOnly ? '' : 'cursor-pointer '}${editor.openId === output.id ? 'border-b-0 bg-amber-500/[0.04] hover:bg-amber-500/[0.04]' : ''}`}
+                  style={output.color && editor.openId !== output.id ? { backgroundColor: `${output.color}0f` } : undefined}
                   onClick={readOnly ? undefined : () => editor.openRow(output)}
                 >
                   <TableCell
@@ -213,28 +213,39 @@ export function OutputSheet({
                 </TableRow>
 
                 {editor.openId === output.id && editor.draft && (
-                  <TableRow>
-                    <TableCell colSpan={columns.length} className="bg-zinc-900/70">
-                      <div className="grid gap-3 md:grid-cols-[6rem_1fr_10rem_8rem_9rem] md:items-end" onKeyDown={editor.onKeyDown}>
-                        <label className="space-y-1">
-                          <span className="text-[10px] uppercase tracking-wide text-zinc-500">Out</span>
+                  <TableRow className="border-b-0 hover:bg-transparent">
+                    <TableCell colSpan={columns.length} className="bg-amber-500/[0.04] pt-0">
+                      <RowEditor
+                        saveLabel="Save output"
+                        onSave={editor.save}
+                        onCancel={editor.close}
+                        onDelete={() => {
+                          if (window.confirm(`Delete output ${output.output_number}${output.output_name ? ` ${output.output_name}` : ''}? Any cable leaving it is removed with it.`)) {
+                            removeOutput.mutate(output.id)
+                          }
+                        }}
+                        onEditInFlow={onEditInFlow && firstChainNode(chain) ? () => onEditInFlow(firstChainNode(chain)!) : undefined}
+                        onKeyDown={editor.onKeyDown}
+                      >
+                        <FieldStack label="Out" width="count">
                           <Input
+                            size="sm"
                             type="number"
                             value={editor.draft.output_number}
                             onChange={(event) => editor.setDraft({ ...editor.draft!, output_number: Number(event.target.value) || editor.draft!.output_number })}
                           />
-                        </label>
-                        <label className="space-y-1">
-                          <span className="text-[10px] uppercase tracking-wide text-zinc-500">Name</span>
+                        </FieldStack>
+                        <FieldStack label="Name" width="grow">
                           <Input
+                            size="sm"
                             autoFocus
                             value={editor.draft.output_name}
                             onChange={(event) => editor.setDraft({ ...editor.draft!, output_name: event.target.value })}
                           />
-                        </label>
-                        <label className="space-y-1">
-                          <span className="text-[10px] uppercase tracking-wide text-zinc-500">Type</span>
+                        </FieldStack>
+                        <FieldStack label="Type" width="short">
                           <Select
+                            size="sm"
                             value={editor.draft.output_type}
                             onChange={(event) => editor.setDraft({ ...editor.draft!, output_type: event.target.value })}
                           >
@@ -244,26 +255,24 @@ export function OutputSheet({
                               </option>
                             ))}
                           </Select>
-                        </label>
-                        <label className="space-y-1">
-                          <span className="text-[10px] uppercase tracking-wide text-zinc-500">Width</span>
+                        </FieldStack>
+                        <FieldStack label="Width" width="short">
                           <Select
+                            size="sm"
                             value={editor.draft.width}
                             onChange={(event) => editor.setDraft({ ...editor.draft!, width: event.target.value as AudioPatchOutput['width'] })}
                           >
                             <option value="mono">Mono</option>
                             <option value="stereo">Stereo</option>
                           </Select>
-                        </label>
-                        <label className="space-y-1">
-                          <span className="text-[10px] uppercase tracking-wide text-zinc-500">Tape</span>
+                        </FieldStack>
+                        <FieldStack label="Tape" width="short">
                           <ColorSelect eventId={eventId} value={editor.draft.color} onChange={(color) => editor.setDraft({ ...editor.draft!, color })} />
-                        </label>
-
+                        </FieldStack>
                         {multiDesk && (
-                          <label className="space-y-1">
-                            <span className="text-[10px] uppercase tracking-wide text-zinc-500">Desk</span>
+                          <FieldStack label="Desk" width="default">
                             <Select
+                              size="sm"
                               value={editor.draft.console_id ?? ''}
                               onChange={(event) =>
                                 editor.setDraft({ ...editor.draft!, console_id: event.target.value ? Number(event.target.value) : undefined })
@@ -276,29 +285,12 @@ export function OutputSheet({
                                 </option>
                               ))}
                             </Select>
-                          </label>
+                          </FieldStack>
                         )}
-
-                        <label className="space-y-1 md:col-span-4">
-                          <span className="text-[10px] uppercase tracking-wide text-zinc-500">Notes</span>
-                          <Input value={editor.draft.notes} onChange={(event) => editor.setDraft({ ...editor.draft!, notes: event.target.value })} />
-                        </label>
-
-                        <div className="flex items-center gap-2">
-                          <Button size="sm" onClick={editor.save}>
-                            Save output
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={editor.close}>
-                            Cancel
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => removeOutput.mutate(output.id)} title="Delete output">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                      <p className="mt-2 text-[11px] text-zinc-500">
-                        Desk strip only — where this output goes is decided in Flow. <kbd>Esc</kbd> discards, <kbd>⌘↵</kbd> saves and opens the next row.
-                      </p>
+                        <FieldStack label="Notes" width="grow">
+                          <Input size="sm" value={editor.draft.notes} onChange={(event) => editor.setDraft({ ...editor.draft!, notes: event.target.value })} />
+                        </FieldStack>
+                      </RowEditor>
                     </TableCell>
                   </TableRow>
                 )}

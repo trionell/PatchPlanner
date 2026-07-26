@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AudioPatchOutput, Console, InputCable, InputChannel, InputDevice, InputSource, OutputCable, OutputDevice, StageMulti, Stagebox } from '../types'
-import { inputChainSegments, outputChainSegments, truncateSegments, type ChainSegment } from './patchSheet'
+import { firstChainNode, inputChainSegments, outputChainSegments, truncateSegments, type ChainSegment } from './patchSheet'
 import type { InputFlowContext } from './inputSignalFlow'
 import type { OutputFlowContext } from './signalFlow'
 
@@ -192,5 +192,27 @@ describe('truncateSegments', () => {
     const { segments, hidden } = truncateSegments(chain, 2)
     expect(labels(segments)).toEqual(['a', 'f'])
     expect(hidden).toBe(4)
+  })
+})
+
+describe('firstChainNode', () => {
+  it('picks the source that feeds a channel, which is what Edit in Flow selects', () => {
+    // The point of the button is to change where the signal comes from, so it has
+    // to land on the source rather than on the channel being edited (Slice 24
+    // FR-030).
+    const model = inputChainSegments(channel(), inputContext({ cables: [cable({ id: 1 })] }))
+    expect(firstChainNode(model)).toMatchObject({ kind: 'source', id: 1 })
+  })
+
+  it('is undefined when nothing is patched, so the button is not offered', () => {
+    const model = inputChainSegments(channel(), inputContext({ cables: [] }))
+    expect(firstChainNode(model)).toBeUndefined()
+  })
+
+  it('picks the first hop on the output side, since the desk itself is not a node', () => {
+    const model = outputChainSegments(output(), outputContext({ cables: [outCable()] }), { consoleLabel: 'FOH · SD10' })
+    // The desk heads the line but carries no node — it is the row itself.
+    expect(model.lines[0].segments[0].node).toBeUndefined()
+    expect(firstChainNode(model)).toMatchObject({ kind: 'device', id: 10 })
   })
 })

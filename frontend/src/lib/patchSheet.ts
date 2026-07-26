@@ -50,6 +50,26 @@ export interface ChainCellModel {
 }
 
 /**
+ * The node a row's "Edit in Flow" should select (Slice 24 FR-030): the first
+ * addressable hop in its chain.
+ *
+ * On the input side that is the source feeding the channel, which is what makes
+ * the button mean what its label says — the reason to leave the row editor is to
+ * change where the signal comes from. On the output side the desk itself carries
+ * no node, so it is the first hop the run reaches. Undefined when nothing is
+ * patched yet, in which case there is nothing to select and the button is not
+ * offered.
+ */
+export function firstChainNode(model: ChainCellModel): SegmentNode | undefined {
+  for (const line of model.lines) {
+    for (const segment of line.segments) {
+      if (segment.node) return segment.node
+    }
+  }
+  return undefined
+}
+
+/**
  * The catalog item's own name, without its description — `Shure SM58 —
  * Dynamic vocal mic` reads as `Shure SM58`. The sheet has one line per
  * channel and the full label belongs in the row editor, not the chain.
