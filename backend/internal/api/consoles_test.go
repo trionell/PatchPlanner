@@ -72,6 +72,30 @@ func TestConsoleCRUD(t *testing.T) {
 		t.Errorf("patched positions = %v/%v, want 88/44", updated.PositionY, updated.InputPositionY)
 	}
 
+	// The local jack panel is a second node per graph since Slice 24, with its
+	// own placement — and moving it must not move the desk's own node. A created
+	// desk starts it inside the processing lane rather than at the origin.
+	created := decodeJSON[domain.Console](t, raw)
+	if created.LocalPositionX != 260 || created.LocalPositionY != 320 || created.LocalInputPositionX != 260 || created.LocalInputPositionY != 320 {
+		t.Errorf("new desk's jack panel at %v/%v and %v/%v, want 260/320 on both canvases",
+			created.LocalPositionX, created.LocalPositionY, created.LocalInputPositionX, created.LocalInputPositionY)
+	}
+	status, raw = doJSON(t, http.MethodPatch, consoleURL, map[string]any{
+		"local_position_x": 312, "local_position_y": 448,
+		"local_input_position_x": 280, "local_input_position_y": 96,
+	})
+	if status != http.StatusOK {
+		t.Fatalf("PATCH console jack panel: status %d body %s", status, raw)
+	}
+	moved := decodeJSON[domain.Console](t, raw)
+	if moved.LocalPositionX != 312 || moved.LocalPositionY != 448 || moved.LocalInputPositionX != 280 || moved.LocalInputPositionY != 96 {
+		t.Errorf("jack panel at %v/%v and %v/%v, want 312/448 and 280/96",
+			moved.LocalPositionX, moved.LocalPositionY, moved.LocalInputPositionX, moved.LocalInputPositionY)
+	}
+	if moved.PositionY != 88 || moved.InputPositionY != 44 {
+		t.Errorf("desk's own node moved to %v/%v while dragging the jack panel, want 88/44", moved.PositionY, moved.InputPositionY)
+	}
+
 	// A console of another event is a 404, not someone else's row to edit.
 	otherEvent := seedEvent(t, server.URL)
 	status, raw = doJSON(t, http.MethodPatch, fmt.Sprintf("%s/events/%d/consoles/%d", server.URL, otherEvent, console.ID), map[string]any{"name": "stolen"})

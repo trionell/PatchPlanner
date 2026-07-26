@@ -31,7 +31,7 @@ export function OutputPatchSheet({
   consoles?: Console[]
 }) {
   const { label } = useReferenceData(eventId)
-  const context: OutputFlowContext = { stageboxes, stageMultis, devices: outputDevices, cables: outputCables, itemLabelById }
+  const context: OutputFlowContext = { stageboxes, stageMultis, devices: outputDevices, cables: outputCables, itemLabelById, consoles }
   const rows = [...outputs]
     .sort((a, b) => a.output_number - b.output_number)
     .map((output) => ({

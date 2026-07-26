@@ -366,8 +366,16 @@ function OutputGraphCanvas({
     mutationFn: ({ id, data }: { id: number; data: Omit<StageMulti, 'id'> }) => updateStageMulti(eventId, id, data),
     onSuccess: onChanged,
   })
+  // The desk's bus list is pinned to the Sources lane, so only its y is stored.
   const moveConsoleMutation = useMutation({
     mutationFn: ({ id, y }: { id: number; y: number }) => updateConsole(eventId, id, { position_y: y }),
+    onSuccess: onChanged,
+  })
+  // Its jack panel is free in both axes and stores its own pair — dragging it
+  // here must not move the panel on the Inputs canvas (Slice 24 FR-013).
+  const moveConsoleJacksMutation = useMutation({
+    mutationFn: ({ id, x, y }: { id: number; x: number; y: number }) =>
+      updateConsole(eventId, id, { local_position_x: x, local_position_y: y }),
     onSuccess: onChanged,
   })
   const deleteDeviceMutation = useMutation({
@@ -402,11 +410,28 @@ function OutputGraphCanvas({
     const nodes: NodeLayout[] = []
     let nextY = 24
     for (const desk of consoles) {
-      const pos = positions.get(`console_local:${desk.id}`)
+      // The desk's bus list, keyed by the kind of port it carries. Console ids
+      // start at 1, so this never collides with the `mixer:0` node below.
+      const pos = positions.get(`mixer:${desk.id}`)
       const y = pos?.y ?? desk.position_y
-      nodes.push({ kind: 'console_local', id: desk.id, x: ZONE_SOURCES_X, y, zone: 'sources' })
+      nodes.push({ kind: 'mixer', id: desk.id, x: ZONE_SOURCES_X, y, zone: 'sources' })
       // Below the desk actually placed — see InputGraphCanvas (Slice 24 FR-007).
       nextY = Math.max(nextY + 220, y + 220)
+
+      // Its jack panel, in the processing lane — the mirror of the input
+      // canvas's. Before Slice 24 these were out-side-only ports on the desk
+      // node, so a bus had no in-side port to land on and the desk's sockets
+      // could not be used at all (FR-011, research.md R6). No jacks, no node.
+      if (desk.local_output_count > 0) {
+        const jackPos = positions.get(`console_local:${desk.id}`)
+        nodes.push({
+          kind: 'console_local',
+          id: desk.id,
+          x: clampProcessingX(jackPos?.x ?? desk.local_position_x),
+          y: jackPos?.y ?? desk.local_position_y,
+          zone: 'processing',
+        })
+      }
     }
     if (orphanOutputs.length > 0 || consoles.length === 0) {
       const mixerPos = positions.get('mixer:0')
@@ -481,13 +506,17 @@ function OutputGraphCanvas({
   function persistPosition(kind: PortRef['kind'], id: number, x: number, y: number) {
     const onError = (e: unknown) => setError(e instanceof Error ? e.message : 'Failed to save position')
     if (kind === 'console_local') {
-      moveConsoleMutation.mutate({ id, y }, { onError })
+      moveConsoleJacksMutation.mutate({ id, x, y }, { onError })
       return
     }
     if (kind === 'mixer') {
-      // The node holding outputs with no desk. It moves for the session — the
-      // canvas's `positions` map holds it — but there is no row to store it on
-      // (Slice 24 FR-006, research.md R4).
+      if (id === 0) {
+        // The node holding outputs with no desk. It moves for the session — the
+        // canvas's `positions` map holds it — but there is no row to store it on
+        // (Slice 24 FR-006, research.md R4).
+        return
+      }
+      moveConsoleMutation.mutate({ id, y }, { onError })
       return
     }
     if (kind === 'stagebox') {
@@ -713,6 +742,27 @@ function OutputGraphCanvas({
                 const desk = consoles.find((c) => c.id === node.id)
                 if (!desk) return null
                 return (
+                  <LocalJackNode
+                    key={`jacks-${desk.id}`}
+                    x={node.x}
+                    y={node.y}
+                    desk={desk}
+                    cables={cables}
+                    pendingPort={pendingPort}
+                    onPortClick={handlePortClick}
+                    onPortPointerDown={handlePortPointerDown}
+                    registerPort={registerPort}
+                    onDragStart={readOnly ? undefined : (e) => startNodeDrag('console_local', desk.id, 'free', e)}
+                    dimmed={!matchesSearch(search, desk.name, 'local')}
+                  />
+                )
+              }
+              if (node.kind === 'mixer') {
+                // id 0 is the node for outputs belonging to no desk; anything
+                // else is a desk's own bus list (see the layout above).
+                const desk = node.id === 0 ? undefined : consoles.find((c) => c.id === node.id)
+                if (node.id !== 0 && !desk) return null
+                return desk ? (
                   <ConsoleNode
                     key={`desk-${desk.id}`}
                     x={node.x}
@@ -724,13 +774,10 @@ function OutputGraphCanvas({
                     onPortClick={handlePortClick}
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
-                    onDragStart={readOnly ? undefined : (e) => startNodeDrag('console_local', desk.id, 'y-only', e)}
+                    onDragStart={readOnly ? undefined : (e) => startNodeDrag('mixer', desk.id, 'y-only', e)}
                     search={search}
                   />
-                )
-              }
-              if (node.kind === 'mixer') {
-                return (
+                ) : (
                   <MixerNode
                     key="mixer"
                     x={node.x}
@@ -982,7 +1029,6 @@ function ConsoleNode({ x, y, desk, outputs, cables, pendingPort, onPortClick, on
   search?: string
 }) {
   const ports = mixerPorts(outputs)
-  const localPorts = consoleLocalPorts(desk).outputs
   const dimmedIds = new Set(
     outputs.filter((row) => !matchesSearch(search, row.output_number, row.output_name, row.output_type, row.notes)).map((row) => row.id),
   )
@@ -994,18 +1040,54 @@ function ConsoleNode({ x, y, desk, outputs, cables, pendingPort, onPortClick, on
         <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" dimmed={dimmedIds.has(port.id)} />
       ))}
       {ports.length === 0 && <p className="text-[11px] text-zinc-600">No outputs on this desk yet</p>}
-      {localPorts.length > 0 && (
-        <div className="space-y-1 border-t border-zinc-800 pt-1">
-          {localPorts.map((port) => (
-            <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" />
-          ))}
-        </div>
-      )}
       <p className={`border-t border-zinc-800 pt-1 font-mono text-[10px] ${over ? 'text-red-400' : 'text-zinc-500'}`}>
         {outputs.length}
         {desk.output_count > 0 ? ` / ${desk.output_count}` : ''} out
         {desk.local_output_count > 0 ? ` · local ${desk.local_output_count}` : ''}
       </p>
+    </NodeShell>
+  )
+}
+
+/**
+ * A desk's own output jacks, as their own node (Slice 24 FR-008/FR-009) — the
+ * mirror of the input canvas's `LocalJackNode`, and deliberately the same
+ * two-column shape as `StageboxNode` below.
+ *
+ * This is the node that makes the desk's sockets usable at all on this graph.
+ * Before it, the jacks were drawn as out-side-only rows on the desk node, so a
+ * bus had no in-side port to be routed to and the sockets were unreachable
+ * (research.md R6). A bus now routes into the left column — the desk's own
+ * routing, no cable — and a real cable leaves the right one, exactly as through
+ * a stagebox.
+ */
+function LocalJackNode({ x, y, desk, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, dimmed }: {
+  x: number
+  y: number
+  desk: Console
+  cables: OutputCable[]
+  pendingPort: PortRef | null
+  onPortClick: (port: PortRef) => void
+  onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
+  registerPort: (key: string) => (el: HTMLElement | null) => void
+  onDragStart?: (e: ReactPointerEvent) => void
+  dimmed?: boolean
+}) {
+  const { inputs, outputs } = consoleLocalPorts(desk)
+  return (
+    <NodeShell x={x} y={y} title={desk.name || 'Console'} badge="LOCAL" onDragStart={onDragStart} dimmed={dimmed}>
+      <div className="grid grid-cols-2 gap-x-2">
+        <div className="space-y-1">
+          {inputs.map((port) => (
+            <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" />
+          ))}
+        </div>
+        <div className="space-y-1">
+          {outputs.map((port) => (
+            <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" />
+          ))}
+        </div>
+      </div>
     </NodeShell>
   )
 }

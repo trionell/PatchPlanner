@@ -203,8 +203,16 @@ export function InputGraphCanvas({
       await onChanged()
     },
   })
+  // The desk's channel rail is pinned to its lane, so only its y is stored.
   const moveConsoleMutation = useMutation({
-    mutationFn: ({ id, x, y }: { id: number; x: number; y: number }) => updateConsole(eventId, id, { input_position_x: x, input_position_y: y }),
+    mutationFn: ({ id, y }: { id: number; y: number }) => updateConsole(eventId, id, { input_position_y: y }),
+    onSuccess: onChanged,
+  })
+  // Its jack panel is free in both axes, and stores its own pair — dragging it
+  // here must not move the panel on the Outputs canvas (Slice 24 FR-013).
+  const moveConsoleJacksMutation = useMutation({
+    mutationFn: ({ id, x, y }: { id: number; x: number; y: number }) =>
+      updateConsole(eventId, id, { local_input_position_x: x, local_input_position_y: y }),
     onSuccess: onChanged,
   })
   const registerPort = (key: string) => (el: HTMLElement | null) => {
@@ -230,13 +238,30 @@ export function InputGraphCanvas({
     const channelsX = zoneChannelsX(canvasWidth)
     let nextY = 24
     for (const desk of consoles) {
-      const override = positions.get(`console_local:${desk.id}`)
+      // The desk's channel rail, keyed by the kind of port it carries. Console
+      // ids start at 1, so this never collides with the `channel:0` node below.
+      const override = positions.get(`channel:${desk.id}`)
       const y = override?.y ?? desk.input_position_y ?? nextY
-      nodes.push({ kind: 'console_local', id: desk.id, x: channelsX, y })
+      nodes.push({ kind: 'channel', id: desk.id, x: channelsX, y })
       // Below the desk actually placed, not below a counter that ignores where
       // it sits — the arithmetic that let the orphan node open on top of a desk
       // whose stored y had already moved past it (Slice 24 FR-007).
       nextY = Math.max(nextY + 220, y + 220)
+
+      // The desk's own jack panel is a second node since Slice 24, in the
+      // processing lane rather than beside the strips: signal passes *through*
+      // it on the way to a channel, and drawing it as a two-sided pass-through
+      // is what lets a local jack reach a channel at all (FR-008 to FR-010).
+      // No jacks declared, no node (FR-014).
+      if (desk.local_input_count > 0) {
+        const jackOverride = positions.get(`console_local:${desk.id}`)
+        nodes.push({
+          kind: 'console_local',
+          id: desk.id,
+          x: clampProcessingX(jackOverride?.x ?? desk.local_input_position_x),
+          y: jackOverride?.y ?? desk.local_input_position_y,
+        })
+      }
     }
     // Channels belonging to no desk keep a node of their own rather than
     // disappearing — the state an event is in after its only desk is
@@ -299,13 +324,17 @@ export function InputGraphCanvas({
   function persistPosition(kind: PortRef['kind'], id: number, x: number, y: number) {
     const onError = (e: unknown) => setError(e instanceof Error ? e.message : 'Failed to save position')
     if (kind === 'channel') {
-      // The node holding channels with no desk. It moves for the session — the
-      // canvas's own `positions` map already holds it — but there is no row to
-      // store it on, so nothing is persisted (Slice 24 FR-006, research.md R4).
+      if (id === 0) {
+        // The node holding channels with no desk. It moves for the session — the
+        // canvas's own `positions` map already holds it — but there is no row to
+        // store it on, so nothing is persisted (Slice 24 FR-006, research.md R4).
+        return
+      }
+      moveConsoleMutation.mutate({ id, y }, { onError })
       return
     }
     if (kind === 'console_local') {
-      moveConsoleMutation.mutate({ id, x, y }, { onError })
+      moveConsoleJacksMutation.mutate({ id, x, y }, { onError })
       return
     }
     if (kind === 'stagebox') {
@@ -555,6 +584,28 @@ export function InputGraphCanvas({
                 const desk = consoles.find((c) => c.id === node.id)
                 if (!desk) return null
                 return (
+                  <LocalJackNode
+                    key={`jacks-${desk.id}`}
+                    x={node.x}
+                    y={node.y}
+                    desk={desk}
+                    cables={cables}
+                    pendingPort={pendingPort}
+                    onPortClick={handlePortClick}
+                    onPortPointerDown={handlePortPointerDown}
+                    registerPort={registerPort}
+                    colorContext={colorContext}
+                    onDragStart={(e) => startNodeDrag('console_local', desk.id, e)}
+                    dimmed={!matchesSearch(search, desk.name, 'local')}
+                  />
+                )
+              }
+              if (node.kind === 'channel') {
+                // id 0 is the node for channels belonging to no desk; anything
+                // else is a desk's own channel rail (see the layout above).
+                const desk = node.id === 0 ? undefined : consoles.find((c) => c.id === node.id)
+                if (node.id !== 0 && !desk) return null
+                return desk ? (
                   <ConsoleNode
                     key={`desk-${desk.id}`}
                     x={node.x}
@@ -567,13 +618,10 @@ export function InputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
-                    onDragStart={(e) => startNodeDrag('console_local', desk.id, e)}
+                    onDragStart={(e) => startNodeDrag('channel', desk.id, e)}
                     search={search}
                   />
-                )
-              }
-              if (node.kind === 'channel') {
-                return (
+                ) : (
                   <ChannelsNode
                     key="channels"
                     x={node.x}
@@ -1002,10 +1050,14 @@ function ChannelsNode({ x, y, channels, cables, pendingPort, onPortClick, onPort
 }
 
 /**
- * The desk on the input graph (Slice 23): its channel strips, then its own
- * local jacks after a divider. Where the Channels rail used to be an anonymous
- * list, it now belongs to a named desk with a stated capacity — which is
- * what makes "15 / 96 in" sayable at all.
+ * The desk on the input graph (Slice 23): its channel strips. Where the Channels
+ * rail used to be an anonymous list, it now belongs to a named desk with a stated
+ * capacity — which is what makes "15 / 96 in" sayable at all.
+ *
+ * Its local jacks used to be drawn here too, as a second block of input-side
+ * ports after a divider. That made them a dead end — a cable could land on one
+ * and never leave it — so since Slice 24 they are their own node
+ * (`LocalJackNode`).
  */
 function ConsoleNode({ x, y, desk, channels, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext, onDragStart, search = '' }: {
   x: number
@@ -1022,7 +1074,6 @@ function ConsoleNode({ x, y, desk, channels, cables, pendingPort, onPortClick, o
   search?: string
 }) {
   const ports = channels.flatMap((channel) => channelPorts(channel))
-  const localPorts = consoleLocalPorts(desk).inputs
   const dimmedIds = new Set(
     channels.filter((channel) => !matchesSearch(search, channel.channel_number, channel.channel_name, channel.notes)).map((channel) => channel.id),
   )
@@ -1034,18 +1085,57 @@ function ConsoleNode({ x, y, desk, channels, cables, pendingPort, onPortClick, o
         <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" colorContext={colorContext} dimmed={dimmedIds.has(port.id)} />
       ))}
       {ports.length === 0 && <p className="text-[11px] text-zinc-600">No channels on this desk yet</p>}
-      {localPorts.length > 0 && (
-        <div className="space-y-1 border-t border-zinc-800 pt-1">
-          {localPorts.map((port) => (
-            <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" colorContext={colorContext} />
-          ))}
-        </div>
-      )}
       <p className={`border-t border-zinc-800 pt-1 font-mono text-[10px] ${over ? 'text-red-400' : 'text-zinc-500'}`}>
         {channels.length}
         {desk.input_count > 0 ? ` / ${desk.input_count}` : ''} in
         {desk.local_input_count > 0 ? ` · local ${desk.local_input_count}` : ''}
       </p>
+    </NodeShell>
+  )
+}
+
+/**
+ * A desk's own input jacks, as their own node (Slice 24 FR-008/FR-009).
+ *
+ * Deliberately the same two-column shape as `StageboxNode` below: a cable lands
+ * on a jack on the left, and the desk's own routing carries that same jack on to
+ * a channel from the right. Drawn identically because it *is* the same thing to
+ * the graph — which is what lets a planner pick either without learning a second
+ * idiom (FR-009).
+ *
+ * It lives in the processing lane rather than beside the desk's strips because
+ * the two ports of one pass-through must be on opposite edges of the node for
+ * their cable to be drawable at all: inside one box the run would have to loop
+ * right, back across the box, and in from the left (research.md R6).
+ */
+function LocalJackNode({ x, y, desk, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext, onDragStart, dimmed }: {
+  x: number
+  y: number
+  desk: Console
+  cables: InputCable[]
+  pendingPort: PortRef | null
+  onPortClick: (port: PortRef) => void
+  onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
+  registerPort: (key: string) => (el: HTMLElement | null) => void
+  colorContext: ColorContext
+  onDragStart?: (e: ReactPointerEvent) => void
+  dimmed?: boolean
+}) {
+  const { inputs, outputs } = consoleLocalPorts(desk)
+  return (
+    <NodeShell x={x} y={y} title={desk.name || 'Console'} badge="LOCAL" onDragStart={onDragStart} dimmed={dimmed}>
+      <div className="grid grid-cols-2 gap-x-2">
+        <div className="space-y-1">
+          {inputs.map((port) => (
+            <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" colorContext={colorContext} />
+          ))}
+        </div>
+        <div className="space-y-1">
+          {outputs.map((port) => (
+            <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" colorContext={colorContext} />
+          ))}
+        </div>
+      </div>
     </NodeShell>
   )
 }

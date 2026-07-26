@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AudioPatchOutput, Console, OutputCable, OutputDevice } from '../types'
-import { consoleLocalPorts, derivedCableColor, isCablelessToKind } from './outputGraph'
+import { consoleLocalPorts, derivedCableColor, isCablelessToKind, nodeZone } from './outputGraph'
 
 function output(overrides: Partial<AudioPatchOutput> = {}): AudioPatchOutput {
   return { id: 1, event_id: 1, output_number: 1, output_name: 'FOH', output_type: 'foh', width: 'mono', color: '#38bdf8', ...overrides }
@@ -50,13 +50,34 @@ describe('console local jacks', () => {
   const desk: Console = {
     id: 3, event_id: 1, name: 'FOH · SD10', role: 'foh', input_count: 96, output_count: 48,
     local_input_count: 8, local_output_count: 4, position_x: 0, position_y: 0, input_position_x: 0, input_position_y: 0,
+    local_position_x: 260, local_position_y: 320, local_input_position_x: 260, local_input_position_y: 320,
   }
 
   it('sizes the output graph jacks by local_output_count, on both sides of the pass-through', () => {
     const { inputs, outputs } = consoleLocalPorts(desk)
+    // Both sides, equally — the node is drawn as a two-column pass-through since
+    // Slice 24, and an in side that is not drawn is a jack a bus cannot reach.
     expect(inputs).toHaveLength(4)
     expect(outputs).toHaveLength(4)
+    expect(inputs.every((port) => port.direction === 'in')).toBe(true)
+    expect(outputs.every((port) => port.direction === 'out')).toBe(true)
+    // local_output_count sizes it, not local_input_count — that is the input
+    // graph's number.
+    expect(consoleLocalPorts({ ...desk, local_input_count: 32 }).outputs).toHaveLength(4)
+  })
+
+  it('labels the two sides distinctly, so the columns cannot be confused', () => {
+    const { inputs, outputs } = consoleLocalPorts(desk)
+    expect(inputs[0].label).toBe('From desk 1')
     expect(outputs[0].label).toBe('Local out 1')
+  })
+
+  it('puts the jack panel in the processing lane, where a stagebox is', () => {
+    // The lane is what makes the two visibly interchangeable (FR-009). It moved
+    // out of `sources` when the jacks stopped being rows on the desk's own node.
+    expect(nodeZone('console_local', desk.id, { devices: [] })).toBe('processing')
+    expect(nodeZone('stagebox', 5, { devices: [] })).toBe('processing')
+    expect(nodeZone('mixer', 1, { devices: [] })).toBe('sources')
   })
 
   it('treats routing into a local jack as desk routing, not a cable', () => {

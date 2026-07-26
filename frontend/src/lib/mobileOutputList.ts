@@ -1,5 +1,5 @@
 import { buildOutputChannelFlows } from './signalFlow'
-import type { AudioPatchOutput, OutputCable, OutputDevice, StageMulti, Stagebox } from '../types'
+import type { AudioPatchOutput, Console, OutputCable, OutputDevice, StageMulti, Stagebox } from '../types'
 
 /** One row in the mobile Audio Outputs list — mirrors mobileChannelList.ts's input-side shape. */
 export interface MobileOutputListItem {
@@ -16,6 +16,8 @@ interface ListContext {
   stageMultis: StageMulti[]
   devices: OutputDevice[]
   cables: OutputCable[]
+  /** So a hop through a desk's own socket names the desk (Slice 24). */
+  consoles?: Console[]
   itemLabelById: Map<number, string>
 }
 

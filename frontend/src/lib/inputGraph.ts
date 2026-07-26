@@ -64,21 +64,34 @@ export function devicePorts(device: InputDevice): { inputs: PortRef[]; outputs: 
  * needed no new cabling rule.
  */
 export function consoleLocalPorts(desk: Console): { inputs: PortRef[]; outputs: PortRef[] } {
-  const make = (direction: 'in' | 'out') =>
+  // Distinct labels per side (Slice 24). The side a cable lands on keeps the
+  // "local in" wording the sheet and the printed sheets already use; the other
+  // says which way the desk's own routing goes, so the two columns of the
+  // pass-through cannot be mistaken for each other.
+  const make = (direction: 'in' | 'out', prefix: string) =>
     Array.from({ length: desk.local_input_count }, (_, i) => ({
       kind: 'console_local' as const,
       id: desk.id,
       port: i,
       direction,
-      label: `Local ${i + 1}`,
+      label: `${prefix} ${i + 1}`,
     }))
-  return { inputs: make('in'), outputs: make('out') }
+  return { inputs: make('in', 'Local in'), outputs: make('out', 'To desk') }
 }
 
-/** A node's zone: Source always source-role; Stagebox/StageMulti/Device always processing-role; Channel and the desk itself always destination-role. Never a stored flag. */
+/**
+ * A node's zone: Source always source-role; Channel always destination-role;
+ * everything the signal passes *through* — stagebox, stage multi, device, and
+ * since Slice 24 the desk's own jack panel — is processing-role. Never a stored
+ * flag.
+ *
+ * `console_local` moved out of `channels` when the jacks became their own
+ * two-sided node: they sit between the stage and the channel strips, which is
+ * where the planner looks for something signal passes through.
+ */
 export function nodeZone(kind: PortRef['kind']): Zone {
   if (kind === 'source') return 'sources'
-  if (kind === 'channel' || kind === 'console_local') return 'channels'
+  if (kind === 'channel') return 'channels'
   return 'processing'
 }
 

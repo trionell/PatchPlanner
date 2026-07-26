@@ -328,10 +328,20 @@ export interface Console {
   output_count: number
   local_input_count: number
   local_output_count: number
+  /** The desk's own node — pinned to its lane on both graphs, so only y is used. */
   position_x: number
   position_y: number
   input_position_x: number
   input_position_y: number
+  /**
+   * The desk's local jack panel — a second node per graph since Slice 24, drawn
+   * as a pass-through in the processing lane exactly as a stagebox is. Freely
+   * positioned, so both axes are used.
+   */
+  local_position_x: number
+  local_position_y: number
+  local_input_position_x: number
+  local_input_position_y: number
 }
 
 export interface LightingRig {

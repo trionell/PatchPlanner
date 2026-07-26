@@ -115,3 +115,53 @@ func TestConsoleMigration042(t *testing.T) {
 		t.Errorf("channels after down = %d, want all 3 — a down migration must not lose a patch", channelsLeft)
 	}
 }
+
+// TestConsoleMigration043 covers the four columns Slice 24 adds for the desk's
+// local jack panel, which became its own node on each canvas. The point of the
+// test is the default: an existing desk must open with its panel inside the
+// processing lane, not stacked on the canvas origin (research.md R8), and its own
+// node's position must be left exactly as it was.
+func TestConsoleMigration043(t *testing.T) {
+	database := openMigratedTo(t, 42)
+
+	event := mustInsertID(t, database, `INSERT INTO events (name) VALUES (?)`, "Event A")
+	console := mustInsertID(t, database,
+		`INSERT INTO event_consoles (event_id, name, role, local_input_count, local_output_count, position_y, input_position_y)
+		 VALUES (?, 'FOH · SD10', 'foh', 8, 4, 137.5, 76)`, event)
+
+	if _, err := database.Exec(`SELECT local_position_x FROM event_consoles`); err == nil {
+		t.Fatal("local_position_x exists at 42; the test is not exercising 043")
+	}
+
+	execMigrationFileTx(t, database, "043_console_local_positions.up.sql")
+
+	var localX, localY, localInX, localInY, posY, inPosY float64
+	err := database.QueryRow(`SELECT local_position_x, local_position_y, local_input_position_x, local_input_position_y,
+		position_y, input_position_y FROM event_consoles WHERE id = ?`, console).
+		Scan(&localX, &localY, &localInX, &localInY, &posY, &inPosY)
+	if err != nil {
+		t.Fatalf("read local positions: %v", err)
+	}
+	if localX != 260 || localY != 320 || localInX != 260 || localInY != 320 {
+		t.Errorf("local positions = %v/%v and %v/%v, want 260/320 on both canvases — a zero would drop the panel on the origin",
+			localX, localY, localInX, localInY)
+	}
+	if posY != 137.5 || inPosY != 76 {
+		t.Errorf("desk's own node moved to %v/%v, want 137.5/76 — 043 places a second node, it does not move the first", posY, inPosY)
+	}
+
+	execMigrationFileTx(t, database, "043_console_local_positions.down.sql")
+
+	for _, column := range []string{"local_position_x", "local_position_y", "local_input_position_x", "local_input_position_y"} {
+		if _, err := database.Exec(`SELECT ` + column + ` FROM event_consoles`); err == nil {
+			t.Errorf("%s still exists after the down migration", column)
+		}
+	}
+	var consolesLeft int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM event_consoles`).Scan(&consolesLeft); err != nil {
+		t.Fatalf("count consoles after down: %v", err)
+	}
+	if consolesLeft != 1 {
+		t.Errorf("consoles after down = %d, want 1 — only the placement is lost", consolesLeft)
+	}
+}

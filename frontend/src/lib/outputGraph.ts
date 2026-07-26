@@ -110,15 +110,18 @@ export function devicePorts(device: OutputDevice): { inputs: PortRef[]; outputs:
  * The stagebox's shape on this graph, mirrored.
  */
 export function consoleLocalPorts(desk: Console): { inputs: PortRef[]; outputs: PortRef[] } {
-  const make = (direction: 'in' | 'out') =>
+  // Distinct labels per side (Slice 24) — the mirror of the input graph's. An
+  // output arrives from the desk on the in side; the real cable leaves the out
+  // side, which keeps the "local out" wording the sheets already use.
+  const make = (direction: 'in' | 'out', prefix: string) =>
     Array.from({ length: desk.local_output_count }, (_, i) => ({
       kind: 'console_local' as const,
       id: desk.id,
       port: i,
       direction,
-      label: `Local out ${i + 1}`,
+      label: `${prefix} ${i + 1}`,
     }))
-  return { inputs: make('in'), outputs: make('out') }
+  return { inputs: make('in', 'From desk'), outputs: make('out', 'Local out') }
 }
 
 /**
@@ -144,10 +147,17 @@ export function deviceZone(device: OutputDevice): Zone {
   return 'processing'
 }
 
-/** Any node's zone, resolving a device's role when needed. A link port lives on the same canvas node as its owning device's ordinary ports. */
+/**
+ * Any node's zone, resolving a device's role when needed. A link port lives on
+ * the same canvas node as its owning device's ordinary ports.
+ *
+ * `console_local` moved out of `sources` in Slice 24: the desk's jacks became
+ * their own two-sided node, and what signal passes through belongs in the
+ * processing lane — the same lane, and the same shape, as a stagebox.
+ */
 export function nodeZone(kind: PortRef['kind'], id: number, context: { devices: OutputDevice[] }): Zone {
-  if (kind === 'mixer' || kind === 'console_local') return 'sources'
-  if (kind === 'stagebox' || kind === 'stage_multi') return 'processing'
+  if (kind === 'mixer') return 'sources'
+  if (kind === 'stagebox' || kind === 'stage_multi' || kind === 'console_local') return 'processing'
   const device = context.devices.find((d) => d.id === id)
   return device ? deviceZone(device) : 'processing'
 }

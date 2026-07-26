@@ -97,7 +97,7 @@ export function OutputSheet({
   const removeCable = useMutation({ mutationFn: (id: number) => deleteOutputCable(eventId, id), onSuccess: invalidate })
 
   const ordered = useMemo(() => [...outputs].sort((a, b) => a.output_number - b.output_number), [outputs])
-  const context: OutputFlowContext = { stageboxes, stageMultis, devices, cables, itemLabelById }
+  const context: OutputFlowContext = { stageboxes, stageMultis, devices, cables, itemLabelById, consoles }
 
   // The desk's own name heads every chain, once the event has one.
   const consoleName = (output: AudioPatchOutput) => consoles.find((desk) => desk.id === output.console_id)?.name || undefined

@@ -408,8 +408,19 @@ type Console struct {
 	LocalOutputCount int    `json:"local_output_count"`
 	// PositionX/PositionY place the desk on the output canvas;
 	// InputPositionX/Y on the input canvas — migration 031's convention.
+	// The desk's own node is pinned to its lane on both graphs, so only the
+	// Y of each pair is ever read or written.
 	PositionX      float64 `json:"position_x"`
 	PositionY      float64 `json:"position_y"`
 	InputPositionX float64 `json:"input_position_x"`
 	InputPositionY float64 `json:"input_position_y"`
+	// LocalPositionX/Y and LocalInputPositionX/Y place the desk's *local jack
+	// panel* — a second node per graph since Slice 24, drawn as a
+	// pass-through in the processing lane exactly as a stagebox is, which is
+	// what makes local jacks and a stagebox interchangeable destinations.
+	// Freely positioned, so unlike the pairs above both axes are used.
+	LocalPositionX      float64 `json:"local_position_x"`
+	LocalPositionY      float64 `json:"local_position_y"`
+	LocalInputPositionX float64 `json:"local_input_position_x"`
+	LocalInputPositionY float64 `json:"local_input_position_y"`
 }

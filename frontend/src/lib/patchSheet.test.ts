@@ -111,6 +111,7 @@ describe('inputChainSegments', () => {
     const desk: Console = {
       id: 3, event_id: 1, name: 'FOH · SD10', role: 'foh', input_count: 96, output_count: 48,
       local_input_count: 8, local_output_count: 8, position_x: 0, position_y: 0, input_position_x: 0, input_position_y: 0,
+      local_position_x: 260, local_position_y: 320, local_input_position_x: 260, local_input_position_y: 320,
     }
     const talkback = channel({ channel_number: 15, channel_name: 'Talkback' })
     const cables = [

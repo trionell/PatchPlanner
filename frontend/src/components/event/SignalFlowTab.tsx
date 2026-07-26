@@ -45,6 +45,7 @@ export function SignalFlowTab({ eventId }: { eventId: number }) {
     stageboxes: audioQuery.data?.stageboxes ?? [],
     stageMultis: audioQuery.data?.stage_multis ?? [],
     cables: audioQuery.data?.input_cables ?? [],
+    consoles: audioQuery.data?.consoles ?? [],
     itemLabelById,
   })
   const outputFlows = buildOutputChannelFlows(audioQuery.data?.outputs ?? [], {
@@ -52,6 +53,7 @@ export function SignalFlowTab({ eventId }: { eventId: number }) {
     stageMultis: audioQuery.data?.stage_multis ?? [],
     devices: audioQuery.data?.output_devices ?? [],
     cables: audioQuery.data?.output_cables ?? [],
+    consoles: audioQuery.data?.consoles ?? [],
     itemLabelById,
   })
   const gapCount = flows.filter((flow) => flow.hasGap).length + outputFlows.filter((flow) => flow.hasGap).length

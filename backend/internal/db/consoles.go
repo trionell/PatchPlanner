@@ -9,14 +9,16 @@ import (
 
 const consoleColumns = `id, event_id, name, role, inventory_item_id, owned_item_id,
 	input_count, output_count, local_input_count, local_output_count,
-	position_x, position_y, input_position_x, input_position_y`
+	position_x, position_y, input_position_x, input_position_y,
+	local_position_x, local_position_y, local_input_position_x, local_input_position_y`
 
 func scanConsole(row scanner) (domain.Console, error) {
 	var console domain.Console
 	var invID, ownedID sql.NullInt64
 	if err := row.Scan(&console.ID, &console.EventID, &console.Name, &console.Role, &invID, &ownedID,
 		&console.InputCount, &console.OutputCount, &console.LocalInputCount, &console.LocalOutputCount,
-		&console.PositionX, &console.PositionY, &console.InputPositionX, &console.InputPositionY); err != nil {
+		&console.PositionX, &console.PositionY, &console.InputPositionX, &console.InputPositionY,
+		&console.LocalPositionX, &console.LocalPositionY, &console.LocalInputPositionX, &console.LocalInputPositionY); err != nil {
 		return domain.Console{}, err
 	}
 	if invID.Valid {
@@ -49,13 +51,34 @@ func GetConsole(db *sql.DB, id int64) (domain.Console, error) {
 	return scanConsole(db.QueryRow(`SELECT `+consoleColumns+` FROM event_consoles WHERE id = ?`, id))
 }
 
+// localPanelDefaultX/Y start a desk's local jack panel inside the processing
+// lane, left of and below where a new stagebox lands (420 / 60), so nothing opens
+// stacked. They mirror the DEFAULTs in migration 043, which apply to rows the
+// migration and CreateEvent produce — this INSERT names the columns explicitly,
+// so a zero would override the default and drop the panel on the canvas origin.
+const (
+	localPanelDefaultX = 260.0
+	localPanelDefaultY = 320.0
+)
+
 func CreateConsole(db *sql.DB, console domain.Console) (domain.Console, error) {
+	// A create never means "put it at the origin": the canvas clamps the
+	// processing lane away from x = 0, so an all-zero pair is an unset pair.
+	if console.LocalPositionX == 0 && console.LocalPositionY == 0 {
+		console.LocalPositionX, console.LocalPositionY = localPanelDefaultX, localPanelDefaultY
+	}
+	if console.LocalInputPositionX == 0 && console.LocalInputPositionY == 0 {
+		console.LocalInputPositionX, console.LocalInputPositionY = localPanelDefaultX, localPanelDefaultY
+	}
 	result, err := db.Exec(`INSERT INTO event_consoles
-		(event_id, name, role, inventory_item_id, owned_item_id, input_count, output_count, local_input_count, local_output_count, position_x, position_y, input_position_x, input_position_y)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		(event_id, name, role, inventory_item_id, owned_item_id, input_count, output_count, local_input_count, local_output_count,
+		 position_x, position_y, input_position_x, input_position_y,
+		 local_position_x, local_position_y, local_input_position_x, local_input_position_y)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		console.EventID, console.Name, console.Role, nullInt64(console.InventoryItemID), nullInt64(console.OwnedItemID),
 		console.InputCount, console.OutputCount, console.LocalInputCount, console.LocalOutputCount,
-		console.PositionX, console.PositionY, console.InputPositionX, console.InputPositionY)
+		console.PositionX, console.PositionY, console.InputPositionX, console.InputPositionY,
+		console.LocalPositionX, console.LocalPositionY, console.LocalInputPositionX, console.LocalInputPositionY)
 	if err != nil {
 		return domain.Console{}, fmt.Errorf("create console: %w", err)
 	}
@@ -66,10 +89,12 @@ func CreateConsole(db *sql.DB, console domain.Console) (domain.Console, error) {
 func UpdateConsole(db *sql.DB, id int64, console domain.Console) (domain.Console, error) {
 	_, err := db.Exec(`UPDATE event_consoles SET name = ?, role = ?, inventory_item_id = ?, owned_item_id = ?,
 		input_count = ?, output_count = ?, local_input_count = ?, local_output_count = ?,
-		position_x = ?, position_y = ?, input_position_x = ?, input_position_y = ? WHERE id = ?`,
+		position_x = ?, position_y = ?, input_position_x = ?, input_position_y = ?,
+		local_position_x = ?, local_position_y = ?, local_input_position_x = ?, local_input_position_y = ? WHERE id = ?`,
 		console.Name, console.Role, nullInt64(console.InventoryItemID), nullInt64(console.OwnedItemID),
 		console.InputCount, console.OutputCount, console.LocalInputCount, console.LocalOutputCount,
-		console.PositionX, console.PositionY, console.InputPositionX, console.InputPositionY, id)
+		console.PositionX, console.PositionY, console.InputPositionX, console.InputPositionY,
+		console.LocalPositionX, console.LocalPositionY, console.LocalInputPositionX, console.LocalInputPositionY, id)
 	if err != nil {
 		return domain.Console{}, fmt.Errorf("update console: %w", err)
 	}

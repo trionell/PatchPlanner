@@ -117,8 +117,13 @@ export function FlowInspector({
         : selection.kind === 'device'
           ? devices.find((device) => device.id === selection.id)?.name ?? 'Device'
           : selection.kind === 'console_local'
-            ? consoles.find((desk) => desk.id === selection.id)?.name || 'Console'
-            : 'Channels'
+            ? // Since Slice 24 this kind selects the desk's *jack panel*, not the
+              // desk's channel rail — say so, or two nodes with the same name
+              // would give the same title.
+              `${consoles.find((desk) => desk.id === selection.id)?.name || 'Console'} · local jacks`
+            : selection.kind === 'channel' && selection.id > 0
+              ? consoles.find((desk) => desk.id === selection.id)?.name || 'Console'
+              : 'Channels with no desk'
 
   return (
     <aside className="w-64 shrink-0 space-y-3 rounded-lg border border-zinc-800 bg-zinc-900 p-3">
