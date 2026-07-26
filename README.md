@@ -393,7 +393,7 @@ Base URL: `http://localhost:7331/api/v1`
 | GET | `/events/:id/inventory` | The event's bound inventory's public fields (name, source filename) — any role |
 | GET | `/events/:id/inventory/categories` | The event's bound inventory's categories, read-only — any role |
 | GET | `/events/:id/inventory/items` | The event's bound inventory's items, read-only — any role; this is what every planning picker reads from |
-| GET | `/events/:id/audio-patch` | Full audio patch: stageboxes, stage multis, groups, DCAs, input sources, input channels, input devices, input cables, outputs, output devices, output cables |
+| GET | `/events/:id/audio-patch` | Full audio patch: consoles, stageboxes, stage multis, groups, DCAs, input sources, input channels, input devices, input cables, outputs, output devices, output cables |
 | POST | `/events/:id/groups` | Add a mix group (`{"name", "color"?}`; 409 on duplicate name) |
 | PATCH | `/events/:id/groups/:groupId` | Rename/recolor a group (LR: recolor only) |
 | DELETE | `/events/:id/groups/:groupId` | Delete a group and its channel assignments (LR protected) |
@@ -406,6 +406,9 @@ Base URL: `http://localhost:7331/api/v1`
 | POST | `/events/:id/stage-multis` | Add a stage multicore |
 | PATCH | `/events/:id/stage-multis/:smId` | Update a stage multicore |
 | DELETE | `/events/:id/stage-multis/:smId` | Delete a stage multicore |
+| POST | `/events/:id/consoles` | Declare a mixing desk (`name`, `role` ∈ `foh`\|`monitor`\|`broadcast`, at most one of `inventory_item_id`/`owned_item_id`, and the four counts `input_count`/`output_count`/`local_input_count`/`local_output_count`, each defaulting to `0` = undeclared). An event may hold several |
+| PATCH | `/events/:id/consoles/:consoleId` | Update a desk, including its canvas positions on both graphs (`position_x`/`position_y`, `input_position_x`/`input_position_y`). `409` naming the affected jacks if a local port count would drop below what is patched |
+| DELETE | `/events/:id/consoles/:consoleId` | Delete a desk — clears the cables on its local jacks (returns `{"cleared_cables": N}`) and unassigns its channels and outputs, never deleting them |
 | POST | `/events/:id/input-channels` | Add a Channel — console strip only (`channel_number`, `channel_name`, `width`, `mixer_behavior`, `group_ids`/`dca_ids`, `color`, `notes`); omit `group_ids` to route to LR by default. No source-related fields — what feeds it is decided entirely by `input-cables` |
 | PATCH | `/events/:id/input-channels/:channelId` | Update a Channel (`group_ids`/`dca_ids` replace the sets wholesale) |
 | DELETE | `/events/:id/input-channels/:channelId` | Delete a Channel and every cable feeding it |
@@ -415,7 +418,7 @@ Base URL: `http://localhost:7331/api/v1`
 | POST | `/events/:id/input-devices` | Declare an input-side device (DI box, etc.) — same shape as `output-devices` minus link ports |
 | PATCH | `/events/:id/input-devices/:deviceId` | Update an input device — `409` with the affected cables if a port count would drop below its number of attached cables |
 | DELETE | `/events/:id/input-devices/:deviceId` | Delete an input device — removes every cable attached to it instead of blocking |
-| POST | `/events/:id/input-cables` | Connect two ports (`from_kind` ∈ `source`\|`stagebox`\|`stage_multi`\|`device`, `to_kind` ∈ `stagebox`\|`stage_multi`\|`device`\|`channel`, plus `from_id`/`from_port`/`to_id`/`to_port` and an optional `cable_item_id`). A Source's `from_port` is exempt from the one-cable-per-port rule (fan-out/double-patching); every other port is `409` if already in use. `400` on an out-of-bounds port or a `cable_item_id` sent when `from_kind` ∈ `stagebox`\|`stage_multi` and `to_kind = channel` (that hop is pure console routing, never a separate rentable cable) |
+| POST | `/events/:id/input-cables` | Connect two ports (`from_kind` ∈ `source`\|`stagebox`\|`stage_multi`\|`device`\|`console_local`, `to_kind` ∈ `stagebox`\|`stage_multi`\|`device`\|`channel`\|`console_local`, plus `from_id`/`from_port`/`to_id`/`to_port` and an optional `cable_item_id`). A Source's `from_port` is exempt from the one-cable-per-port rule (fan-out/double-patching); every other port is `409` if already in use. `400` on an out-of-bounds port or a `cable_item_id` sent when `from_kind` ∈ `stagebox`\|`stage_multi`\|`console_local` and `to_kind = channel` (that hop is pure console routing, never a separate rentable cable) |
 | PATCH | `/events/:id/input-cables/:cableId` | Re-pick `cable_item_id` — the only field this endpoint changes |
 | DELETE | `/events/:id/input-cables/:cableId` | Remove a cable — both endpoints remain untouched |
 | POST | `/events/:id/audio-outputs` | Add an output row (`width` defaults to `mono`) — contributes 1 (mono) or 2 (stereo, independent) mixer ports to the graph |
@@ -424,7 +427,7 @@ Base URL: `http://localhost:7331/api/v1`
 | POST | `/events/:id/output-devices` | Declare a device (name, exactly one of `inventory_item_id`/`owned_item_id`, `input_port_count`/`output_port_count` with a matching `*_connector_type` set exactly when that side's count is `> 0`, `position_x`/`position_y`) |
 | PATCH | `/events/:id/output-devices/:deviceId` | Update a device — `409` with the affected cables if a port count would drop below its number of attached cables |
 | DELETE | `/events/:id/output-devices/:deviceId` | Delete a device — removes every cable attached to it instead of blocking |
-| POST | `/events/:id/output-cables` | Connect two ports (`from_kind` ∈ `mixer`\|`stagebox`\|`stage_multi`\|`device`, `to_kind` ∈ `stage_multi`\|`device`, plus `from_id`/`from_port`/`to_id`/`to_port` and an optional `cable_item_id`). `409` if either port is already in use; `400` on an out-of-bounds port or a `cable_item_id` sent against a `stage_multi` `to_kind` (its own wiring is never a separate rentable cable) |
+| POST | `/events/:id/output-cables` | Connect two ports (`from_kind` ∈ `mixer`\|`stagebox`\|`stage_multi`\|`device`\|`device_link`\|`console_local`, `to_kind` ∈ `stagebox`\|`stage_multi`\|`device`\|`console_local`, plus `from_id`/`from_port`/`to_id`/`to_port` and an optional `cable_item_id`). `409` if either port is already in use; `400` on an out-of-bounds port or a `cable_item_id` sent against a `stagebox`, `stage_multi` or `console_local` `to_kind` (that side is desk/network routing, never a separate rentable cable) |
 | PATCH | `/events/:id/output-cables/:cableId` | Re-pick `cable_item_id` — the only field this endpoint changes; moving a cable to different ports is delete + create |
 | DELETE | `/events/:id/output-cables/:cableId` | Remove a cable — both endpoint devices remain untouched |
 | GET | `/events/:id/lighting-rigs` | Get the rig with truss sections and fixtures |
