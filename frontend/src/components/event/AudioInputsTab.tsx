@@ -7,11 +7,13 @@ import { useIsMobile } from '../../hooks/useIsMobile'
 import { usePatchView } from '../../hooks/usePatchView'
 import { buildMobileChannelList } from '../../lib/mobileChannelList'
 import { itemLabel } from '../../lib/utils'
+import type { SegmentNode } from '../../lib/patchSheet'
 import type { InputChannel, InventoryItem, OwnedItem } from '../../types'
 import { MobileChannelEditSheet } from '../mobile/MobileChannelEditSheet'
 import { MobileEntityList } from '../mobile/MobileEntityList'
 import { InputPatchSheet } from '../print/InputPatchSheet'
 import { AudioPatchShell } from './AudioPatchShell'
+import type { FlowSelection } from './FlowInspector'
 import { BusesDrawer } from './BusesDrawer'
 import { ConsoleSection } from './ConsoleSection'
 import { InputDeviceSection } from './InputDeviceSection'
@@ -40,6 +42,11 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
   const [editingChannelId, setEditingChannelId] = useState<number | 'new' | null>(null)
   const [view, setView] = usePatchView(eventId, 'inputs')
   const [search, setSearch] = useState('')
+  // Which node the graph's inspector is open on. Held here rather than in the
+  // canvas so it survives the view toggle in both directions, and so the sheet
+  // can set it (Slice 25 FR-001/FR-002). Deliberately not persisted: it is where
+  // the planner is looking, not part of the plan.
+  const [selection, setSelection] = useState<FlowSelection | null>(null)
   const [drawer, setDrawer] = useState<'rig' | 'buses' | null>(null)
 
   const invalidate = async () => {
@@ -106,6 +113,35 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
         )}
       </div>
     )
+  }
+
+  /**
+   * The graph node a sheet hop points at (Slice 25 FR-003). The sheet's node kinds
+   * come from the chain and the graph's from the canvas, and they do not quite
+   * agree: a chain's tail is the channel row itself, which is not a box you can
+   * select — the input graph's `channel` nodes are keyed by *desk*, not by channel
+   * — and `mixer`/`device_link` do not exist on this graph at all. Those return
+   * nothing, and the caller then leaves the view alone rather than switching to a
+   * canvas with nothing selected.
+   */
+  const flowSelectionFor = (node: SegmentNode): FlowSelection | null => {
+    switch (node.kind) {
+      case 'source':
+      case 'stagebox':
+      case 'stage_multi':
+      case 'device':
+      case 'console_local':
+        return { kind: node.kind, id: node.id }
+      default:
+        return null
+    }
+  }
+
+  const openInFlow = (node: SegmentNode) => {
+    const next = flowSelectionFor(node)
+    if (!next) return
+    setSelection(next)
+    setView('flow')
   }
 
   const addChannel = () => {
@@ -179,7 +215,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
               cableItems={cableItems}
               itemLabelById={itemLabelById}
               search={search}
-              onEditInFlow={() => setView('flow')}
+              onEditInFlow={openInFlow}
               onOpenRig={readOnly ? undefined : () => setDrawer('rig')}
               readOnly={readOnly}
             />
@@ -199,6 +235,8 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
             standItems={standItems}
             itemLabelById={itemLabelById}
             search={search}
+            selection={selection}
+            onSelectionChange={setSelection}
             onChanged={invalidate}
             readOnly={readOnly}
           />

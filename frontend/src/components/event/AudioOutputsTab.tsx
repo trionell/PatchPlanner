@@ -20,6 +20,7 @@ import { useIsMobile } from '../../hooks/useIsMobile'
 import { usePatchView } from '../../hooks/usePatchView'
 import { buildMobileOutputList } from '../../lib/mobileOutputList'
 import { matchesSearch } from '../../lib/patchSearch'
+import type { SegmentNode } from '../../lib/patchSheet'
 import { MobileEntityList } from '../mobile/MobileEntityList'
 import { MobileOutputEditSheet } from '../mobile/MobileOutputEditSheet'
 import {
@@ -80,6 +81,11 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
   const [view, setView] = usePatchView(eventId, 'outputs')
   const [search, setSearch] = useState('')
   const [rigOpen, setRigOpen] = useState(false)
+  // Which node the graph marks. Held here rather than in the canvas so it survives
+  // the view toggle and so the sheet can set it (Slice 25 FR-001/FR-002). This
+  // graph has no inspector — the mockup draws none — so a selection here marks the
+  // box and nothing more.
+  const [selection, setSelection] = useState<{ kind: PortRef['kind']; id: number } | null>(null)
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['audio-patch', eventId] })
@@ -100,6 +106,19 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
     () => new Map([...allAudioItems, ...cableItems].map((item) => [item.id, itemLabel(item)])),
     [allAudioItems, cableItems],
   )
+
+  /**
+   * The graph node a sheet hop points at (Slice 25 FR-003). A chain's head is the
+   * desk output itself, which this graph keys by *console* rather than by output,
+   * so it selects nothing; a `device_link` hop lives on the same box as the
+   * device's ordinary ports, so it selects the device.
+   */
+  const openInFlow = (node: SegmentNode) => {
+    const kind = node.kind === 'device_link' ? 'device' : node.kind
+    if (kind !== 'stagebox' && kind !== 'stage_multi' && kind !== 'device' && kind !== 'console_local') return
+    setSelection({ kind, id: node.id })
+    setView('flow')
+  }
 
   const addOutputRow = () => {
     const lastNumber = outputs.at(-1)?.output_number ?? 0
@@ -194,7 +213,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
             cableItems={cableItems}
             itemLabelById={itemLabelById}
             search={search}
-            onEditInFlow={() => setView('flow')}
+            onEditInFlow={openInFlow}
             onOpenRig={readOnly ? undefined : () => setRigOpen(true)}
             readOnly={readOnly}
           />
@@ -209,6 +228,8 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
             consoles={consoles}
             cableItems={cableItems}
             search={search}
+            selection={selection}
+            onSelectionChange={setSelection}
             onChanged={invalidate}
             readOnly={readOnly}
           />
@@ -278,6 +299,8 @@ function OutputGraphCanvas({
   consoles,
   cableItems,
   search = '',
+  selection,
+  onSelectionChange,
   onChanged,
   readOnly = false,
 }: {
@@ -295,6 +318,9 @@ function OutputGraphCanvas({
    * (research.md R14).
    */
   search?: string
+  /** Which box the graph marks. Owned by the tab (Slice 25 FR-002). */
+  selection: { kind: PortRef['kind']; id: number } | null
+  onSelectionChange: (selection: { kind: PortRef['kind']; id: number } | null) => void
   onChanged: () => Promise<void>
   readOnly?: boolean
 }) {
@@ -754,6 +780,8 @@ function OutputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     onDragStart={readOnly ? undefined : (e) => startNodeDrag('console_local', desk.id, 'free', e)}
+                    selected={selection?.kind === 'console_local' && selection.id === desk.id}
+                    onSelect={() => onSelectionChange({ kind: 'console_local', id: desk.id })}
                     dimmed={!matchesSearch(search, desk.name, 'local')}
                   />
                 )
@@ -776,6 +804,8 @@ function OutputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     onDragStart={readOnly ? undefined : (e) => startNodeDrag('mixer', desk.id, 'y-only', e)}
+                    selected={selection?.kind === 'mixer' && selection.id === desk.id}
+                    onSelect={() => onSelectionChange({ kind: 'mixer', id: desk.id })}
                     search={search}
                   />
                 ) : (
@@ -809,6 +839,8 @@ function OutputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     onDragStart={readOnly ? undefined : (e) => startNodeDrag('stagebox', sb.id, 'free', e)}
+                    selected={selection?.kind === 'stagebox' && selection.id === sb.id}
+                    onSelect={() => onSelectionChange({ kind: 'stagebox', id: sb.id })}
                     dimmed={!matchesSearch(search, sb.name, sb.model)}
                   />
                 )
@@ -828,6 +860,8 @@ function OutputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     onDragStart={readOnly ? undefined : (e) => startNodeDrag('stage_multi', sm.id, 'free', e)}
+                    selected={selection?.kind === 'stage_multi' && selection.id === sm.id}
+                    onSelect={() => onSelectionChange({ kind: 'stage_multi', id: sm.id })}
                     dimmed={!matchesSearch(search, sm.name)}
                   />
                 )
@@ -846,6 +880,8 @@ function OutputGraphCanvas({
                   onPortPointerDown={handlePortPointerDown}
                   registerPort={registerPort}
                   onDragStart={readOnly ? undefined : (e) => startNodeDrag('device', device.id, node.zone === 'processing' ? 'free' : 'y-only', e)}
+                  selected={selection?.kind === 'device' && selection.id === device.id}
+                  onSelect={() => onSelectionChange({ kind: 'device', id: device.id })}
                   onDelete={readOnly ? undefined : () => deleteDeviceMutation.mutate(device.id)}
                   dimmed={!matchesSearch(search, device.name)}
                 />
@@ -936,25 +972,31 @@ function PortDot({
   )
 }
 
-function NodeShell({ x, y, title, badge, dimmed, onDragStart, onDelete, children }: {
+function NodeShell({ x, y, title, badge, dimmed, selected, onDragStart, onDelete, onSelect, children }: {
   x: number
   y: number
   title: string
   badge?: string
   /** Search is active and this node doesn't match — still drawn, just quiet. */
   dimmed?: boolean
+  /** The graph marks this box (Slice 25 FR-001). */
+  selected?: boolean
   onDragStart?: (e: ReactPointerEvent) => void
   onDelete?: () => void
+  onSelect?: () => void
   children: ReactNode
 }) {
   return (
     <div
-      className={`absolute rounded-lg border border-zinc-700 bg-zinc-900 shadow-lg transition-opacity ${dimmed ? 'opacity-30' : ''}`}
+      className={`absolute rounded-lg border bg-zinc-900 shadow-lg transition-opacity ${
+        selected ? 'border-amber-500 ring-2 ring-amber-500/30' : 'border-zinc-700'
+      } ${dimmed ? 'opacity-30' : ''}`}
       style={{ left: x, top: y, width: NODE_WIDTH }}
     >
       <div
         className={`flex items-center justify-between gap-2 rounded-t-lg border-b border-zinc-800 px-2 py-1.5 ${onDragStart ? 'cursor-grab touch-none active:cursor-grabbing' : ''}`}
         onPointerDown={onDragStart}
+        onClick={onSelect}
       >
         <span className="truncate text-xs font-semibold text-zinc-100">{title}</span>
         <div className="flex items-center gap-1">
@@ -1016,7 +1058,7 @@ function PortRow({ label, port, cables, pendingPort, onPortClick, onPortPointerD
  * footer states usage against what the desk can take, and turns red when the
  * patch has outgrown it.
  */
-function ConsoleNode({ x, y, desk, outputs, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, search = '' }: {
+function ConsoleNode({ x, y, desk, outputs, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, search = '' , selected, onSelect }: {
   x: number
   y: number
   desk: Console
@@ -1028,6 +1070,8 @@ function ConsoleNode({ x, y, desk, outputs, cables, pendingPort, onPortClick, on
   registerPort: (key: string) => (el: HTMLElement | null) => void
   onDragStart?: (e: ReactPointerEvent) => void
   search?: string
+  selected?: boolean
+  onSelect?: () => void
 }) {
   const ports = mixerPorts(outputs)
   const dimmedIds = new Set(
@@ -1036,7 +1080,7 @@ function ConsoleNode({ x, y, desk, outputs, cables, pendingPort, onPortClick, on
   const over = desk.output_count > 0 && outputs.length > desk.output_count
 
   return (
-    <NodeShell x={x} y={y} title={desk.name || 'Console'} badge="DESK" onDragStart={onDragStart}>
+    <NodeShell x={x} y={y} title={desk.name || 'Console'} badge="DESK" onDragStart={onDragStart} selected={selected} onSelect={onSelect}>
       {ports.map((port) => (
         <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" dimmed={dimmedIds.has(port.id)} />
       ))}
@@ -1062,7 +1106,7 @@ function ConsoleNode({ x, y, desk, outputs, cables, pendingPort, onPortClick, on
  * routing, no cable — and a real cable leaves the right one, exactly as through
  * a stagebox.
  */
-function LocalJackNode({ x, y, desk, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, dimmed }: {
+function LocalJackNode({ x, y, desk, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, dimmed , selected, onSelect }: {
   x: number
   y: number
   desk: Console
@@ -1073,10 +1117,12 @@ function LocalJackNode({ x, y, desk, cables, pendingPort, onPortClick, onPortPoi
   registerPort: (key: string) => (el: HTMLElement | null) => void
   onDragStart?: (e: ReactPointerEvent) => void
   dimmed?: boolean
+  selected?: boolean
+  onSelect?: () => void
 }) {
   const { inputs, outputs } = consoleLocalPorts(desk)
   return (
-    <NodeShell x={x} y={y} title={desk.name || 'Console'} badge="LOCAL" onDragStart={onDragStart} dimmed={dimmed}>
+    <NodeShell x={x} y={y} title={desk.name || 'Console'} badge="LOCAL" onDragStart={onDragStart} dimmed={dimmed} selected={selected} onSelect={onSelect}>
       <div className="grid grid-cols-2 gap-x-2">
         <div className="space-y-1">
           {inputs.map((port) => (
@@ -1093,7 +1139,7 @@ function LocalJackNode({ x, y, desk, cables, pendingPort, onPortClick, onPortPoi
   )
 }
 
-function MixerNode({ x, y, outputs, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, search = '' }: {
+function MixerNode({ x, y, outputs, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, search = '' , selected, onSelect }: {
   x: number
   y: number
   outputs: AudioPatchOutput[]
@@ -1104,6 +1150,8 @@ function MixerNode({ x, y, outputs, cables, pendingPort, onPortClick, onPortPoin
   registerPort: (key: string) => (el: HTMLElement | null) => void
   onDragStart?: (e: ReactPointerEvent) => void
   search?: string
+  selected?: boolean
+  onSelect?: () => void
 }) {
   const ports = mixerPorts(outputs)
   // One node, many rows, so search dims per row rather than per node.
@@ -1111,7 +1159,7 @@ function MixerNode({ x, y, outputs, cables, pendingPort, onPortClick, onPortPoin
     outputs.filter((row) => !matchesSearch(search, row.output_number, row.output_name, row.output_type, row.notes)).map((row) => row.id),
   )
   return (
-    <NodeShell x={x} y={y} title="No desk" badge={ports.length > 0 ? String(outputs.length) : undefined} onDragStart={onDragStart}>
+    <NodeShell x={x} y={y} title="No desk" badge={ports.length > 0 ? String(outputs.length) : undefined} onDragStart={onDragStart} selected={selected} onSelect={onSelect}>
       {ports.map((port) => (
         <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" dimmed={dimmedIds.has(port.id)} />
       ))}
@@ -1120,7 +1168,7 @@ function MixerNode({ x, y, outputs, cables, pendingPort, onPortClick, onPortPoin
   )
 }
 
-function StageboxNode({ x, y, stagebox, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, dimmed }: {
+function StageboxNode({ x, y, stagebox, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, dimmed , selected, onSelect }: {
   x: number
   y: number
   stagebox: Stagebox
@@ -1131,10 +1179,12 @@ function StageboxNode({ x, y, stagebox, cables, pendingPort, onPortClick, onPort
   registerPort: (key: string) => (el: HTMLElement | null) => void
   onDragStart?: (e: ReactPointerEvent) => void
   dimmed?: boolean
+  selected?: boolean
+  onSelect?: () => void
 }) {
   const { inputs, outputs } = stageboxPorts(stagebox)
   return (
-    <NodeShell x={x} y={y} title={stagebox.name} badge="SB" onDragStart={onDragStart} dimmed={dimmed}>
+    <NodeShell x={x} y={y} title={stagebox.name} badge="SB" onDragStart={onDragStart} dimmed={dimmed} selected={selected} onSelect={onSelect}>
       <div className="grid grid-cols-2 gap-x-2">
         <div className="space-y-1">
           {inputs.map((port) => (
@@ -1151,7 +1201,7 @@ function StageboxNode({ x, y, stagebox, cables, pendingPort, onPortClick, onPort
   )
 }
 
-function StageMultiNode({ x, y, stageMulti, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, dimmed }: {
+function StageMultiNode({ x, y, stageMulti, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, dimmed , selected, onSelect }: {
   x: number
   y: number
   stageMulti: StageMulti
@@ -1162,10 +1212,12 @@ function StageMultiNode({ x, y, stageMulti, cables, pendingPort, onPortClick, on
   registerPort: (key: string) => (el: HTMLElement | null) => void
   onDragStart?: (e: ReactPointerEvent) => void
   dimmed?: boolean
+  selected?: boolean
+  onSelect?: () => void
 }) {
   const { inputs, outputs } = stageMultiPorts(stageMulti)
   return (
-    <NodeShell x={x} y={y} title={stageMulti.name} badge="Multi" onDragStart={onDragStart} dimmed={dimmed}>
+    <NodeShell x={x} y={y} title={stageMulti.name} badge="Multi" onDragStart={onDragStart} dimmed={dimmed} selected={selected} onSelect={onSelect}>
       <div className="grid grid-cols-2 gap-x-2">
         <div className="space-y-1">
           {inputs.map((port) => (
@@ -1182,7 +1234,7 @@ function StageMultiNode({ x, y, stageMulti, cables, pendingPort, onPortClick, on
   )
 }
 
-function DeviceNode({ x, y, device, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, onDelete, dimmed }: {
+function DeviceNode({ x, y, device, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, onDelete, dimmed , selected, onSelect }: {
   x: number
   y: number
   device: OutputDevice
@@ -1194,10 +1246,12 @@ function DeviceNode({ x, y, device, cables, pendingPort, onPortClick, onPortPoin
   onDragStart?: (e: ReactPointerEvent) => void
   onDelete?: () => void
   dimmed?: boolean
+  selected?: boolean
+  onSelect?: () => void
 }) {
   const { inputs, outputs, links } = devicePorts(device)
   return (
-    <NodeShell x={x} y={y} title={device.name} onDragStart={onDragStart} onDelete={onDelete} dimmed={dimmed}>
+    <NodeShell x={x} y={y} title={device.name} onDragStart={onDragStart} onDelete={onDelete} dimmed={dimmed} selected={selected} onSelect={onSelect}>
       <div className="grid grid-cols-2 gap-x-2">
         <div className="space-y-1">
           {inputs.map((port) => (
