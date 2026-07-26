@@ -159,6 +159,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
             stageboxes={stageboxes}
             stageMultis={stageMultis}
             audioItems={allAudioItems}
+            cables={[...outputCables, ...(audioQuery.data?.input_cables ?? [])]}
             itemCount={consoles.length + stageboxes.length + stageMultis.length + outputDevices.length}
             readOnly={readOnly}
             consoleSection={

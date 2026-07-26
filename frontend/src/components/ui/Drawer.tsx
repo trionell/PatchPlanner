@@ -51,9 +51,11 @@ export function Drawer({ open, onClose, title, subtitle, width = 'wide', childre
             ×
           </button>
         </div>
-        {/* No gap utility here: the sections re-parented into these drawers
-            carry their own `mb-6`, and doubling it reads as a broken layout. */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        {/* Sections are stacked full width with one gap owned here, rather than
+            each carrying its own margin (Slice 24 FR-018). */}
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          <div className="flex flex-col gap-5">{children}</div>
+        </div>
         {footer && <div className="border-t border-zinc-800 px-5 py-3 text-xs text-zinc-500">{footer}</div>}
       </div>
     </div>

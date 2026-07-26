@@ -40,7 +40,7 @@ export function patchStatusState(status: PatchStatus): PatchStatusState {
  * directions is still one jack, so the two sides are unioned rather than
  * summed — otherwise a fully-wired pass-through would read as double its size.
  */
-function usedPorts(kind: string, id: number, cables: { from_kind: string; from_id: number; from_port: number; to_kind: string; to_id: number; to_port: number }[]): number {
+export function usedPorts(kind: string, id: number, cables: { from_kind: string; from_id: number; from_port: number; to_kind: string; to_id: number; to_port: number }[]): number {
   const ports = new Set<number>()
   for (const cable of cables) {
     if (cable.from_kind === kind && cable.from_id === id) ports.add(cable.from_port)
