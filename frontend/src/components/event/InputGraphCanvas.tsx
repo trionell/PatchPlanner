@@ -229,13 +229,13 @@ export function InputGraphCanvas({
 
     const channelsX = zoneChannelsX(canvasWidth)
     let nextY = 24
-    for (const console of consoles) {
-      const override = positions.get(`console_local:${console.id}`)
-      nodes.push({ kind: 'console_local', id: console.id, x: channelsX, y: override?.y ?? console.input_position_y ?? nextY })
+    for (const desk of consoles) {
+      const override = positions.get(`console_local:${desk.id}`)
+      nodes.push({ kind: 'console_local', id: desk.id, x: channelsX, y: override?.y ?? desk.input_position_y ?? nextY })
       nextY += 220
     }
     // Channels belonging to no desk keep a node of their own rather than
-    // disappearing — the state an event is in after its only console is
+    // disappearing — the state an event is in after its only desk is
     // deleted, and it must stay patchable.
     if (orphanChannels.length > 0 || consoles.length === 0) {
       const override = positions.get('channel:0')
@@ -542,22 +542,22 @@ export function InputGraphCanvas({
                 )
               }
               if (node.kind === 'console_local') {
-                const console = consoles.find((c) => c.id === node.id)
-                if (!console) return null
+                const desk = consoles.find((c) => c.id === node.id)
+                if (!desk) return null
                 return (
                   <ConsoleNode
-                    key={`console-${console.id}`}
+                    key={`desk-${desk.id}`}
                     x={node.x}
                     y={node.y}
-                    console={console}
-                    channels={channels.filter((channel) => channel.console_id === console.id)}
+                    desk={desk}
+                    channels={channels.filter((channel) => channel.console_id === desk.id)}
                     cables={cables}
                     pendingPort={pendingPort}
                     onPortClick={handlePortClick}
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
-                    onDragStart={(e) => startNodeDrag('console_local', console.id, e)}
+                    onDragStart={(e) => startNodeDrag('console_local', desk.id, e)}
                     search={search}
                   />
                 )
@@ -840,7 +840,7 @@ function PortRow({ label, port, cables, pendingPort, onPortClick, onPortPointerD
  * the row previously lacked — the derived colour tape, the picked model, and
  * phantom power.
  *
- * The rail scrolls inside its own lane, so the rig and console lanes never
+ * The rail scrolls inside its own lane, so the rig and desk lanes never
  * move; `onScroll` is what keeps the cables attached while it does.
  */
 function SourcesNode({ x, y, sources, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext, search = '', micLabel, selectedId, onSelect, onScroll }: {
@@ -983,13 +983,13 @@ function ChannelsNode({ x, y, channels, cables, pendingPort, onPortClick, onPort
 /**
  * The desk on the input graph (Slice 23): its channel strips, then its own
  * local jacks after a divider. Where the Channels rail used to be an anonymous
- * list, it now belongs to a named console with a stated capacity — which is
+ * list, it now belongs to a named desk with a stated capacity — which is
  * what makes "15 / 96 in" sayable at all.
  */
-function ConsoleNode({ x, y, console, channels, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext, onDragStart, search = '' }: {
+function ConsoleNode({ x, y, desk, channels, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext, onDragStart, search = '' }: {
   x: number
   y: number
-  console: Console
+  desk: Console
   channels: InputChannel[]
   cables: InputCable[]
   pendingPort: PortRef | null
@@ -1001,14 +1001,14 @@ function ConsoleNode({ x, y, console, channels, cables, pendingPort, onPortClick
   search?: string
 }) {
   const ports = channels.flatMap((channel) => channelPorts(channel))
-  const localPorts = consoleLocalPorts(console).inputs
+  const localPorts = consoleLocalPorts(desk).inputs
   const dimmedIds = new Set(
     channels.filter((channel) => !matchesSearch(search, channel.channel_number, channel.channel_name, channel.notes)).map((channel) => channel.id),
   )
-  const over = console.input_count > 0 && channels.length > console.input_count
+  const over = desk.input_count > 0 && channels.length > desk.input_count
 
   return (
-    <NodeShell x={x} y={y} title={console.name || 'Console'} badge="DESK" onDragStart={onDragStart}>
+    <NodeShell x={x} y={y} title={desk.name || 'Console'} badge="DESK" onDragStart={onDragStart}>
       {ports.map((port) => (
         <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" colorContext={colorContext} dimmed={dimmedIds.has(port.id)} />
       ))}
@@ -1022,8 +1022,8 @@ function ConsoleNode({ x, y, console, channels, cables, pendingPort, onPortClick
       )}
       <p className={`border-t border-zinc-800 pt-1 font-mono text-[10px] ${over ? 'text-red-400' : 'text-zinc-500'}`}>
         {channels.length}
-        {console.input_count > 0 ? ` / ${console.input_count}` : ''} in
-        {console.local_input_count > 0 ? ` · local ${console.local_input_count}` : ''}
+        {desk.input_count > 0 ? ` / ${desk.input_count}` : ''} in
+        {desk.local_input_count > 0 ? ` · local ${desk.local_input_count}` : ''}
       </p>
     </NodeShell>
   )

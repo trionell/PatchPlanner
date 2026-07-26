@@ -400,9 +400,9 @@ function OutputGraphCanvas({
 
   const layout = useMemo<NodeLayout[]>(() => {
     const nodes: NodeLayout[] = []
-    for (const console of consoles) {
-      const pos = positions.get(`console_local:${console.id}`)
-      nodes.push({ kind: 'console_local', id: console.id, x: ZONE_SOURCES_X, y: pos?.y ?? console.position_y, zone: 'sources' })
+    for (const desk of consoles) {
+      const pos = positions.get(`console_local:${desk.id}`)
+      nodes.push({ kind: 'console_local', id: desk.id, x: ZONE_SOURCES_X, y: pos?.y ?? desk.position_y, zone: 'sources' })
     }
     if (orphanOutputs.length > 0 || consoles.length === 0) {
       const mixerPos = positions.get('mixer:0')
@@ -704,21 +704,21 @@ function OutputGraphCanvas({
             </svg>
             {layout.map((node) => {
               if (node.kind === 'console_local') {
-                const console = consoles.find((c) => c.id === node.id)
-                if (!console) return null
+                const desk = consoles.find((c) => c.id === node.id)
+                if (!desk) return null
                 return (
                   <ConsoleNode
-                    key={`console-${console.id}`}
+                    key={`desk-${desk.id}`}
                     x={node.x}
                     y={node.y}
-                    console={console}
-                    outputs={outputs.filter((row) => row.console_id === console.id)}
+                    desk={desk}
+                    outputs={outputs.filter((row) => row.console_id === desk.id)}
                     cables={cables}
                     pendingPort={pendingPort}
                     onPortClick={handlePortClick}
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
-                    onDragStart={readOnly ? undefined : (e) => startNodeDrag('console_local', console.id, 'y-only', e)}
+                    onDragStart={readOnly ? undefined : (e) => startNodeDrag('console_local', desk.id, 'y-only', e)}
                     search={search}
                   />
                 )
@@ -962,10 +962,10 @@ function PortRow({ label, port, cables, pendingPort, onPortClick, onPortPointerD
  * footer states usage against what the desk can take, and turns red when the
  * patch has outgrown it.
  */
-function ConsoleNode({ x, y, console, outputs, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, search = '' }: {
+function ConsoleNode({ x, y, desk, outputs, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, search = '' }: {
   x: number
   y: number
-  console: Console
+  desk: Console
   outputs: AudioPatchOutput[]
   cables: OutputCable[]
   pendingPort: PortRef | null
@@ -976,14 +976,14 @@ function ConsoleNode({ x, y, console, outputs, cables, pendingPort, onPortClick,
   search?: string
 }) {
   const ports = mixerPorts(outputs)
-  const localPorts = consoleLocalPorts(console).outputs
+  const localPorts = consoleLocalPorts(desk).outputs
   const dimmedIds = new Set(
     outputs.filter((row) => !matchesSearch(search, row.output_number, row.output_name, row.output_type, row.notes)).map((row) => row.id),
   )
-  const over = console.output_count > 0 && outputs.length > console.output_count
+  const over = desk.output_count > 0 && outputs.length > desk.output_count
 
   return (
-    <NodeShell x={x} y={y} title={console.name || 'Console'} badge="DESK" onDragStart={onDragStart}>
+    <NodeShell x={x} y={y} title={desk.name || 'Console'} badge="DESK" onDragStart={onDragStart}>
       {ports.map((port) => (
         <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" dimmed={dimmedIds.has(port.id)} />
       ))}
@@ -997,8 +997,8 @@ function ConsoleNode({ x, y, console, outputs, cables, pendingPort, onPortClick,
       )}
       <p className={`border-t border-zinc-800 pt-1 font-mono text-[10px] ${over ? 'text-red-400' : 'text-zinc-500'}`}>
         {outputs.length}
-        {console.output_count > 0 ? ` / ${console.output_count}` : ''} out
-        {console.local_output_count > 0 ? ` · local ${console.local_output_count}` : ''}
+        {desk.output_count > 0 ? ` / ${desk.output_count}` : ''} out
+        {desk.local_output_count > 0 ? ` · local ${desk.local_output_count}` : ''}
       </p>
     </NodeShell>
   )

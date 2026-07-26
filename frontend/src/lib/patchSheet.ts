@@ -18,7 +18,7 @@ export interface SegmentNode {
 export interface ChainSegment {
   /** What the sheet prints, e.g. `Beta 91A`, `SB1 : 1`, `SB1 : 6–7`, `ch 1`. */
   label: string
-  kind: 'source' | 'stagebox' | 'multi' | 'device' | 'console' | 'channel' | 'destination'
+  kind: 'source' | 'stagebox' | 'multi' | 'device' | 'desk' | 'channel' | 'destination'
   /** True → a stated gap ("no source", "not patched"), never an empty cell. */
   missing: boolean
   /** The node this segment is, when it is repatchable. Absent on the row's own end. */
@@ -63,7 +63,7 @@ function portLabel(name: string, port: number, portTo?: number): string {
 }
 
 /**
- * A console's own jack, which reads as prose rather than as a numbered port:
+ * A desk's own jack, which reads as prose rather than as a numbered port:
  * `SD10 local in 1`, not `SD10 : 1` — the desk's jacks are named on its back
  * panel that way, and it keeps them distinct from a stagebox jack at a glance.
  */
@@ -113,10 +113,10 @@ function inputSegmentsForHops(hops: InputFlowHop[], context: InputFlowContext): 
     }
     if (hop.node.kind === 'console_local') {
       // Straight into the desk's own preamp — the run that had to be faked
-      // through a stagebox before the console existed.
-      const desk = context.consoles?.find((console) => console.id === hop.node!.id)
+      // through a stagebox before the desk existed.
+      const desk = context.consoles?.find((desk) => desk.id === hop.node!.id)
       const name = desk?.name ? `${desk.name} local in` : 'local in'
-      return [{ label: jackLabel(name, hop.node.port), kind: 'console', missing: false, node, cableId: hop.cableId, detail }]
+      return [{ label: jackLabel(name, hop.node.port), kind: 'desk', missing: false, node, cableId: hop.cableId, detail }]
     }
     return [
       {
@@ -204,7 +204,7 @@ export function inputChainSegments(channel: InputChannel, context: InputFlowCont
  * destination. Mirrors the input side, over `buildOutputChannelFlow`'s
  * forward walk.
  *
- * `consoleLabel` names the desk; until an event declares a console it is
+ * `consoleLabel` names the desk; until an event declares a desk it is
  * simply "Mixer", which is what the graph has always called it.
  */
 export function outputChainSegments(
@@ -216,7 +216,7 @@ export function outputChainSegments(
   const consoleLabel = options.consoleLabel ?? 'Mixer'
   const head: ChainSegment = {
     label: `${consoleLabel} : ${output.output_number}`,
-    kind: 'console',
+    kind: 'desk',
     missing: false,
   }
 
@@ -232,9 +232,9 @@ export function outputChainSegments(
           ? 'built-in'
           : undefined
       if (hop.node.kind === 'console_local') {
-        const desk = options.consoles?.find((console) => console.id === hop.node!.id)
+        const desk = options.consoles?.find((desk) => desk.id === hop.node!.id)
         const name = desk?.name ? `${desk.name} local out` : 'local out'
-        return [{ label: jackLabel(name, hop.node.port), kind: 'console', missing: false, node, cableId: hop.cableId, detail }]
+        return [{ label: jackLabel(name, hop.node.port), kind: 'desk', missing: false, node, cableId: hop.cableId, detail }]
       }
       if (hop.node.kind === 'device' || hop.node.kind === 'device_link') {
         return [{ label: `${nodeNameFor({ ...node, kind: 'device' }, context)} in ${hop.node.port + 1}`, kind: 'device', missing: false, node, cableId: hop.cableId, detail }]

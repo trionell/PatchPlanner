@@ -104,16 +104,16 @@ export function devicePorts(device: OutputDevice): { inputs: PortRef[]; outputs:
 }
 
 /**
- * A console's own jacks on the output graph (Slice 23): `local_output_count`
+ * A desk's own jacks on the output graph (Slice 23): `local_output_count`
  * sockets, each a pass-through pair — an output routes into the in side (the
  * desk's own routing, never a cable) and a real cable leaves the out side.
  * The stagebox's shape on this graph, mirrored.
  */
-export function consoleLocalPorts(console: Console): { inputs: PortRef[]; outputs: PortRef[] } {
+export function consoleLocalPorts(desk: Console): { inputs: PortRef[]; outputs: PortRef[] } {
   const make = (direction: 'in' | 'out') =>
-    Array.from({ length: console.local_output_count }, (_, i) => ({
+    Array.from({ length: desk.local_output_count }, (_, i) => ({
       kind: 'console_local' as const,
-      id: console.id,
+      id: desk.id,
       port: i,
       direction,
       label: `Local out ${i + 1}`,
@@ -170,9 +170,9 @@ export function resolvePortRef(
     return mixerPorts(context.outputs).find((p) => p.id === id && p.port === port)
   }
   if (kind === 'console_local') {
-    const console = context.consoles?.find((c) => c.id === id)
-    if (!console) return undefined
-    const { inputs, outputs } = consoleLocalPorts(console)
+    const desk = context.consoles?.find((c) => c.id === id)
+    if (!desk) return undefined
+    const { inputs, outputs } = consoleLocalPorts(desk)
     return (direction === 'in' ? inputs : outputs).find((p) => p.port === port)
   }
   if (kind === 'stagebox') {
@@ -257,12 +257,12 @@ export function nodeName(
       // Named after the desk the output belongs to, once the event has one —
       // the anonymous "Mixer" was only ever a placeholder for a missing entity.
       const output = context.outputs.find((row) => row.id === id)
-      const console = context.consoles?.find((c) => c.id === output?.console_id)
-      return console?.name || 'Mixer'
+      const desk = context.consoles?.find((c) => c.id === output?.console_id)
+      return desk?.name || 'Mixer'
     }
     case 'console_local': {
-      const console = context.consoles?.find((c) => c.id === id)
-      return console ? console.name || 'Console' : `#${id}`
+      const desk = context.consoles?.find((c) => c.id === id)
+      return desk ? desk.name || 'Console' : `#${id}`
     }
     case 'stagebox':
       return context.stageboxes.find((sb) => sb.id === id)?.name ?? `#${id}`

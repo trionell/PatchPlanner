@@ -57,17 +57,17 @@ export function devicePorts(device: InputDevice): { inputs: PortRef[]; outputs: 
 }
 
 /**
- * A console's own jacks on the input graph (Slice 23): `local_input_count`
+ * A desk's own jacks on the input graph (Slice 23): `local_input_count`
  * physical sockets, each a pass-through pair — a real cable lands on the in
  * side, and the out side is the desk's own (cableless) hop to a channel. The
  * same shape a stagebox has here, which is why a direct-into-the-desk run
  * needed no new cabling rule.
  */
-export function consoleLocalPorts(console: Console): { inputs: PortRef[]; outputs: PortRef[] } {
+export function consoleLocalPorts(desk: Console): { inputs: PortRef[]; outputs: PortRef[] } {
   const make = (direction: 'in' | 'out') =>
-    Array.from({ length: console.local_input_count }, (_, i) => ({
+    Array.from({ length: desk.local_input_count }, (_, i) => ({
       kind: 'console_local' as const,
-      id: console.id,
+      id: desk.id,
       port: i,
       direction,
       label: `Local ${i + 1}`,
@@ -75,7 +75,7 @@ export function consoleLocalPorts(console: Console): { inputs: PortRef[]; output
   return { inputs: make('in'), outputs: make('out') }
 }
 
-/** A node's zone: Source always source-role; Stagebox/StageMulti/Device always processing-role; Channel and the console itself always destination-role. Never a stored flag. */
+/** A node's zone: Source always source-role; Stagebox/StageMulti/Device always processing-role; Channel and the desk itself always destination-role. Never a stored flag. */
 export function nodeZone(kind: PortRef['kind']): Zone {
   if (kind === 'source') return 'sources'
   if (kind === 'channel' || kind === 'console_local') return 'channels'
@@ -129,9 +129,9 @@ export function resolvePortRef(
     return found ? { ...found, kind } : undefined
   }
   if (kind === 'console_local') {
-    const console = context.consoles?.find((c) => c.id === id)
-    if (!console) return undefined
-    const { inputs, outputs } = consoleLocalPorts(console)
+    const desk = context.consoles?.find((c) => c.id === id)
+    if (!desk) return undefined
+    const { inputs, outputs } = consoleLocalPorts(desk)
     return (direction === 'in' ? inputs : outputs).find((p) => p.port === port)
   }
   const device = context.devices.find((d) => d.id === id)
@@ -208,8 +208,8 @@ export function nodeName(kind: PortRef['kind'], id: number, context: ResolveCont
     case 'device':
       return context.devices.find((d) => d.id === id)?.name ?? `#${id}`
     case 'console_local': {
-      const console = context.consoles?.find((c) => c.id === id)
-      return console ? console.name || 'Console' : `#${id}`
+      const desk = context.consoles?.find((c) => c.id === id)
+      return desk ? desk.name || 'Console' : `#${id}`
     }
   }
 }
@@ -220,14 +220,14 @@ export function nodeName(kind: PortRef['kind'], id: number, context: ResolveCont
  * its entire run, so anything leaving its output side — to a Channel, a
  * Stagebox, another Stage Multi, or a Processing device — is always
  * built-in, regardless of destination. A Stagebox has no such integrated
- * run; only its console-side hop into a Channel is a logical slot
+ * run; only its desk-side hop into a Channel is a logical slot
  * assignment rather than a physical cable — a hop to anything else (a
  * device, another Stagebox/Stage-Multi) is a real, separately billable
  * cable.
  */
 export function isCablelessEdge(fromKind: PortRef['kind'], toKind: PortRef['kind']): boolean {
   if (fromKind === 'stage_multi') return true
-  // A console's local jack behaves exactly as a stagebox does: the cable into
+  // A desk's local jack behaves exactly as a stagebox does: the cable into
   // the jack is real and billable, the hop from that jack to a channel is the
   // desk's own routing (Slice 23).
   if (fromKind === 'console_local' && toKind === 'channel') return true

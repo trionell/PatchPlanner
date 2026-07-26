@@ -58,14 +58,14 @@ export function ConsoleSection({ eventId, consoles, channels, outputs, audioItem
   })
   const remove = useMutation({ mutationFn: (id: number) => deleteConsole(eventId, id), onSuccess: invalidate })
 
-  const itemName = (console: Console) => {
-    if (console.inventory_item_id) {
-      const item = audioItems.find((candidate) => candidate.id === console.inventory_item_id)
-      return item ? `${itemLabel(item)} · rental` : `#${console.inventory_item_id}`
+  const itemName = (desk: Console) => {
+    if (desk.inventory_item_id) {
+      const item = audioItems.find((candidate) => candidate.id === desk.inventory_item_id)
+      return item ? `${itemLabel(item)} · rental` : `#${desk.inventory_item_id}`
     }
-    if (console.owned_item_id) {
-      const owned = ownedItems.find((candidate) => candidate.id === console.owned_item_id)
-      return owned ? `${owned.name} · owned` : `#${console.owned_item_id}`
+    if (desk.owned_item_id) {
+      const owned = ownedItems.find((candidate) => candidate.id === desk.owned_item_id)
+      return owned ? `${owned.name} · owned` : `#${desk.owned_item_id}`
     }
     return 'No item picked'
   }
@@ -87,37 +87,37 @@ export function ConsoleSection({ eventId, consoles, channels, outputs, audioItem
 
         {consoles.length === 0 && <p className="text-sm text-zinc-500">No console declared — the graph will show an unnamed desk and nothing is checked against capacity.</p>}
 
-        {consoles.map((console) => {
-          const inputsUsed = channels.filter((channel) => channel.console_id === console.id).length
-          const outputsUsed = outputs.filter((output) => output.console_id === console.id).length
-          const overIn = console.input_count > 0 && inputsUsed > console.input_count
-          const overOut = console.output_count > 0 && outputsUsed > console.output_count
+        {consoles.map((desk) => {
+          const inputsUsed = channels.filter((channel) => channel.console_id === desk.id).length
+          const outputsUsed = outputs.filter((output) => output.console_id === desk.id).length
+          const overIn = desk.input_count > 0 && inputsUsed > desk.input_count
+          const overOut = desk.output_count > 0 && outputsUsed > desk.output_count
           return (
-            <div key={console.id} className="space-y-2 border-b border-zinc-800 pb-3 last:border-b-0">
+            <div key={desk.id} className="space-y-2 border-b border-zinc-800 pb-3 last:border-b-0">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={console.role === 'monitor' ? 'monitor' : console.role === 'broadcast' ? 'matrix' : 'foh'}>{console.role}</Badge>
-                <span className="font-medium text-zinc-100">{console.name || 'Console'}</span>
-                <span className="text-sm text-zinc-500">{itemName(console)}</span>
+                <Badge variant={desk.role === 'monitor' ? 'monitor' : desk.role === 'broadcast' ? 'matrix' : 'foh'}>{desk.role}</Badge>
+                <span className="font-medium text-zinc-100">{desk.name || 'Console'}</span>
+                <span className="text-sm text-zinc-500">{itemName(desk)}</span>
                 <span className="ml-auto flex items-center gap-3 font-mono text-xs text-zinc-500">
-                  <span>in {console.input_count || '—'}</span>
-                  <span>out {console.output_count || '—'}</span>
-                  <span>local {console.local_input_count}/{console.local_output_count}</span>
+                  <span>in {desk.input_count || '—'}</span>
+                  <span>out {desk.output_count || '—'}</span>
+                  <span>local {desk.local_input_count}/{desk.local_output_count}</span>
                   <span className={overIn || overOut ? 'text-red-400' : undefined}>
                     used {inputsUsed} in · {outputsUsed} out
                   </span>
                 </span>
                 {!readOnly && (
                   <>
-                    <Button size="sm" variant="outline" onClick={() => setEditingId(editingId === console.id ? null : console.id)}>
-                      {editingId === console.id ? 'Done' : 'Edit'}
+                    <Button size="sm" variant="outline" onClick={() => setEditingId(editingId === desk.id ? null : desk.id)}>
+                      {editingId === desk.id ? 'Done' : 'Edit'}
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
                       title="Delete console"
                       onClick={() => {
-                        if (window.confirm(`Delete ${console.name || 'this console'}? Cables patched to its local jacks are cleared; channels and outputs are kept.`)) {
-                          remove.mutate(console.id)
+                        if (window.confirm(`Delete ${desk.name || 'this console'}? Cables patched to its local jacks are cleared; channels and outputs are kept.`)) {
+                          remove.mutate(desk.id)
                         }
                       }}
                     >
@@ -127,22 +127,22 @@ export function ConsoleSection({ eventId, consoles, channels, outputs, audioItem
                 )}
               </div>
 
-              {editingId === console.id && !readOnly && (
+              {editingId === desk.id && !readOnly && (
                 <div className="grid gap-2 md:grid-cols-[1fr_9rem_1fr] md:items-end">
                   <label className="space-y-1">
                     <span className="text-[10px] uppercase tracking-wide text-zinc-500">Name</span>
                     <Input
-                      defaultValue={console.name}
+                      defaultValue={desk.name}
                       placeholder="e.g. FOH · SD10"
                       onBlur={(event) => {
                         const name = event.target.value.trim()
-                        if (name !== console.name) update.mutate({ id: console.id, data: { name } })
+                        if (name !== desk.name) update.mutate({ id: desk.id, data: { name } })
                       }}
                     />
                   </label>
                   <label className="space-y-1">
                     <span className="text-[10px] uppercase tracking-wide text-zinc-500">Role</span>
-                    <Select value={console.role} onChange={(event) => update.mutate({ id: console.id, data: { role: event.target.value as Console['role'] } })}>
+                    <Select value={desk.role} onChange={(event) => update.mutate({ id: desk.id, data: { role: event.target.value as Console['role'] } })}>
                       {ROLES.map((role) => (
                         <option key={role} value={role}>
                           {role.toUpperCase()}
@@ -153,15 +153,15 @@ export function ConsoleSection({ eventId, consoles, channels, outputs, audioItem
                   <label className="space-y-1">
                     <span className="text-[10px] uppercase tracking-wide text-zinc-500">Catalog item</span>
                     <Select
-                      value={console.inventory_item_id ?? ''}
+                      value={desk.inventory_item_id ?? ''}
                       onChange={(event) =>
                         update.mutate({
-                          id: console.id,
+                          id: desk.id,
                           data: { inventory_item_id: event.target.value ? Number(event.target.value) : undefined, owned_item_id: undefined },
                         })
                       }
                     >
-                      <option value="">Pick a console…</option>
+                      <option value="">Pick a desk…</option>
                       {audioItems.map((item) => (
                         <option key={item.id} value={item.id}>
                           {itemLabel(item)}
@@ -172,10 +172,10 @@ export function ConsoleSection({ eventId, consoles, channels, outputs, audioItem
                   <label className="space-y-1">
                     <span className="text-[10px] uppercase tracking-wide text-zinc-500">Owned</span>
                     <Select
-                      value={console.owned_item_id ?? ''}
+                      value={desk.owned_item_id ?? ''}
                       onChange={(event) =>
                         update.mutate({
-                          id: console.id,
+                          id: desk.id,
                           data: { owned_item_id: event.target.value ? Number(event.target.value) : undefined, inventory_item_id: undefined },
                         })
                       }
@@ -202,10 +202,10 @@ export function ConsoleSection({ eventId, consoles, channels, outputs, audioItem
                       <Input
                         type="number"
                         min={0}
-                        defaultValue={console[field]}
+                        defaultValue={desk[field]}
                         onBlur={(event) => {
                           const value = Math.max(0, Number(event.target.value) || 0)
-                          if (value !== console[field]) update.mutate({ id: console.id, data: { [field]: value } })
+                          if (value !== desk[field]) update.mutate({ id: desk.id, data: { [field]: value } })
                         }}
                       />
                     </label>
@@ -235,7 +235,7 @@ export function ConsoleSection({ eventId, consoles, channels, outputs, audioItem
             <label className="space-y-1">
               <span className="text-[10px] uppercase tracking-wide text-zinc-500">Catalog item</span>
               <Select value={draftItem} onChange={(event) => setDraftItem(event.target.value)}>
-                <option value="">Pick a console…</option>
+                <option value="">Pick a desk…</option>
                 {audioItems.map((item) => (
                   <option key={item.id} value={item.id}>
                     {itemLabel(item)}

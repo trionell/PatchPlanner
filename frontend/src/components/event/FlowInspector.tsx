@@ -117,7 +117,7 @@ export function FlowInspector({
         : selection.kind === 'device'
           ? devices.find((device) => device.id === selection.id)?.name ?? 'Device'
           : selection.kind === 'console_local'
-            ? consoles.find((console) => console.id === selection.id)?.name || 'Console'
+            ? consoles.find((desk) => desk.id === selection.id)?.name || 'Console'
             : 'Channels'
 
   return (
