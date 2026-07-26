@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AudioPatchOutput, Console, OutputCable, OutputDevice } from '../types'
-import { consoleLocalPorts, derivedCableColor, isCablelessToKind, nodeZone } from './outputGraph'
+import { consoleLocalPorts, derivedCableColor, derivedOutputPortColor, isCablelessToKind, nodeZone } from './outputGraph'
 
 function output(overrides: Partial<AudioPatchOutput> = {}): AudioPatchOutput {
   return { id: 1, event_id: 1, output_number: 1, output_name: 'FOH', output_type: 'foh', width: 'mono', color: '#38bdf8', ...overrides }
@@ -83,5 +83,45 @@ describe('console local jacks', () => {
   it('treats routing into a local jack as desk routing, not a cable', () => {
     expect(isCablelessToKind('console_local')).toBe(true)
     expect(isCablelessToKind('device')).toBe(false)
+  })
+})
+
+describe('derivedOutputPortColor', () => {
+  // The defect Slice 25 fixes: Slice 23 gave this graph's cables a colour and its
+  // ports none, so a coloured run was cabled in colour and ported in grey.
+  it('gives the mixer port the output row\'s own colour', () => {
+    expect(derivedOutputPortColor('mixer', 1, 0, { outputs: [output()], cables: [], devices: [] })).toBe('#38bdf8')
+  })
+
+  it('colours both sides of a pass-through the run goes through', () => {
+    const intoBox = cable({ id: 1, to_kind: 'stagebox', to_id: 5, to_port: 3 })
+    const ctx = { outputs: [output()], cables: [intoBox], devices: [device()] }
+    // The in side is where the desk's routing lands; the out side is the same
+    // jack, so both wear the colour — which is what "end to end" means.
+    expect(derivedOutputPortColor('stagebox', 5, 3, ctx)).toBe('#38bdf8')
+  })
+
+  it('colours a device port the run reaches', () => {
+    const intoAmp = cable({ id: 1, to_kind: 'device', to_id: 10, to_port: 1 })
+    const ctx = { outputs: [output()], cables: [intoAmp], devices: [device()] }
+    expect(derivedOutputPortColor('device', 10, 1, ctx)).toBe('#38bdf8')
+  })
+
+  it('is neutral for a port with no traceable origin', () => {
+    expect(derivedOutputPortColor('device', 10, 0, { outputs: [output()], cables: [], devices: [device()] })).toBeUndefined()
+  })
+
+  it('is neutral when the origin output has no colour', () => {
+    const intoBox = cable({ id: 1, to_kind: 'stagebox', to_id: 5, to_port: 0 })
+    const ctx = { outputs: [output({ color: undefined })], cables: [intoBox], devices: [device()] }
+    expect(derivedOutputPortColor('stagebox', 5, 0, ctx)).toBeUndefined()
+  })
+
+  it('agrees with derivedCableColor, which is now defined in terms of it', () => {
+    // The refactor must not have changed the cables: the two answers are the same
+    // walk from the same place.
+    const first = cable({ id: 1 })
+    const ctx = { outputs: [output()], cables: [first], devices: [device()] }
+    expect(derivedCableColor(first, ctx)).toBe(derivedOutputPortColor(first.from_kind, first.from_id, first.from_port, ctx))
   })
 })

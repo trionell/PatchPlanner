@@ -27,6 +27,7 @@ import {
   cableAtPort,
   consoleLocalPorts,
   derivedCableColor,
+  derivedOutputPortColor,
   devicePorts,
   isCablelessToKind,
   isPortConnected,
@@ -35,6 +36,7 @@ import {
   resolvePortRef,
   stageboxPorts,
   stageMultiPorts,
+  type OutputColorContext,
   type PortRef,
   type Zone,
 } from '../../lib/outputGraph'
@@ -433,6 +435,10 @@ function OutputGraphCanvas({
   // reassigned — the same reasoning as the sheet's "no source" cell.
   const orphanOutputs = useMemo(() => outputs.filter((row) => row.console_id == null), [outputs])
 
+  // Which output's run passes through a port — the same context derivedCableColor
+  // uses for the cables, so a port and the cable attached to it cannot disagree.
+  const colorContext: OutputColorContext = { outputs, cables, devices }
+
   const layout = useMemo<NodeLayout[]>(() => {
     const nodes: NodeLayout[] = []
     let nextY = 24
@@ -779,6 +785,7 @@ function OutputGraphCanvas({
                     onPortClick={handlePortClick}
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
+                    colorContext={colorContext}
                     onDragStart={readOnly ? undefined : (e) => startNodeDrag('console_local', desk.id, 'free', e)}
                     selected={selection?.kind === 'console_local' && selection.id === desk.id}
                     onSelect={() => onSelectionChange({ kind: 'console_local', id: desk.id })}
@@ -803,6 +810,7 @@ function OutputGraphCanvas({
                     onPortClick={handlePortClick}
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
+                    colorContext={colorContext}
                     onDragStart={readOnly ? undefined : (e) => startNodeDrag('mixer', desk.id, 'y-only', e)}
                     selected={selection?.kind === 'mixer' && selection.id === desk.id}
                     onSelect={() => onSelectionChange({ kind: 'mixer', id: desk.id })}
@@ -819,6 +827,7 @@ function OutputGraphCanvas({
                     onPortClick={handlePortClick}
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
+                    colorContext={colorContext}
                     onDragStart={readOnly ? undefined : (e) => startNodeDrag('mixer', 0, 'y-only', e)}
                     search={search}
                   />
@@ -838,6 +847,7 @@ function OutputGraphCanvas({
                     onPortClick={handlePortClick}
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
+                    colorContext={colorContext}
                     onDragStart={readOnly ? undefined : (e) => startNodeDrag('stagebox', sb.id, 'free', e)}
                     selected={selection?.kind === 'stagebox' && selection.id === sb.id}
                     onSelect={() => onSelectionChange({ kind: 'stagebox', id: sb.id })}
@@ -859,6 +869,7 @@ function OutputGraphCanvas({
                     onPortClick={handlePortClick}
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
+                    colorContext={colorContext}
                     onDragStart={readOnly ? undefined : (e) => startNodeDrag('stage_multi', sm.id, 'free', e)}
                     selected={selection?.kind === 'stage_multi' && selection.id === sm.id}
                     onSelect={() => onSelectionChange({ kind: 'stage_multi', id: sm.id })}
@@ -879,6 +890,7 @@ function OutputGraphCanvas({
                   onPortClick={handlePortClick}
                   onPortPointerDown={handlePortPointerDown}
                   registerPort={registerPort}
+                  colorContext={colorContext}
                   onDragStart={readOnly ? undefined : (e) => startNodeDrag('device', device.id, node.zone === 'processing' ? 'free' : 'y-only', e)}
                   selected={selection?.kind === 'device' && selection.id === device.id}
                   onSelect={() => onSelectionChange({ kind: 'device', id: device.id })}
@@ -942,6 +954,7 @@ function PortDot({
   port,
   connected,
   selected,
+  color,
   onClick,
   onPointerDown,
   registerRef,
@@ -949,6 +962,8 @@ function PortDot({
   port: PortRef
   connected: boolean
   selected: boolean
+  /** The output this run carries, when it can be traced back to one (Slice 25). */
+  color?: string
   onClick: () => void
   onPointerDown: (e: ReactPointerEvent) => void
   registerRef: (el: HTMLElement | null) => void
@@ -961,7 +976,11 @@ function PortDot({
       onClick={onClick}
       onPointerDown={onPointerDown}
       title={port.label}
+      style={color && (connected || selected) ? { borderColor: color, backgroundColor: selected ? color : `${color}b3` } : undefined}
       className={`h-3 w-3 shrink-0 cursor-crosshair rounded-full border transition-colors ${
+        color && (connected || selected)
+          ? ''
+          :
         selected
           ? 'border-amber-400 bg-amber-400'
           : connected
@@ -1018,7 +1037,7 @@ function NodeShell({ x, y, title, badge, dimmed, selected, onDragStart, onDelete
   )
 }
 
-function PortRow({ label, port, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, align, dimmed }: {
+function PortRow({ label, port, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, align, colorContext, dimmed }: {
   label: string
   port: PortRef
   cables: OutputCable[]
@@ -1027,24 +1046,35 @@ function PortRow({ label, port, cables, pendingPort, onPortClick, onPortPointerD
   onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
   registerPort: (key: string) => (el: HTMLElement | null) => void
   align: 'left' | 'right'
+  /**
+   * What a port needs to work out which output's run passes through it. Every
+   * PortRow on this graph gets it, so colour runs end to end here as it already
+   * does on the input graph (Slice 25 FR-007).
+   */
+  colorContext: OutputColorContext
   /** Search is active and this row doesn't match. */
   dimmed?: boolean
 }) {
   const key = portKey(port.kind, port.id, port.port, port.direction)
   const connected = isPortConnected(port.kind, port.id, port.port, port.direction, cables)
   const selected = !!pendingPort && pendingPort.kind === port.kind && pendingPort.id === port.id && pendingPort.port === port.port && pendingPort.direction === port.direction
+  const color = derivedOutputPortColor(port.kind, port.id, port.port, colorContext)
   const dot = (
     <PortDot
       port={port}
       connected={connected}
       selected={selected}
+      color={color}
       onClick={() => onPortClick(port)}
       onPointerDown={(e) => onPortPointerDown(port, e)}
       registerRef={registerPort(key)}
     />
   )
   return (
-    <div className={`flex items-center gap-1.5 text-[11px] text-zinc-300 transition-opacity ${align === 'right' ? 'flex-row-reverse text-right' : ''} ${dimmed ? 'opacity-30' : ''}`}>
+    <div
+      className={`flex items-center gap-1.5 text-[11px] transition-opacity ${align === 'right' ? 'flex-row-reverse text-right' : ''} ${color ? '' : 'text-zinc-300'} ${dimmed ? 'opacity-30' : ''}`}
+      style={color ? { color } : undefined}
+    >
       {dot}
       <span className="truncate">{label}</span>
     </div>
@@ -1058,7 +1088,7 @@ function PortRow({ label, port, cables, pendingPort, onPortClick, onPortPointerD
  * footer states usage against what the desk can take, and turns red when the
  * patch has outgrown it.
  */
-function ConsoleNode({ x, y, desk, outputs, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, search = '' , selected, onSelect }: {
+function ConsoleNode({ x, y, desk, outputs, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, search = '' , selected, onSelect, colorContext }: {
   x: number
   y: number
   desk: Console
@@ -1070,6 +1100,7 @@ function ConsoleNode({ x, y, desk, outputs, cables, pendingPort, onPortClick, on
   registerPort: (key: string) => (el: HTMLElement | null) => void
   onDragStart?: (e: ReactPointerEvent) => void
   search?: string
+  colorContext: OutputColorContext
   selected?: boolean
   onSelect?: () => void
 }) {
@@ -1082,7 +1113,7 @@ function ConsoleNode({ x, y, desk, outputs, cables, pendingPort, onPortClick, on
   return (
     <NodeShell x={x} y={y} title={desk.name || 'Console'} badge="DESK" onDragStart={onDragStart} selected={selected} onSelect={onSelect}>
       {ports.map((port) => (
-        <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" dimmed={dimmedIds.has(port.id)} />
+        <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} colorContext={colorContext} align="right" dimmed={dimmedIds.has(port.id)} />
       ))}
       {ports.length === 0 && <p className="text-[11px] text-zinc-600">No outputs on this desk yet</p>}
       <p className={`border-t border-zinc-800 pt-1 font-mono text-[10px] ${over ? 'text-red-400' : 'text-zinc-500'}`}>
@@ -1106,7 +1137,7 @@ function ConsoleNode({ x, y, desk, outputs, cables, pendingPort, onPortClick, on
  * routing, no cable — and a real cable leaves the right one, exactly as through
  * a stagebox.
  */
-function LocalJackNode({ x, y, desk, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, dimmed , selected, onSelect }: {
+function LocalJackNode({ x, y, desk, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, dimmed , selected, onSelect, colorContext }: {
   x: number
   y: number
   desk: Console
@@ -1117,6 +1148,7 @@ function LocalJackNode({ x, y, desk, cables, pendingPort, onPortClick, onPortPoi
   registerPort: (key: string) => (el: HTMLElement | null) => void
   onDragStart?: (e: ReactPointerEvent) => void
   dimmed?: boolean
+  colorContext: OutputColorContext
   selected?: boolean
   onSelect?: () => void
 }) {
@@ -1126,12 +1158,12 @@ function LocalJackNode({ x, y, desk, cables, pendingPort, onPortClick, onPortPoi
       <div className="grid grid-cols-2 gap-x-2">
         <div className="space-y-1">
           {inputs.map((port) => (
-            <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" />
+            <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} colorContext={colorContext} align="left" />
           ))}
         </div>
         <div className="space-y-1">
           {outputs.map((port) => (
-            <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" />
+            <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} colorContext={colorContext} align="right" />
           ))}
         </div>
       </div>
@@ -1139,7 +1171,7 @@ function LocalJackNode({ x, y, desk, cables, pendingPort, onPortClick, onPortPoi
   )
 }
 
-function MixerNode({ x, y, outputs, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, search = '' , selected, onSelect }: {
+function MixerNode({ x, y, outputs, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, search = '' , selected, onSelect, colorContext }: {
   x: number
   y: number
   outputs: AudioPatchOutput[]
@@ -1150,6 +1182,7 @@ function MixerNode({ x, y, outputs, cables, pendingPort, onPortClick, onPortPoin
   registerPort: (key: string) => (el: HTMLElement | null) => void
   onDragStart?: (e: ReactPointerEvent) => void
   search?: string
+  colorContext: OutputColorContext
   selected?: boolean
   onSelect?: () => void
 }) {
@@ -1161,14 +1194,14 @@ function MixerNode({ x, y, outputs, cables, pendingPort, onPortClick, onPortPoin
   return (
     <NodeShell x={x} y={y} title="No desk" badge={ports.length > 0 ? String(outputs.length) : undefined} onDragStart={onDragStart} selected={selected} onSelect={onSelect}>
       {ports.map((port) => (
-        <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" dimmed={dimmedIds.has(port.id)} />
+        <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} colorContext={colorContext} align="right" dimmed={dimmedIds.has(port.id)} />
       ))}
       {ports.length === 0 && <p className="text-[11px] text-zinc-600">No outputs without a desk</p>}
     </NodeShell>
   )
 }
 
-function StageboxNode({ x, y, stagebox, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, dimmed , selected, onSelect }: {
+function StageboxNode({ x, y, stagebox, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, dimmed , selected, onSelect, colorContext }: {
   x: number
   y: number
   stagebox: Stagebox
@@ -1179,6 +1212,7 @@ function StageboxNode({ x, y, stagebox, cables, pendingPort, onPortClick, onPort
   registerPort: (key: string) => (el: HTMLElement | null) => void
   onDragStart?: (e: ReactPointerEvent) => void
   dimmed?: boolean
+  colorContext: OutputColorContext
   selected?: boolean
   onSelect?: () => void
 }) {
@@ -1188,12 +1222,12 @@ function StageboxNode({ x, y, stagebox, cables, pendingPort, onPortClick, onPort
       <div className="grid grid-cols-2 gap-x-2">
         <div className="space-y-1">
           {inputs.map((port) => (
-            <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" />
+            <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} colorContext={colorContext} align="left" />
           ))}
         </div>
         <div className="space-y-1">
           {outputs.map((port) => (
-            <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" />
+            <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} colorContext={colorContext} align="right" />
           ))}
         </div>
       </div>
@@ -1201,7 +1235,7 @@ function StageboxNode({ x, y, stagebox, cables, pendingPort, onPortClick, onPort
   )
 }
 
-function StageMultiNode({ x, y, stageMulti, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, dimmed , selected, onSelect }: {
+function StageMultiNode({ x, y, stageMulti, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, dimmed , selected, onSelect, colorContext }: {
   x: number
   y: number
   stageMulti: StageMulti
@@ -1212,6 +1246,7 @@ function StageMultiNode({ x, y, stageMulti, cables, pendingPort, onPortClick, on
   registerPort: (key: string) => (el: HTMLElement | null) => void
   onDragStart?: (e: ReactPointerEvent) => void
   dimmed?: boolean
+  colorContext: OutputColorContext
   selected?: boolean
   onSelect?: () => void
 }) {
@@ -1221,12 +1256,12 @@ function StageMultiNode({ x, y, stageMulti, cables, pendingPort, onPortClick, on
       <div className="grid grid-cols-2 gap-x-2">
         <div className="space-y-1">
           {inputs.map((port) => (
-            <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" />
+            <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} colorContext={colorContext} align="left" />
           ))}
         </div>
         <div className="space-y-1">
           {outputs.map((port) => (
-            <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" />
+            <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} colorContext={colorContext} align="right" />
           ))}
         </div>
       </div>
@@ -1234,7 +1269,7 @@ function StageMultiNode({ x, y, stageMulti, cables, pendingPort, onPortClick, on
   )
 }
 
-function DeviceNode({ x, y, device, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, onDelete, dimmed , selected, onSelect }: {
+function DeviceNode({ x, y, device, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, onDelete, dimmed , selected, onSelect, colorContext }: {
   x: number
   y: number
   device: OutputDevice
@@ -1246,6 +1281,7 @@ function DeviceNode({ x, y, device, cables, pendingPort, onPortClick, onPortPoin
   onDragStart?: (e: ReactPointerEvent) => void
   onDelete?: () => void
   dimmed?: boolean
+  colorContext: OutputColorContext
   selected?: boolean
   onSelect?: () => void
 }) {
@@ -1255,15 +1291,15 @@ function DeviceNode({ x, y, device, cables, pendingPort, onPortClick, onPortPoin
       <div className="grid grid-cols-2 gap-x-2">
         <div className="space-y-1">
           {inputs.map((port) => (
-            <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" />
+            <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} colorContext={colorContext} align="left" />
           ))}
         </div>
         <div className="space-y-1">
           {outputs.map((port) => (
-            <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" />
+            <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} colorContext={colorContext} align="right" />
           ))}
           {links.map((port) => (
-            <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" />
+            <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} colorContext={colorContext} align="right" />
           ))}
         </div>
       </div>

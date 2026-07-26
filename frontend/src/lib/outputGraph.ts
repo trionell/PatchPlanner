@@ -314,22 +314,43 @@ function pairedForward(kind: PortRef['kind'], id: number, inPort: number, device
   return inPort
 }
 
+export interface OutputColorContext {
+  outputs: AudioPatchOutput[]
+  cables: OutputCable[]
+  devices: OutputDevice[]
+}
+
 /**
- * A cable's derived colour on the output graph (Slice 23): the colour of the
- * output row the run originates from, found by walking backward to the mixer
- * port. Colour therefore answers the same question it does on the input side —
- * which desk channel this run belongs to — rather than decorating the canvas.
+ * A port's derived colour on the output graph: the colour of the output row whose
+ * run passes through it, found by walking backward to the mixer port. Colour
+ * therefore answers the same question it does on the input side — which desk
+ * channel this run belongs to — rather than decorating the canvas.
  *
  * Undefined when the run cannot be traced back to an output, or that output has
  * no colour set.
+ *
+ * Slice 23 wrote this walk for cables only, so the output graph's *cables* wore a
+ * colour and every port they joined stayed grey — half a coloured run (Slice 25
+ * research.md R4). This is the same walk, seeded from a port instead of from a
+ * cable's origin, which is what makes a port and the cable attached to it unable
+ * to disagree.
+ *
+ * There is deliberately no agree-or-neutral rule here, unlike the input graph's
+ * `derivedPortColor`. That one exists because a source may fan out to several
+ * channels which then have to agree; this walk goes *backward*, and a port has at
+ * most one inbound cable, so there is exactly one origin. A mixer port fanning out
+ * to several destinations gives each of them the same one colour, which is
+ * correct — they are all carrying that output.
  */
-export function derivedCableColor(
-  cable: OutputCable,
-  context: { outputs: AudioPatchOutput[]; cables: OutputCable[]; devices: OutputDevice[] },
+export function derivedOutputPortColor(
+  fromKind: PortRef['kind'],
+  fromId: number,
+  fromPort: number,
+  context: OutputColorContext,
 ): string | undefined {
-  let kind = cable.from_kind
-  let id = cable.from_id
-  let port = cable.from_port
+  let kind = fromKind
+  let id = fromId
+  let port = fromPort
   const seen = new Set<string>()
 
   for (let depth = 0; depth < 32; depth++) {
@@ -348,6 +369,11 @@ export function derivedCableColor(
     port = inbound.from_port
   }
   return undefined
+}
+
+/** A cable's derived colour: the colour of the port it leaves from (Slice 23). */
+export function derivedCableColor(cable: OutputCable, context: OutputColorContext): string | undefined {
+  return derivedOutputPortColor(cable.from_kind, cable.from_id, cable.from_port, context)
 }
 
 /** Whether a to_kind's input side is pure console/network routing rather than a real physical run (FR-013). */
