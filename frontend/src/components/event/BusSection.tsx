@@ -51,7 +51,9 @@ export function BusSection({
     ids.filter((memberships) => memberships?.includes(busID)).length
 
   return (
-    <div className="mb-6 grid gap-4 lg:grid-cols-2">
+    // Single column since Slice 23: this lives in the narrow Buses drawer, not
+    // side by side at the top of the tab.
+    <div className="grid gap-4">
       <BusManagerCard
         eventId={eventId}
         title="Groups"

@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Trash2 } from 'lucide-react'
-import { createInputChannel, deleteInputChannel, updateInputChannel } from '../../api/audioPatch'
+import { Trash2 } from 'lucide-react'
+import { deleteInputChannel, updateInputChannel } from '../../api/audioPatch'
 import { buildInputChannelFlow } from '../../lib/inputSignalFlow'
+import { matchesSearch } from '../../lib/patchSearch'
 import type { InputCable, InputChannel, InputDevice, InputSource, MixerDCA, MixerGroup, Stagebox, StageMulti } from '../../types'
 import { busTint } from '../../lib/utils'
 import { Badge } from '../ui/Badge'
@@ -46,6 +47,7 @@ export function ChannelSection({
   cables,
   groups,
   dcas,
+  search = '',
   readOnly = false,
 }: {
   eventId: number
@@ -57,6 +59,9 @@ export function ChannelSection({
   cables: InputCable[]
   groups: MixerGroup[]
   dcas: MixerDCA[]
+  /** The shell's search term. Filters which rows render; never the data the
+      chain walk resolves against, which stays whole. */
+  search?: string
   readOnly?: boolean
 }) {
   const queryClient = useQueryClient()
@@ -64,7 +69,6 @@ export function ChannelSection({
     await queryClient.invalidateQueries({ queryKey: ['audio-patch', eventId] })
     await queryClient.invalidateQueries({ queryKey: ['rental-summary', eventId] })
   }
-  const createM = useMutation({ mutationFn: (data: Omit<InputChannel, 'id' | 'event_id'>) => createInputChannel(eventId, data), onSuccess: invalidate })
   const updateM = useMutation({ mutationFn: ({ id, data }: { id: number; data: Omit<InputChannel, 'id' | 'event_id'> }) => updateInputChannel(eventId, id, data), onSuccess: invalidate })
   const deleteM = useMutation({ mutationFn: (id: number) => deleteInputChannel(eventId, id), onSuccess: invalidate })
 
@@ -100,20 +104,23 @@ export function ChannelSection({
     })
   }
 
-  const addChannel = () => {
-    const highest = channels.reduce((max, c) => Math.max(max, c.channel_number), 0)
-    createM.mutate({ channel_number: highest + 1, width: 'mono', mixer_behavior: 'stereo_channel' })
-  }
+  // Adding a channel is the shell toolbar's job since Slice 23 — one add
+  // action per tab, not one per card.
+  const visible = channels.filter((channel) =>
+    matchesSearch(search, channel.channel_number, channel.channel_name, channel.notes, feedSummary(channel)),
+  )
 
   return (
     <Card className="mb-6">
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Channels</CardTitle>
-        {!readOnly && <Button size="sm" onClick={addChannel}><Plus className="mr-2 h-4 w-4" />Add channel</Button>}
+        <span className="font-mono text-xs text-zinc-500">
+          {visible.length === channels.length ? `${channels.length} channels` : `${visible.length} of ${channels.length}`}
+        </span>
       </CardHeader>
       <CardContent>
         <p className="mb-2 text-sm text-zinc-400">
-          The console strip only — name, width, groups, DCA, notes, color. What feeds a channel is decided in the graph below, not here.
+          The console strip only — name, width, groups, DCA, notes, color. What feeds a channel is decided in Flow, not here.
         </p>
         <div className="overflow-x-auto">
           <Table>
@@ -123,7 +130,7 @@ export function ChannelSection({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {channels.map((channel) => (
+              {visible.map((channel) => (
                 <TableRow key={channel.id} style={channel.color ? { backgroundColor: `${channel.color}0f` } : undefined}>
                   <TableCell style={channel.color ? { boxShadow: `inset 3px 0 0 0 ${channel.color}` } : undefined}>
                     <Input
@@ -196,8 +203,13 @@ export function ChannelSection({
             </TableBody>
           </Table>
         </div>
-        {(createM.error ?? updateM.error ?? deleteM.error) && (
-          <p className="mt-2 text-sm text-red-400">{(createM.error ?? updateM.error ?? deleteM.error)?.message}</p>
+        {visible.length === 0 && (
+          <p className="mt-2 text-sm text-zinc-500">
+            {channels.length === 0 ? 'No input channels yet.' : `Nothing matches “${search}”.`}
+          </p>
+        )}
+        {(updateM.error ?? deleteM.error) && (
+          <p className="mt-2 text-sm text-red-400">{(updateM.error ?? deleteM.error)?.message}</p>
         )}
       </CardContent>
     </Card>

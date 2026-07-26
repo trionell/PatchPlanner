@@ -21,6 +21,7 @@ import {
   type PortRef,
 } from '../../lib/inputGraph'
 import { stageboxPorts, stageMultiPorts } from '../../lib/outputGraph'
+import { matchesSearch } from '../../lib/patchSearch'
 import { itemLabel } from '../../lib/utils'
 import type { InputCable, InputChannel, InputDevice, InputSource, InventoryItem, StageMulti, Stagebox } from '../../types'
 import { Badge } from '../ui/Badge'
@@ -79,6 +80,7 @@ export function InputGraphCanvas({
   stageMultis,
   cables,
   cableItems,
+  search = '',
   onChanged,
   readOnly = false,
 }: {
@@ -90,6 +92,13 @@ export function InputGraphCanvas({
   stageMultis: StageMulti[]
   cables: InputCable[]
   cableItems: InventoryItem[]
+  /**
+   * The shell's search term. A graph never *hides* on search — removing a
+   * node would remove edges that exist, so a partly-filtered patch would
+   * read as an unpatched one (research.md R14). Non-matching nodes and rows
+   * dim instead.
+   */
+  search?: string
   onChanged: () => Promise<void>
   readOnly?: boolean
 }) {
@@ -443,6 +452,7 @@ export function InputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
+                    search={search}
                   />
                 )
               }
@@ -459,6 +469,7 @@ export function InputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
+                    search={search}
                   />
                 )
               }
@@ -478,6 +489,7 @@ export function InputGraphCanvas({
                     registerPort={registerPort}
                     onDragStart={(e) => startNodeDrag('stagebox', sb.id, e)}
                     colorContext={colorContext}
+                    dimmed={!matchesSearch(search, sb.name, sb.model)}
                   />
                 )
               }
@@ -497,6 +509,7 @@ export function InputGraphCanvas({
                     registerPort={registerPort}
                     onDragStart={(e) => startNodeDrag('stage_multi', sm.id, e)}
                     colorContext={colorContext}
+                    dimmed={!matchesSearch(search, sm.name)}
                   />
                 )
               }
@@ -515,6 +528,7 @@ export function InputGraphCanvas({
                   registerPort={registerPort}
                   onDragStart={(e) => startNodeDrag('device', device.id, e)}
                   colorContext={colorContext}
+                  dimmed={!matchesSearch(search, device.name)}
                 />
               )
             })}
@@ -610,17 +624,22 @@ function PortDot({
   )
 }
 
-function NodeShell({ x, y, title, badge, onDragStart, onDelete, children }: {
+function NodeShell({ x, y, title, badge, dimmed, onDragStart, onDelete, children }: {
   x: number
   y: number
   title: string
   badge?: string
+  /** Search is active and this node doesn't match — still drawn, just quiet. */
+  dimmed?: boolean
   onDragStart?: (e: ReactPointerEvent) => void
   onDelete?: () => void
   children: ReactNode
 }) {
   return (
-    <div className="absolute rounded-lg border border-zinc-700 bg-zinc-900 shadow-lg" style={{ left: x, top: y, width: NODE_WIDTH }}>
+    <div
+      className={`absolute rounded-lg border border-zinc-700 bg-zinc-900 shadow-lg transition-opacity ${dimmed ? 'opacity-30' : ''}`}
+      style={{ left: x, top: y, width: NODE_WIDTH }}
+    >
       <div
         className={`flex items-center justify-between gap-2 rounded-t-lg border-b border-zinc-800 px-2 py-1.5 ${onDragStart ? 'cursor-grab touch-none active:cursor-grabbing' : ''}`}
         onPointerDown={onDragStart}
@@ -648,7 +667,7 @@ interface ColorContext {
   cables: InputCable[]
 }
 
-function PortRow({ label, port, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, align, colorContext }: {
+function PortRow({ label, port, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, align, colorContext, dimmed }: {
   label: string
   port: PortRef
   cables: InputCable[]
@@ -658,6 +677,8 @@ function PortRow({ label, port, cables, pendingPort, onPortClick, onPortPointerD
   registerPort: (key: string) => (el: HTMLElement | null) => void
   align: 'left' | 'right'
   colorContext: ColorContext
+  /** Search is active and this row doesn't match. */
+  dimmed?: boolean
 }) {
   const key = portKey(port.kind, port.id, port.port, port.direction)
   const connected = isPortConnected(port.kind, port.id, port.port, port.direction, cables)
@@ -667,14 +688,17 @@ function PortRow({ label, port, cables, pendingPort, onPortClick, onPortPointerD
     <PortDot port={port} connected={connected} selected={selected} color={color} onClick={() => onPortClick(port)} onPointerDown={(e) => onPortPointerDown(port, e)} registerRef={registerPort(key)} />
   )
   return (
-    <div className={`flex items-center gap-1.5 text-[11px] ${align === 'right' ? 'flex-row-reverse text-right' : ''} ${color ? '' : 'text-zinc-300'}`} style={color ? { color } : undefined}>
+    <div
+      className={`flex items-center gap-1.5 text-[11px] transition-opacity ${align === 'right' ? 'flex-row-reverse text-right' : ''} ${color ? '' : 'text-zinc-300'} ${dimmed ? 'opacity-30' : ''}`}
+      style={color ? { color } : undefined}
+    >
       {dot}
       <span className="truncate">{label}</span>
     </div>
   )
 }
 
-function SourcesNode({ x, y, sources, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext }: {
+function SourcesNode({ x, y, sources, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext, search = '' }: {
   x: number
   y: number
   sources: InputSource[]
@@ -684,19 +708,22 @@ function SourcesNode({ x, y, sources, cables, pendingPort, onPortClick, onPortPo
   onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
   registerPort: (key: string) => (el: HTMLElement | null) => void
   colorContext: ColorContext
+  search?: string
 }) {
   const ports = sources.flatMap((source) => sourcePorts(source))
+  // The rail is one node holding many rows, so search dims per row, not per node.
+  const dimmedIds = new Set(sources.filter((source) => !matchesSearch(search, source.name)).map((source) => source.id))
   return (
-    <NodeShell x={x} y={y} title="Sources">
+    <NodeShell x={x} y={y} title="Sources" badge={sources.length > 0 ? String(sources.length) : undefined}>
       {ports.map((port) => (
-        <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" colorContext={colorContext} />
+        <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" colorContext={colorContext} dimmed={dimmedIds.has(port.id)} />
       ))}
       {ports.length === 0 && <p className="text-[11px] text-zinc-600">No sources yet</p>}
     </NodeShell>
   )
 }
 
-function ChannelsNode({ x, y, channels, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext }: {
+function ChannelsNode({ x, y, channels, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext, search = '' }: {
   x: number
   y: number
   channels: InputChannel[]
@@ -706,19 +733,23 @@ function ChannelsNode({ x, y, channels, cables, pendingPort, onPortClick, onPort
   onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
   registerPort: (key: string) => (el: HTMLElement | null) => void
   colorContext: ColorContext
+  search?: string
 }) {
   const ports = channels.flatMap((channel) => channelPorts(channel))
+  const dimmedIds = new Set(
+    channels.filter((channel) => !matchesSearch(search, channel.channel_number, channel.channel_name, channel.notes)).map((channel) => channel.id),
+  )
   return (
-    <NodeShell x={x} y={y} title="Channels">
+    <NodeShell x={x} y={y} title="Channels" badge={channels.length > 0 ? String(channels.length) : undefined}>
       {ports.map((port) => (
-        <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" colorContext={colorContext} />
+        <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" colorContext={colorContext} dimmed={dimmedIds.has(port.id)} />
       ))}
       {ports.length === 0 && <p className="text-[11px] text-zinc-600">No channels yet</p>}
     </NodeShell>
   )
 }
 
-function StageboxNode({ x, y, stagebox, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, colorContext }: {
+function StageboxNode({ x, y, stagebox, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, colorContext, dimmed }: {
   x: number
   y: number
   stagebox: Stagebox
@@ -729,10 +760,11 @@ function StageboxNode({ x, y, stagebox, cables, pendingPort, onPortClick, onPort
   registerPort: (key: string) => (el: HTMLElement | null) => void
   onDragStart: (e: ReactPointerEvent) => void
   colorContext: ColorContext
+  dimmed?: boolean
 }) {
   const { inputs, outputs } = stageboxPorts(stagebox)
   return (
-    <NodeShell x={x} y={y} title={stagebox.name} badge="SB" onDragStart={onDragStart}>
+    <NodeShell x={x} y={y} title={stagebox.name} badge="SB" onDragStart={onDragStart} dimmed={dimmed}>
       <div className="grid grid-cols-2 gap-x-2">
         <div className="space-y-1">
           {inputs.map((port) => (
@@ -749,7 +781,7 @@ function StageboxNode({ x, y, stagebox, cables, pendingPort, onPortClick, onPort
   )
 }
 
-function StageMultiNode({ x, y, stageMulti, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, colorContext }: {
+function StageMultiNode({ x, y, stageMulti, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, colorContext, dimmed }: {
   x: number
   y: number
   stageMulti: StageMulti
@@ -760,10 +792,11 @@ function StageMultiNode({ x, y, stageMulti, cables, pendingPort, onPortClick, on
   registerPort: (key: string) => (el: HTMLElement | null) => void
   onDragStart: (e: ReactPointerEvent) => void
   colorContext: ColorContext
+  dimmed?: boolean
 }) {
   const { inputs, outputs } = stageMultiPorts(stageMulti)
   return (
-    <NodeShell x={x} y={y} title={stageMulti.name} badge="Multi" onDragStart={onDragStart}>
+    <NodeShell x={x} y={y} title={stageMulti.name} badge="Multi" onDragStart={onDragStart} dimmed={dimmed}>
       <div className="grid grid-cols-2 gap-x-2">
         <div className="space-y-1">
           {inputs.map((port) => (
@@ -780,7 +813,7 @@ function StageMultiNode({ x, y, stageMulti, cables, pendingPort, onPortClick, on
   )
 }
 
-function DeviceNode({ x, y, device, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, colorContext }: {
+function DeviceNode({ x, y, device, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, colorContext, dimmed }: {
   x: number
   y: number
   device: InputDevice
@@ -791,10 +824,11 @@ function DeviceNode({ x, y, device, cables, pendingPort, onPortClick, onPortPoin
   registerPort: (key: string) => (el: HTMLElement | null) => void
   onDragStart: (e: ReactPointerEvent) => void
   colorContext: ColorContext
+  dimmed?: boolean
 }) {
   const { inputs, outputs } = devicePorts(device)
   return (
-    <NodeShell x={x} y={y} title={device.name} onDragStart={onDragStart}>
+    <NodeShell x={x} y={y} title={device.name} onDragStart={onDragStart} dimmed={dimmed}>
       <div className="grid grid-cols-2 gap-x-2">
         <div className="space-y-1">
           {inputs.map((port) => (

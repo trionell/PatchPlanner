@@ -27,7 +27,11 @@ One bar, one row, six slots, identical on both tabs:
 | search placeholder | `Find a channel…` | `Find an output…` |
 | drawers | Rig, Buses | Rig only |
 | add | `+ Channel` | `+ Output` |
-| zoom controls | Flow view only, between search and Print | same |
+
+Zoom stays where it already is: on the canvas's own lane-label row
+(`← Sources · Processing · Channels →`), not in the toolbar. It belongs to the
+canvas, it is already there, and the lane labels are the mockup's
+Stage / Rig / Console row.
 
 Contributor/viewer: the drawer buttons and the add button are **not rendered**.
 The view toggle, search and Print remain.
