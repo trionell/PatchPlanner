@@ -2,6 +2,12 @@
 
 **Feature**: `026-output-flow-inspector` | **Date**: 2026-07-27
 
+> **Historical record, as of 2026-07-27.** The canonical place to look a value up
+> is now [`design/`](../../../design/) at the repository root — the rail's values
+> are in `design/components.md` §3. This document stays as the record of what
+> Slice 26 established and *why*. Do not edit values here to change the
+> application.
+
 The interface between the two flow inspectors and the rail they are both built
 from. This is the contract that FR-014 and SC-004 are checked against: every value
 in §1 must exist in exactly one place, and both inspectors must get it from there.

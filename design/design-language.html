@@ -1,0 +1,1605 @@
+<!--
+  PatchPlanner — Design Language, visual reference.
+
+  Source of truth: the Markdown documents beside this file (README, principles,
+  tokens, components, patterns, audit). This page renders them; it does not
+  extend them. If a value here and a value there disagree, the Markdown wins and
+  this page has a bug.
+
+  Published as an Artifact. The file is an HTML *fragment* — the publisher wraps
+  it in doctype/head/body, so there are deliberately no <html>, <head> or <body>
+  tags here. Edit this file and republish to the same URL to revise.
+
+  Specimens render at the app's true 14px base, not the original mockup's
+  scaled-down 11px. Every value in them is a shipped value.
+-->
+
+<title>PatchPlanner — Design Language</title>
+
+<style>
+  /* ==================================================================
+     DOCUMENT CHROME — theme-aware. Tokens only; never a raw hex below.
+     ================================================================== */
+  :root {
+    --ground: #f2f2f4;
+    --raised: #ffffff;
+    --sunken: #e8e8ec;
+    --rule: #d7d7de;
+    --rule-soft: #e4e4ea;
+    --ink: #16171b;
+    --ink-2: #43444d;
+    --muted: #6c6d78;
+    --faint: #90919c;
+
+    --amber: #b45309;
+    --amber-ink: #92400e;
+    --work: #0e7490;
+    --nav: #6d28d9;
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+    --measure: 68ch;
+    --wrap: 1180px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0a0b0d;
+      --raised: #14151a;
+      --sunken: #101014;
+      --rule: #26272e;
+      --rule-soft: #1d1e24;
+      --ink: #f2f2f4;
+      --ink-2: #b6b7c0;
+      --muted: #8b8c96;
+      --faint: #62636d;
+
+      --amber: #f59e0b;
+      --amber-ink: #fcd34d;
+      --work: #22d3ee;
+      --nav: #a78bfa;
+    }
+  }
+
+  :root[data-theme="light"] {
+    --ground: #f2f2f4;
+    --raised: #ffffff;
+    --sunken: #e8e8ec;
+    --rule: #d7d7de;
+    --rule-soft: #e4e4ea;
+    --ink: #16171b;
+    --ink-2: #43444d;
+    --muted: #6c6d78;
+    --faint: #90919c;
+    --amber: #b45309;
+    --amber-ink: #92400e;
+    --work: #0e7490;
+    --nav: #6d28d9;
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0a0b0d;
+    --raised: #14151a;
+    --sunken: #101014;
+    --rule: #26272e;
+    --rule-soft: #1d1e24;
+    --ink: #f2f2f4;
+    --ink-2: #b6b7c0;
+    --muted: #8b8c96;
+    --faint: #62636d;
+    --amber: #f59e0b;
+    --amber-ink: #fcd34d;
+    --work: #22d3ee;
+    --nav: #a78bfa;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: var(--wrap);
+    margin: 0 auto;
+    padding: 0 24px 110px;
+  }
+
+  /* ---------- type ---------- */
+  h1, h2, h3, h4 { margin: 0; font-family: var(--mono); font-weight: 500; }
+  h1 {
+    font-size: clamp(30px, 4.6vw, 52px);
+    line-height: 1.02;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+  }
+  h2 {
+    font-size: clamp(22px, 2.6vw, 30px);
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  h3 {
+    font-size: 15px;
+    letter-spacing: -0.005em;
+    color: var(--ink);
+  }
+  h4 {
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  p { margin: 0; max-width: var(--measure); }
+  .lede { font-size: 18.5px; color: var(--ink-2); max-width: 60ch; line-height: 1.5; }
+  .body { color: var(--ink-2); }
+  .small { font-size: 14px; color: var(--muted); }
+  strong { color: var(--ink); font-weight: 600; }
+  em { font-style: italic; color: var(--ink); }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+
+  code, .k {
+    font-family: var(--mono);
+    font-size: 0.85em;
+    color: var(--ink);
+    background: var(--sunken);
+    border: 1px solid var(--rule-soft);
+    border-radius: 3px;
+    padding: 1px 5px;
+    white-space: nowrap;
+  }
+
+  a { color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 3px; }
+  a:hover { text-decoration-color: var(--amber); }
+  a:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 2px; }
+
+  /* ---------- masthead ---------- */
+  .masthead { display: flex; flex-direction: column; gap: 20px; padding: 76px 0 40px; }
+  .masthead__meta {
+    display: flex; flex-wrap: wrap; gap: 10px 28px;
+    padding-top: 14px; border-top: 1px solid var(--rule);
+  }
+  .masthead__meta span {
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing: 0.13em; text-transform: uppercase; color: var(--faint);
+  }
+  .masthead__meta b { color: var(--ink-2); font-weight: 500; }
+
+  /* ---------- the patchbay: section marker ---------- */
+  .patchbay { position: relative; padding-top: 26px; }
+  .patchbay__strip {
+    height: 20px;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule-soft);
+    background-image: radial-gradient(circle 2px at 10px 50%, var(--rule) 98%, transparent 100%);
+    background-size: 20px 100%;
+    background-repeat: repeat-x;
+  }
+  .patchbay__lit {
+    position: absolute; top: 26px; left: var(--lit);
+    width: 20px; height: 20px; margin-left: -10px;
+    display: grid; place-items: center;
+  }
+  .patchbay__lit::after {
+    content: "";
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--amber);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--amber) 20%, transparent),
+                0 0 12px color-mix(in srgb, var(--amber) 65%, transparent);
+  }
+
+  /* ---------- section rhythm ---------- */
+  .sec { display: flex; flex-direction: column; gap: 26px; padding-top: 30px; }
+  .sec__head { display: flex; flex-direction: column; gap: 12px; }
+  .sec__num {
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing: 0.2em; text-transform: uppercase; color: var(--faint);
+    display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline;
+  }
+  .sec__num b { color: var(--amber-ink); font-weight: 500; }
+  .sec__src { color: var(--faint); }
+  .sec__src::before { content: "· source: "; }
+
+  .cols { display: grid; gap: 30px; }
+  .cols--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cols--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  @media (max-width: 940px) { .cols--3 { grid-template-columns: minmax(0, 1fr); gap: 22px; } }
+  @media (max-width: 780px) { .cols--2 { grid-template-columns: minmax(0, 1fr); gap: 22px; } }
+
+  .stack { display: flex; flex-direction: column; gap: 11px; }
+
+  .marks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+  .marks li {
+    position: relative; padding-left: 17px;
+    font-size: 14.5px; line-height: 1.5; color: var(--ink-2);
+    max-width: var(--measure);
+  }
+  .marks li::before {
+    content: ""; position: absolute; left: 0; top: 9px;
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--amber); opacity: 0.75;
+  }
+
+  .note {
+    border-left: 2px solid var(--amber);
+    padding: 3px 0 3px 17px;
+    display: flex; flex-direction: column; gap: 9px;
+    max-width: var(--measure);
+  }
+  .note--work { border-left-color: var(--work); }
+
+  /* tier tag */
+  .tier {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: var(--mono); font-size: 9.5px;
+    letter-spacing: 0.13em; text-transform: uppercase;
+    border-radius: 3px; padding: 1px 6px; vertical-align: 1px;
+    border: 1px solid; white-space: nowrap;
+  }
+  .tier--work { color: var(--work); border-color: color-mix(in srgb, var(--work) 40%, transparent); background: color-mix(in srgb, var(--work) 11%, transparent); }
+  .tier--nav { color: var(--nav); border-color: color-mix(in srgb, var(--nav) 40%, transparent); background: color-mix(in srgb, var(--nav) 11%, transparent); }
+  .tier--bad { color: #dc2626; border-color: rgba(220, 38, 38, 0.4); background: rgba(220, 38, 38, 0.1); }
+  @media (prefers-color-scheme: dark) { .tier--bad { color: #fca5a5; } }
+  :root[data-theme="dark"] .tier--bad { color: #fca5a5; }
+
+  /* ---------- reference tables ---------- */
+  .tbl { overflow-x: auto; border: 1px solid var(--rule-soft); border-radius: 8px; }
+  .tbl table { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 520px; }
+  .tbl th, .tbl td {
+    text-align: left; padding: 9px 14px;
+    border-bottom: 1px solid var(--rule-soft);
+    color: var(--ink-2); vertical-align: top;
+  }
+  .tbl thead th {
+    font-family: var(--mono); font-size: 9.5px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--faint); font-weight: 500;
+    background: var(--sunken); border-bottom-color: var(--rule);
+  }
+  .tbl tbody tr:last-child td { border-bottom: none; }
+  .tbl td.v { font-family: var(--mono); font-size: 12px; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .tbl td.n { font-family: var(--mono); font-size: 12px; color: var(--ink); white-space: nowrap; }
+
+  /* ---------- swatches ---------- */
+  .sw { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 12px; }
+  .sw__c { display: flex; flex-direction: column; gap: 7px; }
+  .sw__chip {
+    height: 54px; border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  }
+  .sw__nm { font-family: var(--mono); font-size: 11px; color: var(--ink); }
+  .sw__v { font-family: var(--mono); font-size: 10px; color: var(--faint); }
+  .sw__u { font-size: 12px; color: var(--muted); line-height: 1.35; }
+
+  /* ==================================================================
+     SPECIMENS — always the app's real colours, in both themes.
+     A swatch of bg-zinc-950 that turns white in light mode is lying.
+     Nothing below reads a document token.
+     ================================================================== */
+  .spec { display: flex; flex-direction: column; gap: 9px; }
+  .spec__frame {
+    overflow-x: auto;
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    background: #09090b;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  }
+  .spec__cap {
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--faint); padding-left: 2px;
+  }
+  .spec__cap b { color: var(--ink-2); font-weight: 500; }
+
+  /* the app itself, at its true 14px base */
+  .app {
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 14px; line-height: 1.45;
+    color: #f4f4f5; background: #09090b;
+    padding: 16px; min-width: 940px;
+  }
+  .app--tight { padding: 0; min-width: 0; }
+  .app *, .app *::before, .app *::after { box-sizing: border-box; }
+
+  /* -- the framed work panel -- */
+  .pan { border: 1px solid #3f3f46; border-radius: 12px; background: rgba(9, 9, 11, 0.4); overflow: hidden; }
+  .pan__bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    border-bottom: 1px solid #27272a; padding: 10px 12px;
+  }
+  .pan__ti { font-size: 14px; font-weight: 600; color: #f4f4f5; margin-right: 4px; }
+  .grow { flex: 1; }
+
+  /* -- controls, work tier -- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 28px; padding: 0 10px;
+    border: 1px solid transparent; border-radius: 6px;
+    font-size: 12px; font-weight: 500; white-space: nowrap;
+    font-family: inherit;
+  }
+  .btn--primary { background: #f59e0b; border-color: #f59e0b; color: #09090b; }
+  .btn--outline { background: #18181b; border-color: #3f3f46; color: #f4f4f5; }
+  .btn--ghost { background: transparent; color: #f4f4f5; }
+  .btn--sm { height: 24px; padding: 0 8px; font-size: 11px; }
+  .btn--md { height: 40px; padding: 0 16px; font-size: 14px; }
+  .btn--danger-ghost { background: transparent; color: #f87171; }
+
+  .seg { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; }
+
+  .fld {
+    height: 32px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b;
+    display: inline-flex; align-items: center; padding: 0 8px;
+    font-size: 12px; color: #e4e4e7; min-width: 0;
+  }
+  .fld--md { height: 40px; font-size: 14px; padding: 0 12px; }
+  .fld--ph { color: #71717a; }
+  .fld--sel::after { content: "▾"; margin-left: auto; padding-left: 8px; color: #71717a; font-size: 10px; }
+  .fld--foc { border-color: #f59e0b; }
+
+  .lbl {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #71717a; font-weight: 500;
+  }
+  .lbl--lane { letter-spacing: 0.18em; color: #52525b; }
+  .lbl--nav { font-family: inherit; font-size: 14px; letter-spacing: 0; text-transform: none; color: #d4d4d8; font-weight: 400; }
+
+  .pill {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 1px 6px; font-size: 10px; font-weight: 500; white-space: nowrap;
+  }
+  .badge {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 2px 10px; font-size: 12px; font-weight: 500; white-space: nowrap;
+  }
+  .t-drum { background: rgba(56, 189, 248, 0.15); color: #7dd3fc; }
+  .t-rhy  { background: rgba(167, 139, 250, 0.15); color: #c4b5fd; }
+  .t-vox  { background: rgba(52, 211, 153, 0.15); color: #6ee7b7; }
+  .t-dca  { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
+  .t-foh  { background: rgba(34, 211, 238, 0.15); color: #67e8f9; }
+  .t-mon  { background: rgba(52, 211, 153, 0.15); color: #6ee7b7; }
+  .t-sub  { background: rgba(248, 113, 113, 0.15); color: #fca5a5; }
+  .t-ok   { background: rgba(52, 211, 153, 0.15); color: #6ee7b7; }
+  .t-warn { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
+  .t-err  { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+  .t-def  { background: #3f3f46; color: #f4f4f5; }
+
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .p48 { display: inline-block; width: 8px; height: 3px; border-radius: 2px; background: #ef4444; box-shadow: 0 0 5px rgba(239, 68, 68, 0.65); vertical-align: 2px; }
+  .p48--off { background: #3f3f46; box-shadow: none; }
+
+  /* -- the sheet -- */
+  .sheet { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .sheet th {
+    text-align: left; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.14em; text-transform: uppercase; color: #71717a; font-weight: 500;
+    padding: 6px 8px; background: rgba(9, 9, 11, 0.6);
+    border-bottom: 1px solid #27272a; white-space: nowrap;
+  }
+  .sheet td { padding: 4px 8px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); vertical-align: middle; color: #e4e4e7; }
+  .sheet tr.alt td { background: rgba(255, 255, 255, 0.014); }
+  .sheet td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #a1a1aa; }
+  .sheet tr.open td { background: rgba(245, 158, 11, 0.04); border-bottom-color: transparent; }
+  .sheet tr.eds td { background: rgba(245, 158, 11, 0.04); padding: 0 8px 10px; }
+  .tape { display: inline-block; width: 3px; height: 14px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+
+  .chain { font-family: var(--mono); font-size: 11px; color: #d4d4d8; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .chain i { color: #52525b; font-style: normal; }
+  .chain u { text-decoration: none; border-bottom: 1px dotted #52525b; }
+  .chain b { font-weight: 400; color: #fcd34d; border-bottom: 1px dotted rgba(245, 158, 11, 0.5); }
+  .chain s { text-decoration: none; color: #f87171; }
+  .chain .tail { color: #71717a; }
+
+  .rowed {
+    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px;
+    border-left: 2px solid #f59e0b; border-radius: 0 6px 6px 0;
+    background: rgba(245, 158, 11, 0.04); padding: 10px 12px;
+  }
+  .rowed__f { display: flex; flex-direction: column; gap: 4px; }
+
+  /* -- the status strip -- */
+  .strip {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
+    padding: 8px 12px; border-top: 1px solid #27272a;
+    background: rgba(9, 9, 11, 0.6); font-size: 11px; color: #a1a1aa;
+  }
+  .strip--warn { border-top-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.05); }
+  .strip--err { border-top-color: rgba(248, 113, 113, 0.4); background: rgba(239, 68, 68, 0.05); }
+  .strip .mono { color: #e4e4e7; }
+  .strip .q { color: #71717a; }
+
+  /* -- the flow canvas -- */
+  .cvs { display: flex; align-items: stretch; }
+  .cvs__stage { position: relative; flex: none; width: 760px; height: 300px; }
+  .cvs__bands { position: absolute; inset: 0; }
+  .cvs__band { position: absolute; top: 0; bottom: 0; }
+  .cvs__wires { position: absolute; inset: 0; overflow: visible; }
+  .cvs__wires path { fill: none; stroke-width: 1.4; opacity: 0.92; }
+
+  .node {
+    position: absolute; border: 1px solid #3f3f46; border-radius: 7px;
+    background: #1f2028; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+  .node--desk { border-color: rgba(245, 158, 11, 0.55); }
+  .node--sel { border-color: #f59e0b; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3), 0 2px 8px rgba(0, 0, 0, 0.4); }
+  .node__hd {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 6px; border-bottom: 1px solid #27272a;
+    font-size: 11px; font-weight: 600; color: #f4f4f5; height: 24px;
+  }
+  .node__bdg { margin-left: auto; font-family: var(--mono); font-size: 10px; color: #a1a1aa; background: #27272a; border-radius: 3px; padding: 0 4px; font-weight: 400; }
+  .node__body { padding: 4px 0; }
+  .node__ft { font-family: var(--mono); font-size: 10px; color: #71717a; padding: 2px 6px 4px; border-top: 1px solid #27272a; }
+  .node__ft--hot { color: #f87171; }
+
+  .prow { display: flex; align-items: center; gap: 6px; height: 18px; padding: 0 6px; font-size: 11px; color: #d4d4d8; }
+  .prow--split { justify-content: space-between; }
+  .prow--split > span { display: flex; align-items: center; gap: 6px; }
+  .prow--r { flex-direction: row-reverse; }
+  .prow--sel { background: rgba(245, 158, 11, 0.1); }
+  .port { width: 7px; height: 7px; border-radius: 50%; border: 1px solid #71717a; background: #27272a; flex: none; }
+  .port--on { border-color: #f59e0b; background: rgba(245, 158, 11, 0.75); }
+  .port--c { border-color: var(--c); background: color-mix(in srgb, var(--c) 75%, transparent); }
+  .port--sel { box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.4); }
+
+  /* -- the sources rail -- */
+  .srail { position: absolute; border: 1px solid #3f3f46; border-radius: 7px; background: #1f2028; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); overflow: hidden; }
+  .srail__hd { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 6px; border-bottom: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); }
+  .srail__hd b { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; font-weight: 500; }
+  .srail__hd span { font-family: var(--mono); font-size: 10px; color: #52525b; margin-left: auto; }
+  .srow { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 6px 0 0; border-bottom: 1px solid rgba(39, 39, 42, 0.6); font-size: 11px; color: #d4d4d8; }
+  .srow:last-of-type { border-bottom: none; }
+  .srow--sel { background: rgba(245, 158, 11, 0.1); }
+  .srow--sel .srow__nm { font-weight: 600; color: #fafafa; }
+  .srow__tape { width: 3px; align-self: stretch; flex: none; }
+  .srow__nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 4px; }
+  .srow__md { font-family: var(--mono); font-size: 10px; color: #71717a; flex: none; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .srail__ft { display: flex; align-items: center; height: 26px; padding: 0 6px; border-top: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); }
+
+  /* -- the inspector rail -- */
+  .insp { flex: none; width: 240px; border-left: 1px solid #27272a; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+  .insp__hd { display: flex; align-items: center; gap: 6px; }
+  .insp__x { margin-left: auto; color: #71717a; font-size: 14px; line-height: 1; }
+  .insp__row { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 8px; align-items: center; }
+  .insp__box { border: 1px solid #27272a; border-radius: 5px; background: rgba(9, 9, 11, 0.6); padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+  .insp__lg { display: flex; align-items: center; gap: 8px; font-size: 10px; color: #a1a1aa; }
+  .insp__act { margin-top: auto; display: flex; gap: 8px; }
+
+  /* -- the drawer -- */
+  .dstack { position: relative; min-height: 430px; }
+  .scrim { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.7); }
+  .sd {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 460px;
+    background: #18181b; border-left: 1px solid #3f3f46;
+    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.5);
+    display: flex; flex-direction: column;
+  }
+  .sd__hd { display: flex; align-items: flex-start; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid #27272a; }
+  .sd__ti { font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .sd__sub { font-size: 12px; color: #71717a; margin-top: 2px; }
+  .sd__body { padding: 16px 20px; display: flex; flex-direction: column; gap: 20px; overflow: hidden; }
+  .sd__ft { margin-top: auto; padding: 12px 20px; border-top: 1px solid #27272a; font-size: 12px; color: #71717a; }
+  .dsec { display: flex; flex-direction: column; gap: 6px; }
+  .dsec__hd { display: flex; align-items: center; gap: 8px; }
+  .gear { border: 1px solid #27272a; border-radius: 6px; background: #18181b; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+  .gear--desk { border-color: rgba(245, 158, 11, 0.35); background: rgba(245, 158, 11, 0.045); }
+  .gear__top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .gear__nm { font-size: 14px; font-weight: 500; color: #f4f4f5; }
+  .gear__it { font-size: 12px; color: #a1a1aa; }
+  .gear__sp { display: flex; flex-wrap: wrap; gap: 2px 12px; font-family: var(--mono); font-size: 10px; color: #71717a; }
+  .gear__sp b { color: #d4d4d8; font-weight: 400; }
+  .meter { height: 3px; border-radius: 2px; background: #27272a; overflow: hidden; }
+  .meter span { display: block; height: 100%; background: #f59e0b; }
+  .meter--hot span { background: #f87171; }
+
+  /* -- navigation-tier card -- */
+  .card { border: 1px solid #3f3f46; border-radius: 12px; background: #1f2028; }
+  .ntbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .ntbl th { text-align: left; padding: 12px; font-weight: 500; color: #a1a1aa; }
+  .ntbl td { padding: 12px; vertical-align: top; color: #f4f4f5; border-bottom: 1px solid #27272a; }
+  .ntbl tr:nth-child(odd) td { background: #18181b; }
+  .ntbl tr:nth-child(even) td { background: #1f2028; }
+
+  /* -- app chrome -- */
+  .chrome { display: flex; min-height: 220px; }
+  .chrome__side { width: 200px; flex: none; border-right: 1px solid #27272a; padding: 18px 12px; display: flex; flex-direction: column; gap: 22px; }
+  .chrome__side--old { background: #18181b; }
+  .chrome__side--new { background: #09090b; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 4px; }
+  .brand__ic { width: 30px; height: 30px; border-radius: 6px; background: rgba(245, 158, 11, 0.15); color: #fbbf24; display: grid; place-items: center; flex: none; }
+  .brand__nm { font-size: 14px; font-weight: 600; color: #f4f4f5; line-height: 1.2; }
+  .brand__sub { font-size: 12px; color: #71717a; }
+  .nav { display: flex; flex-direction: column; gap: 4px; }
+  .nav a { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-left: 2px solid transparent; font-size: 14px; color: #a1a1aa; text-decoration: none; }
+  .nav a.on { border-left-color: #f59e0b; background: #1f2028; color: #fbbf24; }
+  .chrome__main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .chrome__hd { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #27272a; background: rgba(9, 9, 11, 0.95); }
+  .chrome__hd--old { padding: 20px 24px; }
+  .chrome__hd--new { padding: 12px 24px; }
+  .chrome__ti--old { font-size: 24px; font-weight: 600; color: #f4f4f5; }
+  .chrome__ti--new { font-size: 16px; font-weight: 600; color: #f4f4f5; }
+  .chrome__bd { padding: 16px 24px; display: flex; flex-direction: column; gap: 12px; }
+  .ev__nm--old { font-size: 20px; font-weight: 600; color: #f4f4f5; }
+  .ev__nm--new { font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .ev__mt { font-size: 14px; color: #a1a1aa; }
+  .tabs--old { display: inline-flex; flex-wrap: wrap; gap: 8px; border: 1px solid #3f3f46; border-radius: 8px; background: #18181b; padding: 4px; }
+  .tabs--old span { padding: 8px 16px; border-radius: 6px; font-size: 14px; color: #d4d4d8; }
+  .tabs--new { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+  .tabs--new span { padding: 4px 12px; border-radius: 6px; font-size: 14px; color: #a1a1aa; }
+  .tabs--old span.on, .tabs--new span.on { background: #f59e0b; color: #09090b; font-weight: 600; }
+
+  /* -- mobile -- */
+  .phones { display: flex; flex-wrap: wrap; gap: 22px; }
+  .phone { display: flex; flex-direction: column; gap: 8px; }
+  .phone__frame {
+    width: 300px; height: 560px; flex: none;
+    border: 1px solid #3f3f46; border-radius: 20px; background: #09090b;
+    overflow: hidden; position: relative;
+    display: flex; flex-direction: column;
+    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    font-size: 14px; color: #f4f4f5;
+  }
+  .phone__cap { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); width: 300px; }
+  .phone__cap b { color: var(--ink-2); font-weight: 500; }
+  .m-hd { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-hd__ti { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
+  .m-bd { flex: 1; overflow: hidden; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .m-nav { display: flex; border-top: 1px solid #27272a; background: #09090b; flex: none; }
+  .m-nav__i { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0; font-size: 11px; color: #a1a1aa; }
+  .m-nav__i.on { color: #fbbf24; }
+  .m-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    border: 1px solid #27272a; border-radius: 6px; background: #18181b;
+    padding: 6px 10px; text-align: left;
+  }
+  .m-row__t { font-size: 13px; font-weight: 500; line-height: 1.25; color: #f4f4f5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-row__s { font-size: 11px; line-height: 1.25; color: #a1a1aa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-row__n { font-family: var(--mono); font-size: 11px; color: #fbbf24; margin-right: 6px; }
+  .m-sw { display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 1px solid rgba(245, 158, 11, 0.6); border-radius: 8px; background: #18181b; padding: 10px 12px; }
+  .m-sw__t { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
+  .m-cap { display: inline-flex; border-radius: 999px; padding: 1px 8px; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+  .m-sheet { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.8); display: flex; align-items: flex-end; }
+  .m-sheet__p { width: 100%; max-height: 78%; overflow: hidden; border-top: 1px solid #27272a; border-radius: 12px 12px 0 0; background: #18181b; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+  .m-fld { display: flex; flex-direction: column; gap: 4px; }
+
+  /* -- density comparison -- */
+  .dens { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+  @media (max-width: 780px) { .dens { grid-template-columns: minmax(0, 1fr); } }
+  .dens__p { border: 1px solid var(--rule); border-radius: 10px; background: #09090b; overflow: hidden; display: flex; flex-direction: column; }
+  .dens__hd { display: flex; align-items: baseline; gap: 8px; padding: 9px 12px; border-bottom: 1px solid #27272a; }
+  .dens__hd b { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 500; }
+  .dens__hd span { font-family: var(--mono); font-size: 10px; color: #52525b; margin-left: auto; }
+  .dens__bd { padding: 12px; overflow-x: auto; flex: 1; }
+  .dens__ct { padding: 8px 12px; border-top: 1px solid #27272a; font-family: var(--mono); font-size: 10px; color: #71717a; }
+
+  /* -- audit -- */
+  .find { display: flex; flex-direction: column; gap: 7px; padding: 15px 0; border-top: 1px solid var(--rule-soft); }
+  .find:first-of-type { border-top: 1px solid var(--rule); }
+  .find__hd { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
+  .find__id { font-family: var(--mono); font-size: 11px; color: var(--amber-ink); letter-spacing: 0.08em; }
+  .find__ti { font-size: 15.5px; font-weight: 600; color: var(--ink); }
+  .find__p { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--faint); margin-left: auto; white-space: nowrap; }
+  .find__b { font-size: 14px; color: var(--ink-2); max-width: var(--measure); }
+  .find__n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--ink); }
+
+  .waves { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 2px; background: var(--rule-soft); border: 1px solid var(--rule-soft); border-radius: 8px; overflow: hidden; }
+  .wave { background: var(--ground); padding: 14px 16px; display: flex; flex-direction: column; gap: 7px; }
+  .wave__n { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
+  .wave__t { font-size: 14.5px; font-weight: 600; color: var(--ink); }
+  .wave__d { font-size: 13px; color: var(--muted); line-height: 1.45; }
+
+  footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--rule); display: flex; flex-direction: column; gap: 12px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">PatchPlanner · frontend · design language</p>
+    <h1>The patch surface,<br />as the whole application</h1>
+    <p class="lede">
+      Slices 23–26 built a deliberate visual language for the audio Inputs and Outputs tabs while the
+      other seven tabs kept the one they were born with. This page shows what that language is, so it
+      can be reviewed by looking rather than by reading class strings.
+    </p>
+    <p class="body">
+      Every specimen below is drawn at the application's real <strong>14 px base</strong> using shipped
+      values — not the original mockup's scaled-down 11 px thumbnail, whose pixel numbers were never
+      meant to be copied. Where a specimen and the code disagree, the code is right and this page has
+      a bug.
+    </p>
+    <div class="masthead__meta">
+      <span>Source · <b>design/*.md</b></span>
+      <span>Reference surface · <b>Audio Inputs / Outputs</b></span>
+      <span>Scale · <b>14 px base, true size</b></span>
+      <span><span class="tier tier--work">work</span> and <span class="tier tier--nav">nav</span> mark the two density tiers</span>
+    </div>
+  </header>
+
+  <!-- ============ 1 · PRINCIPLES ============ -->
+  <section class="sec">
+    <div class="patchbay" style="--lit: 8%;"><div class="patchbay__strip"></div><div class="patchbay__lit"></div></div>
+    <header class="sec__head">
+      <p class="sec__num">One · the rules <span class="sec__src">principles.md</span></p>
+      <h2>Eight rules, stated so they can be broken</h2>
+      <p class="body">
+        Each one names its own violation, because a principle you cannot fail is a slogan. They are
+        ordered: when two pull against each other, correctness of meaning beats legibility beats
+        consistency beats compactness.
+      </p>
+    </header>
+
+    <div class="cols cols--2">
+      <div class="stack">
+        <h3>P1 · One surface, one frame</h3>
+        <p class="body small">A screen is one bordered thing holding a bar, its content, and a strip that closes it — not a stack of rounded cards separated by gaps. A gap says <em>these are separate</em>. Use it only when they are.</p>
+        <h3>P2 · Density is a property of the surface's job</h3>
+        <p class="body small">Decided by a question about the user, not about taste: <strong>does the user scan many rows of this at once?</strong> Yes is a work surface; no is a navigation surface.</p>
+        <h3>P3 · One label style per tier</h3>
+        <p class="body small">Mono, uppercase, wide-tracked, quiet — and its size fixed by the tier, not by the component. Currently broken inside the reference surface itself: four definitions, two sizes.</p>
+        <h3>P4 · Amber is focus and action</h3>
+        <p class="body small">And never the only carrier of meaning. When amber also has to say <em>warning</em>, it does so alongside a shape or a word. A state distinguishable from its neighbour only by being amber is a violation.</p>
+      </div>
+      <div class="stack">
+        <h3>P5 · Shape carries meaning independently of colour</h3>
+        <p class="body small">Every circle on the canvas is a port you can patch — so 48 V phantom power is a <strong>bar</strong>, red and glowing, in every view that shows it. It survives greyscale, a colour-blind reader, and a channel whose tape happens to be red.</p>
+        <h3>P6 · A meaningful colour is derived, never typed</h3>
+        <p class="body small">A colour that carries information is computed by walking the domain graph. The canvas, the sheet's Chain column and the inspector's note read the same derivation — which is why they cannot disagree, rather than being kept in step.</p>
+        <h3>P7 · Restricted roles lose controls</h3>
+        <p class="body small">They never gain disabled ones. A disabled control is a promise the interface cannot keep — and reading the patch is never restricted, so the surface must not read as a locked copy of someone else's.</p>
+        <h3>P8 · Chrome recedes</h3>
+        <p class="body small">The panel is the subject. No navigation element may be louder than the content title beneath it.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 2 · THE TWO TIERS ============ -->
+  <section class="sec">
+    <div class="patchbay" style="--lit: 20%;"><div class="patchbay__strip"></div><div class="patchbay__lit"></div></div>
+    <header class="sec__head">
+      <p class="sec__num">Two · the central distinction <span class="sec__src">tokens.md §3</span></p>
+      <h2>One vocabulary, two calibrations</h2>
+      <p class="body">
+        The same eight rows of the same data, at both tiers. The left is what a technician reads two
+        hundred rows of; the right is what four event cards on a dashboard get. Neither is a
+        compromise — each is sized for the job it actually has.
+      </p>
+    </header>
+
+    <div class="dens">
+      <div class="dens__p">
+        <div class="dens__hd"><b style="color: #67e8f9;">Work surface</b><span>8 rows</span></div>
+        <div class="dens__bd">
+          <table class="sheet">
+            <thead><tr><th style="width: 34px;">Ch</th><th style="width: 120px;">Name</th><th style="width: 26px;">W</th><th style="width: 40px;">48 V</th><th>Buses</th></tr></thead>
+            <tbody>
+              <tr><td class="num">1</td><td><span class="tape" style="background: #38bdf8;"></span>Kick In</td><td class="num">M</td><td><span class="p48"></span></td><td><span class="pill t-drum">DRUMS</span></td></tr>
+              <tr class="alt"><td class="num">2</td><td><span class="tape" style="background: #38bdf8;"></span>Kick Out</td><td class="num">M</td><td><span class="p48"></span></td><td><span class="pill t-drum">DRUMS</span></td></tr>
+              <tr><td class="num">3</td><td><span class="tape" style="background: #38bdf8;"></span>Snare Top</td><td class="num">M</td><td><span class="p48"></span></td><td><span class="pill t-drum">DRUMS</span></td></tr>
+              <tr class="alt"><td class="num">6</td><td><span class="tape" style="background: #38bdf8;"></span>OH L/R</td><td class="num">S</td><td><span class="p48"></span></td><td><span class="pill t-drum">DRUMS</span></td></tr>
+              <tr><td class="num">8</td><td><span class="tape" style="background: #a78bfa;"></span>Bass</td><td class="num">M</td><td><span class="p48 p48--off"></span></td><td><span class="pill t-rhy">RHYTHM</span></td></tr>
+              <tr class="alt"><td class="num">11</td><td><span class="tape" style="background: #a78bfa;"></span>Keys L/R</td><td class="num">S</td><td><span class="p48 p48--off"></span></td><td><span class="pill t-rhy">RHYTHM</span></td></tr>
+              <tr><td class="num">13</td><td><span class="tape" style="background: #34d399;"></span>Lead Vox</td><td class="num">M</td><td><span class="p48"></span></td><td><span class="pill t-vox">VOX</span></td></tr>
+              <tr class="alt"><td class="num">14</td><td><span class="tape" style="background: #34d399;"></span>Vox SR</td><td class="num">M</td><td><span class="p48"></span></td><td><span class="pill t-vox">VOX</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="dens__ct">px-2 py-1 · text-xs · Pill · SheetTable</div>
+      </div>
+
+      <div class="dens__p">
+        <div class="dens__hd"><b style="color: #c4b5fd;">Navigation surface</b><span>5 rows, same height</span></div>
+        <div class="dens__bd">
+          <table class="ntbl">
+            <thead><tr><th>Ch</th><th>Name</th><th>Buses</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>Kick In</td><td><span class="badge t-drum">DRUMS</span></td></tr>
+              <tr><td>2</td><td>Kick Out</td><td><span class="badge t-drum">DRUMS</span></td></tr>
+              <tr><td>3</td><td>Snare Top</td><td><span class="badge t-drum">DRUMS</span></td></tr>
+              <tr><td>6</td><td>OH L/R</td><td><span class="badge t-drum">DRUMS</span></td></tr>
+              <tr><td>8</td><td>Bass</td><td><span class="badge t-rhy">RHYTHM</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="dens__ct">px-3 py-3 · text-sm · Badge · Table</div>
+      </div>
+    </div>
+
+    <div class="note note--work">
+      <p class="body small">
+        Five rows fill the height that eight fill on the left. On a 200-row patch that is four extra
+        screens of scrolling, and the zebra striping — <span class="k">odd:bg-zinc-900
+        even:bg-zinc-850</span> — has become a visible banding pattern rather than an aid. The work
+        surface's stripe is <span class="k">bg-white/[0.014]</span>: deliberately at the edge of
+        perceptible, something you find when you look for it.
+      </p>
+    </div>
+
+    <div class="tbl">
+      <table>
+        <thead><tr><th style="width: 30%;"></th><th style="width: 35%;">Work surface</th><th style="width: 35%;">Navigation surface</th></tr></thead>
+        <tbody>
+          <tr><td>Base text</td><td class="v">text-xs · 12px</td><td class="v">text-sm · 14px</td></tr>
+          <tr><td>Micro-label</td><td class="v">text-[10px] mono, 0.14em, upper</td><td class="v">text-xs sans, sentence case</td></tr>
+          <tr><td>Surface title</td><td class="v">text-sm font-semibold</td><td class="v">text-lg font-semibold</td></tr>
+          <tr><td>Input / Select</td><td class="v">size="sm" · h-8 px-2 text-xs</td><td class="v">size="md" · h-10 px-3 text-sm</td></tr>
+          <tr><td>Button</td><td class="v">h-7 px-2.5 text-xs <span class="tier tier--bad">no size yet</span></td><td class="v">sm h-8 · md h-10</td></tr>
+          <tr><td>Table row</td><td class="v">px-2 py-1</td><td class="v">px-3 py-3</td></tr>
+          <tr><td>Chip</td><td class="v">Pill · px-1.5 py-px text-[10px]</td><td class="v">Badge · px-2.5 py-0.5 text-xs</td></tr>
+          <tr><td>Container padding</td><td class="v">p-2.5 · px-3 py-2</td><td class="v">px-5 py-4</td></tr>
+          <tr><td>Icon</td><td class="v">h-3.5 w-3.5</td><td class="v">h-4 w-4</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ 3 · FOUNDATIONS ============ -->
+  <section class="sec">
+    <div class="patchbay" style="--lit: 32%;"><div class="patchbay__strip"></div><div class="patchbay__lit"></div></div>
+    <header class="sec__head">
+      <p class="sec__num">Three · foundations <span class="sec__src">tokens.md §1–2, §5–6</span></p>
+      <h2>One committed dark ground, cut by translucency</h2>
+      <p class="body">
+        Not a palette of six greys. Layers are made by alpha over one ground, which is why a panel
+        inside a panel never drifts into a lighter shade nobody chose. These swatches render the real
+        values in both themes — a ground that turned white in light mode would be lying about the
+        product.
+      </p>
+    </header>
+
+    <div class="stack">
+      <h4>Ground and layers</h4>
+      <div class="sw">
+        <div class="sw__c"><div class="sw__chip" style="background: #09090b;"></div><span class="sw__nm">Ground</span><span class="sw__v">zinc-950 · #09090b</span><span class="sw__u">The page.</span></div>
+        <div class="sw__c"><div class="sw__chip" style="background: #09090b;"><div style="height: 100%; background: rgba(9,9,11,0.4);"></div></div><span class="sw__nm">Panel</span><span class="sw__v">bg-zinc-950/40</span><span class="sw__u">A work panel's interior.</span></div>
+        <div class="sw__c"><div class="sw__chip" style="background: #1f2028;"></div><span class="sw__nm">Card</span><span class="sw__v">zinc-850 · #1f2028</span><span class="sw__u">Nav card, and a canvas node.</span></div>
+        <div class="sw__c"><div class="sw__chip" style="background: #0d0d10;"></div><span class="sw__nm">Inset</span><span class="sw__v">bg-zinc-950/60</span><span class="sw__u">Sheet heads, notes, strips.</span></div>
+        <div class="sw__c"><div class="sw__chip" style="background: #18181b;"></div><span class="sw__nm">Control</span><span class="sw__v">zinc-900 · #18181b</span><span class="sw__u">Input, select, trough.</span></div>
+        <div class="sw__c"><div class="sw__chip" style="background: #27272a;"></div><span class="sw__nm">Raised</span><span class="sw__v">zinc-800 · #27272a</span><span class="sw__u">Badge, hover, secondary.</span></div>
+      </div>
+    </div>
+
+    <div class="cols cols--2">
+      <div class="stack">
+        <h4>Rules — one width, everywhere</h4>
+        <div class="tbl">
+          <table>
+            <thead><tr><th>Role</th><th>Value</th><th>Bounds</th></tr></thead>
+            <tbody>
+              <tr><td class="n">Frame</td><td class="v">zinc-700</td><td>Panel, card, node, control</td></tr>
+              <tr><td class="n">Divider</td><td class="v">zinc-800</td><td>Every internal division</td></tr>
+              <tr><td class="n">Row</td><td class="v">zinc-800/60</td><td>Between sheet rows</td></tr>
+              <tr><td class="n">Stripe</td><td class="v">white/[0.014]</td><td>Alternate rows</td></tr>
+              <tr><td class="n">Lane band</td><td class="v">white/[0.022] · /[0.012]</td><td>Canvas lanes</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="body small">
+          Emphasis is added with a ring — <span class="k">ring-2 ring-amber-500/30</span> — never with
+          a thicker border. A 2 px border changes the box's size and shifts every port dot inside it
+          off its cable.
+        </p>
+      </div>
+
+      <div class="stack">
+        <h4>Accent semantics</h4>
+        <div class="tbl">
+          <table>
+            <thead><tr><th>Hue</th><th>Means</th></tr></thead>
+            <tbody>
+              <tr><td class="n" style="color: #f59e0b;">amber-500</td><td>Focus and action — primary button, active tab, selected node, open row, the desk</td></tr>
+              <tr><td class="n" style="color: #fcd34d;">amber-300</td><td>A chain hop through the desk's own socket: the one hop that is <em>not</em> a billable cable</td></tr>
+              <tr><td class="n" style="color: #f87171;">red-500/400</td><td>Destructive · over capacity · missing link · 48 V. Reserved; nothing else.</td></tr>
+              <tr><td class="n" style="color: #6ee7b7;">emerald-500</td><td>Complete. Status pill only.</td></tr>
+              <tr><td class="n" style="color: #71717a;">zinc-600</td><td>A patched run reaching nothing</td></tr>
+              <tr><td class="n" style="color: #a1a1aa;">#3f3f46</td><td>An unassigned tape — still reads as a tape</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="body small">
+          A database vocabulary value is tinted by one formula —
+          <span class="k">&lt;hue&gt;-500/15</span> ground, <span class="k">&lt;hue&gt;-300</span> ink —
+          so a user-added output type renders through the neutral fallback rather than branching
+          anything.
+        </p>
+      </div>
+    </div>
+
+    <div class="stack">
+      <h4>Vocabulary chips — one formula, no branching</h4>
+      <div class="spec">
+        <div class="spec__frame">
+          <div class="app" style="min-width: 640px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <span class="pill t-drum">mic</span><span class="pill t-rhy">line</span><span class="pill t-vox">di</span>
+              <span class="pill t-dca">return</span><span class="pill t-foh">foh</span><span class="pill t-mon">monitor</span>
+              <span class="pill t-sub">sub</span><span class="pill t-def">user-added type</span>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+              <span class="badge t-drum">mic</span><span class="badge t-rhy">line</span><span class="badge t-vox">di</span>
+              <span class="badge t-dca">return</span><span class="badge t-foh">foh</span><span class="badge t-mon">monitor</span>
+              <span class="badge t-sub">sub</span><span class="badge t-def">user-added type</span>
+            </div>
+            <div style="border-top: 1px solid #27272a; padding-top: 12px; font-size: 12px; color: #71717a;">
+              Work tier above, navigation tier below. A value with no assigned hue falls through to the
+              neutral style — it must render, not crash and not force a new variant.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stack">
+      <h4>Node and port states</h4>
+      <div class="spec">
+        <div class="spec__frame">
+          <div class="app" style="min-width: 700px; display: flex; flex-wrap: wrap; gap: 26px; align-items: flex-start;">
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div class="node" style="position: static; width: 150px;">
+                <div class="node__hd">SB2<span class="node__bdg">16</span></div>
+                <div class="node__body"><div class="prow"><span class="port"></span>1</div><div class="prow"><span class="port port--on"></span>2</div></div>
+                <div class="node__ft">2 / 16 used</div>
+              </div>
+              <span class="lbl">Default</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div class="node node--desk" style="position: static; width: 150px;">
+                <div class="node__hd">SD10<span class="node__bdg">96</span></div>
+                <div class="node__body"><div class="prow"><span class="port port--c" style="--c: #38bdf8;"></span>ch 1</div><div class="prow"><span class="port"></span>ch 2</div></div>
+                <div class="node__ft">16 / 96 used</div>
+              </div>
+              <span class="lbl">Desk</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div class="node node--sel" style="position: static; width: 150px;">
+                <div class="node__hd">SB1<span class="node__bdg">32</span></div>
+                <div class="node__body"><div class="prow prow--sel"><span class="port port--c port--sel" style="--c: #a78bfa;"></span>3</div><div class="prow"><span class="port"></span>4</div></div>
+                <div class="node__ft node__ft--hot">40 / 32 used</div>
+              </div>
+              <span class="lbl">Selected · over capacity</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div class="node" style="position: static; width: 150px;">
+                <div class="node__hd">Amp rack<span class="node__bdg">8</span></div>
+                <div class="node__body"><div class="prow prow--r"><span class="port port--c" style="--c: #f87171;"></span>1</div><div class="prow prow--r"><span class="port port--c" style="--c: #f87171;"></span>2</div></div>
+                <div class="node__ft">2 / 8 used</div>
+              </div>
+              <span class="lbl">Right-aligned ports</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px; padding-top: 2px;">
+              <span class="lbl">Port dot</span>
+              <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #a1a1aa;"><span class="port"></span>unpatched</div>
+              <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #a1a1aa;"><span class="port port--on"></span>patched, no channel reached</div>
+              <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #a1a1aa;"><span class="port port--c" style="--c: #38bdf8;"></span>carrying a derived colour</div>
+              <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #a1a1aa;"><span class="port port--c port--sel" style="--c: #38bdf8;"></span>selected</div>
+            </div>
+          </div>
+        </div>
+        <p class="spec__cap">A footer turns red only when a <b>declared</b> capacity is exceeded — an undeclared count never warns</p>
+      </div>
+    </div>
+
+    <div class="stack">
+      <h4>Mono has exactly four jobs</h4>
+      <div class="spec">
+        <div class="spec__frame">
+          <div class="app" style="min-width: 640px; display: flex; flex-direction: column; gap: 14px;">
+            <div style="display: flex; align-items: center; gap: 14px;"><span class="lbl">Micro-label</span><span style="color: #52525b; font-size: 12px;">headings, field labels, column heads</span></div>
+            <div style="display: flex; align-items: center; gap: 14px;"><span class="mono" style="font-size: 12px; color: #a1a1aa;">1 · 12 · 128 · 512 · 32/64</span><span style="color: #52525b; font-size: 12px;">numbers that line up — always tabular-nums</span></div>
+            <div style="display: flex; align-items: center; gap: 14px;"><span class="chain"><u>SM58</u><i>→</i><u>SB2 : 5</u><i>→</i><span class="tail">ch 13</span></span><span style="color: #52525b; font-size: 12px;">signal chains, read hop by hop</span></div>
+            <div style="display: flex; align-items: center; gap: 14px;"><span class="mono" style="font-size: 10px; color: #71717a;">DiGiCo SD10 · in <b style="color: #d4d4d8; font-weight: 400;">96</b> · out <b style="color: #d4d4d8; font-weight: 400;">48</b></span><span style="color: #52525b; font-size: 12px;">equipment identifiers and specs</span></div>
+            <div style="border-top: 1px solid #27272a; padding-top: 12px; font-size: 12px; color: #71717a;">Everything else is sans. Prose in mono is the fastest way to make a planning tool look like a terminal emulator.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stack">
+      <h4>Radius ladder</h4>
+      <div class="spec">
+        <div class="spec__frame">
+          <div class="app" style="min-width: 640px; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 22px;">
+            <div style="display: flex; flex-direction: column; gap: 7px; align-items: center;"><div style="width: 66px; height: 44px; border-radius: 12px; border: 1px solid #3f3f46; background: #1f2028;"></div><span class="lbl">xl · 12</span><span style="font-size: 11px; color: #52525b;">panel, card</span></div>
+            <div style="display: flex; flex-direction: column; gap: 7px; align-items: center;"><div style="width: 66px; height: 44px; border-radius: 7px; border: 1px solid #3f3f46; background: #1f2028;"></div><span class="lbl">[7px]</span><span style="font-size: 11px; color: #52525b;">canvas node</span></div>
+            <div style="display: flex; flex-direction: column; gap: 7px; align-items: center;"><div style="width: 66px; height: 44px; border-radius: 6px; border: 1px solid #3f3f46; background: #1f2028;"></div><span class="lbl">md · 6</span><span style="font-size: 11px; color: #52525b;">control, tab</span></div>
+            <div style="display: flex; flex-direction: column; gap: 7px; align-items: center;"><div style="width: 66px; height: 44px; border-radius: 5px; border: 1px solid #3f3f46; background: #1f2028;"></div><span class="lbl">[5px]</span><span style="font-size: 11px; color: #52525b;">note box</span></div>
+            <div style="display: flex; flex-direction: column; gap: 7px; align-items: center;"><div style="width: 66px; height: 44px; border-radius: 999px; border: 1px solid #3f3f46; background: #1f2028;"></div><span class="lbl">full</span><span style="font-size: 11px; color: #52525b;">pill, port dot</span></div>
+            <div style="display: flex; flex-direction: column; gap: 7px; align-items: center; opacity: 0.55;"><div style="width: 66px; height: 44px; border-radius: 8px; border: 1px dashed #f87171; background: transparent;"></div><span class="lbl" style="color: #f87171;">lg · 8</span><span style="font-size: 11px; color: #f87171;">not in the ladder</span></div>
+          </div>
+        </div>
+        <p class="spec__cap"><b>rounded-lg</b> has 30 uses and belongs to none of them — each is either a panel or a control</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 4 · THE WORK PANEL ============ -->
+  <section class="sec">
+    <div class="patchbay" style="--lit: 44%;"><div class="patchbay__strip"></div><div class="patchbay__lit"></div></div>
+    <header class="sec__head">
+      <p class="sec__num">Four · the work panel <span class="sec__src">patterns.md §1–2</span></p>
+      <h2>Bar, content, strip — one frame</h2>
+      <p class="body">
+        The shape every data-dense tab converges on. It used to be three cards with gaps: a toolbar
+        floating on <span class="k">mb-4</span>, a table in its own border, a strip in a third box.
+        Switching Sheet → Flow appeared to rebuild the page. As one panel the toggle changes the
+        contents of something that stays put.
+      </p>
+    </header>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div class="pan">
+            <div class="pan__bar">
+              <span class="pan__ti">Audio inputs</span>
+              <div class="seg">
+                <span class="btn btn--sm btn--primary">Sheet</span>
+                <span class="btn btn--sm btn--ghost" style="color: #a1a1aa;">Flow</span>
+              </div>
+              <span class="fld fld--ph" style="width: 190px;">Find a channel…</span>
+              <span class="btn btn--outline">Rig</span>
+              <span class="btn btn--outline">Buses</span>
+              <span class="grow"></span>
+              <span class="btn btn--outline">Print</span>
+              <span class="btn btn--primary">+ Channel</span>
+            </div>
+
+            <table class="sheet">
+              <thead>
+                <tr>
+                  <th style="width: 40px;">Ch</th><th style="width: 150px;">Name</th><th style="width: 30px;">W</th>
+                  <th style="width: 330px;">Chain</th><th style="width: 44px;">48 V</th><th style="width: 170px;">Buses</th><th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="num">1</td><td><span class="tape" style="background: #38bdf8;"></span>Kick In</td><td class="num">M</td>
+                  <td><div class="chain"><u>Beta 91A</u><i>→</i><u>SB1 : 1</u><i>→</i><span class="tail">ch 1</span></div></td>
+                  <td><span class="p48"></span></td>
+                  <td><span class="pill t-drum">DRUMS</span> <span class="pill t-dca">DCA 1</span></td>
+                  <td style="color: #71717a;"></td>
+                </tr>
+                <tr class="alt">
+                  <td class="num">2</td><td><span class="tape" style="background: #38bdf8;"></span>Kick Out</td><td class="num">M</td>
+                  <td><div class="chain"><u>e902</u><i>→</i><u>SB1 : 2</u><i>→</i><span class="tail">ch 2</span></div></td>
+                  <td><span class="p48"></span></td>
+                  <td><span class="pill t-drum">DRUMS</span> <span class="pill t-dca">DCA 1</span></td>
+                  <td style="color: #71717a;"></td>
+                </tr>
+                <tr class="open">
+                  <td class="num">3</td><td><span class="tape" style="background: #38bdf8;"></span>Snare Top</td><td class="num">M</td>
+                  <td><div class="chain"><u>e906</u><i>→</i><u>SB1 : 3</u><i>→</i><span class="tail">ch 3</span></div></td>
+                  <td><span class="p48"></span></td>
+                  <td><span class="pill t-drum">DRUMS</span> <span class="pill t-dca">DCA 1</span></td>
+                  <td style="color: #71717a;">tape the clip</td>
+                </tr>
+                <tr class="eds">
+                  <td colspan="7">
+                    <div class="rowed">
+                      <div class="rowed__f"><span class="lbl">Name</span><span class="fld fld--foc" style="width: 150px;">Snare Top</span></div>
+                      <div class="rowed__f"><span class="lbl">Width</span><span class="fld fld--sel" style="width: 90px;">Mono</span></div>
+                      <div class="rowed__f"><span class="lbl">Tape</span><span class="fld" style="width: 84px;"><span class="tape" style="background: #38bdf8; margin-right: 6px;"></span>sky</span></div>
+                      <div class="rowed__f"><span class="lbl">Groups</span><span class="fld fld--sel" style="width: 116px;">DRUMS</span></div>
+                      <div class="rowed__f"><span class="lbl">DCA</span><span class="fld fld--sel" style="width: 100px;">DCA 1</span></div>
+                      <div class="rowed__f"><span class="lbl">Notes</span><span class="fld" style="width: 150px;">tape the clip</span></div>
+                      <div class="rowed__f"><span class="lbl">Source</span><span class="btn btn--outline">Edit in Flow →</span></div>
+                      <span class="grow"></span>
+                      <span class="btn btn--primary">Save channel</span>
+                      <span class="btn btn--danger-ghost">Delete</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="num">15</td><td><span class="tape" style="background: #fbbf24;"></span>Talkback</td><td class="num">M</td>
+                  <td><div class="chain"><u>SM58</u><i>→</i><b>SD10 local in 1</b><i>→</i><span class="tail">ch 15</span></div></td>
+                  <td><span class="p48"></span></td>
+                  <td style="color: #71717a;">—</td>
+                  <td style="color: #71717a;">straight into the desk</td>
+                </tr>
+                <tr class="alt">
+                  <td class="num">16</td><td><span class="tape" style="background: #3f3f46;"></span>Playback L/R</td><td class="num">S</td>
+                  <td><div class="chain"><s>no source</s><i>→</i><span class="tail">ch 16</span></div></td>
+                  <td><span class="p48 p48--off"></span></td>
+                  <td style="color: #71717a;">—</td>
+                  <td style="color: #71717a;"></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="strip strip--warn">
+              <span class="pill t-warn">1 gap</span>
+              <span class="mono">16 channels</span>
+              <span class="mono q">SD10 FOH</span>
+              <span class="mono q">SB1 8/32 · SB2 6/16</span>
+              <span class="mono q">14 cables picked</span>
+              <span style="color: #fcd34d;">ch 16 Playback L/R has no source</span>
+              <span class="btn btn--sm btn--ghost" style="color: #a1a1aa;">Show only gaps</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="spec__cap">Bar order is fixed: title · view · search · drawers · extras · <b>flex-1</b> · print · one primary action</p>
+    </div>
+
+    <div class="cols cols--3">
+      <div class="stack">
+        <h3>The bar</h3>
+        <ul class="marks">
+          <li>The title repeats the tab name above it, deliberately — it anchors a panel that now has a top edge of its own.</li>
+          <li>The view toggle is a segmented control in a trough. Page-level tabs get no trough; an in-panel toggle does.</li>
+          <li>The primary action is last, and is the only filled button on the surface.</li>
+        </ul>
+      </div>
+      <div class="stack">
+        <h3>The editor</h3>
+        <ul class="marks">
+          <li>Nothing in a row is a form control until the row is clicked. A cell that is permanently an input turns a scannable list into a form.</li>
+          <li>The open row loses its bottom border and takes <span class="k">bg-amber-500/[0.04]</span>, so row and editor read as one block.</li>
+          <li>The same construction adds a row, which is what makes adding and editing look like one operation.</li>
+        </ul>
+      </div>
+      <div class="stack">
+        <h3>The strip</h3>
+        <ul class="marks">
+          <li>Closes the panel from inside, top border only — the alert reads from the frame's edge, not from a badge in a second box.</li>
+          <li>Ground <em>and</em> border take the tint, so a patch with gaps is visible from the edge of vision.</li>
+          <li>Over capacity is unreachable until an event declares a console. Inventing a capacity is worse than saying nothing.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app" style="display: flex; flex-direction: column; gap: 10px; min-width: 720px;">
+          <div class="strip" style="border: 1px solid #27272a; border-radius: 6px;">
+            <span class="pill t-ok">complete</span><span class="mono">16 channels</span><span class="mono q">SD10 FOH</span><span class="mono q">SB1 16/32</span><span class="mono q">16 cables picked</span>
+          </div>
+          <div class="strip strip--warn" style="border: 1px solid rgba(245,158,11,0.4); border-radius: 6px;">
+            <span class="pill t-warn">3 gaps</span><span class="mono">16 channels</span><span class="mono q">SD10 FOH</span><span class="mono q">14 cables picked</span><span style="color: #fcd34d;">ch 16 Playback L/R has no source</span><span class="q">+2 more</span>
+          </div>
+          <div class="strip strip--err" style="border: 1px solid rgba(248,113,113,0.4); border-radius: 6px;">
+            <span class="pill t-err">over capacity</span><span class="mono">40 channels</span><span class="mono q">SD10 FOH</span><span style="color: #fca5a5;">SB1 needs 40 inputs, 32 declared</span><span class="btn btn--sm btn--outline">Open Rig</span>
+          </div>
+        </div>
+      </div>
+      <p class="spec__cap">Three states, in order of how much attention they need</p>
+    </div>
+  </section>
+
+  <!-- ============ 5 · THE CANVAS ============ -->
+  <section class="sec">
+    <div class="patchbay" style="--lit: 56%;"><div class="patchbay__strip"></div><div class="patchbay__lit"></div></div>
+    <header class="sec__head">
+      <p class="sec__num">Five · the flow canvas <span class="sec__src">patterns.md §4 · components.md §2–3</span></p>
+      <h2>The same data, seen sideways</h2>
+      <p class="body">
+        Three lanes, boxes of ports at fixed pitch, and runs whose colour is derived from the graph
+        rather than stored anywhere. Colour and medium are separate encodings: a run's hue says which
+        channel it reaches, its dash pattern says whether it is a cable or a network hop — so neither
+        has to share a channel with the other.
+      </p>
+    </header>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app app--tight" style="min-width: 1000px;">
+          <div class="cvs">
+            <div class="cvs__stage">
+              <div class="cvs__bands">
+                <div class="cvs__band" style="left: 0; width: 240px; background: rgba(255,255,255,0.022);"></div>
+                <div class="cvs__band" style="left: 260px; width: 240px; background: rgba(255,255,255,0.012);"></div>
+                <div class="cvs__band" style="left: 520px; width: 240px; background: rgba(255,255,255,0.022);"></div>
+              </div>
+              <span class="lbl lbl--lane" style="position: absolute; top: 7px; left: 12px;">Stage</span>
+              <span class="lbl lbl--lane" style="position: absolute; top: 7px; left: 272px;">Rack</span>
+              <span class="lbl lbl--lane" style="position: absolute; top: 7px; left: 532px;">Desk</span>
+
+              <svg class="cvs__wires" viewBox="0 0 760 300" preserveAspectRatio="none" aria-hidden="true">
+                <path d="M196 64 C 236 64, 270 77, 310 77" stroke="#38bdf8" />
+                <path d="M196 84 C 236 84, 270 95, 310 95" stroke="#38bdf8" />
+                <path d="M196 104 C 236 104, 270 113, 310 113" stroke="#a78bfa" />
+                <path d="M196 124 C 236 124, 270 131, 310 131" stroke="#71717a" stroke-dasharray="4 3" />
+                <path d="M470 77 C 500 77, 540 77, 570 77" stroke="#38bdf8" stroke-dasharray="6 3" />
+                <path d="M470 95 C 500 95, 540 95, 570 95" stroke="#38bdf8" stroke-dasharray="6 3" />
+                <path d="M470 113 C 500 113, 540 113, 570 113" stroke="#a78bfa" stroke-dasharray="6 3" />
+              </svg>
+
+              <div class="srail" style="left: 10px; top: 34px; width: 196px;">
+                <div class="srail__hd"><b>Sources</b><span>4</span></div>
+                <div class="srow"><span class="srow__tape" style="background: #38bdf8;"></span><span class="srow__nm">Kick In</span><span class="srow__md">Beta 91A</span><span class="p48"></span><span class="port port--c" style="--c: #38bdf8;"></span></div>
+                <div class="srow"><span class="srow__tape" style="background: #38bdf8;"></span><span class="srow__nm">Snare Top</span><span class="srow__md">e906</span><span class="p48"></span><span class="port port--c" style="--c: #38bdf8;"></span></div>
+                <div class="srow srow--sel"><span class="srow__tape" style="background: #a78bfa;"></span><span class="srow__nm">Bass</span><span class="srow__md">Radial J48</span><span class="p48 p48--off"></span><span class="port port--c port--sel" style="--c: #a78bfa;"></span></div>
+                <div class="srow"><span class="srow__tape" style="background: #3f3f46;"></span><span class="srow__nm" style="color: #a1a1aa;">Playback L/R</span><span class="srow__md">—</span><span class="p48 p48--off"></span><span class="port"></span></div>
+                <div class="srail__ft"><span class="btn btn--sm btn--ghost" style="color: #a1a1aa;">+ Source</span></div>
+              </div>
+
+              <div class="node" style="left: 300px; top: 40px; width: 180px;">
+                <div class="node__hd"><span class="tape" style="background: #52525b; height: 10px; margin: 0;"></span>SB1<span class="node__bdg">32</span></div>
+                <div class="node__body">
+                  <div class="prow prow--split"><span><span class="port port--c" style="--c: #38bdf8;"></span>1</span><span>1<span class="port port--c" style="--c: #38bdf8;"></span></span></div>
+                  <div class="prow prow--split"><span><span class="port port--c" style="--c: #38bdf8;"></span>2</span><span>2<span class="port port--c" style="--c: #38bdf8;"></span></span></div>
+                  <div class="prow prow--split"><span><span class="port port--c" style="--c: #a78bfa;"></span>3</span><span>3<span class="port port--c" style="--c: #a78bfa;"></span></span></div>
+                  <div class="prow prow--split"><span><span class="port"></span>4</span><span>4<span class="port"></span></span></div>
+                </div>
+                <div class="node__ft">8 / 32 used</div>
+              </div>
+
+              <div class="node node--desk" style="left: 560px; top: 40px; width: 170px;">
+                <div class="node__hd">SD10 · FOH<span class="node__bdg">96</span></div>
+                <div class="node__body">
+                  <div class="prow"><span class="port port--c" style="--c: #38bdf8;"></span>ch 1 · Kick In</div>
+                  <div class="prow"><span class="port port--c" style="--c: #38bdf8;"></span>ch 3 · Snare Top</div>
+                  <div class="prow"><span class="port port--c" style="--c: #a78bfa;"></span>ch 8 · Bass</div>
+                  <div class="prow"><span class="port"></span>ch 16 · Playback</div>
+                </div>
+                <div class="node__ft">16 / 96 used</div>
+              </div>
+            </div>
+
+            <aside class="insp">
+              <div class="insp__hd"><span class="lbl">Source</span><span class="pill t-rhy">DI</span><span class="insp__x">✕</span></div>
+              <span class="fld" style="height: 28px; font-size: 14px; font-weight: 600;">Bass</span>
+              <div class="insp__row"><span class="lbl">Type</span><span class="fld fld--sel">DI</span></div>
+              <div class="insp__row"><span class="lbl">Width</span><span class="fld fld--sel">Mono</span></div>
+              <div class="insp__row"><span class="lbl">Tape</span><span class="fld"><span class="tape" style="background: #a78bfa;"></span>violet</span></div>
+              <div class="insp__row"><span class="lbl">48 V</span><span class="fld fld--sel">Off</span></div>
+              <div class="insp__box">
+                <span class="lbl">Reaches</span>
+                <span class="mono" style="font-size: 11px; color: #c4b5fd;">ch 8 · Bass</span>
+                <span class="mono" style="font-size: 10px; color: #71717a;">1 port · 48 V off</span>
+              </div>
+              <div class="insp__box">
+                <span class="lbl">Legend</span>
+                <span class="insp__lg"><svg width="22" height="4" aria-hidden="true"><line x1="0" y1="2" x2="22" y2="2" stroke="#38bdf8" stroke-width="1.5" /></svg>cable, reaching that channel</span>
+                <span class="insp__lg"><svg width="22" height="4" aria-hidden="true"><line x1="0" y1="2" x2="22" y2="2" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="6 3" /></svg>network hop</span>
+                <span class="insp__lg"><svg width="22" height="4" aria-hidden="true"><line x1="0" y1="2" x2="22" y2="2" stroke="#71717a" stroke-width="1.5" stroke-dasharray="4 3" /></svg>patched, reaching nothing</span>
+                <span class="insp__lg"><span style="width: 22px; display: inline-flex; justify-content: center;"><span class="p48"></span></span>phantom power on</span>
+              </div>
+              <div class="insp__act">
+                <span class="btn btn--sm btn--outline">Duplicate</span>
+                <span class="btn btn--sm btn--danger-ghost">Delete</span>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+      <p class="spec__cap">Ports are <b>never truncated</b> — a planner has to see every jack, so boxes grow and the canvas scrolls</p>
+    </div>
+
+    <div class="cols cols--3">
+      <div class="note note--work">
+        <h4>Two gestures per row</h4>
+        <p class="body small">The label selects, the dot cables. Conflating them is why the output rows could be cabled but never inspected.</p>
+      </div>
+      <div class="note note--work">
+        <h4>The dot is not the target</h4>
+        <p class="body small">7 px of paint inside a larger transparent button. Putting the border and background on one padded element renders a 15 px dot — which a field test reported as "too big".</p>
+      </div>
+      <div class="note note--work">
+        <h4>The rail holds no draft</h4>
+        <p class="body small">It commits per field while the sheet's editor holds one. Not an inconsistency to fix — a rail with a draft is a second source of truth for a row the sheet may also be editing.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 6 · DRAWERS ============ -->
+  <section class="sec">
+    <div class="patchbay" style="--lit: 66%;"><div class="patchbay__strip"></div><div class="patchbay__lit"></div></div>
+    <header class="sec__head">
+      <p class="sec__num">Six · drawers <span class="sec__src">patterns.md §3 · components.md §2</span></p>
+      <h2>Declared once, referenced often</h2>
+      <p class="body">
+        Anything declared once and referenced constantly — the rig, the buses, vocabularies — belongs
+        in a drawer, not in a card stacked above the content that references it. It opens
+        <em>over</em> the sheet the user is cross-referencing, so the sheet's layout never shifts and
+        narrowing the window cannot squeeze the table.
+      </p>
+    </header>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app app--tight" style="min-width: 940px;">
+          <div class="dstack">
+            <div style="padding: 16px;">
+              <table class="sheet">
+                <thead><tr><th style="width: 40px;">Ch</th><th style="width: 150px;">Name</th><th style="width: 300px;">Chain</th><th>Buses</th></tr></thead>
+                <tbody>
+                  <tr><td class="num">1</td><td><span class="tape" style="background: #38bdf8;"></span>Kick In</td><td><div class="chain"><u>Beta 91A</u><i>→</i><u>SB1 : 1</u><i>→</i><span class="tail">ch 1</span></div></td><td><span class="pill t-drum">DRUMS</span></td></tr>
+                  <tr class="alt"><td class="num">2</td><td><span class="tape" style="background: #38bdf8;"></span>Kick Out</td><td><div class="chain"><u>e902</u><i>→</i><u>SB1 : 2</u><i>→</i><span class="tail">ch 2</span></div></td><td><span class="pill t-drum">DRUMS</span></td></tr>
+                  <tr><td class="num">3</td><td><span class="tape" style="background: #38bdf8;"></span>Snare Top</td><td><div class="chain"><u>e906</u><i>→</i><u>SB1 : 3</u><i>→</i><span class="tail">ch 3</span></div></td><td><span class="pill t-drum">DRUMS</span></td></tr>
+                  <tr class="alt"><td class="num">8</td><td><span class="tape" style="background: #a78bfa;"></span>Bass</td><td><div class="chain"><u>Jack</u><i>→</i><u>Radial J48</u><i>→</i><u>SB1 : 8</u><i>→</i><span class="tail">ch 8</span></div></td><td><span class="pill t-rhy">RHYTHM</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="scrim"></div>
+            <div class="sd">
+              <div class="sd__hd">
+                <div><div class="sd__ti">Rig</div><div class="sd__sub">Shared by Audio Inputs and Audio Outputs</div></div>
+                <span style="color: #a1a1aa; font-size: 18px;">×</span>
+              </div>
+              <div class="sd__body">
+                <section class="dsec">
+                  <div class="dsec__hd"><span class="lbl">Consoles</span><span class="mono" style="font-size: 10px; color: #52525b;">1</span><span class="grow"></span><span class="btn btn--sm btn--outline">+ Console</span></div>
+                  <div class="gear gear--desk">
+                    <div class="gear__top">
+                      <span class="pill t-foh">FOH</span>
+                      <span class="gear__nm">SD10 FOH</span>
+                      <span class="gear__it">DiGiCo SD10 · rental</span>
+                      <span class="grow"></span>
+                      <span class="btn btn--sm btn--ghost" style="color: #a1a1aa;">Edit</span>
+                    </div>
+                    <div class="gear__sp"><span>inputs <b>16 / 96</b></span><span>outputs <b>12 / 48</b></span><span>local in <b>8</b></span><span>local out <b>8</b></span></div>
+                    <div class="meter"><span style="width: 17%;"></span></div>
+                  </div>
+                </section>
+
+                <section class="dsec">
+                  <div class="dsec__hd"><span class="lbl">Stageboxes</span><span class="mono" style="font-size: 10px; color: #52525b;">2</span><span class="grow"></span><span class="btn btn--sm btn--outline">+ Stagebox</span></div>
+                  <div class="gear">
+                    <div class="gear__top"><span class="gear__nm">SB1</span><span class="gear__it">Yamaha Rio3224-D2</span><span class="grow"></span><span class="btn btn--sm btn--ghost" style="color: #a1a1aa;">Edit</span></div>
+                    <div class="gear__sp"><span>in <b>8 / 32</b></span><span>out <b>2 / 16</b></span><span>position <b>SL</b></span></div>
+                    <div class="meter"><span style="width: 25%;"></span></div>
+                  </div>
+                  <div class="gear">
+                    <div class="gear__top"><span class="gear__nm">SB2</span><span class="gear__it">Yamaha Rio1608-D2</span><span class="grow"></span><span class="btn btn--sm btn--ghost" style="color: #a1a1aa;">Edit</span></div>
+                    <div class="gear__sp"><span>in <b>14 / 16</b></span><span>out <b>0 / 8</b></span><span>position <b>SR</b></span></div>
+                    <div class="meter meter--hot"><span style="width: 88%;"></span></div>
+                  </div>
+                </section>
+
+                <section class="dsec">
+                  <div class="dsec__hd"><span class="lbl">Stage multis</span><span class="mono" style="font-size: 10px; color: #52525b;">1</span><span class="grow"></span><span class="btn btn--sm btn--outline">+ Multi</span></div>
+                  <div class="gear">
+                    <div class="gear__top"><span class="gear__nm">Multi A</span><span class="gear__it">16ch analogue multicore</span><span class="grow"></span><span class="btn btn--sm btn--ghost" style="color: #a1a1aa;">Edit</span></div>
+                    <div class="gear__sp"><span>channels <b>16</b></span><span>length <b>30 m</b></span><span>SL → FOH</span></div>
+                  </div>
+                </section>
+              </div>
+              <div class="sd__ft">Every row here is one line on the rental order · 12 items</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="spec__cap">Sections in <b>signal order</b>, each full width — never two side by side, which is what left their fields too narrow to type into</p>
+    </div>
+
+    <div class="cols cols--2">
+      <div class="note">
+        <h4>The meter draws nothing at zero</h4>
+        <p class="body small">
+          A capacity of 0 means nobody has said yet. It renders <span class="k">—</span>, draws no
+          meter, and <strong>must never warn</strong>. That is a different state from empty, and
+          conflating them is how a desk nobody has measured appears to be over capacity.
+        </p>
+      </div>
+      <div class="note">
+        <h4>No control appears before Edit</h4>
+        <p class="body small">
+          A gear card's summary line has a name, an item and actions — never a field. Fields exist
+          only once Edit is pressed, and then it is the same construction used to add. The footer
+          states what the contents <em>mean</em>, not the count twice over.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 7 · CHROME ============ -->
+  <section class="sec">
+    <div class="patchbay" style="--lit: 76%;"><div class="patchbay__strip"></div><div class="patchbay__lit"></div></div>
+    <header class="sec__head">
+      <p class="sec__num">Seven · app chrome <span class="sec__src">patterns.md §6 · audit.md A5</span></p>
+      <h2>The page announces itself three times</h2>
+      <p class="body">
+        Today's chrome advances: the sidebar is lighter than the content area, and a 24 px page title
+        sits above a 20 px event name above a 14 px panel title. The loudest type on an event page is
+        the word "PatchPlanner".
+      </p>
+    </header>
+
+    <div class="cols cols--2">
+      <div class="spec">
+        <div class="spec__frame">
+          <div class="app app--tight" style="min-width: 520px;">
+            <div class="chrome">
+              <div class="chrome__side chrome__side--old">
+                <div class="brand"><div class="brand__ic">⌁</div><div><div class="brand__nm">PatchPlanner</div><div class="brand__sub">AVL event planning</div></div></div>
+                <nav class="nav"><a href="#" class="on">Dashboard</a><a href="#">Events</a><a href="#">Inventories</a></nav>
+              </div>
+              <div class="chrome__main">
+                <div class="chrome__hd chrome__hd--old"><span class="chrome__ti--old">PatchPlanner</span></div>
+                <div class="chrome__bd">
+                  <div><div class="ev__nm--old">Nordic Sound Festival</div><div class="ev__mt">Slottsskogen · 2026-08-14</div></div>
+                  <div class="tabs--old"><span>Overview</span><span class="on">Audio Inputs</span><span>Lighting</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="spec__cap">Today — <b>24 / 20 / 14</b>, sidebar advances</p>
+      </div>
+
+      <div class="spec">
+        <div class="spec__frame">
+          <div class="app app--tight" style="min-width: 520px;">
+            <div class="chrome">
+              <div class="chrome__side chrome__side--new">
+                <div class="brand"><div class="brand__ic">⌁</div><div><div class="brand__nm">PatchPlanner</div><div class="brand__sub">AVL event planning</div></div></div>
+                <nav class="nav"><a href="#" class="on">Dashboard</a><a href="#">Events</a><a href="#">Inventories</a></nav>
+              </div>
+              <div class="chrome__main">
+                <div class="chrome__hd chrome__hd--new"><span class="chrome__ti--new">PatchPlanner</span></div>
+                <div class="chrome__bd">
+                  <div><div class="ev__nm--new">Nordic Sound Festival</div><div class="ev__mt">Slottsskogen · 2026-08-14</div></div>
+                  <div class="tabs--new"><span>Overview</span><span class="on">Audio Inputs</span><span>Lighting</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="spec__cap">Target — <b>16 / 18 / 14</b>, sidebar is the ground</p>
+      </div>
+    </div>
+
+    <div class="note">
+      <p class="body small">
+        The tab strip <strong>loses its trough</strong>, and that is the substantive change rather
+        than the padding. A trough belongs to an in-panel toggle selecting <em>how you look at one
+        thing</em>; page-level tabs select <em>what you are looking at</em>. Two controls that
+        currently look identical mean those two different things. The sidebar's active marker stays a
+        2 px left edge and never becomes a filled pill — that keeps the amber fill meaning "the
+        primary action" rather than "the page you are on".
+      </p>
+    </div>
+  </section>
+
+  <!-- ============ 8 · MOBILE ============ -->
+  <section class="sec">
+    <div class="patchbay" style="--lit: 86%;"><div class="patchbay__strip"></div><div class="patchbay__lit"></div></div>
+    <header class="sec__head">
+      <p class="sec__num">Eight · mobile <span class="sec__src">patterns.md §7</span></p>
+      <h2>Not a third density tier</h2>
+      <p class="body">
+        Mobile uses navigation-surface sizing throughout — a touch target does not shrink because the
+        data is dense. Anything sized for a mouse (3.5 px icons, 7 px port dots, 10 px labels) does
+        not appear on a phone at all, and the Flow canvas is desktop-only by decision rather than by
+        limitation: a patch graph on a phone is unreadable at any density.
+      </p>
+    </header>
+
+    <div class="phones">
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti">Nordic Sound Festival</div>
+            <span style="font-size: 12px; color: #fbbf24;">← Events</span>
+          </div>
+          <div class="m-bd">
+            <div class="m-sw">
+              <div class="m-sw__t"><span class="m-cap t-drum">Audio</span>Audio Inputs</div>
+              <span style="color: #a1a1aa;">▾</span>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span class="fld fld--ph" style="height: 36px; flex: 1; font-size: 14px;">Find a channel…</span>
+              <span class="btn btn--primary" style="height: 36px; width: 36px; padding: 0;">+</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <div class="m-row" style="border-left: 3px solid #38bdf8; background: rgba(56,189,248,0.1);"><div style="min-width: 0;"><div class="m-row__t"><span class="m-row__n">1</span>Kick In</div><div class="m-row__s">Beta 91A → SB1 : 1</div></div><span style="color: #71717a; font-size: 12px;">✎</span></div>
+              <div class="m-row" style="border-left: 3px solid #38bdf8; background: rgba(56,189,248,0.1);"><div style="min-width: 0;"><div class="m-row__t"><span class="m-row__n">2</span>Kick Out</div><div class="m-row__s">e902 → SB1 : 2</div></div><span style="color: #71717a; font-size: 12px;">✎</span></div>
+              <div class="m-row" style="border-left: 3px solid #38bdf8; background: rgba(56,189,248,0.1);"><div style="min-width: 0;"><div class="m-row__t"><span class="m-row__n">3</span>Snare Top</div><div class="m-row__s">e906 → SB1 : 3</div></div><span style="color: #71717a; font-size: 12px;">✎</span></div>
+              <div class="m-row" style="border-left: 3px solid #a78bfa; background: rgba(167,139,250,0.1);"><div style="min-width: 0;"><div class="m-row__t"><span class="m-row__n">8</span>Bass</div><div class="m-row__s">Radial J48 → SB1 : 8</div></div><span style="color: #71717a; font-size: 12px;">✎</span></div>
+              <div class="m-row" style="border-left: 3px solid #34d399; background: rgba(52,211,153,0.1);"><div style="min-width: 0;"><div class="m-row__t"><span class="m-row__n">13</span>Lead Vox</div><div class="m-row__s">SM58 → SB2 : 5</div></div><span style="color: #71717a; font-size: 12px;">✎</span></div>
+              <div class="m-row"><div style="min-width: 0;"><div class="m-row__t"><span class="m-row__n">16</span>Playback L/R</div><div class="m-row__s" style="color: #f87171;">no source</div></div><span style="color: #71717a; font-size: 12px;">✎</span></div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i on"><span style="font-size: 17px;">▤</span>Dashboard</div>
+            <div class="m-nav__i"><span style="font-size: 17px;">▦</span>Events</div>
+            <div class="m-nav__i"><span style="font-size: 17px;">▥</span>Inventories</div>
+            <div class="m-nav__i"><span style="font-size: 17px;">⋯</span>More</div>
+          </div>
+        </div>
+        <p class="phone__cap"><b>List</b> · condensed rows, tape as a left edge</p>
+      </div>
+
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti">Nordic Sound Festival</div>
+            <span style="font-size: 12px; color: #fbbf24;">← Events</span>
+          </div>
+          <div class="m-bd" style="opacity: 0.4;">
+            <div class="m-sw"><div class="m-sw__t"><span class="m-cap t-drum">Audio</span>Audio Inputs</div><span style="color: #a1a1aa;">▾</span></div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <div class="m-row" style="border-left: 3px solid #38bdf8;"><div class="m-row__t"><span class="m-row__n">1</span>Kick In</div></div>
+              <div class="m-row" style="border-left: 3px solid #38bdf8;"><div class="m-row__t"><span class="m-row__n">2</span>Kick Out</div></div>
+            </div>
+          </div>
+          <div class="m-sheet">
+            <div class="m-sheet__p">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 14px; font-weight: 600;">Channel 3</span>
+                <span style="color: #a1a1aa; font-size: 17px;">✕</span>
+              </div>
+              <div class="m-fld"><span class="lbl--nav">Name</span><span class="fld fld--md">Snare Top</span></div>
+              <div style="display: flex; gap: 10px;">
+                <div class="m-fld" style="flex: 1;"><span class="lbl--nav">Width</span><span class="fld fld--md fld--sel">Mono</span></div>
+                <div class="m-fld" style="flex: 1;"><span class="lbl--nav">Tape</span><span class="fld fld--md fld--sel"><span class="tape" style="background: #38bdf8;"></span>sky</span></div>
+              </div>
+              <div class="m-fld"><span class="lbl--nav">Groups</span><span class="fld fld--md fld--sel">DRUMS</span></div>
+              <div style="display: flex; gap: 10px; margin-top: 2px;">
+                <span class="btn btn--md btn--primary" style="flex: 1;">Save</span>
+                <span class="btn btn--md btn--danger-ghost">Delete</span>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i on"><span style="font-size: 17px;">▤</span>Dashboard</div>
+            <div class="m-nav__i"><span style="font-size: 17px;">▦</span>Events</div>
+            <div class="m-nav__i"><span style="font-size: 17px;">▥</span>Inventories</div>
+            <div class="m-nav__i"><span style="font-size: 17px;">⋯</span>More</div>
+          </div>
+        </div>
+        <p class="phone__cap"><b>Edit sheet</b> · h-10 fields, full-width actions</p>
+      </div>
+
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti">Events</div>
+          </div>
+          <div class="m-bd">
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div class="card" style="border-radius: 10px;">
+                <div style="padding: 12px 14px; display: flex; flex-direction: column; gap: 5px;">
+                  <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
+                    <span style="font-size: 15px; font-weight: 600;">Nordic Sound Festival</span>
+                    <span class="badge t-ok" style="font-size: 11px;">owner</span>
+                  </div>
+                  <span style="font-size: 13px; color: #a1a1aa;">Slottsskogen · 2026-08-14</span>
+                  <span style="font-size: 13px; color: #71717a;">16 channels · 12 outputs · 48 fixtures</span>
+                </div>
+              </div>
+              <div class="card" style="border-radius: 10px;">
+                <div style="padding: 12px 14px; display: flex; flex-direction: column; gap: 5px;">
+                  <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
+                    <span style="font-size: 15px; font-weight: 600;">Konserthuset — Strings</span>
+                    <span class="badge t-def" style="font-size: 11px;">viewer</span>
+                  </div>
+                  <span style="font-size: 13px; color: #a1a1aa;">Göteborg · 2026-09-02</span>
+                  <span style="font-size: 13px; color: #71717a;">24 channels · 8 outputs</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span style="font-size: 17px;">▤</span>Dashboard</div>
+            <div class="m-nav__i on"><span style="font-size: 17px;">▦</span>Events</div>
+            <div class="m-nav__i"><span style="font-size: 17px;">▥</span>Inventories</div>
+            <div class="m-nav__i"><span style="font-size: 17px;">⋯</span>More</div>
+          </div>
+        </div>
+        <p class="phone__cap"><b>Navigation</b> · card list, unchanged tier</p>
+      </div>
+    </div>
+
+    <div class="cols cols--3">
+      <div class="stack">
+        <h3>What carries across</h3>
+        <ul class="marks">
+          <li>The tape colour becomes the row's left edge and a faint tint — the same derivation, a different geometry.</li>
+          <li>A missing link is still red and still says what is missing.</li>
+          <li>Restricted roles still lose controls: no add button, no edit affordance, rows not tappable.</li>
+        </ul>
+      </div>
+      <div class="stack">
+        <h3>What does not</h3>
+        <ul class="marks">
+          <li>The Flow canvas. Port dots, cables and lanes have no phone-sized form worth having.</li>
+          <li>Micro-labels — a phone form uses sentence-case sans at 14 px.</li>
+          <li>The sheet's row editor, replaced by a bottom sheet with full-width actions.</li>
+        </ul>
+      </div>
+      <div class="stack">
+        <h3>Bottom nav</h3>
+        <ul class="marks">
+          <li>Three primary destinations plus a More overflow, replacing the fixed sidebar.</li>
+          <li>Active is <span class="k">text-amber-400</span> — no fill, matching the sidebar's restraint.</li>
+          <li>Padded with <span class="k">env(safe-area-inset-bottom)</span>, and the sheet above it too.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 9 · AUDIT ============ -->
+  <section class="sec">
+    <div class="patchbay" style="--lit: 95%;"><div class="patchbay__strip"></div><div class="patchbay__lit"></div></div>
+    <header class="sec__head">
+      <p class="sec__num">Nine · where it stands <span class="sec__src">audit.md</span></p>
+      <h2>Eleven findings, five waves</h2>
+      <p class="body">
+        Counted from <span class="k">frontend/src</span> at the merge of Slices 23–26. Every number
+        below is reproducible with a grep given in the audit, so this can be re-run rather than
+        believed. Two of the findings are inside the reference surface itself — it is the best thing
+        in the codebase, not a perfect one.
+      </p>
+    </header>
+
+    <div>
+      <div class="find">
+        <div class="find__hd"><span class="find__id">A1</span><span class="find__ti">The micro-label has four definitions and two sizes</span><span class="find__p">P3</span></div>
+        <p class="find__b"><span class="find__n">text-[10px]</span> in <span class="k">tokens.ts</span>, <span class="k">SheetTable</span> and <span class="k">OutputSheet</span>; <span class="find__n">text-[9px]</span> in <span class="k">GearList</span>. A drawer's labels are a point smaller than the sheet's for no reason anyone recorded — the two were built a slice apart. Four definitions is how a fifth ends up different.</p>
+      </div>
+      <div class="find">
+        <div class="find__hd"><span class="find__id">A2</span><span class="find__ti">Nineteen buttons override their own size</span><span class="find__p">P3</span></div>
+        <p class="find__b">The work-surface height is <span class="find__n">h-7</span> and <span class="k">Button</span> has no such size, so every toolbar control reaches it by hand. <span class="find__n">19</span> chances for the twentieth to be different.</p>
+      </div>
+      <div class="find">
+        <div class="find__hd"><span class="find__id">A8</span><span class="find__ti">The lighting fixture table is a form, not a sheet</span><span class="find__p">Patterns §2</span></div>
+        <p class="find__b">Thirteen columns and <span class="find__n">24</span> live <span class="k">Input</span>/<span class="k">Select</span> calls that persist on blur. There is no read state at all, so the table cannot be scanned — every value sits inside a bordered control and the eye parses chrome before it reaches data. The single largest gap between the language and the code.</p>
+      </div>
+      <div class="find">
+        <div class="find__hd"><span class="find__id">A11</span><span class="find__ti">Fifty-seven inline form labels</span><span class="find__p">P3</span></div>
+        <p class="find__b"><span class="k">mb-1 block text-sm text-zinc-300</span>, copied across <span class="find__n">10</span> files — 14 in Lighting alone. The work surface has a component; the navigation surface has a class string.</p>
+      </div>
+      <div class="find">
+        <div class="find__hd"><span class="find__id">A5–A7</span><span class="find__ti">Chrome, card stacks, and the wrong table</span><span class="find__p">P1 · P2 · P8</span></div>
+        <p class="find__b">Six surfaces are still <span class="k">Card</span> → <span class="k">CardHeader</span> → <span class="k">Table</span> stacks. Four of them are work surfaces by P2's test — lighting fixtures, rental lines, equipment lines, and a 308-item inventory — rendered on the navigation-tier table. The zebra striping is the tell.</p>
+      </div>
+      <div class="find">
+        <div class="find__hd"><span class="find__id">A3 · A4 · A9 · A10</span><span class="find__ti">The residue</span><span class="find__p">P1 · P2 · P3</span></div>
+        <p class="find__b">No <span class="k">Textarea</span> (Overview hand-rolls one). <span class="find__n">30</span> uses of <span class="k">rounded-lg</span>, which is not in the ladder. Navigation-tier <span class="k">Badge</span> inside the work-surface drawers. And a third toolbar idiom on Stage Plots — a trough used for something that is not a view toggle.</p>
+      </div>
+    </div>
+
+    <div class="stack">
+      <h3>Convergence order</h3>
+      <p class="body">
+        No wave mixes a refactor with a redesign, so a visual regression is always attributable to the
+        wave that caused it — the reasoning that made Slice 26 rewire the inputs inspector onto the
+        shared rail <em>before</em> building the output one.
+      </p>
+      <div class="waves">
+        <div class="wave"><span class="wave__n">Wave 0</span><span class="wave__t">Primitive gaps</span><span class="wave__d">A1–A3, A9, A11. No visual change except drawer labels growing 1 px. Everything downstream needs these to exist.</span></div>
+        <div class="wave"><span class="wave__n">Wave 1</span><span class="wave__t">Chrome</span><span class="wave__d">A5. Smallest diff, largest perceived change, touches no tab. Later waves get reviewed against a header that has stopped shouting.</span></div>
+        <div class="wave"><span class="wave__n">Wave 2</span><span class="wave__t">Stage plots</span><span class="wave__d">A10. The cheapest conversion, and the one that proves the panel pattern transfers to a surface that is neither a sheet nor a list.</span></div>
+        <div class="wave"><span class="wave__n">Wave 3</span><span class="wave__t">Lighting</span><span class="wave__d">A6–A8. The big one. Fixtures become a sheet with a row editor. A workflow change, not a restyle — worth its own spec.</span></div>
+        <div class="wave"><span class="wave__n">Wave 4–5</span><span class="wave__t">Tabs, then pages</span><span class="wave__d">Rental, Equipment, Overview, Signal Flow — same shape, much smaller. Then the pages, which are mostly already right.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p class="eyebrow">Reviewing this</p>
+    <p class="body small">
+      This page renders <span class="k">design/*.md</span> and adds nothing to them. If a value here
+      looks wrong, the fix belongs in <span class="k">design/tokens.md</span> or
+      <span class="k">design/components.md</span> and then here — never here alone. The source of this
+      page is <span class="k">design/design-language.html</span>, beside the documents it draws, so it
+      can be revised and republished to the same URL.
+    </p>
+    <p class="body small">
+      What is <strong>not</strong> settled and worth an opinion: whether the tab strip should lose its
+      trough (§7), whether Wave 3's lighting rework is one slice or two, and whether the navigation
+      tier's table is worth keeping at all once four of its five users have moved to the sheet.
+    </p>
+  </footer>
+
+</div>

@@ -2,6 +2,13 @@
 
 **Feature**: `025-patch-visual-language` | **Date**: 2026-07-26
 
+> **Historical record, as of 2026-07-27.** The canonical place to look a value up
+> is now [`design/`](../../../design/) at the repository root, which generalises
+> this table to the whole application. This document stays as the record of what
+> Slice 25 established and *why* — the reasons below are its findings and are not
+> repeated there. Do not edit values here to change the application; edit
+> `design/tokens.md` and `design/components.md`.
+
 The binding values, per element, so "follow the mockup" can be reviewed instead of
 argued about. Derived from the mockup's own stylesheet (research.md R5–R9) and
 carried across from its 11 px base to this app's 14 px by the ratios in R11.

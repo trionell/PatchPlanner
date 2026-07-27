@@ -1,0 +1,234 @@
+# 05 · Audit
+
+Where the application stands against [principles.md](principles.md) today, and the
+order to converge it in.
+
+Counts are from `frontend/src` at the merge of Slices 23–26 (`aa4baef`). Every one
+is reproducible with the command given, so this document can be re-run rather than
+believed.
+
+---
+
+## Part 1 — Findings
+
+### A1 · The micro-label has four definitions and two sizes · P3
+
+```
+grep -rn "tracking-\[0.1[0-9]em\]" --include='*.tsx' --include='*.ts' frontend/src
+```
+
+| Where | Size |
+|---|---|
+| `graph/tokens.ts` → `MICRO_LABEL` | `text-[10px]` |
+| `ui/SheetTable.tsx` → `SheetHeadCell`, inlined | `text-[10px]` |
+| `event/OutputSheet.tsx:173`, inlined | `text-[10px]` |
+| `ui/GearList.tsx` → `MicroLabel` | **`text-[9px]`** |
+
+(The grep returns five lines; the fifth is `LANE_LABEL`, which is a legitimately
+different token — wider tracking, fainter ink, one job.)
+
+This is inside the reference surface. A drawer's labels are a point smaller than
+the sheet's for no reason anyone recorded — the two were built a slice apart.
+
+**Fix:** `MicroLabel` renders `MICRO_LABEL`; `SheetHeadCell` and `OutputSheet`
+import it. One export, four call sites. The only visible change is the drawer's
+labels growing 1 px.
+
+### A2 · Nineteen buttons override their own size · P3
+
+```
+grep -rn '<Button[^>]*className="[^"]*h-[67]' --include='*.tsx' frontend/src | wc -l   # 19
+```
+
+`Button` has `sm`/`md`/`lg` — `h-8`, `h-10`, `h-11`. The work-surface size is
+`h-7`, so every toolbar and strip control reaches it by hand:
+`className="h-7 px-2.5 text-xs"`, `className="h-6 px-2 text-[11px]"`. Nineteen
+chances for the twentieth to be different.
+
+**Fix:** add `xs: 'h-7 px-2.5 text-xs'` to `buttonVariants`, delete the overrides.
+The four `h-6` cases in `PatchStatusRail` and `ZoomControl` are a genuinely
+different thing — a control *inside* a strip — and become `xs` with an explicit
+`h-6` or a fifth size, decided when the code is in front of you.
+
+### A3 · There is no `Textarea` · P3
+
+`OverviewTab.tsx` builds one inline with the `Input` class string copied by hand:
+
+```
+min-h-32 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm …
+```
+
+**Fix:** `ui/Textarea.tsx` alongside `Input`, same `sm`/`md` sizes.
+
+### A4 · `rounded-lg` is not in the radius ladder · P3
+
+```
+grep -rho "rounded-\(xl\|lg\|md\)" --include='*.tsx' frontend/src | sort | uniq -c
+#  54 rounded-md    30 rounded-lg    4 rounded-xl
+```
+
+The ladder is `xl` for a panel, `md` for a control ([tokens.md](tokens.md) §6).
+`rounded-lg` sits between them and every use is one or the other: `TabList`'s
+trough, `Layout`'s brand tile, form blocks in `EquipmentTab` and `RentalTab`,
+`StagePlotTab`'s toolbar, `SectionSwitcher`.
+
+**Fix:** case by case, but mechanically — a container of controls is `xl`,
+a control is `md`.
+
+### A5 · The chrome announces the page three times · P8
+
+| | Today | Target |
+|---|---|---|
+| Header title | `text-2xl` (24px) | `text-base` |
+| Event name | `text-xl` (20px) | `text-lg` |
+| Tab | `px-4 py-2` in a bordered trough | `px-3 py-1`, no trough |
+| Panel title | `text-sm` (14px) | ✅ unchanged |
+| Sidebar | `bg-zinc-900` — lighter than content, advances | `bg-zinc-950` |
+
+The loudest type on an event page is the word "PatchPlanner". Values in
+[patterns.md](patterns.md) §6.
+
+### A6 · Six surfaces are still card stacks · P1
+
+`OverviewTab` · `EquipmentTab` (2 cards) · `LightingTab` · `RentalTab` ·
+`SignalFlowTab` · and the `Card`-based pages.
+
+Each renders `Card` → `CardHeader` → `CardTitle` + description → `CardContent` →
+`Table`, stacked with `space-y-6`. This is exactly the arrangement the audio tabs
+were built out of, for the reasons in P1.
+
+Not all of them are wrong. A card **list** — `Events`, `Inventories`, `Dashboard` —
+is many independent objects and stays. A card **stack**, where one page's controls
+are split across two or three headers, becomes one panel.
+
+### A7 · Work-surface data is rendered on the navigation-surface table · P2
+
+By P2's question, these are work surfaces and are currently built with `ui/Table`
+(`px-3 py-3`, `text-sm`, `align-top`, `odd:bg-zinc-900 even:bg-zinc-850`):
+
+| Surface | Rows in a real event |
+|---|---|
+| Lighting fixtures (`LightingTab`) | 40–200 |
+| Rental order lines (`RentalTab`) | 50–300 |
+| Equipment lines (`EquipmentTab`) | 10–60 |
+| Inventory items (`Inventories`) | 308 in the sample catalog |
+
+The zebra striping is the tell: `odd:bg-zinc-900 even:bg-zinc-850` is a visible
+banding pattern, where the sheet's `bg-white/[0.014]` is an aid you find when you
+look for it. At 200 rows the first is noise.
+
+### A8 · The lighting fixture table is a form, not a sheet · Patterns §2
+
+```
+grep -c "<Input\|<Select" frontend/src/components/event/LightingTab.tsx   # 24
+```
+
+Thirteen columns, and most cells hold a permanently-live `Input` or `Select` that
+persists on blur. There is no read state at all, so the table cannot be scanned —
+every value is inside a bordered control, and the eye has to parse chrome before it
+reaches data.
+
+This is the single largest gap between the target language and the code. The fix is
+the sheet-plus-row-editor pattern, not restyling the controls.
+
+### A9 · Navigation-tier chips inside work surfaces · P2
+
+`ConsoleSection`, `BusSection` and `BusMultiSelect` render `ui/Badge`
+(`px-2.5 py-0.5 text-xs`) inside the Rig and Buses drawers, which are work
+surfaces. The sheet beside them uses `Pill` (`px-1.5 py-px text-[10px]`).
+
+**Fix:** `Pill` in the drawers. `Badge`'s vocabulary tint map should move somewhere
+both can read it, rather than being duplicated into `Pill`'s callers.
+
+### A10 · A third toolbar idiom · P1
+
+`StagePlotTab` has neither a `PatchPanel` bar nor a `CardHeader`: it has
+`inline-flex items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-900 p-1`
+plus dashed-border ghost buttons — a trough used for something that is not a view
+toggle (§6's distinction).
+
+It is close to a work panel already and is the cheapest of the tabs to convert.
+
+### A11 · Fifty-seven inline form labels · P3
+
+```
+grep -rc 'mb-1 block text-sm text-zinc-300' --include='*.tsx' frontend/src
+```
+
+10 files, 57 occurrences: `LightingTab` 14, `EquipmentTab` 7,
+`MobileFixtureEditSheet` 7, `MobileChannelEditSheet` 6, `EventFormDialog` 5,
+`MobileOutputEditSheet` 5, `OverviewTab` 4, `RentalTab` 4, `OwnedGearManager` 4,
+`Inventories` 1.
+
+The work surface has `MicroLabel`; the navigation surface has a copied class
+string.
+
+**Fix:** a navigation-tier `FieldLabel` beside `FieldStack`, or extend `FieldStack`
+with a `tier` prop. Prefer the former — `FieldStack` also owns widths that do not
+apply.
+
+---
+
+## Part 2 — Convergence order
+
+Five waves. Each is a slice, in the order that maximises what the next one can lean
+on. **No wave mixes a refactor with a redesign**, so a visual regression is always
+attributable to the wave that caused it — the same reasoning that made Slice 26
+rewire the inputs inspector onto the shared rail *before* building the output one.
+
+### Wave 0 · Close the primitive gaps — no visual change
+
+A1, A2, A3, A11, plus `Pill`'s tint map (A9).
+
+Everything downstream needs these to exist. Nothing on screen changes except the
+drawer labels growing 1 px. Gates: `tsc -b`, `eslint`, and a diff review that the
+19 deleted overrides produced identical class strings.
+
+### Wave 1 · Chrome — A5, and A4 where it touches chrome
+
+Smallest diff, largest perceived change, and it touches no tab. Doing it early
+means every later wave is reviewed against a header that is no longer shouting.
+
+### Wave 2 · Stage plots — A10
+
+The cheapest tab to convert, and the one that proves the work-panel pattern
+transfers to a surface that is neither a sheet nor a list. If `PatchPanel` needs a
+change to host a canvas that is not the flow graph, this is where it surfaces —
+before four more tabs depend on it.
+
+### Wave 3 · Lighting — A6, A7, A8
+
+The big one, and the one worth doing properly: fixtures become a `SheetTable` with
+a row editor, DMX and channel counts become `NumCell`s that line up, and the truss
+column stops being a `Select` in every row.
+
+Worth its own spec. It is a workflow change, not a restyle, and it is where a
+technician will feel the design language most.
+
+### Wave 4 · The remaining event tabs — A6, A7
+
+`RentalTab`, `EquipmentTab`, `OverviewTab`, `SignalFlowTab`. All the same shape as
+Wave 3 and much smaller. `OverviewTab` is a form rather than a sheet and only needs
+the navigation tier applied consistently.
+
+### Wave 5 · Pages and residue — A4, A6
+
+`Dashboard`, `Events`, `Inventories`, `StartPage`, `Login`, `SettingsTab`.
+
+These are mostly **already right** — they are navigation surfaces built with
+navigation-surface components. The work is the radius ladder, the label component,
+and confirming that the card lists that should stay card lists do.
+
+---
+
+## Part 3 — Keeping this true
+
+- A slice that changes a value in [tokens.md](tokens.md) or
+  [components.md](components.md) updates the document **in the same commit**. A
+  design document that lags the code is worse than none, because it is quoted.
+- A slice that closes a finding here strikes it from Part 1 and says which wave it
+  was.
+- A slice that establishes a *new* value writes it here first, and its own contract
+  links back rather than restating it. That is the loop these documents exist to
+  close: Slice 25 §7 → Slice 26 §1 → the next one would have been a third link in a
+  chain nobody reads to the end.
