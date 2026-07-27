@@ -14,7 +14,7 @@ import { MobileEntityList } from '../mobile/MobileEntityList'
 import { InputPatchSheet } from '../print/InputPatchSheet'
 import { AudioPatchShell } from './AudioPatchShell'
 import { ZoomControl } from './graph/ZoomControl'
-import type { FlowSelection } from './FlowInspector'
+import type { InputFlowSelection } from './InputFlowInspector'
 import { BusesDrawer } from './BusesDrawer'
 import { ConsoleSection } from './ConsoleSection'
 import { InputDeviceSection } from './InputDeviceSection'
@@ -47,7 +47,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
   // canvas so it survives the view toggle in both directions, and so the sheet
   // can set it (Slice 25 FR-001/FR-002). Deliberately not persisted: it is where
   // the planner is looking, not part of the plan.
-  const [selection, setSelection] = useState<FlowSelection | null>(null)
+  const [selection, setSelection] = useState<InputFlowSelection | null>(null)
   // The canvas zoom. Held here because its control lives in the panel's toolbar
   // (Slice 25 FR-020); the canvas reads it for geometry.
   const [zoom, setZoom] = useState(1)
@@ -128,7 +128,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
    * nothing, and the caller then leaves the view alone rather than switching to a
    * canvas with nothing selected.
    */
-  const flowSelectionFor = (node: SegmentNode): FlowSelection | null => {
+  const flowSelectionFor = (node: SegmentNode): InputFlowSelection | null => {
     switch (node.kind) {
       case 'source':
       case 'stagebox':

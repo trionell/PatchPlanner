@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Copy, X } from 'lucide-react'
+import { Copy } from 'lucide-react'
 import { createInputSource, deleteInputSource, updateInputSource } from '../../api/audioPatch'
 import { useReferenceData } from '../../hooks/useReferenceData'
 import { derivedSourceColor, sourcePorts, type PortRef } from '../../lib/inputGraph'
@@ -10,17 +10,18 @@ import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { Pill } from '../ui/SheetTable'
 import { Select } from '../ui/Select'
-import { MICRO_LABEL, PHANTOM_BAR } from './graph/tokens'
+import { Field, InspectorHeader, InspectorRail, Legend, Note, type LegendRow } from './graph/InspectorRail'
+import { PHANTOM_BAR } from './graph/tokens'
 
 /** What the canvas has selected — a node, not a port. */
-export interface FlowSelection {
+export interface InputFlowSelection {
   kind: PortRef['kind']
   id: number
 }
 
 interface FlowInspectorProps {
   eventId: number
-  selection: FlowSelection
+  selection: InputFlowSelection
   sources: InputSource[]
   channels: InputChannel[]
   devices: InputDevice[]
@@ -37,13 +38,15 @@ interface FlowInspectorProps {
 }
 
 /**
- * The Flow view's one editor (Slice 23 FR-032), rebuilt to the mockup's rail
- * (Slice 25 US4).
+ * The inputs Flow view's one editor (Slice 23 FR-032), rebuilt to the mockup's rail
+ * (Slice 25 US4) and built on the shared rail since Slice 26.
  *
  * A rail with a left border rather than a floating card, every field beside a short
  * label in one narrow column rather than under it, what the source reaches and what
  * the canvas's line styles mean each in a bordered note, and the destructive actions
- * pinned to the bottom out of the way of the fields.
+ * pinned to the bottom out of the way of the fields. Those five parts now live in
+ * `graph/InspectorRail` because the outputs canvas has a rail too, and a second copy
+ * of them is how the two would drift.
  *
  * For a source it holds every field the old Sources card held — mic, stand,
  * connector, width, phantom power — which is what allowed that card to be retired
@@ -116,14 +119,12 @@ export function FlowInspector({
   const { heading, title } = describe(selection, { sources, stageboxes, stageMultis, devices, consoles })
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col gap-2.5 border-l border-zinc-800 p-2.5">
-      <div className="flex items-center gap-1.5">
-        <span className={MICRO_LABEL}>{heading}</span>
-        {source && <Pill className={source.kind === 'mic' ? 'bg-sky-500/15 text-sky-300' : 'bg-violet-500/15 text-violet-300'}>{source.kind}</Pill>}
-        <button aria-label="Close inspector" className="ml-auto text-zinc-500 hover:text-zinc-200" onClick={onClose} type="button">
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
+    <InspectorRail>
+      <InspectorHeader
+        label={heading}
+        onClose={onClose}
+        pill={source && <Pill className={source.kind === 'mic' ? 'bg-sky-500/15 text-sky-300' : 'bg-violet-500/15 text-violet-300'}>{source.kind}</Pill>}
+      />
 
       {source ? (
         <>
@@ -200,7 +201,7 @@ export function FlowInspector({
           </Field>
 
           <Reaches source={source} channels={channels} devices={devices} stageboxes={stageboxes} stageMultis={stageMultis} consoles={consoles} cables={cables} itemLabelById={itemLabelById} />
-          <Legend />
+          <Legend rows={INPUT_LEGEND} />
 
           {!readOnly && (
             <div className="mt-auto flex gap-2">
@@ -248,20 +249,32 @@ export function FlowInspector({
               Rig gear is declared once per event and shared by both audio tabs. Select a source to edit it here.
             </span>
           </Note>
-          <Legend />
+          <Legend rows={INPUT_LEGEND} />
         </>
       )}
 
       {(update.error ?? create.error ?? remove.error) && (
         <p className="text-[11px] text-red-400">{(update.error ?? create.error ?? remove.error)?.message}</p>
       )}
-    </aside>
+    </InspectorRail>
   )
 }
 
+/**
+ * What this canvas's lines mean. The strokes are the shared rail's; the words are
+ * this graph's — here a run's colour says which *channel* it reaches, and 48 V is a
+ * property only an input can have (Slice 26 R5).
+ */
+const INPUT_LEGEND: LegendRow[] = [
+  { kind: 'cable', meaning: 'cable, reaching that channel' },
+  { kind: 'network', meaning: 'network hop, no cable' },
+  { kind: 'unpatched', meaning: 'reaches no channel' },
+  { kind: 'phantom', meaning: '48 V on' },
+]
+
 /** What the rail is showing, resolved against whichever collection the node is in. */
 function describe(
-  selection: FlowSelection,
+  selection: InputFlowSelection,
   context: { sources: InputSource[]; stageboxes: Stagebox[]; stageMultis: StageMulti[]; devices: InputDevice[]; consoles: Console[] },
 ): { heading: string; title: string } {
   switch (selection.kind) {
@@ -288,29 +301,7 @@ function describe(
   }
 }
 
-/**
- * One field, its label beside it in a fixed narrow column (Slice 25 FR-022). Labels
- * above fields is what made the rail twice as tall as it needed to be; a 44px column
- * fits every label this inspector uses and keeps the controls on one axis.
- */
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="grid grid-cols-[44px_minmax(0,1fr)] items-center gap-2">
-      <span className={MICRO_LABEL}>{label}</span>
-      {children}
-    </label>
-  )
-}
 
-/** A bordered note within the rail — for things that are read, not edited. */
-function Note({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1 rounded-[5px] border border-zinc-800 bg-zinc-950/60 p-1.5">
-      <span className={MICRO_LABEL}>{label}</span>
-      {children}
-    </div>
-  )
-}
 
 /**
  * Where this source actually lands — the question the whole graph exists to answer,
@@ -359,33 +350,3 @@ function Reaches({
   )
 }
 
-/**
- * The two encodings a run carries, drawn rather than described (Slice 25 FR-024).
- * The samples are the strokes the canvas actually uses — same widths, same dash
- * arrays — so the legend cannot drift into being a claim about something else.
- */
-function Legend() {
-  const rows: { stroke: string; dash?: string; meaning: string }[] = [
-    { stroke: '#38bdf8', meaning: 'cable, reaching that channel' },
-    { stroke: '#38bdf8', dash: '6 3', meaning: 'network hop, no cable' },
-    { stroke: '#71717a', dash: '4 3', meaning: 'reaches no channel' },
-  ]
-  return (
-    <Note label="Legend">
-      {rows.map((row) => (
-        <span key={row.meaning} className="flex items-center gap-2 text-[10px] text-zinc-400">
-          <svg width="22" height="4" aria-hidden className="shrink-0">
-            <line x1="0" y1="2" x2="22" y2="2" stroke={row.stroke} strokeWidth="1.5" strokeDasharray={row.dash} />
-          </svg>
-          {row.meaning}
-        </span>
-      ))}
-      <span className="flex items-center gap-2 text-[10px] text-zinc-400">
-        <span className="flex w-[22px] shrink-0 justify-center">
-          <span className={PHANTOM_BAR} />
-        </span>
-        48 V on
-      </span>
-    </Note>
-  )
-}

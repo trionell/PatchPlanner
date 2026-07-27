@@ -28,7 +28,7 @@ import { stageboxPorts, stageMultiPorts } from '../../lib/outputGraph'
 import { matchesSearch } from '../../lib/patchSearch'
 import { itemLabel } from '../../lib/utils'
 import type { Console, InputCable, InputChannel, InputDevice, InputSource, InventoryItem, StageMulti, Stagebox } from '../../types'
-import { FlowInspector, type FlowSelection } from './FlowInspector'
+import { FlowInspector, type InputFlowSelection } from './InputFlowInspector'
 import { LaneBands } from './graph/LaneBands'
 import { NodeShell as SharedNodeShell } from './graph/NodeShell'
 import { PortDot as SharedPortDot } from './graph/PortDot'
@@ -133,8 +133,8 @@ export function InputGraphCanvas({
    * selection it owned could not survive the view toggle — and the sheet's
    * "Edit in Flow" could not set one it cannot see.
    */
-  selection: FlowSelection | null
-  onSelectionChange: (selection: FlowSelection | null) => void
+  selection: InputFlowSelection | null
+  onSelectionChange: (selection: InputFlowSelection | null) => void
   /**
    * The zoom level, owned by the tab because its control lives in the panel's
    * toolbar (Slice 25 FR-020). Read here for geometry, never set.
