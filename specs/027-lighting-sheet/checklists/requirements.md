@@ -2,7 +2,8 @@
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-07-27
-**Revised**: 2026-07-27, after review — sharing, occupancy, and the DMX chain column
+**Revised**: 2026-07-27, twice after review — first sharing, occupancy and the DMX
+chain column; then the two bulk operations
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -76,23 +77,69 @@ worth recording because no checklist item catches it.
    bulk-add run twice looks deliberate, mitigated by the strip counting shared
    groups in **every** state (FR-031) so the condition is never silent.
 
-### Two boundaries named rather than left implicit
+### A warning was the wrong answer, and the review said so
 
-- **Auto-assign separates shared groups**, as it always has, and this feature
-  does not change that — it makes it visible in the drawer's footer before the
-  button is pressed (FR-048). Now that the tool blesses sharing, silently
-  destroying a group would be a trap of our own making, so the warning is a
-  requirement and not a nicety. Fixing the behaviour is listed in Out of Scope as
-  the next slice.
+The previous revision handled auto-assign dissolving a shared group by *warning*
+about it in the drawer's footer, and listed fixing the behaviour as the next
+slice. The reporter rejected that, correctly: a warning beside a button that
+undoes what the sheet has just called legitimate is a trap with a label on it.
+
+So auto-assign is rewritten in this feature (FR-031 – FR-042), and the rule is
+stated in both directions — **what shared before still shares, and what did not
+share before must not** — because only the first half is obvious, and an
+implementation that packs sequentially without thinking about groups can satisfy
+one and violate the other. FR-034 states the consequence that makes the whole
+thing worth having: a group of twenty consumes its channels **once**.
+
+Two further constraints came from the same review and are requirements rather
+than implementation notes, because both are about the physical world:
+
+- **No fixture may change universe** (FR-035). A universe usually corresponds to
+  a cable run to one truss, so universe membership is an *input* to these
+  operations and never an output.
+- **Universes are processed independently** (FR-036). Today one over-full
+  universe fails the entire rig, which leaves a planner unable to fix universe 1
+  until they have fixed universe 2 — two things that have nothing to do with each
+  other. A universe that cannot fit is now left exactly as it was and named.
+
+**Optimise channels** is specified as auto-assign's sibling rather than as a
+mode of it: identical packing, different ordering. Auto-assign imposes the rig's
+order; optimise preserves whatever order the addresses are already in and only
+closes the gaps. Stating it that way is what keeps them one pure function with
+one parameter instead of two implementations that will drift.
+
+### Three boundaries named rather than left implicit
+
 - **The DMX chain column is deleted outright**, database column included, on the
-  reporter's decision. That single change is what makes this wave not
-  frontend-only: the "no Go file touched" gate Slices 25 and 26 both ran cannot
-  be carried forward, and the plan must state its replacement.
+  reporter's decision.
+- **Optimise packs from address 1**, so a deliberate leading offset is not
+  preserved. Recorded in Assumptions with the note that preserving the first
+  group's address is a one-line change to the same function.
+- **A universe below 1 is normalised to 1**, which is the single case where a
+  fixture's universe changes under an operation that promises not to change it.
+  It is normalising an impossible value, not moving between two real universes,
+  and saying so is cheaper than leaving a reader to find the contradiction.
 
 ### Open risk for the plan
 
-The name stem and an optional model on a batch add may require the bulk-add
-endpoint to carry a fixture name and to accept a batch with no catalog model.
-With the migration already in scope this is no longer a question of whether the
-backend is touched, only of how much. The plan must decide between extending the
-request and composing the batch from single creates, and must say which.
+The backend footprint is no longer incidental, and the "no Go file touched" gate
+Slices 25 and 26 both ran cannot be carried forward. The plan must state what
+replaces it and must resolve three things:
+
+1. **The migration** dropping `dmx_chain_parent_id`, and whether SQLite's
+   `DROP COLUMN` is usable here or the table-rebuild pattern of migration 018 is
+   needed, given the column is a self-referencing foreign key.
+2. **Auto-assign is rewritten and a second endpoint joins it.** Both need a
+   response richer than today's — which universes changed, which were skipped —
+   and the packing itself should exist once, in one place, parameterised by
+   ordering.
+3. **The name stem and an optional model on a batch add**, which may require the
+   bulk-add endpoint to carry a fixture name and accept a batch with no catalog
+   model. The plan decides between extending the request and composing the batch
+   from single creates.
+
+FR-069 constrains all of this: the four conditions, the occupancy model and the
+packing must be pure functions, testable without rendering and without a
+database. The packing rule is now shared between a Go endpoint and a browser that
+must predict its result, which is exactly the kind of duplication that drifts —
+the plan should say which side owns it and how the other stays honest.

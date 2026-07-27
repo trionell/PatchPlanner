@@ -935,13 +935,28 @@
         A universe is declared once and referenced by every fixture in it — which is the
         definition of a drawer, not a card stacked above the table. It is also the only
         place an <em>“universe 2 exceeds 512 channels”</em> error can be explained rather
-        than merely reported, so <strong>Auto-assign DMX moves in here</strong> and stops
-        being a fourth button competing with the primary action in the bar.
+        than merely reported, so <strong>both bulk operations move in here</strong> and stop
+        competing with the primary action in the bar.
       </p>
       <p>
         With that move the bar is exactly the canonical order with no exceptions:
         title, search, drawer, <code>flex-1</code>, print, one primary action.
       </p>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <span class="led__k">Auto-assign</span>
+        <span class="led__v"><b>Renumber the whole thing.</b> Each universe repacked from address 1 in the <em>rig's</em> order. Unaddressed fixtures get an address. What you reach for when the numbering has stopped meaning anything.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">Optimise</span>
+        <span class="led__v"><b>Keep my order, close the gaps.</b><span class="tag tag--new">new</span> Each universe repacked from address 1 in the order its fixtures are <em>already</em> in. Unaddressed fixtures are left alone. What you reach for mid-build, when the order is right and deletions have left holes.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">Both</span>
+        <span class="led__v"><b>Move groups, not fixtures.</b> Twenty pars sharing one address move as one block of seven channels and come back still sharing; two fixtures that were separate stay separate. <b>No fixture leaves its universe</b> — a universe is usually a cable run to one truss. A universe that will not fit is left exactly as it was and named, while the others are packed anyway.</span>
+      </div>
     </div>
 
     <div class="spec">
@@ -956,9 +971,10 @@
               <div class="dsec">
                 <div class="dsec__hd">
                   <span class="lbl">Universes</span>
-                  <span class="dsec__ct">2</span>
+                  <span class="dsec__ct">3</span>
                   <span class="grow"></span>
                   <span class="btn btn--outline btn--sm">Auto-assign DMX</span>
+                  <span class="btn btn--outline btn--sm">Optimise channels</span>
                 </div>
                 <div class="gcard gcard--acc">
                   <div class="gcard__top">
@@ -1023,8 +1039,10 @@
               </div>
             </div>
             <div class="drw__ft">
-              Auto-assign packs each universe from address 1 in rig order · addresses set by hand are
-              overwritten, and fixtures that share an address are separated
+              <b style="color:#a1a1aa; font-weight:500">Auto-assign</b> repacks each universe from
+              address 1 in rig order · <b style="color:#a1a1aa; font-weight:500">Optimise</b> keeps the
+              order you set and closes the gaps · both keep every fixture in its own universe, and
+              fixtures that share an address stay sharing
             </div>
           </div>
         </div>
@@ -1127,12 +1145,19 @@
         shape as <code>patchCapacity</code> and testable without rendering anything.
       </p>
       <p>
-        <strong>Two behaviours deliberately left alone.</strong> Auto-assign still fails the
-        whole rig if any universe would exceed 512, and it still separates fixtures that
-        share an address. The drawer makes both legible for the first time — the second one
-        in its footer, before the button is pressed. Making auto-assign preserve a shared
-        group is the obvious next slice, and doing it inside a design wave is how a
-        regression stops being attributable to the wave that caused it.
+        <strong>Auto-assign is rewritten, not left alone.</strong> It moves groups instead of
+        fixtures, so sharing survives it; it never moves a fixture between universes; and a
+        universe that cannot fit is skipped and named rather than failing the whole rig.
+        <strong>Optimise channels</strong> is its new sibling. This is the one place the
+        wave changes behaviour rather than presentation, and it is deliberate — blessing a
+        shared group in the sheet while the button beside it dissolves the group would be a
+        trap of our own making.
+      </p>
+      <p>
+        <strong>Still left alone:</strong> neither operation can be undone, neither reorders
+        the rig, and neither can be run on a single universe. The first two match what
+        auto-assign does today; the third is a convenience that costs a control per card and
+        blocks nothing, since a universe that will not fit is skipped rather than fatal.
       </p>
     </div>
   </section>
@@ -1174,7 +1199,8 @@
       <h3>3 · The Universes drawer, and auto-assign moving into it — approved</h3>
       <p>
         The bar keeps its canonical shape, and the 512-channel limit becomes something you
-        can see before you hit it rather than an error afterwards.
+        can see before you hit it rather than an error afterwards. Auto-assign now has a
+        sibling in there — see 7.
       </p>
     </div>
 
@@ -1206,6 +1232,20 @@
         the drawer states the <em>largest free run</em> beside the free total: 494 free
         channels scattered in gaps of four will not take a 16-channel fixture, and the
         number that looks reassuring is the one that answers the wrong question.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>7 · Auto-assign rewritten, and given a sibling — added on review</h3>
+      <p>
+        Recognising a shared group and then dissolving it on the next button was flagged as
+        a trap, and the answer is to fix the button rather than warn about it. Both
+        operations now move <strong>groups</strong>: what shared before still shares, what
+        did not still does not. Neither moves a fixture between universes, because a
+        universe is usually a cable run to one truss. A universe that cannot fit is skipped
+        and named instead of failing the whole rig. And <strong>Optimise channels</strong>
+        joins it — same packing, ordered by where fixtures already are rather than by rig
+        order, so gaps close without the numbering being thrown away.
       </p>
     </div>
   </section>
