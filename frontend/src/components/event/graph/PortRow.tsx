@@ -29,28 +29,57 @@ function Dot({ port, wiring }: { port: GraphPort; wiring: PortWiring }) {
   )
 }
 
-/** One port on one side of a box — a mixer output, a channel strip, a device jack. */
+/**
+ * One port on one side of a box — a mixer output, a channel strip, a device jack.
+ *
+ * Two gestures, one row (Slice 26 FR-009). The **dot** starts, completes or inspects
+ * a cable, as it always has. The **label**, when the caller gives an `onSelect`,
+ * opens the inspector on whatever the row stands for — which is the split the sources
+ * rail already field-tested, and the only one that needs neither a modifier key nor a
+ * second control. The dot's hit area is its own padded button and its pointer-down
+ * stops propagation, so the two targets cannot be hit at once.
+ *
+ * Both new props are optional and unused by every existing call site, so a row
+ * without them renders exactly as before.
+ */
 export function PortRow({
   port,
   label,
   wiring,
   align,
   dimmed,
+  selected,
+  onSelect,
 }: {
   port: GraphPort
   label?: string
   wiring: PortWiring
   align: 'left' | 'right'
   dimmed?: boolean
+  /** This row's subject is what the inspector is showing. */
+  selected?: boolean
+  /** Given: the label becomes clickable. Absent: the label is inert text. */
+  onSelect?: () => void
 }) {
   const color = wiring.colorOf(port)
+  const labelClass = `truncate ${selected ? 'font-semibold text-zinc-50' : ''}`
   return (
     <div
-      className={`${PORT_ROW} transition-opacity ${align === 'right' ? 'flex-row-reverse text-right' : ''} ${color ? '' : PORT_ROW_TEXT} ${dimmed ? 'opacity-30' : ''}`}
+      className={`${PORT_ROW} transition-opacity ${align === 'right' ? 'flex-row-reverse text-right' : ''} ${color ? '' : PORT_ROW_TEXT} ${
+        dimmed ? 'opacity-30' : ''
+      } ${selected ? 'bg-amber-500/10' : ''}`}
       style={color ? { color } : undefined}
     >
       <Dot port={port} wiring={wiring} />
-      <span className="truncate">{label ?? port.label}</span>
+      {onSelect ? (
+        // `min-w-0 flex-1` so the label still truncates and the button spans the row's
+        // free width — the whole label area is the target, not just the glyphs.
+        <button type="button" onClick={onSelect} className={`min-w-0 flex-1 cursor-pointer ${labelClass} ${align === 'right' ? 'text-right' : 'text-left'}`}>
+          {label ?? port.label}
+        </button>
+      ) : (
+        <span className={labelClass}>{label ?? port.label}</span>
+      )}
     </div>
   )
 }

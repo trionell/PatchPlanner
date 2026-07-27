@@ -63,8 +63,14 @@ export interface ChainCellModel {
  * source.
  *
  * Falling back to the first node is right where there is genuinely no source to
- * select: an output chain reads outward from the desk, so its first hop is the
- * nearest thing to "where this run begins".
+ * select: a chain that reads outward from the desk has no source, so its first hop is
+ * the nearest thing to "where this run begins".
+ *
+ * Since Slice 26 the **outputs** sheet no longer calls this: an output row's button
+ * selects the output itself, which the outputs canvas can now open a rail on. So the
+ * fallback branch is exercised only by the input side's own no-source cases, and by
+ * this module's tests. Kept general rather than narrowed to the input chain, because
+ * narrowing it would delete the one place the outward-reading behaviour is documented.
  *
  * Undefined when nothing is patched, in which case there is nothing to select and the
  * button is not offered.

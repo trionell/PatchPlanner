@@ -11,8 +11,15 @@ interface RowEditorProps {
   onSave: () => void
   onCancel: () => void
   onDelete: () => void
-  /** Opens Flow with this row's own signal source selected. Omitted when there is nothing upstream to select. */
+  /** Opens Flow with what this row is about already selected. Omitted when there is nothing to select. */
   onEditInFlow?: () => void
+  /**
+   * The label above that button — what the Flow view will have selected. The inputs
+   * sheet says `Source`, because a channel's row editor sends you there to change
+   * what feeds it; the outputs sheet says `Routing`, because since Slice 26 the
+   * button selects the output row itself.
+   */
+  editInFlowLabel?: string
   onKeyDown?: (event: KeyboardEvent) => void
 }
 
@@ -30,16 +37,16 @@ interface RowEditorProps {
  * The amber left rail and matching ground are what make the strip read as hanging
  * off the row above it rather than floating in the table.
  */
-export function RowEditor({ children, saveLabel, onSave, onCancel, onDelete, onEditInFlow, onKeyDown }: RowEditorProps) {
+export function RowEditor({ children, saveLabel, onSave, onCancel, onDelete, onEditInFlow, editInFlowLabel = 'Source', onKeyDown }: RowEditorProps) {
   return (
     <div className="-mx-1 flex flex-col gap-2" onKeyDown={onKeyDown}>
       <div className="flex flex-wrap items-end gap-3 rounded-r-md border-l-2 border-amber-500 bg-amber-500/[0.05] px-3 py-2.5">
         {children}
 
         {onEditInFlow && (
-          <FieldStack label="Source" width="short">
+          <FieldStack label={editInFlowLabel} width="short">
             {/* Routing is decided in Flow, so the way to change what feeds this
-                row is to go there — with the row's own source already selected
+                row is to go there — with the row's own subject already selected
                 (FR-030). */}
             <Button size="sm" variant="outline" className="h-8 justify-between px-3 text-xs" onClick={onEditInFlow}>
               Edit in Flow

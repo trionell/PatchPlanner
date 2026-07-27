@@ -43,6 +43,7 @@ import {
 import { itemLabel } from '../../lib/utils'
 import type { AudioPatchOutput, Console, InventoryItem, OutputCable, OutputDevice, OwnedItem, StageMulti, Stagebox } from '../../types'
 import { AudioPatchShell } from './AudioPatchShell'
+import { OutputFlowInspector, type OutputFlowSelection } from './OutputFlowInspector'
 import { LaneBands } from './graph/LaneBands'
 import { NodeShell as SharedNodeShell } from './graph/NodeShell'
 import { PortRow as SharedPortRow, SplitPortRow, type PortWiring } from './graph/PortRow'
@@ -87,11 +88,13 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
   const [search, setSearch] = useState('')
   const [rigOpen, setRigOpen] = useState(false)
   const [zoom, setZoom] = useState(1)
-  // Which node the graph marks. Held here rather than in the canvas so it survives
-  // the view toggle and so the sheet can set it (Slice 25 FR-001/FR-002). This
-  // graph has no inspector — the mockup draws none — so a selection here marks the
-  // box and nothing more.
-  const [selection, setSelection] = useState<{ kind: PortRef['kind']; id: number } | null>(null)
+  // What the graph has selected, and so what its inspector is open on. Held here
+  // rather than in the canvas so it survives the view toggle and so the sheet can
+  // set it (Slice 25 FR-001/FR-002). Since Slice 26 a selection can be a single
+  // output *row* and not only a box, which is what makes an output editable in the
+  // Flow view; the desk box itself is no longer selectable, because its own fields
+  // live in the Rig drawer and its rows each have a rail now (research.md R3).
+  const [selection, setSelection] = useState<OutputFlowSelection | null>(null)
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['audio-patch', eventId] })
@@ -114,15 +117,27 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
   )
 
   /**
-   * The graph node a sheet hop points at (Slice 25 FR-003). A chain's head is the
-   * desk output itself, which this graph keys by *console* rather than by output,
-   * so it selects nothing; a `device_link` hop lives on the same box as the
+   * The graph node a sheet *hop* points at (Slice 25 FR-003). A chain's head is the
+   * desk output, which is now selectable in its own right — but as an `output`, not as
+   * a box, so a head hop still selects nothing here and `openOutputInFlow` below is
+   * what the row's own button uses. A `device_link` hop lives on the same box as the
    * device's ordinary ports, so it selects the device.
    */
   const openInFlow = (node: SegmentNode) => {
     const kind = node.kind === 'device_link' ? 'device' : node.kind
     if (kind !== 'stagebox' && kind !== 'stage_multi' && kind !== 'device' && kind !== 'console_local') return
     setSelection({ kind, id: node.id })
+    setView('flow')
+  }
+
+  /**
+   * The sheet row's own "Edit in Flow" (Slice 26). It selects the **output**, because
+   * that is the row, and since this slice the row is a thing the flow view can edit.
+   * Before, the button had to settle for the first box downstream of the desk — which
+   * opened a stagebox when what you asked to edit was a bus.
+   */
+  const openOutputInFlow = (output: AudioPatchOutput) => {
+    setSelection({ kind: 'output', id: output.id })
     setView('flow')
   }
 
@@ -221,6 +236,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
             itemLabelById={itemLabelById}
             search={search}
             onEditInFlow={openInFlow}
+            onEditOutputInFlow={openOutputInFlow}
             onOpenRig={readOnly ? undefined : () => setRigOpen(true)}
             readOnly={readOnly}
           />
@@ -234,6 +250,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
             cables={outputCables}
             consoles={consoles}
             cableItems={cableItems}
+            itemLabelById={itemLabelById}
             search={search}
             selection={selection}
             onSelectionChange={setSelection}
@@ -293,6 +310,9 @@ interface NodeLayout {
  * stagebox's input side (FR-013 — pure console/network routing, never a
  * physical cable). A mixer port is a logical channel, not a physical
  * jack, so it may fan out to more than one destination at once.
+ *
+ * Since Slice 26 an inspector rail sits beside it — the same rail the inputs canvas
+ * has — open on whichever output row or rig box is selected.
  */
 function OutputGraphCanvas({
   eventId,
@@ -303,6 +323,7 @@ function OutputGraphCanvas({
   cables,
   consoles,
   cableItems,
+  itemLabelById,
   search = '',
   selection,
   onSelectionChange,
@@ -318,15 +339,17 @@ function OutputGraphCanvas({
   cables: OutputCable[]
   consoles: Console[]
   cableItems: InventoryItem[]
+  /** The rail's chain model needs it, to name the cable behind a hop. */
+  itemLabelById: Map<number, string>
   /**
    * The shell's search term. Non-matching nodes and rows dim; nothing is
    * removed, since hiding a node would hide cables that exist
    * (research.md R14).
    */
   search?: string
-  /** Which box the graph marks. Owned by the tab (Slice 25 FR-002). */
-  selection: { kind: PortRef['kind']; id: number } | null
-  onSelectionChange: (selection: { kind: PortRef['kind']; id: number } | null) => void
+  /** What the graph marks, and so what the rail shows. Owned by the tab (Slice 25 FR-002). */
+  selection: OutputFlowSelection | null
+  onSelectionChange: (selection: OutputFlowSelection | null) => void
   /** Owned by the tab, because its control lives in the panel's toolbar (FR-020). */
   zoom: number
   onChanged: () => Promise<void>
@@ -735,7 +758,8 @@ function OutputGraphCanvas({
           Selected {pendingPort.label} — click a free {pendingPort.direction === 'out' ? 'input' : 'output'} port to connect, or click it again to cancel.
         </div>
       )}
-      <div ref={wrapperRef} className="overflow-auto" style={{ height: CANVAS_HEIGHT }}>
+      <div className="flex items-start gap-3">
+      <div ref={wrapperRef} className="min-w-0 flex-1 overflow-auto" style={{ height: CANVAS_HEIGHT }}>
         <div style={{ width: canvasWidth * zoom, height: canvasHeight * zoom }}>
           <div ref={canvasRef} className="relative" style={{ width: canvasWidth, height: canvasHeight, transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
             <LaneBands
@@ -805,8 +829,8 @@ function OutputGraphCanvas({
                     registerPort={registerPort}
                     colorContext={colorContext}
                     onDragStart={readOnly ? undefined : (e) => startNodeDrag('mixer', desk.id, 'y-only', e)}
-                    selected={selection?.kind === 'mixer' && selection.id === desk.id}
-                    onSelect={() => onSelectionChange({ kind: 'mixer', id: desk.id })}
+                    selectedOutputId={selection?.kind === 'output' ? selection.id : undefined}
+                    onSelectOutput={(id) => onSelectionChange({ kind: 'output', id })}
                     search={search}
                   />
                 ) : (
@@ -822,6 +846,8 @@ function OutputGraphCanvas({
                     registerPort={registerPort}
                     colorContext={colorContext}
                     onDragStart={readOnly ? undefined : (e) => startNodeDrag('mixer', 0, 'y-only', e)}
+                    selectedOutputId={selection?.kind === 'output' ? selection.id : undefined}
+                    onSelectOutput={(id) => onSelectionChange({ kind: 'output', id })}
                     search={search}
                   />
                 )
@@ -895,6 +921,24 @@ function OutputGraphCanvas({
           </div>
         </div>
       </div>
+      {selection && (
+        <OutputFlowInspector
+          eventId={eventId}
+          selection={selection}
+          outputs={outputs}
+          stageboxes={stageboxes}
+          stageMultis={stageMultis}
+          devices={devices}
+          cables={cables}
+          consoles={consoles}
+          itemLabelById={itemLabelById}
+          onSelectionChange={onSelectionChange}
+          onChanged={onChanged}
+          readOnly={readOnly}
+        />
+      )}
+      </div>
+
       {devices.length === 0 && stageboxes.length === 0 && stageMultis.length === 0 && (
         <p className="text-xs text-zinc-500">No devices yet — add one below, then click or drag from a port here to start cabling.</p>
       )}
@@ -985,7 +1029,7 @@ function NodeShell({ x, y, title, badge, dimmed, selected, footer, footerAlarm, 
   )
 }
 
-function PortRow({ label, port, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, align, colorContext, dimmed }: {
+function PortRow({ label, port, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, align, colorContext, dimmed, selected, onSelect }: {
   label: string
   port: PortRef
   cables: OutputCable[]
@@ -996,6 +1040,9 @@ function PortRow({ label, port, cables, pendingPort, onPortClick, onPortPointerD
   align: 'left' | 'right'
   colorContext: OutputColorContext
   dimmed?: boolean
+  /** Set on a bus-list row: the label opens the rail, the dot still cables (FR-009). */
+  selected?: boolean
+  onSelect?: () => void
 }) {
   return (
     <SharedPortRow
@@ -1003,6 +1050,8 @@ function PortRow({ label, port, cables, pendingPort, onPortClick, onPortPointerD
       label={label}
       align={align}
       dimmed={dimmed}
+      selected={selected}
+      onSelect={onSelect}
       wiring={wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)}
     />
   )
@@ -1029,7 +1078,7 @@ function wiringFor(
   }
 }
 
-function ConsoleNode({ x, y, desk, outputs, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, search = '' , selected, onSelect, colorContext }: {
+function ConsoleNode({ x, y, desk, outputs, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, search = '' , selectedOutputId, onSelectOutput, colorContext }: {
   x: number
   y: number
   desk: Console
@@ -1042,8 +1091,9 @@ function ConsoleNode({ x, y, desk, outputs, cables, pendingPort, onPortClick, on
   onDragStart?: (e: ReactPointerEvent) => void
   search?: string
   colorContext: OutputColorContext
-  selected?: boolean
-  onSelect?: () => void
+  /** The output the rail is open on. A stereo row's two ports share it. */
+  selectedOutputId?: number
+  onSelectOutput?: (outputId: number) => void
 }) {
   const ports = mixerPorts(outputs)
   const dimmedIds = new Set(
@@ -1058,8 +1108,6 @@ function ConsoleNode({ x, y, desk, outputs, cables, pendingPort, onPortClick, on
       title={desk.name || 'Console'}
       badge="DESK"
       onDragStart={onDragStart}
-      selected={selected}
-      onSelect={onSelect}
       footerAlarm={over}
       footer={
         <>
@@ -1069,8 +1117,11 @@ function ConsoleNode({ x, y, desk, outputs, cables, pendingPort, onPortClick, on
         </>
       }
     >
+      {/* A mixer port's id *is* the output's id, so a stereo output's two rows both
+          answer to the same selection — clicking either label keeps the rail on the
+          one output (Slice 26 FR-002). */}
       {ports.map((port) => (
-        <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} colorContext={colorContext} align="right" dimmed={dimmedIds.has(port.id)} />
+        <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} colorContext={colorContext} align="right" dimmed={dimmedIds.has(port.id)} selected={selectedOutputId === port.id} onSelect={onSelectOutput && (() => onSelectOutput(port.id))} />
       ))}
       {ports.length === 0 && <p className="px-1.5 text-[11px] text-zinc-600">No outputs on this desk yet</p>}
     </NodeShell>
@@ -1115,7 +1166,7 @@ function LocalJackNode({ x, y, desk, cables, pendingPort, onPortClick, onPortPoi
   )
 }
 
-function MixerNode({ x, y, outputs, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, search = '' , selected, onSelect, colorContext }: {
+function MixerNode({ x, y, outputs, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, search = '' , selectedOutputId, onSelectOutput, colorContext }: {
   x: number
   y: number
   outputs: AudioPatchOutput[]
@@ -1127,8 +1178,8 @@ function MixerNode({ x, y, outputs, cables, pendingPort, onPortClick, onPortPoin
   onDragStart?: (e: ReactPointerEvent) => void
   search?: string
   colorContext: OutputColorContext
-  selected?: boolean
-  onSelect?: () => void
+  selectedOutputId?: number
+  onSelectOutput?: (outputId: number) => void
 }) {
   const ports = mixerPorts(outputs)
   // One node, many rows, so search dims per row rather than per node.
@@ -1136,9 +1187,12 @@ function MixerNode({ x, y, outputs, cables, pendingPort, onPortClick, onPortPoin
     outputs.filter((row) => !matchesSearch(search, row.output_number, row.output_name, row.output_type, row.notes)).map((row) => row.id),
   )
   return (
-    <NodeShell x={x} y={y} title="No desk" badge={ports.length > 0 ? String(outputs.length) : undefined} onDragStart={onDragStart} selected={selected} onSelect={onSelect}>
+    <NodeShell x={x} y={y} title="No desk" badge={ports.length > 0 ? String(outputs.length) : undefined} onDragStart={onDragStart}>
+      {/* A mixer port's id *is* the output's id, so a stereo output's two rows both
+          answer to the same selection — clicking either label keeps the rail on the
+          one output (Slice 26 FR-002). */}
       {ports.map((port) => (
-        <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} colorContext={colorContext} align="right" dimmed={dimmedIds.has(port.id)} />
+        <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} colorContext={colorContext} align="right" dimmed={dimmedIds.has(port.id)} selected={selectedOutputId === port.id} onSelect={onSelectOutput && (() => onSelectOutput(port.id))} />
       ))}
       {ports.length === 0 && <p className="px-1.5 text-[11px] text-zinc-600">No outputs without a desk</p>}
     </NodeShell>

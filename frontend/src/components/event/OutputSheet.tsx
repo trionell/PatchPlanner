@@ -6,7 +6,8 @@ import { useRowEditor } from '../../hooks/useRowEditor'
 import { isCablelessToKind } from '../../lib/outputGraph'
 import { boxUsage, cablesPicked, consoleCapacity, type PatchStatus } from '../../lib/patchCapacity'
 import { matchesSearch } from '../../lib/patchSearch'
-import { chainSourceNode, outputChainSegments, type ChainCellModel, type SegmentNode } from '../../lib/patchSheet'
+import { outputTypeTint } from '../../lib/patchTints'
+import { outputChainSegments, type ChainCellModel, type SegmentNode } from '../../lib/patchSheet'
 import type { OutputFlowContext } from '../../lib/signalFlow'
 import type { AudioPatchOutput, Console, InventoryItem, OutputCable, OutputDevice, StageMulti, Stagebox } from '../../types'
 import { FieldStack } from '../ui/GearList'
@@ -23,23 +24,6 @@ import { RowEditor } from './RowEditor'
 // the kind of clutter this slice exists to remove (FR-021).
 const COLUMNS = ['Out', 'Name', 'Type', 'W', 'Chain', 'Notes']
 const columnsFor = (multiDesk: boolean) => (multiDesk ? ['Out', 'Name', 'Desk', 'Type', 'W', 'Chain', 'Notes'] : COLUMNS)
-
-/**
- * An output type's pill tint. The same vocabulary `Badge` carries, at the sheet's
- * smaller pill size — a full-size badge two hundred rows deep is what makes a
- * patch sheet read as a form (Slice 25 FR-017).
- */
-function outputTypeTint(type: string): string {
-  switch (type) {
-    case 'foh': return 'bg-cyan-500/15 text-cyan-300'
-    case 'monitor': return 'bg-emerald-500/15 text-emerald-300'
-    case 'iem': return 'bg-orange-500/15 text-orange-300'
-    case 'sub': return 'bg-red-500/15 text-red-300'
-    case 'matrix': return 'bg-indigo-500/15 text-indigo-300'
-    case 'aux': return 'bg-pink-500/15 text-pink-300'
-    default: return 'bg-zinc-700 text-zinc-100'
-  }
-}
 
 interface OutputDraft {
   output_number: number
@@ -69,7 +53,14 @@ interface OutputSheetProps {
   cableItems: InventoryItem[]
   itemLabelById: Map<number, string>
   search?: string
+  /** A chain *hop* was clicked: open Flow with that box selected. */
   onEditInFlow?: (node: SegmentNode) => void
+  /**
+   * The row's own "Edit in Flow": open Flow with the **output** selected (Slice 26).
+   * Before the outputs canvas had a rail, this button had to settle for the first box
+   * downstream of the desk — so asking to edit a bus opened a stagebox.
+   */
+  onEditOutputInFlow?: (output: AudioPatchOutput) => void
   onOpenRig?: () => void
   readOnly?: boolean
 }
@@ -90,6 +81,7 @@ export function OutputSheet({
   itemLabelById,
   search = '',
   onEditInFlow,
+  onEditOutputInFlow,
   onOpenRig,
   readOnly = false,
 }: OutputSheetProps) {
@@ -239,7 +231,8 @@ export function OutputSheet({
                             removeOutput.mutate(output.id)
                           }
                         }}
-                        onEditInFlow={onEditInFlow && chainSourceNode(chain) ? () => onEditInFlow(chainSourceNode(chain)!) : undefined}
+                        editInFlowLabel="Routing"
+                        onEditInFlow={onEditOutputInFlow ? () => onEditOutputInFlow(output) : undefined}
                         onKeyDown={editor.onKeyDown}
                       >
                         <FieldStack label="Out" width="count">
