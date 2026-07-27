@@ -1,4 +1,4 @@
-import { Fragment, useMemo } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link2 } from 'lucide-react'
 import { listFixtureModes } from '../../api/inventories'
@@ -13,6 +13,7 @@ import { FieldStack } from '../ui/GearList'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
 import { NumCell, SheetBody, SheetCell, SheetHead, SheetHeadCell, SheetRow, SheetTable } from '../ui/SheetTable'
+import { type LightingFilter, LightingStatusRail } from './LightingStatusRail'
 import { RowEditor } from './RowEditor'
 
 /**
@@ -71,6 +72,7 @@ export function LightingSheet({
 }: LightingSheetProps) {
   const queryClient = useQueryClient()
   const { options } = useReferenceData(eventId)
+  const [filter, setFilter] = useState<LightingFilter>(null)
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['lighting-rig', eventId] })
@@ -132,7 +134,18 @@ export function LightingSheet({
 
   const byId = useMemo(() => new Map(fixtures.map((fixture) => [fixture.id, fixture])), [fixtures])
 
+  const problemFixtureIds = useMemo(() => {
+    const ids = new Set<number>()
+    for (const problem of map.problems) {
+      const groups = problem.kind === 'clash' ? [problem.a, problem.b] : [problem.group]
+      for (const group of groups) for (const id of group.fixtureIds) ids.add(id)
+    }
+    return ids
+  }, [map])
+
   const visible = fixtures.filter((fixture) =>
+    (filter === null ||
+      (filter === 'errors' ? problemFixtureIds.has(fixture.id) : fixture.dmx_start_address == null)) &&
     matchesSearch(
       search,
       fixture.fixture_number,
@@ -259,10 +272,21 @@ export function LightingSheet({
 
         {visible.length === 0 && (
           <p className="px-3 py-3 text-xs text-zinc-500">
-            {fixtures.length === 0 ? 'No fixtures in this rig yet.' : `Nothing matches “${search}”.`}
+            {fixtures.length === 0
+              ? 'No fixtures in this rig yet.'
+              : filter
+                ? `Nothing here is ${filter === 'errors' ? 'clashing' : 'unaddressed'} any more.`
+                : `Nothing matches “${search}”.`}
           </p>
         )}
       </div>
+
+      <LightingStatusRail
+        map={map}
+        fixtures={fixtures}
+        filter={filter}
+        onFilterChange={readOnly ? undefined : setFilter}
+      />
 
       {(updateFixture.error ?? removeFixture.error) && (
         <p className="px-3 pb-2 text-xs text-red-400">{(updateFixture.error ?? removeFixture.error)?.message}</p>

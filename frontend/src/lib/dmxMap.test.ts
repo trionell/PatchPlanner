@@ -3,6 +3,7 @@ import type { LightingFixture } from '../types'
 import {
   UNIVERSE_SIZE,
   dmxMap,
+  dmxStatusState,
   firstRunFitting,
   formatSpan,
   groupsInTheWay,
@@ -236,5 +237,31 @@ describe('formatSpan', () => {
 
   it('says so when there is no address', () => {
     expect(formatSpan(undefined, 16)).toBe('—')
+  })
+})
+
+describe('dmxStatusState', () => {
+  const addressed: LightingFixture = fixture(1, { start: 1, count: 16 })
+
+  it('puts errors ahead of unaddressed fixtures', () => {
+    const map = dmxMap([addressed, fixture(2, { start: 8, count: 16 }), fixture(3, { start: null })])
+    expect(map.problems.length).toBeGreaterThan(0)
+    expect(map.unaddressed.length).toBeGreaterThan(0)
+    expect(dmxStatusState(map)).toBe('errors')
+  })
+
+  it('reports unaddressed work when there is nothing wrong', () => {
+    expect(dmxStatusState(dmxMap([addressed, fixture(2, { start: null })]))).toBe('unaddressed')
+  })
+
+  it('is clean when every fixture has an address and none of them collide', () => {
+    expect(dmxStatusState(dmxMap([addressed, fixture(2, { start: 17, count: 16 })]))).toBe('clean')
+  })
+
+  it('is clean with a shared group, which is not a condition to resolve', () => {
+    const shared = [fixture(1, { start: 1, count: 7 }), fixture(2, { start: 1, count: 7 })]
+    const map = dmxMap(shared)
+    expect(map.sharedGroupCount).toBe(1)
+    expect(dmxStatusState(map)).toBe('clean')
   })
 })

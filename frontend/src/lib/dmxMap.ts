@@ -278,6 +278,23 @@ export function dmxMap(fixtures: LightingFixture[]): DmxMap {
   }
 }
 
+/**
+ * Which of the strip's three states to show, in order of how much attention each
+ * needs (FR-055).
+ *
+ * Shared groups are deliberately **not** a state: they are counted in every one
+ * of these, because sharing is information rather than a condition to resolve.
+ * Tinting the strip for the most ordinary arrangement in environment lighting
+ * would be crying wolf.
+ */
+export type DmxStatusState = 'errors' | 'unaddressed' | 'clean'
+
+export function dmxStatusState(map: DmxMap): DmxStatusState {
+  if (map.problems.length > 0) return 'errors'
+  if (map.unaddressed.length > 0) return 'unaddressed'
+  return 'clean'
+}
+
 export function universeMap(map: DmxMap, universe: number): UniverseMap | undefined {
   return map.universes.find((entry) => entry.universe === universe)
 }
