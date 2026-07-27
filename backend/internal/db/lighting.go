@@ -275,9 +275,16 @@ func BulkCreateLightingFixtures(db *sql.DB, rigID int64, req domain.BulkFixtureR
 		if !req.ShareAddress {
 			address = nextAddress + i*channelCount
 		}
+		// A batch of one is named exactly what was typed; only a real batch
+		// gets numbered, because "Haze 1" is not what anyone meant by adding
+		// one haze machine called Haze.
 		var name string
 		if req.NameStem != "" {
-			name = fmt.Sprintf("%s %d", req.NameStem, i+1)
+			if req.Quantity > 1 {
+				name = fmt.Sprintf("%s %d", req.NameStem, i+1)
+			} else {
+				name = req.NameStem
+			}
 		}
 		if _, err := tx.Exec(`INSERT INTO lighting_fixtures (rig_id, fixture_number, inventory_item_id, custom_name, position_index, power_connection, power_connector_in, dmx_universe, dmx_start_address, dmx_channel_mode, dmx_channel_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			rigID, nullInt(number), nullInt64(req.InventoryItemID), nullString(name), nextPosition+i, req.PowerConnection, req.PowerConnectorIn, universe, address, nullString(req.DMXChannelMode), channelCount); err != nil {

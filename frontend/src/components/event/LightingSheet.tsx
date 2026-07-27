@@ -2,13 +2,14 @@ import { Fragment, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link2 } from 'lucide-react'
 import { listFixtureModes } from '../../api/inventories'
-import { deleteLightingFixture, updateLightingFixture } from '../../api/lighting'
+import { bulkAddFixtures, deleteLightingFixture, updateLightingFixture } from '../../api/lighting'
 import { useReferenceData } from '../../hooks/useReferenceData'
 import { useRowEditor } from '../../hooks/useRowEditor'
-import { type DmxMap, type FixtureDmxState, UNIVERSE_SIZE, formatSpan } from '../../lib/dmxMap'
+import { type DmxMap, type FixtureDmxState, UNIVERSE_SIZE, firstRunFitting, formatSpan, universeMap } from '../../lib/dmxMap'
+import { nextFixtureNumber } from '../../lib/lightingRig'
 import { matchesSearch } from '../../lib/patchSearch'
 import { cn } from '../../lib/utils'
-import type { LightingFixture } from '../../types'
+import type { BulkFixtureRequest, LightingFixture } from '../../types'
 import { FieldStack } from '../ui/GearList'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
@@ -45,6 +46,25 @@ interface FixtureDraft {
   notes: string
 }
 
+/**
+ * The add editor's own draft. It is not a `FixtureDraft`: adding asks for a
+ * quantity, a starting console ID and whether the batch shares an address, and
+ * does not ask for notes or a rig position — which the batch appends.
+ */
+interface AddDraft {
+  quantity: number
+  fixture_number_start?: number
+  custom_name: string
+  inventory_item_id?: number
+  dmx_channel_mode: string
+  dmx_channel_count: number
+  dmx_universe: number
+  dmx_start_address?: number
+  share_address: boolean
+  power_connection: LightingFixture['power_connection']
+  power_connector_in: string
+}
+
 interface LightingSheetProps {
   eventId: number
   rigId?: number
@@ -56,6 +76,9 @@ interface LightingSheetProps {
   search?: string
   /** Opens the Stage Plots tab, where a fixture's truss is actually decided. */
   onOpenPlot?: () => void
+  /** The bar's `+ Fixtures` control, lifted so the panel's one primary action drives it. */
+  adding?: boolean
+  onAddingChange?: (adding: boolean) => void
   readOnly?: boolean
 }
 
@@ -68,6 +91,8 @@ export function LightingSheet({
   modelOptions,
   search = '',
   onOpenPlot,
+  adding = false,
+  onAddingChange,
   readOnly = false,
 }: LightingSheetProps) {
   const queryClient = useQueryClient()
@@ -87,6 +112,13 @@ export function LightingSheet({
   const removeFixture = useMutation({
     mutationFn: (id: number) => deleteLightingFixture(eventId, rigId!, id),
     onSuccess: invalidate,
+  })
+  const addFixtures = useMutation({
+    mutationFn: (payload: BulkFixtureRequest) => bulkAddFixtures(eventId, rigId!, payload),
+    onSuccess: async () => {
+      onAddingChange?.(false)
+      await invalidate()
+    },
   })
 
   const editor = useRowEditor<LightingFixture, FixtureDraft>({
@@ -267,6 +299,23 @@ export function LightingSheet({
                 </Fragment>
               )
             })}
+            {adding && !readOnly && (
+              <SheetRow className="border-b-0 hover:bg-transparent">
+                <SheetCell colSpan={COLUMNS.length} className="bg-amber-500/[0.04]">
+                  <AddFixtureEditor
+                    map={map}
+                    fixtures={fixtures}
+                    inventoryId={inventoryId}
+                    modelOptions={modelOptions}
+                    connectorOptions={options('power_connectors', 'schuko')}
+                    pending={addFixtures.isPending}
+                    error={addFixtures.error?.message}
+                    onCancel={() => onAddingChange?.(false)}
+                    onSubmit={(payload) => addFixtures.mutate(payload)}
+                  />
+                </SheetCell>
+              </SheetRow>
+            )}
           </SheetBody>
         </SheetTable>
 
@@ -553,4 +602,288 @@ function ModeField({
   )
 }
 
-export type { FixtureDraft }
+/**
+ * Adding, as the same construction editing uses (Slice 27 US3).
+ *
+ * It owns its own draft and is unmounted when closed, so there is no state to
+ * synchronise with the bar's control — the editor exists or it does not.
+ *
+ * Its fields are deliberately not `FixtureFields`: adding asks for a quantity, a
+ * starting console ID and whether the batch shares one address, and does not ask
+ * for notes or a rig position. What is shared is `RowEditor` — the frame, the
+ * amber edge, the keys — which is what makes adding and editing read as the same
+ * operation.
+ */
+function AddFixtureEditor({
+  map,
+  fixtures,
+  inventoryId,
+  modelOptions,
+  connectorOptions,
+  pending,
+  error,
+  onCancel,
+  onSubmit,
+}: {
+  map: DmxMap
+  fixtures: LightingFixture[]
+  inventoryId?: number
+  modelOptions: { label: string; value: number }[]
+  connectorOptions: { label: string; value: string }[]
+  pending: boolean
+  error?: string
+  onCancel: () => void
+  onSubmit: (payload: BulkFixtureRequest) => void
+}) {
+  const [draft, setDraft] = useState<AddDraft>(() => {
+    const universe = 1
+    const count = 8
+    return {
+      quantity: 1,
+      fixture_number_start: nextFixtureNumber(fixtures),
+      custom_name: '',
+      dmx_channel_mode: '',
+      dmx_channel_count: count,
+      dmx_universe: universe,
+      dmx_start_address: firstRunFitting(universeMap(map, universe), count)?.start,
+      share_address: false,
+      power_connection: 'grid',
+      power_connector_in: 'schuko',
+    }
+  })
+
+  const quantity = Math.max(1, draft.quantity || 1)
+  const width = Math.max(1, draft.dmx_channel_count || 1)
+  // The point of sharing: twenty seven-channel pars need seven channels, not a
+  // hundred and forty (FR-067).
+  const demand = draft.share_address ? width : quantity * width
+  const universe = universeMap(map, draft.dmx_universe)
+  const largest = universe?.largestRun ?? { start: 1, length: UNIVERSE_SIZE }
+
+  return (
+    <RowEditor
+      saveLabel={pending ? 'Adding…' : quantity > 1 ? `Add ${quantity} fixtures` : 'Add fixture'}
+      onSave={() =>
+        onSubmit({
+          inventory_item_id: draft.inventory_item_id,
+          quantity,
+          fixture_number_start: draft.fixture_number_start,
+          name_stem: draft.custom_name || undefined,
+          dmx_channel_mode: draft.dmx_channel_mode,
+          dmx_channel_count: width,
+          dmx_universe: draft.dmx_universe,
+          dmx_start_address: draft.dmx_start_address,
+          share_address: draft.share_address,
+          power_connection: draft.power_connection,
+          power_connector_in: draft.power_connector_in,
+        })
+      }
+      onCancel={onCancel}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          event.preventDefault()
+          onCancel()
+        }
+      }}
+      notice={
+        <p className="text-[11px] text-zinc-500">
+          {error ? (
+            <span className="text-red-400">{error}</span>
+          ) : (
+            <>
+              {quantity} {quantity === 1 ? 'fixture needs' : 'fixtures need'}{' '}
+              <span className="font-mono tabular-nums text-zinc-300">{demand}</span>{' '}
+              {demand === 1 ? 'channel' : 'channels'} · universe {draft.dmx_universe}&apos;s largest free run is{' '}
+              <span className={cn('font-mono tabular-nums', largest.length >= demand ? 'text-zinc-300' : 'text-red-400')}>
+                {largest.length}
+              </span>
+              , from <span className="font-mono tabular-nums text-zinc-300">{largest.start}</span>
+            </>
+          )}
+        </p>
+      }
+    >
+      <FieldStack label="Qty" width="count">
+        <Input
+          size="sm"
+          type="number"
+          min={1}
+          max={100}
+          autoFocus
+          value={draft.quantity}
+          onChange={(event) => setDraft({ ...draft, quantity: Number(event.target.value) })}
+        />
+      </FieldStack>
+
+      <FieldStack label="Model" width="default">
+        <Select
+          size="sm"
+          value={draft.inventory_item_id ?? ''}
+          onChange={(event) =>
+            setDraft({
+              ...draft,
+              inventory_item_id: event.target.value ? Number(event.target.value) : undefined,
+              dmx_channel_mode: '',
+            })
+          }
+        >
+          <option value="">Custom / none</option>
+          {modelOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
+      </FieldStack>
+
+      <FieldStack label="Name" width="grow">
+        <Input
+          size="sm"
+          placeholder={quantity > 1 ? 'numbered from 1' : 'optional'}
+          value={draft.custom_name}
+          onChange={(event) => setDraft({ ...draft, custom_name: event.target.value })}
+        />
+      </FieldStack>
+
+      <FieldStack label="From FID" width="count">
+        <Input
+          size="sm"
+          type="number"
+          min={1}
+          value={draft.fixture_number_start ?? ''}
+          onChange={(event) =>
+            setDraft({ ...draft, fixture_number_start: event.target.value ? Number(event.target.value) : undefined })
+          }
+        />
+      </FieldStack>
+
+      <AddModeField draft={draft} setDraft={setDraft} inventoryId={inventoryId} />
+
+      <FieldStack label="Ch" width="count">
+        <Input
+          size="sm"
+          type="number"
+          min={1}
+          value={draft.dmx_channel_count}
+          onChange={(event) => setDraft({ ...draft, dmx_channel_count: Number(event.target.value) })}
+        />
+      </FieldStack>
+
+      <FieldStack label="Univ" width="count">
+        <Input
+          size="sm"
+          type="number"
+          min={1}
+          value={draft.dmx_universe}
+          onChange={(event) => {
+            const next = Number(event.target.value)
+            // Changing universe re-suggests the address: the free runs of the
+            // one you just left say nothing about the one you moved to.
+            setDraft({
+              ...draft,
+              dmx_universe: next,
+              dmx_start_address: firstRunFitting(universeMap(map, next), width)?.start,
+            })
+          }}
+        />
+      </FieldStack>
+
+      <FieldStack label="Addr" width="count">
+        <Input
+          size="sm"
+          type="number"
+          min={1}
+          max={UNIVERSE_SIZE}
+          value={draft.dmx_start_address ?? ''}
+          onChange={(event) =>
+            setDraft({ ...draft, dmx_start_address: event.target.value ? Number(event.target.value) : undefined })
+          }
+        />
+      </FieldStack>
+
+      {quantity > 1 && (
+        <FieldStack label="Addresses" width="short">
+          <Select
+            size="sm"
+            value={draft.share_address ? 'shared' : 'consecutive'}
+            onChange={(event) => setDraft({ ...draft, share_address: event.target.value === 'shared' })}
+          >
+            <option value="consecutive">consecutive</option>
+            <option value="shared">all share one</option>
+          </Select>
+        </FieldStack>
+      )}
+
+      <FieldStack label="Power" width="short">
+        <Select
+          size="sm"
+          value={draft.power_connection}
+          onChange={(event) => setDraft({ ...draft, power_connection: event.target.value as LightingFixture['power_connection'] })}
+        >
+          <option value="grid">grid</option>
+          <option value="chain">chain</option>
+        </Select>
+      </FieldStack>
+
+      <FieldStack label="Connector" width="default">
+        <Select size="sm" value={draft.power_connector_in} onChange={(event) => setDraft({ ...draft, power_connector_in: event.target.value })}>
+          {connectorOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
+      </FieldStack>
+    </RowEditor>
+  )
+}
+
+/** The add editor's mode field — the row editor's, against an `AddDraft`. */
+function AddModeField({
+  draft,
+  setDraft,
+  inventoryId,
+}: {
+  draft: AddDraft
+  setDraft: (draft: AddDraft) => void
+  inventoryId?: number
+}) {
+  const itemId = draft.inventory_item_id
+  const modesQuery = useQuery({
+    queryKey: ['fixture-modes', itemId],
+    queryFn: () => listFixtureModes(inventoryId!, itemId!),
+    enabled: itemId != null && inventoryId != null,
+  })
+  const modes = modesQuery.data ?? []
+  const selected = modes.find((mode) => mode.name === draft.dmx_channel_mode && mode.channel_count === draft.dmx_channel_count)
+
+  if (modes.length === 0) {
+    return (
+      <FieldStack label="Mode" width="short">
+        <Input size="sm" value={draft.dmx_channel_mode} onChange={(event) => setDraft({ ...draft, dmx_channel_mode: event.target.value })} />
+      </FieldStack>
+    )
+  }
+
+  return (
+    <FieldStack label="Mode" width="short">
+      <Select
+        size="sm"
+        value={selected?.id ?? ''}
+        onChange={(event) => {
+          const mode = modes.find((candidate) => candidate.id === Number(event.target.value))
+          if (mode) setDraft({ ...draft, dmx_channel_mode: mode.name, dmx_channel_count: mode.channel_count })
+        }}
+      >
+        <option value="">custom…</option>
+        {modes.map((mode) => (
+          <option key={mode.id} value={mode.id}>
+            {mode.name} ({mode.channel_count} ch)
+          </option>
+        ))}
+      </Select>
+    </FieldStack>
+  )
+}
+
+export type { AddDraft, FixtureDraft }
