@@ -250,6 +250,11 @@
   .sheet .qt { color: #71717a; }
   .sheet .none { color: #52525b; }
   .sheet .notes { color: #71717a; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* a shared address: information, not a warning — the node badge's treatment */
+  .shr {
+    font-family: var(--mono); font-size: 10px; color: #a1a1aa; background: #27272a;
+    border-radius: 3px; padding: 0 4px; margin-left: 5px;
+  }
 
   .chip { display: inline-flex; align-items: center; gap: 5px; }
 
@@ -654,6 +659,52 @@
                   <td class="notes">SL wing, off the floor</td>
                 </tr>
                 <tr>
+                  <td class="num">211</td>
+                  <td class="nm">Moon SR <span class="md">Robe Spiider</span></td>
+                  <td class="qt">Extended</td>
+                  <td class="num">2</td>
+                  <td class="num num--hot" title="Runs past 512 — the universe ends at 512">505–520</td>
+                  <td class="num">16</td>
+                  <td class="none">—</td>
+                  <td class="qt">grid <span class="md">cee16-blue</span></td>
+                  <td class="notes"></td>
+                </tr>
+
+                <tr class="alt">
+                  <td class="num">301</td>
+                  <td class="nm">Wall wash 1 <span class="md">Chauvet COLORdash</span></td>
+                  <td class="qt">7ch</td>
+                  <td class="num">3</td>
+                  <td class="num">001–007 <span class="shr" title="3 fixtures share these channels">×3</span></td>
+                  <td class="num">7</td>
+                  <td class="none">—</td>
+                  <td class="qt">grid <span class="md">schuko</span></td>
+                  <td class="notes">room wash, one fader</td>
+                </tr>
+                <tr>
+                  <td class="num">302</td>
+                  <td class="nm">Wall wash 2 <span class="md">Chauvet COLORdash</span></td>
+                  <td class="qt">7ch</td>
+                  <td class="num">3</td>
+                  <td class="num">001–007 <span class="shr" title="3 fixtures share these channels">×3</span></td>
+                  <td class="num">7</td>
+                  <td class="none">—</td>
+                  <td class="qt">chain <span class="md">← 301</span></td>
+                  <td class="notes"></td>
+                </tr>
+                <tr class="alt">
+                  <td class="num">303</td>
+                  <td class="nm">Wall wash 3 <span class="md">Chauvet COLORdash</span></td>
+                  <td class="qt">7ch</td>
+                  <td class="num">3</td>
+                  <td class="num">001–007 <span class="shr" title="3 fixtures share these channels">×3</span></td>
+                  <td class="num">7</td>
+                  <td class="none">—</td>
+                  <td class="qt">chain <span class="md">← 302</span></td>
+                  <td class="notes"></td>
+                </tr>
+
+                <tr>
                   <td class="num none">—</td>
                   <td class="nm">Audience 1 <span class="md">ADJ Hex Par</span></td>
                   <td class="qt">7ch</td>
@@ -679,13 +730,15 @@
             </table>
 
             <div class="strip strip--err">
-              <span class="pill t-err">1 overlap</span>
+              <span class="pill t-err">2 errors</span>
               <span class="mono">42 fixtures</span>
-              <span class="mono q">U1 078/512 · U2 016/512</span>
+              <span class="mono q">U1 078/512 · U2 018/512 · U3 007/512</span>
+              <span class="q">1 shared group</span>
               <span class="q">2 unaddressed</span>
               <span class="q">1 duplicate ID</span>
               <span class="hot">121 Key SR 056–070 overlaps 121 Key SL 049–063</span>
-              <span class="btn btn--ghost btn--sm" style="height:24px; padding:0 8px; font-size:11px">Show only clashes</span>
+              <span class="q">+1 more</span>
+              <span class="btn btn--ghost btn--sm" style="height:24px; padding:0 8px; font-size:11px">Show only errors</span>
               <span class="btn btn--outline btn--sm" style="height:24px; padding:0 8px; font-size:11px">Open Universes</span>
             </div>
           </div>
@@ -705,42 +758,77 @@
   <section>
     <div class="sec__hd">
       <span class="sec__no">03 · the strip</span>
-      <h2>Three answers to “does the plan hold?”</h2>
+      <h2>Four conditions, and only two of them are wrong</h2>
     </div>
 
     <div class="prose">
       <p>
         The strip is the one genuinely new capability in this wave, and it is the reason
         the wave is worth doing rather than a restyle. <strong>Nothing in the application
-        today notices that two fixtures share DMX addresses.</strong> Auto-assign packs
-        each universe from address 1 so its own output is always clean, but a single
-        hand-edited address afterwards puts two moving heads on the same channel and the
-        tool says nothing until a technician is standing in the room.
+        today knows what the DMX map looks like.</strong> Auto-assign packs each universe
+        from address 1 so its own output is always clean, but a single hand-edited address
+        afterwards puts two moving heads on the same channels and the tool says nothing
+        until a technician is standing in the room.
       </p>
       <p>
-        States in order of how much attention they need — overlap, then unaddressed,
-        then clean — matching how the audio strip orders over-capacity, gaps, complete.
+        The difficulty is that two fixtures on the same channels is usually a mistake and
+        sometimes the entire point. Twenty identical pars washing a room are patched to one
+        address so one fader drives all twenty; loads on a dimmer channel are the same
+        arrangement. A tool that called that an error would be wrong about the most ordinary
+        thing in environment lighting, and would train the planner to ignore the strip.
+      </p>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <span class="led__k">Shared</span>
+        <span class="led__v"><b>Identical spans</b> — same universe, same start, same channel count.<span class="tag tag--keep">legitimate</span> Marked in the address cell with the size of the group, counted in the strip in every state, warned about nowhere. Recognised by the addresses agreeing, not by a stored flag: a planner who patches twenty pars to one address has already said everything there is to say.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">Clash</span>
+        <span class="led__v"><b>Spans that intersect without being identical.</b><span class="tag tag--drop">error</span> There is no lighting practice that produces a fixture on 049–063 beside one on 056–070. Same start address with a <em>different</em> channel count counts here too — the shorter fixture's channels being a subset of the longer one's is not what patching two fixtures together means.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">Out of bounds</span>
+        <span class="led__v"><b>A span running past channel 512.</b><span class="tag tag--drop">error</span> Worded distinctly from a clash, because the fix is different. Its channels within the universe still count toward occupancy; the fixture is not truncated, moved or refused.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">Unaddressed</span>
+        <span class="led__v"><b>No start address at all.</b><span class="tag tag--new">not yet done</span> Not wrong — work outstanding. Takes no part in sharing or clash detection.</span>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>
+        All four can hold in one universe at once, and one fixture can be both a member of
+        a shared group and party to a clash with a third. Reporting one must never suppress
+        another. The strip's three states are ordered by how much attention they need —
+        errors, then unaddressed, then clean — matching how the audio strip orders
+        over-capacity, gaps, complete.
       </p>
     </div>
 
     <div class="spec">
       <div class="spec__frame">
-        <div class="app" style="min-width:820px; display:flex; flex-direction:column; gap:14px">
+        <div class="app" style="min-width:920px; display:flex; flex-direction:column; gap:14px">
           <div class="pan">
             <div class="strip strip--err">
-              <span class="pill t-err">1 overlap</span>
+              <span class="pill t-err">2 errors</span>
               <span class="mono">42 fixtures</span>
-              <span class="mono q">U1 078/512 · U2 016/512</span>
+              <span class="mono q">U1 078/512 · U2 018/512 · U3 007/512</span>
+              <span class="q">1 shared group</span>
               <span class="q">2 unaddressed</span>
               <span class="hot">121 Key SR 056–070 overlaps 121 Key SL 049–063</span>
-              <span class="btn btn--ghost btn--sm">Show only clashes</span>
+              <span class="q">+1 more</span>
+              <span class="btn btn--ghost btn--sm">Show only errors</span>
             </div>
           </div>
           <div class="pan">
             <div class="strip strip--warn">
               <span class="pill t-warn">2 unaddressed</span>
               <span class="mono">42 fixtures</span>
-              <span class="mono q">U1 078/512 · U2 016/512</span>
+              <span class="mono q">U1 078/512 · U2 018/512 · U3 007/512</span>
+              <span class="q">1 shared group</span>
               <span class="wrn">Audience 1 has no DMX address</span>
               <span class="q">+1 more</span>
               <span class="btn btn--ghost btn--sm">Show only unaddressed</span>
@@ -750,13 +838,14 @@
             <div class="strip">
               <span class="pill t-ok">addressed</span>
               <span class="mono">42 fixtures</span>
-              <span class="mono q">U1 078/512 · U2 030/512</span>
+              <span class="mono q">U1 078/512 · U2 032/512 · U3 007/512</span>
+              <span class="q">1 shared group</span>
               <span class="q">4 models · 3 power chains</span>
             </div>
           </div>
         </div>
       </div>
-      <span class="spec__cap"><b>Strip.</b> Overlap · unaddressed · clean. Ground and top border both take the tint.</span>
+      <span class="spec__cap"><b>Strip.</b> Errors · unaddressed · clean. The shared count is present in all three, because it is information rather than a state.</span>
     </div>
   </section>
 
@@ -817,7 +906,7 @@
                     </div>
                     <p class="rowed__keys">
                       <span class="lbl" style="margin-right:8px">Note</span>
-                      12 fixtures need 192 channels · universe 2 has 496 free
+                      12 fixtures need 192 channels · universe 2's largest free run is 240, from 273
                     </p>
                   </td>
                 </tr>
@@ -879,16 +968,26 @@
                     <span class="mono" style="font-size:10px; color:#a1a1aa">078 / 512 ch</span>
                   </div>
                   <div class="meter"><i style="width:15%"></i></div>
-                  <div class="gcard__specs"><span><b>34</b> fixtures</span><span><b>434</b> free</span><span>next free <b>079</b></span></div>
+                  <div class="gcard__specs"><span><b>34</b> fixtures</span><span><b>434</b> free</span><span>largest run <b>434</b> from <b>079</b></span></div>
                 </div>
                 <div class="gcard">
                   <div class="gcard__top">
                     <span class="nm">Universe 2</span>
+                    <span class="pill t-err">1 past 512</span>
                     <span class="grow"></span>
-                    <span class="mono" style="font-size:10px; color:#a1a1aa">016 / 512 ch</span>
+                    <span class="mono" style="font-size:10px; color:#a1a1aa">018 / 512 ch</span>
                   </div>
-                  <div class="meter"><i style="width:3%"></i></div>
-                  <div class="gcard__specs"><span><b>8</b> fixtures</span><span><b>496</b> free</span><span>next free <b>017</b></span></div>
+                  <div class="meter"><i style="width:4%"></i></div>
+                  <div class="gcard__specs"><span><b>9</b> fixtures</span><span><b>494</b> free</span><span>largest run <b>240</b> from <b>273</b></span></div>
+                </div>
+                <div class="gcard">
+                  <div class="gcard__top">
+                    <span class="nm">Universe 3</span>
+                    <span class="grow"></span>
+                    <span class="mono" style="font-size:10px; color:#a1a1aa">007 / 512 ch</span>
+                  </div>
+                  <div class="meter"><i style="width:1.4%"></i></div>
+                  <div class="gcard__specs"><span><b>3</b> fixtures</span><span><b>505</b> free</span><span><b>1</b> shared group</span></div>
                 </div>
               </div>
 
@@ -924,7 +1023,8 @@
               </div>
             </div>
             <div class="drw__ft">
-              Auto-assign packs each universe from address 1 in rig order · addresses set by hand are overwritten
+              Auto-assign packs each universe from address 1 in rig order · addresses set by hand are
+              overwritten, and fixtures that share an address are separated
             </div>
           </div>
         </div>
@@ -982,7 +1082,7 @@
       </div>
       <div class="led__row">
         <span class="led__k">DMX Chain</span>
-        <span class="led__v"><b>Deleted.</b><span class="tag tag--drop">gone</span> It prints <code>dmx_chain_parent_id</code> — a raw row id, meaningful to nobody, editable nowhere. Nothing in the application writes it. If DMX chaining is real planning data it deserves the treatment power chains get, and that is a slice of its own, not a column.</span>
+        <span class="led__v"><b>Deleted outright</b> — the column, the API field and the database column.<span class="tag tag--drop">gone</span> It prints <code>dmx_chain_parent_id</code>, a raw row id, meaningful to nobody and editable nowhere; no endpoint has ever written a non-null value. A migration drops it, so a future slice that wants DMX chaining starts from a clean design rather than from a dead field it has to guess the meaning of.</span>
       </div>
       <div class="led__row">
         <span class="led__k">Notes</span>
@@ -994,7 +1094,7 @@
       </div>
       <div class="led__row">
         <span class="led__k">— new —</span>
-        <span class="led__v"><b>The status strip.</b><span class="tag tag--new">new</span> Overlaps, unaddressed fixtures, duplicate IDs, and per-universe fill. None of this is computed anywhere today.</span>
+        <span class="led__v"><b>The status strip.</b><span class="tag tag--new">new</span> Clashes, out-of-bounds spans, shared groups, unaddressed fixtures, duplicate IDs, and per-universe occupancy with its gaps. None of this is computed anywhere today.</span>
       </div>
       <div class="led__row">
         <span class="led__k">— new —</span>
@@ -1020,60 +1120,92 @@
         language and stays black-on-white at 9 pt.
       </p>
       <p>
-        <strong>No schema change.</strong> Every value drawn above already exists on the
-        fixture. Overlap and universe fill are derived in the browser from data already
-        fetched — the same shape as <code>patchCapacity</code>, and testable without
-        rendering anything.
+        <strong>One schema change, and it only removes.</strong> A migration drops the dead
+        <code>dmx_chain_parent_id</code> column. Nothing is added to a fixture: every value
+        drawn above already exists on it, and the whole DMX map — spans, sharing, clashes,
+        gaps, occupancy — is derived in the browser from data already fetched, in the same
+        shape as <code>patchCapacity</code> and testable without rendering anything.
       </p>
       <p>
-        <strong>One backend question, deferred:</strong> auto-assign currently fails the
-        whole rig if any universe would exceed 512. The drawer makes that legible for the
-        first time. Changing the endpoint's behaviour is not in this wave.
+        <strong>Two behaviours deliberately left alone.</strong> Auto-assign still fails the
+        whole rig if any universe would exceed 512, and it still separates fixtures that
+        share an address. The drawer makes both legible for the first time — the second one
+        in its footer, before the button is pressed. Making auto-assign preserve a shared
+        group is the obvious next slice, and doing it inside a design wave is how a
+        regression stops being attributable to the wave that caused it.
       </p>
     </div>
   </section>
 
   <section>
     <div class="sec__hd">
-      <span class="sec__no">08 · to approve</span>
-      <h2>Four calls I would like confirmed</h2>
+      <span class="sec__no">08 · decided</span>
+      <h2>What was asked, and what was answered</h2>
     </div>
 
-    <div class="ask">
-      <h3>1 · Deleting the DMX Chain column</h3>
+    <div class="prose">
       <p>
-        It shows a raw parent id and nothing writes it. I am proposing it goes, and that
-        DMX chaining is either a later slice or nothing. Say if it is planning data you
-        actually use and I will design it properly instead.
+        This page was published to settle four calls before the specification was written.
+        All four were approved, and three corrections came back with them; the drawings
+        above have been revised to match, so this page and
+        <code>spec.md</code> say the same thing.
       </p>
     </div>
 
     <div class="ask">
-      <h3>2 · Merging Add Fixture and Bulk Add into one editor</h3>
+      <h3>1 · Deleting the DMX Chain column — approved, and taken further</h3>
       <p>
-        One form with <code>Qty</code>, defaulting to 1, at the foot of the sheet. This
-        removes two dialogs and one duplicated model picker. The alternative is keeping
-        the dialogs and only restyling them.
+        Asked as “remove it from the sheet, leave the stored column alone”. Answered:
+        delete it outright. A migration drops <code>dmx_chain_parent_id</code>, and it
+        leaves the Go struct, the queries, the API and the frontend type with it. This is
+        what makes the wave more than frontend-only.
       </p>
     </div>
 
     <div class="ask">
-      <h3>3 · The Universes drawer, and auto-assign moving into it</h3>
+      <h3>2 · Merging Add Fixture and Bulk Add into one editor — approved</h3>
       <p>
-        This is the biggest workflow change: a button that is in the toolbar today moves
-        one click away. In exchange the bar keeps its canonical shape and the 512-channel
-        limit becomes something you can see before you hit it rather than an error
-        afterwards.
+        One form with <code>Qty</code>, defaulting to 1, at the foot of the sheet. Two
+        dialogs and one duplicated model picker go.
       </p>
     </div>
 
     <div class="ask">
-      <h3>4 · Overlap detection as an alert, never a block</h3>
+      <h3>3 · The Universes drawer, and auto-assign moving into it — approved</h3>
       <p>
-        Two fixtures sharing addresses is flagged red in the cell and counted in the
-        strip, but saving is never prevented — the same treatment duplicate FIDs already
-        get, because a rig legitimately passes through a broken state while it is being
-        renumbered.
+        The bar keeps its canonical shape, and the 512-channel limit becomes something you
+        can see before you hit it rather than an error afterwards.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>4 · Errors as an alert, never a block — approved</h3>
+      <p>
+        Flagged in the cell and counted in the strip; saving is never prevented — the same
+        treatment duplicate console IDs already get, because a rig legitimately passes
+        through a broken state while it is being renumbered.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>5 · Sharing an address is legitimate — added on review</h3>
+      <p>
+        The first draft called every overlap an error, which would have been wrong about
+        dimmers and environment lighting. Sharing is now recognised by
+        <strong>identical spans</strong> rather than by a stored flag, on the grounds that
+        a group is already fully described by its members' addresses and a second place to
+        say so is a second thing to keep in sync. §03 above is the result.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>6 · Occupancy must survive all four conditions at once — added on review</h3>
+      <p>
+        Gaps, sharing, clashes and out-of-bounds spans can hold in one universe
+        simultaneously, and each must be reported without masking the others. That is why
+        the drawer states the <em>largest free run</em> beside the free total: 494 free
+        channels scattered in gaps of four will not take a 16-channel fixture, and the
+        number that looks reassuring is the one that answers the wrong question.
       </p>
     </div>
   </section>

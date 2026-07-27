@@ -9,8 +9,12 @@ directly to `main` and this wave continues on it. No feature branch was cut.
 
 **Input**: User description: "Let's handle wave 3. Use the speckit flow with
 commits between each step. Before writing the spec, create a mockup of the
-redesign for me to approve" — followed by "all four approved" against the four
-calls put in [mockup.html](mockup.html) §08.
+redesign for me to approve" — the four calls in [mockup.html](mockup.html) §08
+approved, then three corrections to the first draft of this spec: overlapping
+addresses are an error *except* where fixtures deliberately share one, as
+dimmers and environment lighting do; occupancy must handle gaps, sharing and
+out-of-bounds addresses simultaneously; and the DMX chain column is deleted
+outright, stored column included.
 
 ## Context
 
@@ -37,13 +41,35 @@ Two consequences follow from that, and only the first is cosmetic.
 per row out of three separate input boxes, none of which line up with the row
 above.
 
-**Nothing notices an address clash.** Auto-assign packs each universe from
-address 1 in rig order, so its own output is always clean. But a single
+**Nothing knows what the DMX map looks like.** Auto-assign packs each universe
+from address 1 in rig order, so its own output is always clean. But a single
 hand-edited address afterwards puts two moving heads on the same channels, and
 the application says nothing — not in the sheet, not on save, not on print. The
 first thing that notices is a technician standing in the room with two fixtures
 answering to one fader. Duplicate console IDs are already flagged; overlapping
 DMX addresses, which are strictly worse, are not.
+
+### Sharing an address is not a clash
+
+Two fixtures on the same channels is usually a mistake and sometimes the entire
+point. Twenty identical LED pars washing a room are patched to one address so one
+fader drives all twenty; several loads on one dimmer channel are the same
+arrangement. A tool that called that an error would be wrong about the most
+ordinary thing in architectural and environment lighting.
+
+So the rig's DMX map has **four** conditions to tell apart, and a single universe
+can be in all four at once:
+
+| Condition | What it is | How it reads |
+|---|---|---|
+| **Shared** | Two or more fixtures with *identical* spans — same universe, same start, same channel count | Legitimate. Counted, never warned about. |
+| **Clash** | Spans that intersect without being identical | An error. |
+| **Out of bounds** | A span running past channel 512 | An error. |
+| **Unaddressed** | No start address at all | Not yet done, not wrong. |
+
+Everything else about a universe's occupancy follows from getting those four
+right: how many channels are actually taken, where the **gaps** between them are,
+and whether the next batch of fixtures will fit in one of those gaps.
 
 The target shape is the one three tabs already use: a work panel with a bar, a
 sheet that is read until a row is clicked, a row editor beneath the open row, and
@@ -107,52 +133,71 @@ capability to a surface that already works.
 9. **Given** a contributor with a read-only role, **When** they open the tab,
    **Then** rows do not open, and the add, delete and auto-assign controls are
    absent rather than disabled.
+10. **Given** any fixture, **When** the planner reads the sheet, **Then** there
+    is no DMX chain column — it is gone from the interface, the API and the
+    database (see Assumptions).
 
 ---
 
-### User Story 2 - See that two fixtures share addresses (Priority: P2)
+### User Story 2 - Tell a shared address from a clash (Priority: P2)
 
-The planner has hand-edited a few addresses after an auto-assign. The strip at
-the foot of the panel is red and says `1 overlap`, names the two fixtures
-involved, and offers to filter the sheet to just the clashes. In the sheet, the
-offending address cell is red. They open the row, change the address, and the
-strip turns amber — there are still two fixtures with no address at all — then
-green once those are assigned.
+The planner has twenty identical pars washing the back wall, all patched to
+universe 3 address 1. The sheet marks them as sharing — quietly, in the address
+cell, with the size of the group — and the strip counts them as information, not
+as a problem. Elsewhere they have hand-edited an address after an auto-assign and
+put a 15-channel head half over another one. *That* is red in the cell, red in
+the strip, named in full, and filterable. A third fixture starts at 505 with 16
+channels and runs off the end of the universe; it is red for that reason and says
+so. Two more have no address at all, which is neither of those things.
 
-**Why this priority**: It is the one genuinely new capability in this wave, and
-the reason the audit calls it a workflow change. It is P2 rather than P1 only
-because the sheet has to exist for it to sit under.
+**Why this priority**: The four conditions are what make the tab worth
+rebuilding, and getting them apart is the whole difficulty. A tool that calls a
+deliberate environment-lighting group an error is worse than one that says
+nothing, because it trains the planner to ignore the strip.
 
-**Independent Test**: Give two fixtures in one universe overlapping address
-spans; confirm the strip counts the overlap, names both fixtures, marks both
-address cells, and that filtering to clashes shows exactly those two rows.
+**Independent Test**: Build one universe holding all four conditions at once —
+a shared group, a partial overlap, a span past 512, and unaddressed fixtures —
+and confirm each is reported as itself, with the others unaffected.
 
 **Acceptance Scenarios**:
 
-1. **Given** two fixtures in the same universe whose address spans intersect,
-   **When** the sheet renders, **Then** both address cells are marked and the
-   strip reports the overlap, naming the two fixtures and their spans.
-2. **Given** a fixture whose address span would run past channel 512, **When**
-   the sheet renders, **Then** it is reported in the same way as an overlap.
-3. **Given** fixtures with no start address, **When** the sheet renders, **Then**
-   they are counted as *unaddressed*, never as overlapping, and their address
-   cell reads as an empty value rather than sitting blank.
-4. **Given** a rig with both an overlap and unaddressed fixtures, **When** the
-   strip renders, **Then** it shows the overlap state — the three states are
-   ordered by how much attention they need: clashes, then unaddressed, then
-   clean.
-5. **Given** the strip is reporting clashes or unaddressed fixtures, **When** the
+1. **Given** two or more fixtures with identical spans — same universe, same
+   start address, same channel count — **When** the sheet renders, **Then** they
+   are marked as sharing, with the size of the group, and no error is reported
+   for them anywhere.
+2. **Given** two fixtures in one universe whose spans intersect without being
+   identical, **When** the sheet renders, **Then** both address cells are marked
+   as an error and the strip names both fixtures and their spans.
+3. **Given** a fixture whose span runs past channel 512, **When** the sheet
+   renders, **Then** it is marked as an error distinct in wording from an
+   overlap, stating that it runs off the end of the universe.
+4. **Given** a fixture with no start address, **When** the sheet renders,
+   **Then** it counts as unaddressed, takes no part in overlap or sharing
+   detection, and its address cell reads as an empty value rather than blank.
+5. **Given** one universe holding a shared group, a partial overlap, an
+   out-of-bounds span and unaddressed fixtures **at the same time**, **When**
+   the strip and the drawer render, **Then** all four are reported correctly and
+   independently — none masks another.
+6. **Given** three fixtures where two share a span and the third partly overlaps
+   both, **When** the sheet renders, **Then** the two are still shown as sharing
+   *and* all three are reported in the clash — sharing and clashing are not
+   mutually exclusive for a given fixture.
+7. **Given** a rig with both errors and unaddressed fixtures, **When** the strip
+   renders, **Then** it shows the error state — the states are ordered by how
+   much attention they need: errors, then unaddressed, then clean.
+8. **Given** any state, **When** the strip renders, **Then** it states the
+   fixture count, each universe's occupancy out of 512, the number of shared
+   groups, and the number of duplicate console IDs where any exist.
+9. **Given** the strip is reporting errors or unaddressed fixtures, **When** the
    planner uses its filter control, **Then** the sheet shows only those rows, and
    the control offers the way back to all rows.
-6. **Given** any state, **When** the strip renders, **Then** it states the
-   fixture count and each universe's occupancy out of 512.
-7. **Given** an overlap or a duplicate console ID exists, **When** the planner
-   saves any row, **Then** the save succeeds — a rig legitimately passes through
-   a broken state while it is being renumbered, so these are reported and never
-   blocked.
-8. **Given** a fixture with a channel count of zero or a universe below 1,
-   **When** occupancy and overlap are derived, **Then** the derivation neither
-   crashes nor reports a false clash.
+10. **Given** any error, duplicate console ID or unaddressed fixture, **When**
+    the planner saves any row, **Then** the save succeeds — a rig legitimately
+    passes through a broken state while it is being renumbered, so all of these
+    are reported and none is blocked.
+11. **Given** a fixture with a channel count of zero, or a universe below 1,
+    **When** the map is derived, **Then** nothing crashes and no false error is
+    reported.
 
 ---
 
@@ -162,8 +207,9 @@ The planner needs twelve more wash lights. They press **+ Fixtures**. An editor
 opens at the foot of the sheet — the same construction the row editor uses —
 with a quantity field showing 1. They set it to 12, pick the model, give a name
 stem, set the mode, universe and power, and the button reads *Add 12 fixtures*.
-Next time they need a single haze machine, they use the same form and leave the
-quantity at 1.
+The editor tells them the batch needs 192 channels and that universe 2's largest
+free run is 240, so it will fit. Next time they need a single haze machine, they
+use the same form and leave the quantity at 1.
 
 **Why this priority**: Adding is how a rig comes into existence, and it is
 currently two separate dialogs holding two copies of the same model picker, mode
@@ -194,43 +240,56 @@ is involved in either case.
    come from the catalog.
 6. **Given** the add editor, **When** the planner cancels or presses `Esc`,
    **Then** nothing is created and the editor closes.
-7. **Given** the add editor with a quantity and channel count set, **When** the
-   planner reads it, **Then** it states how many channels the batch needs and how
-   many the chosen universe has free.
+7. **Given** the add editor with a quantity, channel count and universe set,
+   **When** the planner reads it, **Then** it states the batch's channel demand
+   against that universe's **largest free run**, not merely its total free
+   channels — 496 free in gaps of four does not fit a 16-channel fixture.
 
 ---
 
 ### User Story 4 - Find out how full a universe is before filling it (Priority: P3)
 
 The planner opens **Universes** from the bar. A drawer shows each universe in the
-rig with its occupancy as a number and a meter, its fixture count, its free
-channels and its next free address; below that, the models in the rig with their
-mode, per-fixture channel count and total. Auto-assign DMX is here, in the
-section it acts on, with a footer stating what it does to addresses set by hand.
+rig with its occupancy as a number and a meter, its fixture count, the free
+channels, the largest free run and where it starts, and any errors within it.
+Below that, the models in the rig with their mode, per-fixture channel count and
+total. Auto-assign DMX is here, in the section it acts on, with a footer stating
+plainly what it does to addresses set by hand and to fixtures that share one.
 
 **Why this priority**: It is the least of the four in isolation, but it is what
 makes the 512-channel ceiling something you can see before you hit it rather than
 an error message afterwards. It also takes the fourth button out of a bar that
 should carry one primary action.
 
-**Independent Test**: Open the drawer on a rig spanning two universes; confirm
-each universe's occupancy matches the strip, and that auto-assign run from the
-drawer produces the addresses it always did.
+**Independent Test**: Open the drawer on a rig spanning two universes with gaps
+in both; confirm each universe's occupancy, free run and error count match the
+sheet, and that auto-assign run from the drawer produces the addresses it always
+did.
 
 **Acceptance Scenarios**:
 
 1. **Given** a rig using more than one universe, **When** the planner opens the
    drawer, **Then** each universe in use is listed with its occupancy out of 512,
-   a meter, its fixture count, its free channels and its next free address.
-2. **Given** a universe with no fixtures addressed in it, **When** it renders,
+   a meter, its fixture count, its free channels, its largest free run and where
+   that run starts.
+2. **Given** a universe with gaps between addressed fixtures, **When** it
+   renders, **Then** the free channels it reports are the real total including
+   those gaps, and the largest free run is stated separately.
+3. **Given** a universe containing errors, **When** it renders, **Then** it says
+   how many and of what kind.
+4. **Given** a universe with no fixtures addressed in it, **When** it renders,
    **Then** its meter draws nothing rather than appearing empty or full.
-3. **Given** the drawer, **When** the planner runs auto-assign, **Then** the
+5. **Given** the drawer, **When** the planner runs auto-assign, **Then** the
    addresses are assigned exactly as they are today, the drawer and the sheet
    both reflect the result, and a failure states which universe overflowed.
-4. **Given** the drawer, **When** the planner reads the models section, **Then**
+6. **Given** the drawer, **When** the planner reads its footer, **Then** it
+   states that auto-assign overwrites addresses set by hand **and separates
+   fixtures that currently share one** — which is the one way a planner can
+   destroy a deliberate environment-lighting group without being told.
+7. **Given** the drawer, **When** the planner reads the models section, **Then**
    each catalog model in the rig is listed once with its quantity, its mode's
    channel count and its total channel demand.
-5. **Given** the panel's bar after this story, **When** the planner reads it,
+8. **Given** the panel's bar after this story, **When** the planner reads it,
    **Then** it holds the title, search, the drawer control, then print and one
    primary action — the canonical order with no extra buttons.
 
@@ -244,6 +303,24 @@ drawer produces the addresses it always did.
 - **A search matching nothing.** One sentence naming the search term, as the
   audio sheets do — the strip continues to describe the whole rig, not the
   filtered view.
+- **Twenty fixtures sharing one address.** One shared group of twenty; the
+  universe's occupancy counts those channels **once**.
+- **Two fixtures with the same start address but different channel counts.**
+  A clash, not a shared group — the shorter fixture's channels are a subset of
+  the longer one's, which is not what patching two fixtures together means.
+- **A shared group where one member is then re-addressed.** The group shrinks to
+  the remaining members; a group of two that loses one stops being a group.
+- **A fixture whose span starts inside another's and ends outside it.** A clash,
+  reported once for the pair rather than once per overlapping channel.
+- **A span starting at 505 with 16 channels.** Out of bounds, reported as running
+  off the end of the universe. The fixture is not truncated, not moved, and not
+  refused.
+- **A start address of 512 with 1 channel.** Legal, occupies the last channel,
+  and is not out of bounds.
+- **Auto-assign over a rig containing a shared group.** It separates them, as it
+  always has. The drawer's footer says so before the button is pressed.
+- **A universe with a single fixture occupying all 512 channels.** Occupancy
+  reads full, the meter is full, and nothing warns — a full universe is legal.
 - **A fixture with no catalog model.** Its name is whatever was typed; the model
   column is empty rather than showing a dash where a model name would go.
 - **A fixture whose model was deleted from the inventory.** The row still
@@ -252,10 +329,6 @@ drawer produces the addresses it always did.
   wins and the mode name is left alone — the fixture is a copy of the mode, not a
   reference to it.
 - **Two fixtures with the same console ID.** Flagged as today, never blocking.
-- **An address span partly past 512.** Reported; the fixture is not silently
-  truncated or moved.
-- **A universe with a single fixture occupying all 512 channels.** Occupancy
-  reads full, the meter is full, and nothing warns — a full universe is legal.
 - **Deleting the fixture whose editor is open.** The editor closes with it, with
   no frame showing an editor for a row that no longer exists.
 - **A read-only role.** Rows do not open, add/delete/auto-assign are absent, and
@@ -291,8 +364,7 @@ drawer produces the addresses it always did.
   offset where the fixture is hung on one.
 - **FR-009**: Rows MUST be ordered by the fixture's position in the rig, and that
   position MUST NOT occupy a column of its own.
-- **FR-010**: The sheet MUST NOT show the row-ordinal column or the DMX chain
-  column that exist today (see Assumptions).
+- **FR-010**: The row-ordinal column MUST be removed from the sheet.
 - **FR-011**: Values with nothing in them MUST render an em-dash in the faint
   ink, never a blank cell.
 
@@ -317,88 +389,138 @@ drawer produces the addresses it always did.
 - **FR-018**: Delete MUST live in the editor, kept apart from the confirm
   control, and MUST confirm before removing the fixture.
 
+#### The DMX map — the four conditions
+
+- **FR-019**: A fixture's **span** MUST be derived from its universe, start
+  address and channel count. A fixture with no start address has no span.
+- **FR-020**: Two or more fixtures whose spans are **identical** — same universe,
+  same start address, same channel count — MUST be treated as a **shared group**.
+  A shared group MUST NOT be reported as an error anywhere, and MUST be counted
+  and shown as what it is.
+- **FR-021**: Two fixtures in one universe whose spans **intersect without being
+  identical** MUST be reported as a **clash**.
+- **FR-022**: A span whose last channel exceeds 512 MUST be reported as **out of
+  bounds**, in wording distinct from a clash.
+- **FR-023**: A fixture with no start address MUST count as **unaddressed** and
+  MUST take no part in shared, clash or out-of-bounds detection.
+- **FR-024**: The four conditions MUST be independent: a single universe may hold
+  all four at once, and one fixture may be both a member of a shared group and
+  party to a clash with a third fixture. Reporting one MUST NOT suppress another.
+- **FR-025**: A clash MUST be reported once per pair of fixtures, not once per
+  overlapping channel.
+
+#### Universe occupancy
+
+- **FR-026**: For each universe in use, the derivation MUST produce: the channels
+  occupied, the channels free, the **free runs** (the gaps between occupied
+  channels, each with a start and a length), the largest free run, the fixture
+  count, and the errors within it.
+- **FR-027**: Occupancy MUST count each channel **once**, so neither a shared
+  group nor a clash makes a universe appear fuller than it is.
+- **FR-028**: A span that runs past 512 MUST contribute only its channels within
+  1–512 to occupancy, and MUST still be reported as out of bounds.
+- **FR-029**: Free channels MUST be the true total including interior gaps, and
+  the largest free run MUST be reported separately from it — the two answer
+  different questions and only the second one answers "will this batch fit?"
+- **FR-030**: The next free address for a batch of *N* channels MUST be the start
+  of the first free run of at least *N* channels, not merely one past the highest
+  occupied channel.
+
 #### The status strip
 
-- **FR-019**: A strip MUST close the panel, stating in every state the fixture
-  count and each universe's occupancy out of 512.
-- **FR-020**: The strip MUST have three states in this order of precedence:
-  **clashes**, **unaddressed**, **clean** — tinting both the ground and the
-  bounding rule, per [design/tokens.md](../../design/tokens.md) §5.
-- **FR-021**: A **clash** MUST be either two fixtures in one universe whose
-  address spans intersect, or one fixture whose span runs past channel 512. The
-  strip MUST name the first clash in full and count the rest.
-- **FR-022**: A fixture with no start address MUST count as **unaddressed** and
-  MUST NOT participate in overlap detection.
-- **FR-023**: The strip MUST count duplicate console IDs where any exist.
-- **FR-024**: The strip MUST offer a control filtering the sheet to the rows it
+- **FR-031**: A strip MUST close the panel, stating in every state the fixture
+  count, each universe's occupancy out of 512, and the number of shared groups.
+- **FR-032**: The strip MUST have three states in this order of precedence:
+  **errors** (clashes and out-of-bounds spans), **unaddressed**, **clean** —
+  tinting both the ground and the bounding rule, per
+  [design/tokens.md](../../design/tokens.md) §5.
+- **FR-033**: The strip MUST name the first error in full — the fixtures, their
+  spans and their universe — and count the rest.
+- **FR-034**: The strip MUST count duplicate console IDs where any exist.
+- **FR-035**: The strip MUST offer a control filtering the sheet to the rows it
   is reporting, and the way back to all rows.
-- **FR-025**: A fixture's address cell MUST be marked in the sheet when that
-  fixture is part of a clash.
-- **FR-026**: No clash, duplicate console ID or unaddressed fixture may block a
-  save. All three are reported and never prevented.
-- **FR-027**: Universe occupancy MUST count each channel once, so an overlap does
-  not make a universe appear fuller than it is.
+- **FR-036**: A fixture's address cell MUST be marked in the sheet when that
+  fixture is party to an error, and marked differently — quietly, as information
+  rather than as a warning — when it is a member of a shared group, stating the
+  size of that group.
+- **FR-037**: No error, duplicate console ID or unaddressed fixture may block a
+  save. All are reported and none is prevented.
 
 #### Adding
 
-- **FR-028**: One add control MUST open one editor at the foot of the sheet, in
+- **FR-038**: One add control MUST open one editor at the foot of the sheet, in
   the same construction as the row editor, replacing both the Add Fixture and
   Bulk Add dialogs.
-- **FR-029**: The add editor MUST carry a quantity defaulting to 1, and its
+- **FR-039**: The add editor MUST carry a quantity defaulting to 1, and its
   confirm control MUST state how many fixtures it will add.
-- **FR-030**: The add editor MUST offer, for any quantity: model, name, starting
+- **FR-040**: The add editor MUST offer, for any quantity: model, name, starting
   console ID, mode, channel count, universe, power connection and power
   connector.
-- **FR-031**: With a quantity above 1 and a name given, the created fixtures MUST
+- **FR-041**: With a quantity above 1 and a name given, the created fixtures MUST
   be named from that stem and numbered from 1, with consecutive console IDs from
   the given start.
-- **FR-032**: The add editor MUST create a custom fixture when no catalog model
+- **FR-042**: The add editor MUST create a custom fixture when no catalog model
   is picked.
-- **FR-033**: The add editor MUST state the batch's channel demand against the
-  chosen universe's free channels.
+- **FR-043**: The add editor MUST state the batch's channel demand against the
+  chosen universe's largest free run (FR-029).
 
 #### The drawer
 
-- **FR-034**: A drawer MUST list every universe in use with its occupancy out of
-  512, a meter, its fixture count, its free channels and its next free address.
-- **FR-035**: The meter MUST draw nothing for a universe with nothing addressed
+- **FR-044**: A drawer MUST list every universe in use with the values FR-026
+  derives: occupancy out of 512, a meter, fixture count, free channels, largest
+  free run and where it starts, and its error count by kind.
+- **FR-045**: The meter MUST draw nothing for a universe with nothing addressed
   in it — an undeclared or empty count must never appear full or empty.
-- **FR-036**: The drawer MUST list the catalog models in the rig, each once, with
+- **FR-046**: The drawer MUST list the catalog models in the rig, each once, with
   quantity, per-fixture channel count and total channel demand.
-- **FR-037**: Auto-assign DMX MUST move into the drawer, act exactly as it does
-  today, and state in the drawer's footer that it overwrites addresses set by
-  hand.
-- **FR-038**: An auto-assign failure MUST state which universe overflowed, in the
+- **FR-047**: Auto-assign DMX MUST move into the drawer and act exactly as it
+  does today.
+- **FR-048**: The drawer's footer MUST state that auto-assign overwrites
+  addresses set by hand **and separates fixtures that share an address**.
+- **FR-049**: An auto-assign failure MUST state which universe overflowed, in the
   place the failure is explicable.
-- **FR-039**: After this feature the panel's bar MUST hold, in order: the title,
+- **FR-050**: After this feature the panel's bar MUST hold, in order: the title,
   search, the drawer control, then print and one primary action.
+
+#### Removing the DMX chain
+
+- **FR-051**: The DMX chain column MUST be removed from the sheet.
+- **FR-052**: `dmx_chain_parent_id` MUST be removed from the database by a
+  migration, from the fixture's domain struct, from every query that reads or
+  writes it, from the API's JSON, and from the frontend's fixture type.
+- **FR-053**: The migration MUST be reversible, and the down migration MUST
+  restore the column as nullable — restoring the schema, not the data, which
+  never had any.
+- **FR-054**: No other schema change is permitted by this feature.
 
 #### Search, roles and boundaries
 
-- **FR-040**: The bar MUST carry a search box filtering on console ID, name,
+- **FR-055**: The bar MUST carry a search box filtering on console ID, name,
   model, mode, truss and note.
-- **FR-041**: Every control a read-only role cannot use MUST be absent, not
+- **FR-056**: Every control a read-only role cannot use MUST be absent, not
   disabled.
-- **FR-042**: The phone view MUST be unchanged.
-- **FR-043**: The lighting rig print sheet MUST be unchanged.
-- **FR-044**: No database migration and no change to the fixture's stored fields
-  is permitted by this feature. Overlap, occupancy and duplicate detection MUST
-  be derived from data already fetched.
-- **FR-045**: Any derivation this feature introduces MUST be a pure function
-  outside the components, so it is testable without rendering.
+- **FR-057**: The phone view MUST be unchanged, except for the removal required
+  by FR-052.
+- **FR-058**: The lighting rig print sheet MUST be unchanged.
+- **FR-059**: Every derivation this feature introduces MUST be a pure function
+  outside the components, so the four conditions and the occupancy model are
+  testable without rendering anything.
 
 ### Key Entities
 
-- **Lighting fixture** — one fixture in the rig, as it exists today. Nothing is
-  added to it or removed from it.
-- **Address span** *(derived)* — a fixture's occupied channels: its universe, its
-  start address, and its channel count. A fixture with no start address has no
-  span.
-- **Clash** *(derived)* — two spans in one universe that intersect, or one span
-  running past 512.
-- **Universe occupancy** *(derived)* — per universe: the channels occupied
-  counting each once, the fixture count, the free channels, and the next free
-  address.
+- **Lighting fixture** — one fixture in the rig, as it exists today, minus
+  `dmx_chain_parent_id`.
+- **Span** *(derived)* — a fixture's occupied channels: its universe, its start
+  address, and its channel count. A fixture with no start address has no span.
+- **Shared group** *(derived)* — two or more fixtures with identical spans.
+  Legitimate; counted, never warned about. Not stored — a group exists because
+  its members' addresses agree, and stops existing when they stop agreeing.
+- **Clash** *(derived)* — a pair of spans in one universe that intersect without
+  being identical.
+- **Out-of-bounds span** *(derived)* — a span whose last channel exceeds 512.
+- **Universe map** *(derived)* — per universe: channels occupied, channels free,
+  the free runs with their starts and lengths, the largest free run, the fixture
+  count, and the errors within it.
 - **Catalog model and its DMX modes** — as they exist today; a mode is copied
   onto a fixture at the moment it is picked, never referenced.
 
@@ -413,46 +535,63 @@ drawer produces the addresses it always did.
   viewport, against 7 today.
 - **SC-003**: A rig of 40 fixtures fits its nine columns without horizontal
   scrolling at 1440 px.
-- **SC-004**: Two fixtures sharing DMX addresses are identified — by name, span
-  and universe — **without opening a row**, in a situation where the application
-  today says nothing at all.
-- **SC-005**: Adding twelve identical fixtures and adding one use the **same
+- **SC-004**: Two fixtures sharing DMX addresses **by accident** are identified —
+  by name, span and universe — without opening a row, in a situation where the
+  application today says nothing at all.
+- **SC-005**: Twenty fixtures sharing an address **on purpose** produce **zero**
+  warnings, and the universe holding them reports their channels once.
+- **SC-006**: A universe holding a shared group, a clash, an out-of-bounds span
+  and unaddressed fixtures simultaneously reports all four correctly — verified
+  by a test over that exact rig.
+- **SC-007**: A planner can tell whether a batch of *N* channels will fit in a
+  universe **before** creating it, in a universe whose free channels are split
+  across gaps.
+- **SC-008**: Adding twelve identical fixtures and adding one use the **same
   form**, and the number of dialogs on the tab goes from 2 to 0.
-- **SC-006**: Every value editable on the tab today remains editable, and every
+- **SC-009**: Every value editable on the tab today remains editable, and every
   value visible today remains visible or is accounted for in the ledger at
   [mockup.html](mockup.html) §06.
-- **SC-007**: A planner can tell whether a universe has room for a batch of
-  fixtures **before** creating them.
-- **SC-008**: The tab's toolbar carries one primary action, against four
+- **SC-010**: The tab's toolbar carries one primary action, against four
   same-weight buttons today.
-- **SC-009**: The typecheck, lint and test gates pass, and the derivations
-  introduced are covered by unit tests that render nothing.
+- **SC-011**: The word `dmx_chain_parent_id` does not appear anywhere in the
+  repository outside historical migration files.
+- **SC-012**: The typecheck, lint, Go vet and test gates pass, and the four
+  conditions and the occupancy model are covered by unit tests that render
+  nothing.
 
 ## Assumptions
 
-- **The four calls in the mockup are approved and are treated as decided**:
-  the DMX chain column is deleted; the two add dialogs become one editor;
-  auto-assign moves into a Universes drawer; overlaps are flagged and never
-  blocking.
-- **The DMX chain column is dead data.** It renders `dmx_chain_parent_id`, a raw
-  row identifier, which nothing in the application writes and nothing edits. It
-  is removed from the interface. The stored field is left alone — this feature
-  changes no schema — so if DMX chaining is later specified as real planning
-  data, it starts from an untouched column and gets the treatment power chains
-  get.
-- **512 channels per universe** is the DMX universe size, matching the constant
-  the auto-assign endpoint already enforces.
+- **The four calls in the mockup are approved and are treated as decided**: the
+  DMX chain column goes; the two add dialogs become one editor; auto-assign moves
+  into a Universes drawer; errors are flagged and never blocking.
+- **Sharing is recognised by identical spans, not by a stored marker.** Same
+  universe, same start, same channel count. This was chosen over a stored group
+  because a group is *already* fully described by the addresses of its members: a
+  planner who patches twenty pars to one address has said everything there is to
+  say, and a second place to also say it is a second thing to keep in sync. The
+  cost is that a bulk-add run twice looks like a deliberate group — mitigated by
+  the strip counting shared groups in **every** state, so it is never silent.
+- **Same start address but a different channel count is a clash, not sharing.**
+  This is the strict reading. If it proves too strict in the field, relaxing it
+  to "same start address" is a change to one pure function and nothing else,
+  which is part of why the derivation lives outside the components.
+- **512 channels per universe**, matching the constant the auto-assign endpoint
+  already enforces.
 - **A universe "in use"** is one that at least one fixture is assigned to.
   Universes are not declared anywhere; they exist because fixtures point at them.
 - **Auto-assign's behaviour is unchanged.** It packs each universe from address 1
-  in rig order and fails the whole rig if any universe would overflow. Whether
-  that all-or-nothing failure is right is a separate question, deliberately not
-  reopened here.
+  in rig order, separates shared groups as a side effect, and fails the whole rig
+  if any universe would overflow. Making it shared-group-aware is the obvious
+  next thing and is deliberately not done here — see Out of Scope.
+- **`dmx_chain_parent_id` is dead data.** The database defines it, the queries
+  carry it, the API returns it and the sheet prints it as a raw row id. Nothing
+  has ever written a non-null value: no endpoint sets it, no interface offers it,
+  and the one test that mentions it sets it by hand to prove the column
+  round-trips. It is deleted rather than left, on the reporter's decision.
 - **The name stem and an optional model on a batch add** may require the bulk-add
   endpoint to carry a fixture name and to accept a batch with no catalog model.
-  That is the one backend change this feature may need; it adds fields to an
-  existing request and no table changes. The plan decides whether to extend the
-  endpoint or to compose the batch from single creates.
+  The plan decides whether to extend the endpoint or to compose the batch from
+  single creates.
 - **Search matches the same way the audio tabs' search does**, so a planner who
   has used one has used the other.
 - **Two hundred fixtures** is the upper bound worth designing for; the sheet is
@@ -460,8 +599,12 @@ drawer produces the addresses it always did.
 
 ## Out of Scope
 
-- DMX chaining as a modelled relationship (see Assumptions).
-- Changing what auto-assign does, including its all-or-nothing failure.
+- **Making auto-assign preserve shared groups.** It would be a behaviour change
+  to an endpoint inside a design-convergence wave, which is exactly what makes a
+  regression unattributable. This feature makes the loss visible (FR-048) rather
+  than preventing it; preventing it is the natural next slice.
+- DMX chaining as a modelled relationship. The column is deleted, so a future
+  slice that wants it starts from a clean design rather than from a dead field.
 - Power chain validation — how much load a chain carries, and whether it is
   legal. The power column states what is declared; it does not judge it.
 - A flow or plot view of the lighting rig. Lighting has one view, and this
