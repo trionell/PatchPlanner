@@ -26,7 +26,7 @@ func (h LightingHandler) Register(r chi.Router) {
 	r.Patch("/lighting-rigs/{rigID}/fixtures/{fixtureID}", h.updateFixture)
 	r.Delete("/lighting-rigs/{rigID}/fixtures/{fixtureID}", h.deleteFixture)
 	r.Post("/lighting-rigs/{rigID}/fixtures/bulk", h.bulkCreateFixtures)
-	r.Post("/lighting-rigs/{rigID}/fixtures/auto-assign-dmx", h.autoAssignDMX)
+	r.Patch("/lighting-rigs/{rigID}/fixtures/addresses", h.updateFixtureAddresses)
 }
 
 func (h LightingHandler) getLightingRig(w http.ResponseWriter, r *http.Request) {
@@ -214,7 +214,11 @@ func (h LightingHandler) bulkCreateFixtures(w http.ResponseWriter, r *http.Reque
 	if !validFixtureNumber(w, payload.FixtureNumberStart) {
 		return
 	}
-	if !validInventoryItemRef(h.DB, w, "inventory_item_id", inventoryID, &payload.InventoryItemID) {
+	if !validInventoryItemRef(h.DB, w, "inventory_item_id", inventoryID, payload.InventoryItemID) {
+		return
+	}
+	if payload.DMXStartAddress != nil && (*payload.DMXStartAddress < 1 || *payload.DMXStartAddress > 512) {
+		writeError(w, http.StatusBadRequest, "dmx_start_address must be between 1 and 512")
 		return
 	}
 	fixtures, err := dbstore.BulkCreateLightingFixtures(h.DB, rigID, payload)
@@ -242,7 +246,21 @@ func validFixtureNumber(w http.ResponseWriter, number *int) bool {
 	return true
 }
 
-func (h LightingHandler) autoAssignDMX(w http.ResponseWriter, r *http.Request) {
+// updateFixtureAddresses applies one planned list of DMX address changes,
+// whole or not at all (Slice 27 US4/US5).
+//
+// It replaces the auto-assign endpoint rather than joining it. Auto-assign,
+// optimise and make room are all planned in the browser now, because the DMX
+// map has to exist there anyway — for the sheet's marks, the status strip, the
+// Universes drawer and the collision prompt, all of which must answer before a
+// request is sent. Keeping the packing in Go as well would have put the ripple
+// and grouping rules in two languages and let the prompt's preview disagree
+// with what the server then did (specs/027 research.md R3).
+//
+// So this handler validates and guarantees; it has no opinion about whether a
+// set of addresses is a good one. An overlap is legal to save (FR-060) — a rig
+// legitimately passes through a broken state while it is being renumbered.
+func (h LightingHandler) updateFixtureAddresses(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
 	if !ok {
 		return
@@ -254,17 +272,36 @@ func (h LightingHandler) autoAssignDMX(w http.ResponseWriter, r *http.Request) {
 	if !h.requireRigForEvent(w, eventID, rigID) {
 		return
 	}
-	fixtures, err := dbstore.AutoAssignDMX(h.DB, rigID)
+	var payload struct {
+		Changes []domain.AddressChange `json:"changes"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if len(payload.Changes) > dbstore.MaxAddressChanges {
+		writeError(w, http.StatusBadRequest, "too many changes in one request")
+		return
+	}
+	for _, change := range payload.Changes {
+		if change.DMXUniverse < 1 {
+			writeError(w, http.StatusBadRequest, "dmx_universe must be at least 1")
+			return
+		}
+		if change.DMXStartAddress < 1 || change.DMXStartAddress > 512 {
+			writeError(w, http.StatusBadRequest, "dmx_start_address must be between 1 and 512")
+			return
+		}
+	}
+
+	fixtures, err := dbstore.UpdateFixtureAddresses(h.DB, rigID, payload.Changes)
 	if err != nil {
-		if errors.Is(err, dbstore.ErrUniverseFull) {
-			writeError(w, http.StatusConflict, err.Error())
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "fixture not found in this rig")
 			return
 		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
-	}
-	if fixtures == nil {
-		fixtures = []domain.LightingFixture{}
 	}
 	writeJSON(w, http.StatusOK, fixtures)
 }

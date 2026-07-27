@@ -1,0 +1,14 @@
+-- dmx_chain_parent_id has been dead since it was created in migration 004.
+-- The queries carried it, the API returned it and the Lighting tab printed it
+-- as a raw row id, but no endpoint ever set it and no interface ever offered
+-- it: the only assignment anywhere in the repository was in a db test proving
+-- the column round-tripped. Slice 27 deletes it rather than restyling a column
+-- that shows a number meaningful to nobody.
+--
+-- If DMX chaining is ever specified as real planning data it deserves the
+-- treatment power chains get, and starting from a clean design is better than
+-- starting from a field whose meaning has to be guessed.
+--
+-- DROP COLUMN is safe on a REFERENCES column here: migration 033 already
+-- dropped truss_section_id from this same table the same way.
+ALTER TABLE lighting_fixtures DROP COLUMN dmx_chain_parent_id;

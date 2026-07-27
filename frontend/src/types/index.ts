@@ -368,7 +368,6 @@ export interface LightingFixture {
   dmx_start_address?: number
   dmx_channel_mode?: string
   dmx_channel_count: number
-  dmx_chain_parent_id?: number
   notes?: string
   /** Read-only, derived from the stage plot truss attachment (FR-030). */
   truss_name?: string
@@ -377,14 +376,28 @@ export interface LightingFixture {
 
 /** One bulk-add batch: N identical fixtures with shared settings. */
 export interface BulkFixtureRequest {
-  inventory_item_id: number
+  /** Optional since Slice 27: a batch need not come from the catalog. */
+  inventory_item_id?: number
   quantity: number
   fixture_number_start?: number
+  /** Names the batch "<stem> 1" … "<stem> N". */
+  name_stem?: string
   dmx_channel_mode?: string
   dmx_channel_count: number
   dmx_universe: number
+  /** Picked from the universe's free runs; absent appends after the highest in use. */
+  dmx_start_address?: number
+  /** The whole batch on one address, as one shared group. */
+  share_address?: boolean
   power_connection: 'grid' | 'chain'
   power_connector_in: string
+}
+
+/** One fixture's new DMX position, as the three rig operations produce them. */
+export interface AddressChange {
+  fixture_id: number
+  dmx_universe: number
+  dmx_start_address: number
 }
 
 export interface EventRental {

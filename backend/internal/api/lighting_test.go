@@ -186,3 +186,99 @@ func TestBulkAddFixtures(t *testing.T) {
 		}
 	}
 }
+
+// TestUpdateFixtureAddresses covers the endpoint that replaced auto-assign
+// (Slice 27): it validates and guarantees, and has no opinion about whether a
+// set of addresses is a good one.
+//
+// The arithmetic that produces the list is deliberately not here — it lives in
+// the browser, in lib/dmxPlan.ts, because the DMX map has to exist there anyway
+// for the sheet, the strip and the collision prompt (specs/027 research.md R3).
+func TestUpdateFixtureAddresses(t *testing.T) {
+	server, _ := newTestServer(t)
+	eventID := seedEvent(t, server.URL)
+	rigID, _ := lightingRigOf(t, server.URL, eventID)
+	addressesURL := fmt.Sprintf("%s/events/%d/lighting-rigs/%d/fixtures/addresses", server.URL, eventID, rigID)
+
+	create := func(name string, universe, address, channels int) domain.LightingFixture {
+		t.Helper()
+		status, raw := doJSON(t, http.MethodPost, fmt.Sprintf("%s/events/%d/lighting-rigs/%d/fixtures", server.URL, eventID, rigID), map[string]any{
+			"custom_name": name, "position_index": 1, "power_connection": "grid",
+			"power_connector_in": "schuko", "dmx_universe": universe,
+			"dmx_start_address": address, "dmx_channel_count": channels,
+		})
+		if status != http.StatusCreated {
+			t.Fatalf("POST fixture %s: status %d body %s", name, status, raw)
+		}
+		return decodeJSON[domain.LightingFixture](t, raw)
+	}
+
+	first := create("Wash SR", 1, 1, 16)
+	second := create("Wash SL", 1, 17, 16)
+
+	// A plan applies, and the whole rig comes back as the other routes return it.
+	status, raw := doJSON(t, http.MethodPatch, addressesURL, map[string]any{
+		"changes": []map[string]any{
+			{"fixture_id": first.ID, "dmx_universe": 1, "dmx_start_address": 33},
+			{"fixture_id": second.ID, "dmx_universe": 1, "dmx_start_address": 49},
+		},
+	})
+	if status != http.StatusOK {
+		t.Fatalf("PATCH addresses: status %d body %s", status, raw)
+	}
+	for _, fixture := range decodeJSON[[]domain.LightingFixture](t, raw) {
+		want := map[int64]int{first.ID: 33, second.ID: 49}[fixture.ID]
+		if fixture.DMXStartAddress == nil || *fixture.DMXStartAddress != want {
+			t.Errorf("fixture %d address %v, want %d", fixture.ID, fixture.DMXStartAddress, want)
+		}
+	}
+
+	// An overlap is a legal thing to save: a rig legitimately passes through a
+	// broken state while it is being renumbered (FR-060). The strip reports it;
+	// the endpoint does not refuse it.
+	status, raw = doJSON(t, http.MethodPatch, addressesURL, map[string]any{
+		"changes": []map[string]any{{"fixture_id": second.ID, "dmx_universe": 1, "dmx_start_address": 40}},
+	})
+	if status != http.StatusOK {
+		t.Fatalf("PATCH overlapping address: status %d body %s, want 200", status, raw)
+	}
+
+	// Out of range is not.
+	for _, address := range []int{0, 513} {
+		status, raw = doJSON(t, http.MethodPatch, addressesURL, map[string]any{
+			"changes": []map[string]any{{"fixture_id": first.ID, "dmx_universe": 1, "dmx_start_address": address}},
+		})
+		if status != http.StatusBadRequest {
+			t.Errorf("PATCH address %d: status %d body %s, want 400", address, status, raw)
+		}
+	}
+
+	// A fixture from another event's rig applies nothing at all — including the
+	// valid change beside it.
+	otherEvent := seedEvent(t, server.URL)
+	otherRigID, _ := lightingRigOf(t, server.URL, otherEvent)
+	status, raw = doJSON(t, http.MethodPost, fmt.Sprintf("%s/events/%d/lighting-rigs/%d/fixtures", server.URL, otherEvent, otherRigID), map[string]any{
+		"custom_name": "Theirs", "position_index": 1, "power_connection": "grid",
+		"power_connector_in": "schuko", "dmx_universe": 1, "dmx_start_address": 1, "dmx_channel_count": 8,
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("POST other-rig fixture: status %d body %s", status, raw)
+	}
+	theirs := decodeJSON[domain.LightingFixture](t, raw)
+
+	status, raw = doJSON(t, http.MethodPatch, addressesURL, map[string]any{
+		"changes": []map[string]any{
+			{"fixture_id": first.ID, "dmx_universe": 1, "dmx_start_address": 200},
+			{"fixture_id": theirs.ID, "dmx_universe": 1, "dmx_start_address": 300},
+		},
+	})
+	if status != http.StatusNotFound {
+		t.Fatalf("PATCH with a foreign fixture: status %d body %s, want 404", status, raw)
+	}
+	_, fixtures := lightingRigOf(t, server.URL, eventID)
+	for _, fixture := range fixtures {
+		if fixture.ID == first.ID && fixture.DMXStartAddress != nil && *fixture.DMXStartAddress == 200 {
+			t.Error("a change beside a rejected one was applied — the batch is not all-or-nothing")
+		}
+	}
+}

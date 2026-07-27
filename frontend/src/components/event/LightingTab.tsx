@@ -1,11 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Copy, Link2, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { Copy, Link2, Plus, Trash2 } from 'lucide-react'
 import { getEvent } from '../../api/events'
 import { listEventInventoryItems } from '../../api/inventory'
 import { listFixtureModes } from '../../api/inventories'
 import {
-  autoAssignDMX,
   bulkAddFixtures,
   createLightingFixture,
   deleteLightingFixture,
@@ -83,10 +82,6 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
   const deleteFixtureMutation = useMutation({
     mutationFn: (id: number) => deleteLightingFixture(eventId, rigId!, id),
     onSuccess: invalidate,
-  })
-  const autoAssignMutation = useMutation({
-    mutationFn: () => autoAssignDMX(eventId, rigId!),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['lighting-rig', eventId] }),
   })
   const bulkAddMutation = useMutation({
     mutationFn: (payload: BulkFixtureRequest) => bulkAddFixtures(eventId, rigId!, payload),
@@ -178,9 +173,6 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
               <PrintButton />
               {!readOnly && (
                 <>
-                  <Button variant="secondary" size="sm" onClick={() => autoAssignMutation.mutate()} disabled={autoAssignMutation.isPending || !rigId}>
-                    <Sparkles className="mr-2 h-4 w-4" />Auto-assign DMX
-                  </Button>
                   <Button
                     variant="secondary"
                     size="sm"
@@ -198,16 +190,11 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
             </div>
           </CardHeader>
           <CardContent>
-            {autoAssignMutation.isError && (
-              <div className="mb-4 rounded-md border border-red-800 bg-red-950/50 px-4 py-3 text-sm text-red-300">
-                {autoAssignMutation.error.message}
-              </div>
-            )}
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {['#','FID','Fixture Name','Truss','Position','Power','Power Connector','DMX Univ','DMX Addr','Mode','Channels','DMX Chain','Notes',''].map((label) => <TableHead key={label}>{label}</TableHead>)}
+                    {['#','FID','Fixture Name','Truss','Position','Power','Power Connector','DMX Univ','DMX Addr','Mode','Channels','Notes',''].map((label) => <TableHead key={label}>{label}</TableHead>)}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -257,7 +244,6 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
                         />
                       </TableCell>
                       <TableCell><Input type="number" value={fixture.dmx_channel_count} onChange={(e) => updateDraft(index, 'dmx_channel_count', Number(e.target.value))} onBlur={() => persist(fixtures[index])} disabled={readOnly} className="min-w-20" /></TableCell>
-                      <TableCell>{fixture.dmx_chain_parent_id ?? '—'}</TableCell>
                       <TableCell><Input value={fixture.notes ?? ''} onChange={(e) => updateDraft(index, 'notes', e.target.value)} onBlur={() => persist(fixtures[index])} disabled={readOnly} className="min-w-36" /></TableCell>
                       <TableCell>{!readOnly && <Button size="sm" variant="ghost" onClick={() => deleteFixtureMutation.mutate(fixture.id)}><Trash2 className="h-4 w-4" /></Button>}</TableCell>
                     </TableRow>

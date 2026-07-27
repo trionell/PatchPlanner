@@ -48,7 +48,7 @@ func GetOrCreateDefaultLightingRig(db *sql.DB, eventID int64) (domain.LightingRi
 
 func ListLightingFixtures(db *sql.DB, rigID int64) ([]domain.LightingFixture, error) {
 	rows, err := db.Query(`
-		SELECT f.id, f.rig_id, f.fixture_number, f.inventory_item_id, COALESCE(i.name, ''), COALESCE(f.custom_name, ''), COALESCE(f.position_index, 0), COALESCE(f.power_connection, 'grid'), f.power_chain_parent_id, COALESCE(f.power_connector_in, 'schuko'), COALESCE(f.power_connector_out, ''), COALESCE(f.dmx_universe, 1), f.dmx_start_address, COALESCE(f.dmx_channel_mode, ''), COALESCE(f.dmx_channel_count, 0), f.dmx_chain_parent_id, COALESCE(f.notes, ''), COALESCE(pt.name, ''), tf.offset_cm
+		SELECT f.id, f.rig_id, f.fixture_number, f.inventory_item_id, COALESCE(i.name, ''), COALESCE(f.custom_name, ''), COALESCE(f.position_index, 0), COALESCE(f.power_connection, 'grid'), f.power_chain_parent_id, COALESCE(f.power_connector_in, 'schuko'), COALESCE(f.power_connector_out, ''), COALESCE(f.dmx_universe, 1), f.dmx_start_address, COALESCE(f.dmx_channel_mode, ''), COALESCE(f.dmx_channel_count, 0), COALESCE(f.notes, ''), COALESCE(pt.name, ''), tf.offset_cm
 		FROM lighting_fixtures f
 		LEFT JOIN inventory_items i ON i.id = f.inventory_item_id
 		LEFT JOIN stage_plot_truss_fixtures tf ON tf.fixture_id = f.id
@@ -72,7 +72,7 @@ func ListLightingFixtures(db *sql.DB, rigID int64) ([]domain.LightingFixture, er
 
 func GetLightingFixture(db *sql.DB, id int64) (domain.LightingFixture, error) {
 	row := db.QueryRow(`
-		SELECT f.id, f.rig_id, f.fixture_number, f.inventory_item_id, COALESCE(i.name, ''), COALESCE(f.custom_name, ''), COALESCE(f.position_index, 0), COALESCE(f.power_connection, 'grid'), f.power_chain_parent_id, COALESCE(f.power_connector_in, 'schuko'), COALESCE(f.power_connector_out, ''), COALESCE(f.dmx_universe, 1), f.dmx_start_address, COALESCE(f.dmx_channel_mode, ''), COALESCE(f.dmx_channel_count, 0), f.dmx_chain_parent_id, COALESCE(f.notes, ''), COALESCE(pt.name, ''), tf.offset_cm
+		SELECT f.id, f.rig_id, f.fixture_number, f.inventory_item_id, COALESCE(i.name, ''), COALESCE(f.custom_name, ''), COALESCE(f.position_index, 0), COALESCE(f.power_connection, 'grid'), f.power_chain_parent_id, COALESCE(f.power_connector_in, 'schuko'), COALESCE(f.power_connector_out, ''), COALESCE(f.dmx_universe, 1), f.dmx_start_address, COALESCE(f.dmx_channel_mode, ''), COALESCE(f.dmx_channel_count, 0), COALESCE(f.notes, ''), COALESCE(pt.name, ''), tf.offset_cm
 		FROM lighting_fixtures f
 		LEFT JOIN inventory_items i ON i.id = f.inventory_item_id
 		LEFT JOIN stage_plot_truss_fixtures tf ON tf.fixture_id = f.id
@@ -82,7 +82,7 @@ func GetLightingFixture(db *sql.DB, id int64) (domain.LightingFixture, error) {
 }
 
 func CreateLightingFixture(db *sql.DB, fixture domain.LightingFixture) (domain.LightingFixture, error) {
-	result, err := db.Exec(`INSERT INTO lighting_fixtures (rig_id, fixture_number, inventory_item_id, custom_name, position_index, power_connection, power_chain_parent_id, power_connector_in, power_connector_out, dmx_universe, dmx_start_address, dmx_channel_mode, dmx_channel_count, dmx_chain_parent_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, fixture.RigID, nullInt(fixture.FixtureNumber), nullInt64(fixture.InventoryItemID), nullString(fixture.CustomName), fixture.PositionIndex, fixture.PowerConnection, nullInt64(fixture.PowerChainParentID), fixture.PowerConnectorIn, nullString(fixture.PowerConnectorOut), fixture.DMXUniverse, nullInt(fixture.DMXStartAddress), nullString(fixture.DMXChannelMode), fixture.DMXChannelCount, nullInt64(fixture.DMXChainParentID), nullString(fixture.Notes))
+	result, err := db.Exec(`INSERT INTO lighting_fixtures (rig_id, fixture_number, inventory_item_id, custom_name, position_index, power_connection, power_chain_parent_id, power_connector_in, power_connector_out, dmx_universe, dmx_start_address, dmx_channel_mode, dmx_channel_count, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, fixture.RigID, nullInt(fixture.FixtureNumber), nullInt64(fixture.InventoryItemID), nullString(fixture.CustomName), fixture.PositionIndex, fixture.PowerConnection, nullInt64(fixture.PowerChainParentID), fixture.PowerConnectorIn, nullString(fixture.PowerConnectorOut), fixture.DMXUniverse, nullInt(fixture.DMXStartAddress), nullString(fixture.DMXChannelMode), fixture.DMXChannelCount, nullString(fixture.Notes))
 	if err != nil {
 		return domain.LightingFixture{}, fmt.Errorf("create lighting fixture: %w", err)
 	}
@@ -91,15 +91,15 @@ func CreateLightingFixture(db *sql.DB, fixture domain.LightingFixture) (domain.L
 }
 
 func UpdateLightingFixture(db *sql.DB, id int64, fixture domain.LightingFixture) (domain.LightingFixture, error) {
-	_, err := db.Exec(`UPDATE lighting_fixtures SET fixture_number = ?, inventory_item_id = ?, custom_name = ?, position_index = ?, power_connection = ?, power_chain_parent_id = ?, power_connector_in = ?, power_connector_out = ?, dmx_universe = ?, dmx_start_address = ?, dmx_channel_mode = ?, dmx_channel_count = ?, dmx_chain_parent_id = ?, notes = ? WHERE id = ?`, nullInt(fixture.FixtureNumber), nullInt64(fixture.InventoryItemID), nullString(fixture.CustomName), fixture.PositionIndex, fixture.PowerConnection, nullInt64(fixture.PowerChainParentID), fixture.PowerConnectorIn, nullString(fixture.PowerConnectorOut), fixture.DMXUniverse, nullInt(fixture.DMXStartAddress), nullString(fixture.DMXChannelMode), fixture.DMXChannelCount, nullInt64(fixture.DMXChainParentID), nullString(fixture.Notes), id)
+	_, err := db.Exec(`UPDATE lighting_fixtures SET fixture_number = ?, inventory_item_id = ?, custom_name = ?, position_index = ?, power_connection = ?, power_chain_parent_id = ?, power_connector_in = ?, power_connector_out = ?, dmx_universe = ?, dmx_start_address = ?, dmx_channel_mode = ?, dmx_channel_count = ?, notes = ? WHERE id = ?`, nullInt(fixture.FixtureNumber), nullInt64(fixture.InventoryItemID), nullString(fixture.CustomName), fixture.PositionIndex, fixture.PowerConnection, nullInt64(fixture.PowerChainParentID), fixture.PowerConnectorIn, nullString(fixture.PowerConnectorOut), fixture.DMXUniverse, nullInt(fixture.DMXStartAddress), nullString(fixture.DMXChannelMode), fixture.DMXChannelCount, nullString(fixture.Notes), id)
 	if err != nil {
 		return domain.LightingFixture{}, fmt.Errorf("update lighting fixture: %w", err)
 	}
 	return GetLightingFixture(db, id)
 }
 
-// DeleteLightingFixture detaches any fixtures chained off this one (power and
-// DMX) before removing it, so chains stay valid and the FK constraints hold.
+// DeleteLightingFixture detaches any fixtures chained off this one before
+// removing it, so power chains stay valid and the FK constraints hold.
 func DeleteLightingFixture(db *sql.DB, id int64) error {
 	tx, err := db.Begin()
 	if err != nil {
@@ -108,9 +108,6 @@ func DeleteLightingFixture(db *sql.DB, id int64) error {
 	defer tx.Rollback()
 	if _, err := tx.Exec(`UPDATE lighting_fixtures SET power_chain_parent_id = NULL WHERE power_chain_parent_id = ?`, id); err != nil {
 		return fmt.Errorf("clear power chain references: %w", err)
-	}
-	if _, err := tx.Exec(`UPDATE lighting_fixtures SET dmx_chain_parent_id = NULL WHERE dmx_chain_parent_id = ?`, id); err != nil {
-		return fmt.Errorf("clear dmx chain references: %w", err)
 	}
 	if err := clearStagePlotLinksTo(tx, "lighting_fixture", id); err != nil {
 		return err
@@ -121,57 +118,61 @@ func DeleteLightingFixture(db *sql.DB, id int64) error {
 	return tx.Commit()
 }
 
-// ErrUniverseFull is returned by AutoAssignDMX when the fixtures assigned to
-// one universe need more than the 512 available DMX channels.
+// ErrUniverseFull is returned when a batch needs more than the 512 available
+// DMX channels of one universe.
 var ErrUniverseFull = errors.New("dmx universe exceeds 512 channels")
 
-// AutoAssignDMX assigns sequential start addresses per universe: fixtures
-// keep the universe they are assigned to, and within each universe addresses
-// run from 1 in position-index order.
-func AutoAssignDMX(db *sql.DB, rigID int64) ([]domain.LightingFixture, error) {
-	fixtures, err := ListLightingFixtures(db, rigID)
-	if err != nil {
-		return nil, err
-	}
+// MaxAddressChanges bounds one address write. A rig of two hundred fixtures is
+// the upper end this tool is designed for, so this is a guard against a
+// malformed body rather than a policy about rig size.
+const MaxAddressChanges = 500
+
+// UpdateFixtureAddresses applies a list of address changes to one rig, whole or
+// not at all (Slice 27).
+//
+// This replaces AutoAssignDMX, which computed addresses as well as writing them.
+// Auto-assign, optimise and make room are now all planned in the browser, where
+// the DMX map already has to exist for the sheet, the strip, the drawer and the
+// collision prompt — so the rule that groups move whole and nothing leaves its
+// universe lives in one language instead of two (specs/027 research.md R3).
+//
+// What is left here is the half a database is actually good for: this function
+// has no opinion about whether an address is *good*, and every caller gets the
+// guarantee that a rig is never found half-shifted.
+func UpdateFixtureAddresses(db *sql.DB, rigID int64, changes []domain.AddressChange) ([]domain.LightingFixture, error) {
 	tx, err := db.Begin()
 	if err != nil {
-		return nil, fmt.Errorf("auto assign dmx: %w", err)
+		return nil, fmt.Errorf("update fixture addresses: %w", err)
 	}
 	defer tx.Rollback()
 
-	nextAddress := make(map[int]int)
-	for _, fixture := range fixtures {
-		universe := fixture.DMXUniverse
-		if universe < 1 {
-			universe = 1
+	for _, change := range changes {
+		result, err := tx.Exec(
+			`UPDATE lighting_fixtures SET dmx_universe = ?, dmx_start_address = ? WHERE id = ? AND rig_id = ?`,
+			change.DMXUniverse, change.DMXStartAddress, change.FixtureID, rigID)
+		if err != nil {
+			return nil, fmt.Errorf("update fixture addresses: %w", err)
 		}
-		channelCount := fixture.DMXChannelCount
-		if channelCount <= 0 {
-			channelCount = 1
+		// A fixture that is not in this rig is a caller error, not a no-op: the
+		// alternative is a partially-applied plan reported as a success.
+		if affected, err := result.RowsAffected(); err != nil {
+			return nil, fmt.Errorf("update fixture addresses: %w", err)
+		} else if affected == 0 {
+			return nil, fmt.Errorf("fixture %d: %w", change.FixtureID, sql.ErrNoRows)
 		}
-		start, seen := nextAddress[universe]
-		if !seen {
-			start = 1
-		}
-		if start+channelCount-1 > 512 {
-			return nil, fmt.Errorf("%w: universe %d", ErrUniverseFull, universe)
-		}
-		if _, err := tx.Exec(`UPDATE lighting_fixtures SET dmx_universe = ?, dmx_start_address = ? WHERE id = ?`, universe, start, fixture.ID); err != nil {
-			return nil, fmt.Errorf("auto assign dmx: %w", err)
-		}
-		nextAddress[universe] = start + channelCount
 	}
+
 	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("auto assign dmx: %w", err)
+		return nil, fmt.Errorf("update fixture addresses: %w", err)
 	}
 	return ListLightingFixtures(db, rigID)
 }
 
 func scanLightingFixture(row scanner) (domain.LightingFixture, error) {
 	var fixture domain.LightingFixture
-	var fixtureNumber, inventoryItemID, powerChainParentID, dmxStartAddress, dmxChainParentID sql.NullInt64
+	var fixtureNumber, inventoryItemID, powerChainParentID, dmxStartAddress sql.NullInt64
 	var trussOffset sql.NullFloat64
-	if err := row.Scan(&fixture.ID, &fixture.RigID, &fixtureNumber, &inventoryItemID, &fixture.InventoryItemName, &fixture.CustomName, &fixture.PositionIndex, &fixture.PowerConnection, &powerChainParentID, &fixture.PowerConnectorIn, &fixture.PowerConnectorOut, &fixture.DMXUniverse, &dmxStartAddress, &fixture.DMXChannelMode, &fixture.DMXChannelCount, &dmxChainParentID, &fixture.Notes, &fixture.TrussName, &trussOffset); err != nil {
+	if err := row.Scan(&fixture.ID, &fixture.RigID, &fixtureNumber, &inventoryItemID, &fixture.InventoryItemName, &fixture.CustomName, &fixture.PositionIndex, &fixture.PowerConnection, &powerChainParentID, &fixture.PowerConnectorIn, &fixture.PowerConnectorOut, &fixture.DMXUniverse, &dmxStartAddress, &fixture.DMXChannelMode, &fixture.DMXChannelCount, &fixture.Notes, &fixture.TrussName, &trussOffset); err != nil {
 		return domain.LightingFixture{}, fmt.Errorf("scan lighting fixture: %w", err)
 	}
 	if fixtureNumber.Valid {
@@ -194,20 +195,28 @@ func scanLightingFixture(row scanner) (domain.LightingFixture, error) {
 		v := int(dmxStartAddress.Int64)
 		fixture.DMXStartAddress = &v
 	}
-	if dmxChainParentID.Valid {
-		v := dmxChainParentID.Int64
-		fixture.DMXChainParentID = &v
-	}
 	return fixture, nil
 }
 
-// BulkCreateLightingFixtures creates one batch of identical fixtures in a
-// single transaction: positions appended after the rig's highest, DMX start
-// addresses appended after the chosen universe's occupied range (existing
-// fixtures are never touched — re-running AutoAssignDMX stays a separate
-// operation), fixture numbers incrementing from the optional start.
+// BulkCreateLightingFixtures creates one batch of fixtures in a single
+// transaction: positions appended after the rig's highest, fixture numbers
+// incrementing from the optional start, existing fixtures never touched.
 // All-or-nothing: ErrUniverseFull (or any failure) creates zero fixtures.
 // Returns sql.ErrNoRows (wrapped) when the rig does not exist.
+//
+// Slice 27 gave it the three things the merged add editor needs (US3):
+//
+//   - a batch with no catalog model, so a custom fixture can be created in
+//     quantity as well as singly;
+//   - NameStem, naming the batch "<stem> 1" … "<stem> N";
+//   - ShareAddress, putting the whole batch on one address as one shared
+//     group — twenty pars washing a room take seven channels, not a hundred
+//     and forty, and that is the ordinary way to rig them.
+//
+// DMXStartAddress is the client's, picked from the universe's free runs. Absent,
+// the old behaviour stands and the batch is appended after the highest address
+// in use. The arithmetic here is start + i×count and nothing more: the
+// group-aware packing lives in the browser (research.md R3, R12).
 func BulkCreateLightingFixtures(db *sql.DB, rigID int64, req domain.BulkFixtureRequest) ([]domain.LightingFixture, error) {
 	universe := req.DMXUniverse
 	if universe < 1 {
@@ -239,7 +248,18 @@ func BulkCreateLightingFixtures(db *sql.DB, rigID int64, req domain.BulkFixtureR
 	if err := tx.QueryRow(`SELECT COALESCE(MAX(dmx_start_address + dmx_channel_count), 1) FROM lighting_fixtures WHERE rig_id = ? AND dmx_universe = ? AND dmx_start_address IS NOT NULL`, rigID, universe).Scan(&nextAddress); err != nil {
 		return nil, fmt.Errorf("bulk create fixtures: %w", err)
 	}
-	if nextAddress+req.Quantity*channelCount-1 > 512 {
+	if req.DMXStartAddress != nil && *req.DMXStartAddress >= 1 {
+		nextAddress = *req.DMXStartAddress
+	}
+
+	// A shared batch is one block wide however many fixtures are in it — which
+	// is the point of sharing, and would read as a false overflow if the guard
+	// still multiplied by the quantity.
+	width := req.Quantity * channelCount
+	if req.ShareAddress {
+		width = channelCount
+	}
+	if nextAddress+width-1 > 512 {
 		return nil, fmt.Errorf("%w: universe %d", ErrUniverseFull, universe)
 	}
 
@@ -249,8 +269,18 @@ func BulkCreateLightingFixtures(db *sql.DB, rigID int64, req domain.BulkFixtureR
 			v := *req.FixtureNumberStart + i
 			number = &v
 		}
-		if _, err := tx.Exec(`INSERT INTO lighting_fixtures (rig_id, fixture_number, inventory_item_id, position_index, power_connection, power_connector_in, dmx_universe, dmx_start_address, dmx_channel_mode, dmx_channel_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			rigID, nullInt(number), req.InventoryItemID, nextPosition+i, req.PowerConnection, req.PowerConnectorIn, universe, nextAddress+i*channelCount, nullString(req.DMXChannelMode), channelCount); err != nil {
+		// Console IDs still increment for a shared batch: twenty pars on one
+		// address are still twenty fixtures on the console.
+		address := nextAddress
+		if !req.ShareAddress {
+			address = nextAddress + i*channelCount
+		}
+		var name string
+		if req.NameStem != "" {
+			name = fmt.Sprintf("%s %d", req.NameStem, i+1)
+		}
+		if _, err := tx.Exec(`INSERT INTO lighting_fixtures (rig_id, fixture_number, inventory_item_id, custom_name, position_index, power_connection, power_connector_in, dmx_universe, dmx_start_address, dmx_channel_mode, dmx_channel_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			rigID, nullInt(number), nullInt64(req.InventoryItemID), nullString(name), nextPosition+i, req.PowerConnection, req.PowerConnectorIn, universe, address, nullString(req.DMXChannelMode), channelCount); err != nil {
 			return nil, fmt.Errorf("bulk create fixtures: %w", err)
 		}
 	}
