@@ -17,11 +17,21 @@ waves land.
 
 ```
 grep -rho "rounded-\(xl\|lg\|md\)" --include='*.tsx' frontend/src | sort | uniq -c
-#  56 rounded-md    13 rounded-lg    9 rounded-xl      (was 54 / 30 / 4)
+#  54 rounded-md     7 rounded-lg   10 rounded-xl      (was 54 / 30 / 4)
 ```
 
 > Wave 3 added no `rounded-lg`: the whole Lighting surface is `PatchPanel`,
 > `SheetTable`, `RowEditor`, `Drawer` and `GearCard`, none of which has one.
+>
+> **Wave 4 removed five of the twelve, and only one by editing a class.** Four
+> were the bordered blocks of fields floating above a table — Rental's manual
+> form, both of Equipment's, Overview's stat tiles — deleted along with the idiom
+> when the row editor replaced it. The fifth was `EventInventoryCard`'s category
+> button, corrected to `md` as the file moved.
+>
+> That is the finding's real shape: **A4 was never a radius problem.** It was a
+> marker for a layout idiom the codebase reached for seven times, and the radius
+> was how it showed up in a grep. The same lesson as A12, from the other side.
 
 The ladder is `xl` for a panel, `md` for a control ([tokens.md](tokens.md) §6).
 `rounded-lg` sits between them and every use is one or the other.
@@ -31,17 +41,18 @@ brand tile — one mark appearing in three places, the sidebar, the mobile heade
 Login — and `SectionSwitcher` are `md`, and the whole stage plot surface is now
 either `xl` (a container) or has no frame of its own at all.
 
-What remains, on surfaces later waves own: the inline form blocks in
-`EquipmentTab`, `RentalTab`, `OwnedGearManager` and `Inventories`; `Dashboard`,
-`EventInventoryCard`, `OverviewTab`'s stat tiles, `StartPage`.
+What remains, all on surfaces Wave 5 owns: the inline form blocks in
+`OwnedGearManager` and `Inventories` (three), `Dashboard`'s recent-event row, and
+`StartPage`'s feature tile. One of the twelve the grep reports is **inside a
+comment** in `PatchPanel.tsx`, describing the card stack the panel replaced.
 
 **Fix:** case by case, but mechanically — a container of controls is `xl`,
 a control is `md`. Each wave takes the ones on its own surfaces.
 
-### A6 · Five surfaces are still card stacks · P1
+### A6 · One family of surfaces is still a card stack · P1
 
-`OverviewTab` · `EquipmentTab` (2 cards) · `RentalTab` · `SignalFlowTab` · and the
-`Card`-based pages.
+The `Card`-based pages: `Inventories`' detail view (three cards), `SettingsTab`
+and `MyDefaults` (nine `VocabularyCard`s in a grid each), and `Dashboard` (five).
 
 Each renders `Card` → `CardHeader` → `CardTitle` + description → `CardContent` →
 `Table`, stacked with `space-y-6`. This is exactly the arrangement the audio tabs
@@ -51,7 +62,9 @@ Not all of them are wrong. A card **list** — `Events`, `Inventories`, `Dashboa
 is many independent objects and stays. A card **stack**, where one page's controls
 are split across two or three headers, becomes one panel.
 
-`LightingTab` was the sixth and is closed (Wave 3).
+`LightingTab` was the sixth and closed in Wave 3; `OverviewTab`,
+`EquipmentTab`, `RentalTab` and `SignalFlowTab` closed in Wave 4. What is left is
+the pages, which is Wave 5.
 
 ### A7 · Work-surface data is rendered on the navigation-surface table · P2
 
@@ -60,15 +73,16 @@ By P2's question, these are work surfaces and are still built with `ui/Table`
 
 | Surface | Rows in a real event |
 |---|---|
-| Rental order lines (`RentalTab`) | 50–300 |
-| Equipment lines (`EquipmentTab`) | 10–60 |
 | Inventory items (`Inventories`) | 308 in the sample catalog |
+| Owned gear (`OwnedGearManager`) | 10–40 |
 
 The zebra striping is the tell: `odd:bg-zinc-900 even:bg-zinc-850` is a visible
 banding pattern, where the sheet's `bg-white/[0.014]` is an aid you find when you
 look for it. At 200 rows the first is noise.
 
-Lighting fixtures were the fourth and are closed (Wave 3).
+Lighting fixtures closed in Wave 3; the rental order, the equipment list and the
+signal flow closed in Wave 4. The two above are Wave 5's, and the inventory
+catalog is the largest table in the application by row count.
 
 ### A9 · Navigation-tier chips inside work surfaces · P2
 
@@ -292,15 +306,48 @@ been the abstraction rather than the fix.
 the rig, and neither can be run on a single universe. All three are listed in the
 spec's Out of Scope with the reasoning.
 
-### Wave 4 · The remaining event tabs — A6, A7
+### Wave 4 · The remaining event tabs — **done**
 
-`RentalTab`, `EquipmentTab`, `OverviewTab`, `SignalFlowTab`. All the same shape as
-Wave 3 and **much** smaller: none of them has a derivation to build, which is what
-made Wave 3 large. `LightingSheet` is the template — bar, sheet, editor, strip —
-and `RowEditor` now carries every slot any of them should need.
+A6, A7 and A4 on `RentalTab`, `EquipmentTab`, `SignalFlowTab` and `OverviewTab`;
+spec in `specs/028-event-tabs/`. The audit predicted "the same shape as Wave 3 and
+much smaller", which held for three of the four and was wrong about the fourth.
 
-`OverviewTab` is a form rather than a sheet and only needs the navigation tier
-applied consistently.
+| | Was | Now |
+|---|---|---|
+| Bordered frames across the four tabs | 5 stacked `Card`s | 3 panels + 1 card |
+| Navigation-tier `ui/Table`s | 4 | 0 |
+| Permanently-open add forms | 2 | 0 |
+| Controls visible in a closed sheet | 2 per manual/owned row | 0 |
+| `rounded-lg` | 5 | 0 |
+| Facts Overview shows about the event | 7 | 24 |
+
+**`OverviewTab` was the one the audit read wrong.** It was filed as "a form rather
+than a sheet, needs the navigation tier applied consistently" — a styling note.
+The user's answer to the mockup rejected that framing outright: *editing happens
+in a drawer and the tab just shows the information*. That is not a restyle, and it
+turned the smallest item in the wave into the largest. The tab is now a numbers
+band, the rig drawn as the flow canvas one row high, and every work panel's own
+verdict collected in one line.
+
+Two things the wave found rather than planned:
+
+**`RowEditor`'s hand-off had never rendered.** Wave 3 built the `handoff` slot and
+`LightingSheet`'s `onOpenPlot` prop, and `LightingTab` never passed it, because
+`EventDetail`'s desktop `Tabs` was uncontrolled and no child could reach the
+selection. Wave 4 needed the hand-off three times, so `Tabs` gained an optional
+controlled mode and the selection moved into `?tab=`. Lighting's *Hang in plot*
+button renders for the first time.
+
+**The summary is a derivation, not an endpoint.** The mockup proposed
+`GET /events/{id}/summary` and the spec withdrew it: *2 gaps* is a walk over the
+cable graph and *addressed* is a partition of identical spans, so a Go copy would
+be a second implementation whose failure mode is Overview disagreeing with the
+strip on the tab it links to. `lib/eventSummary.ts` calls the owning functions
+instead, and 23 tests assert the agreement rather than hoping for it.
+
+`components/ui/` changed in exactly one file, `Tabs.tsx`, and only by addition —
+asserted by a diff. The canvases, the audio sheets, `LightingSheet`, Stage Plots,
+the phone branches, the print sheets and the whole backend are untouched.
 
 ### Wave 5 · Pages and residue — A4, A6
 

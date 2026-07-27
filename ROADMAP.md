@@ -944,6 +944,46 @@ of them and none of the three numbers a planner reads lined up with the row abov
 - **Still a slice of its own:** making the two operations undoable, running one on
   a single universe, and DMX chaining as a modelled relationship.
 
+## Slice 28 — Four tabs, one shape (spec: `event-tabs`)
+
+Wave 4 of the design convergence: Rental Order, Equipment and Signal Flow become
+the work panel Wave 3 proved on Lighting, and Overview stops being a form.
+
+- **The rental order is a sheet.** Nine columns, no control in a closed row, and
+  the editor states what it *cannot* change — "from the plan · 8 audio · 0
+  lighting" is read-only, because that number comes from the patch and the rig.
+  That sentence is what the tab is for and it was nowhere on screen. The totals
+  row leaves the table body for the strip; over stock stops tinting nine cells
+  and turns the one cell that is wrong.
+- **Owned gear and rented extras become one list** with a `Source` column. They
+  were two cards because they come from two endpoints, which is a reason the
+  planner does not have. A rented extra *is* a manual rental line — the same
+  record from two tabs — and each now says so.
+- **The signal chain is fixed-pitch.** It was proportional sans, so hop *n* of two
+  adjacent rows started at two different x positions and the eye could not run
+  down the column, which is the tab's entire job at load-in. No Inputs|Outputs
+  toggle: the tab prints, and a toggle would print half the document.
+- **Overview states the event.** Editing moved into a drawer, which settles the
+  app's one explicit Save rather than deciding it. The tab is now five figures at
+  26 px, the rig drawn as the flow canvas one row high, and every work panel's own
+  verdict collected in one line — eight tabs each held one shard of "how is this
+  show doing" and no screen held the answer.
+- **The summary is a derivation, not an endpoint.** The mockup proposed one; the
+  spec withdrew it. *2 gaps* is a walk over the cable graph and *addressed* is a
+  partition of identical spans, so a Go copy would let Overview disagree with the
+  strip on the tab it links to. `lib/eventSummary.ts` calls the owning functions,
+  and asserts the agreement in 23 tests.
+- **A tab can finally open another tab.** `RowEditor`'s hand-off slot and
+  `LightingSheet`'s `onOpenPlot` shipped in Wave 3 and had never rendered, because
+  `EventDetail`'s desktop `Tabs` was uncontrolled. The selection moved into
+  `?tab=`, so a hand-off is a link — it survives a reload and the back button.
+- Frontend-only: no endpoint, no migration, no backend file changed. `components/ui/`
+  changed in one file, `Tabs.tsx`, additively; the canvases, the audio sheets,
+  Stage Plots, the phone branches and the print sheets are untouched, asserted by
+  diffs.
+- **Still a slice of its own:** a hand-off carries the tab and not the row, no
+  sheet is sortable, and the rental order cannot be filtered by department.
+
 ## Dependency graph
 
 ```
@@ -954,6 +994,6 @@ Slice 10 (output chains) ──→ Slice 11 (output signal graph, replaces it) �
 Slice 11 (output signal graph) ──→ Slice 12 (input signal graph, same pattern reversed) ✅
 Slice 11 + Slice 12 ──→ Slice 23 (audio patch shell & the console) ──→ Slice 24 (field-test fixes) ──→ Slice 25 (the mockup's visual language) ──→ Slice 26 (an inspector for the outputs flow graph)
 Slice 7 (lighting rig) + Slice 12 ──→ Slice 13 (stage plots; supersedes Slice 0's truss sections) ✅
-Slice 7 (lighting rig) + Slice 25 (visual language) ──→ Slice 27 (Lighting becomes a sheet; design wave 3)
+Slice 7 (lighting rig) + Slice 25 (visual language) ──→ Slice 27 (Lighting becomes a sheet; design wave 3) ──→ Slice 28 (the remaining event tabs; design wave 4)
 Slice 14 (auth) ──→ Slice 15 (event ownership & sharing) ──→ Slice 16 (inventory ownership) ──→ Slice 17 (event settings) ──→ Slice 18 (deployment) ✅
 ```

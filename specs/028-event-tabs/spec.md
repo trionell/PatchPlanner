@@ -408,7 +408,9 @@ when it is, what shape it is, and where the plan stands — without opening a ta
 
 ## Success Criteria
 
-- **SC-001**: The four tabs render zero `Card` components between them, from five.
+- **SC-001**: The four tabs render **one** bordered frame between them, from five —
+  three `PatchPanel`s and Overview's single `Card`, where there were five stacked
+  `Card` → `CardHeader` → `CardContent` blocks.
 - **SC-002**: Zero permanently-open add forms, from two.
 - **SC-003**: Zero form controls in any closed sheet row, from ten visible with five
   lines of data on Equipment.

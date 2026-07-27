@@ -39,6 +39,17 @@ The top-level organizing unit. Each event represents a single production (gig, s
 - Create, edit, and delete events with name, date, venue, and freeform notes.
 - All other planning data (patch lists, lighting rigs, rental orders) is scoped to an event.
 - Events listing on the dashboard shows upcoming and recent events.
+- **The Overview tab states what the event amounts to** (Slice 28). Days to
+  load-in, channels in and out, fixtures, cables picked and the rental total, at
+  a glance; the audio patch and the lighting rig drawn as one-row ribbons of the
+  same nodes the flow canvas uses; and a readiness verdict per area — audio,
+  lighting, rental, equipment, plots — carrying the same words and tints the
+  owning tab's own status strip carries, because they come from the same
+  derivation. Every number and every verdict links to the tab that produced it.
+- Editing the event's own fields happens in a drawer, so the tab itself holds no
+  form control and a viewer sees the same screen minus one button.
+- Every tab is addressable: `?tab=` selects it, so a link opens the event
+  wherever you meant.
 
 ### 2.2 Inventory Catalog
 
@@ -240,6 +251,12 @@ Per-event rental summary, derived automatically from the planning data.
 - Displays unit price (ex-VAT) and line subtotal for each item.
 - Grand total ex-VAT for the entire event.
 - The rental order tab updates in real-time as planning data changes — no manual assembly needed.
+- **Read as a sheet, not filled in as a form** (Slice 28). Nine columns, nothing
+  editable until a line is clicked, and the editor states which part of the
+  quantity came from the plan — the only part anyone may change here is the
+  manual one. A line's manual share is marked in place with a `+N` badge. Order
+  totals, over-stock lines and discontinued items are stated by the strip that
+  closes the panel, so they are visible without scrolling three hundred rows.
 - **Three export formats** (Slice 22). The `LL.xlsx` export is offered only for inventories actually imported from that price list — hidden in the UI and refused by the API otherwise. Every inventory, however it was populated, additionally exports a **PDF order** (grouped by category with per-category subtotals, unit prices, a grand total ex-VAT, over-stock markers explained in a footnote, and repeating column headers across pages) and a **plain spreadsheet order**.
 
 ---
@@ -254,7 +271,7 @@ Extended 2026-07-09 (`006-rental-cables-stands`): cables and mic stands are now 
 
 ### 3.2 Rigging and Miscellaneous Equipment Tracking — ✅ implemented (2026-07-07)
 
-Covered by two features: rented rigging/misc gear is ordered via manual rental lines on the Rental Order tab (001), and the per-event **Equipment** tab (003) shows the full extras picture — owned gear plus rented extras — in one place.
+Covered by two features: rented rigging/misc gear is ordered via manual rental lines on the Rental Order tab (001), and the per-event **Equipment** tab (003) shows the full extras picture — owned gear plus rented extras — in one place. Since Slice 28 that is literally one list: one sheet with a `Source` column, one editor whose first field switches which catalog the item picker reads, and a hand-off in both directions between a rented extra and the manual rental line it *is*.
 
 ### 3.3 Video Equipment
 
@@ -262,7 +279,9 @@ Video was listed in the original scope (cameras, screens, matrix switchers, cabl
 
 ### 3.4 Signal Flow Visualization — ✅ implemented (2026-07-08)
 
-Shipped as part of the `005-print-signal-flow` feature: a read-only Signal Flow tab on the event page traces every input channel's chain (source → cable → stagebox port or multi channel → console channel) as a text/table view. Incomplete links (no source picked, routing half-assigned) are flagged and counted, while direct-to-console channels render without false gaps; the view is printable like the patch sheets. A graphical node diagram remains a possible future refinement.
+Shipped as part of the `005-print-signal-flow` feature: a read-only Signal Flow tab on the event page traces every input channel's chain (source → cable → stagebox port or multi channel → console channel) as a text/table view. Incomplete links (no source picked, routing half-assigned) are flagged and counted, while direct-to-console channels render without false gaps; the view is printable like the patch sheets. The graphical node diagram arrived separately, on the Audio Inputs and Outputs tabs (Slices 11–12, 26).
+
+Since Slice 28 the chains are set in a fixed-pitch face, so the same hop in two rows occupies the same width and a column of them can be read down — which is the tab's whole job at load-in. Inputs and outputs share one panel and one scroll, divided by a labelled band rather than a view toggle, because a toggle would print half the document. It is the one sheet in the application with no row editor: everything on it is derived, so a row click opens the tab where the chain is actually built.
 
 ### 3.5 DMX Channel Modes as Inventory Data — ✅ implemented (2026-07-08)
 
