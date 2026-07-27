@@ -21,8 +21,11 @@ Lighting   [ 🔍 Find a fixture… ]   [Universes]   ⟵flex-1⟶   [Print]  [+
 - **`+ Fixtures`** is the only filled button on the surface.
 - Search is `Input size="sm"` with the `Search` icon inset, matching
   `AudioPatchShell` line for line.
-- A read-only role gets no `Universes` and no `+ Fixtures` — the caller passes no
-  handler (FR-079).
+- A read-only role gets no `+ Fixtures` — the caller passes no handler (FR-079).
+  It **does** get `Universes`: the drawer is where occupancy and free runs are
+  read, and a viewer can read. What it does not get inside are the two
+  operations, which are omitted rather than disabled. P7 is about controls a role
+  cannot *use*, not about hiding information from it.
 
 ## 2 · The sheet
 

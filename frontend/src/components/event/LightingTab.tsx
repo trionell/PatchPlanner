@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search, Sparkles } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 import { getEvent } from '../../api/events'
 import { listEventInventoryItems } from '../../api/inventory'
 import { getLightingRig, updateFixtureAddresses } from '../../api/lighting'
 import { useIsMobile } from '../../hooks/useIsMobile'
-import { dmxMap } from '../../lib/dmxMap'
-import { planAutoAssign } from '../../lib/dmxPlan'
+import { UNIVERSE_SIZE, dmxMap } from '../../lib/dmxMap'
+import { type Plan, planAutoAssign, planOptimise } from '../../lib/dmxPlan'
 import { formatDMXRange } from '../../lib/utils'
 import type { AddressChange } from '../../types'
 import { MobileEntityList } from '../mobile/MobileEntityList'
@@ -17,6 +17,7 @@ import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { PatchPanel } from '../ui/PatchPanel'
 import { LightingSheet } from './LightingSheet'
+import { UniversesDrawer } from './UniversesDrawer'
 
 /**
  * The Lighting tab (Slice 27 US1).
@@ -46,6 +47,7 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
   const [search, setSearch] = useState('')
   const [editingFixtureId, setEditingFixtureId] = useState<number | 'new' | null>(null)
   const [adding, setAdding] = useState(false)
+  const [universesOpen, setUniversesOpen] = useState(false)
 
   const rigId = lightingQuery.data?.rig.id
   const fixtures = useMemo(() => lightingQuery.data?.fixtures ?? [], [lightingQuery.data])
@@ -70,24 +72,30 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
 
 
   /**
-   * Renumber every universe from address 1 in rig order, moving **groups**
-   * rather than fixtures (US4): what shared before still shares, and nothing
-   * leaves the universe it is in.
+   * The two bulk operations (US4). Both move **groups** rather than fixtures —
+   * what shared before still shares, what did not still does not, and nothing
+   * leaves the universe it is in — and both leave an over-full universe exactly
+   * as it was rather than failing the whole rig.
    *
-   * The packing is `lib/dmxPlan`; this only confirms and applies. It confirms
-   * because one press can move thirty fixtures and cannot be undone.
+   * The packing is `lib/dmxPlan`; this confirms and applies. It confirms because
+   * one press can move thirty fixtures and none of it can be undone (FR-041).
    */
-  function runAutoAssign() {
-    const plan = planAutoAssign(fixtures)
+  function run(plan: Plan, verb: string, nothingToDo: string) {
     if (plan.changes.length === 0 && plan.skippedUniverses.length === 0) {
-      window.alert('Every fixture is already packed from address 1 in rig order.')
+      window.alert(nothingToDo)
       return
     }
     const skipped = plan.skippedUniverses.length
-      ? `\n\nUniverse ${plan.skippedUniverses.join(', ')} needs more than 512 channels, and will be left exactly as it is.`
+      ? `\n\nUniverse ${plan.skippedUniverses.join(', ')} needs more than ${UNIVERSE_SIZE} channels, and will be left exactly as it is.`
       : ''
-    if (!window.confirm(`Re-address ${plan.movedFixtureCount} fixtures from 1 in rig order?${skipped}`)) return
-    applyAddresses.mutate(plan.changes)
+    if (!window.confirm(`${verb} ${plan.movedFixtureCount} ${plan.movedFixtureCount === 1 ? 'fixture' : 'fixtures'}?${skipped}`)) return
+    applyAddresses.mutate(plan.changes, {
+      onSuccess: () => {
+        if (plan.skippedUniverses.length) {
+          window.alert(`Done. Universe ${plan.skippedUniverses.join(', ')} was left untouched — it needs more than ${UNIVERSE_SIZE} channels.`)
+        }
+      },
+    })
   }
 
   if (isMobile) {
@@ -143,16 +151,12 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
                 />
               </div>
 
+              <Button size="xs" variant="outline" onClick={() => setUniversesOpen(true)}>
+                Universes
+              </Button>
+
               <span className="flex-1" />
 
-              {/* Auto-assign is here until US6 gives it a drawer to live in,
-                  beside the universes it acts on. */}
-              {!readOnly && (
-                <Button size="xs" variant="outline" onClick={runAutoAssign} disabled={applyAddresses.isPending || !rigId}>
-                  <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-                  Auto-assign DMX
-                </Button>
-              )}
               <PrintButton />
               {!readOnly && (
                 <Button size="xs" onClick={() => setAdding(true)} disabled={!rigId}>
@@ -181,6 +185,28 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
           />
         </PatchPanel>
 
+        <UniversesDrawer
+          open={universesOpen}
+          onClose={() => setUniversesOpen(false)}
+          map={map}
+          fixtures={fixtures}
+          busy={applyAddresses.isPending}
+          onAutoAssign={
+            readOnly
+              ? undefined
+              : () =>
+                  run(
+                    planAutoAssign(fixtures),
+                    'Re-address',
+                    'Every fixture is already packed from address 1 in rig order.',
+                  )
+          }
+          onOptimise={
+            readOnly
+              ? undefined
+              : () => run(planOptimise(fixtures), 'Close the gaps around', 'There are no gaps to close.')
+          }
+        />
       </div>
       <LightingRigSheet eventId={eventId} fixtures={fixtures} />
     </>
