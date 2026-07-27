@@ -2,6 +2,7 @@ import { Cable } from 'lucide-react'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { loginUrl } from '../api/auth'
 import { useCurrentUser } from '../hooks/useCurrentUser'
+import { buttonClasses } from '../components/ui/buttonVariants'
 
 const ERROR_MESSAGES: Record<string, string> = {
   not_allowed: "This Google account isn't authorized for PatchPlanner.",
@@ -31,14 +32,15 @@ export function LoginPage() {
           </div>
         </div>
         {error && (
-          <p className="rounded-md border border-red-900 bg-red-950/50 px-4 py-3 text-sm text-red-300">
+          <p className="rounded-md border border-red-800 bg-red-950/50 px-4 py-3 text-sm text-red-300">
             {ERROR_MESSAGES[error] ?? 'Sign-in failed — please try again.'}
           </p>
         )}
-        <a
-          href={loginUrl}
-          className="inline-flex w-full items-center justify-center rounded-md border border-amber-500 bg-amber-500 px-4 py-2.5 text-sm font-medium text-zinc-950 transition-colors hover:bg-amber-400"
-        >
+        {/*
+          An anchor, because it navigates to an OAuth URL — but wearing the
+          primary button's own classes rather than a copy of them (Slice 29).
+        */}
+        <a href={loginUrl} className={`${buttonClasses()} w-full`}>
           Sign in with Google
         </a>
       </div>

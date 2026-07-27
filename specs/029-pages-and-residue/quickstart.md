@@ -16,7 +16,10 @@ cd backend  && go vet ./... && go test ./...
 ```bash
 # FR-053 — components/ui/ changes in exactly one file
 git diff --name-only $BASE -- frontend/src/components/ui
-#   expect: frontend/src/components/ui/Button.tsx, plus ui/PanelRail.tsx (new)
+#   expect: Button.tsx changed, plus two new files — PanelRail.tsx and
+#   buttonVariants.ts. The class map moved out of Button.tsx rather than being
+#   exported from it, because a component file that also exports a function
+#   breaks fast refresh; Button.tsx itself only got smaller.
 
 # FR-054 — every Wave 4 surface, and everything before it
 git diff --stat $BASE -- \
