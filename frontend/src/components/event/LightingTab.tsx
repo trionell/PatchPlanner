@@ -4,6 +4,7 @@ import { Plus, Search } from 'lucide-react'
 import { getEvent } from '../../api/events'
 import { listEventInventoryItems } from '../../api/inventory'
 import { getLightingRig, updateFixtureAddresses } from '../../api/lighting'
+import { useEventTab } from '../../hooks/useEventTab'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { UNIVERSE_SIZE, dmxMap } from '../../lib/dmxMap'
 import { type Plan, planAutoAssign, planOptimise } from '../../lib/dmxPlan'
@@ -44,6 +45,7 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
     queryFn: () => listEventInventoryItems(eventId, { categoryType: 'lighting' }),
   })
   const isMobile = useIsMobile()
+  const { openTab } = useEventTab()
   const [search, setSearch] = useState('')
   const [editingFixtureId, setEditingFixtureId] = useState<number | 'new' | null>(null)
   const [adding, setAdding] = useState(false)
@@ -181,6 +183,7 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
             adding={adding}
             onAddingChange={setAdding}
             applyAddresses={applyAddresses.mutateAsync}
+            onOpenPlot={() => openTab('stage-plots')}
             readOnly={readOnly}
           />
         </PatchPanel>
