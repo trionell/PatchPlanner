@@ -147,11 +147,12 @@ note stating what the source reaches and a legend drawing each line style rather
 than describing it. Pressing **Edit in Flow** in the sheet opens the graph with that
 row's own source already selected and its editor open; what is selected belongs to
 the tab and survives switching view. Both graphs draw their boxes, ports and rows
-from one shared set of components, so a box on Inputs and a box on Outputs cannot
-drift apart: a pass-through is one row per jack with its two ports on opposite
-edges, and a port list longer than eight ends with a count of what is hidden. Every node on either canvas
-can be dragged, including the one holding rows that belong to no desk — that one
-keeps its position for the session only, since there is no row to store it on.
+from one shared set of components, and both draw the same inspector rail, so a box
+on Inputs and a box on Outputs cannot drift apart: a pass-through is one row per
+jack with its two ports on opposite edges, and every jack is drawn — a box that
+hides eight of them is not a shorter box but an incomplete one. Every node on either
+canvas can be dragged, including the one holding rows that belong to no desk — that
+one keeps its position for the session only, since there is no row to store it on.
 
 ### 2.5 Audio Outputs
 
@@ -170,6 +171,20 @@ one console. Outputs have no bus membership, so there is no Buses drawer here.
 | W | Mono or stereo |
 | Chain | Desk output → every hop → destination, each hop clickable |
 | Notes | Freeform |
+
+**Flow** — the same three lanes mirrored (Console, Rig, Stage), and editable, not
+only readable. Clicking an output row's label in a desk's bus list opens the same
+inspector rail the Inputs canvas uses, holding every field the sheet's row editor
+holds — number, name, type, width, tape colour, desk and notes — so an output can be
+worked on in whichever view the routing is already visible in. Two gestures share a
+row: the **label** opens the rail, the **port dot** still starts a cable. A stereo
+output's two rows answer to one selection. The rail also states where the output
+lands, read from the same chain model the sheet's Chain column renders, so the two
+cannot disagree; and it offers Duplicate (the row's fields, not its cabling, at the
+next free number) and Delete. Selecting a stagebox, stage multi, device or a desk's
+local jack panel opens the rail on that box, pointing at the Rig drawer for its
+fields. The desk box itself is not selectable — its fields live in the Rig drawer,
+and its rows each have a rail.
 
 ### 2.6 Lighting Rig
 

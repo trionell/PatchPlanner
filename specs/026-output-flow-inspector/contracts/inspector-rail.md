@@ -129,8 +129,8 @@ because it means the same thing: this is the row the rail is editing.
 
 | Order | Field | Control | Saves on | Condition |
 |---|---|---|---|---|
-| 1 | name | `Input`, `h-7 font-semibold`, no `Field` label | blur, when changed and non-empty | always |
-| 2 | Out | `Input type=number` | change | always |
+| 1 | name | `Input`, `h-7 font-semibold`, no `Field` label | blur, when changed | always |
+| 2 | Out | `Input type=number` | **blur** | always |
 | 3 | Type | `Select` over vocabulary `output_types` | change | always |
 | 4 | Width | `Select` mono/stereo | change | always |
 | 5 | Tape | `ColorSelect` | change | always |
@@ -139,6 +139,13 @@ because it means the same thing: this is the row the rail is editing.
 | — | Lands on | `Note` | — | always |
 | — | Legend | `Legend`, three rows, no phantom | — | always |
 | — | actions | `mt-auto flex gap-2`: Duplicate, then Delete in red | — | not read-only |
+
+The rule is **typed fields save on blur, picked fields save on change**. This table
+first said the number saved on change; it doesn't, because typing `12` would save `1`
+and then `12`, briefly renumbering the row to a number another row may hold. The name
+also saves an empty string rather than refusing it — an output may legitimately have no
+name, and the sheet renders `unnamed` for exactly that case, so refusing the deletion
+of a name would make the rail the one place a name cannot be cleared.
 
 The name is the header field with no label, as on the source rail — a rail whose
 subject has a name shows it first and large, and "Name" beside it says nothing.
@@ -165,6 +172,6 @@ output comes off, or `no desk`.
 
 - The inputs inspector's appearance and behaviour (FR-015). Its file is renamed
   and its rail parts are imported instead of locally defined; nothing else.
-- `PortRow`'s existing call sites — six on the inputs canvas, five on the outputs
-  canvas — pass neither new prop and must render identically.
+- `PortRow`'s existing call sites other than the two bus lists pass neither new prop
+  and must render identically.
 - `ui/Table`, `ui/Badge`, `ui/SheetTable`: untouched.

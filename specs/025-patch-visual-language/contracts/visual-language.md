@@ -138,7 +138,15 @@ Two mockup details deliberately **not** followed, per research.md R10: the
 add it, so the hint would be a lie) and `Rio3224 · SB1` in a stagebox header (the
 model truncates at node width; it stays legible in the Rig drawer).
 
-## 7. The inspector — `FlowInspector.tsx`
+## 7. The inspector — `InputFlowInspector.tsx` (values now in Slice 26)
+
+> **Superseded, in one direction only.** Slice 26 gave the outputs canvas a rail too
+> and extracted these five parts into `graph/InspectorRail.tsx`, so the binding values
+> live in `specs/026-output-flow-inspector/contracts/inspector-rail.md` §1. That table
+> is the one to edit; this one records what Slice 25 established and is kept because
+> the *reasons* below are Slice 25's findings, not Slice 26's. The values are
+> unchanged — Slice 26 moved them, it did not touch them. `FlowInspector.tsx` is
+> `InputFlowInspector.tsx` since Slice 26.
 
 | Element | Value | Kind |
 |---|---|---|

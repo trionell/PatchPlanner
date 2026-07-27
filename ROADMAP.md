@@ -860,6 +860,46 @@ that were the surface not having been built to the approved mockup.
   on the other six tabs.
 
 
+## Slice 26 — An inspector for the outputs flow graph (spec: `output-flow-inspector`)
+
+The outputs Flow view could be looked at but not worked in. Selecting a box marked
+it and nothing else, because that canvas had no inspector — a documented Slice 25
+boundary ("the mockup draws none"), which left every output field Sheet-only while a
+source on the inputs side was editable from either view.
+
+- **The rail, on the entity that maps onto the sheet's rows.** Clicking an output
+  row's label opens an inspector holding all seven fields the sheet's inline editor
+  holds, so a bus can be renamed, retyped, recoloured or moved to another desk
+  without leaving the view where its routing is visible. Fields save one at a time
+  with no draft: a rail holding a draft would be a second copy of a row the sheet
+  may be editing at the same time.
+- **One rail, not two look-alikes.** The frame, header, field row, note box and
+  legend strokes were extracted from the inputs inspector into
+  `graph/InspectorRail` **before** the second caller existed, so a regression there
+  was attributable to the move alone. The legend splits: its strokes are shared
+  (their only claim is "this is a line the canvas draws"), its wording is not —
+  the input side's colour says which channel a run *reaches*, the output side's says
+  which output it *carries*, and no output has phantom power.
+- **`mixer` left the selection union.** It was doing two jobs: a mixer *port*'s id
+  is an output's id, the mixer *node*'s selection id was a desk's id. The desk box
+  is no longer selectable at all — its fields are in the Rig drawer and its rows
+  have rails of their own — so the ambiguity is now unwritable rather than merely
+  unwritten.
+- **Two gestures, one row.** The label opens the rail, the port dot still starts a
+  cable — the split the sources rail already field-tested. A stereo output's two
+  rows answer to one selection, because a mixer port's id *is* the output's id.
+- **"Lands on" reads the sheet's own chain model**, so the rail and the Chain column
+  cannot disagree about where a run goes — the same reasoning that defined
+  `derivedCableColor` in terms of `derivedOutputPortColor` rather than walking twice.
+- **The sheet's row-level Edit in Flow now selects the output.** It used to settle
+  for the first box downstream of the desk, so asking to edit a bus opened a
+  stagebox.
+- Frontend only, asserted by a gate rather than assumed: no migration, no route, no
+  Go file touched.
+- **Still a slice of its own:** the same rail for the inputs canvas's channel rows,
+  and splitting the outputs canvas out of its tab file to mirror `InputGraphCanvas`.
+
+
 ## Dependency graph
 
 ```
@@ -868,7 +908,7 @@ Slice 18 (deployment) ──→ Slice 19 (CI/CD deploy to VPS)
 Slice 16 (inventory ownership) ──→ Slice 22 (generic inventory formats & PDF order)
 Slice 10 (output chains) ──→ Slice 11 (output signal graph, replaces it) ✅
 Slice 11 (output signal graph) ──→ Slice 12 (input signal graph, same pattern reversed) ✅
-Slice 11 + Slice 12 ──→ Slice 23 (audio patch shell & the console) ──→ Slice 24 (field-test fixes) ──→ Slice 25 (the mockup's visual language)
+Slice 11 + Slice 12 ──→ Slice 23 (audio patch shell & the console) ──→ Slice 24 (field-test fixes) ──→ Slice 25 (the mockup's visual language) ──→ Slice 26 (an inspector for the outputs flow graph)
 Slice 7 (lighting rig) + Slice 12 ──→ Slice 13 (stage plots; supersedes Slice 0's truss sections) ✅
 Slice 14 (auth) ──→ Slice 15 (event ownership & sharing) ──→ Slice 16 (inventory ownership) ──→ Slice 17 (event settings) ──→ Slice 18 (deployment) ✅
 ```
