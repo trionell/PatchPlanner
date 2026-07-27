@@ -404,6 +404,15 @@ export interface EventRental {
   inventory_item_id: number
   inventory_item_name?: string
   description?: string
+  /**
+   * The catalog category, sent since Slice 22 so the PDF and spreadsheet
+   * exports can group lines without a second query. Declared here from Slice 28,
+   * when the Equipment sheet started reading it to type a rented line — the
+   * server has been sending all three all along.
+   */
+  category_id?: number
+  category_name?: string
+  category_type?: string
   quantity_audio: number
   quantity_lighting: number
   total_quantity: number
