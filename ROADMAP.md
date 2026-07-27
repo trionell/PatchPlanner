@@ -900,6 +900,50 @@ source on the inputs side was editable from either view.
   and splitting the outputs canvas out of its tab file to mirror `InputGraphCanvas`.
 
 
+## Slice 27 — Lighting becomes a sheet (spec: `lighting-sheet`)
+
+Wave 3 of the design convergence, and the last surface in the application that was
+a form pretending to be a list: thirteen columns, twenty-four permanently-live
+inputs and selects, no read state at all, so a rig of forty fixtures showed seven
+of them and none of the three numbers a planner reads lined up with the row above.
+
+- **Nine columns, no control in a closed row**, and the editor beneath the row it
+  belongs to. Row height ~90 px → 25 px, so a screen shows about twenty-eight
+  fixtures instead of seven. Two columns merged (power now names the fixture it
+  chains from), two deleted — the row ordinal, and DMX chain, which printed a raw
+  row id that nothing had ever written.
+- **The rig has a DMX map for the first time.** Nothing in the application had
+  ever noticed two fixtures sharing addresses; auto-assign packed each universe
+  from 1, so its own output was always clean and a clash could only arrive by
+  hand-editing afterwards, silently, until a technician was standing in the room.
+- **Sharing an address is not a clash.** Twenty identical pars on one address is
+  how a room wash is rigged. Four conditions a universe can be in *all at once* —
+  shared, clash, out of bounds, unaddressed — kept independent by partitioning
+  identical spans into one group **before** any pair is compared, which is also
+  what lets the packer preserve sharing without remembering to.
+- **Two bulk operations, one packer.** Auto-assign repacks each universe from 1 in
+  rig order; Optimise keeps the order already set and closes the gaps. Both move
+  groups rather than fixtures, neither moves a fixture between universes (a
+  universe is usually a cable run to one truss), and an over-full universe is left
+  exactly as it was instead of failing the whole rig.
+- **An occupied address asks rather than refusing**: *make room* ripples the
+  fixtures above up by just enough — stopping at the first that already clears, so
+  a gap left on purpose survives — *share address* appears only on an exact match,
+  and *place anyway* is always there, because nothing here is ever blocked.
+- **One editor replaces two dialogs**, with a quantity defaulting to 1. The two
+  had already drifted: the single-add dialog had no universe and no power field
+  where the bulk one had both, so every hand-added fixture started on universe 1
+  with a Schuko. The tab now has zero dialogs.
+- **The backend got smaller.** `AutoAssignDMX` was deleted rather than rewritten:
+  the browser must derive the map anyway, so Go keeps the guarantee (one
+  transactional endpoint applying a plan whole or not at all) and TypeScript keeps
+  the arithmetic. One migration, and it only drops a dead column.
+- 49 unit tests over `lib/dmxMap` and `lib/dmxPlan`, none of which renders
+  anything. `components/ui/` and `components/event/graph/` are untouched, asserted
+  by a diff rather than assumed.
+- **Still a slice of its own:** making the two operations undoable, running one on
+  a single universe, and DMX chaining as a modelled relationship.
+
 ## Dependency graph
 
 ```
@@ -910,5 +954,6 @@ Slice 10 (output chains) ──→ Slice 11 (output signal graph, replaces it) �
 Slice 11 (output signal graph) ──→ Slice 12 (input signal graph, same pattern reversed) ✅
 Slice 11 + Slice 12 ──→ Slice 23 (audio patch shell & the console) ──→ Slice 24 (field-test fixes) ──→ Slice 25 (the mockup's visual language) ──→ Slice 26 (an inspector for the outputs flow graph)
 Slice 7 (lighting rig) + Slice 12 ──→ Slice 13 (stage plots; supersedes Slice 0's truss sections) ✅
+Slice 7 (lighting rig) + Slice 25 (visual language) ──→ Slice 27 (Lighting becomes a sheet; design wave 3)
 Slice 14 (auth) ──→ Slice 15 (event ownership & sharing) ──→ Slice 16 (inventory ownership) ──→ Slice 17 (event settings) ──→ Slice 18 (deployment) ✅
 ```

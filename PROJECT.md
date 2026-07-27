@@ -188,19 +188,46 @@ and its rows each have a rail.
 
 ### 2.6 Lighting Rig
 
-Fixture-level lighting documentation covering hang position, power, and DMX.
+Fixture-level lighting documentation covering hang position, power, and DMX,
+built as the work panel the audio tabs use: a bar, a sheet that is read until a
+row is clicked, an editor beneath the open row, and a strip stating whether the
+rig's addressing holds (Slice 27).
 
-- **Add fixtures** via a dialog: pick from the lighting inventory or enter a custom name; set the DMX channel mode and channel count.
-- **Truss assignment**: optional, free-text truss section name and position index along the truss.
+- **The sheet**: nine read-only columns — console ID, fixture and its catalog
+  model, mode, universe, address span, channel count, truss, power, notes.
+  Ordered by rig position; searchable on every one of those.
+- **Add fixtures** in the same editor used to edit one, with a quantity that
+  defaults to 1: one form for a single haze machine and for twelve wash lights.
+  Optionally a name stem numbering the batch, and optionally one shared address
+  for all of them.
+- **Truss assignment**: read-only, derived from the stage plot, with a hand-off
+  to the tab where it is decided.
 - **Power modeling**:
   - `grid` — fixture connects directly to mains power.
-  - `chain` — fixture is daisy-chained from another fixture (indicated visually with a link icon).
+  - `chain` — fixture is daisy-chained from another fixture, naming the fixture
+    it chains from.
   - Power connector type: Schuko, CEE16A, CEE32A, PowerCon, PowerCon TRUE1, IEC.
-- **DMX patch**:
-  - Universe, start address, channel mode label, channel count.
-  - DMX chain parent (for modeling the physical DMX daisy-chain topology).
-  - Formatted address display (e.g. `U1 / 001–016`).
-- **Auto-assign DMX**: one-click sequential address assignment per universe, ordered by fixture position index, starting at address 1.
+- **The DMX map** — derived, never stored, and the first opinion the application
+  has ever had about a rig's addressing. Four conditions a universe can be in all
+  at once:
+  - **shared** — fixtures with identical spans, which is how a room wash or a
+    dimmer channel is rigged. Counted, never warned about.
+  - **clash** — spans that intersect without being identical. An error.
+  - **out of bounds** — a span running past channel 512. An error.
+  - **unaddressed** — no start address yet. Neither of those.
+  None of them blocks a save: a rig legitimately passes through a broken state
+  while it is being renumbered.
+- **Inserting into an occupied address** asks rather than refusing: *make room*
+  ripples the fixtures above up by just enough, *share address* appears when the
+  span matches exactly, and *place anyway* is always available.
+- **The Universes drawer**: per universe, its occupancy out of 512, its fixture
+  count, its free channels, and its **largest free run** — the number that
+  answers whether the next batch will fit, where the free total does not.
+- **Two bulk operations**, both acting on groups rather than fixtures so what
+  shared before still shares, both keeping every fixture in its own universe, and
+  both leaving an over-full universe untouched rather than failing the whole rig:
+  - **Auto-assign DMX** — repack each universe from address 1 in rig order.
+  - **Optimise channels** — keep the order already set, and close the gaps.
 
 ### 2.7 Rental Order
 

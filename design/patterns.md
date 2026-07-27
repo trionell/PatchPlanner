@@ -55,13 +55,24 @@ the two read as one block. The editor is a `GearForm`: a left amber edge, fields
 that wrap, confirm at `ml-auto`, delete kept apart from confirm.
 
 - Nothing in a sheet row is a form control. A cell that is permanently an `<input>`
-  turns a scannable list into a form, which is what the lighting fixture table
-  currently is.
+  turns a scannable list into a form. The lighting fixture table was the last one
+  that did this — thirteen columns and twenty-four live controls — and Wave 3
+  converted it.
 - One row edits at a time.
 - The editor is the same construction used to **add** a row, which is what makes
   adding and editing look like the same operation.
 - Where a row's deeper structure lives on another view, the editor offers a
-  hand-off — *Edit in Flow →* — carrying the selection with it.
+  hand-off carrying the selection with it: *Edit in Flow →* on the audio sheets,
+  *Hang in plot →* on Lighting, whose truss is decided on the stage plot. The
+  prop is `handoff={{ label, text, onSelect }}` for that reason — a
+  destination-specific name in the type would be wrong on one of the three.
+- Where confirming a value would collide with something already there, the editor
+  **asks in place** rather than refusing or silently accepting. Lighting's address
+  prompt is the instance: a full-width block in the editor's own amber body
+  (`RowEditor`'s `notice` slot), never a dialog, offering the answers that are
+  actually available. Which answers appear is itself information — *share address*
+  only on an exact match, *make room* unless it would not fit, *place anyway*
+  always, because nothing here is ever blocked.
 
 ## 3 · Drawer over stacked cards
 

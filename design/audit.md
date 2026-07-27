@@ -20,6 +20,9 @@ grep -rho "rounded-\(xl\|lg\|md\)" --include='*.tsx' frontend/src | sort | uniq 
 #  56 rounded-md    13 rounded-lg    9 rounded-xl      (was 54 / 30 / 4)
 ```
 
+> Wave 3 added no `rounded-lg`: the whole Lighting surface is `PatchPanel`,
+> `SheetTable`, `RowEditor`, `Drawer` and `GearCard`, none of which has one.
+
 The ladder is `xl` for a panel, `md` for a control ([tokens.md](tokens.md) §6).
 `rounded-lg` sits between them and every use is one or the other.
 
@@ -35,10 +38,10 @@ What remains, on surfaces later waves own: the inline form blocks in
 **Fix:** case by case, but mechanically — a container of controls is `xl`,
 a control is `md`. Each wave takes the ones on its own surfaces.
 
-### A6 · Six surfaces are still card stacks · P1
+### A6 · Five surfaces are still card stacks · P1
 
-`OverviewTab` · `EquipmentTab` (2 cards) · `LightingTab` · `RentalTab` ·
-`SignalFlowTab` · and the `Card`-based pages.
+`OverviewTab` · `EquipmentTab` (2 cards) · `RentalTab` · `SignalFlowTab` · and the
+`Card`-based pages.
 
 Each renders `Card` → `CardHeader` → `CardTitle` + description → `CardContent` →
 `Table`, stacked with `space-y-6`. This is exactly the arrangement the audio tabs
@@ -48,14 +51,15 @@ Not all of them are wrong. A card **list** — `Events`, `Inventories`, `Dashboa
 is many independent objects and stays. A card **stack**, where one page's controls
 are split across two or three headers, becomes one panel.
 
+`LightingTab` was the sixth and is closed (Wave 3).
+
 ### A7 · Work-surface data is rendered on the navigation-surface table · P2
 
-By P2's question, these are work surfaces and are currently built with `ui/Table`
+By P2's question, these are work surfaces and are still built with `ui/Table`
 (`px-3 py-3`, `text-sm`, `align-top`, `odd:bg-zinc-900 even:bg-zinc-850`):
 
 | Surface | Rows in a real event |
 |---|---|
-| Lighting fixtures (`LightingTab`) | 40–200 |
 | Rental order lines (`RentalTab`) | 50–300 |
 | Equipment lines (`EquipmentTab`) | 10–60 |
 | Inventory items (`Inventories`) | 308 in the sample catalog |
@@ -64,19 +68,7 @@ The zebra striping is the tell: `odd:bg-zinc-900 even:bg-zinc-850` is a visible
 banding pattern, where the sheet's `bg-white/[0.014]` is an aid you find when you
 look for it. At 200 rows the first is noise.
 
-### A8 · The lighting fixture table is a form, not a sheet · Patterns §2
-
-```
-grep -c "<Input\|<Select" frontend/src/components/event/LightingTab.tsx   # 24
-```
-
-Thirteen columns, and most cells hold a permanently-live `Input` or `Select` that
-persists on blur. There is no read state at all, so the table cannot be scanned —
-every value is inside a bordered control, and the eye has to parse chrome before it
-reaches data.
-
-This is the single largest gap between the target language and the code. The fix is
-the sheet-plus-row-editor pattern, not restyling the controls.
+Lighting fixtures were the fourth and are closed (Wave 3).
 
 ### A9 · Navigation-tier chips inside work surfaces · P2
 
@@ -164,6 +156,43 @@ The lesson is about the audit, not the code: a grep that matches a *value* misse
 every synonym of it. The check that would have caught this is "how many things
 render an uppercase 10 px label", which no grep answers.
 
+### A8 · The lighting fixture table was a form, not a sheet · Wave 3
+
+The largest single gap in the application between the target language and the
+code: thirteen columns, twenty-four permanently-live `Input`s and `Select`s, and
+no read state at all, so the table could not be scanned. A6 and A7 were true of
+the same surface — a `Card` stack, on the navigation tier — and all three are
+closed on it together, because they were one problem wearing three names. A6 and
+A7 stay open for the surfaces waves 4 and 5 own.
+
+It is now `PatchPanel` → `SheetTable` → `RowEditor` → `LightingStatusRail`, with
+nine columns, no control in any closed row, and a `Drawer` for the universes. Row
+height went from ~90 px to 25 px.
+
+The counts, before and after, on the surface itself:
+
+| | Was | Now |
+|---|---|---|
+| Columns | 13 | 9 |
+| Live controls in the closed sheet | 24 | 0 |
+| Dialogs | 2 | 0 |
+| Same-weight buttons in the toolbar | 4 | 1 primary |
+| Fixtures visible at 900 px | ~7 | ~28 |
+
+**What made this a slice rather than a restyle** is the thing the audit did not
+predict: nothing in the application had ever had an opinion about a rig's DMX
+addressing. Auto-assign packed each universe from address 1, so its own output was
+always clean and a clash could only ever arrive by hand-editing afterwards —
+silently. `lib/dmxMap.ts` and `lib/dmxPlan.ts` are that opinion, as pure functions
+with 49 tests and no DOM.
+
+The other surprise was in the opposite direction: **the backend got smaller.**
+`AutoAssignDMX` was deleted rather than rewritten, because the browser has to
+derive the map anyway and the three operations are that map plus an ordering. Go
+kept the guarantee — one transactional endpoint that applies a plan whole or not
+at all — and TypeScript kept the arithmetic (`specs/027-lighting-sheet/research.md`
+R3).
+
 ---
 
 ## Part 2 — Convergence order
@@ -241,20 +270,37 @@ a narrow window. Moving the grid and snap settings into the rail would fix that 
 is probably right, but it changes where a plotter reaches for a tool mid-draw. That
 is a workflow decision, and this wave is a restyle.
 
-### Wave 3 · Lighting — A6, A7, A8
+### Wave 3 · Lighting — **done**
 
-The big one, and the one worth doing properly: fixtures become a `SheetTable` with
-a row editor, DMX and channel counts become `NumCell`s that line up, and the truss
-column stops being a `Select` in every row.
+A6, A7, A8, and its own spec: `specs/027-lighting-sheet/`. The audit called it
+"a workflow change, not a restyle", and that turned out to understate it — the
+restyle was the smaller half.
 
-Worth its own spec. It is a workflow change, not a restyle, and it is where a
-technician will feel the design language most.
+| | Change | Why the rig forced it |
+|---|---|---|
+| `event/RowEditor` | `onDelete` optional; `onEditInFlow`/`editInFlowLabel` → `handoff { label, text, onSelect }`; new `notice` slot | Lighting hands off to the **stage plot**, not to Flow, so a prop named `onEditInFlow` was a lie in the type. The add editor has nothing to delete. The collision prompt needs a full-width block *inside* the editor's flex flow, so it cannot land on a field at some width. |
+| everything else in `ui/` | **none** | asserted, not assumed: `git diff --stat -- components/ui components/event/graph` is empty for the whole wave |
+
+`Meter` is the one place the wave wanted a change and did not take it. A universe
+with nothing addressed in it must draw no bar (FR-070), and `Meter` withholds
+itself only for an undeclared *capacity* — which is a different condition, since a
+universe's capacity is always 512. The caller withholds it instead. Changing a
+component four tabs share, to express a condition only one of them has, would have
+been the abstraction rather than the fix.
+
+**Not done, deliberately:** neither bulk operation can be undone, neither reorders
+the rig, and neither can be run on a single universe. All three are listed in the
+spec's Out of Scope with the reasoning.
 
 ### Wave 4 · The remaining event tabs — A6, A7
 
 `RentalTab`, `EquipmentTab`, `OverviewTab`, `SignalFlowTab`. All the same shape as
-Wave 3 and much smaller. `OverviewTab` is a form rather than a sheet and only needs
-the navigation tier applied consistently.
+Wave 3 and **much** smaller: none of them has a derivation to build, which is what
+made Wave 3 large. `LightingSheet` is the template — bar, sheet, editor, strip —
+and `RowEditor` now carries every slot any of them should need.
+
+`OverviewTab` is a form rather than a sheet and only needs the navigation tier
+applied consistently.
 
 ### Wave 5 · Pages and residue — A4, A6
 
