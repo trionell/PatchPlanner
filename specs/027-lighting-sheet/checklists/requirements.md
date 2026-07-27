@@ -2,8 +2,8 @@
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-07-27
-**Revised**: 2026-07-27, twice after review — first sharing, occupancy and the DMX
-chain column; then the two bulk operations
+**Revised**: 2026-07-27, three times after review — first sharing, occupancy and
+the DMX chain column; then the two bulk operations; then making room
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -60,8 +60,8 @@ worth recording because no checklist item catches it.
    subject of this feature *is* the interface, so the spec names interface
    concepts — a sheet, a row editor, a strip, a density tier. It does not name a
    component, a file or a hook, which is the line that matters: every requirement
-   is checkable by looking at the screen. The exceptions are FR-052 – FR-054 and
-   FR-059, which constrain *where* work may happen. Those are deliberate: they
+   is checkable by looking at the screen. The exceptions are FR-075 – FR-077 and
+   FR-082, which constrain *where* work may happen. Those are deliberate: they
    are the boundary that keeps a regression attributable to this wave.
 
 2. **Occupancy had to be defined against three separate ways of being wrong.**
@@ -75,7 +75,7 @@ worth recording because no checklist item catches it.
    members' addresses; a stored marker would be a second place to say the same
    thing and therefore a second thing to keep in sync. The cost is that a
    bulk-add run twice looks deliberate, mitigated by the strip counting shared
-   groups in **every** state (FR-031) so the condition is never silent.
+   groups in **every** state (FR-054) so the condition is never silent.
 
 ### A warning was the wrong answer, and the review said so
 
@@ -108,6 +108,39 @@ order; optimise preserves whatever order the addresses are already in and only
 closes the gaps. Stating it that way is what keeps them one pure function with
 one parameter instead of two implementations that will drift.
 
+### The third round found the gesture the first two had left out
+
+Reading the map (US2) and repacking all of it (US4) are the two ends of the job.
+The reporter pointed out that what a planner does most often is neither: putting
+one fixture at one address, in a universe that already has fixtures either side
+of it. The first two revisions had made that situation *legible* — the strip
+would have reported the clash — and left the planner to fix it by re-addressing
+every fixture above it by hand.
+
+US5 and FR-043 – FR-053 are the answer, and the shape of it matters: an occupied
+address is neither refused nor silently accepted, but **asked about**, with three
+answers whose availability is itself information. *Place anyway* is always there,
+which is what keeps FR-060 (nothing is ever blocked) true. *Share address*
+appears only on an exact match of address **and** channel count, so its presence
+tells the planner the two fixtures really are interchangeable. *Make room* is
+absent only when it cannot fit.
+
+Two details were specified rather than left to the implementation because the
+obvious version is worse:
+
+- **Make room ripples** (FR-046). Shifting every group at or after the insertion
+  point by the full width is simpler to describe and destroys gaps a planner left
+  on purpose. The ripple stops at the first group that already clears the one
+  before it.
+- **The prompt is checked on confirm, not while typing** (Assumptions). An
+  address typed a digit at a time passes through several collisions on its way to
+  the intended one.
+
+Make room is deliberately specified as *the same packing as the bulk operations*
+(FR-047) rather than as its own algorithm — one more caller of the rule that
+already has to hold groups together, rather than a second place for that rule to
+be got subtly wrong.
+
 ### Three boundaries named rather than left implicit
 
 - **The DMX chain column is deleted outright**, database column included, on the
@@ -133,13 +166,21 @@ replaces it and must resolve three things:
    response richer than today's — which universes changed, which were skipped —
    and the packing itself should exist once, in one place, parameterised by
    ordering.
-3. **The name stem and an optional model on a batch add**, which may require the
-   bulk-add endpoint to carry a fixture name and accept a batch with no catalog
-   model. The plan decides between extending the request and composing the batch
-   from single creates.
+3. **The name stem, an optional model, and a batch that shares one address**,
+   which may require the bulk-add endpoint to carry a fixture name, accept a
+   batch with no catalog model, and place every fixture on one start address. The
+   plan decides between extending the request and composing the batch from single
+   creates.
+4. **Where make room runs.** It rewrites several fixtures at once from a
+   single-row edit. Doing it client-side means many requests and a window where
+   the rig is half-shifted; doing it server-side means a third endpoint sharing
+   the packing rule with the other two. The plan must choose, and the choice is
+   the same one as item 2's — which is a reason to answer them together.
 
 FR-069 constrains all of this: the four conditions, the occupancy model and the
 packing must be pure functions, testable without rendering and without a
 database. The packing rule is now shared between a Go endpoint and a browser that
 must predict its result, which is exactly the kind of duplication that drifts —
-the plan should say which side owns it and how the other stays honest.
+the plan should say which side owns it and how the other stays honest. Note that
+**three** callers now need it — auto-assign, optimise, and make room — which
+strengthens the case for one implementation rather than weakening it.

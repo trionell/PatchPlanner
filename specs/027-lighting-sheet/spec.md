@@ -9,7 +9,7 @@ directly to `main` and this wave continues on it. No feature branch was cut.
 
 **Input**: User description: "Let's handle wave 3. Use the speckit flow with
 commits between each step. Before writing the spec, create a mockup of the
-redesign for me to approve" — the four calls in [mockup.html](mockup.html) §08
+redesign for me to approve" — the four calls in [mockup.html](mockup.html) §09
 approved, then two rounds of correction:
 
 1. Overlapping addresses are an error *except* where fixtures deliberately share
@@ -23,6 +23,13 @@ approved, then two rounds of correction:
    should be isolated. While auto-assigning or optimizing channels, a fixture
    should not be able to jump between universes (since universes often correlate
    with physical separation, like different trusses)."
+3. "If I need/want to insert a fixture in the middle of the addresses I first
+   manually need to move fixtures to make room. I want a feature where if I try
+   to insert a fixture at an occupied address, the application should prompt the
+   user with a warning and give the option to *make room* … In the case where
+   there is a perfect overlap of address and channel mode, also give the user an
+   option to accept *shared address*. And while we're at it, make sure bulk add
+   also support all fixtures in the bulk can share address as an option."
 
 ## Context
 
@@ -105,12 +112,38 @@ particular corner of a room — so no operation may move a fixture from one to
 another, and a universe that cannot fit is left exactly as it was rather than
 taking the rest of the rig down with it.
 
+### Making room, rather than making the planner do it
+
+Reading the map and repacking the whole of it are the two ends of the job. The
+thing a planner actually does most often sits between them: putting one fixture
+at a particular address, in a universe that already has fixtures either side of
+it.
+
+Today that means arithmetic on paper. Deciding to insert a 16-channel head at
+address 49 means finding every fixture from 49 upwards and re-addressing each one
+by hand, in order, without making a mistake — and the tool that could do it in
+one step instead waits to be told the answer.
+
+So an address that is already taken is not simply refused or silently accepted.
+It is a question, asked where the address was typed, with the three answers that
+are actually available:
+
+| Answer | What happens | Offered |
+|---|---|---|
+| **Make room** | The fixtures at and after that address shift up by just enough | always, unless the shift would run off the end |
+| **Share address** | The fixture joins the group already there | only on an exact match of address *and* channel count |
+| **Place anyway** | Saved as it stands, and the strip reports the clash | always — no address is ever refused |
+
+Make room obeys the same invariants as the bulk operations, because it is the
+same packing: groups move whole, sharing survives, nothing that was separate
+becomes shared, and nothing leaves its universe.
+
 The target shape is the one three tabs already use: a work panel with a bar, a
 sheet that is read until a row is clicked, a row editor beneath the open row, and
 a strip that closes the panel from inside and states whether the plan holds. See
 [design/patterns.md](../../design/patterns.md) §1 and §2. The full drawing, with
 the current tab reproduced beside it at real sizes, is in
-[mockup.html](mockup.html); its §06 ledger accounts for each of the thirteen
+[mockup.html](mockup.html); its §07 ledger accounts for each of the thirteen
 columns individually.
 
 ## User Scenarios & Testing *(mandatory)*
@@ -278,6 +311,14 @@ is involved in either case.
    **When** the planner reads it, **Then** it states the batch's channel demand
    against that universe's **largest free run**, not merely its total free
    channels — 496 free in gaps of four does not fit a 16-channel fixture.
+8. **Given** the add editor with a quantity above 1, **When** the planner turns
+   on the option for the batch to share one address, **Then** all of them are
+   created on the same start address as one shared group, the batch's channel
+   demand becomes one fixture's worth rather than the whole batch's, and their
+   console IDs still increment.
+9. **Given** a batch set to share an address, **When** the planner confirms,
+   **Then** the fixtures are a shared group by the ordinary rule — identical
+   spans — with nothing stored to say so.
 
 ---
 
@@ -345,7 +386,68 @@ universe membership all survive, and that the gaps close only under the second.
 
 ---
 
-### User Story 5 - Find out how full a universe is before filling it (Priority: P3)
+### User Story 5 - Insert a fixture where there is no room (Priority: P2)
+
+The planner needs a 16-channel head at address 49 of universe 1, and 49 is where
+a wash already sits. They type 49 and confirm. Instead of a silent clash or a
+refusal, the editor tells them what is there and offers to **make room**: eleven
+fixtures will shift up by sixteen channels, and nothing will leave universe 1.
+They accept, and the head lands at 49 with the rest of the universe slid up
+behind it.
+
+Later they add a par at exactly the address and channel count of an existing par,
+and the same prompt offers a third answer it did not offer before — **share
+address** — because this time the spans match exactly. They take it, and the two
+become a group of two.
+
+**Why this priority**: This is the gesture that turns the map from something you
+can read into something you can edit. Without it, a planner who wants a fixture
+in the middle of a universe has to re-address every fixture above it by hand,
+which is the arithmetic the tool exists to do.
+
+**Independent Test**: Set an address that collides, in the row editor and in the
+add editor, and confirm each of the three answers does what it says over a
+universe containing a shared group and a gap.
+
+**Acceptance Scenarios**:
+
+1. **Given** the planner confirms an address whose span would collide with
+   fixtures already in that universe, **When** the save is attempted, **Then** it
+   is held and they are shown what it collides with, in the editor rather than in
+   a dialog.
+2. **Given** the prompt, **When** the planner reads it, **Then** it names the
+   fixtures in the way, and states how many fixtures making room would move.
+3. **Given** the planner chooses make room, **When** it runs, **Then** the
+   fixture is placed at the address asked for and the fixtures at and after it
+   shift up by just enough, preserving any gap beyond the last one that had to
+   move.
+4. **Given** a universe containing a shared group above the insertion point,
+   **When** make room runs, **Then** that group moves as one and its members
+   still share.
+5. **Given** fixtures below the insertion point, **When** make room runs,
+   **Then** none of them moves.
+6. **Given** making room would push a fixture past channel 512, **When** the
+   planner chooses it, **Then** it is refused with that reason and the other
+   answers remain available.
+7. **Given** an address and channel count that exactly match an existing group,
+   **When** the prompt appears, **Then** it offers share address, and taking it
+   saves the fixture into that group with nothing moved.
+8. **Given** an address that matches an existing group's start but not its
+   channel count, **When** the prompt appears, **Then** share address is **not**
+   offered — the fixture would sit inside the other rather than beside it.
+9. **Given** the prompt, **When** the planner chooses place anyway, **Then** the
+   fixture is saved where they asked and the strip reports the clash.
+10. **Given** the prompt, **When** the planner goes back, **Then** nothing is
+    saved and nothing has moved.
+11. **Given** the planner is editing an existing fixture's address, **When** the
+    collision is checked, **Then** that fixture's own current channels do not
+    count as a collision with itself.
+12. **Given** the prompt is showing in the row editor, **When** the planner
+    presses `⌘↵`, **Then** it does not save and advance to the next row.
+
+---
+
+### User Story 6 - Find out how full a universe is before filling it (Priority: P3)
 
 The planner opens **Universes** from the bar. A drawer shows each universe in the
 rig with its occupancy as a number and a meter, its fixture count, the free
@@ -436,6 +538,24 @@ sheet.
   case where a fixture's universe changes, and it is the normalisation of an
   impossible value rather than a jump between two real universes.
 - **A read-only role.** Neither operation is offered at all.
+
+**Making room**
+
+- **Inserting into a universe with a gap just above.** The ripple stops at the
+  gap; the fixtures beyond it do not move.
+- **Inserting above everything in the universe.** No collision, no prompt.
+- **Inserting at an address occupied by a shared group of twenty.** The prompt
+  offers share address if the channel count matches, and otherwise counts that
+  group as **one** fixture moved, because it moves as one.
+- **Inserting where making room would need more channels than the universe has
+  left.** Refused, with the reason, and the other two answers still offered.
+- **Editing a fixture's channel count so it now overlaps its neighbour.** Same
+  prompt — a span grows into a collision exactly as it can be typed into one.
+- **A collision with a fixture that is itself out of bounds.** Still a collision;
+  make room ripples it along with the rest, which brings it back inside if there
+  is room.
+- **A batch set to share one address, landing on an occupied one.** The prompt
+  treats the batch as the single group it is.
 
 **The rest**
 
@@ -577,82 +697,121 @@ sheet.
 - **FR-042**: Optimise MUST report honestly when a universe already has no gaps,
   rather than claiming work it did not do.
 
+#### Placing a fixture at an occupied address
+
+- **FR-043**: When a planner confirms an address whose span would collide with
+  fixtures already in that universe, the save MUST be held and the planner MUST
+  be shown what it collides with — in the editor, not in a dialog.
+- **FR-044**: The prompt MUST name the fixtures in the way and state how many
+  fixtures making room would move.
+- **FR-045**: The prompt MUST offer **make room**, which places the fixture at
+  the address asked for and shifts the fixtures at and after it upwards.
+- **FR-046**: Make room MUST shift by ripple: the new span is placed, then each
+  following group in ascending address order moves up only as far as it must to
+  clear the one before it, stopping at the first group that needs no move. Gaps
+  beyond the ripple MUST be preserved, and fixtures below the insertion point
+  MUST NOT move.
+- **FR-047**: Make room MUST obey the same invariants as the bulk operations
+  (FR-031 – FR-035): groups move whole and stay shared, nothing that was separate
+  becomes shared, and no fixture leaves its universe.
+- **FR-048**: If making room would push any fixture past channel 512, it MUST be
+  refused with that reason, and the other answers MUST remain available.
+- **FR-049**: The prompt MUST offer **share address** when — and only when — the
+  address *and* channel count exactly match an existing group in that universe.
+  Taking it MUST save the fixture into that group and move nothing.
+- **FR-050**: The prompt MUST offer **place anyway**, saving the collision for
+  the strip to report, so that no address is ever refused (FR-060).
+- **FR-051**: The prompt MUST offer a way back that saves nothing and moves
+  nothing.
+- **FR-052**: The prompt MUST appear for the row editor and the add editor alike.
+  When editing, the fixture's own current channels MUST NOT count as a collision
+  with itself.
+- **FR-053**: While the prompt is showing, `⌘↵` MUST NOT save and advance to the
+  next row.
+
 #### The status strip
 
-- **FR-043**: A strip MUST close the panel, stating in every state the fixture
+- **FR-054**: A strip MUST close the panel, stating in every state the fixture
   count, each universe's occupancy out of 512, and the number of shared groups.
-- **FR-044**: The strip MUST have three states in this order of precedence:
+- **FR-055**: The strip MUST have three states in this order of precedence:
   **errors** (clashes and out-of-bounds spans), **unaddressed**, **clean** —
   tinting both the ground and the bounding rule, per
   [design/tokens.md](../../design/tokens.md) §5.
-- **FR-045**: The strip MUST name the first error in full — the fixtures, their
+- **FR-056**: The strip MUST name the first error in full — the fixtures, their
   spans and their universe — and count the rest.
-- **FR-046**: The strip MUST count duplicate console IDs where any exist.
-- **FR-047**: The strip MUST offer a control filtering the sheet to the rows it
+- **FR-057**: The strip MUST count duplicate console IDs where any exist.
+- **FR-058**: The strip MUST offer a control filtering the sheet to the rows it
   is reporting, and the way back to all rows.
-- **FR-048**: A fixture's address cell MUST be marked in the sheet when that
+- **FR-059**: A fixture's address cell MUST be marked in the sheet when that
   fixture is party to an error, and marked differently — quietly, as information
   rather than as a warning — when it is a member of a shared group, stating the
   size of that group.
-- **FR-049**: No error, duplicate console ID or unaddressed fixture may block a
+- **FR-060**: No error, duplicate console ID or unaddressed fixture may block a
   save. All are reported and none is prevented.
 
 #### Adding
 
-- **FR-050**: One add control MUST open one editor at the foot of the sheet, in
+- **FR-061**: One add control MUST open one editor at the foot of the sheet, in
   the same construction as the row editor, replacing both the Add Fixture and
   Bulk Add dialogs.
-- **FR-051**: The add editor MUST carry a quantity defaulting to 1, and its
+- **FR-062**: The add editor MUST carry a quantity defaulting to 1, and its
   confirm control MUST state how many fixtures it will add.
-- **FR-052**: The add editor MUST offer, for any quantity: model, name, starting
+- **FR-063**: The add editor MUST offer, for any quantity: model, name, starting
   console ID, mode, channel count, universe, power connection and power
   connector.
-- **FR-053**: With a quantity above 1 and a name given, the created fixtures MUST
+- **FR-064**: With a quantity above 1 and a name given, the created fixtures MUST
   be named from that stem and numbered from 1, with consecutive console IDs from
   the given start.
-- **FR-054**: The add editor MUST create a custom fixture when no catalog model
+- **FR-065**: The add editor MUST create a custom fixture when no catalog model
   is picked.
-- **FR-055**: The add editor MUST state the batch's channel demand against the
+- **FR-066**: The add editor MUST state the batch's channel demand against the
   chosen universe's largest free run (FR-029).
+- **FR-067**: The add editor MUST offer, for a quantity above 1, an option for
+  the whole batch to **share one address**: all of them created on one start
+  address as one shared group, consuming its channels once, with console IDs
+  still incrementing.
+- **FR-068**: A batch created that way MUST be a shared group by the ordinary
+  rule of identical spans, with nothing stored to record it (FR-077).
 
 #### The drawer
 
-- **FR-056**: A drawer MUST list every universe in use with the values FR-026
+- **FR-069**: A drawer MUST list every universe in use with the values FR-026
   derives: occupancy out of 512, a meter, fixture count, free channels, largest
   free run and where it starts, its shared groups, and its errors by kind.
-- **FR-057**: The meter MUST draw nothing for a universe with nothing addressed
+- **FR-070**: The meter MUST draw nothing for a universe with nothing addressed
   in it — an undeclared or empty count must never appear full or empty.
-- **FR-058**: The drawer MUST list the catalog models in the rig, each once, with
+- **FR-071**: The drawer MUST list the catalog models in the rig, each once, with
   quantity, per-fixture channel count and total channel demand.
-- **FR-059**: Both bulk operations MUST live in the drawer, each stating in one
+- **FR-072**: Both bulk operations MUST live in the drawer, each stating in one
   line what it does and how it differs from the other.
-- **FR-060**: After this feature the panel's bar MUST hold, in order: the title,
+- **FR-073**: After this feature the panel's bar MUST hold, in order: the title,
   search, the drawer control, then print and one primary action.
 
 #### Removing the DMX chain
 
-- **FR-061**: The DMX chain column MUST be removed from the sheet.
-- **FR-062**: `dmx_chain_parent_id` MUST be removed from the database by a
+- **FR-074**: The DMX chain column MUST be removed from the sheet.
+- **FR-075**: `dmx_chain_parent_id` MUST be removed from the database by a
   migration, from the fixture's domain struct, from every query that reads or
   writes it, from the API's JSON, and from the frontend's fixture type.
-- **FR-063**: The migration MUST be reversible, and the down migration MUST
+- **FR-076**: The migration MUST be reversible, and the down migration MUST
   restore the column as nullable — restoring the schema, not the data, which
   never had any.
-- **FR-064**: No other schema change is permitted by this feature. In particular,
+- **FR-077**: No other schema change is permitted by this feature. In particular,
   sharing MUST NOT become a stored relationship.
 
 #### Search, roles and boundaries
 
-- **FR-065**: The bar MUST carry a search box filtering on console ID, name,
+- **FR-078**: The bar MUST carry a search box filtering on console ID, name,
   model, mode, truss and note.
-- **FR-066**: Every control a read-only role cannot use MUST be absent, not
+- **FR-079**: Every control a read-only role cannot use MUST be absent, not
   disabled.
-- **FR-067**: The phone view MUST be unchanged, except for the removal required
-  by FR-062.
-- **FR-068**: The lighting rig print sheet MUST be unchanged.
-- **FR-069**: Every derivation this feature introduces — the four conditions, the
-  occupancy model, and the packing both operations share — MUST be expressed as
-  pure functions, testable without rendering anything and without a database.
+- **FR-080**: The phone view MUST be unchanged, except for the removal required
+  by FR-075.
+- **FR-081**: The lighting rig print sheet MUST be unchanged.
+- **FR-082**: Every derivation this feature introduces — the four conditions, the
+  occupancy model, and the packing its **three** callers share (auto-assign,
+  optimise, make room) — MUST be expressed as pure functions, testable without
+  rendering anything and without a database.
 
 ### Key Entities
 
@@ -705,16 +864,26 @@ sheet.
 - **SC-011**: A planner can tell whether a batch of *N* channels will fit in a
   universe **before** creating it, in a universe whose free channels are split
   across gaps.
-- **SC-012**: Adding twelve identical fixtures and adding one use the **same
+- **SC-012**: Inserting a fixture at an occupied address takes **one decision**
+  and no arithmetic, where today it takes re-addressing every fixture above it by
+  hand.
+- **SC-013**: Making room in a universe of thirty fixtures moves only the
+  fixtures that had to move — verified against a rig with a gap above the
+  insertion point.
+- **SC-014**: A shared group above an insertion point survives making room
+  intact, and a fixture that shared with nothing does not begin sharing.
+- **SC-015**: Twenty fixtures can be created on one address in **one** batch,
+  consuming one fixture's worth of the universe.
+- **SC-016**: Adding twelve identical fixtures and adding one use the **same
   form**, and the number of dialogs on the tab goes from 2 to 0.
-- **SC-013**: Every value editable on the tab today remains editable, and every
+- **SC-017**: Every value editable on the tab today remains editable, and every
   value visible today remains visible or is accounted for in the ledger at
-  [mockup.html](mockup.html) §06.
-- **SC-014**: The tab's toolbar carries one primary action, against four
+  [mockup.html](mockup.html) §07.
+- **SC-018**: The tab's toolbar carries one primary action, against four
   same-weight buttons today.
-- **SC-015**: The word `dmx_chain_parent_id` does not appear anywhere in the
+- **SC-019**: The word `dmx_chain_parent_id` does not appear anywhere in the
   repository outside historical migration files.
-- **SC-016**: The typecheck, lint, Go vet and test gates pass, and the four
+- **SC-020**: The typecheck, lint, Go vet and test gates pass, and the four
   conditions, the occupancy model and the shared packing are covered by unit
   tests that render nothing.
 
@@ -738,6 +907,16 @@ sheet.
   universe at 100 to leave room for something else — is not preserved, because
   "close the gaps" means all of them. If that turns out to be wrong, preserving
   the first group's address is a one-line change to the same pure function.
+- **Make room shifts upwards only.** Downwards would mean taking channels below
+  the insertion point that the planner may have left free deliberately, and there
+  is no address below 1 to fall back on.
+- **Make room ripples rather than shifting everything.** Every group at or after
+  the insertion point moving by the full width would be simpler to describe and
+  would destroy gaps a planner left on purpose. The ripple stops at the first
+  group that already clears the one before it.
+- **The collision prompt is checked on confirm, not while typing.** An address
+  typed one digit at a time passes through several collisions on its way to the
+  intended one, and a prompt that appeared for each would be noise.
 - **512 channels per universe**, matching the constant the auto-assign endpoint
   already enforces.
 - **A universe "in use"** is one that at least one fixture is assigned to.
@@ -767,9 +946,14 @@ sheet.
   the absence of a per-universe control. A button on each universe's card in the
   drawer is a small addition once the derivation is per-universe, and is the
   obvious next convenience.
-- **Undoing a bulk operation.** Both state what they will do and ask before doing
-  it; neither can be reversed afterwards, which is the behaviour auto-assign has
-  today.
+- **Undoing a bulk operation, or undoing make room.** All three state what they
+  will do and ask before doing it; none can be reversed afterwards, which is the
+  behaviour auto-assign has today.
+- **Making room across universes.** If a universe cannot take the insertion, it
+  is refused rather than spilling into the next universe — the whole point of
+  FR-035 is that a universe is a physical boundary.
+- **Choosing the insertion point for the planner.** The tool says where a batch
+  *would* fit (FR-030); it does not place fixtures without being asked.
 - **Reordering the rig.** Auto-assign reads the rig's order; it does not change
   it. Dragging fixtures into a different order is not part of this feature.
 - DMX chaining as a modelled relationship. The column is deleted, so a future

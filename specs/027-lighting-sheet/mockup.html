@@ -275,6 +275,16 @@
     font-family: var(--mono); font-size: 10px; border: 1px solid #3f3f46;
     border-radius: 4px; padding: 0 4px; color: #a1a1aa;
   }
+  .warn {
+    border: 1px solid rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.06);
+    border-radius: 6px; padding: 8px 10px; margin-top: 2px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;
+    font-size: 12px; color: #fcd34d; width: 100%;
+  }
+  .warn b { color: #fde68a; font-weight: 600; }
+  .warn span.q { color: #a1a1aa; }
+  .warn .acts { display: flex; gap: 6px; margin-left: auto; }
+
   .rowed__ro { font-size: 12px; color: #a1a1aa; height: 32px; display: inline-flex; align-items: center; gap: 8px; }
   .rowed__ro em { font-style: normal; color: #52525b; }
 
@@ -899,6 +909,7 @@
                       <div class="rowed__f rowed__f--count"><span class="lbl">Univ</span><span class="fld">2</span></div>
                       <div class="rowed__f rowed__f--short"><span class="lbl">Power</span><span class="fld fld--sel">chain</span></div>
                       <div class="rowed__f"><span class="lbl">Connector</span><span class="fld fld--sel">Schuko</span></div>
+                      <div class="rowed__f"><span class="lbl">Addresses</span><span class="fld fld--sel">consecutive</span></div>
                       <div class="rowed__acts">
                         <span class="btn" style="background:#f59e0b; color:#09090b; height:32px; padding:0 16px">Add 12 fixtures</span>
                         <span class="btn btn--ghost" style="height:32px; padding:0 12px">Cancel</span>
@@ -926,7 +937,147 @@
 
   <section>
     <div class="sec__hd">
-      <span class="sec__no">05 · the drawer</span>
+      <span class="sec__no">05 · making room</span>
+      <h2>An occupied address is a question, not a refusal</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Reading the map and repacking the whole of it are the two ends of the job. What a
+        planner actually does most often sits between them: putting <em>one</em> fixture at
+        <em>one</em> address, in a universe that already has fixtures either side of it.
+      </p>
+      <p>
+        Today that is arithmetic on paper. Inserting a 16-channel head at address 49 means
+        finding every fixture from 49 upwards and re-addressing each one by hand, in order,
+        without slipping — while the tool that could do it in a step waits to be told the
+        answer.
+      </p>
+      <p>
+        So a taken address is neither refused nor silently accepted. It is a question, asked
+        where the address was typed, with the answers that are actually available.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app" style="min-width:1040px">
+          <div class="pan">
+            <table class="sheet">
+              <tbody>
+                <tr class="open">
+                  <td class="num">141</td>
+                  <td class="nm">Key DS <span class="md">Robe Spiider</span></td>
+                  <td class="qt">Extended</td>
+                  <td class="num">1</td>
+                  <td class="num num--warn">049–064</td>
+                  <td class="num">16</td>
+                  <td class="none">—</td>
+                  <td class="qt">grid <span class="md">cee16-blue</span></td>
+                  <td class="notes"></td>
+                </tr>
+                <tr class="eds">
+                  <td colspan="9">
+                    <div class="rowed">
+                      <div class="rowed__f rowed__f--count"><span class="lbl">FID</span><span class="fld">141</span></div>
+                      <div class="rowed__f rowed__f--grow"><span class="lbl">Name</span><span class="fld">Key DS</span></div>
+                      <div class="rowed__f"><span class="lbl">Model</span><span class="fld fld--sel">Robe Spiider</span></div>
+                      <div class="rowed__f rowed__f--short"><span class="lbl">Mode</span><span class="fld fld--sel">Extended</span></div>
+                      <div class="rowed__f rowed__f--count"><span class="lbl">Ch</span><span class="fld">16</span></div>
+                      <div class="rowed__f rowed__f--count"><span class="lbl">Univ</span><span class="fld">1</span></div>
+                      <div class="rowed__f rowed__f--count"><span class="lbl">Addr</span><span class="fld fld--foc">49</span></div>
+                      <div class="rowed__acts">
+                        <span class="btn" style="background:#f59e0b; color:#09090b; height:32px; padding:0 16px">Save fixture</span>
+                        <span class="btn btn--ghost" style="height:32px; padding:0 12px">Cancel</span>
+                      </div>
+
+                      <div class="warn">
+                        <span><b>049–064 is taken.</b> Wash SR 4 sits at 049–064, and 10 fixtures follow it.</span>
+                        <span class="acts">
+                          <span class="btn btn--outline">Make room · moves 11</span>
+                          <span class="btn btn--ghost">Place anyway</span>
+                          <span class="btn btn--ghost">Back</span>
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <span class="spec__cap"><b>Collision.</b> In the editor where the address was typed — not in a dialog.</span>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app" style="min-width:1040px">
+          <div class="pan">
+            <table class="sheet">
+              <tbody>
+                <tr class="eds">
+                  <td colspan="9">
+                    <div class="rowed">
+                      <div class="rowed__f rowed__f--count"><span class="lbl">Qty</span><span class="fld">1</span></div>
+                      <div class="rowed__f"><span class="lbl">Model</span><span class="fld fld--sel">Chauvet COLORdash</span></div>
+                      <div class="rowed__f rowed__f--grow"><span class="lbl">Name</span><span class="fld">Wall wash 4</span></div>
+                      <div class="rowed__f rowed__f--short"><span class="lbl">Mode</span><span class="fld fld--sel">7ch</span></div>
+                      <div class="rowed__f rowed__f--count"><span class="lbl">Ch</span><span class="fld">7</span></div>
+                      <div class="rowed__f rowed__f--count"><span class="lbl">Univ</span><span class="fld">3</span></div>
+                      <div class="rowed__f rowed__f--count"><span class="lbl">Addr</span><span class="fld fld--foc">1</span></div>
+                      <div class="rowed__acts">
+                        <span class="btn" style="background:#f59e0b; color:#09090b; height:32px; padding:0 16px">Add fixture</span>
+                        <span class="btn btn--ghost" style="height:32px; padding:0 12px">Cancel</span>
+                      </div>
+
+                      <div class="warn">
+                        <span><b>001–007 is taken</b> by 3 fixtures on exactly these channels. <span class="q">Same address, same mode — this one can join them.</span></span>
+                        <span class="acts">
+                          <span class="btn btn--outline">Share address</span>
+                          <span class="btn btn--outline">Make room · moves 3</span>
+                          <span class="btn btn--ghost">Place anyway</span>
+                          <span class="btn btn--ghost">Back</span>
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <span class="spec__cap"><b>Exact match.</b> Share address appears only when the channel count matches too.</span>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <span class="led__k">Make room</span>
+        <span class="led__v"><b>Ripples, it does not bulldoze.</b> The new span is placed, then each following group moves up only as far as it must to clear the one before it — stopping at the first group that already clears. A gap a planner left on purpose beyond the ripple survives, and nothing below the insertion point moves at all. Same invariants as the bulk operations, because it is the same packing: groups move whole, sharing survives, and nothing leaves its universe.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">Share address</span>
+        <span class="led__v"><b>Offered only on an exact match</b> of address <em>and</em> channel count.<span class="tag tag--keep">conditional</span> A 4-channel par at the same start as a 16-channel wash is not sharing — it is one sitting inside the other — so the option is absent and the answer is make room or place anyway.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">Place anyway</span>
+        <span class="led__v"><b>Always there.</b><span class="tag tag--keep">always</span> A rig legitimately passes through a broken state while it is being renumbered, so no address is ever refused. The strip picks the clash up as it would any other.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">Refused</span>
+        <span class="led__v"><b>Only make room, and only when it cannot fit.</b> If the ripple would push a fixture past 512 the option says so and steps aside; the other answers stay. Nothing spills into the next universe — that is the whole point of a universe being a physical boundary.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">Batches</span>
+        <span class="led__v"><b>The add editor gains an <em>Addresses</em> setting:</b> <code style="font-family:var(--mono)">consecutive</code> or <code style="font-family:var(--mono)">all share one</code>.<span class="tag tag--new">new</span> Twenty pars on one address in one step, consuming seven channels rather than a hundred and forty — which is how an environment-lighting rig is actually built. Console IDs still increment; only the address is shared.</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">06 · the drawer</span>
       <h2>Where the universes are, and where auto-assign belongs</h2>
     </div>
 
@@ -1053,7 +1204,7 @@
 
   <section>
     <div class="sec__hd">
-      <span class="sec__no">06 · the ledger</span>
+      <span class="sec__no">07 · the ledger</span>
       <h2>Every column, accounted for</h2>
     </div>
 
@@ -1118,12 +1269,16 @@
         <span class="led__k">— new —</span>
         <span class="led__v"><b>Search.</b><span class="tag tag--new">new</span> By FID, name, model, mode, truss or note — as both audio tabs have.</span>
       </div>
+      <div class="led__row">
+        <span class="led__k">— new —</span>
+        <span class="led__v"><b>Make room.</b><span class="tag tag--new">new</span> An occupied address offers to shift the fixtures above it rather than making the planner do the arithmetic. See §05.</span>
+      </div>
     </div>
   </section>
 
   <section>
     <div class="sec__hd">
-      <span class="sec__no">07 · scope</span>
+      <span class="sec__no">08 · scope</span>
       <h2>What this wave does not touch</h2>
     </div>
 
@@ -1154,8 +1309,9 @@
         trap of our own making.
       </p>
       <p>
-        <strong>Still left alone:</strong> neither operation can be undone, neither reorders
-        the rig, and neither can be run on a single universe. The first two match what
+        <strong>Still left alone:</strong> none of the three operations can be undone,
+        neither bulk operation reorders the rig, and neither can be run on a single
+        universe. The first two match what
         auto-assign does today; the third is a convenience that costs a control per card and
         blocks nothing, since a universe that will not fit is skipped rather than fatal.
       </p>
@@ -1164,7 +1320,7 @@
 
   <section>
     <div class="sec__hd">
-      <span class="sec__no">08 · decided</span>
+      <span class="sec__no">09 · decided</span>
       <h2>What was asked, and what was answered</h2>
     </div>
 
@@ -1235,6 +1391,7 @@
       </p>
     </div>
 
+
     <div class="ask">
       <h3>7 · Auto-assign rewritten, and given a sibling — added on review</h3>
       <p>
@@ -1246,6 +1403,18 @@
         and named instead of failing the whole rig. And <strong>Optimise channels</strong>
         joins it — same packing, ordered by where fixtures already are rather than by rig
         order, so gaps close without the numbering being thrown away.
+      </p>
+    </div>
+    <div class="ask">
+      <h3>8 · Make room, and batches that share — added on review</h3>
+      <p>
+        An address that is already taken now asks rather than refusing or silently
+        accepting: <strong>make room</strong> ripples the fixtures above it up by just
+        enough, <strong>share address</strong> appears when the channel count matches
+        exactly, and <strong>place anyway</strong> is always there because no address is
+        ever refused. The add editor gains an <em>Addresses</em> setting so a whole batch
+        can land on one address — twenty pars for seven channels, in one step. §05 above is
+        the result.
       </p>
     </div>
   </section>
