@@ -351,6 +351,79 @@
   .oldtile .l { font-size: 14px; color: #a1a1aa; }
   .oldtile .v { font-size: 30px; font-weight: 600; color: #fafafa; }
 
+  .q { color: #52525b; }
+
+  /* -- the dashboard hero: the next show, bordered the way the desk is -- */
+  .hero { border: 1px solid rgba(245, 158, 11, 0.55); border-radius: 12px; background: rgba(9, 9, 11, 0.4); overflow: hidden; }
+  .hero__hd { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 16px 20px 0; }
+  .hero__ti { font-size: 20px; font-weight: 600; color: #fafafa; }
+  .hero__sub { font-size: 14px; color: #a1a1aa; margin-top: 2px; }
+  .hero__cd { text-align: right; flex: none; }
+  .hero__cd .v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 30px; font-weight: 600; color: #f59e0b; line-height: 1; }
+  .hero__cd .l { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #71717a; margin-top: 4px; }
+  .hero__ft {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
+    padding: 10px 20px; border-top: 1px solid #27272a; background: rgba(9, 9, 11, 0.6);
+  }
+
+  .nums { display: flex; flex-wrap: wrap; }
+  .nums > div { flex: 1; min-width: 118px; padding: 4px 20px; border-left: 1px solid #27272a; }
+  .nums > div:first-child { border-left: 0; padding-left: 0; }
+  .nums .v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 22px; font-weight: 600; color: #fafafa; line-height: 1.1; }
+  .nums .v small { font-size: 13px; font-weight: 500; color: #71717a; margin-left: 2px; }
+  .nums .l { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #71717a; margin-top: 5px; }
+
+  /* the rig in one line — the flow canvas's own encoding, one row high */
+  .rib { display: flex; align-items: center; gap: 8px; }
+  .node {
+    border: 1px solid #3f3f46; border-radius: 7px; background: #1f2028;
+    padding: 3px 9px; display: inline-flex; flex-direction: column;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+  .node--desk { border-color: rgba(245, 158, 11, 0.55); }
+  .node .n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #fafafa; font-size: 12px; line-height: 1.3; }
+  .node .k { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: #71717a; }
+  .run { position: relative; flex: 1; min-width: 26px; height: 2px; border-radius: 2px; background: #3f3f46; }
+
+  /* the one sanctioned animation, in the wrapper tokens.md requires */
+  @keyframes pp-travel-x {
+    0% { left: 0; opacity: 0; }
+    12% { opacity: 1; }
+    88% { opacity: 1; }
+    100% { left: 100%; opacity: 0; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .run::after {
+      content: ""; position: absolute; top: -2px; margin-left: -3px;
+      width: 6px; height: 6px; border-radius: 999px; background: #f59e0b;
+      filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.9));
+      animation: pp-travel-x 3.6s ease-in-out infinite;
+      animation-delay: var(--d, 0s);
+    }
+  }
+
+  .ready { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+  .ready span.a { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #71717a; }
+  .ready span.a b {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #52525b; font-weight: 500;
+  }
+
+  /* the dated lists: a labelled rule instead of a card header */
+  .tlhd { display: flex; align-items: center; gap: 12px; padding: 0 0 6px; }
+  .tlhd .rule { flex: 1; height: 1px; background: #27272a; }
+  .tlhd .ct { font-family: var(--mono); font-size: 10px; color: #52525b; }
+  .tlrow {
+    display: flex; align-items: center; gap: 16px; padding: 9px 12px;
+    border-bottom: 1px solid rgba(39, 39, 42, 0.6); font-size: 14px;
+  }
+  .tlrow--on { background: #18181b; }
+  .tlrow .d { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: #a1a1aa; width: 76px; flex: none; }
+  .tlrow .n { color: #f4f4f5; font-weight: 500; width: 240px; flex: none; }
+  .tlrow .v { color: #71717a; flex: 1; }
+  .tlrow--past .n { color: #a1a1aa; font-weight: 400; }
+  .tlrow--past .d { color: #52525b; }
+
   .tally {
     display: flex; flex-wrap: wrap; gap: 8px 20px; font-family: var(--mono);
     font-size: 11px; color: var(--faint); padding-left: 2px;
@@ -380,11 +453,12 @@
     <p class="head__lede">
       Eight surfaces outside the event tabs. The audit calls them “mostly already
       right” — navigation surfaces built with navigation-surface components — and for
-      five of them that holds. Three do not: the inventory catalog is a 308-row work
-      surface wearing a card stack, the vocabulary settings render nine cards where one
-      panel would do, and the dashboard's headline number carries a badge that repeats
-      its own label. This page draws those three, closes the radius ladder, and asks for
-      one exemption.
+      four of them that holds. The inventory catalog is a 308-row work surface wearing a
+      card stack. The vocabulary settings render nine cards where one panel would do. And
+      the dashboard, the screen you land on every working day, is five bordered boxes
+      saying twelve, four, two and here are some links — the one page here that needs
+      <em>more</em>, not less. This page draws those three, closes the radius ladder, and
+      records the exemption granted to the start page.
     </p>
   </header>
 
@@ -420,11 +494,13 @@
         </div>
       </div>
       <div class="led__row">
-        <div class="led__k">Dashboard<span class="tag tag--new">trim</span></div>
+        <div class="led__k">Dashboard<span class="tag tag--drop">rebuild</span></div>
         <div class="led__v">
-          Three stat cards whose <code>Badge</code> repeats the first word of the label
-          beside it — <em>Total</em>, <em>Upcoming</em>, <em>Inventories</em> — and a
-          “Quick actions” card containing one button and a sentence of marketing copy.
+          <b>Five cards</b> to say twelve, four, two and here are some links. Three stat
+          badges repeat the first word of the label beside them — <em>Total</em>,
+          <em>Upcoming</em>, <em>Inventories</em> — and “Quick actions” holds one button
+          and a sentence of marketing copy. <em>This is the screen you see every working
+          day, and it should make you want to open something.</em>
         </div>
       </div>
       <div class="led__row">
@@ -1041,11 +1117,13 @@
       </p>
       <p>
         <strong><code>In use</code> is new, and it is the point.</strong> The backend
-        already refuses to delete a value a plan references; the interface finds out by
-        trying. Counting the references is the same derivation, made visible before the
-        click <span class="tag tag--new">needs an endpoint</span> — the one piece of
-        backend work in Wave 5, and it may be worth deferring. Without it the sheet is
-        two columns and the notice says only that deletion may be refused.
+        already refuses to delete a value a plan references; today the interface finds out
+        by trying, and reports the refusal as an error the user caused. Counting the
+        references is the same derivation, made visible <em>before</em> the click — so a
+        value safe to delete looks different from one that is load-bearing, at rest,
+        without touching anything. <span class="tag tag--new">endpoint approved</span> It
+        also turns the notice from a warning into a fact: <em>two input channels use this
+        value</em>, rather than <em>deletion may be refused</em>.
       </p>
       <p>
         <strong>One component, still two pages.</strong> Settings and My Defaults keep
@@ -1061,7 +1139,7 @@
   <section>
     <div class="sec__hd">
       <span class="sec__no">05 · dashboard · events</span>
-      <h2>Two pages that need less, not more</h2>
+      <h2>The page you land on</h2>
     </div>
 
     <div class="prose">
@@ -1071,7 +1149,13 @@
         style="color:#a1a1aa">Total</span></em>. It is a coloured chip that carries no
         information, on the surface that establishes what colour means, and by P4 that is
         the violation named in the principle: <em>a state distinguishable from its
-        neighbour only by being amber</em>, except here it does not even distinguish.
+        neighbour only by being amber</em> — except here it does not even distinguish.
+      </p>
+      <p>
+        Beside them, a card called “Quick actions” holds one button and a sentence of
+        marketing copy, and a card called “Recent events” holds five links.
+        <strong>Five bordered boxes to say twelve, four, two, and here are some
+        links.</strong>
       </p>
     </div>
 
@@ -1121,57 +1205,196 @@
       <div class="spec__cap"><b>before</b> — three badges that repeat their own labels, and a card holding one button</div>
     </div>
 
+    <div class="prose">
+      <p>
+        But trimming it is not enough. This is the screen a user lands on every working
+        day, and what it currently offers is three counts of things they own and a link to
+        the event they were already looking at. It should make you want to open something.
+      </p>
+      <p>
+        So the dashboard stops being a grid of cards and becomes <strong>one show, then a
+        dated list</strong>: the next event drawn at full size with the shape of its rig
+        and where its plan stands, and everything else on a spine of dates.
+      </p>
+    </div>
+
     <div class="spec">
       <div class="spec__frame">
         <div class="app">
-          <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px">
-            <span style="font-size:18px; font-weight:600; color:#f4f4f5">Dashboard</span>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px">
+            <span class="lbl">Next show</span>
             <span class="btn btn--primary btn--md">+ New event</span>
           </div>
-          <div class="stats" style="margin-bottom:16px">
-            <div><div class="l">Events</div><div class="v">12</div></div>
-            <div><div class="l">Upcoming</div><div class="v">4</div></div>
-            <div><div class="l">Inventories</div><div class="v">2</div></div>
-          </div>
-          <div class="ncard">
-            <div class="ncard__hd"><div><h4>Recent events</h4></div></div>
-            <div class="ncard__bd">
-              <div class="lrow">
-                <div><div class="t">Fest i Parken 2026</div><div class="s">Slottsparken, Malmö</div></div>
-                <span class="badge" style="background:rgba(245,158,11,0.15); color:#fcd34d">2026-08-14</span>
+
+          <div class="hero">
+            <div class="hero__hd">
+              <div>
+                <div class="hero__ti">Fest i Parken 2026</div>
+                <div class="hero__sub">Slottsparken, Malmö · Saturday 14 August 2026</div>
               </div>
-              <div class="lrow">
-                <div><div class="t">Höstfest Kulturhuset</div><div class="s">Kulturhuset, Lund</div></div>
-                <div style="display:flex; gap:8px">
-                  <span class="badge" style="background:#3f3f46; color:#f4f4f5">contributor</span>
-                  <span class="badge" style="background:rgba(245,158,11,0.15); color:#fcd34d">2026-10-02</span>
-                </div>
-              </div>
-              <div class="lrow">
-                <div><div class="t">Vinterspelningen</div><div class="s">Venue TBD</div></div>
-                <span class="badge" style="background:rgba(245,158,11,0.15); color:#fcd34d">No date</span>
+              <div class="hero__cd">
+                <div class="v">18</div>
+                <div class="l">days to load-in</div>
               </div>
             </div>
+
+            <div style="padding:20px 20px 16px">
+              <div class="rib">
+                <span class="node"><span class="n">12</span><span class="k">sources</span></span>
+                <span class="run" style="--d:0s"></span>
+                <span class="node"><span class="n">2</span><span class="k">stageboxes</span></span>
+                <span class="run" style="--d:.25s"></span>
+                <span class="node node--desk"><span class="n">SD10</span><span class="k">console</span></span>
+                <span class="run" style="--d:.5s"></span>
+                <span class="node"><span class="n">3</span><span class="k">amps</span></span>
+                <span class="run" style="--d:.75s"></span>
+                <span class="node"><span class="n">8</span><span class="k">speakers</span></span>
+                <span class="run" style="--d:1s"></span>
+                <span class="node"><span class="n">64</span><span class="k">fixtures</span></span>
+              </div>
+            </div>
+
+            <div style="padding:0 20px 16px">
+              <div class="nums">
+                <div><div class="v">32<small> / 16</small></div><div class="l">channels in / out</div></div>
+                <div><div class="v">128</div><div class="l">cables picked</div></div>
+                <div><div class="v">3</div><div class="l">dmx universes</div></div>
+                <div><div class="v">3</div><div class="l">stage plots</div></div>
+                <div><div class="v">24190<small> kr</small></div><div class="l">rental, ex vat</div></div>
+              </div>
+            </div>
+
+            <div class="hero__ft">
+              <div class="ready" style="flex:1">
+                <span class="a"><b>Audio</b><span class="pill t-warn">2 gaps</span></span>
+                <span class="a"><b>Lighting</b><span class="pill t-ok">addressed</span></span>
+                <span class="a"><b>Rental</b><span class="pill t-err">1 over stock</span></span>
+                <span class="a"><b>Equipment</b><span class="pill t-ok">5 lines</span></span>
+              </div>
+              <span class="btn btn--outline">Open the show →</span>
+            </div>
+          </div>
+
+          <div style="margin-top:26px">
+            <div class="tlhd">
+              <span class="lbl">Also coming up</span>
+              <span class="rule"></span>
+              <span class="ct">3</span>
+            </div>
+            <div class="tlrow tlrow--on">
+              <span class="d">02 Oct</span>
+              <span class="n">Höstfest Kulturhuset</span>
+              <span class="v">Kulturhuset, Lund</span>
+              <span class="badge" style="background:#3f3f46; color:#f4f4f5">contributor</span>
+            </div>
+            <div class="tlrow">
+              <span class="d">14 Nov</span>
+              <span class="n">Vinterspelningen</span>
+              <span class="v">Venue TBD</span>
+            </div>
+            <div class="tlrow">
+              <span class="d q">no date</span>
+              <span class="n">Sommarturné 2027</span>
+              <span class="v">12 dates, venues to confirm</span>
+            </div>
+          </div>
+
+          <div style="margin-top:26px">
+            <div class="tlhd">
+              <span class="lbl">Done</span>
+              <span class="rule"></span>
+              <span class="ct">8</span>
+            </div>
+            <div class="tlrow tlrow--past">
+              <span class="d">12 Jun</span>
+              <span class="n">Valborg på Torget</span>
+              <span class="v">Stortorget, Lund</span>
+            </div>
+            <div class="tlrow tlrow--past">
+              <span class="d">03 May</span>
+              <span class="n">Studentskivan</span>
+              <span class="v">Akademiska Föreningen</span>
+              <span class="badge" style="background:rgba(245,158,11,0.15); color:#fcd34d">viewer</span>
+            </div>
+            <div class="tlrow tlrow--past">
+              <span class="d">28 Mar</span>
+              <span class="n">Vårkonsert</span>
+              <span class="v">Palladium, Malmö</span>
+            </div>
+          </div>
+
+          <div class="strip" style="border:1px solid #27272a; border-radius:12px; margin-top:26px">
+            <span><span class="mono">12</span> events</span>
+            <span class="q">·</span>
+            <span><span class="mono">4</span> upcoming</span>
+            <span class="q">·</span>
+            <span><span class="mono">2</span> inventories</span>
+            <span class="q">·</span>
+            <span><span class="mono">350</span> catalog items</span>
+            <span class="q">·</span>
+            <span><span class="mono">10</span> owned items</span>
           </div>
         </div>
       </div>
-      <div class="spec__cap"><b>after</b> — one stats row divided by rules, recent events full width, the action in the page's own row</div>
+      <div class="spec__cap"><b>after</b> — one show at full size, then a spine of dates. The dot travels the rig; it stops if you have asked for less motion</div>
+    </div>
+
+    <div class="tally">
+      <span>cards <b>5 → 0</b></span>
+      <span>chips carrying no information <b>3 → 0</b></span>
+      <span>events visible <b>5 → 6 + the next one in full</b></span>
+      <span>facts about the next show <b>2 → 13</b></span>
+      <span>marketing sentences <b>1 → 0</b></span>
     </div>
 
     <div class="prose">
       <p>
-        <strong>Three cards become one row divided by rules</strong> — P1 again: a gap
-        between cards says <em>these are separate</em>, and three counts of the same
-        account are not. The numbers go mono with <code>tabular-nums</code>, because they
-        are numbers a person compares, and drop from <code>text-3xl</code> to
-        <code>text-2xl</code> so they stop out-shouting the panel titles under them (P8).
+        <strong>The next show is bordered the way the desk is.</strong>
+        <code>amber-500/55</code> is the canvas's own encoding for <em>the box every other
+        box is arranged around</em>, and on this page that is exactly what the next event
+        is. Reusing it is not decoration — it is the same claim, on a different surface.
+        The word <em>Next show</em> is above it, so the border is never the only carrier
+        (P4).
       </p>
       <p>
-        <strong>The “Quick actions” card is deleted.</strong> One button and a sentence of
-        marketing copy on the screen a user sees every working day. The button becomes the
-        page's primary action, in the row with the page title, which is where the Events
-        page already puts it. The role badge stays exactly as it is — it appears only when
-        your role is <em>not</em> owner, which is a real signal.
+        <strong>The ribbon is the flow canvas, one row high, and the dot travels
+        it.</strong> Real nodes with their real border and shadow, the console in amber,
+        runs between them — twelve sources into two stageboxes into an SD10 into three amps
+        into eight boxes and sixty-four fixtures. It says what shape the show is in the
+        width of a sentence, and it is the product's own picture of itself.
+      </p>
+      <p>
+        <strong>The animation is the one the language already sanctions.</strong>
+        <code>design/tokens.md</code> §6 permits exactly two things — <code>transition-colors</code>,
+        and the signal-flow pulse, “already wrapped in
+        <code>prefers-reduced-motion: no-preference</code>”, with the instruction that any
+        new animation gets the same wrapper. That pulse exists today only on the
+        signed-out start page. Bringing it to the signed-in landing page is the same
+        animation in the same wrapper, staggered along the runs so the signal walks the rig.
+        It stays off every working surface, because a tool that animates while a technician
+        is counting channels is in the way — and a landing page is not that.
+      </p>
+      <p>
+        <strong>Everything else is a spine of dates.</strong> No cards, no grid: a
+        micro-label and a rule, then rows of <em>date · name · venue · role</em> with the
+        dates in mono so they line up as a column you can run your eye down. Past events
+        keep their own block, dimmed, because they are how you find last year's file for
+        the same festival — which is currently impossible without scrolling a grid of
+        identical boxes.
+      </p>
+      <p>
+        <strong>The three counts become the strip.</strong> They were never the headline;
+        they are the footnote, and the footnote is where they go — joined by the catalog
+        and owned-gear counts, so the strip states what your account contains rather than
+        just how many events are in it.
+      </p>
+      <p>
+        <strong>What this costs is the same endpoint Wave 4 already buys.</strong> The hero
+        needs the next event's counts and verdicts, which is
+        <code>GET /events/{id}/summary</code> — built for the Overview tab, called here for
+        one event. If it slips, the hero still draws: name, venue, date, countdown and role
+        all come from <code>listEvents</code> today, and the ribbon and the numbers appear
+        when the endpoint does.
       </p>
       <p>
         <strong>Events barely changes.</strong> It is a grid of independent objects and P1
@@ -1228,7 +1451,7 @@
   <section>
     <div class="sec__hd">
       <span class="sec__no">07 · start page</span>
-      <h2>The exemption</h2>
+      <h2>The exemption <span class="tag tag--keep" style="vertical-align:6px">granted</span></h2>
     </div>
 
     <div class="prose">
@@ -1258,10 +1481,19 @@
         ladder's <code>rounded-md</code> and is therefore just a stray.
       </p>
       <p>
-        The alternative is to converge it: flatten the gradients, drop the display type to
-        the ladder, and lose the patch-bay graphic. That is a real option and it would make
-        the audit's grep come out clean. I do not recommend it — but it is the user's call,
-        not the audit's, and it is the fourth ask below.
+        The alternative was to converge it: flatten the gradients, drop the display type to
+        the ladder, lose the patch-bay graphic, and make the audit's grep come out clean at
+        the cost of the only page in the product whose job is to be memorable.
+        <strong>The exemption was granted</strong>, so that is what the spec will say, and
+        the audit will carry the exemption in writing rather than a permanently open
+        finding nobody intends to close.
+      </p>
+      <p>
+        One thread does run back the other way. The start page owns the
+        <code>pp-pulse-dot</code> animation — a dot travelling a cable path — and the
+        design language sanctions it by name as the app's only permitted motion. §05 brings
+        it inside, to the signed-in landing page. Exempting the start page from the
+        language does not mean nothing may come out of it.
       </p>
     </div>
   </section>
@@ -1374,10 +1606,11 @@
 
     <div class="prose">
       <p>
-        <strong>One possible endpoint, and it is optional.</strong> The <code>In use</code>
-        column on the vocabulary sheet needs a reference count the API does not expose
-        today. Everything else in the wave renders data already fetched. If that count is
-        deferred, the sheet is two columns and nothing else changes.
+        <strong>Two endpoints, no migration.</strong> The vocabulary sheet's
+        <code>In use</code> column needs a reference count the API does not expose today,
+        and the dashboard hero reuses <code>GET /events/{id}/summary</code>, which Wave 4
+        builds for the Overview tab. Neither changes the schema; both count things the
+        database already holds. Everything else in the wave renders data already fetched.
       </p>
       <p>
         <strong>One touch on <code>components/ui/</code></strong>, on <code>Button</code>,
@@ -1408,12 +1641,20 @@
        ================================================================== -->
   <section>
     <div class="sec__hd">
-      <span class="sec__no">10 · to approve</span>
-      <h2>Four calls before the spec is written</h2>
+      <span class="sec__no">10 · decided</span>
+      <h2>What was asked, and what was answered</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Four calls, all answered. Two were approved as drawn, one was approved with the
+        hedge removed, and one came back asking for more rather than less — the drawings
+        above have been revised to match.
+      </p>
     </div>
 
     <div class="ask">
-      <h3>1 · Inventories — a category rail, and two drawers</h3>
+      <h3>1 · Inventories — a category rail, and two drawers <span class="tag tag--keep">approved</span></h3>
       <p>
         The categories become a filter column of the panel; renaming, retyping, deleting
         and picker-role assignment move into a <em>Categories</em> drawer; the import
@@ -1424,37 +1665,43 @@
     </div>
 
     <div class="ask">
-      <h3>2 · Settings and My Defaults — nine cards become one panel</h3>
+      <h3>2 · The <em>In use</em> count is worth an endpoint <span class="tag tag--keep">approved</span></h3>
       <p>
-        The same rail construction, its second use, with the vocabularies as the rail and
-        the selected vocabulary's values as the sheet. The stored key becomes a column
-        rather than a caption. <strong>The open question inside this one:</strong> is the
-        <em>In use</em> count worth an endpoint? It turns “deleting may be refused” into
-        “two channels use this”, and it is the only backend work in either wave.
+        Asked as “is it worth it, or should it be deferred?”. Answered: build it. So the
+        column is not a nice-to-have hanging off the design — it is the reason the sheet
+        has three columns, and the reason the editor's notice states a fact rather than
+        issuing a warning. The rest of the call stands as drawn: nine cards become one
+        panel, the vocabularies become the rail, and the stored key becomes a column rather
+        than a caption beside every label.
       </p>
     </div>
 
     <div class="ask">
-      <h3>3 · Dashboard — the badges go, and so does “Quick actions”</h3>
+      <h3>3 · Dashboard — rebuilt, not trimmed <span class="tag tag--new">revised</span></h3>
       <p>
-        Three stat cards become one row divided by rules, with mono numbers and no chips;
-        the recent-events list goes full width; <em>Create event</em> moves to the page's
-        own action row and the marketing sentence beside it is deleted. Events keeps its
-        card grid and gains a search field.
+        Asked as “the badges go and so does Quick actions”. Answered: <strong>less card-y,
+        and make it exciting</strong> — this is the logged-in landing page. So the page
+        loses cards entirely. The next show is drawn at full size with the shape of its rig
+        as a one-row flow ribbon, a countdown, five numbers and the readiness verdicts from
+        every tab; everything else falls onto a spine of dates, upcoming and done; the
+        three counts become the footer strip they always were.
+      </p>
+      <p>
+        The pulse comes with it. <code>tokens.md</code> §6 permits exactly one animation
+        and names it, so this is the language's own allowance being spent where it belongs
+        — on the page you land on, never on a surface anyone works on. §05 above is the
+        result.
       </p>
     </div>
 
     <div class="ask">
-      <h3>4 · The Start page — exempt it, or converge it?</h3>
+      <h3>4 · The Start page is exempt <span class="tag tag--keep">granted</span></h3>
       <p>
-        My recommendation is to <strong>exempt it in writing</strong>: record in
-        <code>design/audit.md</code> and <code>design/principles.md</code> that the
+        Recorded in <code>design/audit.md</code> and <code>design/principles.md</code>: the
         signed-out marketing surface is outside this language and shares only the brand
-        mark, the accent and the type families — then fix its one stray radius and leave
-        the rest alone. The alternative is converging it to the ladder, which would make
-        the audit's grep come out clean at the cost of the only page in the product whose
-        job is to be memorable. This is the one ask where I think the audit, taken
-        literally, points the wrong way.
+        mark, the accent and the type families. Its one stray <code>rounded-lg</code> is
+        fixed and the rest is left alone — so A4 closes honestly rather than staying open
+        against a page nobody intends to convert.
       </p>
     </div>
   </section>

@@ -384,6 +384,52 @@
   .inline-amber ul { margin: 6px 0 0; padding-left: 18px; }
   .inline-amber li { margin-top: 2px; }
 
+  /* -- the drawer, for the Overview editor -- */
+  .drw { width: 420px; border: 1px solid #3f3f46; border-radius: 12px; background: #09090b; overflow: hidden; }
+  .drw__hd { padding: 16px 20px; border-bottom: 1px solid #27272a; }
+  .drw__hd h4 { margin: 0; font-size: 18px; font-weight: 600; color: #fafafa; font-family: inherit; }
+  .drw__hd p { margin: 2px 0 0; font-size: 12px; color: #71717a; max-width: none; }
+  .drw__bd { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+  .drw__ft { padding: 12px 20px; border-top: 1px solid #27272a; font-size: 12px; color: #71717a; }
+
+  .meter { height: 3px; width: 120px; border-radius: 2px; background: #27272a; overflow: hidden; }
+  .meter i { display: block; height: 100%; background: #f59e0b; }
+
+  /* the numbers band — the one place in the app where type gets big */
+  .nums { display: flex; flex-wrap: wrap; border-top: 1px solid #27272a; border-bottom: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); }
+  .nums > div { flex: 1; min-width: 132px; padding: 14px 20px; border-left: 1px solid #27272a; }
+  .nums > div:first-child { border-left: 0; }
+  .nums .v {
+    font-family: var(--mono); font-variant-numeric: tabular-nums;
+    font-size: 26px; font-weight: 600; color: #fafafa; line-height: 1.1;
+  }
+  .nums .v small { font-size: 14px; font-weight: 500; color: #71717a; margin-left: 2px; }
+  .nums .l {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #71717a; margin-top: 6px;
+  }
+
+  /* the rig in one line — the flow canvas's own encoding, one row high */
+  .rib { display: flex; align-items: center; gap: 8px; }
+  .rib__k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #71717a; width: 74px; flex: none; }
+  .node {
+    border: 1px solid #3f3f46; border-radius: 7px; background: #1f2028;
+    padding: 3px 9px; display: inline-flex; flex-direction: column; gap: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+  .node--desk { border-color: rgba(245, 158, 11, 0.55); }
+  .node .n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #fafafa; font-size: 12px; line-height: 1.3; }
+  .node .k { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: #71717a; }
+  .run { flex: 1; min-width: 18px; height: 2px; border-radius: 2px; background: #3f3f46; }
+
+  /* readiness: a pill and a word, never a bare coloured dot (P5) */
+  .ready { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+  .ready span.a { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #71717a; }
+  .ready span.a b { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #52525b; font-weight: 500; }
+
+  .quote { font-size: 14px; color: #a1a1aa; border-left: 2px solid #27272a; padding-left: 12px; }
+  .q { color: #52525b; }
+
   /* counts strip under a specimen */
   .tally {
     display: flex; flex-wrap: wrap; gap: 8px 20px; font-family: var(--mono);
@@ -401,8 +447,9 @@
       Rental Order, Equipment and Signal Flow are the last work surfaces in the
       application still drawn as stacked cards on the navigation tier. Wave 3 built the
       template and proved it on the hardest case; these three are the same conversion
-      with no derivation to invent. Overview is the fourth tab, and the odd one out — it
-      is a form, and it stays one.
+      with no derivation to invent. Overview is the fourth tab and the odd one out: it
+      stops being a form altogether, and becomes the one screen that says what the whole
+      event amounts to.
     </p>
   </header>
 
@@ -457,9 +504,10 @@
       <div class="led__row">
         <div class="led__k">Overview</div>
         <div class="led__v">
-          <b>Two cards</b> and three stat tiles at <code>rounded-lg</code>. A form, not a
-          sheet — so this one converges by <em>subtraction</em>, and is the smallest change
-          in the wave.
+          <b>Two cards</b>, three stat tiles at <code>rounded-lg</code>, and four form
+          fields sitting open on the tab you land on. It knows more about the event than
+          any other screen and shows almost none of it — so this one converges by
+          <em>changing what it is for</em>.
         </div>
       </div>
     </div>
@@ -1246,20 +1294,26 @@
   <section>
     <div class="sec__hd">
       <span class="sec__no">05 · overview</span>
-      <h2>The tab that stays a form</h2>
+      <h2>The tab that stops being a form</h2>
     </div>
 
     <div class="prose">
       <p>
-        Four fields and a notes box. By P2's question — <em>does the user scan many rows of
-        this at once?</em> — this is a navigation surface, and it keeps navigation-surface
-        sizing: <code>text-sm</code>, <code>size="md"</code> controls, <code>px-5 py-4</code>
-        padding. Converting it to a work panel would be applying the pattern rather than
-        using it.
+        Overview is the tab you land on, and it is four text inputs and a notes box. You
+        arrive at your own event and are shown a form for the three facts you are least
+        likely to have forgotten — its name, its venue, its date.
       </p>
       <p>
-        What is wrong with it is P1, not P2: it is <strong>two cards with a gap</strong>,
-        and three stat tiles at a radius that is not in the ladder.
+        Meanwhile it is the only screen positioned to answer <em>how is this show
+        doing</em>, and it answers none of it. Everything needed is already derived
+        somewhere else in the application: the patch knows its channel count and its gaps,
+        the rig knows its fixtures and its DMX occupancy, the rental order knows its total
+        and its over-stock lines. Eight tabs each hold one shard of the answer and no
+        screen holds the answer.
+      </p>
+      <p>
+        So: <strong>editing moves into a drawer, and the tab becomes what it should have
+        been</strong> — the event, stated.
       </p>
     </div>
 
@@ -1305,49 +1359,168 @@
         <div class="app">
           <div class="ncard">
             <div class="ncard__hd">
-              <div><h4>Overview</h4></div>
-              <span class="btn btn--primary btn--md">Save event</span>
-            </div>
-            <div class="ncard__bd">
-              <div class="grid3">
-                <div><span class="nlbl">Name</span><span class="nfld">Fest i Parken 2026</span></div>
-                <div><span class="nlbl">Venue</span><span class="nfld">Slottsparken, Malmö</span></div>
-                <div><span class="nlbl">Date</span><span class="nfld">2026-08-14</span></div>
+              <div>
+                <h4>Fest i Parken 2026</h4>
+                <p>Slottsparken, Malmö · Saturday 14 August 2026</p>
               </div>
-              <div><span class="nlbl">Notes</span><span class="nfld nfld--area">Load-in 08:00 from the east gate. Support act shares the drum kit.</span></div>
+              <span class="btn btn--outline btn--md">Edit details</span>
             </div>
-            <div class="ncard__sec">
-              <span class="nlbl" style="margin:0; width:96px; flex:none">Inventory</span>
+
+            <div style="padding:16px 20px">
+              <p class="quote">Load-in 08:00 from the east gate. Support act shares the drum kit.</p>
+            </div>
+
+            <div class="nums">
+              <div><div class="v">18</div><div class="l">days to load-in</div></div>
+              <div><div class="v">32<small> / 16</small></div><div class="l">channels in / out</div></div>
+              <div><div class="v">64</div><div class="l">fixtures</div></div>
+              <div><div class="v">128</div><div class="l">cables picked</div></div>
+              <div><div class="v">24190<small> kr</small></div><div class="l">rental, ex vat</div></div>
+            </div>
+
+            <div style="padding:18px 20px; display:flex; flex-direction:column; gap:14px">
+              <div class="rib">
+                <span class="rib__k">Audio</span>
+                <span class="node"><span class="n">12</span><span class="k">sources</span></span>
+                <span class="run"></span>
+                <span class="node"><span class="n">2</span><span class="k">stageboxes</span></span>
+                <span class="run"></span>
+                <span class="node node--desk"><span class="n">SD10</span><span class="k">console</span></span>
+                <span class="run"></span>
+                <span class="node"><span class="n">3</span><span class="k">amps</span></span>
+                <span class="run"></span>
+                <span class="node"><span class="n">8</span><span class="k">speakers</span></span>
+              </div>
+              <div class="rib">
+                <span class="rib__k">Lighting</span>
+                <span class="node"><span class="n">64</span><span class="k">fixtures</span></span>
+                <span class="run"></span>
+                <span class="node"><span class="n">3</span><span class="k">universes</span></span>
+                <span class="run"></span>
+                <span class="node"><span class="n">4</span><span class="k">trusses</span></span>
+                <span style="margin-left:12px; display:flex; align-items:center; gap:8px">
+                  <span class="meter"><i style="width:72%"></i></span>
+                  <span class="mono" style="font-size:11px; color:#a1a1aa">1104 / 1536 ch</span>
+                </span>
+              </div>
+            </div>
+
+            <div class="ncard__sec" style="padding-top:14px; padding-bottom:14px">
+              <span class="rib__k" style="width:74px">Ready?</span>
+              <div class="ready" style="flex:1">
+                <span class="a"><b>Audio</b><span class="pill t-warn">2 gaps</span></span>
+                <span class="a"><b>Lighting</b><span class="pill t-ok">addressed</span></span>
+                <span class="a"><b>Rental</b><span class="pill t-err">1 over stock</span></span>
+                <span class="a"><b>Equipment</b><span class="pill t-ok">5 lines</span></span>
+                <span class="a"><b>Plots</b><span class="pill t-def">3 plots</span></span>
+              </div>
+            </div>
+
+            <div class="ncard__sec" style="padding-top:14px; padding-bottom:14px">
+              <span class="rib__k" style="width:74px">Inventory</span>
               <div style="flex:1">
                 <div style="color:#f4f4f5">Nordic Rental AB</div>
-                <div style="font-size:12px; color:#71717a">Imported from LL-prislista-2026.xlsx · 308 items</div>
+                <div style="font-size:12px; color:#71717a">LL-prislista-2026.xlsx · 308 items · imported 2026-05-04</div>
               </div>
               <span class="btn btn--outline btn--md">Manage</span>
             </div>
+
             <div class="ncard__ft">
-              <span>Rental order</span>
-              <span><b>34</b> items</span>
-              <span><b>187</b> pieces</span>
-              <span><b>24190.00 kr</b> ex VAT</span>
-              <span style="margin-left:auto"><span class="btn btn--ghost btn--md" style="height:32px">Open rental order →</span></span>
+              <span>Created 2026-03-02</span>
+              <span class="q">·</span>
+              <span><b>3</b> people have access</span>
+              <span class="q">·</span>
+              <span>You are the <b>owner</b></span>
             </div>
           </div>
         </div>
       </div>
-      <div class="spec__cap"><b>after</b> — one card, internal rules instead of gaps, the stats as a footer</div>
+      <div class="spec__cap"><b>after</b> — one card, no form, and every number a link to the tab that owns it</div>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app app--tight" style="padding:16px; min-width:0">
+          <div class="drw">
+            <div class="drw__hd">
+              <h4>Event details</h4>
+              <p>Name, venue, date and notes</p>
+            </div>
+            <div class="drw__bd">
+              <div><span class="nlbl">Name</span><span class="nfld">Fest i Parken 2026</span></div>
+              <div><span class="nlbl">Venue</span><span class="nfld">Slottsparken, Malmö</span></div>
+              <div><span class="nlbl">Date</span><span class="nfld">2026-08-14</span></div>
+              <div><span class="nlbl">Notes</span><span class="nfld nfld--area">Load-in 08:00 from the east gate. Support act shares the drum kit.</span></div>
+              <div style="display:flex; gap:8px; justify-content:flex-end">
+                <span class="btn btn--ghost btn--md">Cancel</span>
+                <span class="btn btn--primary btn--md">Save</span>
+              </div>
+            </div>
+            <div class="drw__ft">
+              Renaming an event never changes its patch, its rig or its rental order.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>after</b> — the four fields, in the drawer, at navigation-tier sizing</div>
+    </div>
+
+    <div class="tally">
+      <span>cards <b>2 → 1</b></span>
+      <span>form controls on the tab <b>4 → 0</b></span>
+      <span>facts about the event shown <b>7 → 24</b></span>
+      <span>tabs you must open to know where the plan stands <b>5 → 0</b></span>
     </div>
 
     <div class="prose">
       <p>
-        <strong>The three tiles become one line.</strong> They were never three independent
-        facts — they are one summary of the rental order, which is what a footer strip is
-        for. At navigation-tier sizing, on the inset ground, with the destination named.
-        The three <code>rounded-lg</code> boxes go with them.
+        <strong>Editing moves into a drawer, and that settles the Save button.</strong> A
+        tab with an explicit Save was the app's one inconsistency; a <em>drawer</em> with
+        one is ordinary — it opens, you change things, you save or you cancel. The read-only
+        role falls out for free: a viewer is passed no handler, so there is no
+        <em>Edit details</em> button and nothing else on the tab differs (P7).
       </p>
       <p>
-        <strong>The inventory binding becomes a row, not a card.</strong> It is one fact and
-        one button. A card header, a title and a body wrapping two lines of text is three
-        frames around a sentence.
+        <strong>The drawer's fields are navigation-tier, and that is not an
+        inconsistency.</strong> The Rig, Buses and Universes drawers hold lists of many
+        things and are dense for it; this one holds four fields. P2 decides density by
+        asking about the surface's job, <em>not per component</em> — the drawer chrome is
+        shared, the contents are sized for what they are.
+      </p>
+      <p>
+        <strong>The numbers band is the one place in the application where type gets
+        big.</strong> Everything else is 10 to 14 px, on purpose, and that is exactly what
+        makes a row of 26 px mono numerals land. It is scale contrast rather than
+        decoration: five figures, <code>tabular-nums</code>, on the inset ground, each one
+        a link to the tab that derives it. Nothing is invented for it — the channel counts,
+        the fixture count, the picked-cable count and the rental total are all already
+        computed and already displayed, in five different places, small.
+      </p>
+      <p>
+        <strong>The rig in one line is the flow canvas, one row high.</strong> Real nodes
+        with their real border, the desk in <code>amber-500/55</code> because it is the box
+        every other box is arranged around, and runs between them — the canvas's own
+        encoding at a glance rather than a new chart type. It answers <em>what shape is
+        this show</em> in the width of a sentence: twelve sources, two stageboxes, an SD10,
+        three amps, eight boxes. A second ribbon does the same for the rig, with the DMX
+        meter beside it.
+      </p>
+      <p>
+        <strong>“Ready?” is the status strip, one level up.</strong> Every work panel in
+        the application already closes itself with a line saying whether the plan holds;
+        this collects those five verdicts onto the tab you land on, in the same pills, with
+        the same tints, each one a link to the panel that raised it. It is the whole reason
+        to open Overview rather than skip it.
+      </p>
+      <p>
+        <strong>What this costs: one endpoint.</strong> Overview currently fetches the
+        event and the rental summary; the band and the ribbons want the patch and the rig
+        as well. Fetching both whole, to show six numbers, is the wrong shape — so
+        <code>GET /events/{id}/summary</code> returns the counts and the verdicts, computed
+        where the data already is. Wave 4 was scoped as frontend-only and now is not, which
+        is worth stating plainly rather than discovering in the plan. It is also the same
+        endpoint the Wave 5 dashboard wants — see that page's §05.
+        <span class="tag tag--new">new endpoint</span>
       </p>
     </div>
   </section>
@@ -1363,10 +1536,12 @@
 
     <div class="prose">
       <p>
-        <strong>No backend.</strong> Unlike Wave 3, nothing here needs a new endpoint, a
-        migration or a derivation. Every value drawn above is already fetched by these tabs
-        today; the totals, the counts and the gap list are already computed in the browser
-        and merely rendered in the wrong place.
+        <strong>One endpoint, and no migration.</strong> Rental, Equipment and Signal Flow
+        need nothing from the server: every value on them is already fetched by the tab
+        today, and the totals, counts and gap lists are already computed in the browser and
+        merely rendered in the wrong place. Overview's numbers band and readiness row are
+        the exception — <code>GET /events/{id}/summary</code>, one query, no schema change,
+        shared with the Wave 5 dashboard.
       </p>
       <p>
         <strong><code>components/ui/</code> is untouched</strong>, and that will be asserted
@@ -1404,19 +1579,21 @@
        ================================================================== -->
   <section>
     <div class="sec__hd">
-      <span class="sec__no">07 · to approve</span>
-      <h2>Four calls before the spec is written</h2>
+      <span class="sec__no">07 · decided</span>
+      <h2>What was asked, and what was answered</h2>
     </div>
 
     <div class="prose">
       <p>
-        Everything above is drawn as if approved. These four are the decisions the drawings
-        depend on; the rest follows from the pattern.
+        This page was published to settle four calls before the specification was written.
+        The first three were approved as drawn. The fourth came back changed, and the
+        change is the largest single thing in the wave — the drawings above have been
+        revised to match, so this page and <code>spec.md</code> will say the same thing.
       </p>
     </div>
 
     <div class="ask">
-      <h3>1 · Rental order — three export buttons in the bar</h3>
+      <h3>1 · Rental order — three export buttons in the bar <span class="tag tag--keep">approved</span></h3>
       <p>
         The canonical bar has one primary action and, before it, Print. This tab has three
         exports and no print sheet, so the exports <em>are</em> its print. Drawn as three
@@ -1429,7 +1606,7 @@
     </div>
 
     <div class="ask">
-      <h3>2 · Equipment — owned and rented become one sheet</h3>
+      <h3>2 · Equipment — owned and rented become one sheet <span class="tag tag--keep">approved</span></h3>
       <p>
         Two cards, two forms and two tables collapse into one panel with a
         <code>Source</code> column, and the editor's first field switches which catalog the
@@ -1442,7 +1619,7 @@
     </div>
 
     <div class="ask">
-      <h3>3 · Signal flow — one scroll, two bands, no toggle</h3>
+      <h3>3 · Signal flow — one scroll, two bands, no toggle <span class="tag tag--keep">approved</span></h3>
       <p>
         Because the tab prints, and a view toggle would print half of it. Chains move to
         mono at 11 px, bus chips drop from <code>Badge</code> to <code>Pill</code>, the gap
@@ -1452,14 +1629,20 @@
     </div>
 
     <div class="ask">
-      <h3>4 · Overview — one card, and does <em>Save event</em> stay?</h3>
+      <h3>4 · Overview — answered by changing the question <span class="tag tag--new">revised</span></h3>
       <p>
-        The two cards merge, the three stat tiles become a footer line, and the inventory
-        binding becomes a row. That part is straightforward. The open question is the
-        button: <strong>Overview is the only surface in the application with an explicit
-        Save.</strong> Everywhere else a field persists on blur. Keeping it is defensible —
-        an event's name is not a patch cell — but it is an inconsistency worth deciding on
-        purpose rather than by inheritance. Drawn above with the button kept.
+        Asked as “the two cards merge, and does <em>Save event</em> stay?”. Answered:
+        <strong>editing moves into a drawer and the tab shows information</strong>, with a
+        statistic worth looking at. That is a better answer than either option offered, and
+        it dissolves the Save question rather than deciding it — a drawer with a Save is
+        ordinary, and the tab has no form left to save.
+      </p>
+      <p>
+        It also changes what the wave costs. Overview was the smallest item on this page
+        and is now the one with a server-side dependency: the numbers band and the readiness
+        row want the patch's and the rig's counts, which the tab does not fetch, and
+        fetching both whole for six numbers is the wrong shape. One summary endpoint, no
+        migration, shared with the Wave 5 dashboard. §05 above is the result.
       </p>
     </div>
   </section>
