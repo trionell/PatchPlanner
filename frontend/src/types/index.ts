@@ -492,6 +492,14 @@ export interface ReferenceValue {
    * plan can reference — reporting `0` there would imply it could.
    */
   usageCount?: number
+  /**
+   * True when no planning column stores this vocabulary at all — four of the
+   * nine outlived the columns that once consumed them. On those, `usageCount`
+   * is not a count of zero but the absence of a question: nothing can ever
+   * reference the value, so a blank `In use` would read as "unused yet" when
+   * it means "this is not wired to anything".
+   */
+  usageUntracked?: boolean
 }
 
 export type ReferenceData = Record<string, ReferenceValue[]>

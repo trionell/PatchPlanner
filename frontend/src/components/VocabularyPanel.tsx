@@ -30,6 +30,14 @@ import { NumCell, Pill, SheetBody, SheetCell, SheetHead, SheetHeadCell, SheetRow
  * reported the refusal as an error the user caused. The count comes from the same
  * function that guards the delete, so a value safe to remove now looks different
  * from one that is load-bearing, at rest.
+ *
+ * **And a column that cannot answer says so.** Four vocabularies outlived the
+ * columns that once stored them: nothing reads *Signal types*, *Signal cable
+ * types*, *Mic stands* or *Truss types* anymore, because a cable and a stand are
+ * catalog picks now and a truss piece is too. Their counts were blank for the
+ * true reason and the wrong-looking one, indistinguishable from a count that had
+ * broken — so the server flags them and the panel labels them `not stored`
+ * rather than leaving a dash to be misread.
  */
 
 const COLUMNS_WITH_USAGE = ['Label', 'Stored value', 'In use']
@@ -130,6 +138,10 @@ export function VocabularyPanel({
             <PanelRailRow
               key={name}
               label={vocabularyTitles[name]}
+              // Read off the values, which is where the server puts the flag.
+              // An empty untracked vocabulary loses the qualifier, and has no
+              // rows to mislead anyone with either.
+              qualifier={showUsage && data?.[name]?.some((value) => value.usageUntracked) ? 'not stored' : undefined}
               count={data?.[name]?.length ?? 0}
               selected={name === selected}
               onSelect={() => {
@@ -154,6 +166,7 @@ export function VocabularyPanel({
                 {visible.map((value, index) => {
                   const open = editor.openId === value.id
                   const used = value.usageCount ?? 0
+                  const untracked = value.usageUntracked === true
                   return (
                     <Fragment key={value.id}>
                       <SheetRow
@@ -165,8 +178,22 @@ export function VocabularyPanel({
                         <SheetCell className="text-zinc-100">{value.label}</SheetCell>
                         <NumCell>{value.value}</NumCell>
                         {showUsage && (
-                          <NumCell title={used > 0 ? 'Used by a saved plan — it cannot be deleted' : undefined}>
-                            {used > 0 ? `${used} ${used === 1 ? 'row' : 'rows'}` : <span className="text-zinc-600">—</span>}
+                          <NumCell
+                            title={
+                              untracked
+                                ? 'No part of the plan stores this vocabulary, so there is nothing to count'
+                                : used > 0
+                                  ? 'Used by a saved plan — it cannot be deleted'
+                                  : undefined
+                            }
+                          >
+                            {untracked ? (
+                              <span className="text-zinc-600">not stored</span>
+                            ) : used > 0 ? (
+                              `${used} ${used === 1 ? 'row' : 'rows'}`
+                            ) : (
+                              <span className="text-zinc-600">—</span>
+                            )}
                           </NumCell>
                         )}
                       </SheetRow>
@@ -186,7 +213,15 @@ export function VocabularyPanel({
                               notice={
                                 showUsage ? (
                                   <p className="w-full rounded-[5px] border border-zinc-800 bg-zinc-950/60 px-2.5 py-2 text-xs text-zinc-400">
-                                    {used > 0 ? (
+                                    {untracked ? (
+                                      <>
+                                        <b className="font-semibold text-zinc-200">
+                                          Nothing in the plan stores this vocabulary.
+                                        </b>{' '}
+                                        It is left over from an earlier model — this one is not offered anywhere, so
+                                        adding, renaming and deleting here changes nothing else.
+                                      </>
+                                    ) : used > 0 ? (
                                       <>
                                         <b className="font-semibold text-zinc-200">
                                           {used} plan {used === 1 ? 'row uses' : 'rows use'} this value.

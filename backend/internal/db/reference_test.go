@@ -448,6 +448,11 @@ func TestReferenceUsageCountMatchesDeleteGuard(t *testing.T) {
 	mustExec(t, database, `INSERT INTO input_sources (event_id, name, kind, connector_type, width) VALUES (?, 'Test source', 'line', 'combo', 'mono')`, eventID)
 	mustExec(t, database, `INSERT INTO lighting_rigs (event_id, name) VALUES (?, 'Rig')`, eventID)
 	mustExec(t, database, `INSERT INTO lighting_fixtures (rig_id, custom_name, power_connector_in, power_connector_out) VALUES (1, 'Wash', 'cee16', 'cee16')`)
+	// And channel_colors, the third shape: two columns on two *different*
+	// tables, one either side of the desk.
+	mustExec(t, database, `INSERT INTO input_channels (event_id, channel_number, channel_name, color) VALUES (?, 1, 'Kick', '#ef4444')`, eventID)
+	mustExec(t, database, `INSERT INTO input_channels (event_id, channel_number, channel_name, color) VALUES (?, 2, 'Snare', '#ef4444')`, eventID)
+	mustExec(t, database, `INSERT INTO audio_patch_outputs (event_id, output_number, output_name, color) VALUES (?, 1, 'LR', '#ef4444')`, eventID)
 
 	data, err := ListReferenceData(database, eventID)
 	if err != nil {
@@ -467,6 +472,15 @@ func TestReferenceUsageCountMatchesDeleteGuard(t *testing.T) {
 	// Both of the fixture's connector columns hold cee16, so it is used twice.
 	if got := counts["power_connectors"]["cee16"]; got != 2 {
 		t.Errorf("cee16: expected usage 2, got %d", got)
+	}
+	// Two channels and one bus wear red: the count spans both tables, and it
+	// is not zero, which it was for as long as channel_colors was missing from
+	// the usage map.
+	if got := counts["channel_colors"]["#ef4444"]; got != 3 {
+		t.Errorf("#ef4444: expected usage 3, got %d", got)
+	}
+	if got := counts["channel_colors"]["#22c55e"]; got != 0 {
+		t.Errorf("#22c55e: expected an unworn colour to report 0, got %d", got)
 	}
 
 	// Every value the count calls used must be refused, and every value it
@@ -506,5 +520,47 @@ func TestReferenceUsageIsEventScoped(t *testing.T) {
 		if v.Value == "combo" && v.UsageCount != 0 {
 			t.Errorf("combo on event B: expected usage 0, got %d", v.UsageCount)
 		}
+	}
+}
+
+// TestReferenceUsageUntrackedVocabularies: a vocabulary no planning column
+// stores is flagged as such, so the interface can say "nothing stores these"
+// rather than showing a zero that reads as "nothing uses these yet".
+//
+// The flag is derived from the usage map itself, which is what keeps it
+// honest: adding an entry there — as channel_colors needed — flips this
+// without anyone remembering to.
+func TestReferenceUsageUntrackedVocabularies(t *testing.T) {
+	database := openTestDB(t)
+	eventID := createTestEvent(t, database)
+
+	data, err := ListReferenceData(database, eventID)
+	if err != nil {
+		t.Fatalf("list reference data: %v", err)
+	}
+
+	untracked := map[string]bool{
+		"signal_types":       true,
+		"signal_cable_types": true,
+		"mic_stands":         true,
+		"truss_types":        true,
+	}
+	for _, vocabulary := range domain.Vocabularies {
+		if got := UsageTracked(vocabulary); got == untracked[vocabulary] {
+			t.Errorf("%s: UsageTracked = %v, want %v", vocabulary, got, !untracked[vocabulary])
+		}
+		for _, v := range data[vocabulary] {
+			if v.UsageUntracked != untracked[vocabulary] {
+				t.Errorf("%s %q: UsageUntracked = %v, want %v", vocabulary, v.Value, v.UsageUntracked, untracked[vocabulary])
+			}
+		}
+	}
+
+	// channel_colors is the one this test was written for: it was untracked by
+	// omission for eight slices, which is precisely what an untracked
+	// vocabulary is not allowed to be — a mistake indistinguishable from a
+	// decision.
+	if !UsageTracked("channel_colors") {
+		t.Error("channel_colors must be tracked: both consuming columns exist")
 	}
 }

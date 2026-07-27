@@ -32,6 +32,11 @@ type ReferenceValue struct {
 	// disagree. Zero on a reference *template*, which no plan can reference —
 	// the template response omits it rather than reporting a misleading 0.
 	UsageCount int `json:"usageCount"`
+	// Whether any planning column stores this vocabulary at all. False on the
+	// four vocabularies that outlived their consuming column, where a zero
+	// count is not "unused" but "unanswerable" — see db.UsageTracked. Omitted
+	// when true so the response only carries the exception.
+	UsageUntracked bool `json:"usageUntracked,omitempty"`
 }
 
 // ReferenceData maps every vocabulary name to its values, label-sorted.

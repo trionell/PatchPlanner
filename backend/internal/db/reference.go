@@ -57,7 +57,30 @@ var vocabularyUsage = map[string][]struct {
 	// truss_types lost its consuming column when Slice 13 dropped
 	// truss_sections (plot truss pieces are catalog picks, not typed) —
 	// the vocabulary remains, untracked, like signal_types before it.
+	//
+	// channel_colors was missing from this map from the day Slice 21 added it:
+	// the vocabulary, the palette and both consuming columns all shipped, and
+	// the entry that connects them did not. So a colour a dozen channels wore
+	// could be deleted without a word, and Slice 29's usage column reported
+	// every one of them unused. Both columns are the console strip's colour —
+	// the input side keeps it on the channel, the output side on the bus.
+	"channel_colors": {
+		{table: "input_channels", column: "color"},
+		{table: "audio_patch_outputs", column: "color"},
+	},
 }
+
+// UsageTracked reports whether any planning column stores this vocabulary's
+// values. Four do not: signal_types, signal_cable_types, mic_stands and
+// truss_types all outlived the columns that once consumed them (see the map's
+// comments), so nothing can reference them and nothing ever will until some
+// schema column does.
+//
+// The distinction matters to the interface. An empty usage count on a tracked
+// vocabulary means "nothing uses this yet"; on an untracked one it means "this
+// question has no answer here" — and rendering both as a blank left the second
+// looking like the first with a broken count.
+func UsageTracked(vocabulary string) bool { return len(vocabularyUsage[vocabulary]) > 0 }
 
 // InUseError reports how many planning rows reference a vocabulary value,
 // blocking its deletion. errors.Is(err, ErrInUse) matches it.
@@ -114,7 +137,14 @@ func ListReferenceData(database *sql.DB, eventID int64) (domain.ReferenceData, e
 	// Deliberate; if it ever matters it becomes one grouped query per
 	// vocabulary.
 	for vocabulary, values := range data {
+		tracked := UsageTracked(vocabulary)
 		for i := range values {
+			values[i].UsageUntracked = !tracked
+			if !tracked {
+				// No column to count, so no query to run — and a 0 the client
+				// is told not to read as a count.
+				continue
+			}
 			count, err := countReferenceUsage(database, eventID, vocabulary, values[i].Value)
 			if err != nil {
 				return nil, err
