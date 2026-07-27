@@ -1,0 +1,1081 @@
+<!--
+  PatchPlanner — Wave 3: Lighting becomes a sheet. Redesign mockup.
+
+  For approval before the spec is written. Everything drawn here is the design
+  language already shipped on the audio tabs and stage plots — see design/.
+  Where this page proposes something the language does not yet contain, it says
+  so in the margin note beside it.
+
+  The file is an HTML *fragment*: the Artifact publisher wraps it in
+  doctype/head/body, so there are deliberately no <html>, <head> or <body> tags.
+
+  Specimen CSS is lifted from design/design-language.html on purpose. The
+  argument of this mockup is that Lighting needs no new bricks, so it is drawn
+  with the existing ones and nothing else.
+-->
+
+<title>Wave 3 — Lighting becomes a sheet</title>
+
+<style>
+  /* ==================================================================
+     DOCUMENT CHROME — theme-aware, tokens only.
+     ================================================================== */
+  :root {
+    --ground: #f2f2f4;
+    --raised: #ffffff;
+    --sunken: #e8e8ec;
+    --rule: #d7d7de;
+    --rule-soft: #e4e4ea;
+    --ink: #16171b;
+    --ink-2: #43444d;
+    --muted: #6c6d78;
+    --faint: #90919c;
+    --amber: #b45309;
+    --keep: #0e7490;
+    --drop: #9f1239;
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --measure: 68ch;
+    --wrap: 1180px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0a0b0d;
+      --raised: #14151a;
+      --sunken: #101014;
+      --rule: #26272e;
+      --rule-soft: #1d1e24;
+      --ink: #f2f2f4;
+      --ink-2: #b6b7c0;
+      --muted: #8b8c96;
+      --faint: #62636d;
+      --amber: #f59e0b;
+      --keep: #22d3ee;
+      --drop: #fb7185;
+    }
+  }
+
+  :root[data-theme="light"] {
+    --ground: #f2f2f4; --raised: #ffffff; --sunken: #e8e8ec;
+    --rule: #d7d7de; --rule-soft: #e4e4ea;
+    --ink: #16171b; --ink-2: #43444d; --muted: #6c6d78; --faint: #90919c;
+    --amber: #b45309; --keep: #0e7490; --drop: #9f1239;
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0a0b0d; --raised: #14151a; --sunken: #101014;
+    --rule: #26272e; --rule-soft: #1d1e24;
+    --ink: #f2f2f4; --ink-2: #b6b7c0; --muted: #8b8c96; --faint: #62636d;
+    --amber: #f59e0b; --keep: #22d3ee; --drop: #fb7185;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px 110px; }
+
+  h1, h2, h3 { margin: 0; font-family: var(--mono); font-weight: 500; }
+  h1 {
+    font-size: clamp(28px, 4.4vw, 46px);
+    line-height: 1.04; letter-spacing: -0.035em; text-wrap: balance;
+  }
+  h2 {
+    font-size: clamp(19px, 2.3vw, 25px);
+    letter-spacing: -0.02em; text-wrap: balance;
+  }
+  h3 { font-size: 14px; letter-spacing: 0.02em; color: var(--ink-2); }
+
+  p { margin: 0; max-width: var(--measure); }
+  a { color: inherit; }
+
+  .head {
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 68px 0 30px; border-bottom: 1px solid var(--rule);
+  }
+  .head__eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--amber);
+  }
+  .head__lede { font-size: 18px; color: var(--ink-2); line-height: 1.5; }
+
+  section { display: flex; flex-direction: column; gap: 22px; padding: 56px 0 0; }
+  .sec__no {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  .sec__hd { display: flex; flex-direction: column; gap: 8px; }
+  .prose { display: flex; flex-direction: column; gap: 13px; color: var(--ink-2); font-size: 15.5px; }
+  .prose strong { color: var(--ink); font-weight: 600; }
+  .prose code {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  /* the specimen frame */
+  .spec { display: flex; flex-direction: column; gap: 9px; }
+  .spec__frame {
+    overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px;
+    background: #09090b; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  }
+  .spec__cap {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-left: 2px;
+  }
+  .spec__cap b { color: var(--ink-2); font-weight: 500; }
+
+  /* the ledger of decisions */
+  .led { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .led__row {
+    display: grid; grid-template-columns: 132px minmax(0, 1fr);
+    gap: 18px; padding: 15px 2px; border-bottom: 1px solid var(--rule-soft);
+    align-items: start;
+  }
+  .led__k {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-top: 3px;
+  }
+  .led__v { font-size: 15px; color: var(--ink-2); line-height: 1.5; }
+  .led__v b { color: var(--ink); font-weight: 600; }
+  .led__v em { font-style: normal; color: var(--faint); }
+
+  .tag {
+    display: inline-block; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase; padding: 1px 6px;
+    border-radius: 4px; vertical-align: 2px; margin-left: 7px;
+  }
+  .tag--keep { color: var(--keep); border: 1px solid currentColor; }
+  .tag--drop { color: var(--drop); border: 1px solid currentColor; }
+  .tag--new { color: var(--amber); border: 1px solid currentColor; }
+
+  .ask {
+    border: 1px solid var(--rule); border-left: 3px solid var(--amber);
+    border-radius: 0 8px 8px 0; padding: 16px 18px; background: var(--raised);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .ask h3 { color: var(--ink); }
+  .ask p { font-size: 15px; color: var(--ink-2); max-width: none; }
+
+  @media (max-width: 720px) {
+    .led__row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  }
+
+  /* ==================================================================
+     SPECIMENS — the app's real colours, in both themes. Lifted from
+     design/design-language.html; nothing here reads a document token.
+     ================================================================== */
+  .app {
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 14px; line-height: 1.45;
+    color: #f4f4f5; background: #09090b;
+    padding: 16px; min-width: 1040px;
+  }
+  .app--tight { padding: 0; min-width: 0; }
+  .app *, .app *::before, .app *::after { box-sizing: border-box; }
+
+  .pan { border: 1px solid #3f3f46; border-radius: 12px; background: rgba(9, 9, 11, 0.4); overflow: hidden; }
+  .pan__bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    border-bottom: 1px solid #27272a; padding: 10px 12px;
+  }
+  .pan__ti { font-size: 14px; font-weight: 600; color: #f4f4f5; margin-right: 4px; }
+  .grow { flex: 1; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 28px; padding: 0 10px; border: 1px solid transparent; border-radius: 6px;
+    font-size: 12px; font-weight: 500; white-space: nowrap; font-family: inherit;
+  }
+  .btn--primary { background: #f59e0b; border-color: #f59e0b; color: #09090b; }
+  .btn--outline { background: #18181b; border-color: #3f3f46; color: #f4f4f5; }
+  .btn--ghost { background: transparent; color: #f4f4f5; }
+  .btn--sm { height: 24px; padding: 0 8px; font-size: 11px; }
+  .btn--md { height: 40px; padding: 0 16px; font-size: 14px; }
+  .btn--danger-ghost { background: transparent; color: #f87171; }
+  .btn svg { flex: none; }
+
+  .fld {
+    height: 32px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b;
+    display: inline-flex; align-items: center; padding: 0 8px;
+    font-size: 12px; color: #e4e4e7; min-width: 0;
+  }
+  .fld--ph { color: #71717a; }
+  .fld--sel::after { content: "▾"; margin-left: auto; padding-left: 8px; color: #71717a; font-size: 10px; }
+  .fld--srch { position: relative; padding-left: 26px; min-width: 190px; max-width: 260px; flex: 1; }
+  .fld--srch svg { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); }
+  .fld--foc { border-color: #f59e0b; }
+
+  .lbl {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #71717a; font-weight: 500;
+  }
+
+  .pill {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 1px 6px; font-size: 10px; font-weight: 500; white-space: nowrap;
+  }
+  .t-ok   { background: rgba(52, 211, 153, 0.15); color: #6ee7b7; }
+  .t-warn { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
+  .t-err  { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+  .t-def  { background: #3f3f46; color: #f4f4f5; }
+
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* -- the sheet -- */
+  .sheet { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .sheet th {
+    text-align: left; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.14em; text-transform: uppercase; color: #71717a; font-weight: 500;
+    padding: 6px 8px; background: rgba(9, 9, 11, 0.6);
+    border-bottom: 1px solid #27272a; white-space: nowrap;
+  }
+  .sheet td { padding: 4px 8px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); vertical-align: middle; color: #e4e4e7; }
+  .sheet tr.alt td { background: rgba(255, 255, 255, 0.014); }
+  .sheet td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #a1a1aa; }
+  .sheet td.num--hot { color: #f87171; }
+  .sheet td.num--warn { color: #fcd34d; }
+  .sheet tr.open td { background: rgba(245, 158, 11, 0.04); border-bottom-color: transparent; }
+  .sheet tr.eds td { background: rgba(245, 158, 11, 0.04); padding: 0 8px 10px; }
+  .sheet .nm { color: #fafafa; white-space: nowrap; }
+  .sheet .md { font-family: var(--mono); font-size: 11px; color: #71717a; }
+  .sheet .qt { color: #71717a; }
+  .sheet .none { color: #52525b; }
+  .sheet .notes { color: #71717a; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .chip { display: inline-flex; align-items: center; gap: 5px; }
+
+  .rowed {
+    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px;
+    border-left: 2px solid #f59e0b; border-radius: 0 6px 6px 0;
+    background: rgba(245, 158, 11, 0.05); padding: 10px 12px;
+  }
+  .rowed__f { display: flex; flex-direction: column; gap: 4px; }
+  .rowed__f .fld { width: 160px; }
+  .rowed__f--count .fld { width: 80px; }
+  .rowed__f--short .fld { width: 112px; }
+  .rowed__f--grow { flex: 1; min-width: 170px; }
+  .rowed__f--grow .fld { width: 100%; }
+  .rowed__acts { display: flex; align-items: flex-end; gap: 8px; margin-left: auto; }
+  .rowed__keys { font-size: 11px; color: #71717a; padding: 6px 12px 0; }
+  .rowed__keys kbd {
+    font-family: var(--mono); font-size: 10px; border: 1px solid #3f3f46;
+    border-radius: 4px; padding: 0 4px; color: #a1a1aa;
+  }
+  .rowed__ro { font-size: 12px; color: #a1a1aa; height: 32px; display: inline-flex; align-items: center; gap: 8px; }
+  .rowed__ro em { font-style: normal; color: #52525b; }
+
+  /* -- the status strip -- */
+  .strip {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
+    padding: 8px 12px; border-top: 1px solid #27272a;
+    background: rgba(9, 9, 11, 0.6); font-size: 11px; color: #a1a1aa;
+  }
+  .strip--warn { border-top-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.05); }
+  .strip--err { border-top-color: rgba(248, 113, 113, 0.4); background: rgba(239, 68, 68, 0.05); }
+  .strip .mono { color: #e4e4e7; }
+  .strip .q { color: #71717a; }
+  .strip .hot { color: #fca5a5; }
+  .strip .wrn { color: #fcd34d; }
+
+  /* -- the drawer -- */
+  .drw {
+    width: 420px; border: 1px solid #3f3f46; border-radius: 12px;
+    background: #09090b; overflow: hidden;
+  }
+  .drw__hd { padding: 16px 20px; border-bottom: 1px solid #27272a; }
+  .drw__hd h4 { margin: 0; font-size: 18px; font-weight: 600; color: #fafafa; font-family: inherit; }
+  .drw__hd p { margin: 2px 0 0; font-size: 12px; color: #71717a; max-width: none; }
+  .drw__bd { padding: 16px 20px; display: flex; flex-direction: column; gap: 20px; }
+  .drw__ft { padding: 12px 20px; border-top: 1px solid #27272a; font-size: 12px; color: #71717a; }
+
+  .dsec { display: flex; flex-direction: column; gap: 8px; }
+  .dsec__hd { display: flex; align-items: center; gap: 8px; }
+  .dsec__hd .lbl { flex: none; }
+  .dsec__ct { font-family: var(--mono); font-size: 10px; color: #52525b; }
+
+  .gcard {
+    border: 1px solid #3f3f46; border-radius: 6px; background: #1f2028;
+    padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .gcard--acc { border-color: rgba(245, 158, 11, 0.55); }
+  .gcard__top { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #f4f4f5; }
+  .gcard__top .nm { font-weight: 600; }
+  .gcard__specs { display: flex; flex-wrap: wrap; gap: 10px; font-family: var(--mono); font-size: 10px; color: #71717a; }
+  .gcard__specs b { color: #a1a1aa; font-weight: 500; }
+  .meter { height: 3px; border-radius: 2px; background: #27272a; overflow: hidden; }
+  .meter i { display: block; height: 100%; background: #f59e0b; }
+  .meter i.hot { background: #f87171; }
+
+  /* -- the "before" reproduction: navigation-tier table full of controls -- */
+  .old { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .old th {
+    text-align: left; font-size: 14px; font-weight: 500; color: #a1a1aa;
+    padding: 12px; border-bottom: 1px solid #27272a; white-space: nowrap;
+  }
+  .old td { padding: 12px; vertical-align: top; color: #e4e4e7; border-bottom: 1px solid #27272a; }
+  .old tr.odd td { background: #18181b; }
+  .old tr.even td { background: #1f2028; }
+  .old .cin {
+    display: block; height: 40px; border: 1px solid #3f3f46; border-radius: 6px;
+    background: #18181b; padding: 0 12px; font-size: 14px; color: #e4e4e7;
+    line-height: 38px; white-space: nowrap; overflow: hidden;
+  }
+  .old .cin--sel { position: relative; padding-right: 26px; }
+  .old .cin--sel::after { content: "▾"; position: absolute; right: 10px; color: #71717a; font-size: 11px; }
+  .old .cin--w20 { width: 80px; }
+  .old .cin--w24 { width: 96px; }
+  .old .cin--w32 { width: 128px; }
+  .old .cin--w36 { width: 144px; }
+  .old .cin--w44 { width: 176px; }
+  .old .cin--warn { border-color: #f59e0b; color: #fcd34d; }
+  .old .stk { display: flex; flex-direction: column; gap: 8px; }
+  .old .nm { font-weight: 500; color: #fafafa; white-space: nowrap; }
+  .old .card-hd {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 20px; border-bottom: 1px solid #27272a;
+  }
+  .old .card-hd h4 { margin: 0; font-size: 18px; font-weight: 600; color: #fafafa; font-family: inherit; }
+  .old .card-hd p { margin: 4px 0 0; font-size: 14px; color: #a1a1aa; max-width: none; }
+  .card { border: 1px solid #3f3f46; border-radius: 12px; background: #18181b; overflow: hidden; }
+
+  /* counts strip under a specimen */
+  .tally {
+    display: flex; flex-wrap: wrap; gap: 8px 20px; font-family: var(--mono);
+    font-size: 11px; color: var(--faint); padding-left: 2px;
+  }
+  .tally b { color: var(--ink-2); font-weight: 500; }
+</style>
+
+<div class="wrap">
+
+  <header class="head">
+    <span class="head__eyebrow">Design convergence · Wave 3 · mockup for approval</span>
+    <h1>Lighting becomes a sheet</h1>
+    <p class="head__lede">
+      The fixture table is the last surface in the application that is a form pretending
+      to be a list. Twenty-four live controls, thirteen columns, and no read state at
+      all — a rig of two hundred fixtures cannot be scanned, only filled in. This is
+      what it becomes, drawn entirely in bricks the audio tabs already ship.
+    </p>
+  </header>
+
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">01 · what is there now</span>
+      <h2>Thirteen columns, and every cell is a control</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Below is today's Lighting tab, reproduced at its real sizes. It is a
+        navigation-tier <code>ui/Table</code> — <code>px-3 py-3</code> rows,
+        <code>text-sm</code>, zebra striping — with an <code>Input</code> or a
+        <code>Select</code> in almost every cell, persisting on blur.
+      </p>
+      <p>
+        The zebra striping is the tell. At six rows it is tidy; at two hundred it is
+        banding. And because there is no read state, the eye has to parse a border and
+        a background before it reaches a number, on every cell, in every row.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div class="card">
+            <div class="card-hd">
+              <div>
+                <h4>Main rig</h4>
+                <p>Manage fixtures, power chains, and DMX allocation.</p>
+              </div>
+              <div style="display:flex; gap:8px">
+                <span class="btn btn--outline btn--md">Print</span>
+                <span class="btn btn--outline btn--md">Auto-assign DMX</span>
+                <span class="btn btn--outline btn--md">Bulk Add</span>
+                <span class="btn btn--primary btn--md">Add Fixture</span>
+              </div>
+            </div>
+            <div style="padding:24px; overflow-x:auto">
+              <table class="old">
+                <thead>
+                  <tr>
+                    <th>#</th><th>FID</th><th>Fixture Name</th><th>Truss</th><th>Position</th>
+                    <th>Power</th><th>Power Connector</th><th>DMX Univ</th><th>DMX Addr</th>
+                    <th>Mode</th><th>Channels</th><th>DMX Chain</th><th>Notes</th><th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="odd">
+                    <td>1</td>
+                    <td><span class="cin cin--w20">101</span></td>
+                    <td><div class="stk"><span class="nm">Robe LEDBeam 150</span><span class="cin cin--w36">Wash SR 1</span></div></td>
+                    <td>DS Truss <span style="color:#71717a">· 120 cm</span></td>
+                    <td><span class="cin cin--w20">1</span></td>
+                    <td><span class="cin cin--sel cin--w24">grid</span></td>
+                    <td><span class="cin cin--sel cin--w44">Schuko</span></td>
+                    <td><span class="cin cin--w20">1</span></td>
+                    <td>1–16</td>
+                    <td><div class="stk"><span class="cin cin--sel cin--w32">Standard</span><span class="cin cin--w24">Standard</span></div></td>
+                    <td><span class="cin cin--w20">16</span></td>
+                    <td>—</td>
+                    <td><span class="cin cin--w36"></span></td>
+                    <td><span class="btn btn--ghost btn--md" style="width:40px; padding:0">🗑</span></td>
+                  </tr>
+                  <tr class="even">
+                    <td>2</td>
+                    <td><span class="cin cin--w20">102</span></td>
+                    <td><div class="stk"><span class="nm">Robe LEDBeam 150</span><span class="cin cin--w36">Wash SR 2</span></div></td>
+                    <td>DS Truss <span style="color:#71717a">· 240 cm</span></td>
+                    <td><span class="cin cin--w20">2</span></td>
+                    <td><span class="cin cin--sel cin--w24">chain</span></td>
+                    <td><span class="cin cin--sel cin--w44">Schuko</span></td>
+                    <td><span class="cin cin--w20">1</span></td>
+                    <td>17–32</td>
+                    <td><div class="stk"><span class="cin cin--sel cin--w32">Standard</span><span class="cin cin--w24">Standard</span></div></td>
+                    <td><span class="cin cin--w20">16</span></td>
+                    <td>—</td>
+                    <td><span class="cin cin--w36"></span></td>
+                    <td><span class="btn btn--ghost btn--md" style="width:40px; padding:0">🗑</span></td>
+                  </tr>
+                  <tr class="odd">
+                    <td>3</td>
+                    <td><span class="cin cin--w20 cin--warn">121</span></td>
+                    <td><div class="stk"><span class="nm">Martin MAC Aura XB</span><span class="cin cin--w36">Key SL</span></div></td>
+                    <td><span style="color:#52525b">—</span></td>
+                    <td><span class="cin cin--w20">3</span></td>
+                    <td><span class="cin cin--sel cin--w24">grid</span></td>
+                    <td><span class="cin cin--sel cin--w44">CEE 16A blue</span></td>
+                    <td><span class="cin cin--w20">1</span></td>
+                    <td>33–47</td>
+                    <td><div class="stk"><span class="cin cin--sel cin--w32">Basic</span><span class="cin cin--w24">Basic</span></div></td>
+                    <td><span class="cin cin--w20">15</span></td>
+                    <td>—</td>
+                    <td><span class="cin cin--w36">needs top-up</span></td>
+                    <td><span class="btn btn--ghost btn--md" style="width:40px; padding:0">🗑</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <span class="spec__cap"><b>Today.</b> Three rows of forty. Reproduced at the real sizes it ships at.</span>
+    </div>
+
+    <div class="tally">
+      <span><b>13</b> columns</span>
+      <span><b>24</b> live controls per screen</span>
+      <span><b>0</b> read-only value cells except Truss and Addr</span>
+      <span>row height <b>~90 px</b></span>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">02 · what it becomes</span>
+      <h2>One panel, nine columns, nothing to parse but the data</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        The same rig, as the work panel every dense tab converges on: a bar, a sheet,
+        and a strip that closes it from inside. Clicking a row opens its editor
+        directly beneath. Nothing in a row is a form control.
+      </p>
+      <p>
+        Row height goes from about 90 px to 25 px, so a screen shows roughly
+        <strong>twenty-eight fixtures instead of seven</strong>. That is the whole
+        argument — a rig is a thing you read down, and until now you could not.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div class="pan">
+            <div class="pan__bar">
+              <span class="pan__ti">Lighting</span>
+              <span class="fld fld--srch fld--ph">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+                Find a fixture…
+              </span>
+              <span class="btn btn--outline">Universes</span>
+              <span class="grow"></span>
+              <span class="btn btn--ghost">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4v-7h16v7h-2"/><path d="M6 14h12v7H6z"/></svg>
+                Print
+              </span>
+              <span class="btn btn--primary">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                Fixtures
+              </span>
+            </div>
+
+            <table class="sheet">
+              <thead>
+                <tr>
+                  <th>FID</th><th>Fixture</th><th>Mode</th><th>Univ</th><th>Addr</th>
+                  <th>Ch</th><th>Truss</th><th>Power</th><th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="num">101</td>
+                  <td class="nm">Wash SR 1 <span class="md">Robe LEDBeam 150</span></td>
+                  <td class="qt">Standard</td>
+                  <td class="num">1</td>
+                  <td class="num">001–016</td>
+                  <td class="num">16</td>
+                  <td class="qt">DS Truss <span class="none">· 120 cm</span></td>
+                  <td class="qt">grid <span class="md">schuko</span></td>
+                  <td class="notes"></td>
+                </tr>
+                <tr class="alt">
+                  <td class="num">102</td>
+                  <td class="nm">Wash SR 2 <span class="md">Robe LEDBeam 150</span></td>
+                  <td class="qt">Standard</td>
+                  <td class="num">1</td>
+                  <td class="num">017–032</td>
+                  <td class="num">16</td>
+                  <td class="qt">DS Truss <span class="none">· 240 cm</span></td>
+                  <td class="qt">
+                    <span class="chip">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.4" stroke-linecap="round"><path d="M10 13a5 5 0 007.5.5l3-3a5 5 0 00-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 00-7.5-.5l-3 3a5 5 0 007 7l1.7-1.7"/></svg>
+                      chain <span class="md">← 101</span>
+                    </span>
+                  </td>
+                  <td class="notes"></td>
+                </tr>
+                <tr>
+                  <td class="num">103</td>
+                  <td class="nm">Wash SR 3 <span class="md">Robe LEDBeam 150</span></td>
+                  <td class="qt">Standard</td>
+                  <td class="num">1</td>
+                  <td class="num">033–048</td>
+                  <td class="num">16</td>
+                  <td class="qt">DS Truss <span class="none">· 360 cm</span></td>
+                  <td class="qt">chain <span class="md">← 102</span></td>
+                  <td class="notes"></td>
+                </tr>
+
+                <tr class="alt open">
+                  <td class="num">121</td>
+                  <td class="nm">Key SL <span class="md">Martin MAC Aura XB</span></td>
+                  <td class="qt">Basic</td>
+                  <td class="num">1</td>
+                  <td class="num">049–063</td>
+                  <td class="num">15</td>
+                  <td class="none">—</td>
+                  <td class="qt">grid <span class="md">cee16-blue</span></td>
+                  <td class="notes">needs top-up</td>
+                </tr>
+                <tr class="eds">
+                  <td colspan="9">
+                    <div class="rowed">
+                      <div class="rowed__f rowed__f--count"><span class="lbl">FID</span><span class="fld">121</span></div>
+                      <div class="rowed__f rowed__f--grow"><span class="lbl">Name</span><span class="fld fld--foc" style="border-color:#f59e0b">Key SL</span></div>
+                      <div class="rowed__f"><span class="lbl">Model</span><span class="fld fld--sel">Martin MAC Aura XB</span></div>
+                      <div class="rowed__f rowed__f--short"><span class="lbl">Mode</span><span class="fld fld--sel">Basic</span></div>
+                      <div class="rowed__f rowed__f--count"><span class="lbl">Ch</span><span class="fld">15</span></div>
+                      <div class="rowed__f rowed__f--count"><span class="lbl">Univ</span><span class="fld">1</span></div>
+                      <div class="rowed__f rowed__f--count"><span class="lbl">Addr</span><span class="fld">49</span></div>
+                      <div class="rowed__f rowed__f--short"><span class="lbl">Power</span><span class="fld fld--sel">grid</span></div>
+                      <div class="rowed__f"><span class="lbl">Connector</span><span class="fld fld--sel">CEE 16A blue</span></div>
+                      <div class="rowed__f rowed__f--count"><span class="lbl">Order</span><span class="fld">4</span></div>
+                      <div class="rowed__f rowed__f--grow"><span class="lbl">Notes</span><span class="fld">needs top-up</span></div>
+                      <div class="rowed__f rowed__f--short">
+                        <span class="lbl">Truss</span>
+                        <span class="btn btn--outline" style="height:32px; width:112px; justify-content:space-between">
+                          Hang in plot
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                        </span>
+                      </div>
+                      <div class="rowed__acts">
+                        <span class="btn" style="background:#f59e0b; color:#09090b; height:32px; padding:0 16px">Save fixture</span>
+                        <span class="btn btn--ghost" style="height:32px; padding:0 12px">Cancel</span>
+                        <span class="btn btn--danger-ghost" style="height:32px; padding:0 12px">Delete</span>
+                      </div>
+                    </div>
+                    <p class="rowed__keys"><span class="lbl" style="margin-right:8px">Keys</span><kbd>Esc</kbd> discards · <kbd>⌘↵</kbd> saves and opens the next row</p>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td class="num num--warn" title="Duplicate console ID">121</td>
+                  <td class="nm">Key SR <span class="md">Martin MAC Aura XB</span></td>
+                  <td class="qt">Basic</td>
+                  <td class="num">1</td>
+                  <td class="num num--hot" title="Overlaps 121 Key SL at 049–063">056–070</td>
+                  <td class="num">15</td>
+                  <td class="none">—</td>
+                  <td class="qt">grid <span class="md">cee16-blue</span></td>
+                  <td class="notes"></td>
+                </tr>
+                <tr class="alt">
+                  <td class="num">131</td>
+                  <td class="nm">Blinder 1 <span class="md">Chauvet Strike 4</span></td>
+                  <td class="qt">4ch</td>
+                  <td class="num">1</td>
+                  <td class="num">071–074</td>
+                  <td class="num">4</td>
+                  <td class="qt">MS Truss <span class="none">· 60 cm</span></td>
+                  <td class="qt">grid <span class="md">cee16-blue</span></td>
+                  <td class="notes"></td>
+                </tr>
+                <tr>
+                  <td class="num">132</td>
+                  <td class="nm">Blinder 2 <span class="md">Chauvet Strike 4</span></td>
+                  <td class="qt">4ch</td>
+                  <td class="num">1</td>
+                  <td class="num">075–078</td>
+                  <td class="num">4</td>
+                  <td class="qt">MS Truss <span class="none">· 420 cm</span></td>
+                  <td class="qt">chain <span class="md">← 131</span></td>
+                  <td class="notes"></td>
+                </tr>
+                <tr class="alt">
+                  <td class="num">201</td>
+                  <td class="nm">Haze <span class="md">MDG Atmosphere APS</span></td>
+                  <td class="qt">Basic</td>
+                  <td class="num">2</td>
+                  <td class="num">001–002</td>
+                  <td class="num">2</td>
+                  <td class="none">—</td>
+                  <td class="qt">grid <span class="md">schuko</span></td>
+                  <td class="notes">SL wing, off the floor</td>
+                </tr>
+                <tr>
+                  <td class="num none">—</td>
+                  <td class="nm">Audience 1 <span class="md">ADJ Hex Par</span></td>
+                  <td class="qt">7ch</td>
+                  <td class="num">2</td>
+                  <td class="num none" title="No address assigned">—</td>
+                  <td class="num">7</td>
+                  <td class="none">—</td>
+                  <td class="qt">grid <span class="md">schuko</span></td>
+                  <td class="notes"></td>
+                </tr>
+                <tr class="alt">
+                  <td class="num none">—</td>
+                  <td class="nm">Audience 2 <span class="md">ADJ Hex Par</span></td>
+                  <td class="qt">7ch</td>
+                  <td class="num">2</td>
+                  <td class="num none">—</td>
+                  <td class="num">7</td>
+                  <td class="none">—</td>
+                  <td class="qt">grid <span class="md">schuko</span></td>
+                  <td class="notes"></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="strip strip--err">
+              <span class="pill t-err">1 overlap</span>
+              <span class="mono">42 fixtures</span>
+              <span class="mono q">U1 078/512 · U2 016/512</span>
+              <span class="q">2 unaddressed</span>
+              <span class="q">1 duplicate ID</span>
+              <span class="hot">121 Key SR 056–070 overlaps 121 Key SL 049–063</span>
+              <span class="btn btn--ghost btn--sm" style="height:24px; padding:0 8px; font-size:11px">Show only clashes</span>
+              <span class="btn btn--outline btn--sm" style="height:24px; padding:0 8px; font-size:11px">Open Universes</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <span class="spec__cap"><b>Proposed.</b> Ten rows, one open editor, and the strip in its loudest state.</span>
+    </div>
+
+    <div class="tally">
+      <span><b>9</b> columns</span>
+      <span><b>0</b> controls in a closed row</span>
+      <span>row height <b>25 px</b></span>
+      <span>≈ <b>28</b> fixtures per screen, was 7</span>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">03 · the strip</span>
+      <h2>Three answers to “does the plan hold?”</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        The strip is the one genuinely new capability in this wave, and it is the reason
+        the wave is worth doing rather than a restyle. <strong>Nothing in the application
+        today notices that two fixtures share DMX addresses.</strong> Auto-assign packs
+        each universe from address 1 so its own output is always clean, but a single
+        hand-edited address afterwards puts two moving heads on the same channel and the
+        tool says nothing until a technician is standing in the room.
+      </p>
+      <p>
+        States in order of how much attention they need — overlap, then unaddressed,
+        then clean — matching how the audio strip orders over-capacity, gaps, complete.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app" style="min-width:820px; display:flex; flex-direction:column; gap:14px">
+          <div class="pan">
+            <div class="strip strip--err">
+              <span class="pill t-err">1 overlap</span>
+              <span class="mono">42 fixtures</span>
+              <span class="mono q">U1 078/512 · U2 016/512</span>
+              <span class="q">2 unaddressed</span>
+              <span class="hot">121 Key SR 056–070 overlaps 121 Key SL 049–063</span>
+              <span class="btn btn--ghost btn--sm">Show only clashes</span>
+            </div>
+          </div>
+          <div class="pan">
+            <div class="strip strip--warn">
+              <span class="pill t-warn">2 unaddressed</span>
+              <span class="mono">42 fixtures</span>
+              <span class="mono q">U1 078/512 · U2 016/512</span>
+              <span class="wrn">Audience 1 has no DMX address</span>
+              <span class="q">+1 more</span>
+              <span class="btn btn--ghost btn--sm">Show only unaddressed</span>
+            </div>
+          </div>
+          <div class="pan">
+            <div class="strip">
+              <span class="pill t-ok">addressed</span>
+              <span class="mono">42 fixtures</span>
+              <span class="mono q">U1 078/512 · U2 030/512</span>
+              <span class="q">4 models · 3 power chains</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <span class="spec__cap"><b>Strip.</b> Overlap · unaddressed · clean. Ground and top border both take the tint.</span>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">04 · adding</span>
+      <h2>One editor replaces two dialogs</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Add Fixture and Bulk Add are the same form with one field's difference. They are
+        two separate dialogs today, holding two copies of the model picker, the mode
+        picker and the channel count — which is why the single-add dialog quietly lacks
+        the universe and power fields the bulk one has.
+      </p>
+      <p>
+        <strong>+ Fixtures</strong> opens the row editor at the foot of the sheet with a
+        <code>Qty</code> field defaulting to 1. Adding one fixture and adding twelve stop
+        being different operations, and the editor you add with is the editor you edit
+        with — which is the pattern's own rule.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app" style="min-width:1040px">
+          <div class="pan">
+            <table class="sheet">
+              <tbody>
+                <tr class="alt">
+                  <td class="num">201</td>
+                  <td class="nm">Haze <span class="md">MDG Atmosphere APS</span></td>
+                  <td class="qt">Basic</td>
+                  <td class="num">2</td>
+                  <td class="num">001–002</td>
+                  <td class="num">2</td>
+                  <td class="none">—</td>
+                  <td class="qt">grid <span class="md">schuko</span></td>
+                  <td class="notes"></td>
+                </tr>
+                <tr class="eds">
+                  <td colspan="9">
+                    <div class="rowed">
+                      <div class="rowed__f rowed__f--count"><span class="lbl">Qty</span><span class="fld fld--foc" style="border-color:#f59e0b">12</span></div>
+                      <div class="rowed__f"><span class="lbl">Model</span><span class="fld fld--sel">Robe LEDBeam 150</span></div>
+                      <div class="rowed__f rowed__f--grow"><span class="lbl">Name</span><span class="fld fld--ph">Wash SR</span></div>
+                      <div class="rowed__f rowed__f--count"><span class="lbl">From FID</span><span class="fld">141</span></div>
+                      <div class="rowed__f rowed__f--short"><span class="lbl">Mode</span><span class="fld fld--sel">Standard</span></div>
+                      <div class="rowed__f rowed__f--count"><span class="lbl">Ch</span><span class="fld">16</span></div>
+                      <div class="rowed__f rowed__f--count"><span class="lbl">Univ</span><span class="fld">2</span></div>
+                      <div class="rowed__f rowed__f--short"><span class="lbl">Power</span><span class="fld fld--sel">chain</span></div>
+                      <div class="rowed__f"><span class="lbl">Connector</span><span class="fld fld--sel">Schuko</span></div>
+                      <div class="rowed__acts">
+                        <span class="btn" style="background:#f59e0b; color:#09090b; height:32px; padding:0 16px">Add 12 fixtures</span>
+                        <span class="btn btn--ghost" style="height:32px; padding:0 12px">Cancel</span>
+                      </div>
+                    </div>
+                    <p class="rowed__keys">
+                      <span class="lbl" style="margin-right:8px">Note</span>
+                      12 fixtures need 192 channels · universe 2 has 496 free
+                    </p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="strip">
+              <span class="pill t-ok">addressed</span>
+              <span class="mono">42 fixtures</span>
+              <span class="mono q">U1 078/512 · U2 016/512</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <span class="spec__cap"><b>Add.</b> Qty 1 is the single add. The button counts what it will do.</span>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">05 · the drawer</span>
+      <h2>Where the universes are, and where auto-assign belongs</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        A universe is declared once and referenced by every fixture in it — which is the
+        definition of a drawer, not a card stacked above the table. It is also the only
+        place an <em>“universe 2 exceeds 512 channels”</em> error can be explained rather
+        than merely reported, so <strong>Auto-assign DMX moves in here</strong> and stops
+        being a fourth button competing with the primary action in the bar.
+      </p>
+      <p>
+        With that move the bar is exactly the canonical order with no exceptions:
+        title, search, drawer, <code>flex-1</code>, print, one primary action.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app" style="min-width:auto; display:flex; justify-content:center">
+          <div class="drw">
+            <div class="drw__hd">
+              <h4>Universes</h4>
+              <p>DMX allocation across the rig</p>
+            </div>
+            <div class="drw__bd">
+              <div class="dsec">
+                <div class="dsec__hd">
+                  <span class="lbl">Universes</span>
+                  <span class="dsec__ct">2</span>
+                  <span class="grow"></span>
+                  <span class="btn btn--outline btn--sm">Auto-assign DMX</span>
+                </div>
+                <div class="gcard gcard--acc">
+                  <div class="gcard__top">
+                    <span class="nm">Universe 1</span>
+                    <span class="pill t-err">1 overlap</span>
+                    <span class="grow"></span>
+                    <span class="mono" style="font-size:10px; color:#a1a1aa">078 / 512 ch</span>
+                  </div>
+                  <div class="meter"><i style="width:15%"></i></div>
+                  <div class="gcard__specs"><span><b>34</b> fixtures</span><span><b>434</b> free</span><span>next free <b>079</b></span></div>
+                </div>
+                <div class="gcard">
+                  <div class="gcard__top">
+                    <span class="nm">Universe 2</span>
+                    <span class="grow"></span>
+                    <span class="mono" style="font-size:10px; color:#a1a1aa">016 / 512 ch</span>
+                  </div>
+                  <div class="meter"><i style="width:3%"></i></div>
+                  <div class="gcard__specs"><span><b>8</b> fixtures</span><span><b>496</b> free</span><span>next free <b>017</b></span></div>
+                </div>
+              </div>
+
+              <div class="dsec">
+                <div class="dsec__hd">
+                  <span class="lbl">Models in the rig</span>
+                  <span class="dsec__ct">4</span>
+                </div>
+                <div class="gcard">
+                  <div class="gcard__top">
+                    <span class="nm">Robe LEDBeam 150</span>
+                    <span class="grow"></span>
+                    <span class="mono" style="font-size:10px; color:#a1a1aa">× 12</span>
+                  </div>
+                  <div class="gcard__specs"><span>Standard · <b>16</b> ch</span><span><b>192</b> ch total</span></div>
+                </div>
+                <div class="gcard">
+                  <div class="gcard__top">
+                    <span class="nm">Martin MAC Aura XB</span>
+                    <span class="grow"></span>
+                    <span class="mono" style="font-size:10px; color:#a1a1aa">× 8</span>
+                  </div>
+                  <div class="gcard__specs"><span>Basic · <b>15</b> ch</span><span><b>120</b> ch total</span></div>
+                </div>
+                <div class="gcard">
+                  <div class="gcard__top">
+                    <span class="nm">Chauvet Strike 4</span>
+                    <span class="grow"></span>
+                    <span class="mono" style="font-size:10px; color:#a1a1aa">× 6</span>
+                  </div>
+                  <div class="gcard__specs"><span>4ch · <b>4</b> ch</span><span><b>24</b> ch total</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="drw__ft">
+              Auto-assign packs each universe from address 1 in rig order · addresses set by hand are overwritten
+            </div>
+          </div>
+        </div>
+      </div>
+      <span class="spec__cap"><b>Universes drawer.</b> Narrow drawer, <code style="font-family:var(--mono)">DrawerSection</code> + <code style="font-family:var(--mono)">GearCard</code> + <code style="font-family:var(--mono)">Meter</code>, all shipped.</span>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">06 · the ledger</span>
+      <h2>Every column, accounted for</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Thirteen columns become nine. Nothing is lost — three move into the editor, one
+        is deleted as a duplicate of another, and one becomes readable for the first
+        time.
+      </p>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <span class="led__k">#</span>
+        <span class="led__v"><b>Deleted.</b><span class="tag tag--drop">gone</span> A count of the rows above it, not data about a fixture. The rig's order is <em>Order</em> in the editor; the number a technician says out loud is the FID.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">FID</span>
+        <span class="led__v"><b>Leads the sheet</b>, as a numeric cell.<span class="tag tag--keep">column</span> Duplicates stay flagged, in amber, never blocking — renumbering a rig legitimately passes through duplicate states.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">Fixture Name</span>
+        <span class="led__v"><b>One cell, two facts.</b><span class="tag tag--keep">column</span> The name you gave it in white, the catalog model beside it in mono — model names are equipment identifiers, which is one of the four things mono is for.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">Truss</span>
+        <span class="led__v"><b>Stays, still read-only.</b><span class="tag tag--keep">column</span> It is derived from the stage plot. The editor gains a <em>Hang in plot →</em> hand-off, the same gesture the audio row editor uses for <em>Edit in Flow →</em>.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">Position</span>
+        <span class="led__v"><b>Into the editor</b>, renamed <em>Order</em>.<span class="tag tag--drop">column gone</span> It is the sort key of the sheet you are looking at; a column showing you the order of the thing already in that order earns nothing.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">Power<br>Power Connector</span>
+        <span class="led__v"><b>One column.</b><span class="tag tag--keep">merged</span> <code>grid schuko</code>, or <code>chain ← 101</code> with the link mark. Both are edited in the editor. The chain parent finally names the fixture it points at instead of printing a database id.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">DMX Univ<br>DMX Addr<br>Channels</span>
+        <span class="led__v"><b>Three numeric cells that line up.</b><span class="tag tag--keep">columns</span> Zero-padded addresses in tabular figures, so a column of them is a column. This is where the density pays for itself: an address clash is visible as a shape before you read a digit.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">Mode</span>
+        <span class="led__v"><b>Text, not a select-plus-input.</b><span class="tag tag--keep">column</span> The catalog-mode picker and the free-text override both move into the editor, where picking a mode still copies its channel count onto the fixture.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">DMX Chain</span>
+        <span class="led__v"><b>Deleted.</b><span class="tag tag--drop">gone</span> It prints <code>dmx_chain_parent_id</code> — a raw row id, meaningful to nobody, editable nowhere. Nothing in the application writes it. If DMX chaining is real planning data it deserves the treatment power chains get, and that is a slice of its own, not a column.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">Notes</span>
+        <span class="led__v"><b>Stays, truncated.</b><span class="tag tag--keep">column</span> Full text in the editor.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">Delete</span>
+        <span class="led__v"><b>Into the editor.</b><span class="tag tag--drop">column gone</span> A destructive control in every row of two hundred is a mis-click waiting to happen; it belongs beside Save, held apart from it.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">— new —</span>
+        <span class="led__v"><b>The status strip.</b><span class="tag tag--new">new</span> Overlaps, unaddressed fixtures, duplicate IDs, and per-universe fill. None of this is computed anywhere today.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">— new —</span>
+        <span class="led__v"><b>Search.</b><span class="tag tag--new">new</span> By FID, name, model, mode, truss or note — as both audio tabs have.</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">07 · scope</span>
+      <h2>What this wave does not touch</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <strong>Mobile is unchanged.</strong> The phone view is already a list and a
+        per-fixture edit sheet, which is the right shape; it uses navigation-tier sizing
+        and keeps it.
+      </p>
+      <p>
+        <strong>Print is unchanged.</strong> The lighting rig sheet is a separate visual
+        language and stays black-on-white at 9 pt.
+      </p>
+      <p>
+        <strong>No schema change.</strong> Every value drawn above already exists on the
+        fixture. Overlap and universe fill are derived in the browser from data already
+        fetched — the same shape as <code>patchCapacity</code>, and testable without
+        rendering anything.
+      </p>
+      <p>
+        <strong>One backend question, deferred:</strong> auto-assign currently fails the
+        whole rig if any universe would exceed 512. The drawer makes that legible for the
+        first time. Changing the endpoint's behaviour is not in this wave.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">08 · to approve</span>
+      <h2>Four calls I would like confirmed</h2>
+    </div>
+
+    <div class="ask">
+      <h3>1 · Deleting the DMX Chain column</h3>
+      <p>
+        It shows a raw parent id and nothing writes it. I am proposing it goes, and that
+        DMX chaining is either a later slice or nothing. Say if it is planning data you
+        actually use and I will design it properly instead.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>2 · Merging Add Fixture and Bulk Add into one editor</h3>
+      <p>
+        One form with <code>Qty</code>, defaulting to 1, at the foot of the sheet. This
+        removes two dialogs and one duplicated model picker. The alternative is keeping
+        the dialogs and only restyling them.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>3 · The Universes drawer, and auto-assign moving into it</h3>
+      <p>
+        This is the biggest workflow change: a button that is in the toolbar today moves
+        one click away. In exchange the bar keeps its canonical shape and the 512-channel
+        limit becomes something you can see before you hit it rather than an error
+        afterwards.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>4 · Overlap detection as an alert, never a block</h3>
+      <p>
+        Two fixtures sharing addresses is flagged red in the cell and counted in the
+        strip, but saving is never prevented — the same treatment duplicate FIDs already
+        get, because a rig legitimately passes through a broken state while it is being
+        renumbered.
+      </p>
+    </div>
+  </section>
+
+</div>
