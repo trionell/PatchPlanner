@@ -238,7 +238,11 @@ export function InputSheet({
                             removeChannel.mutate(channel.id)
                           }
                         }}
-                        onEditInFlow={onEditInFlow && chainSourceNode(chain) ? () => onEditInFlow(chainSourceNode(chain)!) : undefined}
+                        handoff={
+                          onEditInFlow && chainSourceNode(chain)
+                            ? { label: 'Source', text: 'Edit in Flow', onSelect: () => onEditInFlow(chainSourceNode(chain)!) }
+                            : undefined
+                        }
                         onKeyDown={editor.onKeyDown}
                       >
                         <FieldStack label="Ch" width="count">

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { LightingFixture } from '../types'
+import type { AddressChange, LightingFixture } from '../types'
 import { UNIVERSE_SIZE, dmxMap, universeMap } from './dmxMap'
-import { type AddressChange, planAutoAssign, planMakeRoom, planOptimise } from './dmxPlan'
+import { planAutoAssign, planMakeRoom, planOptimise } from './dmxPlan'
 
 /**
  * The cases in specs/027-lighting-sheet/contracts/dmx-map.md §8, 8–17.
@@ -32,10 +32,10 @@ function fixture(id: number, options: Options = {}): LightingFixture {
 
 /** The rig as it would be after the plan is applied. */
 function applied(fixtures: LightingFixture[], changes: AddressChange[]): LightingFixture[] {
-  const byId = new Map(changes.map((change) => [change.fixtureId, change]))
+  const byId = new Map(changes.map((change) => [change.fixture_id, change]))
   return fixtures.map((f) => {
     const change = byId.get(f.id)
-    return change ? { ...f, dmx_universe: change.universe, dmx_start_address: change.startAddress } : f
+    return change ? { ...f, dmx_universe: change.dmx_universe, dmx_start_address: change.dmx_start_address } : f
   })
 }
 
@@ -100,8 +100,8 @@ describe('planAutoAssign', () => {
     const plan = planAutoAssign(rig)
 
     expect(plan.skippedUniverses).toEqual([2])
-    expect(plan.changes.some((change) => change.universe === 2)).toBe(false)
-    expect(plan.changes.map((change) => change.fixtureId).sort((a, b) => a - b)).toEqual([1, 2])
+    expect(plan.changes.some((change) => change.dmx_universe === 2)).toBe(false)
+    expect(plan.changes.map((change) => change.fixture_id).sort((a, b) => a - b)).toEqual([1, 2])
   })
 
   // Case 13 — the two operations differ about unaddressed fixtures.
@@ -164,7 +164,7 @@ describe('planOptimise', () => {
   it('leaves unaddressed fixtures unaddressed', () => {
     const rig = [fixture(1, { start: 100, count: 16 }), fixture(2, { start: null, count: 8 })]
     const plan = planOptimise(rig)
-    expect(plan.changes.map((change) => change.fixtureId)).toEqual([1])
+    expect(plan.changes.map((change) => change.fixture_id)).toEqual([1])
     expect(applied(rig, plan.changes)[1].dmx_start_address).toBeUndefined()
   })
 
@@ -203,7 +203,7 @@ describe('planMakeRoom', () => {
     ]
     const plan = planMakeRoom(rig, { universe: 1, start: 17, count: 16 })
     expect(plan.possible).toBe(true)
-    expect(plan.changes).toEqual([{ fixtureId: 2, universe: 1, startAddress: 33 }])
+    expect(plan.changes).toEqual([{ fixture_id: 2, dmx_universe: 1, dmx_start_address: 33 }])
 
     const after = applied(rig, plan.changes)
     expect(after.find((f) => f.id === 3)!.dmx_start_address).toBe(100)
@@ -214,13 +214,13 @@ describe('planMakeRoom', () => {
   it('never moves a fixture below the insertion point', () => {
     const rig = [fixture(1, { start: 1, count: 16 }), fixture(2, { start: 100, count: 16 })]
     const plan = planMakeRoom(rig, { universe: 1, start: 100, count: 16 })
-    expect(plan.changes.map((change) => change.fixtureId)).toEqual([2])
+    expect(plan.changes.map((change) => change.fixture_id)).toEqual([2])
   })
 
   it('moves a group that starts below the insertion but runs into it', () => {
     const rig = [fixture(1, { start: 45, count: 16 })] // 45–60, and we want 49
     const plan = planMakeRoom(rig, { universe: 1, start: 49, count: 16 })
-    expect(plan.changes).toEqual([{ fixtureId: 1, universe: 1, startAddress: 65 }])
+    expect(plan.changes).toEqual([{ fixture_id: 1, dmx_universe: 1, dmx_start_address: 65 }])
   })
 
   // Case 16 — impossible is reported, not half-done.

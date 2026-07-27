@@ -1,4 +1,4 @@
-import type { LightingFixture } from '../types'
+import type { AddressChange, LightingFixture } from '../types'
 import { UNIVERSE_SIZE, channelCountOf, dmxMap, universeMap, universeOf } from './dmxMap'
 
 /**
@@ -17,13 +17,14 @@ import { UNIVERSE_SIZE, channelCountOf, dmxMap, universeMap, universeOf } from '
  * a list of changes lands completely or not at all.
  */
 
-export interface AddressChange {
-  fixtureId: number
-  /** Always the fixture's own universe. These operations never move one (FR-035). */
-  universe: number
-  startAddress: number
-}
-
+/**
+ * `AddressChange` is the wire's shape (`types/index.ts`), used here rather than a
+ * camel-cased twin: a plan exists to be sent, and two shapes for one thing is the
+ * duplication this module was written to avoid.
+ *
+ * `dmx_universe` is always the fixture's own. These operations never move one
+ * between universes (FR-035).
+ */
 export interface Plan {
   /** Only fixtures whose address actually changes, so a tidy rig plans to nothing. */
   changes: AddressChange[]
@@ -74,7 +75,7 @@ function packUniverse(universe: number, ordered: PlanGroup[], cursorStart = 1): 
   for (const group of ordered) {
     if (cursor + group.count - 1 > UNIVERSE_SIZE) return null
     if (group.start !== cursor) {
-      for (const fixtureId of group.fixtureIds) changes.push({ fixtureId, universe, startAddress: cursor })
+      for (const fixtureId of group.fixtureIds) changes.push({ fixture_id: fixtureId, dmx_universe: universe, dmx_start_address: cursor })
     }
     cursor += group.count
   }
@@ -224,7 +225,7 @@ export function planMakeRoom(fixtures: LightingFixture[], insert: Insertion): Ma
     if (group.start >= cursor) break
     if (cursor + group.count - 1 > UNIVERSE_SIZE) return { changes: [], movedFixtureCount: 0, possible: false }
     for (const fixtureId of group.fixtureIds) {
-      changes.push({ fixtureId, universe: insert.universe, startAddress: cursor })
+      changes.push({ fixture_id: fixtureId, dmx_universe: insert.universe, dmx_start_address: cursor })
     }
     cursor += group.count
   }

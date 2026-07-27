@@ -1,33 +1,42 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Copy, Link2, Plus, Trash2 } from 'lucide-react'
+import { Copy, Plus, Search, Sparkles } from 'lucide-react'
 import { getEvent } from '../../api/events'
 import { listEventInventoryItems } from '../../api/inventory'
 import { listFixtureModes } from '../../api/inventories'
-import {
-  bulkAddFixtures,
-  createLightingFixture,
-  deleteLightingFixture,
-  getLightingRig,
-  updateLightingFixture,
-} from '../../api/lighting'
-import { useDraftState } from '../../hooks/useDraftState'
+import { bulkAddFixtures, createLightingFixture, getLightingRig, updateFixtureAddresses } from '../../api/lighting'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { useReferenceData } from '../../hooks/useReferenceData'
-import { duplicateFixtureNumbers, nextFixtureNumber } from '../../lib/lightingRig'
-import { cn, formatDMXRange, toOptionalNumber } from '../../lib/utils'
-import type { BulkFixtureRequest, FixtureMode, LightingFixture } from '../../types'
+import { dmxMap } from '../../lib/dmxMap'
+import { planAutoAssign } from '../../lib/dmxPlan'
+import { nextFixtureNumber } from '../../lib/lightingRig'
+import { formatDMXRange, toOptionalNumber } from '../../lib/utils'
+import type { AddressChange, BulkFixtureRequest, LightingFixture } from '../../types'
 import { MobileEntityList } from '../mobile/MobileEntityList'
 import { MobileFixtureEditSheet } from '../mobile/MobileFixtureEditSheet'
 import { LightingRigSheet } from '../print/LightingRigSheet'
 import { PrintButton } from '../print/PrintButton'
 import { Button } from '../ui/Button'
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
 import { Dialog } from '../ui/Dialog'
 import { Input } from '../ui/Input'
 import { FieldLabel } from '../ui/Label'
+import { PatchPanel } from '../ui/PatchPanel'
 import { Select } from '../ui/Select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table'
+import { LightingSheet } from './LightingSheet'
+
+/**
+ * The Lighting tab (Slice 27 US1).
+ *
+ * The last surface in the application that was a form pretending to be a list:
+ * thirteen columns, twenty-four live controls, no read state, and a rig of forty
+ * fixtures showing seven of them. It is now the work panel the audio tabs and
+ * Stage Plots already use — a bar, and a sheet that is read until a row is
+ * clicked.
+ *
+ * The tab owns the queries, the DMX map derived from them, and the gestures that
+ * rewrite addresses. The sheet owns rows and their editor, which is the split
+ * `AudioInputsTab` and `InputSheet` already use.
+ */
 
 const emptyFixtureDraft = { inventory_item_id: '', custom_name: '', dmx_channel_mode: 'Basic', dmx_channel_count: 8 }
 const emptyBulkDraft = {
@@ -52,8 +61,8 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
   })
   const { options } = useReferenceData(eventId)
 
-  const [fixtures, setFixtures] = useDraftState(lightingQuery.data, (data) => data.fixtures, [] as LightingFixture[])
   const isMobile = useIsMobile()
+  const [search, setSearch] = useState('')
   const [editingFixtureId, setEditingFixtureId] = useState<number | 'new' | null>(null)
   const [fixtureDialogOpen, setFixtureDialogOpen] = useState(false)
   const [fixtureDraft, setFixtureDraft] = useState(emptyFixtureDraft)
@@ -61,12 +70,20 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
   const [bulkDraft, setBulkDraft] = useState(emptyBulkDraft)
 
   const rigId = lightingQuery.data?.rig.id
+  const fixtures = useMemo(() => lightingQuery.data?.fixtures ?? [], [lightingQuery.data])
+
+  /** One derivation per fixture-list change, read by the sheet and every gesture. */
+  const map = useMemo(() => dmxMap(fixtures), [fixtures])
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['lighting-rig', eventId] })
     await queryClient.invalidateQueries({ queryKey: ['rental-summary', eventId] })
   }
 
+  const applyAddresses = useMutation({
+    mutationFn: (changes: AddressChange[]) => updateFixtureAddresses(eventId, rigId!, changes),
+    onSuccess: invalidate,
+  })
   const addFixtureMutation = useMutation({
     mutationFn: (payload: Omit<LightingFixture, 'id'>) => createLightingFixture(eventId, rigId!, payload),
     onSuccess: async () => {
@@ -74,14 +91,6 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
       setFixtureDraft(emptyFixtureDraft)
       await invalidate()
     },
-  })
-  const saveFixtureMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: Omit<LightingFixture, 'id'> }) => updateLightingFixture(eventId, rigId!, id, payload),
-    onSuccess: invalidate,
-  })
-  const deleteFixtureMutation = useMutation({
-    mutationFn: (id: number) => deleteLightingFixture(eventId, rigId!, id),
-    onSuccess: invalidate,
   })
   const bulkAddMutation = useMutation({
     mutationFn: (payload: BulkFixtureRequest) => bulkAddFixtures(eventId, rigId!, payload),
@@ -91,39 +100,49 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
       await invalidate()
     },
   })
-  const lightingOptions = useMemo(
+
+  const modelOptions = useMemo(
     () => (lightingInventoryQuery.data ?? []).map((item) => ({ label: item.name, value: item.id })),
     [lightingInventoryQuery.data],
   )
 
-  // Console fixture IDs used more than once — flagged, never blocking.
-  const duplicateNumbers = useMemo(() => duplicateFixtureNumbers(fixtures), [fixtures])
-
-  // Catalog modes for the model currently picked in the Add Fixture dialog
-  // (same cache key the table's mode cell uses).
+  // Catalog modes for the model picked in each dialog — same cache key the row
+  // editor's mode field uses, so opening a row after adding one costs nothing.
   const draftItemId = toOptionalNumber(fixtureDraft.inventory_item_id)
   const draftModesQuery = useQuery({
     queryKey: ['fixture-modes', draftItemId],
     queryFn: () => listFixtureModes(inventoryId!, draftItemId!),
     enabled: fixtureDialogOpen && draftItemId !== undefined && inventoryId !== undefined,
   })
-  const draftModes = fixtureDialogOpen && draftItemId !== undefined ? draftModesQuery.data ?? [] : []
+  const draftModes = fixtureDialogOpen && draftItemId !== undefined ? (draftModesQuery.data ?? []) : []
 
-  // Same source for the bulk dialog's model.
   const bulkItemId = toOptionalNumber(bulkDraft.inventory_item_id)
   const bulkModesQuery = useQuery({
     queryKey: ['fixture-modes', bulkItemId],
     queryFn: () => listFixtureModes(inventoryId!, bulkItemId!),
     enabled: bulkDialogOpen && bulkItemId !== undefined && inventoryId !== undefined,
   })
-  const bulkModes = bulkDialogOpen && bulkItemId !== undefined ? bulkModesQuery.data ?? [] : []
+  const bulkModes = bulkDialogOpen && bulkItemId !== undefined ? (bulkModesQuery.data ?? []) : []
 
-  function updateDraft<K extends keyof LightingFixture>(index: number, key: K, value: LightingFixture[K]) {
-    setFixtures((current) => current.map((row, rowIndex) => (rowIndex === index ? { ...row, [key]: value } : row)))
-  }
-
-  async function persist(row: LightingFixture) {
-    await saveFixtureMutation.mutateAsync({ id: row.id, payload: row })
+  /**
+   * Renumber every universe from address 1 in rig order, moving **groups**
+   * rather than fixtures (US4): what shared before still shares, and nothing
+   * leaves the universe it is in.
+   *
+   * The packing is `lib/dmxPlan`; this only confirms and applies. It confirms
+   * because one press can move thirty fixtures and cannot be undone.
+   */
+  function runAutoAssign() {
+    const plan = planAutoAssign(fixtures)
+    if (plan.changes.length === 0 && plan.skippedUniverses.length === 0) {
+      window.alert('Every fixture is already packed from address 1 in rig order.')
+      return
+    }
+    const skipped = plan.skippedUniverses.length
+      ? `\n\nUniverse ${plan.skippedUniverses.join(', ')} needs more than 512 channels, and will be left exactly as it is.`
+      : ''
+    if (!window.confirm(`Re-address ${plan.movedFixtureCount} fixtures from 1 in rig order?${skipped}`)) return
+    applyAddresses.mutate(plan.changes)
   }
 
   if (isMobile) {
@@ -163,96 +182,70 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
   return (
     <>
       <div className="print:hidden">
-        <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <div>
-              <CardTitle>{lightingQuery.data?.rig.name ?? 'Lighting rig'}</CardTitle>
-              <p className="mt-1 text-sm text-zinc-400">Manage fixtures, power chains, and DMX allocation.</p>
-            </div>
-            <div className="flex gap-2">
+        <PatchPanel
+          bar={
+            <>
+              <span className="mr-1 shrink-0 text-sm font-semibold text-zinc-100">Lighting</span>
+
+              <div className="relative min-w-[10rem] max-w-xs flex-1">
+                <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+                <Input
+                  size="sm"
+                  className="pl-7"
+                  placeholder="Find a fixture…"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                />
+              </div>
+
+              <span className="flex-1" />
+
+              {/* Auto-assign is here until US6 gives it a drawer to live in,
+                  beside the universes it acts on. */}
+              {!readOnly && (
+                <Button size="xs" variant="outline" onClick={runAutoAssign} disabled={applyAddresses.isPending || !rigId}>
+                  <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                  Auto-assign DMX
+                </Button>
+              )}
               <PrintButton />
               {!readOnly && (
                 <>
                   <Button
-                    variant="secondary"
-                    size="sm"
+                    size="xs"
+                    variant="outline"
                     onClick={() => {
                       setBulkDraft({ ...emptyBulkDraft, fixture_number_start: String(nextFixtureNumber(fixtures)) })
                       setBulkDialogOpen(true)
                     }}
                     disabled={!rigId}
                   >
-                    <Copy className="mr-2 h-4 w-4" />Bulk Add
+                    <Copy className="mr-1.5 h-3.5 w-3.5" />
+                    Bulk add
                   </Button>
-                  <Button size="sm" onClick={() => setFixtureDialogOpen(true)} disabled={!rigId}><Plus className="mr-2 h-4 w-4" />Add Fixture</Button>
+                  <Button size="xs" onClick={() => setFixtureDialogOpen(true)} disabled={!rigId}>
+                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                    Fixture
+                  </Button>
                 </>
               )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    {['#','FID','Fixture Name','Truss','Position','Power','Power Connector','DMX Univ','DMX Addr','Mode','Channels','Notes',''].map((label) => <TableHead key={label}>{label}</TableHead>)}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {fixtures.map((fixture, index) => (
-                    <TableRow key={fixture.id}>
-                      <TableCell>{index + 1}</TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={fixture.fixture_number ?? ''}
-                          onChange={(e) => updateDraft(index, 'fixture_number', toOptionalNumber(e.target.value))}
-                          onBlur={() => persist(fixtures[index])}
-                          disabled={readOnly}
-                          title={fixture.fixture_number != null && duplicateNumbers.has(fixture.fixture_number) ? 'Duplicate fixture ID — the console needs unique numbers' : 'Console (GrandMA) fixture ID'}
-                          className={cn('min-w-20', fixture.fixture_number != null && duplicateNumbers.has(fixture.fixture_number) && 'border-amber-500 text-amber-300')}
-                        />
-                      </TableCell>
-                      <TableCell className="min-w-48"><div className="space-y-2"><div className="font-medium">{fixture.inventory_item_name || fixture.custom_name || 'Unnamed fixture'}</div><Input value={fixture.custom_name ?? ''} onChange={(e) => updateDraft(index, 'custom_name', e.target.value)} onBlur={() => persist(fixtures[index])} disabled={readOnly} placeholder="Custom label" /></div></TableCell>
-                      <TableCell className="min-w-32 whitespace-nowrap text-zinc-300" title="Assigned by placing the fixture on a truss in the Stage Plots tab">
-                        {fixture.truss_name ? (
-                          <>
-                            {fixture.truss_name}
-                            {fixture.truss_offset_cm != null && <span className="text-zinc-500"> · {fixture.truss_offset_cm} cm</span>}
-                          </>
-                        ) : (
-                          <span className="text-zinc-600">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell><Input type="number" value={fixture.position_index} onChange={(e) => updateDraft(index, 'position_index', Number(e.target.value))} onBlur={() => persist(fixtures[index])} disabled={readOnly} className="min-w-20" /></TableCell>
-                      <TableCell><div className="flex items-center gap-2"><Select value={fixture.power_connection} onChange={(e) => updateDraft(index, 'power_connection', e.target.value as LightingFixture['power_connection'])} onBlur={() => persist(fixtures[index])} disabled={readOnly} className="min-w-24"><option value="grid">grid</option><option value="chain">chain</option></Select>{fixture.power_connection === 'chain' && <Link2 className="h-4 w-4 text-amber-400" />}</div></TableCell>
-                      <TableCell><Select value={fixture.power_connector_in} onChange={(e) => updateDraft(index, 'power_connector_in', e.target.value)} onBlur={() => persist(fixtures[index])} disabled={readOnly} className="min-w-44">{options('power_connectors', fixture.power_connector_in).map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</Select></TableCell>
-                      <TableCell><Input type="number" value={fixture.dmx_universe} onChange={(e) => updateDraft(index, 'dmx_universe', Number(e.target.value))} onBlur={() => persist(fixtures[index])} disabled={readOnly} className="min-w-20" /></TableCell>
-                      <TableCell className="min-w-24">{formatDMXRange(fixture.dmx_start_address, fixture.dmx_channel_count)}</TableCell>
-                      <TableCell>
-                        <FixtureModeCell
-                          fixture={fixture}
-                          inventoryId={inventoryId}
-                          onApply={(mode) => {
-                            updateDraft(index, 'dmx_channel_mode', mode.name)
-                            updateDraft(index, 'dmx_channel_count', mode.channel_count)
-                            void persist({ ...fixtures[index], dmx_channel_mode: mode.name, dmx_channel_count: mode.channel_count })
-                          }}
-                          onModeText={(value) => updateDraft(index, 'dmx_channel_mode', value)}
-                          onPersist={() => persist(fixtures[index])}
-                          readOnly={readOnly}
-                        />
-                      </TableCell>
-                      <TableCell><Input type="number" value={fixture.dmx_channel_count} onChange={(e) => updateDraft(index, 'dmx_channel_count', Number(e.target.value))} onBlur={() => persist(fixtures[index])} disabled={readOnly} className="min-w-20" /></TableCell>
-                      <TableCell><Input value={fixture.notes ?? ''} onChange={(e) => updateDraft(index, 'notes', e.target.value)} onBlur={() => persist(fixtures[index])} disabled={readOnly} className="min-w-36" /></TableCell>
-                      <TableCell>{!readOnly && <Button size="sm" variant="ghost" onClick={() => deleteFixtureMutation.mutate(fixture.id)}><Trash2 className="h-4 w-4" /></Button>}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+            </>
+          }
+        >
+          {applyAddresses.error && (
+            <p className="border-b border-zinc-800 px-3 py-2 text-xs text-red-400">{applyAddresses.error.message}</p>
+          )}
+          <LightingSheet
+            eventId={eventId}
+            rigId={rigId}
+            inventoryId={inventoryId}
+            fixtures={fixtures}
+            map={map}
+            modelOptions={modelOptions}
+            search={search}
+            readOnly={readOnly}
+          />
+        </PatchPanel>
 
         <Dialog open={fixtureDialogOpen} onClose={() => setFixtureDialogOpen(false)} title="Add fixture">
           <div className="space-y-4">
@@ -272,7 +265,11 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
                 }
               >
                 <option value="">Custom / none</option>
-                {lightingOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                {modelOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </Select>
             </div>
             <div>
@@ -283,14 +280,20 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
               <div>
                 <FieldLabel>Defined modes</FieldLabel>
                 <Select
-                  value={draftModes.find((m) => m.name === fixtureDraft.dmx_channel_mode && m.channel_count === fixtureDraft.dmx_channel_count)?.id ?? ''}
+                  value={
+                    draftModes.find((m) => m.name === fixtureDraft.dmx_channel_mode && m.channel_count === fixtureDraft.dmx_channel_count)?.id ?? ''
+                  }
                   onChange={(e) => {
                     const mode = draftModes.find((m) => m.id === Number(e.target.value))
                     if (mode) setFixtureDraft((prev) => ({ ...prev, dmx_channel_mode: mode.name, dmx_channel_count: mode.channel_count }))
                   }}
                 >
                   <option value="">Pick a mode…</option>
-                  {draftModes.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.channel_count} ch)</option>)}
+                  {draftModes.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} ({m.channel_count} ch)
+                    </option>
+                  ))}
                 </Select>
               </div>
             )}
@@ -301,11 +304,17 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
               </div>
               <div>
                 <FieldLabel>Channels</FieldLabel>
-                <Input type="number" value={fixtureDraft.dmx_channel_count} onChange={(e) => setFixtureDraft((prev) => ({ ...prev, dmx_channel_count: Number(e.target.value) }))} />
+                <Input
+                  type="number"
+                  value={fixtureDraft.dmx_channel_count}
+                  onChange={(e) => setFixtureDraft((prev) => ({ ...prev, dmx_channel_count: Number(e.target.value) }))}
+                />
               </div>
             </div>
             <div className="flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => setFixtureDialogOpen(false)}>Cancel</Button>
+              <Button variant="ghost" onClick={() => setFixtureDialogOpen(false)}>
+                Cancel
+              </Button>
               <Button
                 onClick={() =>
                   addFixtureMutation.mutate({
@@ -332,9 +341,7 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
         <Dialog open={bulkDialogOpen} onClose={() => setBulkDialogOpen(false)} title="Bulk add fixtures">
           <div className="space-y-4">
             {bulkAddMutation.isError && (
-              <div className="rounded-md border border-red-800 bg-red-950/50 px-4 py-3 text-sm text-red-300">
-                {bulkAddMutation.error.message}
-              </div>
+              <div className="rounded-md border border-red-800 bg-red-950/50 px-4 py-3 text-sm text-red-300">{bulkAddMutation.error.message}</div>
             )}
             <div>
               <FieldLabel>Inventory fixture</FieldLabel>
@@ -350,17 +357,33 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
                 }
               >
                 <option value="">Pick a model…</option>
-                {lightingOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                {modelOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </Select>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <FieldLabel>Quantity (1–100)</FieldLabel>
-                <Input type="number" min={1} max={100} value={bulkDraft.quantity} onChange={(e) => setBulkDraft((prev) => ({ ...prev, quantity: Number(e.target.value) }))} />
+                <Input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={bulkDraft.quantity}
+                  onChange={(e) => setBulkDraft((prev) => ({ ...prev, quantity: Number(e.target.value) }))}
+                />
               </div>
               <div>
                 <FieldLabel>Start fixture ID</FieldLabel>
-                <Input type="number" min={1} value={bulkDraft.fixture_number_start} onChange={(e) => setBulkDraft((prev) => ({ ...prev, fixture_number_start: e.target.value }))} placeholder="no IDs" />
+                <Input
+                  type="number"
+                  min={1}
+                  value={bulkDraft.fixture_number_start}
+                  onChange={(e) => setBulkDraft((prev) => ({ ...prev, fixture_number_start: e.target.value }))}
+                  placeholder="no IDs"
+                />
               </div>
             </div>
             {bulkModes.length > 0 && (
@@ -374,7 +397,11 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
                   }}
                 >
                   <option value="">Pick a mode…</option>
-                  {bulkModes.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.channel_count} ch)</option>)}
+                  {bulkModes.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} ({m.channel_count} ch)
+                    </option>
+                  ))}
                 </Select>
               </div>
             )}
@@ -385,19 +412,32 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
               </div>
               <div>
                 <FieldLabel>Channels</FieldLabel>
-                <Input type="number" min={1} value={bulkDraft.dmx_channel_count} onChange={(e) => setBulkDraft((prev) => ({ ...prev, dmx_channel_count: Number(e.target.value) }))} />
+                <Input
+                  type="number"
+                  min={1}
+                  value={bulkDraft.dmx_channel_count}
+                  onChange={(e) => setBulkDraft((prev) => ({ ...prev, dmx_channel_count: Number(e.target.value) }))}
+                />
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <FieldLabel>DMX universe</FieldLabel>
-                <Input type="number" min={1} value={bulkDraft.dmx_universe} onChange={(e) => setBulkDraft((prev) => ({ ...prev, dmx_universe: Number(e.target.value) }))} />
+                <Input
+                  type="number"
+                  min={1}
+                  value={bulkDraft.dmx_universe}
+                  onChange={(e) => setBulkDraft((prev) => ({ ...prev, dmx_universe: Number(e.target.value) }))}
+                />
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <FieldLabel>Power</FieldLabel>
-                <Select value={bulkDraft.power_connection} onChange={(e) => setBulkDraft((prev) => ({ ...prev, power_connection: e.target.value as BulkFixtureRequest['power_connection'] }))}>
+                <Select
+                  value={bulkDraft.power_connection}
+                  onChange={(e) => setBulkDraft((prev) => ({ ...prev, power_connection: e.target.value as BulkFixtureRequest['power_connection'] }))}
+                >
                   <option value="grid">grid</option>
                   <option value="chain">chain</option>
                 </Select>
@@ -405,16 +445,22 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
               <div>
                 <FieldLabel>Power connector</FieldLabel>
                 <Select value={bulkDraft.power_connector_in} onChange={(e) => setBulkDraft((prev) => ({ ...prev, power_connector_in: e.target.value }))}>
-                  {options('power_connectors', bulkDraft.power_connector_in).map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                  {options('power_connectors', bulkDraft.power_connector_in).map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
                 </Select>
               </div>
             </div>
             <div className="flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => setBulkDialogOpen(false)}>Cancel</Button>
+              <Button variant="ghost" onClick={() => setBulkDialogOpen(false)}>
+                Cancel
+              </Button>
               <Button
                 onClick={() =>
                   bulkAddMutation.mutate({
-                    inventory_item_id: bulkItemId!,
+                    inventory_item_id: bulkItemId,
                     quantity: bulkDraft.quantity,
                     fixture_number_start: toOptionalNumber(bulkDraft.fixture_number_start),
                     dmx_channel_mode: bulkDraft.dmx_channel_mode,
@@ -434,55 +480,5 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
       </div>
       <LightingRigSheet eventId={eventId} fixtures={fixtures} />
     </>
-  )
-}
-
-/**
- * Mode cell: when the fixture's catalog model has defined DMX modes, offer
- * them in a picker that copies name + channel count onto the fixture
- * (copy-on-pick — later mode edits never rewrite the rig). Manual mode text
- * stays available either way.
- */
-function FixtureModeCell({
-  fixture,
-  inventoryId,
-  onApply,
-  onModeText,
-  onPersist,
-  readOnly = false,
-}: {
-  fixture: LightingFixture
-  inventoryId: number | undefined
-  onApply: (mode: FixtureMode) => void
-  onModeText: (value: string) => void
-  onPersist: () => void
-  readOnly?: boolean
-}) {
-  const itemId = fixture.inventory_item_id
-  const modesQuery = useQuery({
-    queryKey: ['fixture-modes', itemId],
-    queryFn: () => listFixtureModes(inventoryId!, itemId!),
-    enabled: !!itemId && inventoryId !== undefined,
-  })
-  const modes = modesQuery.data ?? []
-  const selected = modes.find((m) => m.name === fixture.dmx_channel_mode && m.channel_count === fixture.dmx_channel_count)
-
-  return (
-    <div className="min-w-32 space-y-1">
-      {modes.length > 0 && (
-        <Select
-          value={selected?.id ?? ''}
-          disabled={readOnly}
-          onChange={(e) => {
-            const mode = modes.find((m) => m.id === Number(e.target.value))
-            if (mode) onApply(mode)
-          }}
-        >
-          <option value="">custom…</option>
-          {modes.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.channel_count} ch)</option>)}
-        </Select>
-      )}
-      <Input value={fixture.dmx_channel_mode ?? ''} onChange={(e) => onModeText(e.target.value)} onBlur={onPersist} disabled={readOnly} className="min-w-24" />
-    </div>
   )
 }

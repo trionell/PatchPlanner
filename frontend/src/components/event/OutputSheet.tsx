@@ -232,8 +232,11 @@ export function OutputSheet({
                             removeOutput.mutate(output.id)
                           }
                         }}
-                        editInFlowLabel="Routing"
-                        onEditInFlow={onEditOutputInFlow ? () => onEditOutputInFlow(output) : undefined}
+                        handoff={
+                          onEditOutputInFlow
+                            ? { label: 'Routing', text: 'Edit in Flow', onSelect: () => onEditOutputInFlow(output) }
+                            : undefined
+                        }
                         onKeyDown={editor.onKeyDown}
                       >
                         <FieldStack label="Out" width="count">
