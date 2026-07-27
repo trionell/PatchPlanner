@@ -1644,10 +1644,11 @@
         in the codebase, not a perfect one.
       </p>
       <p class="body">
-        <strong>Waves 0, 1 and 2 have landed.</strong> Seven findings are struck below and stay
+        <strong>Waves 0 to 3 have landed.</strong> Eight findings are struck below and stay
         struck — the list is a record of what was wrong and when it stopped being wrong, not a queue
         that empties. A twelfth finding was added by Wave 2, because converting a surface is how you
-        discover what an audit's greps could not see.
+        discover what an audit's greps could not see; and Wave 3 turned out to be the wave where the
+        <em>audit</em> was wrong, not just the code.
       </p>
     </header>
 
@@ -1660,9 +1661,9 @@
         <div class="find__hd"><span class="find__id">A2</span><span class="find__ti">Nineteen buttons override their own size</span><span class="find__done">Wave 0</span><span class="find__p">P3</span></div>
         <p class="find__b">The work-surface height is <span class="find__n">h-7</span> and <span class="k">Button</span> had no such size, so every toolbar control reached it by hand. → <span class="k">xs</span> added, <span class="find__n">17</span> of the <span class="find__n">19</span> deleted. The two left are the status strip's, which sit a size below and say so in the code.</p>
       </div>
-      <div class="find">
-        <div class="find__hd"><span class="find__id">A8</span><span class="find__ti">The lighting fixture table is a form, not a sheet</span><span class="find__p">Patterns §2</span></div>
-        <p class="find__b">Thirteen columns and <span class="find__n">24</span> live <span class="k">Input</span>/<span class="k">Select</span> calls that persist on blur. There is no read state at all, so the table cannot be scanned — every value sits inside a bordered control and the eye parses chrome before it reaches data. The single largest gap between the language and the code.</p>
+      <div class="find find--done">
+        <div class="find__hd"><span class="find__id">A8</span><span class="find__ti">The lighting fixture table is a form, not a sheet</span><span class="find__done">Wave 3</span><span class="find__p">Patterns §2</span></div>
+        <p class="find__b">Thirteen columns and <span class="find__n">24</span> live <span class="k">Input</span>/<span class="k">Select</span> calls that persist on blur, with no read state at all — the single largest gap between the language and the code. → <span class="find__n">9</span> columns, <span class="find__n">0</span> controls in a closed row, <span class="find__n">2</span> dialogs down to <span class="find__n">0</span>, and about <span class="find__n">28</span> fixtures on screen where there were <span class="find__n">7</span>.</p>
       </div>
       <div class="find find--done">
         <div class="find__hd"><span class="find__id">A11</span><span class="find__ti">Fifty-seven inline form labels</span><span class="find__done">Wave 0</span><span class="find__p">P3</span></div>
@@ -1670,7 +1671,7 @@
       </div>
       <div class="find">
         <div class="find__hd"><span class="find__id">A6 · A7</span><span class="find__ti">Card stacks, and the wrong table</span><span class="find__p">P1 · P2</span></div>
-        <p class="find__b">Six surfaces are still <span class="k">Card</span> → <span class="k">CardHeader</span> → <span class="k">Table</span> stacks. Four of them are work surfaces by P2's test — lighting fixtures, rental lines, equipment lines, and a 308-item inventory — rendered on the navigation-tier table. The zebra striping is the tell.</p>
+        <p class="find__b"><span class="find__n">Five</span> surfaces are still <span class="k">Card</span> → <span class="k">CardHeader</span> → <span class="k">Table</span> stacks, and three of them are work surfaces by P2's test — rental lines, equipment lines, and a 308-item inventory — rendered on the navigation-tier table. The zebra striping is the tell. Lighting was the sixth and the fourth; Wave 3 took it.</p>
       </div>
       <div class="find find--done">
         <div class="find__hd"><span class="find__id">A5</span><span class="find__ti">The chrome announces the page three times</span><span class="find__done">Wave 1</span><span class="find__p">P8</span></div>
@@ -1709,8 +1710,8 @@
         <div class="wave wave--done"><span class="wave__n">Wave 0 ✓</span><span class="wave__t">Primitive gaps</span><span class="wave__d">A1–A3, A11 and half of A9. Visible delta, in full: 10 drawer buttons gain 1 px of padding a side, Stage Plot's two inspector buttons rise to <span class="k">h-7</span>, drawer labels grow 1 px. Everything else byte-identical.</span></div>
         <div class="wave wave--done"><span class="wave__n">Wave 1 ✓</span><span class="wave__t">Chrome</span><span class="wave__d">A5, and A4 where it touched chrome. Smallest diff, largest perceived change, and it changed no tab — only the two files that had hard-coded the chrome's dimensions.</span></div>
         <div class="wave wave--done"><span class="wave__n">Wave 2 ✓</span><span class="wave__t">Stage plots</span><span class="wave__d">A10, A12. The panel pattern transferred to a canvas that is neither a sheet nor a list, and <span class="k">PatchPanel</span> needed no change — but the zoom control, the inspector rail and <span class="k">Tab</span> each did, which is why this wave came before four more tabs depend on them.</span></div>
-        <div class="wave"><span class="wave__n">Wave 3</span><span class="wave__t">Lighting</span><span class="wave__d">A6–A8. The big one. Fixtures become a sheet with a row editor. A workflow change, not a restyle — worth its own spec.</span></div>
-        <div class="wave"><span class="wave__n">Wave 4–5</span><span class="wave__t">Tabs, then pages</span><span class="wave__d">Rental, Equipment, Overview, Signal Flow — same shape, much smaller. Then the pages, which are mostly already right.</span></div>
+        <div class="wave wave--done"><span class="wave__n">Wave 3 ✓</span><span class="wave__t">Lighting</span><span class="wave__d">A8, and A6–A7 on this surface. The restyle was the smaller half: the rig had no DMX map at all, so nothing had ever noticed two fixtures sharing addresses. Sharing turned out to be <em>legitimate</em> — twenty pars on one address is how a room wash is rigged — which the audit had not considered, and which restructured the whole finding. Only <span class="k">RowEditor</span> changed in <span class="k">ui/</span>-adjacent code, by addition; the backend ended <em>smaller</em>.</span></div>
+        <div class="wave"><span class="wave__n">Wave 4–5</span><span class="wave__t">Tabs, then pages</span><span class="wave__d">Rental, Equipment, Overview, Signal Flow — same shape as Lighting and much smaller, because none of them has a derivation to build. Then the pages, which are mostly already right.</span></div>
       </div>
     </div>
   </section>
@@ -1725,9 +1726,10 @@
       can be revised and republished to the same URL.
     </p>
     <p class="body small">
-      What is <strong>not</strong> settled and worth an opinion: whether the tab strip should lose its
-      trough (§7), whether Wave 3's lighting rework is one slice or two, and whether the navigation
-      tier's table is worth keeping at all once four of its five users have moved to the sheet.
+      What is <strong>not</strong> settled and worth an opinion: whether the navigation tier's table
+      is worth keeping at all once its remaining users have moved to the sheet, and whether the two
+      rig operations Wave 3 added should be undoable. The tab strip's trough is settled — it lost it
+      in Wave 1 — and Wave 3's lighting rework was one slice.
     </p>
   </footer>
 
