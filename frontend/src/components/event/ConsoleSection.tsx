@@ -95,7 +95,7 @@ export function ConsoleSection({ eventId, consoles, channels, outputs, audioItem
       count={consoles.length}
       action={
         !readOnly && (
-          <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => setAdding((open) => !open)}>
+          <Button size="xs" variant="outline" onClick={() => setAdding((open) => !open)}>
             <Plus className="mr-1 h-3.5 w-3.5" />Console
           </Button>
         )
@@ -119,7 +119,7 @@ export function ConsoleSection({ eventId, consoles, channels, outputs, audioItem
               item={itemName(desk)}
               actions={
                 !readOnly && (
-                  <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditingId(editing ? null : desk.id)}>
+                  <Button size="xs" variant="ghost" onClick={() => setEditingId(editing ? null : desk.id)}>
                     {editing ? 'Done' : 'Edit'}
                   </Button>
                 )

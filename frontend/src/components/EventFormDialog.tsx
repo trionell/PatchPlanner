@@ -8,6 +8,7 @@ import type { Event } from '../types'
 import { Button } from './ui/Button'
 import { Dialog } from './ui/Dialog'
 import { Input } from './ui/Input'
+import { FieldLabel } from './ui/Label'
 
 const eventSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -85,29 +86,29 @@ export function EventFormDialog({
         })}
       >
         <div>
-          <label className="mb-1 block text-sm text-zinc-300">Event name</label>
+          <FieldLabel>Event name</FieldLabel>
           <Input {...form.register('name')} />
           {form.formState.errors.name && <p className="mt-1 text-sm text-red-400">{form.formState.errors.name.message}</p>}
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm text-zinc-300">Date</label>
+            <FieldLabel>Date</FieldLabel>
             <Input type="date" {...form.register('date')} />
           </div>
           <div>
-            <label className="mb-1 block text-sm text-zinc-300">Venue</label>
+            <FieldLabel>Venue</FieldLabel>
             <Input {...form.register('venue')} />
           </div>
         </div>
         <div>
-          <label className="mb-1 block text-sm text-zinc-300">Notes</label>
+          <FieldLabel>Notes</FieldLabel>
           <textarea
             className="min-h-28 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-500"
             {...form.register('notes')}
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm text-zinc-300">Inventory</label>
+          <FieldLabel>Inventory</FieldLabel>
           <select
             className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-500"
             {...form.register('inventoryId', { valueAsNumber: true })}

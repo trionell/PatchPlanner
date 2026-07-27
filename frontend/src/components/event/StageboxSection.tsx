@@ -78,7 +78,7 @@ export function StageboxSection({ eventId, stageboxes, audioItems, cables, readO
       count={stageboxes.length}
       action={
         !readOnly && (
-          <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => setAdding((open) => !open)}>
+          <Button size="xs" variant="outline" onClick={() => setAdding((open) => !open)}>
             <Plus className="mr-1 h-3.5 w-3.5" />Stagebox
           </Button>
         )
@@ -99,7 +99,7 @@ export function StageboxSection({ eventId, stageboxes, audioItems, cables, readO
               item={itemLabelFor ? `${itemLabel(itemLabelFor)} · rental` : box.model || 'Custom'}
               actions={
                 !readOnly && (
-                  <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditingId(editing ? null : box.id)}>
+                  <Button size="xs" variant="ghost" onClick={() => setEditingId(editing ? null : box.id)}>
                     {editing ? 'Done' : 'Edit'}
                   </Button>
                 )

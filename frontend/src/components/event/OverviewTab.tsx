@@ -5,6 +5,8 @@ import { useDraftState } from '../../hooks/useDraftState'
 import { Button } from '../ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
 import { Input } from '../ui/Input'
+import { FieldLabel } from '../ui/Label'
+import { Textarea } from '../ui/Textarea'
 import { EventInventoryCard } from './EventInventoryCard'
 
 export function OverviewTab({ eventId, readOnly = false }: { eventId: number; readOnly?: boolean }) {
@@ -34,22 +36,21 @@ export function OverviewTab({ eventId, readOnly = false }: { eventId: number; re
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm text-zinc-300">Name</label>
+              <FieldLabel>Name</FieldLabel>
               <Input value={overview.name} onChange={(e) => setOverview((prev) => ({ ...prev, name: e.target.value }))} disabled={readOnly} />
             </div>
             <div>
-              <label className="mb-1 block text-sm text-zinc-300">Venue</label>
+              <FieldLabel>Venue</FieldLabel>
               <Input value={overview.venue} onChange={(e) => setOverview((prev) => ({ ...prev, venue: e.target.value }))} disabled={readOnly} />
             </div>
             <div>
-              <label className="mb-1 block text-sm text-zinc-300">Date</label>
+              <FieldLabel>Date</FieldLabel>
               <Input type="date" value={overview.date} onChange={(e) => setOverview((prev) => ({ ...prev, date: e.target.value }))} disabled={readOnly} />
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-sm text-zinc-300">Notes</label>
-            <textarea
-              className="min-h-32 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-500 disabled:opacity-60"
+            <FieldLabel>Notes</FieldLabel>
+            <Textarea
               value={overview.notes}
               onChange={(e) => setOverview((prev) => ({ ...prev, notes: e.target.value }))}
               disabled={readOnly}

@@ -8,6 +8,7 @@ import { ColorSelect } from '../event/ColorSelect'
 import { Button } from '../ui/Button'
 import { Dialog } from '../ui/Dialog'
 import { Input } from '../ui/Input'
+import { FieldLabel } from '../ui/Label'
 import { Select } from '../ui/Select'
 
 /** Output-side mirror of MobileChannelEditSheet — same fields, routing is a single mixer→stagebox hop (research.md R3/mobileOutputList.ts). */
@@ -96,16 +97,16 @@ export function MobileOutputEditSheet({
       <div className="space-y-4">
         {error && <div className="rounded-md border border-red-800 bg-red-950/50 px-3 py-2 text-sm text-red-300">{error}</div>}
         <div>
-          <label className="mb-1 block text-sm text-zinc-300">Output name</label>
+          <FieldLabel>Output name</FieldLabel>
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Monitor 2" autoFocus />
         </div>
         <div>
-          <label className="mb-1 block text-sm text-zinc-300">Channel color</label>
+          <FieldLabel>Channel color</FieldLabel>
           <ColorSelect eventId={eventId} value={color} onChange={setColor} />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-sm text-zinc-300">Stagebox</label>
+            <FieldLabel>Stagebox</FieldLabel>
             <Select
               value={stageboxId ?? ''}
               onChange={(e) => {
@@ -120,7 +121,7 @@ export function MobileOutputEditSheet({
             </Select>
           </div>
           <div>
-            <label className="mb-1 block text-sm text-zinc-300">Output #</label>
+            <FieldLabel>Output #</FieldLabel>
             <Select value={port ?? ''} onChange={(e) => setPort(toOptionalNumber(e.target.value))} disabled={!selectedStagebox}>
               <option value="">—</option>
               {selectedStagebox &&
@@ -131,7 +132,7 @@ export function MobileOutputEditSheet({
           </div>
         </div>
         <div>
-          <label className="mb-1 block text-sm text-zinc-300">Notes</label>
+          <FieldLabel>Notes</FieldLabel>
           <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
         <div className="flex justify-end gap-2 pt-2">

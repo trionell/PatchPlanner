@@ -596,12 +596,24 @@
   .find__p { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--faint); margin-left: auto; white-space: nowrap; }
   .find__b { font-size: 14px; color: var(--ink-2); max-width: var(--measure); }
   .find__n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--ink); }
+  /* A closed finding stays on the page: the list is a record, not a queue. */
+  .find--done .find__ti { color: var(--faint); text-decoration: line-through; text-decoration-thickness: 1px; }
+  .find--done .find__id { color: var(--faint); }
+  .find--done .find__b { color: var(--faint); }
+  .find__done {
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 1px 6px; border-radius: 999px; border: 1px solid var(--rule);
+    color: var(--work); white-space: nowrap;
+  }
 
   .waves { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 2px; background: var(--rule-soft); border: 1px solid var(--rule-soft); border-radius: 8px; overflow: hidden; }
   .wave { background: var(--ground); padding: 14px 16px; display: flex; flex-direction: column; gap: 7px; }
   .wave__n { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
   .wave__t { font-size: 14.5px; font-weight: 600; color: var(--ink); }
   .wave__d { font-size: 13px; color: var(--muted); line-height: 1.45; }
+  /* A landed wave is marked by its rule, not only by a tick — see P5. */
+  .wave--done { box-shadow: inset 3px 0 0 var(--work); }
+  .wave--done .wave__n { color: var(--work); }
 
   footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--rule); display: flex; flex-direction: column; gap: 12px; }
 
@@ -1540,32 +1552,44 @@
         believed. Two of the findings are inside the reference surface itself — it is the best thing
         in the codebase, not a perfect one.
       </p>
+      <p class="body">
+        <strong>Wave 0 has landed.</strong> Four findings are struck below and stay struck — the list
+        is a record of what was wrong and when it stopped being wrong, not a queue that empties.
+      </p>
     </header>
 
     <div>
-      <div class="find">
-        <div class="find__hd"><span class="find__id">A1</span><span class="find__ti">The micro-label has four definitions and two sizes</span><span class="find__p">P3</span></div>
-        <p class="find__b"><span class="find__n">text-[10px]</span> in <span class="k">tokens.ts</span>, <span class="k">SheetTable</span> and <span class="k">OutputSheet</span>; <span class="find__n">text-[9px]</span> in <span class="k">GearList</span>. A drawer's labels are a point smaller than the sheet's for no reason anyone recorded — the two were built a slice apart. Four definitions is how a fifth ends up different.</p>
+      <div class="find find--done">
+        <div class="find__hd"><span class="find__id">A1</span><span class="find__ti">The micro-label has four definitions and two sizes</span><span class="find__done">Wave 0</span><span class="find__p">P3</span></div>
+        <p class="find__b"><span class="find__n">text-[10px]</span> in <span class="k">tokens.ts</span>, <span class="k">SheetTable</span> and <span class="k">OutputSheet</span>; <span class="find__n">text-[9px]</span> in <span class="k">GearList</span>. A drawer's labels were a point smaller than the sheet's for no reason anyone recorded — the two were built a slice apart. → One definition in <span class="k">ui/Label.tsx</span>; the canvas re-exports it.</p>
       </div>
-      <div class="find">
-        <div class="find__hd"><span class="find__id">A2</span><span class="find__ti">Nineteen buttons override their own size</span><span class="find__p">P3</span></div>
-        <p class="find__b">The work-surface height is <span class="find__n">h-7</span> and <span class="k">Button</span> has no such size, so every toolbar control reaches it by hand. <span class="find__n">19</span> chances for the twentieth to be different.</p>
+      <div class="find find--done">
+        <div class="find__hd"><span class="find__id">A2</span><span class="find__ti">Nineteen buttons override their own size</span><span class="find__done">Wave 0</span><span class="find__p">P3</span></div>
+        <p class="find__b">The work-surface height is <span class="find__n">h-7</span> and <span class="k">Button</span> had no such size, so every toolbar control reached it by hand. → <span class="k">xs</span> added, <span class="find__n">17</span> of the <span class="find__n">19</span> deleted. The two left are the status strip's, which sit a size below and say so in the code.</p>
       </div>
       <div class="find">
         <div class="find__hd"><span class="find__id">A8</span><span class="find__ti">The lighting fixture table is a form, not a sheet</span><span class="find__p">Patterns §2</span></div>
         <p class="find__b">Thirteen columns and <span class="find__n">24</span> live <span class="k">Input</span>/<span class="k">Select</span> calls that persist on blur. There is no read state at all, so the table cannot be scanned — every value sits inside a bordered control and the eye parses chrome before it reaches data. The single largest gap between the language and the code.</p>
       </div>
-      <div class="find">
-        <div class="find__hd"><span class="find__id">A11</span><span class="find__ti">Fifty-seven inline form labels</span><span class="find__p">P3</span></div>
-        <p class="find__b"><span class="k">mb-1 block text-sm text-zinc-300</span>, copied across <span class="find__n">10</span> files — 14 in Lighting alone. The work surface has a component; the navigation surface has a class string.</p>
+      <div class="find find--done">
+        <div class="find__hd"><span class="find__id">A11</span><span class="find__ti">Fifty-seven inline form labels</span><span class="find__done">Wave 0</span><span class="find__p">P3</span></div>
+        <p class="find__b"><span class="k">mb-1 block text-sm text-zinc-300</span>, copied across <span class="find__n">10</span> files — 14 in Lighting alone. → <span class="k">FieldLabel</span>, in the same file as <span class="k">MicroLabel</span> so picking the wrong tier takes a deliberate act.</p>
       </div>
       <div class="find">
         <div class="find__hd"><span class="find__id">A5–A7</span><span class="find__ti">Chrome, card stacks, and the wrong table</span><span class="find__p">P1 · P2 · P8</span></div>
         <p class="find__b">Six surfaces are still <span class="k">Card</span> → <span class="k">CardHeader</span> → <span class="k">Table</span> stacks. Four of them are work surfaces by P2's test — lighting fixtures, rental lines, equipment lines, and a 308-item inventory — rendered on the navigation-tier table. The zebra striping is the tell.</p>
       </div>
       <div class="find">
-        <div class="find__hd"><span class="find__id">A3 · A4 · A9 · A10</span><span class="find__ti">The residue</span><span class="find__p">P1 · P2 · P3</span></div>
-        <p class="find__b">No <span class="k">Textarea</span> (Overview hand-rolls one). <span class="find__n">30</span> uses of <span class="k">rounded-lg</span>, which is not in the ladder. Navigation-tier <span class="k">Badge</span> inside the work-surface drawers. And a third toolbar idiom on Stage Plots — a trough used for something that is not a view toggle.</p>
+        <div class="find__hd"><span class="find__id">A4 · A9 · A10</span><span class="find__ti">The residue</span><span class="find__p">P1 · P2 · P3</span></div>
+        <p class="find__b"><span class="find__n">30</span> uses of <span class="k">rounded-lg</span>, which is not in the ladder. Navigation-tier <span class="k">Badge</span> inside the work-surface drawers. And a third toolbar idiom on Stage Plots — a trough used for something that is not a view toggle.</p>
+      </div>
+      <div class="find find--done">
+        <div class="find__hd"><span class="find__id">A3</span><span class="find__ti">There is no Textarea</span><span class="find__done">Wave 0</span><span class="find__p">P3</span></div>
+        <p class="find__b">Overview hand-rolled one with the input's class string copied inline — the point at which a one-off becomes a second definition of the field style. → <span class="k">ui/Textarea</span>, two sizes, <span class="k">min-h</span> rather than <span class="k">h</span>.</p>
+      </div>
+      <div class="find find--done">
+        <div class="find__hd"><span class="find__id">A9</span><span class="find__ti">…and its duplicated tint map</span><span class="find__done">Wave 0, in part</span><span class="find__p">P2</span></div>
+        <p class="find__b">Two copies of the vocabulary hues: <span class="k">Badge</span>'s own, and one lifted into <span class="k">patchTints</span> for the sheet. → <span class="k">lib/vocabularyTint.ts</span>, read by both tiers. Which tier the drawers render is still open, above — that one is a visual change.</p>
       </div>
     </div>
 
@@ -1577,7 +1601,7 @@
         shared rail <em>before</em> building the output one.
       </p>
       <div class="waves">
-        <div class="wave"><span class="wave__n">Wave 0</span><span class="wave__t">Primitive gaps</span><span class="wave__d">A1–A3, A9, A11. No visual change except drawer labels growing 1 px. Everything downstream needs these to exist.</span></div>
+        <div class="wave wave--done"><span class="wave__n">Wave 0 ✓</span><span class="wave__t">Primitive gaps</span><span class="wave__d">A1–A3, A11 and half of A9. Visible delta, in full: 10 drawer buttons gain 1 px of padding a side, Stage Plot's two inspector buttons rise to <span class="k">h-7</span>, drawer labels grow 1 px. Everything else byte-identical.</span></div>
         <div class="wave"><span class="wave__n">Wave 1</span><span class="wave__t">Chrome</span><span class="wave__d">A5. Smallest diff, largest perceived change, touches no tab. Later waves get reviewed against a header that has stopped shouting.</span></div>
         <div class="wave"><span class="wave__n">Wave 2</span><span class="wave__t">Stage plots</span><span class="wave__d">A10. The cheapest conversion, and the one that proves the panel pattern transfers to a surface that is neither a sheet nor a list.</span></div>
         <div class="wave"><span class="wave__n">Wave 3</span><span class="wave__t">Lighting</span><span class="wave__d">A6–A8. The big one. Fixtures become a sheet with a row editor. A workflow change, not a restyle — worth its own spec.</span></div>

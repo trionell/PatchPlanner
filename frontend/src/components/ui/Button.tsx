@@ -14,6 +14,8 @@ const buttonVariants = cva(
         outline: 'border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800',
       },
       size: {
+        /** The work-surface size: panel bars, drawer sections, inspectors. */
+        xs: 'h-7 px-2.5 text-xs',
         sm: 'h-8 px-3',
         md: 'h-10 px-4',
         lg: 'h-11 px-5',

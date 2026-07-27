@@ -7,6 +7,7 @@ import type { LightingFixture } from '../../types'
 import { Button } from '../ui/Button'
 import { Dialog } from '../ui/Dialog'
 import { Input } from '../ui/Input'
+import { FieldLabel } from '../ui/Label'
 import { Select } from '../ui/Select'
 
 /**
@@ -100,27 +101,27 @@ export function MobileFixtureEditSheet({
         {error && <div className="rounded-md border border-red-800 bg-red-950/50 px-3 py-2 text-sm text-red-300">{error}</div>}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-sm text-zinc-300">Fixture ID</label>
+            <FieldLabel>Fixture ID</FieldLabel>
             <Input type="number" min={1} value={fixtureNumber} onChange={(e) => setFixtureNumber(e.target.value)} placeholder="Console (GrandMA) ID" autoFocus />
           </div>
           <div>
-            <label className="mb-1 block text-sm text-zinc-300">Label</label>
+            <FieldLabel>Label</FieldLabel>
             <Input value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder="Custom name" />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-sm text-zinc-300">DMX universe</label>
+            <FieldLabel>DMX universe</FieldLabel>
             <Input type="number" min={1} value={universe} onChange={(e) => setUniverse(Number(e.target.value))} />
           </div>
           <div>
-            <label className="mb-1 block text-sm text-zinc-300">DMX address</label>
+            <FieldLabel>DMX address</FieldLabel>
             <Input type="number" min={1} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Start address" />
           </div>
         </div>
         {modes.length > 0 ? (
           <div>
-            <label className="mb-1 block text-sm text-zinc-300">Mode</label>
+            <FieldLabel>Mode</FieldLabel>
             <Select
               value={modes.find((m) => m.name === mode && m.channel_count === channelCount)?.id ?? ''}
               onChange={(e) => {
@@ -140,11 +141,11 @@ export function MobileFixtureEditSheet({
         ) : (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-sm text-zinc-300">Mode</label>
+              <FieldLabel>Mode</FieldLabel>
               <Input value={mode} onChange={(e) => setMode(e.target.value)} />
             </div>
             <div>
-              <label className="mb-1 block text-sm text-zinc-300">Channels</label>
+              <FieldLabel>Channels</FieldLabel>
               <Input type="number" min={1} value={channelCount} onChange={(e) => setChannelCount(Number(e.target.value))} />
             </div>
           </div>

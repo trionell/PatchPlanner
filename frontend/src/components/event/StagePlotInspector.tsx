@@ -296,8 +296,8 @@ function LinksSection({ eventId, element, disabled, onAdd, onReorder, onRemove }
         ))}
       </Select>
       <div className="flex gap-1.5">
-        <Button size="sm" className="h-6 flex-1 text-xs" disabled={!pickId} onClick={submitAdd}>Add</Button>
-        <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => setAddingRole(null)}>Cancel</Button>
+        <Button size="xs" className="flex-1" disabled={!pickId} onClick={submitAdd}>Add</Button>
+        <Button size="xs" variant="ghost" onClick={() => setAddingRole(null)}>Cancel</Button>
       </div>
     </div>
   )

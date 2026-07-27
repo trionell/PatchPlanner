@@ -7,6 +7,7 @@ import { Badge } from './ui/Badge'
 import { Button } from './ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card'
 import { Input } from './ui/Input'
+import { FieldLabel } from './ui/Label'
 import { Select } from './ui/Select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/Table'
 
@@ -54,21 +55,21 @@ export function OwnedGearManager() {
       <CardContent>
         <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
           <div className="min-w-48 flex-1">
-            <label className="mb-1 block text-sm text-zinc-300">Name</label>
+            <FieldLabel>Name</FieldLabel>
             <Input value={draft.name} onChange={(e) => setDraft((prev) => ({ ...prev, name: e.target.value }))} placeholder="e.g. Shure SM7B" />
           </div>
           <div>
-            <label className="mb-1 block text-sm text-zinc-300">Type</label>
+            <FieldLabel>Type</FieldLabel>
             <Select value={draft.category_type} onChange={(e) => setDraft((prev) => ({ ...prev, category_type: e.target.value as OwnedItemDraft['category_type'] }))}>
               {categoryTypes.map((value) => <option key={value} value={value}>{value}</option>)}
             </Select>
           </div>
           <div>
-            <label className="mb-1 block text-sm text-zinc-300">Owned</label>
+            <FieldLabel>Owned</FieldLabel>
             <Input type="number" min={0} value={draft.quantity_owned} onChange={(e) => setDraft((prev) => ({ ...prev, quantity_owned: Math.max(0, Number(e.target.value)) }))} className="w-24" />
           </div>
           <div className="min-w-40">
-            <label className="mb-1 block text-sm text-zinc-300">Notes</label>
+            <FieldLabel>Notes</FieldLabel>
             <Input value={draft.notes ?? ''} onChange={(e) => setDraft((prev) => ({ ...prev, notes: e.target.value }))} />
           </div>
           <Button size="sm" disabled={!draft.name.trim() || saveMutation.isPending} onClick={() => saveMutation.mutate()}>

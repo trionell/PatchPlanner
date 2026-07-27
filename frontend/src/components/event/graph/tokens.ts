@@ -16,8 +16,14 @@
  * element-by-element source of these.
  */
 
-/** The mono, uppercase, wide-tracked label the whole surface uses for headings. */
-export const MICRO_LABEL = 'font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-500'
+/**
+ * The mono, uppercase, wide-tracked label the whole surface uses for headings.
+ *
+ * Defined in `ui/Label.tsx` and re-exported here: it is not a canvas value — the
+ * sheet header and the drawers render it too — but canvas code should keep having
+ * one import for the values it draws with.
+ */
+export { MICRO_LABEL } from '../../ui/Label'
 
 /** The same, at the wider tracking the canvas's lane names use. */
 export const LANE_LABEL = 'font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-600'

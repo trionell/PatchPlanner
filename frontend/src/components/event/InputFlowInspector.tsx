@@ -5,6 +5,7 @@ import { useReferenceData } from '../../hooks/useReferenceData'
 import { derivedSourceColor, sourcePorts, type PortRef } from '../../lib/inputGraph'
 import { buildInputChannelFlow } from '../../lib/inputSignalFlow'
 import { toOptionalNumber } from '../../lib/utils'
+import { vocabularyTint } from '../../lib/vocabularyTint'
 import type { Console, InputCable, InputChannel, InputDevice, InputSource, InventoryItem, StageMulti, Stagebox } from '../../types'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
@@ -123,7 +124,7 @@ export function FlowInspector({
       <InspectorHeader
         label={heading}
         onClose={onClose}
-        pill={source && <Pill className={source.kind === 'mic' ? 'bg-sky-500/15 text-sky-300' : 'bg-violet-500/15 text-violet-300'}>{source.kind}</Pill>}
+        pill={source && <Pill className={vocabularyTint(source.kind)}>{source.kind}</Pill>}
       />
 
       {source ? (

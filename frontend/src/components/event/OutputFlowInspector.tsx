@@ -5,7 +5,7 @@ import { createAudioOutput, deleteAudioOutput, updateAudioOutput } from '../../a
 import { useReferenceData } from '../../hooks/useReferenceData'
 import { duplicateOf, landsOn } from '../../lib/outputInspector'
 import { derivedOutputPortColor } from '../../lib/outputGraph'
-import { outputTypeTint } from '../../lib/patchTints'
+import { vocabularyTint } from '../../lib/vocabularyTint'
 import { outputChainSegments } from '../../lib/patchSheet'
 import type { OutputFlowContext } from '../../lib/signalFlow'
 import type { AudioPatchOutput, Console, OutputCable, OutputDevice, StageMulti, Stagebox } from '../../types'
@@ -143,7 +143,7 @@ export function OutputFlowInspector({
       <InspectorHeader
         label="Output"
         onClose={close}
-        pill={<Pill className={outputTypeTint(output.output_type)}>{output.output_type}</Pill>}
+        pill={<Pill className={vocabularyTint(output.output_type)}>{output.output_type}</Pill>}
       />
 
       <Input

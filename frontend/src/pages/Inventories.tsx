@@ -32,6 +32,7 @@ import { Button } from '../components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Dialog } from '../components/ui/Dialog'
 import { Input } from '../components/ui/Input'
+import { FieldLabel } from '../components/ui/Label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table'
 import { Tab, TabList, TabPanel, Tabs } from '../components/ui/Tabs'
 import type { Inventory, InventoryCategory, InventoryImportResult, InventoryItem } from '../types'
@@ -128,7 +129,7 @@ function InventoryList({ inventories, onSelect }: { inventories: Inventory[]; on
         </CardHeader>
         <CardContent className="flex items-end gap-3">
           <div className="flex-1">
-            <label className="mb-1 block text-sm text-zinc-300">Name</label>
+            <FieldLabel>Name</FieldLabel>
             <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Backline" />
           </div>
           <Button

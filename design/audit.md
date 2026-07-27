@@ -5,60 +5,13 @@ order to converge it in.
 
 Counts are from `frontend/src` at the merge of Slices 23–26 (`aa4baef`). Every one
 is reproducible with the command given, so this document can be re-run rather than
-believed.
+believed. A finding closed by a wave moves to Part 1b with the wave that closed it;
+the counts on the findings still open are the `aa4baef` ones and will move as the
+waves land.
 
 ---
 
 ## Part 1 — Findings
-
-### A1 · The micro-label has four definitions and two sizes · P3
-
-```
-grep -rn "tracking-\[0.1[0-9]em\]" --include='*.tsx' --include='*.ts' frontend/src
-```
-
-| Where | Size |
-|---|---|
-| `graph/tokens.ts` → `MICRO_LABEL` | `text-[10px]` |
-| `ui/SheetTable.tsx` → `SheetHeadCell`, inlined | `text-[10px]` |
-| `event/OutputSheet.tsx:173`, inlined | `text-[10px]` |
-| `ui/GearList.tsx` → `MicroLabel` | **`text-[9px]`** |
-
-(The grep returns five lines; the fifth is `LANE_LABEL`, which is a legitimately
-different token — wider tracking, fainter ink, one job.)
-
-This is inside the reference surface. A drawer's labels are a point smaller than
-the sheet's for no reason anyone recorded — the two were built a slice apart.
-
-**Fix:** `MicroLabel` renders `MICRO_LABEL`; `SheetHeadCell` and `OutputSheet`
-import it. One export, four call sites. The only visible change is the drawer's
-labels growing 1 px.
-
-### A2 · Nineteen buttons override their own size · P3
-
-```
-grep -rn '<Button[^>]*className="[^"]*h-[67]' --include='*.tsx' frontend/src | wc -l   # 19
-```
-
-`Button` has `sm`/`md`/`lg` — `h-8`, `h-10`, `h-11`. The work-surface size is
-`h-7`, so every toolbar and strip control reaches it by hand:
-`className="h-7 px-2.5 text-xs"`, `className="h-6 px-2 text-[11px]"`. Nineteen
-chances for the twentieth to be different.
-
-**Fix:** add `xs: 'h-7 px-2.5 text-xs'` to `buttonVariants`, delete the overrides.
-The four `h-6` cases in `PatchStatusRail` and `ZoomControl` are a genuinely
-different thing — a control *inside* a strip — and become `xs` with an explicit
-`h-6` or a fifth size, decided when the code is in front of you.
-
-### A3 · There is no `Textarea` · P3
-
-`OverviewTab.tsx` builds one inline with the `Input` class string copied by hand:
-
-```
-min-h-32 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm …
-```
-
-**Fix:** `ui/Textarea.tsx` alongside `Input`, same `sm`/`md` sizes.
 
 ### A4 · `rounded-lg` is not in the radius ladder · P3
 
@@ -137,8 +90,12 @@ the sheet-plus-row-editor pattern, not restyling the controls.
 (`px-2.5 py-0.5 text-xs`) inside the Rig and Buses drawers, which are work
 surfaces. The sheet beside them uses `Pill` (`px-1.5 py-px text-[10px]`).
 
-**Fix:** `Pill` in the drawers. `Badge`'s vocabulary tint map should move somewhere
-both can read it, rather than being duplicated into `Pill`'s callers.
+**Fix:** `Pill` in the drawers — a visual change, so it belongs to the wave that
+converts the drawers, not to Wave 0.
+
+> The half of this that was a *duplication* rather than a size is closed: the tint
+> map now lives in `lib/vocabularyTint.ts` and both tiers read it (Wave 0). What
+> remains is purely which tier the drawers render.
 
 ### A10 · A third toolbar idiom · P1
 
@@ -149,23 +106,44 @@ toggle (§6's distinction).
 
 It is close to a work panel already and is the cheapest of the tabs to convert.
 
-### A11 · Fifty-seven inline form labels · P3
+---
 
-```
-grep -rc 'mb-1 block text-sm text-zinc-300' --include='*.tsx' frontend/src
-```
+## Part 1b — Closed
 
-10 files, 57 occurrences: `LightingTab` 14, `EquipmentTab` 7,
-`MobileFixtureEditSheet` 7, `MobileChannelEditSheet` 6, `EventFormDialog` 5,
-`MobileOutputEditSheet` 5, `OverviewTab` 4, `RentalTab` 4, `OwnedGearManager` 4,
-`Inventories` 1.
+### A1 · The micro-label had four definitions and two sizes · Wave 0
 
-The work surface has `MicroLabel`; the navigation surface has a copied class
-string.
+One definition, in `ui/Label.tsx`: `MICRO_LABEL` and the `MicroLabel` that renders
+it. `SheetHeadCell`, `OutputSheet` and `GearList` import it; `graph/tokens.ts`
+re-exports it so canvas code keeps one import for canvas values.
 
-**Fix:** a navigation-tier `FieldLabel` beside `FieldStack`, or extend `FieldStack`
-with a `tier` prop. Prefer the former — `FieldStack` also owns widths that do not
-apply.
+It moved out of `graph/tokens.ts` because it was never a canvas value — four call
+sites across three layers were reaching into a canvas-only module for it, which is
+the layering inversion `components.md` §5 exists to prevent.
+
+### A2 · Nineteen buttons overrode their own size · Wave 0
+
+`xs: 'h-7 px-2.5 text-xs'` added; 17 of the 19 overrides deleted.
+
+The two that remain are `PatchStatusRail`'s, which are `h-6 px-2 text-[11px]` — a
+control *inside* the strip, which has to match the strip's own type and must not
+set the height of the bar closing the panel. A fifth `Button` size for two
+co-located call sites in one component would be the abstraction, not the fix
+(Principle V); they are `xs` plus an explicit delta, with the reason in the code.
+
+### A3 · There was no `Textarea` · Wave 0
+
+`ui/Textarea.tsx`, `sm` / `md` like `Input`, with `min-h` rather than `h` — a note
+field is resized by the person writing the note. `OverviewTab` uses it.
+
+### A11 · Fifty-seven inline form labels · Wave 0
+
+`FieldLabel` in `ui/Label.tsx`, beside `MicroLabel` so that picking the wrong tier
+takes a deliberate act. All 57 replaced across 10 files.
+
+Not a `tier` prop on `FieldStack`, which was the other option considered:
+`FieldStack` also owns column widths that only mean something inside a drawer's
+wrapping form row, so a navigation-tier `FieldStack` would carry an API it must
+never use.
 
 ---
 
@@ -176,13 +154,29 @@ on. **No wave mixes a refactor with a redesign**, so a visual regression is alwa
 attributable to the wave that caused it — the same reasoning that made Slice 26
 rewire the inputs inspector onto the shared rail *before* building the output one.
 
-### Wave 0 · Close the primitive gaps — no visual change
+### Wave 0 · Close the primitive gaps — **done**
 
-A1, A2, A3, A11, plus `Pill`'s tint map (A9).
+A1, A2, A3, A11, and the duplicated half of A9. New: `ui/Label.tsx`,
+`ui/Textarea.tsx`, `lib/vocabularyTint.ts`. Gone: `lib/patchTints.ts`.
 
-Everything downstream needs these to exist. Nothing on screen changes except the
-drawer labels growing 1 px. Gates: `tsc -b`, `eslint`, and a diff review that the
-19 deleted overrides produced identical class strings.
+This wave was planned as "no visual change". It isn't quite, and the honest
+accounting matters more than the slogan — a later wave's regression is only
+attributable if this list is exact. The whole visible delta is:
+
+| Where | Change |
+|---|---|
+| Rig/Buses drawer section buttons (10) | `px-2` → `px-2.5`, the bound `xs` value — 1 px per side |
+| `StagePlotInspector`'s Add / Cancel (2) | `h-6 px-3` → `h-7 px-2.5`, matching the `h-7` selects directly above them in the same form |
+| Drawer micro-labels | `text-[9px]` → `text-[10px]` |
+| `ZoomControl` (2) | `text-sm` → `text-xs` on buttons that contain only an icon — nothing renders differently |
+
+Everything else is byte-identical after `twMerge`: `AudioPatchShell`'s three
+buttons, `PatchStatusRail`'s two, `SheetHeadCell`, `Badge`, and every one of the
+57 labels.
+
+Gates run: `tsc -b`, `eslint`, `vitest` (179 pass), and the class strings compared
+by computing `twMerge` on the before and after of each converted button rather than
+by reading them — which is what caught the four rows above.
 
 ### Wave 1 · Chrome — A5, and A4 where it touches chrome
 

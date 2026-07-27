@@ -65,12 +65,19 @@ export function PatchStatusRail({ status, noun, onShowGaps, gapsOnly, onOpenRig 
 
       {state === 'over' && <span className="text-red-300">{status.overCapacity[0]}</span>}
 
+      {/*
+        The strip's two controls are a size below `xs`, and deliberately not a
+        fifth `Button` size: a control that sits *inside* a strip has to match the
+        strip's own `text-[11px]` and must not set the height of the bar it closes
+        the panel with. Two co-located overrides in one component are not the
+        scattered-copies problem `xs` was added to end (design/audit.md A2).
+      */}
       {state === 'gaps' && (
         <>
           <span className="text-amber-300">{status.gaps[0]}</span>
           {status.gaps.length > 1 && <span className="text-zinc-500">+{status.gaps.length - 1} more</span>}
           {onShowGaps && (
-            <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={onShowGaps}>
+            <Button size="xs" variant="ghost" className="h-6 px-2 text-[11px]" onClick={onShowGaps}>
               {gapsOnly ? 'Show all' : 'Show only gaps'}
             </Button>
           )}
@@ -78,7 +85,7 @@ export function PatchStatusRail({ status, noun, onShowGaps, gapsOnly, onOpenRig 
       )}
 
       {state === 'over' && onOpenRig && (
-        <Button size="sm" variant="outline" className="h-6 px-2 text-[11px]" onClick={onOpenRig}>
+        <Button size="xs" variant="outline" className="h-6 px-2 text-[11px]" onClick={onOpenRig}>
           Open Rig
         </Button>
       )}

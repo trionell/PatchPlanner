@@ -1,7 +1,8 @@
 import type { KeyboardEvent, ReactNode } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { Button } from '../ui/Button'
-import { FieldStack, MicroLabel } from '../ui/GearList'
+import { FieldStack } from '../ui/GearList'
+import { MicroLabel } from '../ui/Label'
 
 interface RowEditorProps {
   /** The tab's own fields, each a `FieldStack`. */

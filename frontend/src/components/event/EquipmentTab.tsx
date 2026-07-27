@@ -11,6 +11,7 @@ import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
 import { Input } from '../ui/Input'
+import { FieldLabel } from '../ui/Label'
 import { Select } from '../ui/Select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table'
 
@@ -78,7 +79,7 @@ export function EquipmentTab({ eventId, readOnly = false }: { eventId: number; r
           {editable && (
             <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
               <div className="min-w-64 flex-1">
-                <label className="mb-1 block text-sm text-zinc-300">Owned item</label>
+                <FieldLabel>Owned item</FieldLabel>
                 <Select value={ownedDraft.itemId} onChange={(e) => setOwnedDraft((prev) => ({ ...prev, itemId: e.target.value }))}>
                   <option value="">Select item…</option>
                   {(ownedCatalogQuery.data ?? []).map((item) => (
@@ -87,11 +88,11 @@ export function EquipmentTab({ eventId, readOnly = false }: { eventId: number; r
                 </Select>
               </div>
               <div>
-                <label className="mb-1 block text-sm text-zinc-300">Quantity</label>
+                <FieldLabel>Quantity</FieldLabel>
                 <Input type="number" min={0} value={ownedDraft.quantity} onChange={(e) => setOwnedDraft((prev) => ({ ...prev, quantity: Math.max(0, Number(e.target.value)) }))} className="w-24" />
               </div>
               <div className="min-w-40">
-                <label className="mb-1 block text-sm text-zinc-300">Note</label>
+                <FieldLabel>Note</FieldLabel>
                 <Input value={ownedDraft.notes} onChange={(e) => setOwnedDraft((prev) => ({ ...prev, notes: e.target.value }))} placeholder="e.g. FOH laptop" />
               </div>
               <Button
@@ -163,7 +164,7 @@ export function EquipmentTab({ eventId, readOnly = false }: { eventId: number; r
           {editable && (
             <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
               <div className="min-w-64 flex-1">
-                <label className="mb-1 block text-sm text-zinc-300">Catalog item</label>
+                <FieldLabel>Catalog item</FieldLabel>
                 <Select value={rentedDraft.itemId} onChange={(e) => setRentedDraft((prev) => ({ ...prev, itemId: e.target.value }))}>
                   <option value="">Select item…</option>
                   {(allInventoryQuery.data ?? []).map((item) => (
@@ -172,15 +173,15 @@ export function EquipmentTab({ eventId, readOnly = false }: { eventId: number; r
                 </Select>
               </div>
               <div>
-                <label className="mb-1 block text-sm text-zinc-300">Audio qty</label>
+                <FieldLabel>Audio qty</FieldLabel>
                 <Input type="number" min={0} value={rentedDraft.quantityAudio} onChange={(e) => setRentedDraft((prev) => ({ ...prev, quantityAudio: Math.max(0, Number(e.target.value)) }))} className="w-24" />
               </div>
               <div>
-                <label className="mb-1 block text-sm text-zinc-300">Lighting qty</label>
+                <FieldLabel>Lighting qty</FieldLabel>
                 <Input type="number" min={0} value={rentedDraft.quantityLighting} onChange={(e) => setRentedDraft((prev) => ({ ...prev, quantityLighting: Math.max(0, Number(e.target.value)) }))} className="w-24" />
               </div>
               <div className="min-w-40">
-                <label className="mb-1 block text-sm text-zinc-300">Note</label>
+                <FieldLabel>Note</FieldLabel>
                 <Input value={rentedDraft.notes} onChange={(e) => setRentedDraft((prev) => ({ ...prev, notes: e.target.value }))} />
               </div>
               <Button

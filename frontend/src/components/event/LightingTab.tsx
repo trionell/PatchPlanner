@@ -26,6 +26,7 @@ import { Button } from '../ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
 import { Dialog } from '../ui/Dialog'
 import { Input } from '../ui/Input'
+import { FieldLabel } from '../ui/Label'
 import { Select } from '../ui/Select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table'
 
@@ -270,7 +271,7 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
         <Dialog open={fixtureDialogOpen} onClose={() => setFixtureDialogOpen(false)} title="Add fixture">
           <div className="space-y-4">
             <div>
-              <label className="mb-1 block text-sm text-zinc-300">Inventory fixture</label>
+              <FieldLabel>Inventory fixture</FieldLabel>
               <Select
                 value={fixtureDraft.inventory_item_id}
                 onChange={(e) =>
@@ -289,12 +290,12 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
               </Select>
             </div>
             <div>
-              <label className="mb-1 block text-sm text-zinc-300">Custom name</label>
+              <FieldLabel>Custom name</FieldLabel>
               <Input value={fixtureDraft.custom_name} onChange={(e) => setFixtureDraft((prev) => ({ ...prev, custom_name: e.target.value }))} />
             </div>
             {draftModes.length > 0 && (
               <div>
-                <label className="mb-1 block text-sm text-zinc-300">Defined modes</label>
+                <FieldLabel>Defined modes</FieldLabel>
                 <Select
                   value={draftModes.find((m) => m.name === fixtureDraft.dmx_channel_mode && m.channel_count === fixtureDraft.dmx_channel_count)?.id ?? ''}
                   onChange={(e) => {
@@ -309,11 +310,11 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
             )}
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm text-zinc-300">Mode</label>
+                <FieldLabel>Mode</FieldLabel>
                 <Input value={fixtureDraft.dmx_channel_mode} onChange={(e) => setFixtureDraft((prev) => ({ ...prev, dmx_channel_mode: e.target.value }))} />
               </div>
               <div>
-                <label className="mb-1 block text-sm text-zinc-300">Channels</label>
+                <FieldLabel>Channels</FieldLabel>
                 <Input type="number" value={fixtureDraft.dmx_channel_count} onChange={(e) => setFixtureDraft((prev) => ({ ...prev, dmx_channel_count: Number(e.target.value) }))} />
               </div>
             </div>
@@ -350,7 +351,7 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
               </div>
             )}
             <div>
-              <label className="mb-1 block text-sm text-zinc-300">Inventory fixture</label>
+              <FieldLabel>Inventory fixture</FieldLabel>
               <Select
                 value={bulkDraft.inventory_item_id}
                 onChange={(e) =>
@@ -368,17 +369,17 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm text-zinc-300">Quantity (1–100)</label>
+                <FieldLabel>Quantity (1–100)</FieldLabel>
                 <Input type="number" min={1} max={100} value={bulkDraft.quantity} onChange={(e) => setBulkDraft((prev) => ({ ...prev, quantity: Number(e.target.value) }))} />
               </div>
               <div>
-                <label className="mb-1 block text-sm text-zinc-300">Start fixture ID</label>
+                <FieldLabel>Start fixture ID</FieldLabel>
                 <Input type="number" min={1} value={bulkDraft.fixture_number_start} onChange={(e) => setBulkDraft((prev) => ({ ...prev, fixture_number_start: e.target.value }))} placeholder="no IDs" />
               </div>
             </div>
             {bulkModes.length > 0 && (
               <div>
-                <label className="mb-1 block text-sm text-zinc-300">Defined modes</label>
+                <FieldLabel>Defined modes</FieldLabel>
                 <Select
                   value={bulkModes.find((m) => m.name === bulkDraft.dmx_channel_mode && m.channel_count === bulkDraft.dmx_channel_count)?.id ?? ''}
                   onChange={(e) => {
@@ -393,30 +394,30 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
             )}
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm text-zinc-300">Mode</label>
+                <FieldLabel>Mode</FieldLabel>
                 <Input value={bulkDraft.dmx_channel_mode} onChange={(e) => setBulkDraft((prev) => ({ ...prev, dmx_channel_mode: e.target.value }))} />
               </div>
               <div>
-                <label className="mb-1 block text-sm text-zinc-300">Channels</label>
+                <FieldLabel>Channels</FieldLabel>
                 <Input type="number" min={1} value={bulkDraft.dmx_channel_count} onChange={(e) => setBulkDraft((prev) => ({ ...prev, dmx_channel_count: Number(e.target.value) }))} />
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm text-zinc-300">DMX universe</label>
+                <FieldLabel>DMX universe</FieldLabel>
                 <Input type="number" min={1} value={bulkDraft.dmx_universe} onChange={(e) => setBulkDraft((prev) => ({ ...prev, dmx_universe: Number(e.target.value) }))} />
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm text-zinc-300">Power</label>
+                <FieldLabel>Power</FieldLabel>
                 <Select value={bulkDraft.power_connection} onChange={(e) => setBulkDraft((prev) => ({ ...prev, power_connection: e.target.value as BulkFixtureRequest['power_connection'] }))}>
                   <option value="grid">grid</option>
                   <option value="chain">chain</option>
                 </Select>
               </div>
               <div>
-                <label className="mb-1 block text-sm text-zinc-300">Power connector</label>
+                <FieldLabel>Power connector</FieldLabel>
                 <Select value={bulkDraft.power_connector_in} onChange={(e) => setBulkDraft((prev) => ({ ...prev, power_connector_in: e.target.value }))}>
                   {options('power_connectors', bulkDraft.power_connector_in).map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </Select>

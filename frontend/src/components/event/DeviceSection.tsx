@@ -157,7 +157,7 @@ export function DeviceSection<T extends DeviceRow>({
       count={devices.length}
       action={
         !readOnly && (
-          <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => setAdding((open) => !open)}>
+          <Button size="xs" variant="outline" onClick={() => setAdding((open) => !open)}>
             <Plus className="mr-1 h-3.5 w-3.5" />
             {addNoun}
           </Button>
@@ -175,7 +175,7 @@ export function DeviceSection<T extends DeviceRow>({
               item={itemName(device)}
               actions={
                 !readOnly && (
-                  <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditingId(editing ? null : device.id)}>
+                  <Button size="xs" variant="ghost" onClick={() => setEditingId(editing ? null : device.id)}>
                     {editing ? 'Done' : 'Edit'}
                   </Button>
                 )

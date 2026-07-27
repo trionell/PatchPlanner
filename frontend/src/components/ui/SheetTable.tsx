@@ -1,5 +1,6 @@
 import type { HTMLAttributes, TdHTMLAttributes, ThHTMLAttributes } from 'react'
 import { cn } from '../../lib/utils'
+import { MICRO_LABEL } from './Label'
 
 /**
  * The audio sheets' own table (Slice 25 US3).
@@ -26,7 +27,8 @@ export function SheetHeadCell({ className, ...props }: ThHTMLAttributes<HTMLTabl
   return (
     <th
       className={cn(
-        'whitespace-nowrap border-b border-zinc-800 px-2 py-1.5 text-left font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-zinc-500',
+        MICRO_LABEL,
+        'whitespace-nowrap border-b border-zinc-800 px-2 py-1.5 text-left font-medium',
         className,
       )}
       {...props}

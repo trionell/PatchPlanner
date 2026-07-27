@@ -108,7 +108,7 @@ tool look like a terminal emulator.
 
 | Token | Value | Export |
 |---|---|---|
-| Micro-label | `font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-500` | `MICRO_LABEL` in `graph/tokens.ts` |
+| Micro-label | `font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-500` | `MICRO_LABEL` in `ui/Label.tsx`, re-exported by `graph/tokens.ts` |
 | Lane label | `font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-600` | `LANE_LABEL` |
 | Numeric cell | `font-mono tabular-nums text-zinc-400` | `NumCell` in `ui/SheetTable.tsx` |
 | Chain line | `font-mono text-[11px] text-zinc-300` | `ChainCell` |
@@ -137,7 +137,8 @@ ground   <hue>-500/15
 ink      <hue>-300
 ```
 
-Assigned hues, from `ui/Badge.tsx`: `mic` sky · `line` violet · `di` emerald ·
+Assigned hues, from `lib/vocabularyTint.ts` — read by `Badge` and by `Pill`'s
+callers, so the two chip tiers cannot disagree: `mic` sky · `line` violet · `di` emerald ·
 `return` amber · `aux` pink · `foh` cyan · `monitor` emerald · `sub` red ·
 `matrix` indigo · `stereo` purple · `iem` orange. Unknown → `bg-zinc-700
 text-zinc-100`.

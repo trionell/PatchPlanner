@@ -6,12 +6,13 @@ import { useRowEditor } from '../../hooks/useRowEditor'
 import { isCablelessToKind } from '../../lib/outputGraph'
 import { boxUsage, cablesPicked, consoleCapacity, type PatchStatus } from '../../lib/patchCapacity'
 import { matchesSearch } from '../../lib/patchSearch'
-import { outputTypeTint } from '../../lib/patchTints'
+import { vocabularyTint } from '../../lib/vocabularyTint'
 import { outputChainSegments, type ChainCellModel, type SegmentNode } from '../../lib/patchSheet'
 import type { OutputFlowContext } from '../../lib/signalFlow'
 import type { AudioPatchOutput, Console, InventoryItem, OutputCable, OutputDevice, StageMulti, Stagebox } from '../../types'
 import { FieldStack } from '../ui/GearList'
 import { Input } from '../ui/Input'
+import { MicroLabel } from '../ui/Label'
 import { Select } from '../ui/Select'
 import { NumCell, Pill, SheetBody, SheetCell, SheetHead, SheetHeadCell, SheetRow, SheetTable, TapeBar } from '../ui/SheetTable'
 import { ChainCell, type HopCable } from './ChainCell'
@@ -170,7 +171,7 @@ export function OutputSheet({
     <>
       {multiDesk && (
         <div className="flex items-center gap-2 border-b border-zinc-800 px-3 py-1.5 text-[11px] text-zinc-500">
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em]">Desk</span>
+          <MicroLabel>Desk</MicroLabel>
           <Select size="sm" className="w-auto" value={deskFilter ?? ''} onChange={(event) => setDeskFilter(event.target.value ? Number(event.target.value) : null)}>
             <option value="">All desks</option>
             {consoles.map((desk) => (
@@ -202,7 +203,7 @@ export function OutputSheet({
                   </SheetCell>
                   {multiDesk && <SheetCell className="text-zinc-400">{deskLabel(output)}</SheetCell>}
                   <SheetCell>
-                    <Pill className={outputTypeTint(output.output_type)}>{output.output_type}</Pill>
+                    <Pill className={vocabularyTint(output.output_type)}>{output.output_type}</Pill>
                   </SheetCell>
                   <NumCell>{output.width === 'stereo' ? 'S' : 'M'}</NumCell>
                   <SheetCell onClick={(event) => event.stopPropagation()}>

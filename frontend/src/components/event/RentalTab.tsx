@@ -18,6 +18,7 @@ import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
 import { Input } from '../ui/Input'
+import { FieldLabel } from '../ui/Label'
 import { Select } from '../ui/Select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table'
 
@@ -112,7 +113,7 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
         {editable && (
           <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
             <div className="min-w-64 flex-1">
-              <label className="mb-1 block text-sm text-zinc-300">Manual line — catalog item</label>
+              <FieldLabel>Manual line — catalog item</FieldLabel>
               <Select value={manualDraft.itemId} onChange={(e) => setManualDraft((prev) => ({ ...prev, itemId: e.target.value }))}>
                 <option value="">Select item…</option>
                 {(allInventoryQuery.data ?? []).map((item) => (
@@ -121,15 +122,15 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
               </Select>
             </div>
             <div>
-              <label className="mb-1 block text-sm text-zinc-300">Audio qty</label>
+              <FieldLabel>Audio qty</FieldLabel>
               <Input type="number" min={0} value={manualDraft.quantityAudio} onChange={(e) => setManualDraft((prev) => ({ ...prev, quantityAudio: Math.max(0, Number(e.target.value)) }))} className="w-24" />
             </div>
             <div>
-              <label className="mb-1 block text-sm text-zinc-300">Lighting qty</label>
+              <FieldLabel>Lighting qty</FieldLabel>
               <Input type="number" min={0} value={manualDraft.quantityLighting} onChange={(e) => setManualDraft((prev) => ({ ...prev, quantityLighting: Math.max(0, Number(e.target.value)) }))} className="w-24" />
             </div>
             <div className="min-w-40">
-              <label className="mb-1 block text-sm text-zinc-300">Note</label>
+              <FieldLabel>Note</FieldLabel>
               <Input value={manualDraft.notes} onChange={(e) => setManualDraft((prev) => ({ ...prev, notes: e.target.value }))} placeholder="e.g. spares" />
             </div>
             <Button

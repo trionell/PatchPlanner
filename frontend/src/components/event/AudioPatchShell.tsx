@@ -89,12 +89,12 @@ export function AudioPatchShell({
             </div>
 
             {onOpenRig && (
-              <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs" onClick={onOpenRig}>
+              <Button size="xs" variant="outline" onClick={onOpenRig}>
                 Rig
               </Button>
             )}
             {onOpenBuses && (
-              <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs" onClick={onOpenBuses}>
+              <Button size="xs" variant="outline" onClick={onOpenBuses}>
                 Buses
               </Button>
             )}
@@ -108,7 +108,7 @@ export function AudioPatchShell({
 
             <PrintButton />
             {onAdd && (
-              <Button size="sm" className="h-7 px-2.5 text-xs" onClick={onAdd}>
+              <Button size="xs" onClick={onAdd}>
                 <Plus className="mr-1.5 h-3.5 w-3.5" />{nouns.add}
               </Button>
             )}

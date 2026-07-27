@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { cn } from '../../lib/utils'
+import { MicroLabel } from './Label'
 
 /**
  * The drawer design language (Slice 24 US3), as a handful of primitives.
@@ -22,11 +23,6 @@ import { cn } from '../../lib/utils'
  * a thumbnail. Taken literally they would be smaller than the controls being
  * complained about (research.md R12).
  */
-
-/** The one label style in a drawer: mono, tiny, wide-tracked, quiet. */
-export function MicroLabel({ className, children }: { className?: string; children: ReactNode }) {
-  return <span className={cn('font-mono text-[9px] uppercase tracking-[0.14em] text-zinc-500', className)}>{children}</span>
-}
 
 /**
  * One kind of equipment: a heading with a count, an add control on the same line,

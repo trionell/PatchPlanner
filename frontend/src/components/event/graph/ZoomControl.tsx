@@ -19,7 +19,7 @@ export function ZoomControl({ zoom, onZoomChange }: { zoom: number; onZoomChange
   const step = (delta: number) => onZoomChange(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round((zoom + delta) * 100) / 100)))
   return (
     <div className="flex shrink-0 items-center gap-0.5">
-      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => step(-ZOOM_STEP)} title="Zoom out">
+      <Button size="xs" variant="ghost" className="w-7 p-0" onClick={() => step(-ZOOM_STEP)} title="Zoom out">
         <Minus className="h-3.5 w-3.5" />
       </Button>
       <button
@@ -30,7 +30,7 @@ export function ZoomControl({ zoom, onZoomChange }: { zoom: number; onZoomChange
       >
         {Math.round(zoom * 100)}%
       </button>
-      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => step(ZOOM_STEP)} title="Zoom in">
+      <Button size="xs" variant="ghost" className="w-7 p-0" onClick={() => step(ZOOM_STEP)} title="Zoom in">
         <Plus className="h-3.5 w-3.5" />
       </Button>
     </div>

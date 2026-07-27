@@ -19,9 +19,13 @@ common way a new screen ends up looking like it belongs to a different applicati
 | Frame | `ui/PatchPanel` | `ui/Card` + `CardHeader` / `CardTitle` / `CardContent` / `CardFooter` |
 | Table | `ui/SheetTable` | `ui/Table` |
 | Chip | `Pill` (from `ui/SheetTable`) | `ui/Badge` |
-| Label | `MICRO_LABEL` / `MicroLabel` | `<label className="mb-1 block text-sm text-zinc-300">` |
+| Label | `MICRO_LABEL` / `MicroLabel` | `FieldLabel` |
 | Field | `<Input size="sm">` · `<Select size="sm">` | `<Input>` · `<Select>` (md) |
 | Section heading | `DrawerSection` | `CardTitle` |
+
+Both members of a pair live in one file wherever there are only two of them —
+`MicroLabel` and `FieldLabel` are both in `ui/Label.tsx` — so picking the wrong tier
+takes a deliberate act rather than an absent-minded import.
 
 `ui/Table` and `ui/Badge` are deliberately untouched by the patch work: six other
 tabs render them, and Slice 25 was scoped to leave those exactly as they were. That
@@ -69,7 +73,6 @@ to read than the sections it replaced.
 
 | Export | What it is |
 |---|---|
-| `MicroLabel` | The one label in a drawer. **Currently `text-[9px]`, should be `text-[10px]` — see [audit.md](audit.md) A1.** |
 | `DrawerSection` | Heading + count + add control on one line, then the list. Always full width; no section is ever placed beside another. |
 | `GearCard` | One declared item. `accent` tints it amber — the Consoles section uses it so desks read as the thing the rig hangs off. |
 | `GearTop` | Summary line: badge, name, catalog item, actions. **No form control ever appears here** — fields exist only once Edit is pressed. |
@@ -83,7 +86,7 @@ to read than the sections it replaced.
 
 | Export | Notes |
 |---|---|
-| `tokens.ts` | `MICRO_LABEL`, `LANE_LABEL`, `NODE_*`, `PORT_ROW*`, `PHANTOM_BAR*`, `LANE_BAND_*`, `TAPE_NEUTRAL`, `SOURCE_ROW*`. The one import for canvas values. |
+| `tokens.ts` | `LANE_LABEL`, `NODE_*`, `PORT_ROW*`, `PHANTOM_BAR*`, `LANE_BAND_*`, `TAPE_NEUTRAL`, `SOURCE_ROW*`, and `MICRO_LABEL` re-exported from `ui/Label`. The one import for canvas values. |
 | `NodeShell` | Absolutely positioned; `title`, `badge`, `footer`, `footerAlarm`, `dimmed`, `selected`, `desk`, drag/select/delete handlers. Border: `zinc-700` → `amber-500/55` if desk → `amber-500 + ring-2 ring-amber-500/30` if selected. |
 | `PortDot` | 7 px paint inside a larger transparent button. Hollow → patched (`amber-500`) → coloured (the derived colour at 75 %) → selected (solid + `ring-2 ring-amber-500/40`). |
 | `PortRow` / `SplitPortRow` | Fixed `18px`. `align="right"` reverses. A pass-through box is **one row per jack** with its two ports on opposite edges — never two independent columns that line up by luck. Optional `selected`/`onSelect` makes the label selectable while the dot still cables. |
@@ -157,11 +160,15 @@ ghost        transparent                            icon actions, view toggles, 
 destructive  red-500 fill                           confirmed deletes only
 ```
 
-Sizes are `sm` `h-8 px-3` · `md` `h-10 px-4` · `lg` `h-11 px-5`.
+Sizes are `xs` `h-7 px-2.5 text-xs` · `sm` `h-8 px-3` · `md` `h-10 px-4` ·
+`lg` `h-11 px-5`. `xs` is the work surface's — panel bars, drawer sections,
+inspectors — and every other size is the navigation surface's.
 
-> **gap** — there is no work-surface size. The audio bar reaches `h-7`/`h-6` by
-> writing `className="h-7 px-2.5 text-xs"`, in **19 places**. Add
-> `xs: 'h-7 px-2.5 text-xs'` and delete the overrides ([audit.md](audit.md) A2).
+There is deliberately no size below `xs`. `PatchStatusRail`'s two controls are
+`h-6 px-2 text-[11px]`, written as an explicit delta on `xs`: a control *inside* a
+strip must match the strip's own type and must not set the height of the bar that
+closes the panel, and two co-located call sites in one component are not the
+scattered-copies problem `xs` was added to end.
 
 ### `ui/Input`, `ui/Select`
 
@@ -171,8 +178,17 @@ Sizes are `sm` `h-8 px-3` · `md` `h-10 px-4` · `lg` `h-11 px-5`.
 `sm` is opt-in rather than the default, because it is the work-surface tier and the
 navigation surfaces legitimately want `md`.
 
-> **gap** — there is no `Textarea`. `OverviewTab` hand-rolls one with the input's
-> class string copied inline. Extract it ([audit.md](audit.md) A3).
+### `ui/Textarea`
+
+`sm` `min-h-20 px-2 py-1.5 text-xs` · `md` `min-h-32 px-3 py-2 text-sm`, on the same
+frame as `Input`. `min-h` rather than `h`: a note field is resized by the person
+writing the note.
+
+### `ui/Label`
+
+`MICRO_LABEL` (the class string) and `MicroLabel` (the element) for work surfaces;
+`FieldLabel` — `mb-1 block text-sm text-zinc-300`, a real `<label>` — for
+navigation surfaces. One file, both tiers, for the reason in §1.
 
 ### `ui/Drawer`
 
@@ -195,9 +211,14 @@ Navigation-surface components; values in [tokens.md](tokens.md). `Dialog` and
 `Drawer` already share their header, padding and close conventions, and should
 continue to.
 
-`Badge` takes any vocabulary string and falls back to the neutral style for values
-it has no entry for — a user-added output type must render, not crash and not force
-a new variant. Never `switch` on the value at the call site.
+`Badge` and `Pill` both read their tint from `lib/vocabularyTint.ts`, so the two
+sizes of one chip cannot disagree about what colour a `monitor` is. It takes any
+vocabulary string and falls back to the neutral style for values it has no entry
+for — a user-added output type must render, not crash and not force a new variant.
+Never `switch` on the value at the call site.
+
+Every entry in that map is `<hue>-500/15` over `<hue>-300` ([tokens.md](tokens.md)
+§5). An entry that departs from the formula is a bug, not a new colour.
 
 ## 5 · Naming
 

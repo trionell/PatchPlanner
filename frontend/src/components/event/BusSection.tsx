@@ -131,7 +131,7 @@ function BusManagerSection({
       count={buses.length}
       action={
         !readOnly && (
-          <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => setAdding((open) => !open)}>
+          <Button size="xs" variant="outline" onClick={() => setAdding((open) => !open)}>
             <Plus className="mr-1 h-3.5 w-3.5" />
             {noun}
           </Button>
@@ -155,7 +155,7 @@ function BusManagerSection({
               item={bus.is_builtin ? <Badge style={busTint(bus.color)}>built-in</Badge> : undefined}
               actions={
                 !readOnly && (
-                  <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditingId(editing ? null : bus.id)}>
+                  <Button size="xs" variant="ghost" onClick={() => setEditingId(editing ? null : bus.id)}>
                     {editing ? 'Done' : 'Edit'}
                   </Button>
                 )
