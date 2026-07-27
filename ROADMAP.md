@@ -849,8 +849,9 @@ that were the surface not having been built to the approved mockup.
   their own `NodeShell`, `PortDot` and `PortRow`, which is why their boxes had
   drifted; each now keeps a thin adapter over one shared set. A pass-through is
   one row per jack with its two ports on opposite edges — index N in *is* index
-  N out, and two columns only lined up by luck. Port lists truncate at eight
-  with a `⋯ N more` row, so a 32-jack stagebox is legible.
+  N out, and two columns only lined up by luck. Port lists draw **every** jack —
+  the mockup's `⋯ N more` row was overruled in the field test, because a box that
+  hides eight jacks is not a shorter box, it is an incomplete one.
 - **The sources rail** rebuilt row by row: a full-height colour tape, the model
   in quiet mono, the 48 V bar showing off as well as on, stereo two slots tall
   with L above R, a count in the header and `+ Source` in the footer.
