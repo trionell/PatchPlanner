@@ -1389,12 +1389,13 @@
         just how many events are in it.
       </p>
       <p>
-        <strong>What this costs is the same endpoint Wave 4 already buys.</strong> The hero
+        <strong>What this costs is the derivation Wave 4 already builds.</strong> The hero
         needs the next event's counts and verdicts, which is
-        <code>GET /events/{id}/summary</code> — built for the Overview tab, called here for
-        one event. If it slips, the hero still draws: name, venue, date, countdown and role
-        all come from <code>listEvents</code> today, and the ribbon and the numbers appear
-        when the endpoint does.
+        <code>lib/eventSummary.ts</code> — written for the Overview tab, called here for
+        exactly one event. Wave 4 first proposed a summary <em>endpoint</em> for this and
+        withdrew it: these are derivations, not counts, and a Go copy would let the hero
+        disagree with the tab it links to. So the dashboard fetches the same three queries
+        Overview does, for the next show only, under the same cache keys.
       </p>
       <p>
         <strong>Events barely changes.</strong> It is a grid of independent objects and P1
@@ -1606,11 +1607,12 @@
 
     <div class="prose">
       <p>
-        <strong>Two endpoints, no migration.</strong> The vocabulary sheet's
-        <code>In use</code> column needs a reference count the API does not expose today,
-        and the dashboard hero reuses <code>GET /events/{id}/summary</code>, which Wave 4
-        builds for the Overview tab. Neither changes the schema; both count things the
-        database already holds. Everything else in the wave renders data already fetched.
+        <strong>One endpoint, no migration.</strong> The vocabulary sheet's
+        <code>In use</code> column needs a reference count the API does not expose today —
+        a count, not a derivation, which is exactly why it belongs on the server where
+        Overview's numbers did not. The dashboard hero reuses
+        <code>lib/eventSummary.ts</code>, which Wave 4 builds for the Overview tab.
+        Everything else in the wave renders data already fetched.
       </p>
       <p>
         <strong>One touch on <code>components/ui/</code></strong>, on <code>Button</code>,

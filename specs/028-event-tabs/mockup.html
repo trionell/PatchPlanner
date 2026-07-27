@@ -1513,14 +1513,22 @@
         to open Overview rather than skip it.
       </p>
       <p>
-        <strong>What this costs: one endpoint.</strong> Overview currently fetches the
-        event and the rental summary; the band and the ribbons want the patch and the rig
-        as well. Fetching both whole, to show six numbers, is the wrong shape — so
-        <code>GET /events/{id}/summary</code> returns the counts and the verdicts, computed
-        where the data already is. Wave 4 was scoped as frontend-only and now is not, which
-        is worth stating plainly rather than discovering in the plan. It is also the same
-        endpoint the Wave 5 dashboard wants — see that page's §05.
-        <span class="tag tag--new">new endpoint</span>
+        <strong>What this costs: one pure function, and no endpoint.</strong> This page
+        first proposed <code>GET /events/{id}/summary</code>, on the grounds that fetching
+        the whole patch and the whole rig to show six numbers is the wrong shape. Writing
+        the spec killed it, and the argument is Slice 27's R3 pointing the other way:
+        these are not counts a database can produce. <em>2 gaps</em> is
+        <code>buildInputChannelFlows</code> walking the cable graph; <em>addressed</em> is
+        <code>dmxMap</code> partitioning identical spans; <em>128 cables picked</em> is the
+        patch-capacity derivation. Computing them in Go would put four derivations in two
+        languages and let Overview's verdict disagree with the strip on the tab it links
+        to — the exact failure P6 exists to prevent.
+      </p>
+      <p>
+        So the summary is <code>lib/eventSummary.ts</code>: a pure function over payloads
+        the app already fetches, under the query keys the audio, lighting and rental tabs
+        already use. Opening Overview <em>warms</em> the cache for the tabs you are about
+        to open rather than duplicating them. <strong>Wave 4 stays frontend-only.</strong>
       </p>
     </div>
   </section>
@@ -1536,12 +1544,21 @@
 
     <div class="prose">
       <p>
-        <strong>One endpoint, and no migration.</strong> Rental, Equipment and Signal Flow
-        need nothing from the server: every value on them is already fetched by the tab
-        today, and the totals, counts and gap lists are already computed in the browser and
-        merely rendered in the wrong place. Overview's numbers band and readiness row are
-        the exception — <code>GET /events/{id}/summary</code>, one query, no schema change,
-        shared with the Wave 5 dashboard.
+        <strong>No backend at all.</strong> Every value on all four tabs is already fetched
+        by the application today, and the totals, counts, gaps and verdicts are already
+        computed in the browser and merely rendered in the wrong place — Overview included,
+        once the summary is written as a pure function rather than an endpoint (§05).
+      </p>
+      <p>
+        <strong>One addition to <code>components/ui/</code>, and it is not cosmetic.</strong>
+        <code>Tabs</code> gains optional <code>value</code> / <code>onValueChange</code>, so
+        <code>EventDetail</code> can drive the desktop tabs from a <code>?tab=</code> param
+        the way the phone already drives its sections. Without it a hand-off cannot work:
+        Wave 3 shipped <code>RowEditor</code>'s <code>handoff</code> slot and
+        <code>LightingSheet</code>'s <code>onOpenPlot</code> prop, and
+        <code>LightingTab</code> has never passed it, because there is no way for a tab to
+        switch tabs. Wave 4 needs that three times, so it makes the selection addressable
+        — and wires Lighting's dangling hand-off while it is there.
       </p>
       <p>
         <strong><code>components/ui/</code> is untouched</strong>, and that will be asserted
@@ -1639,10 +1656,12 @@
       </p>
       <p>
         It also changes what the wave costs. Overview was the smallest item on this page
-        and is now the one with a server-side dependency: the numbers band and the readiness
-        row want the patch's and the rig's counts, which the tab does not fetch, and
-        fetching both whole for six numbers is the wrong shape. One summary endpoint, no
-        migration, shared with the Wave 5 dashboard. §05 above is the result.
+        and is now the largest. This page briefly proposed an endpoint to feed it and then
+        withdrew it while the spec was being written — the numbers are derivations, not
+        counts, and computing them server-side would put four of them in two languages
+        (§05). What it does cost is one additive change to <code>Tabs</code>, without which
+        none of the wave's hand-offs can work — including the one Wave 3 shipped and never
+        wired.
       </p>
     </div>
   </section>
