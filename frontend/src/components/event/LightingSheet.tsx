@@ -5,15 +5,26 @@ import { listFixtureModes } from '../../api/inventories'
 import { bulkAddFixtures, deleteLightingFixture, updateLightingFixture } from '../../api/lighting'
 import { useReferenceData } from '../../hooks/useReferenceData'
 import { useRowEditor } from '../../hooks/useRowEditor'
-import { type DmxMap, type FixtureDmxState, UNIVERSE_SIZE, firstRunFitting, formatSpan, universeMap } from '../../lib/dmxMap'
+import {
+  type AddressGroup,
+  type DmxMap,
+  type FixtureDmxState,
+  UNIVERSE_SIZE,
+  firstRunFitting,
+  formatSpan,
+  groupsInTheWay,
+  universeMap,
+} from '../../lib/dmxMap'
+import { type MakeRoomPlan, planMakeRoom } from '../../lib/dmxPlan'
 import { nextFixtureNumber } from '../../lib/lightingRig'
 import { matchesSearch } from '../../lib/patchSearch'
 import { cn } from '../../lib/utils'
-import type { BulkFixtureRequest, LightingFixture } from '../../types'
+import type { AddressChange, BulkFixtureRequest, LightingFixture } from '../../types'
 import { FieldStack } from '../ui/GearList'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
 import { NumCell, SheetBody, SheetCell, SheetHead, SheetHeadCell, SheetRow, SheetTable } from '../ui/SheetTable'
+import { AddressPrompt } from './AddressPrompt'
 import { type LightingFilter, LightingStatusRail } from './LightingStatusRail'
 import { RowEditor } from './RowEditor'
 
@@ -65,6 +76,15 @@ interface AddDraft {
   power_connector_in: string
 }
 
+/** A proposed span that touches something, and the answers available. */
+interface Collision {
+  insert: { universe: number; start: number; count: number; excludeFixtureId?: number }
+  inTheWay: AddressGroup[]
+  /** The span exactly matches an existing group, so this fixture can join it. */
+  canShare: boolean
+  makeRoom: MakeRoomPlan
+}
+
 interface LightingSheetProps {
   eventId: number
   rigId?: number
@@ -79,6 +99,8 @@ interface LightingSheetProps {
   /** The bar's `+ Fixtures` control, lifted so the panel's one primary action drives it. */
   adding?: boolean
   onAddingChange?: (adding: boolean) => void
+  /** Applies an address plan, whole or not at all. Owned by the tab, shared with auto-assign. */
+  applyAddresses: (changes: AddressChange[]) => Promise<unknown>
   readOnly?: boolean
 }
 
@@ -93,6 +115,7 @@ export function LightingSheet({
   onOpenPlot,
   adding = false,
   onAddingChange,
+  applyAddresses,
   readOnly = false,
 }: LightingSheetProps) {
   const queryClient = useQueryClient()
@@ -158,6 +181,34 @@ export function LightingSheet({
         },
       }),
   })
+
+  /**
+   * What a proposed span would touch, and what could be done about it (US5).
+   *
+   * Checked on confirm rather than while typing: an address typed a digit at a
+   * time passes through several collisions on its way to the intended one, and a
+   * prompt for each would be noise (research.md R8).
+   */
+  function collisionFor(insert: { universe: number; start: number; count: number; excludeFixtureId?: number }): Collision | null {
+    const inTheWay = groupsInTheWay(map, insert, insert.excludeFixtureId)
+    if (inTheWay.length === 0) return null
+    const exact = inTheWay.length === 1 && inTheWay[0].start === insert.start && inTheWay[0].count === insert.count
+    return { insert, inTheWay, canShare: exact, makeRoom: planMakeRoom(fixtures, insert) }
+  }
+
+  const [rowCollision, setRowCollision] = useState<Collision | null>(null)
+  const [applying, setApplying] = useState(false)
+
+  /** Shift first, then save: the reverse saves a fixture into a collision. */
+  async function resolveWithMakeRoom(collision: Collision, save: () => void) {
+    setApplying(true)
+    try {
+      if (collision.makeRoom.changes.length > 0) await applyAddresses(collision.makeRoom.changes)
+      save()
+    } finally {
+      setApplying(false)
+    }
+  }
 
   const nameOf = (fixture: LightingFixture) =>
     fixture.custom_name || fixture.inventory_item_name || 'Unnamed fixture'
@@ -270,15 +321,70 @@ export function LightingSheet({
                       <SheetCell colSpan={COLUMNS.length} className="bg-amber-500/[0.04] pt-0">
                         <RowEditor
                           saveLabel="Save fixture"
-                          onSave={editor.save}
-                          onCancel={editor.close}
+                          onSave={() => {
+                            const draft = editor.draft!
+                            if (draft.dmx_start_address == null) {
+                              editor.save()
+                              return
+                            }
+                            const collision = collisionFor({
+                              universe: draft.dmx_universe,
+                              start: draft.dmx_start_address,
+                              count: draft.dmx_channel_count,
+                              excludeFixtureId: fixture.id,
+                            })
+                            if (collision) setRowCollision(collision)
+                            else editor.save()
+                          }}
+                          onCancel={() => {
+                            setRowCollision(null)
+                            editor.close()
+                          }}
                           onDelete={() => {
                             if (window.confirm(`Delete ${labelOf(fixture)}? This cannot be undone.`)) {
                               removeFixture.mutate(fixture.id)
                             }
                           }}
                           handoff={onOpenPlot ? { label: 'Truss', text: 'Hang in plot', onSelect: onOpenPlot } : undefined}
-                          onKeyDown={editor.onKeyDown}
+                          onKeyDown={(event) => {
+                            // While the prompt is up there is a question
+                            // outstanding, so ⌘↵ must not answer it by saving
+                            // and moving on (FR-053).
+                            if (rowCollision && event.key === 'Enter') {
+                              event.preventDefault()
+                              return
+                            }
+                            editor.onKeyDown(event)
+                          }}
+                          notice={
+                            rowCollision && (
+                              <AddressPrompt
+                                inTheWay={rowCollision.inTheWay}
+                                labelOf={(id) => {
+                                  const other = byId.get(id)
+                                  return other ? labelOf(other) : `Fixture ${id}`
+                                }}
+                                makeRoom={rowCollision.makeRoom}
+                                canShare={rowCollision.canShare}
+                                pending={applying}
+                                onMakeRoom={() =>
+                                  void resolveWithMakeRoom(rowCollision, () => {
+                                    setRowCollision(null)
+                                    editor.save()
+                                  })
+                                }
+                                onShare={() => {
+                                  setRowCollision(null)
+                                  editor.save()
+                                }}
+                                onPlaceAnyway={() => {
+                                  setRowCollision(null)
+                                  editor.save()
+                                }}
+                                onBack={() => setRowCollision(null)}
+                              />
+                            )
+                          }
                         >
                           <FixtureFields
                             draft={editor.draft}
@@ -312,6 +418,12 @@ export function LightingSheet({
                     error={addFixtures.error?.message}
                     onCancel={() => onAddingChange?.(false)}
                     onSubmit={(payload) => addFixtures.mutate(payload)}
+                    collisionFor={collisionFor}
+                    labelOf={(id) => {
+                      const other = byId.get(id)
+                      return other ? labelOf(other) : `Fixture ${id}`
+                    }}
+                    applyAddresses={applyAddresses}
                   />
                 </SheetCell>
               </SheetRow>
@@ -624,6 +736,9 @@ function AddFixtureEditor({
   error,
   onCancel,
   onSubmit,
+  collisionFor,
+  labelOf,
+  applyAddresses,
 }: {
   map: DmxMap
   fixtures: LightingFixture[]
@@ -634,6 +749,9 @@ function AddFixtureEditor({
   error?: string
   onCancel: () => void
   onSubmit: (payload: BulkFixtureRequest) => void
+  collisionFor: (insert: { universe: number; start: number; count: number }) => Collision | null
+  labelOf: (fixtureId: number) => string
+  applyAddresses: (changes: AddressChange[]) => Promise<unknown>
 }) {
   const [draft, setDraft] = useState<AddDraft>(() => {
     const universe = 1
@@ -660,24 +778,38 @@ function AddFixtureEditor({
   const universe = universeMap(map, draft.dmx_universe)
   const largest = universe?.largestRun ?? { start: 1, length: UNIVERSE_SIZE }
 
+  const [collision, setCollision] = useState<Collision | null>(null)
+  const [applying, setApplying] = useState(false)
+
+  const payload = (): BulkFixtureRequest => ({
+    inventory_item_id: draft.inventory_item_id,
+    quantity,
+    fixture_number_start: draft.fixture_number_start,
+    name_stem: draft.custom_name || undefined,
+    dmx_channel_mode: draft.dmx_channel_mode,
+    dmx_channel_count: width,
+    dmx_universe: draft.dmx_universe,
+    dmx_start_address: draft.dmx_start_address,
+    share_address: draft.share_address,
+    power_connection: draft.power_connection,
+    power_connector_in: draft.power_connector_in,
+  })
+
+  /** A batch is one span as wide as its whole demand — or one fixture's, shared. */
+  function attemptAdd() {
+    if (draft.dmx_start_address == null) {
+      onSubmit(payload())
+      return
+    }
+    const found = collisionFor({ universe: draft.dmx_universe, start: draft.dmx_start_address, count: demand })
+    if (found) setCollision(found)
+    else onSubmit(payload())
+  }
+
   return (
     <RowEditor
       saveLabel={pending ? 'Adding…' : quantity > 1 ? `Add ${quantity} fixtures` : 'Add fixture'}
-      onSave={() =>
-        onSubmit({
-          inventory_item_id: draft.inventory_item_id,
-          quantity,
-          fixture_number_start: draft.fixture_number_start,
-          name_stem: draft.custom_name || undefined,
-          dmx_channel_mode: draft.dmx_channel_mode,
-          dmx_channel_count: width,
-          dmx_universe: draft.dmx_universe,
-          dmx_start_address: draft.dmx_start_address,
-          share_address: draft.share_address,
-          power_connection: draft.power_connection,
-          power_connector_in: draft.power_connector_in,
-        })
-      }
+      onSave={attemptAdd}
       onCancel={onCancel}
       onKeyDown={(event) => {
         if (event.key === 'Escape') {
@@ -686,6 +818,34 @@ function AddFixtureEditor({
         }
       }}
       notice={
+        collision ? (
+          <AddressPrompt
+            inTheWay={collision.inTheWay}
+            labelOf={labelOf}
+            makeRoom={collision.makeRoom}
+            canShare={collision.canShare}
+            pending={applying || pending}
+            onMakeRoom={async () => {
+              setApplying(true)
+              try {
+                if (collision.makeRoom.changes.length > 0) await applyAddresses(collision.makeRoom.changes)
+                setCollision(null)
+                onSubmit(payload())
+              } finally {
+                setApplying(false)
+              }
+            }}
+            onShare={() => {
+              setCollision(null)
+              onSubmit(payload())
+            }}
+            onPlaceAnyway={() => {
+              setCollision(null)
+              onSubmit(payload())
+            }}
+            onBack={() => setCollision(null)}
+          />
+        ) : (
         <p className="text-[11px] text-zinc-500">
           {error ? (
             <span className="text-red-400">{error}</span>
@@ -701,6 +861,7 @@ function AddFixtureEditor({
             </>
           )}
         </p>
+        )
       }
     >
       <FieldStack label="Qty" width="count">

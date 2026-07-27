@@ -176,6 +176,7 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
             search={search}
             adding={adding}
             onAddingChange={setAdding}
+            applyAddresses={applyAddresses.mutateAsync}
             readOnly={readOnly}
           />
         </PatchPanel>
