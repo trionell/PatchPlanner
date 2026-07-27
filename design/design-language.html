@@ -529,7 +529,7 @@
   .chrome__main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .chrome__hd { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #27272a; background: rgba(9, 9, 11, 0.95); }
   .chrome__hd--old { padding: 20px 24px; }
-  .chrome__hd--new { padding: 12px 24px; }
+  .chrome__hd--new { height: 56px; padding: 0 24px; }   /* h-14, stated rather than emergent */
   .chrome__ti--old { font-size: 24px; font-weight: 600; color: #f4f4f5; }
   .chrome__ti--new { font-size: 16px; font-weight: 600; color: #f4f4f5; }
   .chrome__bd { padding: 16px 24px; display: flex; flex-direction: column; gap: 12px; }
@@ -540,7 +540,8 @@
   .tabs--old span { padding: 8px 16px; border-radius: 6px; font-size: 14px; color: #d4d4d8; }
   .tabs--new { display: inline-flex; flex-wrap: wrap; gap: 4px; }
   .tabs--new span { padding: 4px 12px; border-radius: 6px; font-size: 14px; color: #a1a1aa; }
-  .tabs--old span.on, .tabs--new span.on { background: #f59e0b; color: #09090b; font-weight: 600; }
+  .tabs--old span.on { background: #f59e0b; color: #09090b; }
+  .tabs--new span.on { background: #f59e0b; color: #09090b; font-weight: 600; }
 
   /* -- mobile -- */
   .phones { display: flex; flex-wrap: wrap; gap: 22px; }
@@ -1318,11 +1319,13 @@
     <div class="patchbay" style="--lit: 76%;"><div class="patchbay__strip"></div><div class="patchbay__lit"></div></div>
     <header class="sec__head">
       <p class="sec__num">Seven · app chrome <span class="sec__src">patterns.md §6 · audit.md A5</span></p>
-      <h2>The page announces itself three times</h2>
+      <h2>The page announced itself three times</h2>
       <p class="body">
-        Today's chrome advances: the sidebar is lighter than the content area, and a 24 px page title
-        sits above a 20 px event name above a 14 px panel title. The loudest type on an event page is
-        the word "PatchPlanner".
+        The old chrome advanced: the sidebar was lighter than the content area, and a 24 px page
+        title sat above a 20 px event name above a 14 px panel title. The loudest type on an event
+        page was the word "PatchPlanner". <strong>Built in Wave 1</strong> — the right-hand specimen
+        is what the application does now, and the left is kept because a change like this is only
+        legible beside what it replaced.
       </p>
     </header>
 
@@ -1345,7 +1348,7 @@
             </div>
           </div>
         </div>
-        <p class="spec__cap">Today — <b>24 / 20 / 14</b>, sidebar advances</p>
+        <p class="spec__cap">Before — <b>24 / 20 / 14</b>, sidebar advances</p>
       </div>
 
       <div class="spec">
@@ -1366,18 +1369,24 @@
             </div>
           </div>
         </div>
-        <p class="spec__cap">Target — <b>16 / 18 / 14</b>, sidebar is the ground</p>
+        <p class="spec__cap">Now — <b>16 / 18 / 14</b>, sidebar is the ground</p>
       </div>
     </div>
 
     <div class="note">
       <p class="body small">
-        The tab strip <strong>loses its trough</strong>, and that is the substantive change rather
+        The tab strip <strong>lost its trough</strong>, and that is the substantive change rather
         than the padding. A trough belongs to an in-panel toggle selecting <em>how you look at one
-        thing</em>; page-level tabs select <em>what you are looking at</em>. Two controls that
-        currently look identical mean those two different things. The sidebar's active marker stays a
-        2 px left edge and never becomes a filled pill — that keeps the amber fill meaning "the
-        primary action" rather than "the page you are on".
+        thing</em>; page-level tabs select <em>what you are looking at</em>. Two controls that looked
+        identical meant those two different things. The sidebar's active marker stays a 2 px left
+        edge and never becomes a filled pill — that keeps the amber fill meaning "the primary action"
+        rather than "the page you are on".
+      </p>
+      <p class="body small">
+        The header's height is now <span class="k">h-14</span>, <em>stated</em> rather than emerging
+        from a padding plus a font size. Stage Plots' sticky toolbar had hard-coded
+        <span class="k">top-[73px]</span> — the number that sum happened to produce — so a height a
+        child positions against has to be a value someone chose.
       </p>
     </div>
   </section>
@@ -1553,8 +1562,9 @@
         in the codebase, not a perfect one.
       </p>
       <p class="body">
-        <strong>Wave 0 has landed.</strong> Four findings are struck below and stay struck — the list
-        is a record of what was wrong and when it stopped being wrong, not a queue that empties.
+        <strong>Waves 0 and 1 have landed.</strong> Five findings are struck below and stay struck —
+        the list is a record of what was wrong and when it stopped being wrong, not a queue that
+        empties.
       </p>
     </header>
 
@@ -1576,8 +1586,12 @@
         <p class="find__b"><span class="k">mb-1 block text-sm text-zinc-300</span>, copied across <span class="find__n">10</span> files — 14 in Lighting alone. → <span class="k">FieldLabel</span>, in the same file as <span class="k">MicroLabel</span> so picking the wrong tier takes a deliberate act.</p>
       </div>
       <div class="find">
-        <div class="find__hd"><span class="find__id">A5–A7</span><span class="find__ti">Chrome, card stacks, and the wrong table</span><span class="find__p">P1 · P2 · P8</span></div>
+        <div class="find__hd"><span class="find__id">A6 · A7</span><span class="find__ti">Card stacks, and the wrong table</span><span class="find__p">P1 · P2</span></div>
         <p class="find__b">Six surfaces are still <span class="k">Card</span> → <span class="k">CardHeader</span> → <span class="k">Table</span> stacks. Four of them are work surfaces by P2's test — lighting fixtures, rental lines, equipment lines, and a 308-item inventory — rendered on the navigation-tier table. The zebra striping is the tell.</p>
+      </div>
+      <div class="find find--done">
+        <div class="find__hd"><span class="find__id">A5</span><span class="find__ti">The chrome announces the page three times</span><span class="find__done">Wave 1</span><span class="find__p">P8</span></div>
+        <p class="find__b">24 px page title over a 20 px event name over a 14 px panel title, on a sidebar lighter than the content. → <span class="find__n">16 / 18 / 14</span>, sidebar on the content's own ground, tab strip with no trough. Drawn in §7.</p>
       </div>
       <div class="find">
         <div class="find__hd"><span class="find__id">A4 · A9 · A10</span><span class="find__ti">The residue</span><span class="find__p">P1 · P2 · P3</span></div>
@@ -1602,7 +1616,7 @@
       </p>
       <div class="waves">
         <div class="wave wave--done"><span class="wave__n">Wave 0 ✓</span><span class="wave__t">Primitive gaps</span><span class="wave__d">A1–A3, A11 and half of A9. Visible delta, in full: 10 drawer buttons gain 1 px of padding a side, Stage Plot's two inspector buttons rise to <span class="k">h-7</span>, drawer labels grow 1 px. Everything else byte-identical.</span></div>
-        <div class="wave"><span class="wave__n">Wave 1</span><span class="wave__t">Chrome</span><span class="wave__d">A5. Smallest diff, largest perceived change, touches no tab. Later waves get reviewed against a header that has stopped shouting.</span></div>
+        <div class="wave wave--done"><span class="wave__n">Wave 1 ✓</span><span class="wave__t">Chrome</span><span class="wave__d">A5, and A4 where it touched chrome. Smallest diff, largest perceived change, and it changed no tab — only the two files that had hard-coded the chrome's dimensions.</span></div>
         <div class="wave"><span class="wave__n">Wave 2</span><span class="wave__t">Stage plots</span><span class="wave__d">A10. The cheapest conversion, and the one that proves the panel pattern transfers to a surface that is neither a sheet nor a list.</span></div>
         <div class="wave"><span class="wave__n">Wave 3</span><span class="wave__t">Lighting</span><span class="wave__d">A6–A8. The big one. Fixtures become a sheet with a row editor. A workflow change, not a restyle — worth its own spec.</span></div>
         <div class="wave"><span class="wave__n">Wave 4–5</span><span class="wave__t">Tabs, then pages</span><span class="wave__d">Rental, Equipment, Overview, Signal Flow — same shape, much smaller. Then the pages, which are mostly already right.</span></div>

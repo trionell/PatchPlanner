@@ -22,7 +22,7 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-zinc-950 text-zinc-100">
       <div className="w-full max-w-sm space-y-6 px-6 text-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="rounded-lg bg-amber-500/15 p-3 text-amber-400">
+          <div className="rounded-md bg-amber-500/15 p-3 text-amber-400">
             <Cable className="h-6 w-6" />
           </div>
           <div>

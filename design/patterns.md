@@ -121,54 +121,63 @@ The footer states what the contents *mean*, not how many there are twice over:
 
 ## 6 · App chrome
 
-Chrome recedes (P8). The current chrome advances: it is lighter than the content
-area, and it announces the page three times in three sizes before you reach a panel
-whose own title is 14 px.
+Chrome recedes (P8). Built in Wave 1; the values below are what the code does.
 
 ### Sidebar — `components/Layout.tsx`
 
-| Part | Target | Today |
-|---|---|---|
-| frame | `w-60 border-r border-zinc-800 bg-zinc-950` | `bg-zinc-900` — **lighter than the content area, so it advances** |
-| padding | `px-3 py-5` | `px-4 py-6` |
-| brand | icon in `rounded-md bg-amber-500/15 p-2`, name `text-sm font-semibold`, tagline `text-xs text-zinc-500` | name at default size, tagline `text-zinc-400` |
-| nav item | `flex items-center gap-3 border-l-2 px-3 py-2 text-sm` | ✅ unchanged |
-| nav item, active | `border-amber-500 bg-zinc-850 text-amber-400` | ✅ unchanged |
+| Part | Value |
+|---|---|
+| frame | `fixed inset-y-0 left-0 w-60 border-r border-zinc-800 bg-zinc-950` |
+| padding | `px-3 py-5` |
+| brand | icon in `rounded-md bg-amber-500/15 p-2`, name `text-sm font-semibold`, tagline `text-xs text-zinc-500` |
+| nav item | `flex items-center gap-3 border-l-2 px-3 py-2 text-sm` |
+| nav item, active | `border-amber-500 bg-zinc-850 text-amber-400` |
 
-The active marker stays a **2 px left edge, not a filled pill**. It is the quietest
+The sidebar is the **same ground as the content**, separated by its rule rather than
+by being lighter. It used to be `bg-zinc-900`, which made the navigation the
+brightest column on every screen.
+
+The active marker is a **2 px left edge, not a filled pill**. It is the quietest
 mark that survives peripheral vision, and it keeps the amber fill meaning "the
 primary action" rather than "the page you are on".
 
 ### Header
 
-| Part | Target | Today |
-|---|---|---|
-| frame | `sticky top-0 z-20 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur px-8 py-3` | `py-5` |
-| title | `text-base font-semibold text-zinc-100` | `text-2xl` |
-| mobile | `px-4 py-3`, title `text-sm font-semibold` | `text-base` |
+| Part | Value |
+|---|---|
+| frame | `sticky top-0 z-20 flex h-14 items-center border-b border-zinc-800 bg-zinc-950/95 backdrop-blur px-8` |
+| title | `text-base font-semibold text-zinc-100` |
+| mobile | `px-4 py-3`, title `text-sm font-semibold` |
 
 The mockup's own bar title is 13 px at an 11 px base — `text-base` is that carried
 across. A 24 px page title above a 14 px panel title inverts the hierarchy.
 
+**`h-14` is stated, not emergent**, and that is the point: the height was previously
+the sum of a padding and a font size, and `StagePlotTab`'s sticky toolbar hard-coded
+the 73 px that sum produced. A height a child positions against has to be a value
+someone chose. It is `top-14` at the one call site.
+
 ### Event tab strip — `ui/Tabs`
 
-| Part | Target | Today |
-|---|---|---|
-| `TabList` | `inline-flex flex-wrap gap-1` — **no trough** | `rounded-lg border border-zinc-700 bg-zinc-900 p-1` |
-| `Tab` | `rounded-md px-3 py-1 text-sm transition-colors` | `rounded-md px-4 py-2 text-sm` |
-| active | `bg-amber-500 text-zinc-950 font-semibold` | `bg-amber-500 text-zinc-950` |
-| inactive | `text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100` | `text-zinc-300 hover:bg-zinc-800` |
+| Part | Value |
+|---|---|
+| `TabList` | `inline-flex flex-wrap gap-1` — **no trough** |
+| `Tab` | `rounded-md px-3 py-1 text-sm transition-colors` |
+| active | `bg-amber-500 font-semibold text-zinc-950` |
+| inactive | `text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100` |
 
 Losing the trough is the point. Page-level tabs select *what you are looking at*;
 the trough belongs to an in-panel toggle selecting *how you are looking at one
-thing* (§1). Two controls that look identical currently mean those two different
-things.
+thing* (§1). Two controls that looked identical meant those two different things.
+
+`flex-wrap` because there are nine tabs: without the trough there is nothing to
+scroll inside, so they wrap.
 
 ### Event heading
 
-Between the header and the tab strip, the event name renders again at `text-xl`.
-Target: `text-lg font-semibold` with venue and date at `text-sm text-zinc-400` —
-one step below the panel it introduces, one step above nothing.
+Between the header and the tab strip, `text-lg font-semibold` with venue and date at
+`text-sm text-zinc-400` — one step below the panel it introduces, one step above
+nothing.
 
 ## 7 · Mobile
 

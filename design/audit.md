@@ -17,29 +17,22 @@ waves land.
 
 ```
 grep -rho "rounded-\(xl\|lg\|md\)" --include='*.tsx' frontend/src | sort | uniq -c
-#  54 rounded-md    30 rounded-lg    4 rounded-xl
+#  58 rounded-md    25 rounded-lg    4 rounded-xl      (was 54 / 30 / 4)
 ```
 
 The ladder is `xl` for a panel, `md` for a control ([tokens.md](tokens.md) §6).
-`rounded-lg` sits between them and every use is one or the other: `TabList`'s
-trough, `Layout`'s brand tile, form blocks in `EquipmentTab` and `RentalTab`,
-`StagePlotTab`'s toolbar, `SectionSwitcher`.
+`rounded-lg` sits between them and every use is one or the other.
+
+The chrome uses are closed (Wave 1): `TabList`'s trough is gone entirely, and the
+brand tile — which is one mark appearing in three places, the sidebar, the mobile
+header and Login — plus `SectionSwitcher` are `md`. What remains is on surfaces
+later waves own: the inline form blocks in `EquipmentTab`, `RentalTab`,
+`OwnedGearManager`, `Inventories` and `PlotTrussManager`; `StagePlotTab`'s toolbar
+and panels; `Dashboard`, `EventInventoryCard`, `OverviewTab`'s stat tiles,
+`StartPage`.
 
 **Fix:** case by case, but mechanically — a container of controls is `xl`,
-a control is `md`.
-
-### A5 · The chrome announces the page three times · P8
-
-| | Today | Target |
-|---|---|---|
-| Header title | `text-2xl` (24px) | `text-base` |
-| Event name | `text-xl` (20px) | `text-lg` |
-| Tab | `px-4 py-2` in a bordered trough | `px-3 py-1`, no trough |
-| Panel title | `text-sm` (14px) | ✅ unchanged |
-| Sidebar | `bg-zinc-900` — lighter than content, advances | `bg-zinc-950` |
-
-The loudest type on an event page is the word "PatchPlanner". Values in
-[patterns.md](patterns.md) §6.
+a control is `md`. Each wave takes the ones on its own surfaces.
 
 ### A6 · Six surfaces are still card stacks · P1
 
@@ -145,6 +138,18 @@ Not a `tier` prop on `FieldStack`, which was the other option considered:
 wrapping form row, so a navigation-tier `FieldStack` would carry an API it must
 never use.
 
+### A5 · The chrome announced the page three times · Wave 1
+
+Header title `text-2xl` → `text-base`, event name `text-xl` → `text-lg`, the tab
+strip's trough gone, sidebar `bg-zinc-900` → `bg-zinc-950`. The loudest type on an
+event page was the word "PatchPlanner". Values in [patterns.md](patterns.md) §6.
+
+The header's height is now **stated** as `h-14` rather than emerging from a padding
+plus a font size. That was not cosmetic: `StagePlotTab`'s sticky toolbar hard-coded
+`top-[73px]`, the number that sum happened to produce, so shrinking the header
+would have left the toolbar floating 17 px below where it belongs. A height a child
+positions against has to be a value someone chose.
+
 ---
 
 ## Part 2 — Convergence order
@@ -178,10 +183,26 @@ Gates run: `tsc -b`, `eslint`, `vitest` (179 pass), and the class strings compar
 by computing `twMerge` on the before and after of each converted button rather than
 by reading them — which is what caught the four rows above.
 
-### Wave 1 · Chrome — A5, and A4 where it touches chrome
+### Wave 1 · Chrome — **done**
 
-Smallest diff, largest perceived change, and it touches no tab. Doing it early
-means every later wave is reviewed against a header that is no longer shouting.
+A5, and A4 where it touches chrome. Smallest diff, largest perceived change. Every
+later wave is now reviewed against a header that has stopped shouting.
+
+Unlike Wave 0 this one *is* a redesign, so the whole point is that it changes what
+you see. What it must not do is change any **tab**, and it doesn't — the only files
+touched outside `Layout`, `ui/Tabs`, `SectionSwitcher` and `Login` are the two that
+had hard-coded the chrome's dimensions:
+
+| | Was | Now | Why it had to move |
+|---|---|---|---|
+| `StagePlotTab` sticky toolbar | `top-[73px]` | `top-14` | 73 px was the old header's height, written as a literal |
+| `StagePlotCanvas` height | `calc(100vh-330px)` | `calc(100vh-295px)` | 35 px less sits above it — header 73→56, tab strip 46→28. Left at 330 the page grows a scrollbar it never had |
+
+Both numbers were derived from the line-heights and paddings Tailwind actually
+emits, not from memory — `text-xl` and `text-lg` share a 28 px line box, so the
+event heading contributes nothing to the delta despite being a visible change.
+Neither could be *measured*: there is no browser in the toolchain, so the stage plot
+canvas is the one thing in this wave worth a human glance.
 
 ### Wave 2 · Stage plots — A10
 

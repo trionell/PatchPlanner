@@ -96,7 +96,7 @@ export function EventDetailPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4 print:hidden">
         <div>
-          <h2 className="text-xl font-semibold">{eventQuery.data.name}</h2>
+          <h2 className="text-lg font-semibold">{eventQuery.data.name}</h2>
           <p className="text-sm text-zinc-400">{eventQuery.data.venue || 'Venue TBD'} · {eventQuery.data.date || 'Date TBD'}</p>
         </div>
         <div className="flex items-center gap-4">

@@ -35,10 +35,10 @@ export function Layout() {
       <div className="min-h-screen bg-zinc-950 pb-20 text-zinc-100">
         <header className="sticky top-0 z-20 flex items-center justify-between border-b border-zinc-800 bg-zinc-950/95 px-4 py-3 backdrop-blur print:hidden">
           <div className="flex items-center gap-2">
-            <div className="rounded-lg bg-amber-500/15 p-1.5 text-amber-400">
+            <div className="rounded-md bg-amber-500/15 p-1.5 text-amber-400">
               <Cable className="h-4 w-4" />
             </div>
-            <span className="text-base font-semibold text-zinc-100">{title}</span>
+            <span className="text-sm font-semibold text-zinc-100">{title}</span>
           </div>
           {user?.pictureUrl && (
             <img src={user.pictureUrl} alt="" referrerPolicy="no-referrer" className="h-7 w-7 rounded-full" />
@@ -54,14 +54,20 @@ export function Layout() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <aside className="fixed inset-y-0 left-0 w-60 border-r border-zinc-800 bg-zinc-900 px-4 py-6 print:hidden">
+      {/*
+        The sidebar is the same ground as the content, separated by its rule
+        rather than by being lighter than it. Chrome that advances is chrome you
+        read before the work (P8); `bg-zinc-900` here made the navigation the
+        brightest column on every screen.
+      */}
+      <aside className="fixed inset-y-0 left-0 w-60 border-r border-zinc-800 bg-zinc-950 px-3 py-5 print:hidden">
         <div className="mb-8 flex items-center gap-3 px-3">
-          <div className="rounded-lg bg-amber-500/15 p-2 text-amber-400">
+          <div className="rounded-md bg-amber-500/15 p-2 text-amber-400">
             <Cable className="h-5 w-5" />
           </div>
           <div>
-            <div className="font-semibold text-zinc-100">PatchPlanner</div>
-            <div className="text-xs text-zinc-400">AVL event planning</div>
+            <div className="text-sm font-semibold text-zinc-100">PatchPlanner</div>
+            <div className="text-xs text-zinc-500">AVL event planning</div>
           </div>
         </div>
         <nav className="space-y-1">
@@ -89,8 +95,13 @@ export function Layout() {
         </nav>
       </aside>
       <div className="ml-60 min-h-screen print:ml-0">
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-zinc-800 bg-zinc-950/95 px-8 py-5 backdrop-blur print:hidden">
-          <h1 className="text-2xl font-semibold text-zinc-100">{title}</h1>
+        {/*
+          `text-base`, not `text-2xl`: a 24 px page title above a 14 px panel
+          title inverts the hierarchy, and the page name is the least useful
+          thing on the screen to someone already looking at the page.
+        */}
+        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-zinc-800 bg-zinc-950/95 px-8 backdrop-blur print:hidden">
+          <h1 className="text-base font-semibold text-zinc-100">{title}</h1>
           {user && (
             <div className="flex items-center gap-3">
               {user.pictureUrl && (

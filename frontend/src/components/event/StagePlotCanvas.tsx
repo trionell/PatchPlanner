@@ -736,7 +736,12 @@ export function StagePlotCanvas({
       className={
         fillParent
           ? 'relative h-full w-full overflow-hidden bg-zinc-950'
-          : 'relative h-[calc(100vh-330px)] min-h-[560px] w-full overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950'
+          // 295 px is everything stacked above this canvas. It was 330 until
+          // Wave 1 shortened the app header (73 → 56) and took the trough off
+          // the tab strip (46 → 28); left at 330 the page grows a scrollbar it
+          // never had. It is still a magic number tuned against a layout it
+          // cannot see, which is Wave 2's to delete rather than re-tune.
+          : 'relative h-[calc(100vh-295px)] min-h-[560px] w-full overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950'
       }
     >
       <svg

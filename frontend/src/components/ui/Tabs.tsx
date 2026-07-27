@@ -18,8 +18,17 @@ export function Tabs({ defaultValue, children, className }: { defaultValue: stri
   )
 }
 
+/**
+ * No trough, deliberately (design/patterns.md §6).
+ *
+ * These tabs select *what you are looking at*. A trough — a bordered, filled
+ * container holding the choices — belongs to an in-panel toggle selecting *how
+ * you are looking at one thing*, e.g. Sheet versus Flow inside the audio panel's
+ * bar. The two used to be drawn identically, so two controls that mean different
+ * things looked the same.
+ */
 export function TabList({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('inline-flex gap-2 rounded-lg border border-zinc-700 bg-zinc-900 p-1', className)} {...props} />
+  return <div className={cn('inline-flex flex-wrap gap-1', className)} {...props} />
 }
 
 export function Tab({ value, className, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { value: string }) {
@@ -29,8 +38,8 @@ export function Tab({ value, className, children, ...props }: ButtonHTMLAttribut
     <button
       type="button"
       className={cn(
-        'rounded-md px-4 py-2 text-sm transition-colors',
-        active ? 'bg-amber-500 text-zinc-950' : 'text-zinc-300 hover:bg-zinc-800',
+        'rounded-md px-3 py-1 text-sm transition-colors',
+        active ? 'bg-amber-500 font-semibold text-zinc-950' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100',
         className,
       )}
       onClick={() => context.setValue(value)}

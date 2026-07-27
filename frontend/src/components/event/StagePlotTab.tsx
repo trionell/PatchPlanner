@@ -435,13 +435,15 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
         <p className="text-sm text-zinc-400">Loading plot…</p>
       ) : (
         (() => {
-          // Toolbar — inline it sticks just below the app header (73 px:
-          // its py-5 + text-2xl line + border) once scrolled past; in
-          // fullscreen it floats on top of the canvas.
+          // Toolbar — inline it sticks just below the app header once scrolled
+          // past; in fullscreen it floats on top of the canvas. `top-14` is the
+          // header's `h-14`, which is stated on the header for exactly this
+          // reason: it used to be the sum of a padding and a font size, and this
+          // offset was the literal 73 px that sum happened to produce.
           const toolbar = (
           <div
             className={`flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-zinc-800 px-3 py-2 text-sm text-zinc-400 ${
-              fullscreen ? 'bg-zinc-900/90 backdrop-blur' : 'sticky top-[73px] z-10 bg-zinc-900'
+              fullscreen ? 'bg-zinc-900/90 backdrop-blur' : 'sticky top-14 z-10 bg-zinc-900'
             }`}
           >
             <div className="flex items-center gap-1">
