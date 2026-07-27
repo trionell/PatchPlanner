@@ -433,3 +433,78 @@ func execMigrationFileTx(t *testing.T, database *sql.DB, filename string) {
 		t.Fatalf("commit migration %s: %v", filename, err)
 	}
 }
+
+// TestReferenceUsageCountMatchesDeleteGuard is the claim the "In use" column
+// makes (Slice 29 SC-007): a value reporting zero must be deletable, and one
+// reporting more must be refused. Both numbers come from countReferenceUsage,
+// so a divergence here would mean the column is lying about what the button
+// will do.
+func TestReferenceUsageCountMatchesDeleteGuard(t *testing.T) {
+	database := openTestDB(t)
+	eventID := createTestEvent(t, database)
+
+	// One referencing row per shape: a single-column vocabulary, and
+	// power_connectors, which two columns consume.
+	mustExec(t, database, `INSERT INTO input_sources (event_id, name, kind, connector_type, width) VALUES (?, 'Test source', 'line', 'combo', 'mono')`, eventID)
+	mustExec(t, database, `INSERT INTO lighting_rigs (event_id, name) VALUES (?, 'Rig')`, eventID)
+	mustExec(t, database, `INSERT INTO lighting_fixtures (rig_id, custom_name, power_connector_in, power_connector_out) VALUES (1, 'Wash', 'cee16', 'cee16')`)
+
+	data, err := ListReferenceData(database, eventID)
+	if err != nil {
+		t.Fatalf("list reference data: %v", err)
+	}
+	counts := map[string]map[string]int{}
+	for vocabulary, values := range data {
+		counts[vocabulary] = map[string]int{}
+		for _, v := range values {
+			counts[vocabulary][v.Value] = v.UsageCount
+		}
+	}
+
+	if got := counts["preamp_connectors"]["combo"]; got != 1 {
+		t.Errorf("combo: expected usage 1, got %d", got)
+	}
+	// Both of the fixture's connector columns hold cee16, so it is used twice.
+	if got := counts["power_connectors"]["cee16"]; got != 2 {
+		t.Errorf("cee16: expected usage 2, got %d", got)
+	}
+
+	// Every value the count calls used must be refused, and every value it
+	// calls unused must delete. That equivalence *is* the column's promise.
+	for vocabulary, values := range data {
+		for _, v := range values {
+			id := referenceValueID(t, database, eventID, vocabulary, v.Value)
+			err := DeleteReferenceValue(database, eventID, vocabulary, id)
+			if v.UsageCount > 0 {
+				if !errors.Is(err, ErrInUse) {
+					t.Errorf("%s %q reports %d uses but deleted with %v", vocabulary, v.Value, v.UsageCount, err)
+				}
+				continue
+			}
+			if err != nil {
+				t.Errorf("%s %q reports 0 uses but delete failed: %v", vocabulary, v.Value, err)
+			}
+		}
+	}
+}
+
+// TestReferenceUsageIsEventScoped: the same value on another event is not
+// this event's usage, so a shared vocabulary token never blocks a delete
+// across the boundary Slice 17 established.
+func TestReferenceUsageIsEventScoped(t *testing.T) {
+	database := openTestDB(t)
+	eventA := createTestEvent(t, database)
+	eventB := createTestEvent(t, database)
+
+	mustExec(t, database, `INSERT INTO input_sources (event_id, name, kind, connector_type, width) VALUES (?, 'Test source', 'line', 'combo', 'mono')`, eventA)
+
+	dataB, err := ListReferenceData(database, eventB)
+	if err != nil {
+		t.Fatalf("list reference data: %v", err)
+	}
+	for _, v := range dataB["preamp_connectors"] {
+		if v.Value == "combo" && v.UsageCount != 0 {
+			t.Errorf("combo on event B: expected usage 0, got %d", v.UsageCount)
+		}
+	}
+}

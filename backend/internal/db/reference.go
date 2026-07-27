@@ -102,6 +102,26 @@ func ListReferenceData(database *sql.DB, eventID int64) (domain.ReferenceData, e
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate reference values: %w", err)
 	}
+
+	// How many plan rows use each value, counted by the *same* function the
+	// delete guard calls (Slice 29 FR-033). Surfacing it turns "try it and see
+	// whether the server refuses" into something the interface can say before
+	// the click — and because it is the same call, the column and the refusal
+	// cannot drift apart.
+	//
+	// One COUNT per value per usage table: about 55 tiny queries on a fully
+	// populated event, against local SQLite, on a settings page nobody polls.
+	// Deliberate; if it ever matters it becomes one grouped query per
+	// vocabulary.
+	for vocabulary, values := range data {
+		for i := range values {
+			count, err := countReferenceUsage(database, eventID, vocabulary, values[i].Value)
+			if err != nil {
+				return nil, err
+			}
+			values[i].UsageCount = count
+		}
+	}
 	return data, nil
 }
 

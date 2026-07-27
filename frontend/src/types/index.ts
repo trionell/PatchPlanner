@@ -485,6 +485,13 @@ export interface ReferenceValue {
   vocabulary: string
   value: string
   label: string
+  /**
+   * How many plan rows use this value (Slice 29). Derived per request by the
+   * same function that guards the delete, so the number shown and the refusal
+   * that follows cannot disagree. Absent on a reference *template*, which no
+   * plan can reference — reporting `0` there would imply it could.
+   */
+  usageCount?: number
 }
 
 export type ReferenceData = Record<string, ReferenceValue[]>

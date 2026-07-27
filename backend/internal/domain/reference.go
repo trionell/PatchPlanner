@@ -26,6 +26,12 @@ type ReferenceValue struct {
 	Vocabulary string `json:"vocabulary"`
 	Value      string `json:"value"`
 	Label      string `json:"label"`
+	// How many plan rows reference this value, derived per request and never
+	// stored (Slice 29). It is counted by the same function that guards the
+	// delete, so the number shown and the refusal that follows cannot
+	// disagree. Zero on a reference *template*, which no plan can reference —
+	// the template response omits it rather than reporting a misleading 0.
+	UsageCount int `json:"usageCount"`
 }
 
 // ReferenceData maps every vocabulary name to its values, label-sorted.
