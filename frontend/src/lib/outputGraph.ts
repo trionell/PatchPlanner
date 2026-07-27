@@ -1,4 +1,4 @@
-import type { AudioPatchOutput, OutputCable, OutputDevice, StageMulti, Stagebox } from '../types'
+import type { AudioPatchOutput, Console, OutputCable, OutputDevice, StageMulti, Stagebox } from '../types'
 
 /** A single port on a graph node — the addressable unit a cable connects to/from. */
 export interface PortRef {
@@ -104,6 +104,27 @@ export function devicePorts(device: OutputDevice): { inputs: PortRef[]; outputs:
 }
 
 /**
+ * A desk's own jacks on the output graph (Slice 23): `local_output_count`
+ * sockets, each a pass-through pair — an output routes into the in side (the
+ * desk's own routing, never a cable) and a real cable leaves the out side.
+ * The stagebox's shape on this graph, mirrored.
+ */
+export function consoleLocalPorts(desk: Console): { inputs: PortRef[]; outputs: PortRef[] } {
+  // Distinct labels per side (Slice 24) — the mirror of the input graph's. An
+  // output arrives from the desk on the in side; the real cable leaves the out
+  // side, which keeps the "local out" wording the sheets already use.
+  const make = (direction: 'in' | 'out', prefix: string) =>
+    Array.from({ length: desk.local_output_count }, (_, i) => ({
+      kind: 'console_local' as const,
+      id: desk.id,
+      port: i,
+      direction,
+      label: `${prefix} ${i + 1}`,
+    }))
+  return { inputs: make('in', 'From desk'), outputs: make('out', 'Local out') }
+}
+
+/**
  * A device's role on the canvas, derived from its port counts, never
  * stored (data-model.md): no inputs = source, no outputs = destination,
  * both present = freely-positioned processing node.
@@ -126,10 +147,17 @@ export function deviceZone(device: OutputDevice): Zone {
   return 'processing'
 }
 
-/** Any node's zone, resolving a device's role when needed. A link port lives on the same canvas node as its owning device's ordinary ports. */
+/**
+ * Any node's zone, resolving a device's role when needed. A link port lives on
+ * the same canvas node as its owning device's ordinary ports.
+ *
+ * `console_local` moved out of `sources` in Slice 24: the desk's jacks became
+ * their own two-sided node, and what signal passes through belongs in the
+ * processing lane — the same lane, and the same shape, as a stagebox.
+ */
 export function nodeZone(kind: PortRef['kind'], id: number, context: { devices: OutputDevice[] }): Zone {
   if (kind === 'mixer') return 'sources'
-  if (kind === 'stagebox' || kind === 'stage_multi') return 'processing'
+  if (kind === 'stagebox' || kind === 'stage_multi' || kind === 'console_local') return 'processing'
   const device = context.devices.find((d) => d.id === id)
   return device ? deviceZone(device) : 'processing'
 }
@@ -146,10 +174,16 @@ export function resolvePortRef(
   id: number,
   port: number,
   direction: 'in' | 'out',
-  context: { outputs: AudioPatchOutput[]; stageboxes: Stagebox[]; stageMultis: StageMulti[]; devices: OutputDevice[] },
+  context: { outputs: AudioPatchOutput[]; stageboxes: Stagebox[]; stageMultis: StageMulti[]; devices: OutputDevice[]; consoles?: Console[] },
 ): PortRef | undefined {
   if (kind === 'mixer') {
     return mixerPorts(context.outputs).find((p) => p.id === id && p.port === port)
+  }
+  if (kind === 'console_local') {
+    const desk = context.consoles?.find((c) => c.id === id)
+    if (!desk) return undefined
+    const { inputs, outputs } = consoleLocalPorts(desk)
+    return (direction === 'in' ? inputs : outputs).find((p) => p.port === port)
   }
   if (kind === 'stagebox') {
     const stagebox = context.stageboxes.find((sb) => sb.id === id)
@@ -218,6 +252,7 @@ export function nodeKindLabel(kind: PortRef['kind']): string {
     case 'stage_multi': return 'Stage multi'
     case 'device': return 'Device'
     case 'device_link': return 'Device'
+    case 'console_local': return 'Console jack'
   }
 }
 
@@ -225,11 +260,20 @@ export function nodeKindLabel(kind: PortRef['kind']): string {
 export function nodeName(
   kind: PortRef['kind'],
   id: number,
-  context: { outputs: AudioPatchOutput[]; stageboxes: Stagebox[]; stageMultis: StageMulti[]; devices: OutputDevice[] },
+  context: { outputs: AudioPatchOutput[]; stageboxes: Stagebox[]; stageMultis: StageMulti[]; devices: OutputDevice[]; consoles?: Console[] },
 ): string {
   switch (kind) {
-    case 'mixer':
-      return 'Mixer'
+    case 'mixer': {
+      // Named after the desk the output belongs to, once the event has one —
+      // the anonymous "Mixer" was only ever a placeholder for a missing entity.
+      const output = context.outputs.find((row) => row.id === id)
+      const desk = context.consoles?.find((c) => c.id === output?.console_id)
+      return desk?.name || 'Mixer'
+    }
+    case 'console_local': {
+      const desk = context.consoles?.find((c) => c.id === id)
+      return desk ? desk.name || 'Console' : `#${id}`
+    }
     case 'stagebox':
       return context.stageboxes.find((sb) => sb.id === id)?.name ?? `#${id}`
     case 'stage_multi':
@@ -251,12 +295,90 @@ export function portsConnectable(a: PortRef, b: PortRef): boolean {
   if (a.direction === b.direction) return false
   const outPort = a.direction === 'out' ? a : b
   const inPort = a.direction === 'out' ? b : a
-  const validFromKinds: PortRef['kind'][] = ['mixer', 'stagebox', 'stage_multi', 'device', 'device_link']
-  const validToKinds: PortRef['kind'][] = ['stagebox', 'stage_multi', 'device']
+  const validFromKinds: PortRef['kind'][] = ['mixer', 'stagebox', 'stage_multi', 'device', 'device_link', 'console_local']
+  const validToKinds: PortRef['kind'][] = ['stagebox', 'stage_multi', 'device', 'console_local']
   return validFromKinds.includes(outPort.kind) && validToKinds.includes(inPort.kind)
+}
+
+/**
+ * The output-side port that carries a given input-side port's signal onward —
+ * the mirror of the input graph's pairing rule: same index through a stagebox or
+ * stage multi (they are physical pass-throughs), and for a device same index
+ * only when its two sides match in count, else its sole output.
+ */
+function pairedForward(kind: PortRef['kind'], id: number, inPort: number, devices: OutputDevice[]): number {
+  if (kind === 'device') {
+    const device = devices.find((d) => d.id === id)
+    if (device && device.input_port_count !== device.output_port_count) return 0
+  }
+  return inPort
+}
+
+export interface OutputColorContext {
+  outputs: AudioPatchOutput[]
+  cables: OutputCable[]
+  devices: OutputDevice[]
+}
+
+/**
+ * A port's derived colour on the output graph: the colour of the output row whose
+ * run passes through it, found by walking backward to the mixer port. Colour
+ * therefore answers the same question it does on the input side — which desk
+ * channel this run belongs to — rather than decorating the canvas.
+ *
+ * Undefined when the run cannot be traced back to an output, or that output has
+ * no colour set.
+ *
+ * Slice 23 wrote this walk for cables only, so the output graph's *cables* wore a
+ * colour and every port they joined stayed grey — half a coloured run (Slice 25
+ * research.md R4). This is the same walk, seeded from a port instead of from a
+ * cable's origin, which is what makes a port and the cable attached to it unable
+ * to disagree.
+ *
+ * There is deliberately no agree-or-neutral rule here, unlike the input graph's
+ * `derivedPortColor`. That one exists because a source may fan out to several
+ * channels which then have to agree; this walk goes *backward*, and a port has at
+ * most one inbound cable, so there is exactly one origin. A mixer port fanning out
+ * to several destinations gives each of them the same one colour, which is
+ * correct — they are all carrying that output.
+ */
+export function derivedOutputPortColor(
+  fromKind: PortRef['kind'],
+  fromId: number,
+  fromPort: number,
+  context: OutputColorContext,
+): string | undefined {
+  let kind = fromKind
+  let id = fromId
+  let port = fromPort
+  const seen = new Set<string>()
+
+  for (let depth = 0; depth < 32; depth++) {
+    if (kind === 'mixer') return context.outputs.find((output) => output.id === id)?.color
+    const key = `${kind}:${id}:${port}`
+    if (seen.has(key)) return undefined
+    seen.add(key)
+    // Which cable landed on this node's matching input-side port?
+    const inbound = context.cables.find((candidate) => {
+      if (candidate.to_kind !== kind || candidate.to_id !== id) return false
+      return pairedForward(candidate.to_kind, candidate.to_id, candidate.to_port, context.devices) === port
+    })
+    if (!inbound) return undefined
+    kind = inbound.from_kind
+    id = inbound.from_id
+    port = inbound.from_port
+  }
+  return undefined
+}
+
+/** A cable's derived colour: the colour of the port it leaves from (Slice 23). */
+export function derivedCableColor(cable: OutputCable, context: OutputColorContext): string | undefined {
+  return derivedOutputPortColor(cable.from_kind, cable.from_id, cable.from_port, context)
 }
 
 /** Whether a to_kind's input side is pure console/network routing rather than a real physical run (FR-013). */
 export function isCablelessToKind(kind: PortRef['kind']): boolean {
-  return kind === 'stagebox' || kind === 'stage_multi'
+  // console_local joins them (Slice 23): routing an output to one of the desk's
+  // own jacks is desk routing; the real cable is the one leaving that jack.
+  return kind === 'stagebox' || kind === 'stage_multi' || kind === 'console_local'
 }

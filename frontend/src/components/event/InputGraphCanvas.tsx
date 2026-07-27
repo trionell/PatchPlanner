@@ -1,9 +1,11 @@
-import { useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Minus, Plus, Trash2, Unplug } from 'lucide-react'
+import { Plus, Unplug } from 'lucide-react'
 import {
   createInputCable,
+  createInputSource,
   deleteInputCable,
+  updateConsole,
   updateInputCable,
   updateInputDevice,
   updateStagebox,
@@ -12,7 +14,9 @@ import {
 import {
   cableAtPort,
   channelPorts,
+  consoleLocalPorts,
   derivedPortColor,
+  derivedSourceColor,
   devicePorts,
   isCablelessEdge,
   isPortConnected,
@@ -21,9 +25,24 @@ import {
   type PortRef,
 } from '../../lib/inputGraph'
 import { stageboxPorts, stageMultiPorts } from '../../lib/outputGraph'
+import { matchesSearch } from '../../lib/patchSearch'
 import { itemLabel } from '../../lib/utils'
-import type { InputCable, InputChannel, InputDevice, InputSource, InventoryItem, StageMulti, Stagebox } from '../../types'
-import { Badge } from '../ui/Badge'
+import type { Console, InputCable, InputChannel, InputDevice, InputSource, InventoryItem, StageMulti, Stagebox } from '../../types'
+import { FlowInspector, type InputFlowSelection } from './InputFlowInspector'
+import { LaneBands } from './graph/LaneBands'
+import { NodeShell as SharedNodeShell } from './graph/NodeShell'
+import { PortDot as SharedPortDot } from './graph/PortDot'
+import { PortRow as SharedPortRow, SplitPortRow, type PortWiring } from './graph/PortRow'
+import {
+  MICRO_LABEL,
+  NODE_BORDER,
+  NODE_CHROME,
+  PHANTOM_BAR,
+  PHANTOM_BAR_OFF,
+  SOURCE_ROW,
+  SOURCE_ROW_HEIGHT,
+  TAPE_NEUTRAL,
+} from './graph/tokens'
 import { Button } from '../ui/Button'
 import { Dialog } from '../ui/Dialog'
 import { Select } from '../ui/Select'
@@ -40,9 +59,6 @@ const NODE_WIDTH = 200
 const CANVAS_HEIGHT = 640
 const CANVAS_MIN_WIDTH = 820
 const ZONE_SOURCES_X = 24
-const ZOOM_MIN = 0.5
-const ZOOM_MAX = 1.5
-const ZOOM_STEP = 0.1
 
 function zoneChannelsX(canvasWidth: number): number {
   return canvasWidth - NODE_WIDTH - 24
@@ -79,6 +95,14 @@ export function InputGraphCanvas({
   stageMultis,
   cables,
   cableItems,
+  consoles,
+  micItems,
+  standItems,
+  itemLabelById,
+  search = '',
+  selection,
+  onSelectionChange,
+  zoom,
   onChanged,
   readOnly = false,
 }: {
@@ -90,21 +114,50 @@ export function InputGraphCanvas({
   stageMultis: StageMulti[]
   cables: InputCable[]
   cableItems: InventoryItem[]
+  /** The event's desks — one node each in the Channels lane (Slice 23). */
+  consoles: Console[]
+  /** Catalog picks the inspector offers for a source (Slice 23 retires the Sources card). */
+  micItems: InventoryItem[]
+  standItems: InventoryItem[]
+  itemLabelById: Map<number, string>
+  /**
+   * The shell's search term. A graph never *hides* on search — removing a
+   * node would remove edges that exist, so a partly-filtered patch would
+   * read as an unpatched one (research.md R14). Non-matching nodes and rows
+   * dim instead.
+   */
+  search?: string
+  /**
+   * Which node the inspector is open on. Owned by the tab, not by this canvas
+   * (Slice 25 FR-002): the canvas is unmounted while the sheet is showing, so a
+   * selection it owned could not survive the view toggle — and the sheet's
+   * "Edit in Flow" could not set one it cannot see.
+   */
+  selection: InputFlowSelection | null
+  onSelectionChange: (selection: InputFlowSelection | null) => void
+  /**
+   * The zoom level, owned by the tab because its control lives in the panel's
+   * toolbar (Slice 25 FR-020). Read here for geometry, never set.
+   */
+  zoom: number
   onChanged: () => Promise<void>
   readOnly?: boolean
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
   const portEls = useRef(new Map<string, HTMLElement>())
-  const [paths, setPaths] = useState<{ id: number; d: string; hasItem: boolean; color: string | undefined }[]>([])
+  const [paths, setPaths] = useState<{ id: number; d: string; hasItem: boolean; network: boolean; color: string | undefined }[]>([])
   const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(new Map())
   const [pendingPort, setPendingPort] = useState<PortRef | null>(null)
   const [dragGhost, setDragGhost] = useState<{ from: PortRef; x: number; y: number } | null>(null)
   const [pickerPair, setPickerPair] = useState<{ from: PortRef; to: PortRef; suggestedItemId?: number } | null>(null)
   const [infoCable, setInfoCable] = useState<InputCable | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // The source rail scrolls inside its own lane, so cable endpoints move
+  // without any layout or zoom change. Bumping this on scroll is what keeps
+  // the SVG attached to its ports.
+  const [railScroll, setRailScroll] = useState(0)
   const [wrapperWidth, setWrapperWidth] = useState(1180)
-  const [zoom, setZoom] = useState(1)
   // The canvas's LOGICAL width/height (the coordinate space node positions
   // and zone bounds live in) grow as you zoom out and shrink as you zoom
   // in, while the rendered box is scaled by `zoom` so its on-screen
@@ -129,7 +182,7 @@ export function InputGraphCanvas({
     return Math.max(min, Math.min(max, x))
   }
 
-  const portContext = { sources, channels, devices, stageboxes, stageMultis }
+  const portContext = { sources, channels, devices, stageboxes, stageMultis, consoles }
   const colorContext = { channels, devices, stageboxes, stageMultis, cables }
 
   const createCableMutation = useMutation({
@@ -156,17 +209,91 @@ export function InputGraphCanvas({
     mutationFn: ({ id, data }: { id: number; data: Omit<StageMulti, 'id'> }) => updateStageMulti(eventId, id, data),
     onSuccess: onChanged,
   })
+  // A new source starts blank and selected, so the inspector is where it gets
+  // its mic, connector and width — the Sources card's whole job, relocated.
+  const addSourceMutation = useMutation({
+    mutationFn: () =>
+      createInputSource(eventId, {
+        name: `Source ${sources.length + 1}`,
+        kind: 'line',
+        phantom_power: false,
+        connector_type: 'xlr',
+        width: 'mono',
+        position_x: 24,
+        position_y: 24 + sources.length * 24,
+      }),
+    onSuccess: async (created) => {
+      onSelectionChange({ kind: 'source', id: created.id })
+      await onChanged()
+    },
+  })
+  // The desk's channel rail is pinned to its lane, so only its y is stored.
+  const moveConsoleMutation = useMutation({
+    mutationFn: ({ id, y }: { id: number; y: number }) => updateConsole(eventId, id, { input_position_y: y }),
+    onSuccess: onChanged,
+  })
+  // Its jack panel is free in both axes, and stores its own pair — dragging it
+  // here must not move the panel on the Outputs canvas (Slice 24 FR-013).
+  const moveConsoleJacksMutation = useMutation({
+    mutationFn: ({ id, x, y }: { id: number; x: number; y: number }) =>
+      updateConsole(eventId, id, { local_input_position_x: x, local_input_position_y: y }),
+    onSuccess: onChanged,
+  })
   const registerPort = (key: string) => (el: HTMLElement | null) => {
     if (el) portEls.current.set(key, el)
     else portEls.current.delete(key)
   }
+
+  /** What the rail shows beside a source's name: the mic it carries, or its connector. */
+  const micLabel = (source: InputSource) => {
+    if (source.mic_item_id) {
+      const label = micItems.find((item) => item.id === source.mic_item_id)?.name ?? itemLabelById.get(source.mic_item_id)
+      if (label) return label.split(' — ')[0]
+    }
+    return source.connector_type
+  }
+
+  const orphanChannels = useMemo(() => channels.filter((channel) => channel.console_id == null), [channels])
 
   const layout = useMemo<NodeLayout[]>(() => {
     const nodes: NodeLayout[] = []
     nodes.push({ kind: 'source', id: 0, x: ZONE_SOURCES_X, y: 24 })
 
     const channelsX = zoneChannelsX(canvasWidth)
-    nodes.push({ kind: 'channel', id: 0, x: channelsX, y: 24 })
+    let nextY = 24
+    for (const desk of consoles) {
+      // The desk's channel rail, keyed by the kind of port it carries. Console
+      // ids start at 1, so this never collides with the `channel:0` node below.
+      const override = positions.get(`channel:${desk.id}`)
+      const y = override?.y ?? desk.input_position_y ?? nextY
+      nodes.push({ kind: 'channel', id: desk.id, x: channelsX, y })
+      // Below the desk actually placed, not below a counter that ignores where
+      // it sits — the arithmetic that let the orphan node open on top of a desk
+      // whose stored y had already moved past it (Slice 24 FR-007).
+      nextY = Math.max(nextY + 220, y + 220)
+
+      // The desk's own jack panel is a second node since Slice 24, in the
+      // processing lane rather than beside the strips: signal passes *through*
+      // it on the way to a channel, and drawing it as a two-sided pass-through
+      // is what lets a local jack reach a channel at all (FR-008 to FR-010).
+      // No jacks declared, no node (FR-014).
+      if (desk.local_input_count > 0) {
+        const jackOverride = positions.get(`console_local:${desk.id}`)
+        nodes.push({
+          kind: 'console_local',
+          id: desk.id,
+          x: clampProcessingX(jackOverride?.x ?? desk.local_input_position_x),
+          y: jackOverride?.y ?? desk.local_input_position_y,
+        })
+      }
+    }
+    // Channels belonging to no desk keep a node of their own rather than
+    // disappearing — the state an event is in after its only desk is
+    // deleted, and it must stay patchable.
+    if (orphanChannels.length > 0 || consoles.length === 0) {
+      const override = positions.get('channel:0')
+      nodes.push({ kind: 'channel', id: 0, x: channelsX, y: override?.y ?? nextY })
+    }
 
     for (const sb of stageboxes) {
       const override = positions.get(`stagebox:${sb.id}`)
@@ -188,7 +315,7 @@ export function InputGraphCanvas({
     }
     return nodes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stageboxes, stageMultis, devices, positions, canvasWidth])
+  }, [consoles, orphanChannels, stageboxes, stageMultis, devices, positions, canvasWidth])
 
   useLayoutEffect(() => {
     const container = canvasRef.current
@@ -211,15 +338,29 @@ export function InputGraphCanvas({
         const dx = Math.max(60, Math.abs(x2 - x1) / 2)
         const d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`
         const color = derivedPortColor({ kind: cable.to_kind, id: cable.to_id, port: cable.to_port, direction: 'in', label: '' }, colorContext)
-        return { id: cable.id, d, hasItem: cable.cable_item_id != null, color }
+        return { id: cable.id, d, hasItem: cable.cable_item_id != null, network: isCablelessEdge(cable.from_kind, cable.to_kind), color }
       })
-      .filter((p): p is { id: number; d: string; hasItem: boolean; color: string | undefined } => p !== null)
+      .filter((p): p is { id: number; d: string; hasItem: boolean; network: boolean; color: string | undefined } => p !== null)
     setPaths(next)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cables, layout, zoom])
+  }, [cables, layout, zoom, railScroll])
 
   function persistPosition(kind: PortRef['kind'], id: number, x: number, y: number) {
     const onError = (e: unknown) => setError(e instanceof Error ? e.message : 'Failed to save position')
+    if (kind === 'channel') {
+      if (id === 0) {
+        // The node holding channels with no desk. It moves for the session — the
+        // canvas's own `positions` map already holds it — but there is no row to
+        // store it on, so nothing is persisted (Slice 24 FR-006, research.md R4).
+        return
+      }
+      moveConsoleMutation.mutate({ id, y }, { onError })
+      return
+    }
+    if (kind === 'console_local') {
+      moveConsoleJacksMutation.mutate({ id, x, y }, { onError })
+      return
+    }
     if (kind === 'stagebox') {
       const sb = stageboxes.find((s) => s.id === id)
       if (!sb) return
@@ -393,39 +534,39 @@ export function InputGraphCanvas({
   }, [dragGhost, zoom])
 
   return (
-    <div className="space-y-2">
-      {error && <div className="rounded border border-red-500/50 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</div>}
+    <div>
+      {error && <div className="border-b border-red-500/40 bg-red-500/10 px-3 py-1.5 text-[11px] text-red-300">{error}</div>}
       {pendingPort && !dragGhost && (
-        <div className="text-xs text-amber-400">
+        <div className="border-b border-amber-500/30 bg-amber-500/[0.05] px-3 py-1.5 text-[11px] text-amber-300">
           Selected {pendingPort.label} — click a free {pendingPort.direction === 'out' ? 'input' : 'output'} port to connect, or click it again to cancel.
         </div>
       )}
-      <div className="flex items-center justify-between px-1">
-        <div className="grid flex-1 grid-cols-3 font-mono text-[10px] uppercase tracking-widest text-zinc-500">
-          <span>← Sources</span>
-          <span className="text-center">Processing</span>
-          <span className="text-right">Channels →</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setZoom((z) => Math.max(ZOOM_MIN, Math.round((z - ZOOM_STEP) * 100) / 100))} title="Zoom out">
-            <Minus className="h-3.5 w-3.5" />
-          </Button>
-          <button type="button" onClick={() => setZoom(1)} className="w-11 text-center font-mono text-[11px] text-zinc-400 hover:text-zinc-200" title="Reset zoom">
-            {Math.round(zoom * 100)}%
-          </button>
-          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setZoom((z) => Math.min(ZOOM_MAX, Math.round((z + ZOOM_STEP) * 100) / 100))} title="Zoom in">
-            <Plus className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </div>
-      <div ref={wrapperRef} className="overflow-auto rounded-lg border border-zinc-800 bg-zinc-950/40" style={{ height: CANVAS_HEIGHT }}>
+      <div className="flex items-start gap-3">
+      <div ref={wrapperRef} className="min-w-0 flex-1 overflow-auto" style={{ height: CANVAS_HEIGHT }}>
         <div style={{ width: canvasWidth * zoom, height: canvasHeight * zoom }}>
           <div ref={canvasRef} className="relative" style={{ width: canvasWidth, height: canvasHeight, transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
-            <div className="pointer-events-none absolute inset-y-0 left-0 border-r border-dashed border-zinc-800 bg-white/[0.02]" style={{ width: ZONE_SOURCES_X + NODE_WIDTH + 24 }} />
-            <div className="pointer-events-none absolute inset-y-0 right-0 border-l border-dashed border-zinc-800 bg-white/[0.02]" style={{ width: NODE_WIDTH + 48 }} />
+            <LaneBands
+              height={canvasHeight}
+              lanes={[
+                { label: 'Stage', x: 0, width: ZONE_SOURCES_X + NODE_WIDTH + 24 },
+                { label: 'Rig', x: ZONE_SOURCES_X + NODE_WIDTH + 40, width: Math.max(0, zoneChannelsX(canvasWidth) - (ZONE_SOURCES_X + NODE_WIDTH + 56)) },
+                { label: 'Console', x: canvasWidth - (NODE_WIDTH + 48), width: NODE_WIDTH + 48 },
+              ]}
+            />
             <svg className="pointer-events-none absolute inset-0" width={canvasWidth} height={canvasHeight}>
+              {/* Two independent encodings (Slice 23): hue says which channel this
+                  run reaches, dash pattern says what kind of link it is — so a
+                  network hop can wear its channel's colour and still read as a
+                  network hop, which a fixed cyan could not. */}
               {paths.map((p) => (
-                <path key={p.id} d={p.d} fill="none" stroke={p.color ?? (p.hasItem ? '#f59e0b' : '#71717a')} strokeWidth={2 / zoom} strokeDasharray={p.hasItem ? undefined : `${4 / zoom} ${3 / zoom}`} />
+                <path
+                  key={p.id}
+                  d={p.d}
+                  fill="none"
+                  stroke={p.color ?? (p.hasItem || p.network ? '#f59e0b' : '#71717a')}
+                  strokeWidth={2 / zoom}
+                  strokeDasharray={p.network ? `${7 / zoom} ${3 / zoom}` : p.hasItem ? undefined : `${4 / zoom} ${3 / zoom}`}
+                />
               ))}
               {ghostPath && <path d={ghostPath} fill="none" stroke="#f59e0b" strokeWidth={2 / zoom} strokeDasharray={`${5 / zoom} ${4 / zoom}`} opacity={0.85} />}
             </svg>
@@ -443,22 +584,74 @@ export function InputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
+                    search={search}
+                    micLabel={micLabel}
+                    selectedId={selection?.kind === 'source' ? selection.id : undefined}
+                    onSelect={(source) => onSelectionChange({ kind: 'source', id: source.id })}
+                    onScroll={() => setRailScroll((tick) => tick + 1)}
+                    onAdd={readOnly ? undefined : () => addSourceMutation.mutate()}
                   />
                 )
               }
-              if (node.kind === 'channel') {
+              if (node.kind === 'console_local') {
+                const desk = consoles.find((c) => c.id === node.id)
+                if (!desk) return null
                 return (
-                  <ChannelsNode
-                    key="channels"
+                  <LocalJackNode
+                    key={`jacks-${desk.id}`}
                     x={node.x}
                     y={node.y}
-                    channels={channels}
+                    desk={desk}
                     cables={cables}
                     pendingPort={pendingPort}
                     onPortClick={handlePortClick}
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
+                    onDragStart={(e) => startNodeDrag('console_local', desk.id, e)}
+                    selected={selection?.kind === 'console_local' && selection.id === desk.id}
+                    onSelect={() => onSelectionChange({ kind: 'console_local', id: desk.id })}
+                    dimmed={!matchesSearch(search, desk.name, 'local')}
+                  />
+                )
+              }
+              if (node.kind === 'channel') {
+                // id 0 is the node for channels belonging to no desk; anything
+                // else is a desk's own channel rail (see the layout above).
+                const desk = node.id === 0 ? undefined : consoles.find((c) => c.id === node.id)
+                if (node.id !== 0 && !desk) return null
+                return desk ? (
+                  <ConsoleNode
+                    key={`desk-${desk.id}`}
+                    x={node.x}
+                    y={node.y}
+                    desk={desk}
+                    channels={channels.filter((channel) => channel.console_id === desk.id)}
+                    cables={cables}
+                    pendingPort={pendingPort}
+                    onPortClick={handlePortClick}
+                    onPortPointerDown={handlePortPointerDown}
+                    registerPort={registerPort}
+                    colorContext={colorContext}
+                    onDragStart={(e) => startNodeDrag('channel', desk.id, e)}
+                    selected={selection?.kind === 'channel' && selection.id === desk.id}
+                    onSelect={() => onSelectionChange({ kind: 'channel', id: desk.id })}
+                    search={search}
+                  />
+                ) : (
+                  <ChannelsNode
+                    key="channels"
+                    x={node.x}
+                    y={node.y}
+                    channels={orphanChannels}
+                    cables={cables}
+                    pendingPort={pendingPort}
+                    onPortClick={handlePortClick}
+                    onPortPointerDown={handlePortPointerDown}
+                    registerPort={registerPort}
+                    colorContext={colorContext}
+                    onDragStart={(e) => startNodeDrag('channel', 0, e)}
+                    search={search}
                   />
                 )
               }
@@ -477,7 +670,10 @@ export function InputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     onDragStart={(e) => startNodeDrag('stagebox', sb.id, e)}
+                    selected={selection?.kind === 'stagebox' && selection.id === sb.id}
+                    onSelect={() => onSelectionChange({ kind: 'stagebox', id: sb.id })}
                     colorContext={colorContext}
+                    dimmed={!matchesSearch(search, sb.name, sb.model)}
                   />
                 )
               }
@@ -496,7 +692,10 @@ export function InputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     onDragStart={(e) => startNodeDrag('stage_multi', sm.id, e)}
+                    selected={selection?.kind === 'stage_multi' && selection.id === sm.id}
+                    onSelect={() => onSelectionChange({ kind: 'stage_multi', id: sm.id })}
                     colorContext={colorContext}
+                    dimmed={!matchesSearch(search, sm.name)}
                   />
                 )
               }
@@ -514,15 +713,41 @@ export function InputGraphCanvas({
                   onPortPointerDown={handlePortPointerDown}
                   registerPort={registerPort}
                   onDragStart={(e) => startNodeDrag('device', device.id, e)}
+                  selected={selection?.kind === 'device' && selection.id === device.id}
+                  onSelect={() => onSelectionChange({ kind: 'device', id: device.id })}
                   colorContext={colorContext}
+                  dimmed={!matchesSearch(search, device.name)}
                 />
               )
             })}
           </div>
         </div>
       </div>
+      {selection && (
+        <FlowInspector
+          eventId={eventId}
+          selection={selection}
+          sources={sources}
+          channels={channels}
+          devices={devices}
+          stageboxes={stageboxes}
+          stageMultis={stageMultis}
+          consoles={consoles}
+          cables={cables}
+          micItems={micItems}
+          standItems={standItems}
+          itemLabelById={itemLabelById}
+          onClose={() => onSelectionChange(null)}
+          onChanged={onChanged}
+          readOnly={readOnly}
+        />
+      )}
+      </div>
+
       {devices.length === 0 && stageboxes.length === 0 && stageMultis.length === 0 && (
-        <p className="text-xs text-zinc-500">No processing gear yet — click or drag from a Source's port directly to a Channel to start cabling.</p>
+        <p className="border-t border-zinc-800 px-3 py-1.5 text-[11px] text-zinc-500">
+          No processing gear yet — click or drag from a source's port directly to a channel to start cabling. Boxes are declared in the Rig drawer.
+        </p>
       )}
 
       {pickerPair && (
@@ -570,15 +795,13 @@ export function InputGraphCanvas({
   )
 }
 
-function PortDot({
-  port,
-  connected,
-  selected,
-  color,
-  onClick,
-  onPointerDown,
-  registerRef,
-}: {
+/**
+ * Adapters over the shared graph primitives (Slice 25 FR-036). The two canvases
+ * used to each hold their own copy of these, which is why their boxes drifted apart;
+ * the drawing now lives in `graph/` and these only bind it to this graph's own
+ * `PortRef` union, port keys and colour rule.
+ */
+function PortDot({ port, connected, selected, color, onClick, onPointerDown, registerRef }: {
   port: PortRef
   connected: boolean
   selected: boolean
@@ -587,56 +810,52 @@ function PortDot({
   onPointerDown: (e: ReactPointerEvent) => void
   registerRef: (el: HTMLElement | null) => void
 }) {
-  const style = color && (connected || selected) ? { borderColor: color, backgroundColor: selected ? color : `${color}b3` } : undefined
   return (
-    <button
-      type="button"
-      ref={registerRef}
-      data-port-key={portKey(port.kind, port.id, port.port, port.direction)}
+    <SharedPortDot
+      port={port}
+      dataKey={portKey(port.kind, port.id, port.port, port.direction)}
+      connected={connected}
+      selected={selected}
+      color={color}
       onClick={onClick}
       onPointerDown={onPointerDown}
-      title={port.label}
-      style={style}
-      className={`h-3 w-3 shrink-0 cursor-crosshair rounded-full border transition-colors ${
-        style
-          ? ''
-          : selected
-            ? 'border-amber-400 bg-amber-400'
-            : connected
-              ? 'border-amber-500 bg-amber-500/70 hover:bg-amber-400'
-              : 'border-zinc-500 bg-zinc-800 hover:border-amber-400 hover:bg-amber-400/30'
-      }`}
+      registerRef={registerRef}
     />
   )
 }
 
-function NodeShell({ x, y, title, badge, onDragStart, onDelete, children }: {
+function NodeShell({ x, y, title, badge, dimmed, selected, footer, footerAlarm, onDragStart, onDelete, onSelect, children }: {
   x: number
   y: number
   title: string
   badge?: string
+  dimmed?: boolean
+  selected?: boolean
+  footer?: ReactNode
+  footerAlarm?: boolean
   onDragStart?: (e: ReactPointerEvent) => void
   onDelete?: () => void
+  onSelect?: () => void
   children: ReactNode
 }) {
   return (
-    <div className="absolute rounded-lg border border-zinc-700 bg-zinc-900 shadow-lg" style={{ left: x, top: y, width: NODE_WIDTH }}>
-      <div
-        className={`flex items-center justify-between gap-2 rounded-t-lg border-b border-zinc-800 px-2 py-1.5 ${onDragStart ? 'cursor-grab touch-none active:cursor-grabbing' : ''}`}
-        onPointerDown={onDragStart}
-      >
-        <span className="truncate text-xs font-semibold text-zinc-100">{title}</span>
-        <div className="flex items-center gap-1">
-          {badge && <Badge className="shrink-0">{badge}</Badge>}
-          {onDelete && (
-            <button type="button" onPointerDown={(e) => e.stopPropagation()} onClick={onDelete} className="text-zinc-500 hover:text-red-400">
-              <Trash2 className="h-3 w-3" />
-            </button>
-          )}
-        </div>
-      </div>
-      <div className="space-y-1 p-2">{children}</div>
-    </div>
+    <SharedNodeShell
+      x={x}
+      y={y}
+      width={NODE_WIDTH}
+      title={title}
+      badge={badge}
+      footer={footer}
+      footerAlarm={footerAlarm}
+      dimmed={dimmed}
+      selected={selected}
+      desk={badge === 'DESK'}
+      onDragStart={onDragStart}
+      onDelete={onDelete}
+      onSelect={onSelect}
+    >
+      {children}
+    </SharedNodeShell>
   )
 }
 
@@ -648,7 +867,7 @@ interface ColorContext {
   cables: InputCable[]
 }
 
-function PortRow({ label, port, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, align, colorContext }: {
+function PortRow({ label, port, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, align, colorContext, dimmed }: {
   label: string
   port: PortRef
   cables: InputCable[]
@@ -658,23 +877,58 @@ function PortRow({ label, port, cables, pendingPort, onPortClick, onPortPointerD
   registerPort: (key: string) => (el: HTMLElement | null) => void
   align: 'left' | 'right'
   colorContext: ColorContext
+  dimmed?: boolean
 }) {
-  const key = portKey(port.kind, port.id, port.port, port.direction)
-  const connected = isPortConnected(port.kind, port.id, port.port, port.direction, cables)
-  const selected = !!pendingPort && pendingPort.kind === port.kind && pendingPort.id === port.id && pendingPort.port === port.port && pendingPort.direction === port.direction
-  const color = derivedPortColor(port, colorContext)
-  const dot = (
-    <PortDot port={port} connected={connected} selected={selected} color={color} onClick={() => onPortClick(port)} onPointerDown={(e) => onPortPointerDown(port, e)} registerRef={registerPort(key)} />
-  )
   return (
-    <div className={`flex items-center gap-1.5 text-[11px] ${align === 'right' ? 'flex-row-reverse text-right' : ''} ${color ? '' : 'text-zinc-300'}`} style={color ? { color } : undefined}>
-      {dot}
-      <span className="truncate">{label}</span>
-    </div>
+    <SharedPortRow
+      port={port}
+      label={label}
+      align={align}
+      dimmed={dimmed}
+      wiring={wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)}
+    />
   )
 }
 
-function SourcesNode({ x, y, sources, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext }: {
+/** Binds this graph's cables, gesture state and colour rule to the shared rows. */
+function wiringFor(
+  cables: InputCable[],
+  pendingPort: PortRef | null,
+  colorContext: ColorContext,
+  onPortClick: (port: PortRef) => void,
+  onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void,
+  registerPort: (key: string) => (el: HTMLElement | null) => void,
+): PortWiring {
+  return {
+    isConnected: (port) => isPortConnected(port.kind as PortRef['kind'], port.id, port.port, port.direction, cables),
+    isPending: (port) =>
+      !!pendingPort && pendingPort.kind === port.kind && pendingPort.id === port.id && pendingPort.port === port.port && pendingPort.direction === port.direction,
+    colorOf: (port) => derivedPortColor(port as PortRef, colorContext),
+    keyOf: (port) => portKey(port.kind as PortRef['kind'], port.id, port.port, port.direction),
+    onPortClick: (port) => onPortClick(port as PortRef),
+    onPortPointerDown: (port, event) => onPortPointerDown(port as PortRef, event),
+    registerPort,
+  }
+}
+
+/**
+ * The source rail (Slice 23 FR-027/FR-028), rebuilt to the mockup's row anatomy
+ * (Slice 25 FR-032 to FR-035).
+ *
+ * One consolidated node of fixed-height rows rather than a card per source: at 54px
+ * a card each, a 32-source festival patch is ~1,700px of lane and the graph stops
+ * being readable exactly where it matters most. The saved space goes on information
+ * the row previously lacked — the derived colour tape, the picked model, and phantom
+ * power.
+ *
+ * The rail scrolls inside its own lane, so the rig and desk lanes never move;
+ * `onScroll` is what keeps the cables attached while it does.
+ *
+ * The mockup's "drag to reorder" hint in the footer is deliberately not reproduced:
+ * sources are not drag-reorderable and this slice does not add it, so the hint would
+ * be a lie (research.md R10).
+ */
+function SourcesNode({ x, y, sources, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext, search = '', micLabel, selectedId, onSelect, onScroll, onAdd }: {
   x: number
   y: number
   sources: InputSource[]
@@ -684,19 +938,138 @@ function SourcesNode({ x, y, sources, cables, pendingPort, onPortClick, onPortPo
   onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
   registerPort: (key: string) => (el: HTMLElement | null) => void
   colorContext: ColorContext
+  search?: string
+  /** The picked mic's own name, or the connector for a line source. */
+  micLabel: (source: InputSource) => string
+  selectedId?: number
+  onSelect?: (source: InputSource) => void
+  onScroll?: () => void
+  /** Adds a source, from the rail's own footer where the mockup puts it. */
+  onAdd?: () => void
 }) {
-  const ports = sources.flatMap((source) => sourcePorts(source))
+  const wiring = wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)
   return (
-    <NodeShell x={x} y={y} title="Sources">
-      {ports.map((port) => (
-        <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" colorContext={colorContext} />
-      ))}
-      {ports.length === 0 && <p className="text-[11px] text-zinc-600">No sources yet</p>}
-    </NodeShell>
+    <div
+      className={`absolute ${NODE_CHROME} ${NODE_BORDER} overflow-hidden`}
+      style={{ left: x, top: y, width: NODE_WIDTH }}
+    >
+      <div className="flex h-5 items-center gap-1.5 border-b border-zinc-800 bg-zinc-950/60 px-1.5">
+        <span className={`${MICRO_LABEL} text-zinc-400`}>Sources</span>
+        <span className="ml-auto font-mono text-[10px] tabular-nums text-zinc-600">{sources.length}</span>
+      </div>
+
+      <div className="max-h-[420px] overflow-y-auto" onScroll={onScroll}>
+        {sources.map((source) => (
+          <SourceRow
+            key={source.id}
+            source={source}
+            wiring={wiring}
+            colorContext={colorContext}
+            dimmed={!matchesSearch(search, source.name, micLabel(source))}
+            selected={selectedId === source.id}
+            modelLabel={micLabel(source)}
+            onSelect={onSelect ? () => onSelect(source) : undefined}
+          />
+        ))}
+        {sources.length === 0 && <p className="px-1.5 py-1 text-[11px] text-zinc-600">No sources yet</p>}
+      </div>
+
+      {onAdd && (
+        <div className="flex h-6 items-center border-t border-zinc-800 bg-zinc-950/60 px-1.5">
+          <Button size="sm" variant="ghost" className="h-[18px] px-1.5 text-[10px]" onClick={onAdd}>
+            <Plus className="mr-1 h-3 w-3" />Source
+          </Button>
+        </div>
+      )}
+    </div>
   )
 }
 
-function ChannelsNode({ x, y, channels, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext }: {
+/**
+ * One source, one row: a full-height colour tape, the name, the model in quiet mono,
+ * the 48 V bar, the port flush right. A stereo source is two port slots tall with
+ * `L` above `R`, each side taking its own cable — which is what the data model has
+ * always said, since `sourcePorts` returns two independently cablable ports.
+ *
+ * The tape runs the whole height of the row rather than sitting centred in it, which
+ * is the single most visible difference from the mockup and a one-property fix
+ * (`self-stretch`). It reads as the tape wrapped round the cable end, which is what
+ * it stands for.
+ *
+ * Phantom power is a **red bar**, never a dot: every circle in this rail is a port
+ * you can patch, so the indicator differs from one in both hue and shape.
+ */
+function SourceRow({ source, wiring, colorContext, dimmed, selected, modelLabel, onSelect }: {
+  source: InputSource
+  wiring: PortWiring
+  colorContext: ColorContext
+  dimmed?: boolean
+  selected?: boolean
+  modelLabel: string
+  onSelect?: () => void
+}) {
+  const ports = sourcePorts(source)
+  const tape = derivedSourceColor(source, colorContext)
+  const stereo = ports.length > 1
+  const rowRef = useRef<HTMLDivElement>(null)
+
+  // A selection arriving from the sheet may point at a row well below the fold of a
+  // 32-source rail, and a selection you cannot see is not a selection (Slice 25
+  // FR-004). `nearest` is what keeps an already-visible row still.
+  useEffect(() => {
+    if (selected) rowRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [selected])
+
+  return (
+    <div
+      ref={rowRef}
+      // The height is set here rather than in the token, one slot per port, so a
+      // stereo source is genuinely twice as tall and its two dots cannot overlap.
+      style={{ height: ports.length * SOURCE_ROW_HEIGHT }}
+      className={`${SOURCE_ROW} transition-opacity ${dimmed ? 'opacity-30' : ''} ${selected ? 'bg-amber-500/10' : ''} last:border-b-0`}
+    >
+      <span aria-hidden className="w-[3px] shrink-0 self-stretch" style={{ backgroundColor: tape ?? TAPE_NEUTRAL }} />
+      <button type="button" onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-1.5 pl-1 text-left" title={source.name}>
+        <span className={`min-w-0 flex-1 truncate ${selected ? 'font-semibold text-zinc-50' : tape ? 'text-zinc-300' : 'text-zinc-400'}`}>
+          {source.name}
+        </span>
+        <span className="max-w-[4.5rem] shrink-0 truncate font-mono text-[10px] text-zinc-500">{modelLabel}</span>
+      </button>
+      <span
+        aria-label={source.phantom_power ? '48 V on' : '48 V off'}
+        title={source.phantom_power ? '48 V phantom power on' : '48 V off'}
+        className={source.phantom_power ? PHANTOM_BAR : PHANTOM_BAR_OFF}
+      />
+      <div className="flex shrink-0 flex-col justify-center">
+        {ports.map((port) => (
+          <div key={port.port} className="flex items-center justify-end gap-1" style={{ height: SOURCE_ROW_HEIGHT }}>
+            {stereo && <span className="font-mono text-[9px] text-zinc-600">{port.port === 0 ? 'L' : 'R'}</span>}
+            <PortDot
+              port={port}
+              connected={wiring.isConnected(port)}
+              selected={wiring.isPending(port)}
+              color={wiring.colorOf(port)}
+              onClick={() => wiring.onPortClick(port)}
+              onPointerDown={(event) => wiring.onPortPointerDown(port, event)}
+              registerRef={wiring.registerPort(portKey(port.kind, port.id, port.port, 'out'))}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Channels belonging to no desk — the state an event is in after its only desk
+ * is deleted, or while it has several and a channel has not been assigned to one.
+ *
+ * Draggable like every other node (Slice 24 FR-006), but its position is
+ * session-only: there is no row to store it on, and inventing a table for the
+ * placement of a box that should usually be empty is speculative. What matters is
+ * that it can always be moved off whatever it landed on.
+ */
+function ChannelsNode({ x, y, channels, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext, onDragStart, search = '' , selected, onSelect }: {
   x: number
   y: number
   channels: InputChannel[]
@@ -706,19 +1079,124 @@ function ChannelsNode({ x, y, channels, cables, pendingPort, onPortClick, onPort
   onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
   registerPort: (key: string) => (el: HTMLElement | null) => void
   colorContext: ColorContext
+  onDragStart?: (e: ReactPointerEvent) => void
+  search?: string
+  selected?: boolean
+  onSelect?: () => void
 }) {
   const ports = channels.flatMap((channel) => channelPorts(channel))
+  const dimmedIds = new Set(
+    channels.filter((channel) => !matchesSearch(search, channel.channel_number, channel.channel_name, channel.notes)).map((channel) => channel.id),
+  )
   return (
-    <NodeShell x={x} y={y} title="Channels">
+    <NodeShell x={x} y={y} title="No desk" badge={channels.length > 0 ? String(channels.length) : undefined} onDragStart={onDragStart} selected={selected} onSelect={onSelect}>
       {ports.map((port) => (
-        <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" colorContext={colorContext} />
+        <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" colorContext={colorContext} dimmed={dimmedIds.has(port.id)} />
       ))}
-      {ports.length === 0 && <p className="text-[11px] text-zinc-600">No channels yet</p>}
+      {ports.length === 0 && <p className="px-1.5 text-[11px] text-zinc-600">No channels without a desk</p>}
     </NodeShell>
   )
 }
 
-function StageboxNode({ x, y, stagebox, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, colorContext }: {
+/**
+ * The desk on the input graph (Slice 23): its channel strips. Where the Channels
+ * rail used to be an anonymous list, it now belongs to a named desk with a stated
+ * capacity — which is what makes "15 / 96 in" sayable at all.
+ *
+ * Its local jacks used to be drawn here too, as a second block of input-side
+ * ports after a divider. That made them a dead end — a cable could land on one
+ * and never leave it — so since Slice 24 they are their own node
+ * (`LocalJackNode`).
+ */
+function ConsoleNode({ x, y, desk, channels, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext, onDragStart, search = '' , selected, onSelect }: {
+  x: number
+  y: number
+  desk: Console
+  channels: InputChannel[]
+  cables: InputCable[]
+  pendingPort: PortRef | null
+  onPortClick: (port: PortRef) => void
+  onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
+  registerPort: (key: string) => (el: HTMLElement | null) => void
+  colorContext: ColorContext
+  onDragStart?: (e: ReactPointerEvent) => void
+  search?: string
+  selected?: boolean
+  onSelect?: () => void
+}) {
+  const ports = channels.flatMap((channel) => channelPorts(channel))
+  const dimmedIds = new Set(
+    channels.filter((channel) => !matchesSearch(search, channel.channel_number, channel.channel_name, channel.notes)).map((channel) => channel.id),
+  )
+  const over = desk.input_count > 0 && channels.length > desk.input_count
+
+  return (
+    <NodeShell
+      x={x}
+      y={y}
+      title={desk.name || 'Console'}
+      badge="DESK"
+      onDragStart={onDragStart}
+      selected={selected}
+      onSelect={onSelect}
+      footerAlarm={over}
+      footer={
+        <>
+          {channels.length}
+          {desk.input_count > 0 ? ` / ${desk.input_count}` : ''} in
+          {desk.local_input_count > 0 ? ` · local ${desk.local_input_count}` : ''}
+        </>
+      }
+    >
+      {ports.map((port) => (
+        <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" colorContext={colorContext} dimmed={dimmedIds.has(port.id)} />
+      ))}
+      {ports.length === 0 && <p className="px-1.5 text-[11px] text-zinc-600">No channels on this desk yet</p>}
+    </NodeShell>
+  )
+}
+
+/**
+ * A desk's own input jacks, as their own node (Slice 24 FR-008/FR-009).
+ *
+ * Deliberately the same two-column shape as `StageboxNode` below: a cable lands
+ * on a jack on the left, and the desk's own routing carries that same jack on to
+ * a channel from the right. Drawn identically because it *is* the same thing to
+ * the graph — which is what lets a planner pick either without learning a second
+ * idiom (FR-009).
+ *
+ * It lives in the processing lane rather than beside the desk's strips because
+ * the two ports of one pass-through must be on opposite edges of the node for
+ * their cable to be drawable at all: inside one box the run would have to loop
+ * right, back across the box, and in from the left (research.md R6).
+ */
+function LocalJackNode({ x, y, desk, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext, onDragStart, dimmed , selected, onSelect }: {
+  x: number
+  y: number
+  desk: Console
+  cables: InputCable[]
+  pendingPort: PortRef | null
+  onPortClick: (port: PortRef) => void
+  onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
+  registerPort: (key: string) => (el: HTMLElement | null) => void
+  colorContext: ColorContext
+  onDragStart?: (e: ReactPointerEvent) => void
+  dimmed?: boolean
+  selected?: boolean
+  onSelect?: () => void
+}) {
+  const { inputs, outputs } = consoleLocalPorts(desk)
+  const wiring = wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)
+  return (
+    <NodeShell x={x} y={y} title={desk.name || 'Console'} badge="LOCAL" onDragStart={onDragStart} dimmed={dimmed} selected={selected} onSelect={onSelect}>
+      {inputs.map((inPort, index) => (
+        <SplitPortRow key={inPort.port} inPort={inPort} outPort={outputs[index]} label={String(inPort.port + 1)} wiring={wiring} />
+      ))}
+    </NodeShell>
+  )
+}
+
+function StageboxNode({ x, y, stagebox, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, colorContext, dimmed , selected, onSelect }: {
   x: number
   y: number
   stagebox: Stagebox
@@ -729,27 +1207,22 @@ function StageboxNode({ x, y, stagebox, cables, pendingPort, onPortClick, onPort
   registerPort: (key: string) => (el: HTMLElement | null) => void
   onDragStart: (e: ReactPointerEvent) => void
   colorContext: ColorContext
+  dimmed?: boolean
+  selected?: boolean
+  onSelect?: () => void
 }) {
   const { inputs, outputs } = stageboxPorts(stagebox)
+  const wiring = wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)
   return (
-    <NodeShell x={x} y={y} title={stagebox.name} badge="SB" onDragStart={onDragStart}>
-      <div className="grid grid-cols-2 gap-x-2">
-        <div className="space-y-1">
-          {inputs.map((port) => (
-            <PortRow key={portKey('stagebox', port.id, port.port, 'in')} label={port.label} port={{ ...port, kind: 'stagebox' }} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" colorContext={colorContext} />
-          ))}
-        </div>
-        <div className="space-y-1">
-          {outputs.map((port) => (
-            <PortRow key={portKey('stagebox', port.id, port.port, 'out')} label={port.label} port={{ ...port, kind: 'stagebox' }} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" colorContext={colorContext} />
-          ))}
-        </div>
-      </div>
+    <NodeShell x={x} y={y} title={stagebox.name} badge="SB" onDragStart={onDragStart} dimmed={dimmed} selected={selected} onSelect={onSelect}>
+      {inputs.map((inPort, index) => (
+        <SplitPortRow key={inPort.port} inPort={inPort} outPort={outputs[index]} label={String(inPort.port + 1)} wiring={wiring} />
+      ))}
     </NodeShell>
   )
 }
 
-function StageMultiNode({ x, y, stageMulti, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, colorContext }: {
+function StageMultiNode({ x, y, stageMulti, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, colorContext, dimmed , selected, onSelect }: {
   x: number
   y: number
   stageMulti: StageMulti
@@ -760,27 +1233,22 @@ function StageMultiNode({ x, y, stageMulti, cables, pendingPort, onPortClick, on
   registerPort: (key: string) => (el: HTMLElement | null) => void
   onDragStart: (e: ReactPointerEvent) => void
   colorContext: ColorContext
+  dimmed?: boolean
+  selected?: boolean
+  onSelect?: () => void
 }) {
   const { inputs, outputs } = stageMultiPorts(stageMulti)
+  const wiring = wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)
   return (
-    <NodeShell x={x} y={y} title={stageMulti.name} badge="Multi" onDragStart={onDragStart}>
-      <div className="grid grid-cols-2 gap-x-2">
-        <div className="space-y-1">
-          {inputs.map((port) => (
-            <PortRow key={portKey('stage_multi', port.id, port.port, 'in')} label={port.label} port={{ ...port, kind: 'stage_multi' }} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" colorContext={colorContext} />
-          ))}
-        </div>
-        <div className="space-y-1">
-          {outputs.map((port) => (
-            <PortRow key={portKey('stage_multi', port.id, port.port, 'out')} label={port.label} port={{ ...port, kind: 'stage_multi' }} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" colorContext={colorContext} />
-          ))}
-        </div>
-      </div>
+    <NodeShell x={x} y={y} title={stageMulti.name} badge="Multi" onDragStart={onDragStart} dimmed={dimmed} selected={selected} onSelect={onSelect}>
+      {inputs.map((inPort, index) => (
+        <SplitPortRow key={inPort.port} inPort={inPort} outPort={outputs[index]} label={String(inPort.port + 1)} wiring={wiring} />
+      ))}
     </NodeShell>
   )
 }
 
-function DeviceNode({ x, y, device, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, colorContext }: {
+function DeviceNode({ x, y, device, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, colorContext, dimmed , selected, onSelect }: {
   x: number
   y: number
   device: InputDevice
@@ -791,10 +1259,13 @@ function DeviceNode({ x, y, device, cables, pendingPort, onPortClick, onPortPoin
   registerPort: (key: string) => (el: HTMLElement | null) => void
   onDragStart: (e: ReactPointerEvent) => void
   colorContext: ColorContext
+  dimmed?: boolean
+  selected?: boolean
+  onSelect?: () => void
 }) {
   const { inputs, outputs } = devicePorts(device)
   return (
-    <NodeShell x={x} y={y} title={device.name} onDragStart={onDragStart}>
+    <NodeShell x={x} y={y} title={device.name} onDragStart={onDragStart} dimmed={dimmed} selected={selected} onSelect={onSelect}>
       <div className="grid grid-cols-2 gap-x-2">
         <div className="space-y-1">
           {inputs.map((port) => (

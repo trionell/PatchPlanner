@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { createDCA, createGroup, deleteDCA, deleteGroup, updateDCA, updateGroup } from '../../api/audioPatch'
 import { busTint } from '../../lib/utils'
 import type { BusRequest, InputChannel } from '../../types'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
+import { DrawerSection, FieldStack, FormActions, GearCard, GearForm, GearSpecs, GearTop, Spec } from '../ui/GearList'
 import { Input } from '../ui/Input'
 import { ColorSelect } from './ColorSelect'
 
@@ -51,8 +51,11 @@ export function BusSection({
     ids.filter((memberships) => memberships?.includes(busID)).length
 
   return (
-    <div className="mb-6 grid gap-4 lg:grid-cols-2">
-      <BusManagerCard
+    // Stacked full width in the Buses drawer, in the same language as every Rig
+    // section (Slice 24 FR-017) — one Card left in here would have been the one
+    // section a planner could pick out as different.
+    <>
+      <BusManagerSection
         eventId={eventId}
         title="Groups"
         noun="group"
@@ -64,7 +67,7 @@ export function BusSection({
         error={createGroupM.error ?? updateGroupM.error ?? deleteGroupM.error}
         readOnly={readOnly}
       />
-      <BusManagerCard
+      <BusManagerSection
         eventId={eventId}
         title="DCAs"
         noun="DCA"
@@ -76,11 +79,11 @@ export function BusSection({
         error={createDcaM.error ?? updateDcaM.error ?? deleteDcaM.error}
         readOnly={readOnly}
       />
-    </div>
+    </>
   )
 }
 
-function BusManagerCard({
+function BusManagerSection({
   eventId,
   title,
   noun,
@@ -105,12 +108,15 @@ function BusManagerCard({
 }) {
   const [draftName, setDraftName] = useState('')
   const [draftColor, setDraftColor] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
 
   const add = () => {
     if (!draftName.trim()) return
     onCreate({ name: draftName.trim(), color: draftColor || undefined })
     setDraftName('')
     setDraftColor('')
+    setAdding(false)
   }
 
   const remove = (bus: Bus) => {
@@ -120,57 +126,111 @@ function BusManagerCard({
   }
 
   return (
-    <Card className="mb-0">
-      <CardHeader><CardTitle>{title}</CardTitle></CardHeader>
-      <CardContent className="space-y-2">
-        {buses.map((bus) => (
-          <div key={bus.id} className="flex items-center gap-2">
-            {readOnly ? (
-              <span aria-hidden className="h-4 w-4 shrink-0 rounded border border-zinc-600" style={bus.color ? { backgroundColor: bus.color } : undefined} />
-            ) : (
-              <ColorSelect eventId={eventId} value={bus.color} onChange={(color) => onUpdate(bus.id, { name: bus.name, color })} />
-            )}
-            {bus.is_builtin ? (
-              <>
-                <span className="flex-1 px-3 text-sm">{bus.name}</span>
-                <Badge style={busTint(bus.color)}>built-in</Badge>
-              </>
-            ) : (
-              <>
-                <Input
-                  key={`${bus.id}-${bus.name}`}
-                  defaultValue={bus.name}
-                  disabled={readOnly}
-                  onBlur={(e) => {
-                    const name = e.target.value.trim()
-                    if (name && name !== bus.name) onUpdate(bus.id, { name, color: bus.color })
-                  }}
-                  className="flex-1"
+    <DrawerSection
+      label={title}
+      count={buses.length}
+      action={
+        !readOnly && (
+          <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => setAdding((open) => !open)}>
+            <Plus className="mr-1 h-3.5 w-3.5" />
+            {noun}
+          </Button>
+        )
+      }
+    >
+      {buses.map((bus) => {
+        const assigned = assignedCount(bus.id)
+        const editing = editingId === bus.id && !readOnly
+        return (
+          <GearCard key={bus.id}>
+            <GearTop
+              badge={
+                <span
+                  aria-hidden
+                  className="h-3.5 w-3.5 shrink-0 rounded border border-zinc-600"
+                  style={bus.color ? { backgroundColor: bus.color } : undefined}
                 />
-                {!readOnly && (
-                  <Button size="sm" variant="ghost" aria-label={`Delete ${bus.name}`} onClick={() => remove(bus)}>
-                    <Trash2 className="h-4 w-4" />
+              }
+              name={bus.name}
+              item={bus.is_builtin ? <Badge style={busTint(bus.color)}>built-in</Badge> : undefined}
+              actions={
+                !readOnly && (
+                  <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditingId(editing ? null : bus.id)}>
+                    {editing ? 'Done' : 'Edit'}
                   </Button>
+                )
+              }
+            />
+            <GearSpecs>
+              <Spec label="channels" value={assigned} />
+            </GearSpecs>
+
+            {/* The built-in LR bus is recolourable but never renamed or deleted,
+                so its form is a colour picker and nothing else. */}
+            {editing && (
+              <GearForm>
+                <FieldStack label="Colour" width="short">
+                  <ColorSelect eventId={eventId} value={bus.color} onChange={(color) => onUpdate(bus.id, { name: bus.name, color })} />
+                </FieldStack>
+                {!bus.is_builtin && (
+                  <>
+                    <FieldStack label="Name" width="grow">
+                      <Input
+                        size="sm"
+                        key={`${bus.id}-${bus.name}`}
+                        defaultValue={bus.name}
+                        onBlur={(e) => {
+                          const name = e.target.value.trim()
+                          if (name && name !== bus.name) onUpdate(bus.id, { name, color: bus.color })
+                        }}
+                      />
+                    </FieldStack>
+                    <FormActions>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 px-3 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                        onClick={() => remove(bus)}
+                      >
+                        Delete
+                      </Button>
+                    </FormActions>
+                  </>
                 )}
-              </>
+              </GearForm>
             )}
-          </div>
-        ))}
-        {!readOnly && (
-          <div className="flex items-center gap-2 pt-2">
+          </GearCard>
+        )
+      })}
+
+      {adding && !readOnly && (
+        <GearForm>
+          <FieldStack label="Colour" width="short">
             <ColorSelect eventId={eventId} value={draftColor || undefined} onChange={setDraftColor} />
+          </FieldStack>
+          <FieldStack label="Name" width="grow">
             <Input
+              size="sm"
               value={draftName}
               placeholder={`New ${noun} name`}
               onChange={(e) => setDraftName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') add() }}
-              className="flex-1"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') add()
+              }}
             />
-            <Button size="sm" onClick={add} disabled={!draftName.trim()}><Plus className="mr-1 h-4 w-4" />Add</Button>
-          </div>
-        )}
-        {error && <p className="text-sm text-red-400">{error.message}</p>}
-      </CardContent>
-    </Card>
+          </FieldStack>
+          <FormActions>
+            <Button size="sm" className="h-8 px-4 text-xs" onClick={add} disabled={!draftName.trim()}>
+              Add {noun}
+            </Button>
+            <Button size="sm" variant="ghost" className="h-8 px-3 text-xs" onClick={() => setAdding(false)}>
+              Cancel
+            </Button>
+          </FormActions>
+        </GearForm>
+      )}
+
+      {error && <p className="text-xs text-red-400">{error.message}</p>}
+    </DrawerSection>
   )
 }

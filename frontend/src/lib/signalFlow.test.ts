@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { AudioPatchOutput, OutputCable, OutputDevice, StageMulti, Stagebox } from '../types'
+import type { AudioPatchOutput, Console, OutputCable, OutputDevice, StageMulti, Stagebox } from '../types'
 import { buildOutputChannelFlow, buildOutputChannelFlows, type OutputFlowContext } from './signalFlow'
 
 const stageboxes: Stagebox[] = [
@@ -27,12 +27,22 @@ function cable(overrides: Partial<OutputCable>): OutputCable {
   }
 }
 
+const consoles: Console[] = [
+  {
+    id: 3, event_id: 1, name: 'FOH · SD10', role: 'foh', input_count: 96, output_count: 48,
+    local_input_count: 8, local_output_count: 4,
+    position_x: 0, position_y: 0, input_position_x: 0, input_position_y: 0,
+    local_position_x: 260, local_position_y: 320, local_input_position_x: 260, local_input_position_y: 320,
+  },
+]
+
 function outputContext(devices: OutputDevice[], cables: OutputCable[]): OutputFlowContext {
   return {
     stageboxes,
     stageMultis,
     devices,
     cables,
+    consoles,
     itemLabelById: new Map([[77, 'Behringer P2'], [401, 'Speakon Cable — 10m'], [402, 'Speakon Cable — 5m']]),
   }
 }
@@ -47,10 +57,12 @@ describe('buildOutputChannelFlow', () => {
     ]
     const flow = buildOutputChannelFlow(output({}), outputContext([amp, speaker], cables))
     expect(flow.paths).toHaveLength(1)
-    expect(flow.paths[0].hops).toEqual([
+    // toMatchObject, not toEqual: a node hop also carries the addressable
+    // node/cableId fields the sheet's chain cell clicks on (Slice 23).
+    expect(flow.paths[0].hops).toMatchObject([
       { label: 'Speakon Cable — 10m', kind: 'cable', missing: false },
-      { label: 'Amp ch 1', kind: 'device', missing: false },
-      { label: 'Speaker ch 1', kind: 'device', missing: false },
+      { label: 'Amp ch 1', kind: 'device', missing: false, node: { kind: 'device', port: 0 } },
+      { label: 'Speaker ch 1', kind: 'device', missing: false, node: { kind: 'device', port: 0 } },
     ])
     expect(flow.hasGap).toBe(false)
   })
@@ -62,8 +74,8 @@ describe('buildOutputChannelFlow', () => {
       cable({ id: 2, from_kind: 'stage_multi', from_id: 5, from_port: 0, to_kind: 'device', to_id: 10, to_port: 0 }),
     ]
     const flow = buildOutputChannelFlow(output({}), outputContext([speaker], cables))
-    expect(flow.paths[0].hops).toEqual([
-      { label: 'Multi A ch 1', kind: 'multi', missing: false },
+    expect(flow.paths[0].hops).toMatchObject([
+      { label: 'Multi A ch 1', kind: 'multi', missing: false, node: { kind: 'stage_multi', port: 0 } },
       { label: 'Speaker ch 1', kind: 'device', missing: false },
     ])
     expect(flow.hasGap).toBe(false)
@@ -92,8 +104,8 @@ describe('buildOutputChannelFlow', () => {
     ]
     const flow = buildOutputChannelFlow(output({ width: 'stereo' }), outputContext([speakerL, speakerR], cables))
     expect(flow.paths).toHaveLength(2)
-    expect(flow.paths[0]).toEqual({ sideLabel: 'Main L', hops: [{ label: 'Speaker L ch 1', kind: 'device', missing: false }] })
-    expect(flow.paths[1]).toEqual({ sideLabel: 'Main R', hops: [{ label: 'Speaker R ch 1', kind: 'device', missing: false }] })
+    expect(flow.paths[0]).toMatchObject({ sideLabel: 'Main L', hops: [{ label: 'Speaker L ch 1', kind: 'device', missing: false, cableId: 1 }] })
+    expect(flow.paths[1]).toMatchObject({ sideLabel: 'Main R', hops: [{ label: 'Speaker R ch 1', kind: 'device', missing: false, cableId: 2 }] })
   })
 
   it('branches into multiple paths when a device fans out to more than one destination', () => {
@@ -123,8 +135,8 @@ describe('buildOutputChannelFlow', () => {
     ]
     const flow = buildOutputChannelFlow(output({}), outputContext([speaker, otherDest], cables))
     expect(flow.paths).toHaveLength(1)
-    expect(flow.paths[0].hops).toEqual([
-      { label: 'SB Stage L ch 3', kind: 'stagebox', missing: false },
+    expect(flow.paths[0].hops).toMatchObject([
+      { label: 'SB Stage L ch 3', kind: 'stagebox', missing: false, node: { kind: 'stagebox', port: 2 } },
       { label: 'Speaker ch 1', kind: 'device', missing: false },
     ])
     expect(flow.hasGap).toBe(false)
@@ -154,12 +166,58 @@ describe('buildOutputChannelFlow', () => {
     ]
     const flow = buildOutputChannelFlow(output({}), outputContext([sub1, sub2, top], cables))
     expect(flow.paths).toHaveLength(1)
-    expect(flow.paths[0].hops).toEqual([
+    expect(flow.paths[0].hops).toMatchObject([
       { label: 'Sub 1 ch 1', kind: 'device', missing: false },
       { label: 'Speakon Cable — 10m', kind: 'cable', missing: false },
       { label: 'Sub 2 ch 1', kind: 'device', missing: false },
       { label: 'Top ch 1', kind: 'device', missing: false },
     ])
+    expect(flow.hasGap).toBe(false)
+  })
+})
+
+describe('a run through the desk\'s own sockets', () => {
+  const amp = device({ id: 9, name: 'Amp', input_port_count: 1 })
+
+  it('continues past a local jack to what the cable reaches', () => {
+    // The walker used to fall through to the stagebox branch here, look the desk
+    // up among the stageboxes, find nothing, and stop — so a bus routed to a
+    // local out and cabled onward read as ending at the desk (Slice 24 R9).
+    const cables = [
+      cable({ id: 1, from_kind: 'mixer', from_id: 1, from_port: 0, to_kind: 'console_local', to_id: 3, to_port: 0 }),
+      cable({ id: 2, from_kind: 'console_local', from_id: 3, from_port: 0, to_kind: 'device', to_id: 9, to_port: 0, cable_item_id: 401 }),
+    ]
+    const flow = buildOutputChannelFlow(output({}), outputContext([amp], cables))
+    expect(flow.paths).toHaveLength(1)
+    expect(flow.paths[0].hops).toMatchObject([
+      { label: 'FOH · SD10 local out 1', node: { kind: 'console_local', id: 3, port: 0 } },
+      { label: 'Speakon Cable — 10m', kind: 'cable' },
+      { label: 'Amp ch 1', kind: 'device' },
+    ])
+  })
+
+  it('reads the same as the equivalent run through a stagebox', () => {
+    // The parity SC-005 rests on: same number of hops, same one cable, so the
+    // rental order cannot differ between the two ways of reaching the amp.
+    const viaDesk = buildOutputChannelFlow(output({}), outputContext([amp], [
+      cable({ id: 1, from_kind: 'mixer', from_id: 1, from_port: 0, to_kind: 'console_local', to_id: 3, to_port: 0 }),
+      cable({ id: 2, from_kind: 'console_local', from_id: 3, from_port: 0, to_kind: 'device', to_id: 9, to_port: 0, cable_item_id: 401 }),
+    ]))
+    const viaStagebox = buildOutputChannelFlow(output({}), outputContext([amp], [
+      cable({ id: 1, from_kind: 'mixer', from_id: 1, from_port: 0, to_kind: 'stagebox', to_id: 1, to_port: 0 }),
+      cable({ id: 2, from_kind: 'stagebox', from_id: 1, from_port: 0, to_kind: 'device', to_id: 9, to_port: 0, cable_item_id: 401 }),
+    ]))
+    expect(viaDesk.paths[0].hops).toHaveLength(viaStagebox.paths[0].hops.length)
+    expect(viaDesk.paths[0].hops.filter((hop) => hop.kind === 'cable')).toHaveLength(1)
+    expect(viaStagebox.paths[0].hops.filter((hop) => hop.kind === 'cable')).toHaveLength(1)
+  })
+
+  it('stops at the jack when nothing is cabled out of it, without claiming a gap', () => {
+    const cables = [cable({ id: 1, from_kind: 'mixer', from_id: 1, from_port: 0, to_kind: 'console_local', to_id: 3, to_port: 2 })]
+    const flow = buildOutputChannelFlow(output({}), outputContext([], cables))
+    expect(flow.paths[0].hops).toMatchObject([{ label: 'FOH · SD10 local out 3' }])
+    // A desk's unused sockets are capacity, not a forgotten patch — the same
+    // exemption a stagebox's spare jacks have.
     expect(flow.hasGap).toBe(false)
   })
 })

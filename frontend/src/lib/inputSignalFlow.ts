@@ -1,11 +1,20 @@
 import { channelPorts, isCablelessEdge, nodeName, type PortRef } from './inputGraph'
-import type { InputCable, InputChannel, InputDevice, InputSource, StageMulti, Stagebox } from '../types'
+import type { Console, InputCable, InputChannel, InputDevice, InputSource, StageMulti, Stagebox } from '../types'
 
 /** One hop in a channel's signal chain, ordered Source → … → Channel. */
 export interface FlowHop {
   label: string
   kind: 'source' | 'cable' | 'stagebox' | 'multi' | 'device'
   missing: boolean
+  /**
+   * The node this hop passes through and the port it leaves by (Slice 23) —
+   * what makes a hop addressable, so the sheet's chain cell can offer to
+   * repatch this hop and nothing else. `label` stays exactly as it was, so
+   * the print sheets are unaffected.
+   */
+  node?: { kind: PortRef['kind']; id: number; port: number }
+  /** The cable this hop arrived through, for the per-hop picker. */
+  cableId?: number
 }
 
 /** One full backward-walked path from one Channel port to a Source (or a gap). */
@@ -28,6 +37,8 @@ export interface InputChannelFlow {
 
 export interface InputFlowContext {
   sources: InputSource[]
+  /** The event's desks, so a hop through a local jack can name the console. */
+  consoles?: Console[]
   channels: InputChannel[]
   devices: InputDevice[]
   stageboxes: Stagebox[]
@@ -80,6 +91,8 @@ function walkBackwardFromPort(port: PortRef, context: InputFlowContext): { hops:
       label: `${originName}${cableLabel ? ` — ${cableLabel}` : ''}`,
       kind: cable.from_kind === 'source' ? 'source' : cable.from_kind === 'device' ? 'device' : cable.from_kind === 'stage_multi' ? 'multi' : 'stagebox',
       missing: false,
+      node: { kind: cable.from_kind, id: cable.from_id, port: cable.from_port },
+      cableId: cable.id,
     })
     if (cable.from_kind === 'source') {
       sourceName = originName

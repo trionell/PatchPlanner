@@ -66,6 +66,10 @@ export function MobileChannelEditSheet({
           width: channel.width,
           mixer_behavior: channel.mixer_behavior,
           notes,
+          // A PATCH replaces the row's whole state, so an omitted console_id
+          // detached the channel from its desk (Slice 24 FR-001). Mobile has no
+          // desk picker — it carries what is already there.
+          console_id: channel.console_id,
         })
       } else {
         const nextNumber = Math.max(0, ...channels.map((c) => c.channel_number)) + 1

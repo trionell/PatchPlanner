@@ -736,6 +736,170 @@ on Slice 16 (per-inventory ownership is what `source_format` hangs off).
   negative half — fidelity to a supplier's format is earned by having
   imported it, never assumed.
 
+## Slice 23 — Audio patch shell: sheet, flow, drawers & the console (spec: `audio-patch-shell`)
+
+Replaces the two audio tabs' stack of six cards with one shell: a Sheet you
+land on, a Flow toggle, and Rig/Buses drawers. Adds the entity the audio
+model never had — the console itself. Depends on Slice 11 (output graph)
+and Slice 12 (input graph): the console is a node in both, and the sheet's
+chain column is a render of their existing cable walks.
+
+- **One toolbar, two views.** `AudioPatchShell` holds the Sheet/Flow toggle,
+  the search box, the drawers, print and one add action, identical on both
+  tabs. Every former card is now a drawer entry or a sheet row; the
+  graph/table toggle and both flat resource tables are gone.
+- **A channel's whole path on one line**, from `lib/patchSheet.ts`, which
+  turns the existing `buildInputChannelFlow`/`buildOutputChannelFlow` walks
+  into addressable segments — shared with the print sheets, so paper and
+  screen cannot drift. A status rail states capacity, gaps and cables picked.
+- **The console** (`event_consoles`, migration 042). Named, with a role, an
+  optional catalog **or owned** item, per-event port counts, and a position
+  on both canvases. Several per event. `console_local` is a new port kind
+  shaped exactly like a stagebox on each graph, so a source can land in the
+  desk directly. One more UNION arm in `rentalSummaryQuery` — **this closes
+  the last hole in the standing invariant above**: the most expensive item in
+  the truck could previously only reach the order as a hand-typed line.
+- **Flow at festival scale.** The source rail keeps one 20px row per source
+  (a card each would be ~1,700px at 32 sources), gains a derived colour tape,
+  the picked model and a red 48 V bar, and stacks a stereo source's ports
+  vertically. Colour now runs end to end along any run that reaches a
+  channel, with cable-versus-network encoded as a dash pattern so the two
+  readings stay independent.
+- No new dependency, no change to the cabling rules, and no mobile code path
+  touched.
+
+## Slice 24 — Audio patch shell, second pass (spec: `patch-shell-fixes`)
+
+Four defects found by field-testing Slice 23. Two were real bugs with narrow
+causes; two were the UI not having been built to the approved mockup.
+
+- **A channel kept losing its desk.** The sheet's row editor PATCHed eight
+  fields and not `console_id`, and the update writes that column
+  unconditionally, so a nil became NULL — on the *first save of any field*,
+  not on create. Fixed at both layers: every caller carries the field, and
+  update falls back to the event's only desk exactly as create already did,
+  which also repairs rows that are already detached. With several desks it
+  stays nil rather than guessing, because putting a monitor send on the FOH
+  desk would put a wrong line on a printed sheet. The node holding deskless
+  rows is now draggable too — it had no handler at all, so it sat immovably
+  on top of the desk it covered.
+- **A desk's own sockets led nowhere,** in both directions. The desk node drew
+  them one-sided: only the out side on the output graph, so a bus had nothing
+  to land on; only the in side on the input graph, so a cabled-in source could
+  never reach a channel. They are now their own two-sided node in the
+  processing lane, drawn by the same shape as a stagebox — which is what makes
+  the two interchangeable to look at as well as in the data. Migration 043
+  gives that node its own placement per graph. A second bug fell out of
+  confirming the first: the output chain walker had no `console_local` branch,
+  so a run through a local out read as ending at the desk.
+- **The Rig and Buses drawers** are rebuilt on one design language
+  (`ui/GearList.tsx`): a mono micro-label heading, one card per item reading as
+  a summary line with a spec line and — for a desk — a usage meter, and fields
+  only once Edit is pressed. Stacked full width: `StageboxMultiManager`, whose
+  whole job was to put stageboxes and multis in two columns, is retired, and
+  that two-column layout inside a `max-w-3xl` drawer is why the fields were too
+  narrow to type into. The three near-identical device sections became thin
+  wrappers over one shared list.
+- **The sheet's row editor** is one flowing strip instead of a fixed column
+  track. Notes spanned all but one column, so the actions landed in a 9 rem
+  cell where the buttons shrank — which is what compressed "Save channel"
+  against its padding and squashed the delete icon into a tall sliver. One
+  cause, three of the reported symptoms. Adds the missing **Edit in Flow**,
+  which selects the row's own upstream source.
+- No new dependency, no new table, and no change to the cabling rules or the
+  rental query. A run through a desk's sockets bills exactly the same number
+  of cables as the equivalent run through a stagebox, and a test pins it.
+- **Deliberately left for a slice of its own:** carrying this design language,
+  and a chosen typeface, to the other eight tabs. Only the audio tabs and the
+  shared controls they needed are touched here.
+
+
+## Slice 25 — The mockup's visual language, for real (spec: `patch-visual-language`)
+
+Second field test of the audio surface. Two things that did not work, three
+that were the surface not having been built to the approved mockup.
+
+- **Edit in Flow forgot the row it was pressed from.** `onEditInFlow={() =>
+  setView('flow')}` ignored its argument, and the canvas owned its selection
+  privately — so it was unmounted while the sheet showed and could not have
+  received one anyway. The selection is now the tab's, which also makes it
+  survive the view toggle in both directions and lets a selected source be
+  scrolled into view on a long rail.
+- **The outputs graph drew every port grey.** Slice 23 gave that graph
+  `derivedCableColor` for its cables and nothing for its ports, so a coloured
+  output was cabled in colour and ported in grey. The backward walk is now
+  `derivedOutputPortColor`, with `derivedCableColor` defined in terms of it —
+  they were always the same question, so a port and its cable cannot disagree.
+- **One framed panel** (`ui/PatchPanel`) instead of three rounded cards with
+  gaps. With three cards the view toggle appears to rebuild the page; with one
+  it changes the content of something that stays put. The lane labels and the
+  zoom control moved out of the strip that used to sit between the toolbar and
+  the canvas — the thing that broke the reading — into the canvas and the bar.
+- **The sheet at the mockup's density** (`ui/SheetTable`): mono micro-label
+  headings on a darker ground, one-line rows, striping you have to look for,
+  tabular figures, and the tape colour as a bar before the name. A chain now
+  reads as a signal path, and a hop through the desk's own socket is **amber** —
+  which is the billable-versus-not distinction made visible for the first time.
+  `ui/Table` and `ui/Badge` are untouched: six other tabs render them.
+- **The inspector as the mockup's rail**: a left border rather than a card,
+  fields beside 44px labels rather than under them, Reaches and Legend as
+  bordered notes, and the legend drawn as stroke samples using the same widths
+  and dash arrays the canvas strokes.
+- **Shared graph primitives** (`components/event/graph/`). Both canvases held
+  their own `NodeShell`, `PortDot` and `PortRow`, which is why their boxes had
+  drifted; each now keeps a thin adapter over one shared set. A pass-through is
+  one row per jack with its two ports on opposite edges — index N in *is* index
+  N out, and two columns only lined up by luck. Port lists draw **every** jack —
+  the mockup's `⋯ N more` row was overruled in the field test, because a box that
+  hides eight jacks is not a shorter box, it is an incomplete one.
+- **The sources rail** rebuilt row by row: a full-height colour tape, the model
+  in quiet mono, the 48 V bar showing off as well as on, stereo two slots tall
+  with L above R, a count in the header and `+ Source` in the footer.
+- No dependency, no migration, no change to routing, guards or the rental query.
+- **Still a slice of its own:** a typeface for the application, and this language
+  on the other six tabs.
+
+
+## Slice 26 — An inspector for the outputs flow graph (spec: `output-flow-inspector`)
+
+The outputs Flow view could be looked at but not worked in. Selecting a box marked
+it and nothing else, because that canvas had no inspector — a documented Slice 25
+boundary ("the mockup draws none"), which left every output field Sheet-only while a
+source on the inputs side was editable from either view.
+
+- **The rail, on the entity that maps onto the sheet's rows.** Clicking an output
+  row's label opens an inspector holding all seven fields the sheet's inline editor
+  holds, so a bus can be renamed, retyped, recoloured or moved to another desk
+  without leaving the view where its routing is visible. Fields save one at a time
+  with no draft: a rail holding a draft would be a second copy of a row the sheet
+  may be editing at the same time.
+- **One rail, not two look-alikes.** The frame, header, field row, note box and
+  legend strokes were extracted from the inputs inspector into
+  `graph/InspectorRail` **before** the second caller existed, so a regression there
+  was attributable to the move alone. The legend splits: its strokes are shared
+  (their only claim is "this is a line the canvas draws"), its wording is not —
+  the input side's colour says which channel a run *reaches*, the output side's says
+  which output it *carries*, and no output has phantom power.
+- **`mixer` left the selection union.** It was doing two jobs: a mixer *port*'s id
+  is an output's id, the mixer *node*'s selection id was a desk's id. The desk box
+  is no longer selectable at all — its fields are in the Rig drawer and its rows
+  have rails of their own — so the ambiguity is now unwritable rather than merely
+  unwritten.
+- **Two gestures, one row.** The label opens the rail, the port dot still starts a
+  cable — the split the sources rail already field-tested. A stereo output's two
+  rows answer to one selection, because a mixer port's id *is* the output's id.
+- **"Lands on" reads the sheet's own chain model**, so the rail and the Chain column
+  cannot disagree about where a run goes — the same reasoning that defined
+  `derivedCableColor` in terms of `derivedOutputPortColor` rather than walking twice.
+- **The sheet's row-level Edit in Flow now selects the output.** It used to settle
+  for the first box downstream of the desk, so asking to edit a bus opened a
+  stagebox.
+- Frontend only, asserted by a gate rather than assumed: no migration, no route, no
+  Go file touched.
+- **Still a slice of its own:** the same rail for the inputs canvas's channel rows,
+  and splitting the outputs canvas out of its tab file to mirror `InputGraphCanvas`.
+
+
 ## Dependency graph
 
 ```
@@ -744,6 +908,7 @@ Slice 18 (deployment) ──→ Slice 19 (CI/CD deploy to VPS)
 Slice 16 (inventory ownership) ──→ Slice 22 (generic inventory formats & PDF order)
 Slice 10 (output chains) ──→ Slice 11 (output signal graph, replaces it) ✅
 Slice 11 (output signal graph) ──→ Slice 12 (input signal graph, same pattern reversed) ✅
+Slice 11 + Slice 12 ──→ Slice 23 (audio patch shell & the console) ──→ Slice 24 (field-test fixes) ──→ Slice 25 (the mockup's visual language) ──→ Slice 26 (an inspector for the outputs flow graph)
 Slice 7 (lighting rig) + Slice 12 ──→ Slice 13 (stage plots; supersedes Slice 0's truss sections) ✅
 Slice 14 (auth) ──→ Slice 15 (event ownership & sharing) ──→ Slice 16 (inventory ownership) ──→ Slice 17 (event settings) ──→ Slice 18 (deployment) ✅
 ```

@@ -697,3 +697,97 @@ func TestTrussPieceRentalCounting(t *testing.T) {
 		t.Errorf("summary changed after truss removal: %+v vs %+v", after, before)
 	}
 }
+
+// TestRentalSummaryCountsConsoles covers the arm added in Slice 23: the desk
+// finally reaches the rental order, which the roadmap's standing invariant
+// already required of everything else. It also pins the two decisions taken
+// with the user on 2026-07-26 — an owned desk counts (research.md R6), and a
+// desk with no item picked contributes nothing, which is the state migration
+// 042 leaves every existing event in.
+func TestRentalSummaryCountsConsoles(t *testing.T) {
+	database := openTestDB(t)
+	cat := seedCatalog(t, database)
+	eventID := createTestEvent(t, database)
+
+	// Every event is born with one unnamed, unpicked console. It must not
+	// appear on the order — otherwise the migration would have changed every
+	// existing plan's totals.
+	before, err := GetRentalSummary(database, eventID)
+	if err != nil {
+		t.Fatalf("summary before: %v", err)
+	}
+	consoles, err := ListConsoles(database, eventID)
+	if err != nil {
+		t.Fatalf("list consoles: %v", err)
+	}
+	if len(consoles) != 1 {
+		t.Fatalf("consoles = %d, want the one seeded with the event", len(consoles))
+	}
+	if before.TotalQuantity != 0 {
+		t.Errorf("unpicked console contributed %d items to the order, want 0", before.TotalQuantity)
+	}
+
+	// A catalog desk is one line of quantity 1 under audio, however many
+	// channels, outputs or cables reference it.
+	deskItem := insertItem(t, database, cat.InventoryID, cat.AudioCategoryID, "DiGiCo SD10", 1, 9000, 30)
+	foh := consoles[0]
+	foh.Name = "FOH · SD10"
+	foh.InventoryItemID = &deskItem
+	foh.InputCount = 96
+	foh.OutputCount = 48
+	if _, err := UpdateConsole(database, foh.ID, foh); err != nil {
+		t.Fatalf("pick a catalog desk: %v", err)
+	}
+	summary, err := GetRentalSummary(database, eventID)
+	if err != nil {
+		t.Fatalf("summary with catalog desk: %v", err)
+	}
+	line := summaryByItem(summary)[deskItem]
+	if line.QuantityAudio != 1 || line.QuantityLighting != 0 {
+		t.Errorf("catalog console line = %d audio / %d lighting, want 1 / 0", line.QuantityAudio, line.QuantityLighting)
+	}
+
+	// An owned desk counts too, following the input_devices precedent rather
+	// than the stageboxes one.
+	ownedDesk := mustInsertID(t, database, `INSERT INTO owned_items (name) VALUES (?)`, "Yamaha CL5 (ours)")
+	monitorItem := insertItem(t, database, cat.InventoryID, cat.AudioCategoryID, "Yamaha CL5", 1, 6000, 31)
+	monitor, err := CreateConsole(database, domain.Console{EventID: eventID, Name: "MON · CL5", Role: "monitor", OwnedItemID: &ownedDesk})
+	if err != nil {
+		t.Fatalf("create owned console: %v", err)
+	}
+	summary, err = GetRentalSummary(database, eventID)
+	if err != nil {
+		t.Fatalf("summary with owned desk: %v", err)
+	}
+	if _, listed := summaryByItem(summary)[monitorItem]; listed {
+		t.Error("an owned console was counted against an unrelated catalog item")
+	}
+	if summary.TotalQuantity != 2 {
+		t.Errorf("total quantity = %d, want 2 (one catalog desk, one owned desk)", summary.TotalQuantity)
+	}
+
+	// Two desks of the same catalog item are two lines' worth of quantity —
+	// per row, never deduplicated, the same rule every other arm follows.
+	if _, err := CreateConsole(database, domain.Console{EventID: eventID, Name: "FOH spare", Role: "foh", InventoryItemID: &deskItem}); err != nil {
+		t.Fatalf("create second catalog console: %v", err)
+	}
+	summary, err = GetRentalSummary(database, eventID)
+	if err != nil {
+		t.Fatalf("summary with two identical desks: %v", err)
+	}
+	if line := summaryByItem(summary)[deskItem]; line.QuantityAudio != 2 {
+		t.Errorf("two consoles of one item = %d, want 2", line.QuantityAudio)
+	}
+
+	// Deleting a desk removes its line and leaves the patch alone.
+	if _, err := DeleteConsole(database, monitor.ID); err != nil {
+		t.Fatalf("delete console: %v", err)
+	}
+	summary, err = GetRentalSummary(database, eventID)
+	if err != nil {
+		t.Fatalf("summary after delete: %v", err)
+	}
+	if summary.TotalQuantity != 2 {
+		t.Errorf("total quantity after deleting the owned desk = %d, want 2", summary.TotalQuantity)
+	}
+}

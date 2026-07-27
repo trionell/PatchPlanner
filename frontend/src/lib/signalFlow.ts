@@ -1,5 +1,5 @@
-import type { AudioPatchOutput, OutputCable, OutputDevice, StageMulti, Stagebox } from '../types'
-import { devicePorts, isPortConnected, mixerPorts, nodeName, stageboxPorts, stageMultiPorts, type PortRef } from './outputGraph'
+import type { AudioPatchOutput, Console, OutputCable, OutputDevice, StageMulti, Stagebox } from '../types'
+import { consoleLocalPorts, devicePorts, isPortConnected, mixerPorts, nodeName, stageboxPorts, stageMultiPorts, type PortRef } from './outputGraph'
 
 /** One hop in a channel's signal chain (input side: see inputSignalFlow.ts's own copy — the two graphs' node-kind sets differ). */
 export interface FlowHop {
@@ -9,6 +9,15 @@ export interface FlowHop {
   missing: boolean
   /** Secondary line, e.g. cable length. */
   detail?: string
+  /**
+   * The node this hop lands on and the port it lands on (Slice 23) — what
+   * makes a hop addressable, so the sheet's chain cell can offer to repatch
+   * this hop and nothing else. `label` is unchanged, so the print sheets and
+   * the mobile list are unaffected.
+   */
+  node?: { kind: PortRef['kind']; id: number; port: number }
+  /** The cable this hop arrived through, for the per-hop picker. */
+  cableId?: number
 }
 
 export interface OutputFlowContext {
@@ -16,6 +25,12 @@ export interface OutputFlowContext {
   stageMultis: StageMulti[]
   devices: OutputDevice[]
   cables: OutputCable[]
+  /**
+   * The event's desks, so a hop through a local jack can name the console
+   * rather than printing `#3`, and so the walk can continue past one
+   * (Slice 24 R9).
+   */
+  consoles?: Console[]
   /** Catalog item labels (name — description), for resolving cable_item_id. */
   itemLabelById: Map<number, string>
 }
@@ -70,7 +85,13 @@ function hasUnfilledInput(kind: PortRef['kind'], id: number, context: OutputFlow
  * generalized to any source's output side.
  */
 function walkFromPort(port: PortRef, context: OutputFlowContext, gapNodes: Set<string>): FlowHop[][] {
-  const nameContext = { outputs: [], stageboxes: context.stageboxes, stageMultis: context.stageMultis, devices: context.devices }
+  const nameContext = {
+    outputs: [],
+    stageboxes: context.stageboxes,
+    stageMultis: context.stageMultis,
+    devices: context.devices,
+    consoles: context.consoles,
+  }
   const outgoing = context.cables.filter((c) => c.from_kind === port.kind && c.from_id === port.id && c.from_port === port.port)
   if (outgoing.length === 0) return [[{ label: 'Direct to output', kind: 'direct', missing: false }]]
 
@@ -83,16 +104,29 @@ function walkFromPort(port: PortRef, context: OutputFlowContext, gapNodes: Set<s
     }
     const destName = nodeName(cable.to_kind, cable.to_id, nameContext)
     stepHops.push({
-      label: `${destName} ch ${cable.to_port + 1}`,
-      kind: cable.to_kind === 'stage_multi' ? 'multi' : cable.to_kind === 'stagebox' ? 'stagebox' : 'device',
+      // A desk's own socket is named as such rather than as a channel of the
+      // desk: "FOH · SD10 local out 1" is what is written on the desk, and what
+      // the sheets and the printed signal flow have to say (Slice 24 FR-016).
+      label: cable.to_kind === 'console_local' ? `${destName} local out ${cable.to_port + 1}` : `${destName} ch ${cable.to_port + 1}`,
+      kind: cable.to_kind === 'stage_multi' ? 'multi' : cable.to_kind === 'device' ? 'device' : 'stagebox',
       missing: false,
+      node: { kind: cable.to_kind, id: cable.to_id, port: cable.to_port },
+      cableId: cable.id,
     })
 
     // A device mixes/distributes internally, so every declared output
     // port — plus any link-out ports, for a chained destination device —
-    // is a candidate continuation. A stage multi or stagebox is a
-    // straight pass-through — input index N is physically the same jack
-    // as output index N, so only that one port continues.
+    // is a candidate continuation. A stage multi, a stagebox, or a desk's
+    // own jack panel is a straight pass-through — input index N is
+    // physically the same jack as output index N, so only that one port
+    // continues.
+    //
+    // console_local needs its own branch (Slice 24, research.md R9): before
+    // this it fell through to the stagebox case, looked itself up among the
+    // stageboxes, found nothing, and yielded no continuation — so a bus routed
+    // to a local out and cabled onward to an amplifier read as ending at the
+    // desk.
+    const sameJack = (p: PortRef) => p.port === cable.to_port && isPortConnected(p.kind, p.id, p.port, 'out', context.cables)
     let outPorts: PortRef[] = []
     if (cable.to_kind === 'device') {
       const device = context.devices.find((d) => d.id === cable.to_id)
@@ -102,10 +136,13 @@ function walkFromPort(port: PortRef, context: OutputFlowContext, gapNodes: Set<s
       }
     } else if (cable.to_kind === 'stage_multi') {
       const multi = context.stageMultis.find((sm) => sm.id === cable.to_id)
-      if (multi) outPorts = stageMultiPorts(multi).outputs.filter((p) => p.port === cable.to_port && isPortConnected(p.kind, p.id, p.port, 'out', context.cables))
+      if (multi) outPorts = stageMultiPorts(multi).outputs.filter(sameJack)
+    } else if (cable.to_kind === 'console_local') {
+      const desk = context.consoles?.find((c) => c.id === cable.to_id)
+      if (desk) outPorts = consoleLocalPorts(desk).outputs.filter(sameJack)
     } else {
       const stagebox = context.stageboxes.find((sb) => sb.id === cable.to_id)
-      if (stagebox) outPorts = stageboxPorts(stagebox).outputs.filter((p) => p.port === cable.to_port && isPortConnected(p.kind, p.id, p.port, 'out', context.cables))
+      if (stagebox) outPorts = stageboxPorts(stagebox).outputs.filter(sameJack)
     }
     if (outPorts.length === 0) return [stepHops]
     return outPorts.flatMap((outPort) => walkFromPort(outPort, context, gapNodes).map((branch) => [...stepHops, ...branch]))

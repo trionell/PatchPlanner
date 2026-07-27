@@ -1,28 +1,26 @@
 import { useMemo, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { LayoutGrid, Table2 } from 'lucide-react'
-import { getAudioPatch } from '../../api/audioPatch'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { createInputChannel, getAudioPatch } from '../../api/audioPatch'
 import { listEventInventoryItems } from '../../api/inventory'
 import { listOwnedItems } from '../../api/owned'
 import { useIsMobile } from '../../hooks/useIsMobile'
-import { nodeName, nodeZone, type PortRef } from '../../lib/inputGraph'
+import { usePatchView } from '../../hooks/usePatchView'
 import { buildMobileChannelList } from '../../lib/mobileChannelList'
 import { itemLabel } from '../../lib/utils'
-import type { InputCable, InputChannel, InputDevice, InputSource, InventoryItem, OwnedItem, StageMulti, Stagebox } from '../../types'
+import type { SegmentNode } from '../../lib/patchSheet'
+import type { InputChannel, InventoryItem, OwnedItem } from '../../types'
 import { MobileChannelEditSheet } from '../mobile/MobileChannelEditSheet'
 import { MobileEntityList } from '../mobile/MobileEntityList'
 import { InputPatchSheet } from '../print/InputPatchSheet'
-import { PrintButton } from '../print/PrintButton'
-import { Badge } from '../ui/Badge'
-import { Button } from '../ui/Button'
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table'
-import { BusSection } from './BusSection'
-import { ChannelSection } from './ChannelSection'
+import { AudioPatchShell } from './AudioPatchShell'
+import { ZoomControl } from './graph/ZoomControl'
+import type { InputFlowSelection } from './InputFlowInspector'
+import { BusesDrawer } from './BusesDrawer'
+import { ConsoleSection } from './ConsoleSection'
 import { InputDeviceSection } from './InputDeviceSection'
 import { InputGraphCanvas } from './InputGraphCanvas'
-import { SourceSection } from './SourceSection'
-import { StageboxMultiSection } from './StageboxMultiSection'
+import { InputSheet } from './InputSheet'
+import { RigDrawer } from './RigDrawer'
 
 export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number; readOnly?: boolean }) {
   const queryClient = useQueryClient()
@@ -41,14 +39,28 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
   })
   const ownedQuery = useQuery({ queryKey: ['owned-items'], queryFn: listOwnedItems })
 
-  const [viewMode, setViewMode] = useState<'graph' | 'table'>('graph')
   const isMobile = useIsMobile()
   const [editingChannelId, setEditingChannelId] = useState<number | 'new' | null>(null)
+  const [view, setView] = usePatchView(eventId, 'inputs')
+  const [search, setSearch] = useState('')
+  // Which node the graph's inspector is open on. Held here rather than in the
+  // canvas so it survives the view toggle in both directions, and so the sheet
+  // can set it (Slice 25 FR-001/FR-002). Deliberately not persisted: it is where
+  // the planner is looking, not part of the plan.
+  const [selection, setSelection] = useState<InputFlowSelection | null>(null)
+  // The canvas zoom. Held here because its control lives in the panel's toolbar
+  // (Slice 25 FR-020); the canvas reads it for geometry.
+  const [zoom, setZoom] = useState(1)
+  const [drawer, setDrawer] = useState<'rig' | 'buses' | null>(null)
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['audio-patch', eventId] })
     await queryClient.invalidateQueries({ queryKey: ['rental-summary', eventId] })
   }
+  const addChannelMutation = useMutation({
+    mutationFn: (data: Omit<InputChannel, 'id' | 'event_id'>) => createInputChannel(eventId, data),
+    onSuccess: invalidate,
+  })
 
   const allAudioItems: InventoryItem[] = useMemo(() => inventoryQuery.data ?? [], [inventoryQuery.data])
   const cableItems: InventoryItem[] = useMemo(() => cableQuery.data ?? [], [cableQuery.data])
@@ -62,6 +74,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
   const stageboxes = audioQuery.data?.stageboxes ?? []
   const stageMultis = audioQuery.data?.stage_multis ?? []
   const cables = audioQuery.data?.input_cables ?? []
+  const consoles = audioQuery.data?.consoles ?? []
   const groups = audioQuery.data?.groups ?? []
   const dcas = audioQuery.data?.dcas ?? []
 
@@ -106,80 +119,133 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
     )
   }
 
+  /**
+   * The graph node a sheet hop points at (Slice 25 FR-003). The sheet's node kinds
+   * come from the chain and the graph's from the canvas, and they do not quite
+   * agree: a chain's tail is the channel row itself, which is not a box you can
+   * select — the input graph's `channel` nodes are keyed by *desk*, not by channel
+   * — and `mixer`/`device_link` do not exist on this graph at all. Those return
+   * nothing, and the caller then leaves the view alone rather than switching to a
+   * canvas with nothing selected.
+   */
+  const flowSelectionFor = (node: SegmentNode): InputFlowSelection | null => {
+    switch (node.kind) {
+      case 'source':
+      case 'stagebox':
+      case 'stage_multi':
+      case 'device':
+      case 'console_local':
+        return { kind: node.kind, id: node.id }
+      default:
+        return null
+    }
+  }
+
+  const openInFlow = (node: SegmentNode) => {
+    const next = flowSelectionFor(node)
+    if (!next) return
+    setSelection(next)
+    setView('flow')
+  }
+
+  const addChannel = () => {
+    const highest = channels.reduce((max, channel) => Math.max(max, channel.channel_number), 0)
+    addChannelMutation.mutate({ channel_number: highest + 1, width: 'mono', mixer_behavior: 'stereo_channel' })
+  }
+
   return (
     <>
-      <div className="print:hidden space-y-6">
-        <BusSection eventId={eventId} groups={groups} dcas={dcas} channels={channels} readOnly={readOnly} />
-        <ChannelSection
-          eventId={eventId}
-          channels={channels}
-          sources={sources}
-          devices={devices}
-          stageboxes={stageboxes}
-          stageMultis={stageMultis}
-          cables={cables}
-          groups={groups}
-          dcas={dcas}
-          readOnly={readOnly}
-        />
-        <StageboxMultiSection eventId={eventId} stageboxes={stageboxes} stageMultis={stageMultis} audioItems={allAudioItems} readOnly={readOnly} />
-        <InputDeviceSection eventId={eventId} devices={devices} audioItems={allAudioItems} ownedItems={ownedItems} readOnly={readOnly} />
-        <SourceSection
-          eventId={eventId}
-          sources={sources}
-          micItems={micItems}
-          standItems={standItems}
-          channels={channels}
-          devices={devices}
-          stageboxes={stageboxes}
-          stageMultis={stageMultis}
-          cables={cables}
-          readOnly={readOnly}
-        />
-        <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <CardTitle>Signal flow</CardTitle>
-            <div className="flex gap-2">
-              <div className="inline-flex rounded-lg border border-zinc-700 bg-zinc-900 p-1">
-                <Button size="sm" variant={viewMode === 'graph' ? 'default' : 'ghost'} onClick={() => setViewMode('graph')} className="h-8">
-                  <LayoutGrid className="mr-2 h-4 w-4" />Graph
-                </Button>
-                <Button size="sm" variant={viewMode === 'table' ? 'default' : 'ghost'} onClick={() => setViewMode('table')} className="h-8">
-                  <Table2 className="mr-2 h-4 w-4" />Table
-                </Button>
-              </div>
-              <PrintButton />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {viewMode === 'graph' ? (
-              <InputGraphCanvas
-                eventId={eventId}
-                sources={sources}
-                channels={channels}
-                devices={devices}
-                stageboxes={stageboxes}
-                stageMultis={stageMultis}
-                cables={cables}
-                cableItems={cableItems}
-                onChanged={invalidate}
-                readOnly={readOnly}
-              />
-            ) : (
-              <InputResourceTable
-                sources={sources}
-                channels={channels}
-                devices={devices}
-                stageboxes={stageboxes}
-                stageMultis={stageMultis}
-                cables={cables}
-                itemLabelById={itemLabelById}
-                ownedItemLabelById={new Map(ownedItems.map((item) => [item.id, item.name]))}
-              />
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <AudioPatchShell
+        tab="inputs"
+        view={view}
+        onViewChange={setView}
+        search={search}
+        onSearchChange={setSearch}
+        onOpenRig={readOnly ? undefined : () => setDrawer('rig')}
+        onOpenBuses={readOnly ? undefined : () => setDrawer('buses')}
+        onAdd={readOnly ? undefined : addChannel}
+        toolbarExtras={view === 'flow' ? <ZoomControl zoom={zoom} onZoomChange={setZoom} /> : undefined}
+        drawers={
+          <>
+            <RigDrawer
+              open={drawer === 'rig'}
+              onClose={() => setDrawer(null)}
+              eventId={eventId}
+              stageboxes={stageboxes}
+              stageMultis={stageMultis}
+              audioItems={allAudioItems}
+              cables={[...cables, ...(audioQuery.data?.output_cables ?? [])]}
+              itemCount={consoles.length + stageboxes.length + stageMultis.length + devices.length}
+              readOnly={readOnly}
+              consoleSection={
+                <ConsoleSection
+                  eventId={eventId}
+                  consoles={consoles}
+                  channels={channels}
+                  outputs={audioQuery.data?.outputs ?? []}
+                  audioItems={allAudioItems}
+                  ownedItems={ownedItems}
+                  readOnly={readOnly}
+                />
+              }
+              deviceSections={
+                <InputDeviceSection eventId={eventId} devices={devices} audioItems={allAudioItems} ownedItems={ownedItems} readOnly={readOnly} />
+              }
+            />
+            <BusesDrawer
+              open={drawer === 'buses'}
+              onClose={() => setDrawer(null)}
+              eventId={eventId}
+              groups={groups}
+              dcas={dcas}
+              channels={channels}
+              readOnly={readOnly}
+            />
+          </>
+        }
+      >
+        {view === 'sheet' ? (
+          <InputSheet
+            eventId={eventId}
+            channels={channels}
+            sources={sources}
+            devices={devices}
+            stageboxes={stageboxes}
+            stageMultis={stageMultis}
+            cables={cables}
+            groups={groups}
+            dcas={dcas}
+            consoles={consoles}
+            cableItems={cableItems}
+            itemLabelById={itemLabelById}
+            search={search}
+            onEditInFlow={openInFlow}
+            onOpenRig={readOnly ? undefined : () => setDrawer('rig')}
+            readOnly={readOnly}
+          />
+        ) : (
+          <InputGraphCanvas
+            eventId={eventId}
+            sources={sources}
+            channels={channels}
+            devices={devices}
+            stageboxes={stageboxes}
+            stageMultis={stageMultis}
+            cables={cables}
+            cableItems={cableItems}
+            consoles={consoles}
+            micItems={micItems}
+            standItems={standItems}
+            itemLabelById={itemLabelById}
+            search={search}
+            selection={selection}
+            onSelectionChange={setSelection}
+            zoom={zoom}
+            onChanged={invalidate}
+            readOnly={readOnly}
+          />
+        )}
+      </AudioPatchShell>
       <InputPatchSheet
         eventId={eventId}
         channels={channels}
@@ -190,111 +256,9 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
         cables={cables}
         groups={groups}
         dcas={dcas}
+        consoles={consoles}
         itemLabelById={itemLabelById}
       />
     </>
-  )
-}
-
-const ZONE_LABEL: Record<string, string> = { sources: 'source', processing: 'processing', channels: 'channel' }
-const ZONE_BADGE_VARIANT: Record<string, string> = { sources: 'foh', processing: 'warning', channels: 'success' }
-
-interface ResourceRow {
-  key: string
-  name: string
-  zone: string
-  ports: string
-  from: string
-  to: string
-  item: string
-}
-
-/** Flat "all resources" alternative to the graph — one row per node (not per cable), mirroring the Output graph's OutputResourceTable. */
-function InputResourceTable({
-  sources,
-  channels,
-  devices,
-  stageboxes,
-  stageMultis,
-  cables,
-  itemLabelById,
-  ownedItemLabelById,
-}: {
-  sources: InputSource[]
-  channels: InputChannel[]
-  devices: InputDevice[]
-  stageboxes: Stagebox[]
-  stageMultis: StageMulti[]
-  cables: InputCable[]
-  itemLabelById: Map<number, string>
-  ownedItemLabelById: Map<number, string>
-}) {
-  const context = { sources, channels, devices, stageboxes, stageMultis }
-
-  function upstreamOf(kinds: PortRef['kind'][], id: number): string {
-    const names = new Set(cables.filter((c) => kinds.includes(c.to_kind) && c.to_id === id).map((c) => nodeName(c.from_kind, c.from_id, context)))
-    return names.size > 0 ? [...names].join(', ') : '—'
-  }
-  function downstreamOf(kinds: PortRef['kind'][], id: number): string {
-    const counts = new Map<string, number>()
-    for (const c of cables) {
-      if (!kinds.includes(c.from_kind) || c.from_id !== id) continue
-      const name = nodeName(c.to_kind, c.to_id, context)
-      counts.set(name, (counts.get(name) ?? 0) + 1)
-    }
-    if (counts.size === 0) return '—'
-    return [...counts.entries()].map(([name, count]) => (count > 1 ? `${name} (×${count})` : name)).join(', ')
-  }
-
-  const rows: ResourceRow[] = []
-  for (const source of sources) {
-    const ports = source.width === 'stereo' ? 'out · 2' : 'out · 1'
-    rows.push({ key: `src-${source.id}`, name: source.name, zone: 'sources', ports, from: '—', to: downstreamOf(['source'], source.id), item: source.mic_item_id ? itemLabelById.get(source.mic_item_id) ?? `#${source.mic_item_id}` : '—' })
-  }
-  for (const sb of stageboxes) {
-    rows.push({ key: `sb-${sb.id}`, name: sb.name, zone: 'processing', ports: `in ${sb.input_count} · out ${sb.input_count}`, from: upstreamOf(['stagebox'], sb.id), to: downstreamOf(['stagebox'], sb.id), item: sb.inventory_item_id ? itemLabelById.get(sb.inventory_item_id) ?? `#${sb.inventory_item_id}` : '—' })
-  }
-  for (const sm of stageMultis) {
-    rows.push({ key: `sm-${sm.id}`, name: sm.name, zone: 'processing', ports: `in ${sm.channels} · out ${sm.channels}`, from: upstreamOf(['stage_multi'], sm.id), to: downstreamOf(['stage_multi'], sm.id), item: sm.inventory_item_id ? itemLabelById.get(sm.inventory_item_id) ?? `#${sm.inventory_item_id}` : '—' })
-  }
-  for (const device of devices) {
-    const item = device.inventory_item_id
-      ? itemLabelById.get(device.inventory_item_id) ?? `#${device.inventory_item_id}`
-      : device.owned_item_id
-        ? ownedItemLabelById.get(device.owned_item_id) ?? `#${device.owned_item_id}`
-        : '—'
-    rows.push({ key: `dev-${device.id}`, name: device.name, zone: 'processing', ports: `in ${device.input_port_count} · out ${device.output_port_count}`, from: upstreamOf(['device'], device.id), to: downstreamOf(['device'], device.id), item })
-  }
-  for (const channel of channels) {
-    const zone = nodeZone('channel')
-    rows.push({ key: `ch-${channel.id}`, name: channel.channel_name || `Ch ${channel.channel_number}`, zone, ports: 'in · 1', from: upstreamOf(['stagebox', 'stage_multi', 'device', 'source'], channel.id), to: '—', item: '—' })
-  }
-
-  return (
-    <div>
-      <div className="mb-2 flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-zinc-300">All resources</h4>
-        <span className="font-mono text-xs text-zinc-500">{sources.length + devices.length + stageboxes.length + stageMultis.length + channels.length} nodes · {cables.length} cables</span>
-      </div>
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>{['Resource', 'Kind', 'Ports', 'From', 'To', 'Item'].map((h) => <TableHead key={h}>{h}</TableHead>)}</TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row) => (
-              <TableRow key={row.key}>
-                <TableCell>{row.name}</TableCell>
-                <TableCell><Badge variant={ZONE_BADGE_VARIANT[row.zone]}>{ZONE_LABEL[row.zone]}</Badge></TableCell>
-                <TableCell className="font-mono text-xs text-zinc-400">{row.ports}</TableCell>
-                <TableCell className="text-zinc-400">{row.from}</TableCell>
-                <TableCell className="text-zinc-400">{row.to}</TableCell>
-                <TableCell>{row.item}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-    </div>
   )
 }

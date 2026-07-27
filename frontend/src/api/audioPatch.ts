@@ -1,4 +1,4 @@
-import type { AudioPatchOutput, AudioPatchResponse, BusRequest, InputCable, InputChannel, InputDevice, InputSource, MixerDCA, MixerGroup, OutputCable, OutputDevice, Stagebox, StageMulti } from '../types'
+import type { AudioPatchOutput, AudioPatchResponse, BusRequest, Console, InputCable, InputChannel, InputDevice, InputSource, MixerDCA, MixerGroup, OutputCable, OutputDevice, Stagebox, StageMulti } from '../types'
 import { get, request } from './client'
 
 // Forwards TanStack Query's AbortSignal — this query is invalidated very
@@ -84,5 +84,11 @@ export const updateOutputCable = (eventId: number, cableId: number, cableItemId:
 export const deleteOutputCable = (eventId: number, cableId: number) =>
   request<void>(`/events/${eventId}/output-cables/${cableId}`, { method: 'DELETE' })
 
-export const updateOutputMixerPosition = (eventId: number, positionY: number) =>
-  request<void>(`/events/${eventId}/output-mixer-position`, { method: 'PATCH', body: JSON.stringify({ position_y: positionY }) })
+// Consoles (Slice 23). The desk's canvas position travels on the console
+// itself, which is what replaced the old /output-mixer-position route.
+export const createConsole = (eventId: number, data: Partial<Omit<Console, 'id' | 'event_id'>>) =>
+  request<Console>(`/events/${eventId}/consoles`, { method: 'POST', body: JSON.stringify(data) })
+export const updateConsole = (eventId: number, consoleId: number, data: Partial<Omit<Console, 'id' | 'event_id'>>) =>
+  request<Console>(`/events/${eventId}/consoles/${consoleId}`, { method: 'PATCH', body: JSON.stringify(data) })
+export const deleteConsole = (eventId: number, consoleId: number) =>
+  request<{ cleared_cables: number }>(`/events/${eventId}/consoles/${consoleId}`, { method: 'DELETE' })

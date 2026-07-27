@@ -443,20 +443,33 @@ func TestStageboxPassThroughAndMixerFanOut(t *testing.T) {
 		t.Errorf("cable line audio=%d, want 1 (only the stagebox->device leg)", line.QuantityAudio)
 	}
 
-	// Mixer position round-trips through its own dedicated endpoint.
-	status, raw = doJSON(t, http.MethodPatch, fmt.Sprintf("%s/events/%d/output-mixer-position", server.URL, eventID), map[string]any{"position_y": 123.5})
-	if status != http.StatusNoContent {
-		t.Fatalf("PATCH mixer position: status %d body %s", status, raw)
+	// The desk's canvas position round-trips through the console itself since
+	// Slice 23 — the dedicated /output-mixer-position route is gone, along with
+	// events.output_mixer_position_y, because two places storing where the desk
+	// sits would drift.
+	status, raw = doJSON(t, http.MethodGet, fmt.Sprintf("%s/events/%d/audio-patch", server.URL, eventID), nil)
+	if status != http.StatusOK {
+		t.Fatalf("GET patch: status %d body %s", status, raw)
+	}
+	consoles := decodeJSON[struct {
+		Consoles []domain.Console `json:"consoles"`
+	}](t, raw).Consoles
+	if len(consoles) != 1 {
+		t.Fatalf("consoles = %d, want the one backfilled by migration 042", len(consoles))
+	}
+	status, raw = doJSON(t, http.MethodPatch, fmt.Sprintf("%s/events/%d/consoles/%d", server.URL, eventID, consoles[0].ID), map[string]any{"position_y": 123.5})
+	if status != http.StatusOK {
+		t.Fatalf("PATCH console position: status %d body %s", status, raw)
 	}
 	status, raw = doJSON(t, http.MethodGet, fmt.Sprintf("%s/events/%d/audio-patch", server.URL, eventID), nil)
 	if status != http.StatusOK {
 		t.Fatalf("GET patch: status %d body %s", status, raw)
 	}
 	patch := decodeJSON[struct {
-		OutputMixerPositionY float64 `json:"output_mixer_position_y"`
+		Consoles []domain.Console `json:"consoles"`
 	}](t, raw)
-	if patch.OutputMixerPositionY != 123.5 {
-		t.Errorf("mixer position_y = %v, want 123.5", patch.OutputMixerPositionY)
+	if patch.Consoles[0].PositionY != 123.5 {
+		t.Errorf("console position_y = %v, want 123.5", patch.Consoles[0].PositionY)
 	}
 }
 

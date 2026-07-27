@@ -183,6 +183,8 @@ export interface InputChannel {
   /** Meaningful only when width is 'stereo'; console-number display only, never affects routing/counting. */
   mixer_behavior: 'stereo_channel' | 'linked_channels'
   notes?: string
+  /** Which desk this channel is a strip on; absent when the event has no console. */
+  console_id?: number
 }
 
 /**
@@ -222,10 +224,10 @@ export interface InputDevice {
 export interface InputCable {
   id: number
   event_id: number
-  from_kind: 'source' | 'stagebox' | 'stage_multi' | 'device'
+  from_kind: 'source' | 'stagebox' | 'stage_multi' | 'device' | 'console_local'
   from_id: number
   from_port: number
-  to_kind: 'stagebox' | 'stage_multi' | 'device' | 'channel'
+  to_kind: 'stagebox' | 'stage_multi' | 'device' | 'channel' | 'console_local'
   to_id: number
   to_port: number
   cable_item_id?: number
@@ -281,10 +283,10 @@ export interface OutputDevice {
 export interface OutputCable {
   id: number
   event_id: number
-  from_kind: 'mixer' | 'stagebox' | 'stage_multi' | 'device' | 'device_link'
+  from_kind: 'mixer' | 'stagebox' | 'stage_multi' | 'device' | 'device_link' | 'console_local'
   from_id: number
   from_port: number
-  to_kind: 'stagebox' | 'stage_multi' | 'device'
+  to_kind: 'stagebox' | 'stage_multi' | 'device' | 'console_local'
   to_id: number
   to_port: number
   cable_item_id?: number
@@ -302,6 +304,44 @@ export interface AudioPatchOutput {
   /** 'mono' (default) or 'stereo'. No mixer-behavior equivalent — outputs have no console-strip semantics. */
   width: 'mono' | 'stereo'
   notes?: string
+  /** Which desk this output comes off; absent when the event has no console. */
+  console_id?: number
+}
+
+/**
+ * A mixing desk booked for an event (Slice 23) — the entity the audio model
+ * never had. Shaped like a Stagebox: event-scoped, at most one of
+ * inventory_item_id/owned_item_id, port counts typed per event, and a canvas
+ * position per graph. A count of 0 means "not declared", never "over capacity
+ * by every row". Local jacks are addressable as ports of kind
+ * 'console_local', which is what lets a source reach a channel with no
+ * stagebox in the path.
+ */
+export interface Console {
+  id: number
+  event_id: number
+  name: string
+  role: 'foh' | 'monitor' | 'broadcast'
+  inventory_item_id?: number
+  owned_item_id?: number
+  input_count: number
+  output_count: number
+  local_input_count: number
+  local_output_count: number
+  /** The desk's own node — pinned to its lane on both graphs, so only y is used. */
+  position_x: number
+  position_y: number
+  input_position_x: number
+  input_position_y: number
+  /**
+   * The desk's local jack panel — a second node per graph since Slice 24, drawn
+   * as a pass-through in the processing lane exactly as a stagebox is. Freely
+   * positioned, so both axes are used.
+   */
+  local_position_x: number
+  local_position_y: number
+  local_input_position_x: number
+  local_input_position_y: number
 }
 
 export interface LightingRig {
@@ -446,8 +486,8 @@ export interface AudioPatchResponse {
   outputs: AudioPatchOutput[]
   output_devices: OutputDevice[]
   output_cables: OutputCable[]
-  /** The mixer node's canvas Y position in the Sources/Channels rail (X is fixed). */
-  output_mixer_position_y: number
+  /** The event's desks, each carrying its own position on both canvases. */
+  consoles: Console[]
 }
 
 export interface LightingRigResponse {

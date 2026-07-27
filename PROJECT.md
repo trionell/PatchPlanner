@@ -54,63 +54,137 @@ Both spreadsheet formats go through **one** import button and one route: the ser
 
 Common to all three: the import is non-destructive — matched items keep their identity (and all plan references), items missing from the new list are flagged *discontinued* rather than deleted, and a failed import rolls back completely. Each item carries name, description, available quantity, and ex-VAT price. The inventory page browses all categories and items with type filtering.
 
-### 2.3 Stagebox and Stage Multi Management
+### 2.3 The Rig: Consoles, Stageboxes, Stage Multis and Devices
 
-Stageboxes and stage multicores are modeled as **named, reusable entities per event** (not free-text fields in patch rows), so the channel constraint is enforced and the rental reference is maintained.
+Everything the signal passes through is a **named, reusable entity per event**,
+declared once and shared by both audio tabs — never a free-text field on a patch
+row. All of it lives in the **Rig drawer**, reachable from either tab's toolbar,
+and every row in it that names a catalog or owned item is one line on the rental
+order. Every section reads the same way (Slice 24): a heading with a count and
+an add control, one card per declared item stating its name, the item it stands
+for, its capacity and how much of that capacity the patch uses — and its fields
+only once **Edit** is pressed. Nothing in the drawer is placed beside anything
+else, so every field has the drawer's full width.
 
-**Stageboxes:**
-- Add a stagebox by name and optionally link it to an inventory item (e.g. a Behringer S32 from the catalog).
-- Input and output channel counts are auto-parsed from the inventory item's description (e.g. "32/16" → 32 inputs, 16 outputs) or entered manually.
-- Connection type (analog, AES, Dante, MADI, EtherSound, AVB) is selectable.
-- Inline editing of existing stageboxes; delete with referential integrity enforcement.
+**Consoles** (Slice 23). The desk itself: a display name, a role (FOH, monitor,
+broadcast), the catalog or owned item it was booked as, and how many networked
+inputs and outputs plus local jacks it has. An event may hold several — FOH plus
+monitors is an ordinary rider — and each input channel and each output names the
+desk it belongs to. Counts are typed per event rather than read from the catalog
+item, because a desk's usable channel count depends on its card fit and licence;
+a count left at zero simply means undeclared and never warns. The desk's own
+local jacks are patchable, so a talkback mic can go straight into its preamp
+with no stagebox in the path.
 
-**Stage Multis:**
-- Add a multicore cable by name and optionally link it to an inventory item.
-- Channel count is auto-parsed from description or entered manually.
-- Connector type (XLR, CAT5e/6/6a, BNC, optical) and cable length are stored.
+Those local jacks are their own node on each graph (Slice 24), drawn as a
+two-sided pass-through exactly as a stagebox is — signal arrives on the left and
+leaves on the right — because that is what they are to the signal, and drawing
+them the same way is what lets either be picked without learning a second idiom.
+The panel is placed independently on each canvas, and no node is drawn for a desk
+that has declared no local jacks.
 
-### 2.4 Audio Inputs Patch
+**Stageboxes.** Name plus an optional inventory item; input and output counts
+auto-parsed from the item's description ("32/16" → 32 in, 16 out) or typed;
+connection type (analog, AES, Dante, MADI, EtherSound, AVB). Deleting one clears
+the cables that referenced it rather than blocking.
 
-A full input patch list for a mixer show, with every column a working FOH engineer would need on a patch sheet.
+**Stage multis.** Name plus an optional inventory item; channel count parsed or
+typed; connector type and cable length. A multi's own body is the cable for its
+entire run, so nothing leaving it is separately billable.
 
-| Field | Description |
-|-------|-------------|
-| Channel # | Mixer channel number |
-| Channel name | Label (e.g. "Kick In", "Lead Vox") |
-| Signal type | `mic`, `line`, `DI`, `return`, or `aux` |
-| Preamp connector | XLR, Jack TS/TRS, RCA, Combo, USB |
-| Stagebox | Named stagebox (from event's stagebox list) |
-| Stagebox channel | Channel on that stagebox (dropdown constrained to input count) |
-| Stage multi | Named multicore (from event's multi list) |
-| Multi channel | Channel on that multicore (dropdown constrained to channel count) |
-| Mic/DI model | Inventory-filtered by signal type: mics for `mic`, line boxes for `DI`, IEM for `return` |
-| Cable type | XLR, Jack TS/TRS, RCA, or Combo |
-| Cable length (m) | Numeric |
-| Mic stand | `straight`, `boom`, `low`, `desk`, `clip`, or `none` |
-| 48V phantom power | Toggle |
-| DCA / Group | Free-text assignment label |
+**Processing and destination devices.** DI boxes, splitters, amplifiers,
+speakers, recorders — declared with a port count and connector type per side
+(either side may be zero, which is what makes a device a pure source or a pure
+destination) and counted once on the order however many cables reference it.
+
+### 2.4 Audio Inputs
+
+One surface with two views (Slice 23), in a single framed panel (Slice 25): a
+toolbar across the top carrying the tab's name, the view toggle, a search box, the
+Rig and Buses drawers, the canvas zoom in Flow, print and one add action — then the
+content, then a status strip closing the panel. Switching view changes what is
+inside the frame and nothing else.
+
+The sheet is dense on purpose: mono uppercase micro-labels for headings on a ground
+darker than the rows, one line per row, striping subtle enough to read as an aid,
+tabular figures so digits align, and the tape colour as a short bar beside the name.
+A hop through the desk's own socket is drawn in amber, because it is the one hop on
+a chain that is not a billable cable.
+
+**Sheet** — the view you land on. One line per channel:
+
+| Column | Description |
+|--------|-------------|
+| Ch | Console channel number |
+| Name | Label (e.g. "Kick In", "Lead Vox") |
+| W | Mono or stereo — a stereo channel is one row with two ports |
+| Chain | The whole signal path in order: mic → every hop → desk channel, each hop its own click target |
+| 48 V | Red bar when a source feeding this channel has phantom power on |
+| Buses | Mix-group and DCA chips, tinted by bus colour |
 | Notes | Freeform |
 
-- All rows are inline-editable; changes persist on field blur (no Save button needed).
-- Dropdowns for `mic_model`, `stagebox`, `stage_multi` are populated from live event data and filtered inventory — no free text for things that exist in the catalog.
+Clicking a row opens an editor in place holding the channel's own fields only —
+name, width, tape colour, buses, notes; routing is decided in Flow, reachable
+from the editor itself via **Edit in Flow**, which selects the row's own source.
+One row is open at a time, opening another saves and closes the first, `Esc`
+discards and `⌘↵` saves and moves on. A missing link is named in place ("no source"), never
+an empty cell, and a status rail under the list states the channel count, each
+desk's used-against-declared capacity, per-box usage, cables picked, and any
+gaps — plus an over-capacity warning when the patch has outgrown the booked desk.
 
-### 2.5 Audio Outputs Patch
+**Flow** — the same data seen sideways, one toggle away. Three lanes follow the
+signal (Stage, Rig, Console). The desk's channel rail sits in the Console lane;
+its local jack panel sits in the Rig lane with the stageboxes, because that is
+where signal passes through it. Sources are one consolidated scrollable rail of
+20px rows carrying a derived colour tape, the source name, the picked mic, a red
+48 V bar and the patchable port; a stereo source is two port slots tall with `L`
+above `R`, each side cabled independently. Cables are drawn as bezier runs with
+two independent encodings: **hue** is the channel the run reaches (only when
+every reachable channel agrees), **dash pattern** is what kind of link it is.
+Selecting a node opens an inspector rail on the right, holding a source's mic,
+stand, connector, width and phantom power — each field beside its label — plus a
+note stating what the source reaches and a legend drawing each line style rather
+than describing it. Pressing **Edit in Flow** in the sheet opens the graph with that
+row's own source already selected and its editor open; what is selected belongs to
+the tab and survives switching view. Both graphs draw their boxes, ports and rows
+from one shared set of components, and both draw the same inspector rail, so a box
+on Inputs and a box on Outputs cannot drift apart: a pass-through is one row per
+jack with its two ports on opposite edges, and every jack is drawn — a box that
+hides eight of them is not a shorter box but an incomplete one. Every node on either
+canvas can be dragged, including the one holding rows that belong to no desk — that
+one keeps its position for the session only, since there is no row to store it on.
 
-Output routing with full destination modeling.
+### 2.5 Audio Outputs
 
-| Field | Description |
-|-------|-------------|
-| Output # | Mixer output number |
-| Output name | Label (e.g. "FOH L", "Monitor 3") |
-| Output type | `foh`, `monitor`, `sub`, `aux`, `matrix`, `stereo`, `iem` |
-| Destination type | `local`, `stagebox`, `stage-multi` |
-| Stagebox / channel | If destination is stagebox (constrained dropdown) |
-| Stage multi / channel | If destination is stage-multi (constrained dropdown) |
-| Amplifier | Inventory-filtered to amplifier/crossover category |
-| Speaker | Inventory-filtered to speaker categories |
-| Cable type | XLR, NL4, NL8, or Jack TS (speaker cable types) |
-| Cable length (m) | Numeric |
+The mirror of Audio Inputs, reading outward from the desk instead of inward to
+it, in the same shell with the same Rig drawer against the same equipment. The
+Sheet's chain starts at the named desk output and runs out to the last
+destination; the Desk column and filter appear only when the event has more than
+one console. Outputs have no bus membership, so there is no Buses drawer here.
+
+| Column | Description |
+|--------|-------------|
+| Out | Console output number |
+| Name | Label (e.g. "FOH L/R", "Mon 1 · SR wedge") |
+| Desk | Which console — shown only with more than one |
+| Type | `foh`, `monitor`, `sub`, `aux`, `matrix`, `stereo`, `iem` |
+| W | Mono or stereo |
+| Chain | Desk output → every hop → destination, each hop clickable |
 | Notes | Freeform |
+
+**Flow** — the same three lanes mirrored (Console, Rig, Stage), and editable, not
+only readable. Clicking an output row's label in a desk's bus list opens the same
+inspector rail the Inputs canvas uses, holding every field the sheet's row editor
+holds — number, name, type, width, tape colour, desk and notes — so an output can be
+worked on in whichever view the routing is already visible in. Two gestures share a
+row: the **label** opens the rail, the **port dot** still starts a cable. A stereo
+output's two rows answer to one selection. The rail also states where the output
+lands, read from the same chain model the sheet's Chain column renders, so the two
+cannot disagree; and it offers Duplicate (the row's fields, not its cabling, at the
+next free number) and Delete. Selecting a stagebox, stage multi, device or a desk's
+local jack panel opens the rail on that box, pointing at the Rig drawer for its
+fields. The desk box itself is not selectable — its fields live in the Rig drawer,
+and its rows each have a rail.
 
 ### 2.6 Lighting Rig
 

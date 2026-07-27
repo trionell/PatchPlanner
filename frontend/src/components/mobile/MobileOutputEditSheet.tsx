@@ -56,6 +56,8 @@ export function MobileOutputEditSheet({
           color,
           width: output.width,
           notes,
+          // See MobileChannelEditSheet: carry the desk rather than clearing it.
+          console_id: output.console_id,
         })
       } else {
         const nextNumber = Math.max(0, ...outputs.map((o) => o.output_number)) + 1

@@ -1,17 +1,15 @@
 import { useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { LayoutGrid, Minus, Plus, Table2, Trash2, Unplug } from 'lucide-react'
+import { Unplug } from 'lucide-react'
 import {
   createAudioOutput,
   createOutputCable,
-  deleteAudioOutput,
   deleteOutputCable,
   deleteOutputDevice,
   getAudioPatch,
-  updateAudioOutput,
   updateOutputCable,
   updateOutputDevice,
-  updateOutputMixerPosition,
+  updateConsole,
   updateStagebox,
   updateStageMulti,
 } from '../../api/audioPatch'
@@ -19,39 +17,46 @@ import { listEventInventoryItems } from '../../api/inventory'
 import { listOwnedItems } from '../../api/owned'
 import { useDraftState } from '../../hooks/useDraftState'
 import { useIsMobile } from '../../hooks/useIsMobile'
-import { useReferenceData } from '../../hooks/useReferenceData'
+import { usePatchView } from '../../hooks/usePatchView'
 import { buildMobileOutputList } from '../../lib/mobileOutputList'
+import { matchesSearch } from '../../lib/patchSearch'
+import type { SegmentNode } from '../../lib/patchSheet'
 import { MobileEntityList } from '../mobile/MobileEntityList'
 import { MobileOutputEditSheet } from '../mobile/MobileOutputEditSheet'
 import {
   cableAtPort,
+  consoleLocalPorts,
+  derivedCableColor,
+  derivedOutputPortColor,
   devicePorts,
   isCablelessToKind,
   isPortConnected,
   mixerPorts,
-  nodeName,
   nodeZone,
   resolvePortRef,
   stageboxPorts,
   stageMultiPorts,
+  type OutputColorContext,
   type PortRef,
   type Zone,
 } from '../../lib/outputGraph'
 import { itemLabel } from '../../lib/utils'
-import type { AudioPatchOutput, InventoryItem, OutputCable, OutputDevice, OwnedItem, StageMulti, Stagebox } from '../../types'
+import type { AudioPatchOutput, Console, InventoryItem, OutputCable, OutputDevice, OwnedItem, StageMulti, Stagebox } from '../../types'
+import { AudioPatchShell } from './AudioPatchShell'
+import { OutputFlowInspector, type OutputFlowSelection } from './OutputFlowInspector'
+import { LaneBands } from './graph/LaneBands'
+import { NodeShell as SharedNodeShell } from './graph/NodeShell'
+import { PortRow as SharedPortRow, SplitPortRow, type PortWiring } from './graph/PortRow'
+import { ZoomControl } from './graph/ZoomControl'
+import { ConsoleSection } from './ConsoleSection'
+import { OutputSheet } from './OutputSheet'
 import { ProcessingDeviceSection } from './ProcessingDeviceSection'
+import { RigDrawer } from './RigDrawer'
 import { TrueOutputDeviceSection } from './TrueOutputDeviceSection'
 import { OutputPatchSheet } from '../print/OutputPatchSheet'
-import { PrintButton } from '../print/PrintButton'
-import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
 import { Dialog } from '../ui/Dialog'
-import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table'
-import { ColorSelect } from './ColorSelect'
-import { StageboxMultiSection } from './StageboxMultiSection'
 
 const portKey = (kind: PortRef['kind'], id: number, port: number, direction: 'in' | 'out') => `${kind}|${id}|${port}|${direction}`
 
@@ -74,18 +79,28 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
   })
   const ownedQuery = useQuery({ queryKey: ['owned-items'], queryFn: listOwnedItems })
 
-  const [outputs, setOutputs] = useDraftState(audioQuery.data, (data) => data.outputs, [] as AudioPatchOutput[])
-  const [viewMode, setViewMode] = useState<'graph' | 'table'>('graph')
+  // Still a draft copy because the mobile list and the canvas both read it;
+  // the sheet writes through its own mutations and refetches.
+  const [outputs] = useDraftState(audioQuery.data, (data) => data.outputs, [] as AudioPatchOutput[])
   const isMobile = useIsMobile()
   const [editingOutputId, setEditingOutputId] = useState<number | 'new' | null>(null)
+  const [view, setView] = usePatchView(eventId, 'outputs')
+  const [search, setSearch] = useState('')
+  const [rigOpen, setRigOpen] = useState(false)
+  const [zoom, setZoom] = useState(1)
+  // What the graph has selected, and so what its inspector is open on. Held here
+  // rather than in the canvas so it survives the view toggle and so the sheet can
+  // set it (Slice 25 FR-001/FR-002). Since Slice 26 a selection can be a single
+  // output *row* and not only a box, which is what makes an output editable in the
+  // Flow view; the desk box itself is no longer selectable, because its own fields
+  // live in the Rig drawer and its rows each have a rail now (research.md R3).
+  const [selection, setSelection] = useState<OutputFlowSelection | null>(null)
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['audio-patch', eventId] })
     await queryClient.invalidateQueries({ queryKey: ['rental-summary', eventId] })
   }
   const addOutputMutation = useMutation({ mutationFn: (payload: Omit<AudioPatchOutput, 'id'>) => createAudioOutput(eventId, payload), onSuccess: invalidate })
-  const saveOutputMutation = useMutation({ mutationFn: ({ id, payload }: { id: number; payload: Omit<AudioPatchOutput, 'id'> }) => updateAudioOutput(eventId, id, payload), onSuccess: invalidate })
-  const deleteOutputMutation = useMutation({ mutationFn: (id: number) => deleteAudioOutput(eventId, id), onSuccess: invalidate })
 
   const allAudioItems: InventoryItem[] = useMemo(() => inventoryQuery.data ?? [], [inventoryQuery.data])
   const cableItems: InventoryItem[] = useMemo(() => cableQuery.data ?? [], [cableQuery.data])
@@ -94,25 +109,38 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
   const stageMultis = audioQuery.data?.stage_multis ?? []
   const outputDevices = audioQuery.data?.output_devices ?? []
   const outputCables = audioQuery.data?.output_cables ?? []
-  const mixerPositionY = audioQuery.data?.output_mixer_position_y ?? 0
+  const consoles = audioQuery.data?.consoles ?? []
 
   const itemLabelById = useMemo(
     () => new Map([...allAudioItems, ...cableItems].map((item) => [item.id, itemLabel(item)])),
     [allAudioItems, cableItems],
   )
-  const ownedItemLabelById = useMemo(() => new Map(ownedItems.map((item) => [item.id, item.name])), [ownedItems])
 
-  function updateDraft<K extends keyof AudioPatchOutput>(index: number, key: K, value: AudioPatchOutput[K]) {
-    setOutputs((current) => current.map((row, rowIndex) => (rowIndex === index ? { ...row, [key]: value } : row)))
+  /**
+   * The graph node a sheet *hop* points at (Slice 25 FR-003). A chain's head is the
+   * desk output, which is now selectable in its own right — but as an `output`, not as
+   * a box, so a head hop still selects nothing here and `openOutputInFlow` below is
+   * what the row's own button uses. A `device_link` hop lives on the same box as the
+   * device's ordinary ports, so it selects the device.
+   */
+  const openInFlow = (node: SegmentNode) => {
+    const kind = node.kind === 'device_link' ? 'device' : node.kind
+    if (kind !== 'stagebox' && kind !== 'stage_multi' && kind !== 'device' && kind !== 'console_local') return
+    setSelection({ kind, id: node.id })
+    setView('flow')
   }
-  async function persistOutput(row: AudioPatchOutput) {
-    await saveOutputMutation.mutateAsync({ id: row.id, payload: row })
+
+  /**
+   * The sheet row's own "Edit in Flow" (Slice 26). It selects the **output**, because
+   * that is the row, and since this slice the row is a thing the flow view can edit.
+   * Before, the button had to settle for the first box downstream of the desk — which
+   * opened a stagebox when what you asked to edit was a bus.
+   */
+  const openOutputInFlow = (output: AudioPatchOutput) => {
+    setSelection({ kind: 'output', id: output.id })
+    setView('flow')
   }
-  function updateAndPersistOutput(index: number, patch: Partial<AudioPatchOutput>) {
-    const updated = { ...outputs[index], ...patch }
-    setOutputs((current) => current.map((row, rowIndex) => (rowIndex === index ? updated : row)))
-    void persistOutput(updated)
-  }
+
   const addOutputRow = () => {
     const lastNumber = outputs.at(-1)?.output_number ?? 0
     addOutputMutation.mutate({ event_id: eventId, output_number: lastNumber + 1, output_name: '', output_type: 'foh', width: 'mono', notes: '' })
@@ -155,73 +183,83 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
 
   return (
     <>
-      <div className="print:hidden space-y-6">
-        <OutputChannelsSection
-          eventId={eventId}
-          outputs={outputs}
-          onUpdateDraft={updateDraft}
-          onPersist={(index) => persistOutput(outputs[index])}
-          onUpdateAndPersist={updateAndPersistOutput}
-          onAdd={addOutputRow}
-          onDelete={(id) => deleteOutputMutation.mutate(id)}
-          readOnly={readOnly}
-        />
-        <StageboxMultiSection eventId={eventId} stageboxes={stageboxes} stageMultis={stageMultis} audioItems={allAudioItems} readOnly={readOnly} />
-        <ProcessingDeviceSection eventId={eventId} devices={outputDevices} audioItems={allAudioItems} ownedItems={ownedItems} readOnly={readOnly} />
-        <TrueOutputDeviceSection eventId={eventId} devices={outputDevices} audioItems={allAudioItems} ownedItems={ownedItems} readOnly={readOnly} />
-        <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <CardTitle>Signal flow</CardTitle>
-            <div className="flex gap-2">
-              <div className="inline-flex rounded-lg border border-zinc-700 bg-zinc-900 p-1">
-                <Button
-                  size="sm"
-                  variant={viewMode === 'graph' ? 'default' : 'ghost'}
-                  onClick={() => setViewMode('graph')}
-                  className="h-8"
-                >
-                  <LayoutGrid className="mr-2 h-4 w-4" />Graph
-                </Button>
-                <Button
-                  size="sm"
-                  variant={viewMode === 'table' ? 'default' : 'ghost'}
-                  onClick={() => setViewMode('table')}
-                  className="h-8"
-                >
-                  <Table2 className="mr-2 h-4 w-4" />Table
-                </Button>
-              </div>
-              <PrintButton />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {viewMode === 'graph' ? (
-              <OutputGraphCanvas
+      <AudioPatchShell
+        tab="outputs"
+        view={view}
+        onViewChange={setView}
+        search={search}
+        onSearchChange={setSearch}
+        onOpenRig={readOnly ? undefined : () => setRigOpen(true)}
+        onAdd={readOnly ? undefined : addOutputRow}
+        toolbarExtras={view === 'flow' ? <ZoomControl zoom={zoom} onZoomChange={setZoom} /> : undefined}
+        drawers={
+          <RigDrawer
+            open={rigOpen}
+            onClose={() => setRigOpen(false)}
+            eventId={eventId}
+            stageboxes={stageboxes}
+            stageMultis={stageMultis}
+            audioItems={allAudioItems}
+            cables={[...outputCables, ...(audioQuery.data?.input_cables ?? [])]}
+            itemCount={consoles.length + stageboxes.length + stageMultis.length + outputDevices.length}
+            readOnly={readOnly}
+            consoleSection={
+              <ConsoleSection
                 eventId={eventId}
+                consoles={consoles}
+                channels={audioQuery.data?.input_channels ?? []}
                 outputs={outputs}
-                stageboxes={stageboxes}
-                stageMultis={stageMultis}
-                devices={outputDevices}
-                cables={outputCables}
-                mixerPositionY={mixerPositionY}
-                cableItems={cableItems}
-                onChanged={invalidate}
+                audioItems={allAudioItems}
+                ownedItems={ownedItems}
                 readOnly={readOnly}
               />
-            ) : (
-              <OutputResourceTable
-                outputs={outputs}
-                stageboxes={stageboxes}
-                stageMultis={stageMultis}
-                devices={outputDevices}
-                cables={outputCables}
-                itemLabelById={itemLabelById}
-                ownedItemLabelById={ownedItemLabelById}
-              />
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            }
+            deviceSections={
+              <>
+                <ProcessingDeviceSection eventId={eventId} devices={outputDevices} audioItems={allAudioItems} ownedItems={ownedItems} readOnly={readOnly} />
+                <TrueOutputDeviceSection eventId={eventId} devices={outputDevices} audioItems={allAudioItems} ownedItems={ownedItems} readOnly={readOnly} />
+              </>
+            }
+          />
+        }
+      >
+        {view === 'sheet' ? (
+          <OutputSheet
+            eventId={eventId}
+            outputs={outputs}
+            stageboxes={stageboxes}
+            stageMultis={stageMultis}
+            devices={outputDevices}
+            cables={outputCables}
+            consoles={consoles}
+            cableItems={cableItems}
+            itemLabelById={itemLabelById}
+            search={search}
+            onEditInFlow={openInFlow}
+            onEditOutputInFlow={openOutputInFlow}
+            onOpenRig={readOnly ? undefined : () => setRigOpen(true)}
+            readOnly={readOnly}
+          />
+        ) : (
+          <OutputGraphCanvas
+            eventId={eventId}
+            outputs={outputs}
+            stageboxes={stageboxes}
+            stageMultis={stageMultis}
+            devices={outputDevices}
+            cables={outputCables}
+            consoles={consoles}
+            cableItems={cableItems}
+            itemLabelById={itemLabelById}
+            search={search}
+            selection={selection}
+            onSelectionChange={setSelection}
+            zoom={zoom}
+            onChanged={invalidate}
+            readOnly={readOnly}
+          />
+        )}
+      </AudioPatchShell>
       <OutputPatchSheet
         eventId={eventId}
         outputs={outputs}
@@ -229,88 +267,18 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
         stageMultis={stageMultis}
         outputDevices={outputDevices}
         outputCables={outputCables}
+        consoles={consoles}
         itemLabelById={itemLabelById}
       />
     </>
   )
 }
 
-/** Compact table for output-channel (mixer port group) CRUD — feeds the graph's mixer node. */
-function OutputChannelsSection({
-  eventId,
-  outputs,
-  onUpdateDraft,
-  onPersist,
-  onUpdateAndPersist,
-  onAdd,
-  onDelete,
-  readOnly,
-}: {
-  eventId: number
-  outputs: AudioPatchOutput[]
-  onUpdateDraft: <K extends keyof AudioPatchOutput>(index: number, key: K, value: AudioPatchOutput[K]) => void
-  onPersist: (index: number) => void
-  onUpdateAndPersist: (index: number, patch: Partial<AudioPatchOutput>) => void
-  onAdd: () => void
-  onDelete: (id: number) => void
-  readOnly: boolean
-}) {
-  const { options } = useReferenceData(eventId)
-  return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between">
-        <CardTitle>Output channels</CardTitle>
-        {!readOnly && <Button size="sm" onClick={onAdd}><Plus className="mr-2 h-4 w-4" />Add channel</Button>}
-      </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {['Out#', 'Name', 'Type', 'Width', 'Color', 'Notes', ''].map((heading) => <TableHead key={heading}>{heading}</TableHead>)}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {outputs.map((row, index) => (
-                <TableRow key={row.id}>
-                  <TableCell><Input type="number" value={row.output_number} onChange={(e) => onUpdateDraft(index, 'output_number', Number(e.target.value))} onBlur={() => onPersist(index)} disabled={readOnly} className="w-20" /></TableCell>
-                  <TableCell><Input value={row.output_name ?? ''} onChange={(e) => onUpdateDraft(index, 'output_name', e.target.value)} onBlur={() => onPersist(index)} disabled={readOnly} className="min-w-36" /></TableCell>
-                  <TableCell>
-                    <div className="space-y-2 min-w-28">
-                      <Badge variant={row.output_type === 'aux' ? 'warning' : row.output_type}>{row.output_type}</Badge>
-                      <Select value={row.output_type} onChange={(e) => onUpdateDraft(index, 'output_type', e.target.value)} onBlur={() => onPersist(index)} disabled={readOnly}>
-                        {options('output_types', row.output_type).map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
-                      </Select>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="min-w-24">
-                      <Select value={row.width} onChange={(e) => onUpdateAndPersist(index, { width: e.target.value as AudioPatchOutput['width'] })} disabled={readOnly}>
-                        <option value="mono">Mono</option>
-                        <option value="stereo">Stereo</option>
-                      </Select>
-                    </div>
-                  </TableCell>
-                  <TableCell><ColorSelect eventId={eventId} value={row.color} onChange={(color) => onUpdateAndPersist(index, { color })} disabled={readOnly} /></TableCell>
-                  <TableCell><Input value={row.notes ?? ''} onChange={(e) => onUpdateDraft(index, 'notes', e.target.value)} onBlur={() => onPersist(index)} disabled={readOnly} className="min-w-36" /></TableCell>
-                  <TableCell>{!readOnly && <Button size="sm" variant="ghost" onClick={() => onDelete(row.id)}><Trash2 className="h-4 w-4" /></Button>}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
 
 const NODE_WIDTH = 200
 const CANVAS_HEIGHT = 640
 const CANVAS_MIN_WIDTH = 820
 const ZONE_SOURCES_X = 24
-const ZOOM_MIN = 0.5
-const ZOOM_MAX = 1.5
-const ZOOM_STEP = 0.1
 
 /** Right/middle-zone edges depend on the canvas's live width — the panel resizes with the browser, so these can't be fixed constants. */
 function zoneDestinationsX(canvasWidth: number): number {
@@ -342,6 +310,9 @@ interface NodeLayout {
  * stagebox's input side (FR-013 — pure console/network routing, never a
  * physical cable). A mixer port is a logical channel, not a physical
  * jack, so it may fan out to more than one destination at once.
+ *
+ * Since Slice 26 an inspector rail sits beside it — the same rail the inputs canvas
+ * has — open on whichever output row or rig box is selected.
  */
 function OutputGraphCanvas({
   eventId,
@@ -350,8 +321,13 @@ function OutputGraphCanvas({
   stageMultis,
   devices,
   cables,
-  mixerPositionY,
+  consoles,
   cableItems,
+  itemLabelById,
+  search = '',
+  selection,
+  onSelectionChange,
+  zoom,
   onChanged,
   readOnly = false,
 }: {
@@ -361,15 +337,28 @@ function OutputGraphCanvas({
   stageMultis: StageMulti[]
   devices: OutputDevice[]
   cables: OutputCable[]
-  mixerPositionY: number
+  consoles: Console[]
   cableItems: InventoryItem[]
+  /** The rail's chain model needs it, to name the cable behind a hop. */
+  itemLabelById: Map<number, string>
+  /**
+   * The shell's search term. Non-matching nodes and rows dim; nothing is
+   * removed, since hiding a node would hide cables that exist
+   * (research.md R14).
+   */
+  search?: string
+  /** What the graph marks, and so what the rail shows. Owned by the tab (Slice 25 FR-002). */
+  selection: OutputFlowSelection | null
+  onSelectionChange: (selection: OutputFlowSelection | null) => void
+  /** Owned by the tab, because its control lives in the panel's toolbar (FR-020). */
+  zoom: number
   onChanged: () => Promise<void>
   readOnly?: boolean
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
   const portEls = useRef(new Map<string, HTMLElement>())
-  const [paths, setPaths] = useState<{ id: number; d: string; hasItem: boolean }[]>([])
+  const [paths, setPaths] = useState<{ id: number; d: string; hasItem: boolean; network: boolean; color: string | undefined }[]>([])
   const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(new Map())
   const [pendingPort, setPendingPort] = useState<PortRef | null>(null)
   const [dragGhost, setDragGhost] = useState<{ from: PortRef; x: number; y: number } | null>(null)
@@ -382,7 +371,6 @@ function OutputGraphCanvas({
   // a hardcoded canvas width drifting out of view on any screen narrower
   // than that constant.
   const [wrapperWidth, setWrapperWidth] = useState(1180)
-  const [zoom, setZoom] = useState(1)
   // The canvas's LOGICAL width/height (the coordinate space node
   // positions and zone bounds live in) grow as you zoom out and shrink
   // as you zoom in, while canvasRef's own rendered box is scaled by
@@ -409,7 +397,7 @@ function OutputGraphCanvas({
     return Math.max(min, Math.min(max, x))
   }
 
-  const portContext = { outputs, stageboxes, stageMultis, devices }
+  const portContext = { outputs, stageboxes, stageMultis, devices, consoles }
 
   const createCableMutation = useMutation({
     mutationFn: (data: Omit<OutputCable, 'id' | 'event_id'>) => createOutputCable(eventId, data),
@@ -435,8 +423,16 @@ function OutputGraphCanvas({
     mutationFn: ({ id, data }: { id: number; data: Omit<StageMulti, 'id'> }) => updateStageMulti(eventId, id, data),
     onSuccess: onChanged,
   })
-  const moveMixerMutation = useMutation({
-    mutationFn: (y: number) => updateOutputMixerPosition(eventId, y),
+  // The desk's bus list is pinned to the Sources lane, so only its y is stored.
+  const moveConsoleMutation = useMutation({
+    mutationFn: ({ id, y }: { id: number; y: number }) => updateConsole(eventId, id, { position_y: y }),
+    onSuccess: onChanged,
+  })
+  // Its jack panel is free in both axes and stores its own pair — dragging it
+  // here must not move the panel on the Inputs canvas (Slice 24 FR-013).
+  const moveConsoleJacksMutation = useMutation({
+    mutationFn: ({ id, x, y }: { id: number; x: number; y: number }) =>
+      updateConsole(eventId, id, { local_position_x: x, local_position_y: y }),
     onSuccess: onChanged,
   })
   const deleteDeviceMutation = useMutation({
@@ -462,10 +458,46 @@ function OutputGraphCanvas({
     return override ?? { x: serverX, y: serverY }
   }
 
+  // Outputs with no desk of their own (an event whose only console was
+  // deleted) keep a node of their own rather than being hidden or silently
+  // reassigned — the same reasoning as the sheet's "no source" cell.
+  const orphanOutputs = useMemo(() => outputs.filter((row) => row.console_id == null), [outputs])
+
+  // Which output's run passes through a port — the same context derivedCableColor
+  // uses for the cables, so a port and the cable attached to it cannot disagree.
+  const colorContext: OutputColorContext = { outputs, cables, devices }
+
   const layout = useMemo<NodeLayout[]>(() => {
     const nodes: NodeLayout[] = []
-    const mixerPos = positions.get('mixer:0')
-    nodes.push({ kind: 'mixer', id: 0, x: ZONE_SOURCES_X, y: mixerPos?.y ?? mixerPositionY, zone: 'sources' })
+    let nextY = 24
+    for (const desk of consoles) {
+      // The desk's bus list, keyed by the kind of port it carries. Console ids
+      // start at 1, so this never collides with the `mixer:0` node below.
+      const pos = positions.get(`mixer:${desk.id}`)
+      const y = pos?.y ?? desk.position_y
+      nodes.push({ kind: 'mixer', id: desk.id, x: ZONE_SOURCES_X, y, zone: 'sources' })
+      // Below the desk actually placed — see InputGraphCanvas (Slice 24 FR-007).
+      nextY = Math.max(nextY + 220, y + 220)
+
+      // Its jack panel, in the processing lane — the mirror of the input
+      // canvas's. Before Slice 24 these were out-side-only ports on the desk
+      // node, so a bus had no in-side port to land on and the desk's sockets
+      // could not be used at all (FR-011, research.md R6). No jacks, no node.
+      if (desk.local_output_count > 0) {
+        const jackPos = positions.get(`console_local:${desk.id}`)
+        nodes.push({
+          kind: 'console_local',
+          id: desk.id,
+          x: clampProcessingX(jackPos?.x ?? desk.local_position_x),
+          y: jackPos?.y ?? desk.local_position_y,
+          zone: 'processing',
+        })
+      }
+    }
+    if (orphanOutputs.length > 0 || consoles.length === 0) {
+      const mixerPos = positions.get('mixer:0')
+      nodes.push({ kind: 'mixer', id: 0, x: ZONE_SOURCES_X, y: mixerPos?.y ?? nextY, zone: 'sources' })
+    }
 
     for (const device of sourceDevices) {
       const pos = effectivePosition('device', device.id, ZONE_SOURCES_X, device.position_y)
@@ -492,7 +524,7 @@ function OutputGraphCanvas({
     }
     return nodes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mixerPositionY, sourceDevices, destinationDevices, stageboxes, stageMultis, processingDevices, positions, canvasWidth])
+  }, [consoles, orphanOutputs, sourceDevices, destinationDevices, stageboxes, stageMultis, processingDevices, positions, canvasWidth])
 
   useLayoutEffect(() => {
     const container = canvasRef.current
@@ -520,16 +552,32 @@ function OutputGraphCanvas({
         const y2 = (toRect.top + toRect.height / 2 - containerRect.top) / zoom
         const dx = Math.max(60, Math.abs(x2 - x1) / 2)
         const d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`
-        return { id: cable.id, d, hasItem: cable.cable_item_id != null || isCablelessToKind(cable.to_kind) }
+        return {
+          id: cable.id,
+          d,
+          hasItem: cable.cable_item_id != null,
+          network: isCablelessToKind(cable.to_kind),
+          color: derivedCableColor(cable, { outputs, cables, devices }),
+        }
       })
-      .filter((p): p is { id: number; d: string; hasItem: boolean } => p !== null)
+      .filter((p): p is { id: number; d: string; hasItem: boolean; network: boolean; color: string | undefined } => p !== null)
     setPaths(next)
-  }, [cables, layout, zoom])
+  }, [cables, layout, zoom, outputs, devices])
 
   function persistPosition(kind: PortRef['kind'], id: number, x: number, y: number) {
     const onError = (e: unknown) => setError(e instanceof Error ? e.message : 'Failed to save position')
+    if (kind === 'console_local') {
+      moveConsoleJacksMutation.mutate({ id, x, y }, { onError })
+      return
+    }
     if (kind === 'mixer') {
-      moveMixerMutation.mutate(y, { onError })
+      if (id === 0) {
+        // The node holding outputs with no desk. It moves for the session — the
+        // canvas's `positions` map holds it — but there is no row to store it on
+        // (Slice 24 FR-006, research.md R4).
+        return
+      }
+      moveConsoleMutation.mutate({ id, y }, { onError })
       return
     }
     if (kind === 'stagebox') {
@@ -593,9 +641,9 @@ function OutputGraphCanvas({
 
   function attemptConnect(from: PortRef, to: PortRef) {
     setError(null)
-    if (to.kind === 'stagebox' || to.kind === 'stage_multi') {
+    if (isCablelessToKind(to.kind)) {
       createCableMutation.mutate(
-        { from_kind: from.kind, from_id: from.id, from_port: from.port, to_kind: to.kind, to_id: to.id, to_port: to.port },
+        { from_kind: from.kind, from_id: from.id, from_port: from.port, to_kind: to.kind as OutputCable['to_kind'], to_id: to.id, to_port: to.port },
         { onError: (e) => setError(e instanceof Error ? e.message : 'Failed to connect') },
       )
       return
@@ -703,56 +751,104 @@ function OutputGraphCanvas({
   }, [dragGhost, zoom])
 
   return (
-    <div className="space-y-2">
-      {error && <div className="rounded border border-red-500/50 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</div>}
+    <div>
+      {error && <div className="border-b border-red-500/40 bg-red-500/10 px-3 py-1.5 text-[11px] text-red-300">{error}</div>}
       {pendingPort && !dragGhost && (
-        <div className="text-xs text-amber-400">
+        <div className="border-b border-amber-500/30 bg-amber-500/[0.05] px-3 py-1.5 text-[11px] text-amber-300">
           Selected {pendingPort.label} — click a free {pendingPort.direction === 'out' ? 'input' : 'output'} port to connect, or click it again to cancel.
         </div>
       )}
-      <div className="flex items-center justify-between px-1">
-        <div className="grid flex-1 grid-cols-3 font-mono text-[10px] uppercase tracking-widest text-zinc-500">
-          <span>← Sources</span>
-          <span className="text-center">Processing</span>
-          <span className="text-right">Destinations →</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setZoom((z) => Math.max(ZOOM_MIN, Math.round((z - ZOOM_STEP) * 100) / 100))} title="Zoom out">
-            <Minus className="h-3.5 w-3.5" />
-          </Button>
-          <button type="button" onClick={() => setZoom(1)} className="w-11 text-center font-mono text-[11px] text-zinc-400 hover:text-zinc-200" title="Reset zoom">
-            {Math.round(zoom * 100)}%
-          </button>
-          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setZoom((z) => Math.min(ZOOM_MAX, Math.round((z + ZOOM_STEP) * 100) / 100))} title="Zoom in">
-            <Plus className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </div>
-      <div ref={wrapperRef} className="overflow-auto rounded-lg border border-zinc-800 bg-zinc-950/40" style={{ height: CANVAS_HEIGHT }}>
+      <div className="flex items-start gap-3">
+      <div ref={wrapperRef} className="min-w-0 flex-1 overflow-auto" style={{ height: CANVAS_HEIGHT }}>
         <div style={{ width: canvasWidth * zoom, height: canvasHeight * zoom }}>
           <div ref={canvasRef} className="relative" style={{ width: canvasWidth, height: canvasHeight, transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
-            <div className="pointer-events-none absolute inset-y-0 left-0 border-r border-dashed border-zinc-800 bg-white/[0.02]" style={{ width: ZONE_SOURCES_X + NODE_WIDTH + 24 }} />
-            <div className="pointer-events-none absolute inset-y-0 right-0 border-l border-dashed border-zinc-800 bg-white/[0.02]" style={{ width: NODE_WIDTH + 48 }} />
+            <LaneBands
+              height={canvasHeight}
+              lanes={[
+                { label: 'Console', x: 0, width: ZONE_SOURCES_X + NODE_WIDTH + 24 },
+                { label: 'Rig', x: ZONE_SOURCES_X + NODE_WIDTH + 40, width: Math.max(0, zoneDestinationsX(canvasWidth) - (ZONE_SOURCES_X + NODE_WIDTH + 56)) },
+                { label: 'Stage', x: canvasWidth - (NODE_WIDTH + 48), width: NODE_WIDTH + 48 },
+              ]}
+            />
             <svg className="pointer-events-none absolute inset-0" width={canvasWidth} height={canvasHeight}>
+              {/* Same two encodings as the input graph (Slice 23): hue is the
+                  output this run carries, dash pattern is what kind of link it
+                  is. Keeping them independent is what lets a network hop wear
+                  its output's colour. */}
               {paths.map((p) => (
-                <path key={p.id} d={p.d} fill="none" stroke={p.hasItem ? '#f59e0b' : '#71717a'} strokeWidth={2 / zoom} strokeDasharray={p.hasItem ? undefined : `${4 / zoom} ${3 / zoom}`} />
+                <path
+                  key={p.id}
+                  d={p.d}
+                  fill="none"
+                  stroke={p.color ?? (p.hasItem || p.network ? '#f59e0b' : '#71717a')}
+                  strokeWidth={2 / zoom}
+                  strokeDasharray={p.network ? `${7 / zoom} ${3 / zoom}` : p.hasItem ? undefined : `${4 / zoom} ${3 / zoom}`}
+                />
               ))}
               {ghostPath && <path d={ghostPath} fill="none" stroke="#f59e0b" strokeWidth={2 / zoom} strokeDasharray={`${5 / zoom} ${4 / zoom}`} opacity={0.85} />}
             </svg>
             {layout.map((node) => {
-              if (node.kind === 'mixer') {
+              if (node.kind === 'console_local') {
+                const desk = consoles.find((c) => c.id === node.id)
+                if (!desk) return null
                 return (
-                  <MixerNode
-                    key="mixer"
+                  <LocalJackNode
+                    key={`jacks-${desk.id}`}
                     x={node.x}
                     y={node.y}
-                    outputs={outputs}
+                    desk={desk}
                     cables={cables}
                     pendingPort={pendingPort}
                     onPortClick={handlePortClick}
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
+                    colorContext={colorContext}
+                    onDragStart={readOnly ? undefined : (e) => startNodeDrag('console_local', desk.id, 'free', e)}
+                    selected={selection?.kind === 'console_local' && selection.id === desk.id}
+                    onSelect={() => onSelectionChange({ kind: 'console_local', id: desk.id })}
+                    dimmed={!matchesSearch(search, desk.name, 'local')}
+                  />
+                )
+              }
+              if (node.kind === 'mixer') {
+                // id 0 is the node for outputs belonging to no desk; anything
+                // else is a desk's own bus list (see the layout above).
+                const desk = node.id === 0 ? undefined : consoles.find((c) => c.id === node.id)
+                if (node.id !== 0 && !desk) return null
+                return desk ? (
+                  <ConsoleNode
+                    key={`desk-${desk.id}`}
+                    x={node.x}
+                    y={node.y}
+                    desk={desk}
+                    outputs={outputs.filter((row) => row.console_id === desk.id)}
+                    cables={cables}
+                    pendingPort={pendingPort}
+                    onPortClick={handlePortClick}
+                    onPortPointerDown={handlePortPointerDown}
+                    registerPort={registerPort}
+                    colorContext={colorContext}
+                    onDragStart={readOnly ? undefined : (e) => startNodeDrag('mixer', desk.id, 'y-only', e)}
+                    selectedOutputId={selection?.kind === 'output' ? selection.id : undefined}
+                    onSelectOutput={(id) => onSelectionChange({ kind: 'output', id })}
+                    search={search}
+                  />
+                ) : (
+                  <MixerNode
+                    key="mixer"
+                    x={node.x}
+                    y={node.y}
+                    outputs={orphanOutputs}
+                    cables={cables}
+                    pendingPort={pendingPort}
+                    onPortClick={handlePortClick}
+                    onPortPointerDown={handlePortPointerDown}
+                    registerPort={registerPort}
+                    colorContext={colorContext}
                     onDragStart={readOnly ? undefined : (e) => startNodeDrag('mixer', 0, 'y-only', e)}
+                    selectedOutputId={selection?.kind === 'output' ? selection.id : undefined}
+                    onSelectOutput={(id) => onSelectionChange({ kind: 'output', id })}
+                    search={search}
                   />
                 )
               }
@@ -770,7 +866,11 @@ function OutputGraphCanvas({
                     onPortClick={handlePortClick}
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
+                    colorContext={colorContext}
                     onDragStart={readOnly ? undefined : (e) => startNodeDrag('stagebox', sb.id, 'free', e)}
+                    selected={selection?.kind === 'stagebox' && selection.id === sb.id}
+                    onSelect={() => onSelectionChange({ kind: 'stagebox', id: sb.id })}
+                    dimmed={!matchesSearch(search, sb.name, sb.model)}
                   />
                 )
               }
@@ -788,7 +888,11 @@ function OutputGraphCanvas({
                     onPortClick={handlePortClick}
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
+                    colorContext={colorContext}
                     onDragStart={readOnly ? undefined : (e) => startNodeDrag('stage_multi', sm.id, 'free', e)}
+                    selected={selection?.kind === 'stage_multi' && selection.id === sm.id}
+                    onSelect={() => onSelectionChange({ kind: 'stage_multi', id: sm.id })}
+                    dimmed={!matchesSearch(search, sm.name)}
                   />
                 )
               }
@@ -805,14 +909,36 @@ function OutputGraphCanvas({
                   onPortClick={handlePortClick}
                   onPortPointerDown={handlePortPointerDown}
                   registerPort={registerPort}
+                  colorContext={colorContext}
                   onDragStart={readOnly ? undefined : (e) => startNodeDrag('device', device.id, node.zone === 'processing' ? 'free' : 'y-only', e)}
+                  selected={selection?.kind === 'device' && selection.id === device.id}
+                  onSelect={() => onSelectionChange({ kind: 'device', id: device.id })}
                   onDelete={readOnly ? undefined : () => deleteDeviceMutation.mutate(device.id)}
+                  dimmed={!matchesSearch(search, device.name)}
                 />
               )
             })}
           </div>
         </div>
       </div>
+      {selection && (
+        <OutputFlowInspector
+          eventId={eventId}
+          selection={selection}
+          outputs={outputs}
+          stageboxes={stageboxes}
+          stageMultis={stageMultis}
+          devices={devices}
+          cables={cables}
+          consoles={consoles}
+          itemLabelById={itemLabelById}
+          onSelectionChange={onSelectionChange}
+          onChanged={onChanged}
+          readOnly={readOnly}
+        />
+      )}
+      </div>
+
       {devices.length === 0 && stageboxes.length === 0 && stageMultis.length === 0 && (
         <p className="text-xs text-zinc-500">No devices yet — add one below, then click or drag from a port here to start cabling.</p>
       )}
@@ -861,79 +987,49 @@ function OutputGraphCanvas({
   )
 }
 
-function PortDot({
-  port,
-  connected,
-  selected,
-  onClick,
-  onPointerDown,
-  registerRef,
-}: {
-  port: PortRef
-  connected: boolean
-  selected: boolean
-  onClick: () => void
-  onPointerDown: (e: ReactPointerEvent) => void
-  registerRef: (el: HTMLElement | null) => void
-}) {
-  return (
-    <button
-      type="button"
-      ref={registerRef}
-      data-port-key={portKey(port.kind, port.id, port.port, port.direction)}
-      onClick={onClick}
-      onPointerDown={onPointerDown}
-      title={port.label}
-      className={`h-3 w-3 shrink-0 cursor-crosshair rounded-full border transition-colors ${
-        selected
-          ? 'border-amber-400 bg-amber-400'
-          : connected
-            ? 'border-amber-500 bg-amber-500/70 hover:bg-amber-400'
-            : 'border-zinc-500 bg-zinc-800 hover:border-amber-400 hover:bg-amber-400/30'
-      }`}
-    />
-  )
-}
-
-function NodeShell({ x, y, title, badge, onDragStart, onDelete, children }: {
+/**
+ * Adapters over the shared graph primitives (Slice 25 FR-036) — the mirror of the
+ * input canvas's. Both canvases used to hold their own copies of the box, the port
+ * and the row, which is why their boxes drifted apart; the drawing lives in `graph/`
+ * now and these only bind it to this graph's own `PortRef` union, keys and colour
+ * rule.
+ */
+function NodeShell({ x, y, title, badge, dimmed, selected, footer, footerAlarm, onDragStart, onDelete, onSelect, children }: {
   x: number
   y: number
   title: string
   badge?: string
+  dimmed?: boolean
+  selected?: boolean
+  footer?: ReactNode
+  footerAlarm?: boolean
   onDragStart?: (e: ReactPointerEvent) => void
   onDelete?: () => void
+  onSelect?: () => void
   children: ReactNode
 }) {
   return (
-    <div
-      className="absolute rounded-lg border border-zinc-700 bg-zinc-900 shadow-lg"
-      style={{ left: x, top: y, width: NODE_WIDTH }}
+    <SharedNodeShell
+      x={x}
+      y={y}
+      width={NODE_WIDTH}
+      title={title}
+      badge={badge}
+      footer={footer}
+      footerAlarm={footerAlarm}
+      dimmed={dimmed}
+      selected={selected}
+      desk={badge === 'DESK'}
+      onDragStart={onDragStart}
+      onDelete={onDelete}
+      onSelect={onSelect}
     >
-      <div
-        className={`flex items-center justify-between gap-2 rounded-t-lg border-b border-zinc-800 px-2 py-1.5 ${onDragStart ? 'cursor-grab touch-none active:cursor-grabbing' : ''}`}
-        onPointerDown={onDragStart}
-      >
-        <span className="truncate text-xs font-semibold text-zinc-100">{title}</span>
-        <div className="flex items-center gap-1">
-          {badge && <Badge className="shrink-0">{badge}</Badge>}
-          {onDelete && (
-            <button
-              type="button"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={onDelete}
-              className="text-zinc-500 hover:text-red-400"
-            >
-              <Trash2 className="h-3 w-3" />
-            </button>
-          )}
-        </div>
-      </div>
-      <div className="space-y-1 p-2">{children}</div>
-    </div>
+      {children}
+    </SharedNodeShell>
   )
 }
 
-function PortRow({ label, port, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, align }: {
+function PortRow({ label, port, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, align, colorContext, dimmed, selected, onSelect }: {
   label: string
   port: PortRef
   cables: OutputCable[]
@@ -942,29 +1038,135 @@ function PortRow({ label, port, cables, pendingPort, onPortClick, onPortPointerD
   onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
   registerPort: (key: string) => (el: HTMLElement | null) => void
   align: 'left' | 'right'
+  colorContext: OutputColorContext
+  dimmed?: boolean
+  /** Set on a bus-list row: the label opens the rail, the dot still cables (FR-009). */
+  selected?: boolean
+  onSelect?: () => void
 }) {
-  const key = portKey(port.kind, port.id, port.port, port.direction)
-  const connected = isPortConnected(port.kind, port.id, port.port, port.direction, cables)
-  const selected = !!pendingPort && pendingPort.kind === port.kind && pendingPort.id === port.id && pendingPort.port === port.port && pendingPort.direction === port.direction
-  const dot = (
-    <PortDot
-      port={port}
-      connected={connected}
-      selected={selected}
-      onClick={() => onPortClick(port)}
-      onPointerDown={(e) => onPortPointerDown(port, e)}
-      registerRef={registerPort(key)}
-    />
-  )
   return (
-    <div className={`flex items-center gap-1.5 text-[11px] text-zinc-300 ${align === 'right' ? 'flex-row-reverse text-right' : ''}`}>
-      {dot}
-      <span className="truncate">{label}</span>
-    </div>
+    <SharedPortRow
+      port={port}
+      label={label}
+      align={align}
+      dimmed={dimmed}
+      selected={selected}
+      onSelect={onSelect}
+      wiring={wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)}
+    />
   )
 }
 
-function MixerNode({ x, y, outputs, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart }: {
+/** Binds this graph's cables, gesture state and colour rule to the shared rows. */
+function wiringFor(
+  cables: OutputCable[],
+  pendingPort: PortRef | null,
+  colorContext: OutputColorContext,
+  onPortClick: (port: PortRef) => void,
+  onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void,
+  registerPort: (key: string) => (el: HTMLElement | null) => void,
+): PortWiring {
+  return {
+    isConnected: (port) => isPortConnected(port.kind as PortRef['kind'], port.id, port.port, port.direction, cables),
+    isPending: (port) =>
+      !!pendingPort && pendingPort.kind === port.kind && pendingPort.id === port.id && pendingPort.port === port.port && pendingPort.direction === port.direction,
+    colorOf: (port) => derivedOutputPortColor(port.kind as PortRef['kind'], port.id, port.port, colorContext),
+    keyOf: (port) => portKey(port.kind as PortRef['kind'], port.id, port.port, port.direction),
+    onPortClick: (port) => onPortClick(port as PortRef),
+    onPortPointerDown: (port, event) => onPortPointerDown(port as PortRef, event),
+    registerPort,
+  }
+}
+
+function ConsoleNode({ x, y, desk, outputs, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, search = '' , selectedOutputId, onSelectOutput, colorContext }: {
+  x: number
+  y: number
+  desk: Console
+  outputs: AudioPatchOutput[]
+  cables: OutputCable[]
+  pendingPort: PortRef | null
+  onPortClick: (port: PortRef) => void
+  onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
+  registerPort: (key: string) => (el: HTMLElement | null) => void
+  onDragStart?: (e: ReactPointerEvent) => void
+  search?: string
+  colorContext: OutputColorContext
+  /** The output the rail is open on. A stereo row's two ports share it. */
+  selectedOutputId?: number
+  onSelectOutput?: (outputId: number) => void
+}) {
+  const ports = mixerPorts(outputs)
+  const dimmedIds = new Set(
+    outputs.filter((row) => !matchesSearch(search, row.output_number, row.output_name, row.output_type, row.notes)).map((row) => row.id),
+  )
+  const over = desk.output_count > 0 && outputs.length > desk.output_count
+
+  return (
+    <NodeShell
+      x={x}
+      y={y}
+      title={desk.name || 'Console'}
+      badge="DESK"
+      onDragStart={onDragStart}
+      footerAlarm={over}
+      footer={
+        <>
+          {outputs.length}
+          {desk.output_count > 0 ? ` / ${desk.output_count}` : ''} out
+          {desk.local_output_count > 0 ? ` · local ${desk.local_output_count}` : ''}
+        </>
+      }
+    >
+      {/* A mixer port's id *is* the output's id, so a stereo output's two rows both
+          answer to the same selection — clicking either label keeps the rail on the
+          one output (Slice 26 FR-002). */}
+      {ports.map((port) => (
+        <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} colorContext={colorContext} align="right" dimmed={dimmedIds.has(port.id)} selected={selectedOutputId === port.id} onSelect={onSelectOutput && (() => onSelectOutput(port.id))} />
+      ))}
+      {ports.length === 0 && <p className="px-1.5 text-[11px] text-zinc-600">No outputs on this desk yet</p>}
+    </NodeShell>
+  )
+}
+
+/**
+ * A desk's own output jacks, as their own node (Slice 24 FR-008/FR-009) — the
+ * mirror of the input canvas's `LocalJackNode`, and deliberately the same
+ * two-column shape as `StageboxNode` below.
+ *
+ * This is the node that makes the desk's sockets usable at all on this graph.
+ * Before it, the jacks were drawn as out-side-only rows on the desk node, so a
+ * bus had no in-side port to be routed to and the sockets were unreachable
+ * (research.md R6). A bus now routes into the left column — the desk's own
+ * routing, no cable — and a real cable leaves the right one, exactly as through
+ * a stagebox.
+ */
+function LocalJackNode({ x, y, desk, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, dimmed , selected, onSelect, colorContext }: {
+  x: number
+  y: number
+  desk: Console
+  cables: OutputCable[]
+  pendingPort: PortRef | null
+  onPortClick: (port: PortRef) => void
+  onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
+  registerPort: (key: string) => (el: HTMLElement | null) => void
+  onDragStart?: (e: ReactPointerEvent) => void
+  dimmed?: boolean
+  colorContext: OutputColorContext
+  selected?: boolean
+  onSelect?: () => void
+}) {
+  const { inputs, outputs } = consoleLocalPorts(desk)
+  const wiring = wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)
+  return (
+    <NodeShell x={x} y={y} title={desk.name || 'Console'} badge="LOCAL" onDragStart={onDragStart} dimmed={dimmed} selected={selected} onSelect={onSelect}>
+      {inputs.map((inPort, index) => (
+        <SplitPortRow key={inPort.port} inPort={inPort} outPort={outputs[index]} label={String(inPort.port + 1)} wiring={wiring} />
+      ))}
+    </NodeShell>
+  )
+}
+
+function MixerNode({ x, y, outputs, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, search = '' , selectedOutputId, onSelectOutput, colorContext }: {
   x: number
   y: number
   outputs: AudioPatchOutput[]
@@ -974,19 +1176,30 @@ function MixerNode({ x, y, outputs, cables, pendingPort, onPortClick, onPortPoin
   onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
   registerPort: (key: string) => (el: HTMLElement | null) => void
   onDragStart?: (e: ReactPointerEvent) => void
+  search?: string
+  colorContext: OutputColorContext
+  selectedOutputId?: number
+  onSelectOutput?: (outputId: number) => void
 }) {
   const ports = mixerPorts(outputs)
+  // One node, many rows, so search dims per row rather than per node.
+  const dimmedIds = new Set(
+    outputs.filter((row) => !matchesSearch(search, row.output_number, row.output_name, row.output_type, row.notes)).map((row) => row.id),
+  )
   return (
-    <NodeShell x={x} y={y} title="Mixer" onDragStart={onDragStart}>
+    <NodeShell x={x} y={y} title="No desk" badge={ports.length > 0 ? String(outputs.length) : undefined} onDragStart={onDragStart}>
+      {/* A mixer port's id *is* the output's id, so a stereo output's two rows both
+          answer to the same selection — clicking either label keeps the rail on the
+          one output (Slice 26 FR-002). */}
       {ports.map((port) => (
-        <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" />
+        <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} colorContext={colorContext} align="right" dimmed={dimmedIds.has(port.id)} selected={selectedOutputId === port.id} onSelect={onSelectOutput && (() => onSelectOutput(port.id))} />
       ))}
-      {ports.length === 0 && <p className="text-[11px] text-zinc-600">No output channels yet</p>}
+      {ports.length === 0 && <p className="px-1.5 text-[11px] text-zinc-600">No outputs without a desk</p>}
     </NodeShell>
   )
 }
 
-function StageboxNode({ x, y, stagebox, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart }: {
+function StageboxNode({ x, y, stagebox, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, dimmed , selected, onSelect, colorContext }: {
   x: number
   y: number
   stagebox: Stagebox
@@ -996,27 +1209,23 @@ function StageboxNode({ x, y, stagebox, cables, pendingPort, onPortClick, onPort
   onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
   registerPort: (key: string) => (el: HTMLElement | null) => void
   onDragStart?: (e: ReactPointerEvent) => void
+  dimmed?: boolean
+  colorContext: OutputColorContext
+  selected?: boolean
+  onSelect?: () => void
 }) {
   const { inputs, outputs } = stageboxPorts(stagebox)
+  const wiring = wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)
   return (
-    <NodeShell x={x} y={y} title={stagebox.name} badge="SB" onDragStart={onDragStart}>
-      <div className="grid grid-cols-2 gap-x-2">
-        <div className="space-y-1">
-          {inputs.map((port) => (
-            <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" />
-          ))}
-        </div>
-        <div className="space-y-1">
-          {outputs.map((port) => (
-            <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" />
-          ))}
-        </div>
-      </div>
+    <NodeShell x={x} y={y} title={stagebox.name} badge="SB" onDragStart={onDragStart} dimmed={dimmed} selected={selected} onSelect={onSelect}>
+      {inputs.map((inPort, index) => (
+        <SplitPortRow key={inPort.port} inPort={inPort} outPort={outputs[index]} label={String(inPort.port + 1)} wiring={wiring} />
+      ))}
     </NodeShell>
   )
 }
 
-function StageMultiNode({ x, y, stageMulti, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart }: {
+function StageMultiNode({ x, y, stageMulti, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, dimmed , selected, onSelect, colorContext }: {
   x: number
   y: number
   stageMulti: StageMulti
@@ -1026,27 +1235,23 @@ function StageMultiNode({ x, y, stageMulti, cables, pendingPort, onPortClick, on
   onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
   registerPort: (key: string) => (el: HTMLElement | null) => void
   onDragStart?: (e: ReactPointerEvent) => void
+  dimmed?: boolean
+  colorContext: OutputColorContext
+  selected?: boolean
+  onSelect?: () => void
 }) {
   const { inputs, outputs } = stageMultiPorts(stageMulti)
+  const wiring = wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)
   return (
-    <NodeShell x={x} y={y} title={stageMulti.name} badge="Multi" onDragStart={onDragStart}>
-      <div className="grid grid-cols-2 gap-x-2">
-        <div className="space-y-1">
-          {inputs.map((port) => (
-            <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" />
-          ))}
-        </div>
-        <div className="space-y-1">
-          {outputs.map((port) => (
-            <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" />
-          ))}
-        </div>
-      </div>
+    <NodeShell x={x} y={y} title={stageMulti.name} badge="Multi" onDragStart={onDragStart} dimmed={dimmed} selected={selected} onSelect={onSelect}>
+      {inputs.map((inPort, index) => (
+        <SplitPortRow key={inPort.port} inPort={inPort} outPort={outputs[index]} label={String(inPort.port + 1)} wiring={wiring} />
+      ))}
     </NodeShell>
   )
 }
 
-function DeviceNode({ x, y, device, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, onDelete }: {
+function DeviceNode({ x, y, device, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, onDelete, dimmed , selected, onSelect, colorContext }: {
   x: number
   y: number
   device: OutputDevice
@@ -1057,22 +1262,26 @@ function DeviceNode({ x, y, device, cables, pendingPort, onPortClick, onPortPoin
   registerPort: (key: string) => (el: HTMLElement | null) => void
   onDragStart?: (e: ReactPointerEvent) => void
   onDelete?: () => void
+  dimmed?: boolean
+  colorContext: OutputColorContext
+  selected?: boolean
+  onSelect?: () => void
 }) {
   const { inputs, outputs, links } = devicePorts(device)
   return (
-    <NodeShell x={x} y={y} title={device.name} onDragStart={onDragStart} onDelete={onDelete}>
+    <NodeShell x={x} y={y} title={device.name} onDragStart={onDragStart} onDelete={onDelete} dimmed={dimmed} selected={selected} onSelect={onSelect}>
       <div className="grid grid-cols-2 gap-x-2">
         <div className="space-y-1">
           {inputs.map((port) => (
-            <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" />
+            <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} colorContext={colorContext} align="left" />
           ))}
         </div>
         <div className="space-y-1">
           {outputs.map((port) => (
-            <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" />
+            <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} colorContext={colorContext} align="right" />
           ))}
           {links.map((port) => (
-            <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="right" />
+            <PortRow key={portKey(port.kind, port.id, port.port, 'out')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} colorContext={colorContext} align="right" />
           ))}
         </div>
       </div>
@@ -1140,108 +1349,5 @@ function CableInfoDialog({ cable, cableItems, readOnly, onClose, onChangeItem, o
         </div>
       </div>
     </Dialog>
-  )
-}
-
-const ZONE_LABEL: Record<Zone, string> = { sources: 'source', processing: 'processing', destinations: 'destination' }
-const ZONE_BADGE_VARIANT: Record<Zone, string> = { sources: 'foh', processing: 'warning', destinations: 'success' }
-
-interface ResourceRow {
-  key: string
-  name: string
-  zone: Zone
-  ports: string
-  from: string
-  to: string
-  item: string
-}
-
-/** Flat "all resources" alternative to the graph — one row per node (not per cable), matching the design proposal. */
-function OutputResourceTable({ outputs, stageboxes, stageMultis, devices, cables, itemLabelById, ownedItemLabelById }: {
-  outputs: AudioPatchOutput[]
-  stageboxes: Stagebox[]
-  stageMultis: StageMulti[]
-  devices: OutputDevice[]
-  cables: OutputCable[]
-  itemLabelById: Map<number, string>
-  ownedItemLabelById: Map<number, string>
-}) {
-  const context = { outputs, stageboxes, stageMultis, devices }
-
-  function upstreamOf(kind: PortRef['kind'], id: number): string {
-    const names = new Set(cables.filter((c) => c.to_kind === kind && c.to_id === id).map((c) => nodeName(c.from_kind, c.from_id, context)))
-    return names.size > 0 ? [...names].join(', ') : '—'
-  }
-  function downstreamOf(kinds: PortRef['kind'][], id: number): string {
-    const counts = new Map<string, number>()
-    for (const c of cables) {
-      if (!kinds.includes(c.from_kind) || c.from_id !== id) continue
-      const name = nodeName(c.to_kind, c.to_id, context)
-      counts.set(name, (counts.get(name) ?? 0) + 1)
-    }
-    if (counts.size === 0) return '—'
-    return [...counts.entries()].map(([name, count]) => (count > 1 ? `${name} (×${count})` : name)).join(', ')
-  }
-
-  const rows: ResourceRow[] = []
-  const channelCount = mixerPorts(outputs).length
-  if (channelCount > 0) {
-    const mixerCables = cables.filter((c) => c.from_kind === 'mixer')
-    const destinationCounts = new Map<string, number>()
-    for (const c of mixerCables) {
-      const name = nodeName(c.to_kind, c.to_id, context)
-      destinationCounts.set(name, (destinationCounts.get(name) ?? 0) + 1)
-    }
-    const to = [...destinationCounts.entries()].map(([name, count]) => (count > 1 ? `${name} (×${count})` : name)).join(', ') || '—'
-    rows.push({ key: 'mixer', name: 'Mixer', zone: 'sources', ports: `out · ${channelCount}`, from: '—', to, item: '—' })
-  }
-  for (const sb of stageboxes) {
-    rows.push({ key: `sb-${sb.id}`, name: sb.name, zone: 'processing', ports: `in ${sb.output_count} · out ${sb.output_count}`, from: upstreamOf('stagebox', sb.id), to: downstreamOf(['stagebox'], sb.id), item: sb.inventory_item_id ? itemLabelById.get(sb.inventory_item_id) ?? `#${sb.inventory_item_id}` : '—' })
-  }
-  for (const sm of stageMultis) {
-    rows.push({ key: `sm-${sm.id}`, name: sm.name, zone: 'processing', ports: `in ${sm.channels} · out ${sm.channels}`, from: upstreamOf('stage_multi', sm.id), to: downstreamOf(['stage_multi'], sm.id), item: sm.inventory_item_id ? itemLabelById.get(sm.inventory_item_id) ?? `#${sm.inventory_item_id}` : '—' })
-  }
-  for (const device of devices) {
-    const zone = nodeZone('device', device.id, { devices })
-    const portsLabel = (device.input_port_count > 0 && device.output_port_count > 0
-      ? `in ${device.input_port_count} · out ${device.output_port_count}`
-      : device.input_port_count > 0
-        ? `in · ${device.input_port_count}`
-        : `out · ${device.output_port_count}`)
-      + (device.link_port_count > 0 ? ` · link ${device.link_port_count}` : '')
-    const item = device.inventory_item_id
-      ? itemLabelById.get(device.inventory_item_id) ?? `#${device.inventory_item_id}`
-      : device.owned_item_id
-        ? ownedItemLabelById.get(device.owned_item_id) ?? `#${device.owned_item_id}`
-        : '—'
-    rows.push({ key: `dev-${device.id}`, name: device.name, zone, ports: portsLabel, from: upstreamOf('device', device.id), to: downstreamOf(['device', 'device_link'], device.id), item })
-  }
-
-  return (
-    <div>
-      <div className="mb-2 flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-zinc-300">All resources</h4>
-        <span className="font-mono text-xs text-zinc-500">{devices.length + stageboxes.length + stageMultis.length} nodes · {cables.length} cables</span>
-      </div>
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>{['Resource', 'Kind', 'Ports', 'From', 'To', 'Item'].map((h) => <TableHead key={h}>{h}</TableHead>)}</TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row) => (
-              <TableRow key={row.key}>
-                <TableCell>{row.name}</TableCell>
-                <TableCell><Badge variant={ZONE_BADGE_VARIANT[row.zone]}>{ZONE_LABEL[row.zone]}</Badge></TableCell>
-                <TableCell className="font-mono text-xs text-zinc-400">{row.ports}</TableCell>
-                <TableCell className="text-zinc-400">{row.from}</TableCell>
-                <TableCell className="text-zinc-400">{row.to}</TableCell>
-                <TableCell>{row.item}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-    </div>
   )
 }
