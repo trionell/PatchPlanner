@@ -13,93 +13,65 @@ waves land.
 
 ## Part 1 — Findings
 
-### A4 · `rounded-lg` is not in the radius ladder · P3
+**None. Every finding this document opened is closed** — see Part 1b, and the
+wave that closed each. Part 2's five waves are done.
 
-```
-grep -rho "rounded-\(xl\|lg\|md\)" --include='*.tsx' frontend/src | sort | uniq -c
-#  54 rounded-md     7 rounded-lg   10 rounded-xl      (was 54 / 30 / 4)
-```
-
-> Wave 3 added no `rounded-lg`: the whole Lighting surface is `PatchPanel`,
-> `SheetTable`, `RowEditor`, `Drawer` and `GearCard`, none of which has one.
->
-> **Wave 4 removed five of the twelve, and only one by editing a class.** Four
-> were the bordered blocks of fields floating above a table — Rental's manual
-> form, both of Equipment's, Overview's stat tiles — deleted along with the idiom
-> when the row editor replaced it. The fifth was `EventInventoryCard`'s category
-> button, corrected to `md` as the file moved.
->
-> That is the finding's real shape: **A4 was never a radius problem.** It was a
-> marker for a layout idiom the codebase reached for seven times, and the radius
-> was how it showed up in a grep. The same lesson as A12, from the other side.
-
-The ladder is `xl` for a panel, `md` for a control ([tokens.md](tokens.md) §6).
-`rounded-lg` sits between them and every use is one or the other.
-
-Closed on the surfaces waves 1 and 2 own: `TabList`'s trough is gone entirely, the
-brand tile — one mark appearing in three places, the sidebar, the mobile header and
-Login — and `SectionSwitcher` are `md`, and the whole stage plot surface is now
-either `xl` (a container) or has no frame of its own at all.
-
-What remains, all on surfaces Wave 5 owns: the inline form blocks in
-`OwnedGearManager` and `Inventories` (three), `Dashboard`'s recent-event row, and
-`StartPage`'s feature tile. One of the twelve the grep reports is **inside a
-comment** in `PatchPanel.tsx`, describing the card stack the panel replaced.
-
-**Fix:** case by case, but mechanically — a container of controls is `xl`,
-a control is `md`. Each wave takes the ones on its own surfaces.
-
-### A6 · One family of surfaces is still a card stack · P1
-
-The `Card`-based pages: `Inventories`' detail view (three cards), `SettingsTab`
-and `MyDefaults` (nine `VocabularyCard`s in a grid each), and `Dashboard` (five).
-
-Each renders `Card` → `CardHeader` → `CardTitle` + description → `CardContent` →
-`Table`, stacked with `space-y-6`. This is exactly the arrangement the audio tabs
-were built out of, for the reasons in P1.
-
-Not all of them are wrong. A card **list** — `Events`, `Inventories`, `Dashboard` —
-is many independent objects and stays. A card **stack**, where one page's controls
-are split across two or three headers, becomes one panel.
-
-`LightingTab` was the sixth and closed in Wave 3; `OverviewTab`,
-`EquipmentTab`, `RentalTab` and `SignalFlowTab` closed in Wave 4. What is left is
-the pages, which is Wave 5.
-
-### A7 · Work-surface data is rendered on the navigation-surface table · P2
-
-By P2's question, these are work surfaces and are still built with `ui/Table`
-(`px-3 py-3`, `text-sm`, `align-top`, `odd:bg-zinc-900 even:bg-zinc-850`):
-
-| Surface | Rows in a real event |
-|---|---|
-| Inventory items (`Inventories`) | 308 in the sample catalog |
-| Owned gear (`OwnedGearManager`) | 10–40 |
-
-The zebra striping is the tell: `odd:bg-zinc-900 even:bg-zinc-850` is a visible
-banding pattern, where the sheet's `bg-white/[0.014]` is an aid you find when you
-look for it. At 200 rows the first is noise.
-
-Lighting fixtures closed in Wave 3; the rental order, the equipment list and the
-signal flow closed in Wave 4. The two above are Wave 5's, and the inventory
-catalog is the largest table in the application by row count.
-
-### A9 · Navigation-tier chips inside work surfaces · P2
-
-`ConsoleSection`, `BusSection` and `BusMultiSelect` render `ui/Badge`
-(`px-2.5 py-0.5 text-xs`) inside the Rig and Buses drawers, which are work
-surfaces. The sheet beside them uses `Pill` (`px-1.5 py-px text-[10px]`).
-
-**Fix:** `Pill` in the drawers — a visual change, so it belongs to the wave that
-converts the drawers, not to Wave 0.
-
-> The half of this that was a *duplication* rather than a size is closed: the tint
-> map now lives in `lib/vocabularyTint.ts` and both tiers read it (Wave 0). What
-> remains is purely which tier the drawers render.
+The audit is kept rather than deleted because Part 1b is the record of *why*
+each surface looks the way it does, and because Part 3 is how the next finding
+gets added.
 
 ---
 
 ## Part 1b — Closed
+
+### A4 · `rounded-lg` is not in the radius ladder · Waves 1–5
+
+```
+grep -rho "rounded-\(xl\|lg\|md\)" --include='*.tsx' frontend/src | sort | uniq -c
+#  56 rounded-md    0 rounded-lg   14 rounded-xl      (was 54 / 30 / 4)
+```
+
+Two textual occurrences remain and **both are inside comments** — `PatchPanel`'s,
+describing the three-card layout it replaced, and `StartPage`'s, recording its
+exemption. Nothing renders one.
+
+**A4 was never a radius finding**, and that is the thing worth keeping. Seven of
+its real uses were the same layout idiom — *a bordered block of fields floating
+above a table* — which Waves 4 and 5 **deleted** rather than corrected, when the
+row editor replaced it. Four were genuine one-line corrections. The radius was
+how a layout habit showed up in a grep.
+
+That is A12's lesson from the other side: a grep that matches a *value* finds
+instances, not the reason there are instances.
+
+### A6 · Card stacks · Waves 1–5
+
+Every one converted. `LightingTab` (Wave 3); `OverviewTab`, `EquipmentTab`,
+`RentalTab`, `SignalFlowTab` (Wave 4); `Inventories`' detail, `OwnedGearManager`,
+`SettingsTab` and `MyDefaults` (Wave 5).
+
+The card **lists** stayed lists, which was always the point of P1's exception:
+`Events`, and the inventory list. The dashboard's five cards went entirely — it
+was never a list of independent objects, it was one account described five times.
+
+### A7 · Work-surface data on the navigation-surface table · Waves 3–5
+
+Rental order lines, equipment lines, lighting fixtures, signal chains, inventory
+items and owned gear are all `SheetTable` now. The last of them —
+`Inventories`, at 308 rows in the sample catalog — was the largest table in the
+application by row count and the list the whole rental order derives from.
+
+Zebra striping is gone from every surface a technician scans.
+
+### A9 · Navigation-tier chips inside work surfaces · Waves 0, 4, 5
+
+The duplication half closed in Wave 0 (`lib/vocabularyTint`, read by both tiers).
+The sizing half closed as each surface converted: `Pill` in the Rig and Buses
+drawers, on Signal Flow's bus chips, on Equipment's source column, on the
+inventory and vocabulary sheets.
+
+`Badge` is now used only where it belongs — dialogs, the Events grid, the
+dashboard's role marker, and the phone.
 
 ### A1 · The micro-label had four definitions and two sizes · Wave 0
 
@@ -349,15 +321,76 @@ instead, and 23 tests assert the agreement rather than hoping for it.
 asserted by a diff. The canvases, the audio sheets, `LightingSheet`, Stage Plots,
 the phone branches, the print sheets and the whole backend are untouched.
 
-### Wave 5 · Pages and residue — A4, A6
+### Wave 5 · Pages and residue — **done**
 
-`Dashboard`, `Events`, `Inventories`, `StartPage`, `Login`, `SettingsTab`.
+A4, A6, A7 and A9, on `Inventories`, `OwnedGearManager`, `SettingsTab`,
+`MyDefaults`, `Dashboard`, `Events`, `Login` and `StartPage`; spec in
+`specs/029-pages-and-residue/`.
 
-These are mostly **already right** — they are navigation surfaces built with
-navigation-surface components. The work is the radius ladder, the label component,
-and confirming that the card lists that should stay card lists do.
+The audit called these "mostly already right", and for four of the eight that
+held. It was wrong about three, and the third is the one it did not see at all.
+
+| | Was | Now |
+|---|---|---|
+| `Card`s across the converted surfaces | 27 | 0 |
+| Always-open add forms | 5 | 0 |
+| Dialogs on the inventory page | 2 | 1 (the phone's filter) |
+| Categories visible at once | ~4 of 12 | 12 |
+| Inventory items on a 900 px screen | ~9 | ~30 |
+| `rounded-lg` in the tree | 12 | 0 (two comments) |
+
+**The inventory catalog was the miss.** It is the largest table in the
+application by row count — 308 items in the sample price list, and the list the
+entire rental order derives from — and the audit filed the page under "pages,
+mostly already right". A6 named "the `Card`-based pages" without noticing that one
+of them was a work surface wearing three cards.
+
+**The dashboard was the second.** It was filed as a trim: delete three badges that
+repeat their own labels and a card holding one button. The answer to the mockup
+went further — *less card-y, and make it exciting, since that is the logged-in
+landing page* — and the page lost cards entirely. The next show is drawn at full
+size with its rig ribbon and readiness; everything else is a spine of dates.
+
+**Two things came out of the wave rather than into it.**
+
+`ui/PanelRail` was extracted before its second caller existed, which is a
+deliberate exception to Principle V, defensible only because both callers landed
+in the same wave two phases apart. The rule written into the plan was: if the
+second caller needs a different shape, inline it back and delete the component.
+It did not.
+
+And the **In use** column is the mirror of a decision Wave 4 made the other way.
+Overview's figures were derivations the browser already computes, so no endpoint;
+a vocabulary value's usage is a `COUNT` over eight plan tables only the database
+can see, and `countReferenceUsage` had guarded deletes since Slice 17. It is
+*called*, not copied, so the number shown and the refusal that follows cannot
+disagree — asserted directly by a Go test over every seeded value.
+
+**Not done, deliberately:** no sorting or bulk edit on the inventory sheet
+(import is the bulk path, which is how 308 items arrive), no rail on the phone,
+and the start page is exempt (below).
 
 ---
+
+## Part 2b — What this language does not cover
+
+**The signed-out start page (`pages/StartPage.tsx`) is exempt**, recorded here in
+Wave 5 rather than left as a permanently open finding.
+
+It shares the brand mark, the amber accent and the type families with the
+application, and nothing else: its `rounded-2xl` cards, radial-gradient grounds,
+44 px mono display heading and animated patch bay are a different brief. A landing
+page must be memorable to someone who has never seen the product; the application
+must disappear behind the patch. One language cannot serve both without one of
+them losing.
+
+Converging it would have made this document's greps come out clean at the cost of
+the only page whose job is to be memorable.
+
+One thread runs the other way and is worth recording: the start page owns the
+`pp-pulse-dot` animation [tokens.md](tokens.md) §6 sanctions by name, and Wave 5
+brought it inside, to the signed-in dashboard. **Exempting a surface from the
+language does not mean nothing may come out of it.**
 
 ## Part 3 — Keeping this true
 

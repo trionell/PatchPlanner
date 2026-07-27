@@ -134,6 +134,22 @@ The footer states what the contents *mean*, not how many there are twice over:
 - **Zoom lives in the panel's bar.** It used to sit in a strip between the bar and
   the canvas, which is what broke the one-frame reading.
 
+### The filter rail, as the fourth
+
+`ui/PanelRail` is the same construction once more: `w-56 shrink-0`, bordered on
+the edge it shares with the sheet, scrolling on its own. The inventory catalog
+filters by category with it and the vocabulary panel picks a vocabulary with it.
+
+**A filter has to be entirely visible**, which is the whole reason it exists. The
+inventory page's twelve categories used to show about four, because each tile
+carried a rename, a delete, a picker-role select and a count stacked in its
+corner. Everything that was not filtering moved into a drawer — a category is
+*declared once and referenced by every item*, which is §3 stated exactly — and
+`PanelRailRow` takes no children and no action slot so it cannot happen again.
+
+The three columns of a panel, in one sentence: **the palette offers, the rail
+filters, the inspector edits.**
+
 ### The stage plot, as the third instance
 
 The pattern is not only for sheets and flow graphs. Stage Plots is one `PatchPanel`

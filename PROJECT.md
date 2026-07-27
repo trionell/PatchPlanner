@@ -50,6 +50,11 @@ The top-level organizing unit. Each event represents a single production (gig, s
   form control and a viewer sees the same screen minus one button.
 - Every tab is addressable: `?tab=` selects it, so a link opens the event
   wherever you meant.
+- **The event's own planning vocabularies** are one panel (Slice 29): the nine
+  vocabularies as a rail, their values as a sheet, and — for the first time —
+  how many plan rows use each value, counted by the same function that refuses
+  to delete one that is in use. Renaming a label is always safe; the stored
+  value saved plans point at can never change.
 
 ### 2.2 Inventory Catalog
 
@@ -64,6 +69,12 @@ Both spreadsheet formats go through **one** import button and one route: the ser
 **By hand (Slice 22).** Categories and items can be created, edited and deleted directly on any inventory, imported or not. Hand-entered items are flagged `is_manual` and are invisible to imports: they are excluded from both the discontinue sweep *and* the name-matching pool, so an import can neither retire them nor overwrite one that shares a name with a row in the file. Deleting an item referenced by any plan is refused with its reference count; deleting a non-empty category is refused.
 
 Common to all three: the import is non-destructive — matched items keep their identity (and all plan references), items missing from the new list are flagged *discontinued* rather than deleted, and a failed import rolls back completely. Each item carries name, description, available quantity, and ex-VAT price. The inventory page browses all categories and items with type filtering.
+- **Managed as a work surface** (Slice 29). One panel: the categories are a
+  filter column beside the items, all of them visible at once; the items are a
+  sheet with an editor that opens under the row; and a lighting item's DMX modes
+  are edited there rather than in a dialog. Category management (rename, retype,
+  delete, planning picker role) and importing a price list each have a drawer,
+  so neither shifts the list while you are reading it.
 
 ### 2.3 The Rig: Consoles, Stageboxes, Stage Multis and Devices
 

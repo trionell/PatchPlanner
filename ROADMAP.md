@@ -984,6 +984,53 @@ the work panel Wave 3 proved on Lighting, and Overview stops being a form.
 - **Still a slice of its own:** a hand-off carries the tab and not the row, no
   sheet is sortable, and the rental order cannot be filtered by department.
 
+## Slice 29 — The pages, and what is left over (spec: `pages-and-residue`)
+
+Wave 5, and the end of the design convergence: the audit's last four findings
+close, and every surface in the application is now built from the same
+vocabulary.
+
+- **The inventory catalog was the audit's miss.** Filed under "pages, mostly
+  already right", it is the largest table in the application by row count — 308
+  items in the sample price list, and the list the entire rental order derives
+  from — rendered on the navigation tier at about nine rows to a screen. It is a
+  panel with a category rail now, and the rail does exactly one thing: the twelve
+  categories used to show about four, because each tile carried a rename, a
+  delete, a picker-role select and a count in its corner.
+- **Two drawers take what the layout was carrying.** Category management, because
+  a category is declared once and referenced by every item; and import, which is
+  the one operation on the page with something to explain — the server detects
+  the file's format, and that explanation was a `title` tooltip whose result
+  landed as a paragraph that shifted the page down.
+- **The DMX modes dialog is gone**, into the item editor's `notice` slot. A mode
+  belongs to an item; opening a dialog *from a row* to edit part of that row is
+  the pattern the convergence has been removing since Slice 27. The sheet gained
+  a `Modes` column, so which items carry modes is visible without opening
+  anything — which used to cost one click each.
+- **Nine vocabulary cards become one panel**, the rail's second caller. The
+  stored value stops being a truncated caption and becomes a column, and the
+  values gained the one thing this surface never said: **how many plan rows use
+  each of them.** The server has refused to delete a referenced value since Slice
+  17 and the interface found out by trying; the count comes from the same
+  function that guards the delete, so it cannot be a lie.
+- **The dashboard is rebuilt, not trimmed.** Five cards saying twelve, four, two
+  and here are some links become one show and a spine of dates: the next event at
+  full size with its rig as a one-row ribbon, its countdown and every tab's
+  readiness verdict, then dated rows, then the account totals as the footnote
+  they always were. Three `Badge`s that repeated their own labels go with them.
+- **The one sanctioned animation moves inside.** `tokens.md` permits exactly one
+  pulse and names it; it had lived only on the signed-out start page. It now
+  walks the hero's ribbon, staggered, in the same reduced-motion wrapper — and
+  stays off every working surface, which is why Overview draws the same ribbon
+  still and does not animate it.
+- **The start page is exempt**, in writing. It shares the brand mark, the accent
+  and the type families and nothing else; converging it would have made the
+  audit's greps come out clean at the cost of the only page whose job is to be
+  memorable.
+- One field on the backend and no migration. `components/ui/` gained two files
+  and shrank one. **A4, A6, A7 and A9 are closed**; the audit has no open
+  findings left.
+
 ## Dependency graph
 
 ```
@@ -994,6 +1041,6 @@ Slice 10 (output chains) ──→ Slice 11 (output signal graph, replaces it) �
 Slice 11 (output signal graph) ──→ Slice 12 (input signal graph, same pattern reversed) ✅
 Slice 11 + Slice 12 ──→ Slice 23 (audio patch shell & the console) ──→ Slice 24 (field-test fixes) ──→ Slice 25 (the mockup's visual language) ──→ Slice 26 (an inspector for the outputs flow graph)
 Slice 7 (lighting rig) + Slice 12 ──→ Slice 13 (stage plots; supersedes Slice 0's truss sections) ✅
-Slice 7 (lighting rig) + Slice 25 (visual language) ──→ Slice 27 (Lighting becomes a sheet; design wave 3) ──→ Slice 28 (the remaining event tabs; design wave 4)
+Slice 7 (lighting rig) + Slice 25 (visual language) ──→ Slice 27 (Lighting becomes a sheet; design wave 3) ──→ Slice 28 (the remaining event tabs; design wave 4) ──→ Slice 29 (pages and residue; design wave 5 — convergence complete)
 Slice 14 (auth) ──→ Slice 15 (event ownership & sharing) ──→ Slice 16 (inventory ownership) ──→ Slice 17 (event settings) ──→ Slice 18 (deployment) ✅
 ```

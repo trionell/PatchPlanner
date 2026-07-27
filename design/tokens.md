@@ -172,8 +172,11 @@ Selected row / open editor: `bg-amber-500/[0.04]`. Selected rail row:
 | Bars: tape, phantom, meter | `rounded-sm` (2px) |
 | Chip, pill, avatar, port dot | `rounded-full` |
 
-`rounded-lg` is **not** in the ladder. Its 30 current uses are the drift; each is
-either a panel (`xl`) or a control (`md`). See [audit.md](audit.md) A4.
+`rounded-lg` is **not** in the ladder, and as of Wave 5 nothing renders one. Its
+30 uses were the drift: seven were the same bordered-block-of-fields idiom the
+row editor replaced and were deleted with it, and the rest were each either a
+panel (`xl`) or a control (`md`). See [audit.md](audit.md) A4 — the finding turned
+out to be about a layout habit rather than a radius.
 
 | Element | Shadow |
 |---|---|
@@ -183,10 +186,20 @@ either a panel (`xl`) or a control (`md`). See [audit.md](audit.md) A4.
 
 **Motion.** There is almost none, deliberately: a planning tool that animates while
 a technician is counting channels is in the way. The permitted set is
-`transition-colors` on hover and focus, and the one signal-flow pulse
-(`.pp-pulse-dot`), which is already wrapped in
-`@media (prefers-reduced-motion: no-preference)`. Any new animation gets the same
-wrapper.
+`transition-colors` on hover and focus, and the one signal-flow pulse, which is
+always wrapped in `@media (prefers-reduced-motion: no-preference)`. Any new
+animation gets the same wrapper.
+
+The pulse has two implementations and one claim — *a signal travelling a run*:
+
+| Where | Class | Mechanism |
+|---|---|---|
+| Start page's patch bay | `.pp-pulse-dot` | a dot on an SVG `offset-path` |
+| Dashboard's next-show ribbon | `.pp-run` | a dot translated along a 2 px div, staggered by `--pp-delay` |
+
+Both are on **landing** pages. Neither appears on a surface anyone works on —
+Overview draws the same ribbon as the dashboard and deliberately does not animate
+it, which is the line: a page you arrive at may move, a page you work in may not.
 
 **Focus.** Every interactive element shows focus. Buttons:
 `focus-visible:ring-2 focus-visible:ring-amber-500`. Inputs and selects:
