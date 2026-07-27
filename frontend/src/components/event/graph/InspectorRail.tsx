@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { X } from 'lucide-react'
+import { cn } from '../../../lib/utils'
 import { MICRO_LABEL, PHANTOM_BAR } from './tokens'
 
 /**
@@ -18,9 +19,17 @@ import { MICRO_LABEL, PHANTOM_BAR } from './tokens'
  * the table in specs/025-patch-visual-language/contracts/visual-language.md §7.
  */
 
-/** The frame: a bordered column beside the canvas, not a card floating on it. */
-export function InspectorRail({ children }: { children: ReactNode }) {
-  return <aside className="flex w-60 shrink-0 flex-col gap-2.5 border-l border-zinc-800 p-2.5">{children}</aside>
+/**
+ * The frame: a bordered column beside the canvas, not a card floating on it.
+ *
+ * `className` exists for one reason: the flow canvases lay their row out with
+ * `items-start`, so the rail is its own height and the row grows to fit it, while
+ * the stage plot canvas is a fixed fraction of the viewport and stretches the rail
+ * to match — which needs `overflow-y-auto`. Both are right for their canvas; the
+ * rail should not have to pick one.
+ */
+export function InspectorRail({ className, children }: { className?: string; children: ReactNode }) {
+  return <aside className={cn('flex w-60 shrink-0 flex-col gap-2.5 border-l border-zinc-800 p-2.5', className)}>{children}</aside>
 }
 
 /**

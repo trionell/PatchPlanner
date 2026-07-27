@@ -92,7 +92,7 @@ to read than the sections it replaced.
 | `PortRow` / `SplitPortRow` | Fixed `18px`. `align="right"` reverses. A pass-through box is **one row per jack** with its two ports on opposite edges — never two independent columns that line up by luck. Optional `selected`/`onSelect` makes the label selectable while the dot still cables. |
 | `PortWiring` | The seam that keeps these primitives domain-free: `isConnected`, `isPending`, `colorOf`, `keyOf`, and the handlers. Nothing in `graph/` knows what audio is. |
 | `LaneBands` | Three tinted bands with their labels inside them. No dashed borders — a band is the marking. |
-| `ZoomControl` | Two `h-7 w-7` ghost buttons around a mono percentage that resets on click. Lives **in the panel's bar**, never in a strip between bar and canvas. |
+| `ZoomControl` | Two `h-7 w-7` ghost buttons around a mono percentage that resets on click. Lives **in the panel's bar**, never in a strip between bar and canvas. Owns the look; the caller may own the stepping via `onZoomIn`/`onZoomOut`/`onReset` — three canvases draw it and only two agree on what a step is. |
 | `InspectorRail` | See §3. |
 
 **Ports are never truncated.** The mockup ends a long list with `⋯ N more`; the
@@ -130,7 +130,7 @@ worse than saying nothing.
 
 | Export | Value |
 |---|---|
-| `InspectorRail` | `<aside>` · `flex w-60 shrink-0 flex-col gap-2.5 border-l border-zinc-800 p-2.5` — a left border, not a card floating on the canvas |
+| `InspectorRail` | `<aside>` · `flex w-60 shrink-0 flex-col gap-2.5 border-l border-zinc-800 p-2.5` — a left border, not a card floating on the canvas. Takes `className` for the one thing that legitimately differs: a canvas laid out `items-start` lets the rail set the row's height, a canvas with a fixed height stretches it and needs `overflow-y-auto` |
 | `InspectorHeader` | `flex items-center gap-1.5`: micro-label, a `pill` slot, close `X` at `h-3.5 w-3.5`, `ml-auto`, `aria-label="Close inspector"` |
 | `Field` | `<label>` · `grid grid-cols-[44px_minmax(0,1fr)] items-center gap-2` — label **beside** the control |
 | `Note` | `flex flex-col gap-1 rounded-[5px] border border-zinc-800 bg-zinc-950/60 p-1.5`, for things read rather than edited |
@@ -205,7 +205,18 @@ each section's own margin; optional footer `px-5 py-3 text-xs text-zinc-500` —
 to state what the drawer's contents *mean*, e.g. *"Every row here is one line on
 the rental order · 12 items"*.
 
-### `ui/Dialog`, `ui/Card`, `ui/Table`, `ui/Badge`, `ui/Tabs`
+### `ui/Tabs`
+
+`TabList` `inline-flex flex-wrap gap-1` — no trough, per [patterns.md](patterns.md)
+§6. `Tab` takes either a `value` (selected within an enclosing `Tabs`) or an
+`active` prop plus its own `onClick`, for a selector that means the same thing but
+keeps its choice elsewhere — the stage plot picker, whose choice also clears the
+canvas selection.
+
+A selector that means *what you are looking at* uses this component rather than
+copying its classes. That is the whole reason `active` exists.
+
+### `ui/Dialog`, `ui/Card`, `ui/Table`, `ui/Badge`
 
 Navigation-surface components; values in [tokens.md](tokens.md). `Dialog` and
 `Drawer` already share their header, padding and close conventions, and should

@@ -17,19 +17,20 @@ waves land.
 
 ```
 grep -rho "rounded-\(xl\|lg\|md\)" --include='*.tsx' frontend/src | sort | uniq -c
-#  58 rounded-md    25 rounded-lg    4 rounded-xl      (was 54 / 30 / 4)
+#  56 rounded-md    13 rounded-lg    9 rounded-xl      (was 54 / 30 / 4)
 ```
 
 The ladder is `xl` for a panel, `md` for a control ([tokens.md](tokens.md) §6).
 `rounded-lg` sits between them and every use is one or the other.
 
-The chrome uses are closed (Wave 1): `TabList`'s trough is gone entirely, and the
-brand tile — which is one mark appearing in three places, the sidebar, the mobile
-header and Login — plus `SectionSwitcher` are `md`. What remains is on surfaces
-later waves own: the inline form blocks in `EquipmentTab`, `RentalTab`,
-`OwnedGearManager`, `Inventories` and `PlotTrussManager`; `StagePlotTab`'s toolbar
-and panels; `Dashboard`, `EventInventoryCard`, `OverviewTab`'s stat tiles,
-`StartPage`.
+Closed on the surfaces waves 1 and 2 own: `TabList`'s trough is gone entirely, the
+brand tile — one mark appearing in three places, the sidebar, the mobile header and
+Login — and `SectionSwitcher` are `md`, and the whole stage plot surface is now
+either `xl` (a container) or has no frame of its own at all.
+
+What remains, on surfaces later waves own: the inline form blocks in
+`EquipmentTab`, `RentalTab`, `OwnedGearManager` and `Inventories`; `Dashboard`,
+`EventInventoryCard`, `OverviewTab`'s stat tiles, `StartPage`.
 
 **Fix:** case by case, but mechanically — a container of controls is `xl`,
 a control is `md`. Each wave takes the ones on its own surfaces.
@@ -90,15 +91,6 @@ converts the drawers, not to Wave 0.
 > map now lives in `lib/vocabularyTint.ts` and both tiers read it (Wave 0). What
 > remains is purely which tier the drawers render.
 
-### A10 · A third toolbar idiom · P1
-
-`StagePlotTab` has neither a `PatchPanel` bar nor a `CardHeader`: it has
-`inline-flex items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-900 p-1`
-plus dashed-border ghost buttons — a trough used for something that is not a view
-toggle (§6's distinction).
-
-It is close to a work panel already and is the cheapest of the tabs to convert.
-
 ---
 
 ## Part 1b — Closed
@@ -149,6 +141,28 @@ plus a font size. That was not cosmetic: `StagePlotTab`'s sticky toolbar hard-co
 `top-[73px]`, the number that sum happened to produce, so shrinking the header
 would have left the toolbar floating 17 px below where it belongs. A height a child
 positions against has to be a value someone chose.
+
+### A10 · A third toolbar idiom · Wave 2
+
+`StagePlotTab` had neither a `PatchPanel` bar nor a `CardHeader`, and its plot
+selector sat in a trough — which says *these are alternative views of one thing*,
+and sibling plots are not that. The selector is now drawn as the page tabs above it
+are, using `ui/Tabs`'s own `Tab`; the toolbar is the panel's bar in §1's order.
+
+The tab is one frame: bar, then palette | canvas | inspector rail as three columns
+of the same panel, where it used to be a floating sticky toolbar above three
+separate rounded cards with gaps between them.
+
+### A12 · A fifth micro-label the A1 grep never saw · Wave 2
+
+A1 counted definitions matching `tracking-[0.1Ne m]`. Nine more were written as
+Tailwind's named `tracking-widest` with `font-semibold` instead of mono — four in
+`StagePlotInspector`, two in `StagePlotPalette`, two in `PlotTrussManager`, one in
+`StagePlotTab`. All are `MicroLabel` now.
+
+The lesson is about the audit, not the code: a grep that matches a *value* misses
+every synonym of it. The check that would have caught this is "how many things
+render an uppercase 10 px label", which no grep answers.
 
 ---
 
@@ -204,12 +218,28 @@ event heading contributes nothing to the delta despite being a visible change.
 Neither could be *measured*: there is no browser in the toolchain, so the stage plot
 canvas is the one thing in this wave worth a human glance.
 
-### Wave 2 · Stage plots — A10
+### Wave 2 · Stage plots — **done**
 
-The cheapest tab to convert, and the one that proves the work-panel pattern
-transfers to a surface that is neither a sheet nor a list. If `PatchPanel` needs a
-change to host a canvas that is not the flow graph, this is where it surfaces —
-before four more tabs depend on it.
+A10, A12, and A4 on this surface. The pattern transferred to a canvas that is
+neither a sheet nor a list, and `PatchPanel` itself needed **no change** — but two
+things around it did, which is exactly what this wave was ordered early to find:
+
+| Component | Change | Why the third canvas forced it |
+|---|---|---|
+| `graph/ZoomControl` | optional `onZoomIn`/`onZoomOut`/`onReset` | Stage plots zoom ×1.25 over 0.05–20 and re-centre as they go, because that canvas is a scale drawing: a plotter gets from a whole stage down to one truss clamp. The audio canvases step ±0.1 over 0.5–1.5. Same look, different arithmetic — so the component owns the look and the caller may own the stepping, the same split `Legend` already uses. The audio call sites are untouched. |
+| `graph/InspectorRail` | optional `className` | The flow canvases lay their row out `items-start`, so the rail is its own height and the row grows. The stage plot canvas is a fixed fraction of the viewport and stretches the rail, which then has to scroll. Both are right for their canvas. |
+| `ui/Tabs` → `Tab` | optional `active`, context now optional | The plot selector means what the page tabs mean, so it should *be* one rather than copy its classes. It cannot use the context because picking a plot also clears the canvas selection. |
+
+The canvas also lost `h-[calc(100vh-295px)]` for `h-[70vh] min-h-[560px]` — the
+number Wave 1 had to re-tune, now gone rather than corrected. It was a sum of
+chrome heights encoded in a string; the replacement cannot go stale, and it is the
+idiom the mobile branch of the same tab already used.
+
+**Not done, deliberately:** the bar is dense — view toggle, zoom, grid, grid size,
+two snap toggles, trusses, scale note, print, fullscreen — and wraps to two rows on
+a narrow window. Moving the grid and snap settings into the rail would fix that and
+is probably right, but it changes where a plotter reaches for a tool mid-draw. That
+is a workflow decision, and this wave is a restyle.
 
 ### Wave 3 · Lighting — A6, A7, A8
 

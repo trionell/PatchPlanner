@@ -514,6 +514,24 @@
   .ntbl tr:nth-child(odd) td { background: #18181b; }
   .ntbl tr:nth-child(even) td { background: #1f2028; }
 
+  /* -- the three-column panel (stage plots) -- */
+  .plot { display: flex; align-items: stretch; min-height: 150px; }
+  .plot__col { flex: none; width: 92px; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+  .plot__col--l { border-right: 1px solid #27272a; }
+  .plot__col--r { width: 118px; border-left: 1px solid #27272a; }
+  .plot__cv { flex: 1; min-width: 0; background: #09090b; position: relative; }
+  .plot__grid {
+    position: absolute; inset: 0;
+    background-image: linear-gradient(#ffffff0d 1px, transparent 1px), linear-gradient(90deg, #ffffff0d 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+  .plot__obj { position: absolute; border: 1px solid #52525b; background: #1f2028; border-radius: 2px; }
+  .plot__obj--sel { border-color: #f59e0b; box-shadow: 0 0 0 2px #f59e0b4d; }
+  .plot__tile { aspect-ratio: 1; border: 1px solid #27272a; border-radius: 4px; background: #18181b; display: grid; place-items: center; color: #a1a1aa; font-size: 13px; }
+  .plot__tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .plot__fld { display: grid; grid-template-columns: 44px 1fr; align-items: center; gap: 6px; }
+  .plot__in { height: 20px; border: 1px solid #3f3f46; border-radius: 4px; background: #18181b; }
+
   /* -- app chrome -- */
   .chrome { display: flex; min-height: 220px; }
   .chrome__side { width: 200px; flex: none; border-right: 1px solid #27272a; padding: 18px 12px; display: flex; flex-direction: column; gap: 22px; }
@@ -1211,6 +1229,70 @@
         <p class="body small">It commits per field while the sheet's editor holds one. Not an inconsistency to fix — a rail with a draft is a second source of truth for a row the sheet may also be editing.</p>
       </div>
     </div>
+
+  <div class="stack" style="margin-top: 34px;">
+      <h3>The same panel, a third time</h3>
+      <p class="body">
+        Stage Plots is neither a sheet nor a graph — it is a scale drawing — and it is the same
+        panel. One bar, then three columns: the palette on a <span class="k">border-r</span>, the
+        canvas, the inspector rail on its <span class="k">border-l</span>. The palette is the
+        mirror of the rail, a column of the panel rather than a card beside it. It was a floating
+        sticky toolbar above three separate rounded cards until Wave 2.
+      </p>
+      <div class="spec">
+        <div class="spec__frame">
+          <div class="app app--tight" style="min-width: 520px;">
+            <div class="pan">
+              <div class="pan__bar">
+                <span class="pan__ti">Main stage</span>
+                <span class="seg"><span class="btn btn--sm btn--primary">Top</span><span class="btn btn--sm btn--ghost" style="color: #a1a1aa;">Front</span><span class="btn btn--sm btn--ghost" style="color: #a1a1aa;">Side</span></span>
+                <span class="t-mon" style="color: #a1a1aa;">100%</span>
+                <span class="t-sub">Grid · Snap</span>
+                <span class="grow"></span>
+                <span class="t-mon">1 sq = 25 cm · true to scale</span>
+              </div>
+              <div class="plot">
+                <div class="plot__col plot__col--l">
+                  <span class="lbl">Shapes</span>
+                  <div class="plot__tiles">
+                    <span class="plot__tile">▭</span><span class="plot__tile">○</span>
+                    <span class="plot__tile">△</span><span class="plot__tile">T</span>
+                  </div>
+                </div>
+                <div class="plot__cv">
+                  <div class="plot__grid"></div>
+                  <div class="plot__obj" style="left: 24px; top: 22px; width: 76px; height: 42px;"></div>
+                  <div class="plot__obj plot__obj--sel" style="left: 122px; top: 52px; width: 54px; height: 54px;"></div>
+                  <div class="plot__obj" style="left: 40px; top: 88px; width: 44px; height: 24px;"></div>
+                </div>
+                <div class="plot__col plot__col--r">
+                  <span class="lbl">Inspector</span>
+                  <div class="plot__fld"><span class="lbl">X</span><span class="plot__in"></span></div>
+                  <div class="plot__fld"><span class="lbl">Y</span><span class="plot__in"></span></div>
+                  <span class="lbl">Layers</span>
+                  <span class="t-sub">Stage · Rig</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="spec__cap">One frame · palette <b>border-r</b> · rail <b>border-l</b></p>
+      </div>
+      <div class="note">
+        <p class="body small">
+          Two troughs would be wrong here and one is right. <b>Top / Front / Side</b> keeps its
+          trough because those <em>are</em> alternative views of one thing. Which plot you are
+          looking at is not, so the plot picker is a row of <span class="k">Tab</span>s with no
+          trough — the same component the page tabs use, not a copy of its classes.
+        </p>
+        <p class="body small">
+          The canvas is <span class="k">h-[70vh] min-h-[560px]</span>. A canvas height is a
+          fraction of the viewport or a stated constant, never <span class="k">100vh</span> minus
+          the sum of the chrome above it — a number that goes stale the first time the chrome
+          changes, and did.
+        </p>
+      </div>
+    </div>
   </section>
 
   <!-- ============ 6 · DRAWERS ============ -->
@@ -1554,7 +1636,7 @@
     <div class="patchbay" style="--lit: 95%;"><div class="patchbay__strip"></div><div class="patchbay__lit"></div></div>
     <header class="sec__head">
       <p class="sec__num">Nine · where it stands <span class="sec__src">audit.md</span></p>
-      <h2>Eleven findings, five waves</h2>
+      <h2>Twelve findings, five waves</h2>
       <p class="body">
         Counted from <span class="k">frontend/src</span> at the merge of Slices 23–26. Every number
         below is reproducible with a grep given in the audit, so this can be re-run rather than
@@ -1562,9 +1644,10 @@
         in the codebase, not a perfect one.
       </p>
       <p class="body">
-        <strong>Waves 0 and 1 have landed.</strong> Five findings are struck below and stay struck —
-        the list is a record of what was wrong and when it stopped being wrong, not a queue that
-        empties.
+        <strong>Waves 0, 1 and 2 have landed.</strong> Seven findings are struck below and stay
+        struck — the list is a record of what was wrong and when it stopped being wrong, not a queue
+        that empties. A twelfth finding was added by Wave 2, because converting a surface is how you
+        discover what an audit's greps could not see.
       </p>
     </header>
 
@@ -1594,8 +1677,16 @@
         <p class="find__b">24 px page title over a 20 px event name over a 14 px panel title, on a sidebar lighter than the content. → <span class="find__n">16 / 18 / 14</span>, sidebar on the content's own ground, tab strip with no trough. Drawn in §7.</p>
       </div>
       <div class="find">
-        <div class="find__hd"><span class="find__id">A4 · A9 · A10</span><span class="find__ti">The residue</span><span class="find__p">P1 · P2 · P3</span></div>
-        <p class="find__b"><span class="find__n">30</span> uses of <span class="k">rounded-lg</span>, which is not in the ladder. Navigation-tier <span class="k">Badge</span> inside the work-surface drawers. And a third toolbar idiom on Stage Plots — a trough used for something that is not a view toggle.</p>
+        <div class="find__hd"><span class="find__id">A4 · A9</span><span class="find__ti">The residue</span><span class="find__p">P2 · P3</span></div>
+        <p class="find__b"><span class="k">rounded-lg</span> is not in the ladder: <span class="find__n">30</span> uses at the start, <span class="find__n">13</span> left, all on surfaces waves 4 and 5 own. And navigation-tier <span class="k">Badge</span> inside the work-surface drawers.</p>
+      </div>
+      <div class="find find--done">
+        <div class="find__hd"><span class="find__id">A10</span><span class="find__ti">A third toolbar idiom</span><span class="find__done">Wave 2</span><span class="find__p">P1</span></div>
+        <p class="find__b">Stage Plots had neither a panel bar nor a card header — a floating sticky toolbar above three separate rounded cards, and a trough around the plot picker. → One panel, three columns, and a picker drawn as the page tabs are.</p>
+      </div>
+      <div class="find find--done">
+        <div class="find__hd"><span class="find__id">A12</span><span class="find__ti">A fifth micro-label the A1 grep never saw</span><span class="find__done">Wave 2</span><span class="find__p">P3</span></div>
+        <p class="find__b">A1 counted definitions matching <span class="k">tracking-[0.14em]</span>. <span class="find__n">9</span> more were written as <span class="k">tracking-widest</span> with <span class="k">font-semibold</span> instead of mono. A grep that matches a value misses every synonym of it.</p>
       </div>
       <div class="find find--done">
         <div class="find__hd"><span class="find__id">A3</span><span class="find__ti">There is no Textarea</span><span class="find__done">Wave 0</span><span class="find__p">P3</span></div>
@@ -1617,7 +1708,7 @@
       <div class="waves">
         <div class="wave wave--done"><span class="wave__n">Wave 0 ✓</span><span class="wave__t">Primitive gaps</span><span class="wave__d">A1–A3, A11 and half of A9. Visible delta, in full: 10 drawer buttons gain 1 px of padding a side, Stage Plot's two inspector buttons rise to <span class="k">h-7</span>, drawer labels grow 1 px. Everything else byte-identical.</span></div>
         <div class="wave wave--done"><span class="wave__n">Wave 1 ✓</span><span class="wave__t">Chrome</span><span class="wave__d">A5, and A4 where it touched chrome. Smallest diff, largest perceived change, and it changed no tab — only the two files that had hard-coded the chrome's dimensions.</span></div>
-        <div class="wave"><span class="wave__n">Wave 2</span><span class="wave__t">Stage plots</span><span class="wave__d">A10. The cheapest conversion, and the one that proves the panel pattern transfers to a surface that is neither a sheet nor a list.</span></div>
+        <div class="wave wave--done"><span class="wave__n">Wave 2 ✓</span><span class="wave__t">Stage plots</span><span class="wave__d">A10, A12. The panel pattern transferred to a canvas that is neither a sheet nor a list, and <span class="k">PatchPanel</span> needed no change — but the zoom control, the inspector rail and <span class="k">Tab</span> each did, which is why this wave came before four more tabs depend on them.</span></div>
         <div class="wave"><span class="wave__n">Wave 3</span><span class="wave__t">Lighting</span><span class="wave__d">A6–A8. The big one. Fixtures become a sheet with a row editor. A workflow change, not a restyle — worth its own spec.</span></div>
         <div class="wave"><span class="wave__n">Wave 4–5</span><span class="wave__t">Tabs, then pages</span><span class="wave__d">Rental, Equipment, Overview, Signal Flow — same shape, much smaller. Then the pages, which are mostly already right.</span></div>
       </div>

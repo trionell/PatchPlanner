@@ -10,6 +10,7 @@ import { clampDimension, roundCm } from '../../lib/stagePlot'
 import { STAGE_PLOT_ICONS } from '../../lib/stagePlotIcons'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
+import { MicroLabel } from '../ui/Label'
 import { Select } from '../ui/Select'
 
 interface StagePlotInspectorProps {
@@ -99,8 +100,8 @@ export function StagePlotLayersPanel({ layers, activeLayerId, onSetActive, onCre
   }
 
   return (
-    <div className="flex flex-col gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
-      <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Layers</p>
+    <section className="flex flex-col gap-1.5">
+      <MicroLabel>Layers</MicroLabel>
       {ordered.map((layer, index) => (
         <div
           key={layer.id}
@@ -192,7 +193,7 @@ export function StagePlotLayersPanel({ layers, activeLayerId, onSetActive, onCre
           <Input autoFocus className="h-7 text-sm" placeholder="Layer name" value={newName} onChange={(e) => setNewName(e.target.value)} onBlur={() => setNewName(null)} />
         </form>
       ))}
-    </div>
+    </section>
   )
 }
 
@@ -305,7 +306,7 @@ function LinksSection({ eventId, element, disabled, onAdd, onReorder, onRemove }
   return (
     <div className="flex flex-col gap-2">
       <div>
-        <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Assignments</p>
+        <MicroLabel className="mb-1 block">Assignments</MicroLabel>
         <div className="flex flex-wrap gap-1">
           {assignments.map((link) => (
             <span key={link.id} className="inline-flex items-center gap-1 rounded-full border border-zinc-700 bg-zinc-800 px-2 py-0.5 text-xs text-zinc-300">
@@ -326,7 +327,7 @@ function LinksSection({ eventId, element, disabled, onAdd, onReorder, onRemove }
         ))}
       </div>
       <div>
-        <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Stack — {stack.length} item{stack.length === 1 ? '' : 's'}</p>
+        <MicroLabel className="mb-1 block">Stack — {stack.length} item{stack.length === 1 ? '' : 's'}</MicroLabel>
         <div className="flex flex-col gap-1">{stack.map(renderStackRow)}</div>
         {!disabled && (addingRole === 'stack' ? addForm : (
           <button type="button" className="mt-1 text-xs text-amber-400 hover:text-amber-300" onClick={() => startAdd('stack')}>
@@ -348,9 +349,7 @@ export function StagePlotInspector({ eventId, element, layers, onUpdate, onDupli
 
   if (!element) {
     return (
-      <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 text-sm text-zinc-500">
-        Select an element to edit its exact position, size and rotation.
-      </div>
+      <p className="text-xs text-zinc-500">Select an element to edit its exact position, size and rotation.</p>
     )
   }
 
@@ -379,9 +378,9 @@ export function StagePlotInspector({ eventId, element, layers, onUpdate, onDupli
           : 'Fixture'
 
   return (
-    <div className="flex flex-col gap-3 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
+    <section className="flex flex-col gap-3">
       <div>
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Inspector</p>
+        <MicroLabel>Inspector</MicroLabel>
         <p className="mt-0.5 text-sm font-medium text-zinc-200">{element.name || kindTitle}</p>
         <p className="text-xs text-zinc-500">{kindTitle}{layer ? ` · ${layer.name}` : ''}{locked ? ' · locked' : ''}</p>
       </div>
@@ -552,6 +551,6 @@ export function StagePlotInspector({ eventId, element, layers, onUpdate, onDupli
           </Button>
         </div>
       )}
-    </div>
+    </section>
   )
 }

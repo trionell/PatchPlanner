@@ -31,18 +31,33 @@ export function TabList({ className, ...props }: HTMLAttributes<HTMLDivElement>)
   return <div className={cn('inline-flex flex-wrap gap-1', className)} {...props} />
 }
 
-export function Tab({ value, className, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { value: string }) {
-  const context = useTabsContext()
-  const active = context.value === value
+interface TabProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  /** Selects this tab within an enclosing `Tabs`. */
+  value?: string
+  /**
+   * Drives the tab directly, for a selector that means the same thing but keeps
+   * its choice somewhere else — Stage Plots picks between sibling plots, which is
+   * "what you are looking at" exactly as these are, but that choice also clears
+   * the canvas selection and so cannot live in this context.
+   */
+  active?: boolean
+}
+
+export function Tab({ value, active, className, children, onClick, ...props }: TabProps) {
+  const context = useContext(TabsContext)
+  const isActive = active ?? (context != null && value != null && context.value === value)
   return (
     <button
       type="button"
       className={cn(
         'rounded-md px-3 py-1 text-sm transition-colors',
-        active ? 'bg-amber-500 font-semibold text-zinc-950' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100',
+        isActive ? 'bg-amber-500 font-semibold text-zinc-950' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100',
         className,
       )}
-      onClick={() => context.setValue(value)}
+      onClick={(event) => {
+        onClick?.(event)
+        if (context != null && value != null) context.setValue(value)
+      }}
       {...props}
     >
       {children}

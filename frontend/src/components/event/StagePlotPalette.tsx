@@ -1,6 +1,7 @@
 import type { StagePlotShapeKind } from '../../types'
 import type { StagePlotElementCreate } from '../../api/stagePlots'
 import { iconViewBox, STAGE_PLOT_ICONS } from '../../lib/stagePlotIcons'
+import { MicroLabel } from '../ui/Label'
 
 interface StagePlotPaletteProps {
   /** Called with a ready-to-create element (position filled by the tab). */
@@ -42,7 +43,7 @@ function PaletteItem({ label, onClick, disabled, children }: { label: string; on
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="mb-1.5 px-0.5 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">{title}</p>
+      <MicroLabel className="mb-1.5 block px-0.5">{title}</MicroLabel>
       <div className="grid grid-cols-2 gap-1.5">{children}</div>
     </div>
   )
@@ -80,7 +81,9 @@ export function StagePlotPalette({ onPlace, disabled, rigFixtures }: StagePlotPa
   )
 
   return (
-    <div className="flex w-44 flex-none flex-col gap-4 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-900/60 p-2.5">
+    // A column of the panel, not a card floating beside it: one border, on the
+    // edge it shares with the canvas. Mirrors the inspector rail on the far side.
+    <div className="flex w-44 flex-none flex-col gap-4 overflow-y-auto border-r border-zinc-800 p-2.5">
       <Section title="Shapes">
         {SHAPES.map((shape) => (
           <PaletteItem
@@ -111,7 +114,7 @@ export function StagePlotPalette({ onPlace, disabled, rigFixtures }: StagePlotPa
       {/* Real rig fixtures (not generic symbols): place one, then drag
           it onto a truss bar to hang it there. */}
       <div>
-        <p className="mb-1.5 px-0.5 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Rig fixtures</p>
+        <MicroLabel className="mb-1.5 block px-0.5">Rig fixtures</MicroLabel>
         {rigFixtures.length === 0 ? (
           <p className="px-0.5 text-[11px] leading-snug text-zinc-600">No fixtures in the lighting rig yet.</p>
         ) : (

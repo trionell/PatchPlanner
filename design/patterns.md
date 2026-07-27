@@ -108,6 +108,21 @@ The footer states what the contents *mean*, not how many there are twice over:
 - **Zoom lives in the panel's bar.** It used to sit in a strip between the bar and
   the canvas, which is what broke the one-frame reading.
 
+### The stage plot, as the third instance
+
+The pattern is not only for sheets and flow graphs. Stage Plots is one `PatchPanel`
+whose content is **three columns**: the palette on a `border-r`, the canvas, and the
+inspector rail on its `border-l`. The palette is the mirror of the rail — a column of
+the panel, bordered on the edge it shares with the canvas, never a card beside it.
+
+Its bar carries a second trough, and that one is correct: Top / Front / Side *are*
+alternative views of one thing. Which plot you are looking at is not, so the plot
+picker is a row of `Tab`s with no trough (§6).
+
+The canvas is `h-[70vh] min-h-[560px]`. A canvas height is a fraction of the
+viewport or a stated constant — never `100vh` minus the sum of the chrome above it,
+which is a number that goes stale the first time the chrome changes and did.
+
 ## 5 · States
 
 | State | Treatment |

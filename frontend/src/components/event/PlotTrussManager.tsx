@@ -18,6 +18,7 @@ import type { PlotTruss, PlotTrussFixture, TrussSide } from '../../types'
 import { Button } from '../ui/Button'
 import { Dialog } from '../ui/Dialog'
 import { Input } from '../ui/Input'
+import { MicroLabel } from '../ui/Label'
 import { Select } from '../ui/Select'
 
 interface PlotTrussManagerProps {
@@ -189,7 +190,7 @@ function TrussEditor({ eventId, truss, trussItems, fixtures, onChanged, onPlace,
   const lengthValue = Number(pieceLength.replace(',', '.'))
 
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
       <div className="mb-2 flex items-center gap-2">
         <Input
           className="h-8 font-medium"
@@ -273,9 +274,7 @@ function TrussEditor({ eventId, truss, trussItems, fixtures, onChanged, onPlace,
         </div>
       )}
 
-      <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">
-        Pieces — total {truss.total_length_cm} cm
-      </p>
+      <MicroLabel className="mb-1 block">Pieces — total {truss.total_length_cm} cm</MicroLabel>
       <div className="mb-2 flex flex-col gap-1">
         {truss.pieces.map((piece) => (
           <div key={piece.id} className="flex items-center gap-2 rounded-md border border-zinc-800 px-2 py-1 text-xs text-zinc-300">
@@ -325,7 +324,7 @@ function TrussEditor({ eventId, truss, trussItems, fixtures, onChanged, onPlace,
         </div>
       )}
 
-      <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Fixtures</p>
+      <MicroLabel className="mb-1 block">Fixtures</MicroLabel>
       <div className="mb-2 flex flex-col gap-1">
         {truss.fixtures.map((fixture) => (
           <AttachedFixtureRow

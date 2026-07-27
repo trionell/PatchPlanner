@@ -27,9 +27,14 @@ import { useIsMobile } from '../../hooks/useIsMobile'
 import { roundCm } from '../../lib/stagePlot'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
+import { MicroLabel } from '../ui/Label'
+import { PatchPanel } from '../ui/PatchPanel'
+import { Tab } from '../ui/Tabs'
 import { PrintButton } from '../print/PrintButton'
 import { StagePlotSheet } from '../print/StagePlotSheet'
 import { PlotTrussManager } from './PlotTrussManager'
+import { InspectorRail } from './graph/InspectorRail'
+import { ZoomControl } from './graph/ZoomControl'
 import { StagePlotCanvas, type PlotViewState } from './StagePlotCanvas'
 import { StagePlotInspector, StagePlotLayersPanel } from './StagePlotInspector'
 import { StagePlotPalette } from './StagePlotPalette'
@@ -340,31 +345,31 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
   return (
     <>
     <div className="space-y-3 print:hidden">
-      {/* Plot tabs bar */}
+      {/*
+        Which plot — "what you are looking at", so it is drawn as the page tabs
+        above it are and not as a trough (design/patterns.md §6). The trough this
+        used to sit in was the third toolbar idiom in the application, and it said
+        "these are alternative views of one thing", which sibling plots are not.
+      */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-900 p-1">
+        <div className="inline-flex flex-wrap items-center gap-1">
           {plots.map((plot) => (
-            <button
+            <Tab
               key={plot.id}
-              type="button"
               onClick={() => {
                 setSelectedPlotId(plot.id)
                 setSelectedElementId(null)
               }}
-              className={
-                plot.id === activePlotId
-                  ? 'rounded-md bg-amber-500 px-3 py-1.5 text-sm font-medium text-zinc-950'
-                  : 'rounded-md px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800'
-              }
+              active={plot.id === activePlotId}
             >
               {plot.name}
-            </button>
+            </Tab>
           ))}
           {editingAllowed && (creatingName == null ? (
             <button
               type="button"
               onClick={() => setCreatingName('')}
-              className="rounded-md border border-dashed border-zinc-700 px-3 py-1.5 text-sm text-zinc-500 hover:text-zinc-300"
+              className="rounded-md px-3 py-1 text-sm text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
             >
               <Plus className="mr-1 inline h-3.5 w-3.5" />
               New plot
@@ -428,117 +433,119 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
       </div>
 
       {activePlotId == null ? (
-        <p className="rounded-lg border border-dashed border-zinc-700 p-8 text-center text-sm text-zinc-500">
+        <p className="rounded-xl border border-dashed border-zinc-700 p-8 text-center text-sm text-zinc-500">
           No stage plots yet — create one to start drawing the stage to scale.
         </p>
       ) : !response ? (
         <p className="text-sm text-zinc-400">Loading plot…</p>
       ) : (
         (() => {
-          // Toolbar — inline it sticks just below the app header once scrolled
-          // past; in fullscreen it floats on top of the canvas. `top-14` is the
-          // header's `h-14`, which is stated on the header for exactly this
-          // reason: it used to be the sum of a padding and a font size, and this
-          // offset was the literal 73 px that sum happened to produce.
-          const toolbar = (
-          <div
-            className={`flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-zinc-800 px-3 py-2 text-sm text-zinc-400 ${
-              fullscreen ? 'bg-zinc-900/90 backdrop-blur' : 'sticky top-14 z-10 bg-zinc-900'
-            }`}
-          >
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="sm" title="Zoom out" onClick={() => zoomBy(1 / 1.25)}>
-                <Minus className="h-4 w-4" />
-              </Button>
-              <span className="w-14 text-center tabular-nums text-zinc-200">{Math.round(viewState.zoom * 100)} %</span>
-              <Button variant="ghost" size="sm" title="Zoom in" onClick={() => zoomBy(1.25)}>
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            <span className="h-5 w-px bg-zinc-800" aria-hidden />
-            <label className="flex items-center gap-1.5">
-              <input
-                type="checkbox"
-                className="accent-amber-500"
-                checked={response.plot.grid_visible}
-                onChange={(e) => updatePlotSettings.mutate({ grid_visible: e.target.checked })}
-                disabled={readOnly}
+          // The panel's bar, in the order design/patterns.md §1 fixes: title,
+          // view toggle, extras (zoom), the rest, flex-1, Print, and the trailing
+          // action. It no longer sticks: the panel is one frame, and a bar that
+          // detaches from its own content while you scroll is the three-cards
+          // reading `PatchPanel` exists to end.
+          const bar = (
+            <>
+              <span className="mr-1 shrink-0 text-sm font-semibold text-zinc-100">{response.plot.name}</span>
+
+              {/* Three linked projections of the same model (US6): an edit
+                  in any view is an edit of the shared elements. A trough here is
+                  correct — these *are* alternative views of one thing. */}
+              <div className="inline-flex shrink-0 rounded-md border border-zinc-700 bg-zinc-900 p-0.5">
+                {(['top', 'front', 'side'] as const).map((viewOption) => (
+                  <Button
+                    key={viewOption}
+                    size="xs"
+                    variant={response.plot.active_view === viewOption ? 'default' : 'ghost'}
+                    disabled={readOnly}
+                    onClick={() => updatePlotSettings.mutate({ active_view: viewOption })}
+                    className="h-6 px-2"
+                  >
+                    {viewOption === 'top' ? 'Top' : viewOption === 'front' ? 'Front' : 'Side'}
+                  </Button>
+                ))}
+              </div>
+
+              <ZoomControl
+                zoom={viewState.zoom}
+                onZoomOut={() => zoomBy(1 / 1.25)}
+                onZoomIn={() => zoomBy(1.25)}
+                onReset={() => zoomBy(1 / viewState.zoom)}
               />
-              Grid
-            </label>
-            <label className="flex items-center gap-1.5">
-              <Input
-                className="h-7 w-16 text-right tabular-nums"
-                value={gridSizeDraft}
-                onChange={(e) => setGridSizeDraft(e.target.value)}
-                onBlur={() => {
-                  const parsed = Number(gridSizeDraft.replace(',', '.'))
-                  if (Number.isFinite(parsed) && parsed > 0) updatePlotSettings.mutate({ grid_size_cm: parsed })
-                  else setGridSizeDraft(String(response.plot.grid_size_cm))
-                }}
-                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-                aria-label="Grid size (cm)"
-                disabled={readOnly}
-              />
-              cm
-            </label>
-            <label className="flex items-center gap-1.5">
-              <input
-                type="checkbox"
-                className="accent-amber-500"
-                checked={response.plot.snap_grid}
-                onChange={(e) => updatePlotSettings.mutate({ snap_grid: e.target.checked })}
-                disabled={readOnly}
-              />
-              Snap to grid
-            </label>
-            <label className="flex items-center gap-1.5">
-              <input
-                type="checkbox"
-                className="accent-amber-500"
-                checked={response.plot.snap_objects}
-                onChange={(e) => updatePlotSettings.mutate({ snap_objects: e.target.checked })}
-                disabled={readOnly}
-              />
-              Snap to objects
-            </label>
-            <span className="h-5 w-px bg-zinc-800" aria-hidden />
-            {/* Three linked projections of the same model (US6): an edit
-                in any view is an edit of the shared elements. */}
-            <div className="inline-flex rounded-md border border-zinc-700 bg-zinc-900 p-0.5">
-              {(['top', 'front', 'side'] as const).map((viewOption) => (
-                <button
-                  key={viewOption}
-                  type="button"
+
+              <span className="h-5 w-px shrink-0 bg-zinc-800" aria-hidden />
+
+              <label className="flex shrink-0 items-center gap-1.5 text-xs text-zinc-400">
+                <input
+                  type="checkbox"
+                  className="h-3.5 w-3.5 accent-amber-500"
+                  checked={response.plot.grid_visible}
+                  onChange={(e) => updatePlotSettings.mutate({ grid_visible: e.target.checked })}
                   disabled={readOnly}
-                  onClick={() => updatePlotSettings.mutate({ active_view: viewOption })}
-                  className={
-                    response.plot.active_view === viewOption
-                      ? 'rounded bg-amber-500 px-2.5 py-1 text-xs font-medium text-zinc-950'
-                      : 'rounded px-2.5 py-1 text-xs text-zinc-400 hover:text-zinc-200 disabled:opacity-40'
-                  }
-                >
-                  {viewOption === 'top' ? 'Top' : viewOption === 'front' ? 'Front' : 'Side'}
-                </button>
-              ))}
-            </div>
-            <span className="h-5 w-px bg-zinc-800" aria-hidden />
-            {!readOnly && (
-              <Button variant="outline" size="sm" onClick={() => setTrussManagerOpen(true)}>
-                Trusses…
+                />
+                Grid
+              </label>
+              <label className="flex shrink-0 items-center gap-1.5 text-xs text-zinc-400">
+                <Input
+                  size="sm"
+                  className="h-7 w-14 text-right tabular-nums"
+                  value={gridSizeDraft}
+                  onChange={(e) => setGridSizeDraft(e.target.value)}
+                  onBlur={() => {
+                    const parsed = Number(gridSizeDraft.replace(',', '.'))
+                    if (Number.isFinite(parsed) && parsed > 0) updatePlotSettings.mutate({ grid_size_cm: parsed })
+                    else setGridSizeDraft(String(response.plot.grid_size_cm))
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                  aria-label="Grid size (cm)"
+                  disabled={readOnly}
+                />
+                cm
+              </label>
+              <label className="flex shrink-0 items-center gap-1.5 text-xs text-zinc-400">
+                <input
+                  type="checkbox"
+                  className="h-3.5 w-3.5 accent-amber-500"
+                  checked={response.plot.snap_grid}
+                  onChange={(e) => updatePlotSettings.mutate({ snap_grid: e.target.checked })}
+                  disabled={readOnly}
+                />
+                Snap to grid
+              </label>
+              <label className="flex shrink-0 items-center gap-1.5 text-xs text-zinc-400">
+                <input
+                  type="checkbox"
+                  className="h-3.5 w-3.5 accent-amber-500"
+                  checked={response.plot.snap_objects}
+                  onChange={(e) => updatePlotSettings.mutate({ snap_objects: e.target.checked })}
+                  disabled={readOnly}
+                />
+                Snap to objects
+              </label>
+
+              {!readOnly && (
+                <Button size="xs" variant="outline" onClick={() => setTrussManagerOpen(true)}>
+                  Trusses…
+                </Button>
+              )}
+
+              <span className="flex-1" />
+
+              <span className="shrink-0 font-mono text-[11px] tabular-nums text-zinc-500">
+                1 sq = {response.plot.grid_size_cm} cm · true to scale
+              </span>
+              <PrintButton />
+              <Button
+                size="xs"
+                variant="ghost"
+                className="w-7 p-0"
+                title={fullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen'}
+                onClick={() => setFullscreen((value) => !value)}
+              >
+                {fullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
               </Button>
-            )}
-            <PrintButton />
-            <span className="ml-auto text-xs text-zinc-500">1 square = {response.plot.grid_size_cm} cm · canvas is true to scale</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              title={fullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen'}
-              onClick={() => setFullscreen((value) => !value)}
-            >
-              {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-            </Button>
-          </div>
+            </>
           )
 
           const palette = (
@@ -580,7 +587,7 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
           if (isMobile) {
             return (
               <>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm text-zinc-400">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm text-zinc-400">
                   <div className="flex items-center gap-1">
                     <Button variant="ghost" size="sm" title="Zoom out" onClick={() => zoomBy(1 / 1.25)}>
                       <Minus className="h-4 w-4" />
@@ -633,8 +640,10 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
             )
           }
 
+          // The far column, on the rail both flow canvases already use: a left
+          // border rather than a stack of cards floating beside the drawing.
           const sidePanels = (
-            <div className="flex w-64 flex-none flex-col gap-3">
+            <InspectorRail className="overflow-y-auto">
               <StagePlotInspector
                 eventId={eventId}
                 element={selectedElement}
@@ -656,24 +665,24 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
                 onDelete={(layerId) => deleteLayerMutation.mutate(layerId)}
                 readOnly={readOnly}
               />
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
-                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Fixture labels</p>
-                <div className="flex flex-col gap-1.5 text-sm text-zinc-400">
+              <section className="flex flex-col gap-1.5">
+                <MicroLabel>Fixture labels</MicroLabel>
+                <div className="flex flex-col gap-1.5 text-xs text-zinc-400">
                   <label className="flex items-center gap-1.5">
-                    <input type="checkbox" className="accent-amber-500" checked={response.plot.show_fixture_name} onChange={(e) => updatePlotSettings.mutate({ show_fixture_name: e.target.checked })} disabled={readOnly} />
+                    <input type="checkbox" className="h-3.5 w-3.5 accent-amber-500" checked={response.plot.show_fixture_name} onChange={(e) => updatePlotSettings.mutate({ show_fixture_name: e.target.checked })} disabled={readOnly} />
                     Name
                   </label>
                   <label className="flex items-center gap-1.5">
-                    <input type="checkbox" className="accent-amber-500" checked={response.plot.show_fixture_fid} onChange={(e) => updatePlotSettings.mutate({ show_fixture_fid: e.target.checked })} disabled={readOnly} />
+                    <input type="checkbox" className="h-3.5 w-3.5 accent-amber-500" checked={response.plot.show_fixture_fid} onChange={(e) => updatePlotSettings.mutate({ show_fixture_fid: e.target.checked })} disabled={readOnly} />
                     Fixture ID (FID)
                   </label>
                   <label className="flex items-center gap-1.5">
-                    <input type="checkbox" className="accent-amber-500" checked={response.plot.show_fixture_dmx} onChange={(e) => updatePlotSettings.mutate({ show_fixture_dmx: e.target.checked })} disabled={readOnly} />
+                    <input type="checkbox" className="h-3.5 w-3.5 accent-amber-500" checked={response.plot.show_fixture_dmx} onChange={(e) => updatePlotSettings.mutate({ show_fixture_dmx: e.target.checked })} disabled={readOnly} />
                     DMX universe · address
                   </label>
                 </div>
-              </div>
-            </div>
+              </section>
+            </InspectorRail>
           )
 
           const trussManager = (
@@ -699,25 +708,32 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
               <div className="fixed inset-0 z-40 !mt-0 bg-zinc-950">
                 <div className="absolute inset-0">{canvas}</div>
                 <div className="pointer-events-none absolute inset-0 flex flex-col gap-3 p-3">
-                  <div className="pointer-events-auto">{toolbar}</div>
+                  <div className="pointer-events-auto flex flex-wrap items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-950/90 px-3 py-2.5 backdrop-blur">
+                    {bar}
+                  </div>
                   <div className="flex min-h-0 flex-1 items-stretch justify-between gap-3">
-                    <div className="pointer-events-auto flex rounded-lg bg-zinc-950/75 backdrop-blur-sm">{palette}</div>
-                    <div className="pointer-events-auto flex overflow-y-auto rounded-lg bg-zinc-950/75 backdrop-blur-sm">{sidePanels}</div>
+                    <div className="pointer-events-auto flex rounded-xl border border-zinc-700 bg-zinc-950/85 backdrop-blur-sm">{palette}</div>
+                    <div className="pointer-events-auto flex overflow-y-auto rounded-xl border border-zinc-700 bg-zinc-950/85 backdrop-blur-sm">{sidePanels}</div>
                   </div>
                 </div>
                 {trussManager}
               </div>
             )
 
+          // One frame: bar, then palette | canvas | rail as three columns of the
+          // same panel. It used to be a floating toolbar above three separate
+          // rounded cards with gaps between them — the arrangement `PatchPanel`
+          // was built to replace on the audio tabs (P1).
           return (
             <>
-              {toolbar}
-              <div className="flex items-stretch gap-3">
-                {palette}
-                <div className="min-w-0 flex-1">{canvas}</div>
-                {sidePanels}
-                {trussManager}
-              </div>
+              <PatchPanel bar={bar}>
+                <div className="flex items-stretch">
+                  {palette}
+                  <div className="min-w-0 flex-1">{canvas}</div>
+                  {sidePanels}
+                </div>
+              </PatchPanel>
+              {trussManager}
             </>
           )
         })()

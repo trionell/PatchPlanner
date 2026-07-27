@@ -736,12 +736,13 @@ export function StagePlotCanvas({
       className={
         fillParent
           ? 'relative h-full w-full overflow-hidden bg-zinc-950'
-          // 295 px is everything stacked above this canvas. It was 330 until
-          // Wave 1 shortened the app header (73 → 56) and took the trough off
-          // the tab strip (46 → 28); left at 330 the page grows a scrollbar it
-          // never had. It is still a magic number tuned against a layout it
-          // cannot see, which is Wave 2's to delete rather than re-tune.
-          : 'relative h-[calc(100vh-295px)] min-h-[560px] w-full overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950'
+          // No border and no radius: the panel around it is the frame (P1). The
+          // height is a fraction of the viewport rather than `100vh` minus the
+          // sum of everything above it — that sum was 330 px of chrome heights
+          // encoded in a string, and Wave 1 invalidated it by making the header
+          // shorter. This one cannot go stale, and it is the idiom the mobile
+          // branch of the same tab already used.
+          : 'relative h-[70vh] min-h-[560px] w-full overflow-hidden bg-zinc-950'
       }
     >
       <svg
