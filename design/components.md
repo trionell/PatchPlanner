@@ -1,7 +1,7 @@
 # 03 · Components
 
 What to reach for. Every component below exists today; nothing here is proposed
-except the three marked **gap**.
+except the two marked **gap**, both in §5.
 
 The rule that decides between the two columns is P2's question, applied to the
 surface — never to the component in isolation. A `Badge` inside a work panel is
@@ -222,6 +222,11 @@ Navigation-surface components; values in [tokens.md](tokens.md). `Dialog` and
 `Drawer` already share their header, padding and close conventions, and should
 continue to.
 
+`Dialog` is centred, `max-w-2xl`, and has **no `Escape` handler and no internal
+scroll** — `Drawer` has both. That is survivable for the short confirmations it
+was built for and it is not survivable as the phone's edit sheet, which is what
+five call sites currently use it as. See §5 and [audit.md](audit.md) M8.
+
 `Badge` and `Pill` both read their tint from `lib/vocabularyTint.ts`, so the two
 sizes of one chip cannot disagree about what colour a `monitor` is. It takes any
 vocabulary string and falls back to the neutral style for values it has no entry
@@ -231,7 +236,62 @@ Never `switch` on the value at the call site.
 Every entry in that map is `<hue>-500/15` over `<hue>-300` ([tokens.md](tokens.md)
 §5). An entry that departs from the formula is a bug, not a new colour.
 
-## 5 · Naming
+## 5 · Phone components — `components/mobile/`
+
+Reached only from inside a `useIsMobile()` branch ([tokens.md](tokens.md) §7).
+Everything here is the navigation tier at a 44 px target; nothing here is a third
+set of values.
+
+| Export | What it is |
+|---|---|
+| `MobileNav` | The bottom bar that replaces the sidebar: three destinations and a **More** overflow. Active is `text-amber-400` with no fill — the sidebar's restraint, which has no left edge to use here. Carries the safe-area inset. |
+| `SectionSwitcher` | The phone's tab strip: one control naming the current section, opening a list of the nine. It is the phone's form of `ui/Tabs`, so it says *what you are looking at* and takes no trough (§4, `ui/Tabs`). |
+| `MobileEntityList` | Search, rows, and the add control, over `MobileEntityRow` — one component for channels, outputs and fixtures, because all three differ only in what `number`, `subtitle` and `color` mean. Correct as a decision; the shape it renders is the **gap** below. |
+| `CondensedListRow` | One row: leading tape edge, title, subtitle, trailing slot. Its `accentColor` draws the derived colour as a `border-l-[3px]` and a tint at `1a` — the sheet's tape bar in the geometry a phone row has. |
+| `MobileChannelEditSheet` · `MobileOutputEditSheet` · `MobileFixtureEditSheet` | The phone's row editor, one per entity, deliberately not one configurable form — the same reasoning as `GearList`. A failed save keeps the sheet open with every value intact. |
+
+**`MobilePanel` — gap.** The phone has no frame. `MobileEntityList` renders a bar
+of sorts, then rows as free-standing bordered cards on the page ground, and no
+strip at all — so a phone is the one place in the application where a surface
+never states whether the plan holds. The component is P1 at 375 px: a
+`PatchPanel`-shaped frame whose bar wraps to two rows, whose rows are rows rather
+than cards, and whose foot is the surface's existing status rail. The strips
+already exist (`PatchStatusRail`, `LightingStatusRail`, `RentalStatusRail`,
+`EquipmentStatusRail`) and take the phone's `text-xs`.
+
+**`ui/Sheet` — gap.** The bottom sheet, and the phone's sibling of `ui/Drawer`:
+anchored to the bottom edge, `rounded-t-xl`, `max-h-[85svh]` with the body
+scrolling inside it, `Escape` and backdrop to close, `env(safe-area-inset-bottom)`
+under the confirm row. It exists twice today and neither time as a component —
+`Dialog` is centred and stands in for it at five call sites, and `MobileNav`'s
+**More** menu is a real bottom sheet written inline. `Drawer` and `Sheet` share a
+header the way `Drawer` and `Dialog` already do.
+
+It does three jobs, and it decides nothing about any of them — which is the reason
+it is worth a component rather than a `className` on `Dialog`. **A sheet holds
+another pattern's contents at that pattern's own tier**
+([patterns.md](patterns.md) §7d), so what goes in keeps its type and gives up only
+the geometry a finger has to hit:
+
+- **The row editor** is `RowEditor` / `GearForm`, so it inherits that pattern's
+  rules: one row at a time, add and edit one construction, delete kept apart from
+  confirm ([patterns.md](patterns.md) §2), a draft confirmed by one **Save**.
+- **The drawer** is `DrawerSection` + `GearCard` + `GearSpecs`, unchanged — mono
+  micro-label headings, 10 px mono spec lines, `Pill` chips, one filled primary
+  among `outline` and `ghost`. The Rig, Buses and Universes drawers are the same
+  component tree they are on a desk, at `h-10` instead of `h-8`.
+- **The canvas inspector** is `InspectorRail`'s contents: `Field`, `Note` and
+  `Legend` are already width-independent, including `Field`'s
+  `grid-cols-[44px_minmax(0,1fr)]` label-beside-control. What does not travel is
+  the `w-60 shrink-0 border-l` frame, because a phone has no column to give up. No
+  new inspector — a different container for the one that exists, **editing exactly
+  what the rail edits and committing per field**.
+
+The one thing `Sheet` does own is the shell: the anchor, the radius, the scrim
+(and its one exception), the internal scroll, `Escape`, and the safe-area inset
+under whatever the last row is.
+
+## 6 · Naming
 
 - A component whose job is one canvas's version of a shared thing is prefixed with
   that canvas: `InputFlowInspector`, `OutputFlowInspector`. "The flow inspector"

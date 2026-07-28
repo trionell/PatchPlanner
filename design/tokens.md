@@ -53,7 +53,8 @@ translucency, not by a palette of six greys.
 ## 3 · Density tiers
 
 Two calibrations of one vocabulary. Which one applies is decided by P2's question,
-not per component.
+not per component. **A phone takes the right-hand column with three amendments**,
+which is §7 — it is not a third tier.
 
 | | **Work surface** | **Navigation surface** |
 |---|---|---|
@@ -241,3 +242,110 @@ moves, the motion is the parameter.**
 `focus-visible:ring-2 focus-visible:ring-amber-500`. Inputs and selects:
 `focus:border-amber-500`. A control that removes the outline without replacing it
 is a bug, not a style.
+
+## 7 · Reach
+
+One more question, asked once per surface and answered by a **hook rather than by
+a media query**:
+
+> **Is this being read at arm's length, on a screen held in one hand?**
+
+`useIsMobile()` — `(max-width: 767px)`, one definition, sitting on the project's
+existing `md` breakpoint. It returns a boolean a component *branches* on. That is
+deliberate and it is not a shortcut: the phone renders a different composition of
+the same data — a list where the desktop has a sheet of twelve columns, a bottom
+sheet where it has an inline row editor, a tapped node where it has a hover — and
+no number of `md:` prefixes turns one of those into the other. Responsive
+utilities still do the small work *inside* a branch; the branch itself is a
+decision about composition.
+
+### The phone takes the navigation column of §3
+
+Not a third tier. The same values with **two amendments** — the 44 px minimum, and
+the micro-label heading — restated in full here because the table is what gets
+read:
+
+| | Phone | |
+|---|---|---|
+| Row | `px-3 py-2.5`, two lines | title `text-sm`, subtitle `text-xs` — 44 px tall |
+| **Minimum tap target** | **44 px** | amendment 1. Below it, a control is a suggestion |
+| Input · Select · Textarea | `md` (`h-10`) | never `sm` — `h-8` is a mouse's height |
+| Button | `sm` in a bar · `md` for a form's confirm | never `xs`; the **variant** is unchanged |
+| Icon, tappable | `h-4 w-4` in text · `h-5 w-5` in the bottom nav | never `h-3.5` |
+| Icon, drawn | whatever the desktop draws | it is not a target |
+| Chip · label | whatever the surface's tier uses | amendment 2 — see below |
+| Heading over a run of rows | `MicroLabel` + a `border-zinc-800` rule | the app's one label voice, at every width |
+
+**Density on a phone comes from stacking, never from shrinking.** A sheet's twelve
+columns become a title and a subtitle joined by `·`, in that order of importance;
+what will not fit is dropped rather than set smaller. Shrinking type to fit a
+column count is how a phone ends up with values in neither tier.
+
+### Amendment 2 · Type is read, geometry is touched
+
+> **A surface on a phone keeps its tier's type and gives up its tier's geometry.**
+
+This is the rule the old §7 got backwards, and it is the one that decides what a
+phone drawer looks like. P3 says the app has **one label voice**, and it does not
+acquire a second one at 767 px: `FieldStack` renders a `MicroLabel` above every
+field in the Rig drawer and in every row editor, so a phone sheet holding those
+same fields renders the same mono, uppercase, `tracking-[0.14em]` label. So does
+`GearSpecs` at 10 px mono, and so does `Pill` where the desktop draws a `Pill`.
+
+What changes is only what a finger has to hit:
+
+| | Desktop, in a drawer | Phone, in a sheet |
+|---|---|---|
+| Section heading | `MicroLabel` | **same** |
+| Field label | `MicroLabel` (`FieldStack`) | **same** |
+| Spec line | `text-[10px]` mono | **same** |
+| Chip | `Pill` | **same** |
+| Input · Select | `size="sm"` — `h-8` | `h-10` |
+| Button | `size="xs"` — `h-7` | `h-10`, same variant |
+| Row / card padding | `px-2.5 py-2` | `px-3 py-2.5`, min 44 px |
+
+Ten-pixel mono is not a target and never was — it is a label beside a control, and
+labels are read. The 44 px minimum applies to **things you press**, which is why
+those are the only rows that move. A phone form built from `FieldLabel` and 14 px
+sentence case is not "more legible"; it is a second application's form, wearing
+this application's colours.
+
+`FieldLabel` keeps exactly the job it has on the desktop — navigation-surface
+forms, where the desktop uses it too: event details, settings, login. The tier
+decides, not the width (P2), and the phone does not re-open that question.
+
+Events' month rules and the dashboard's *Your events* are the same rule seen from
+the heading side, and they were correct all along against a document that forbade
+them.
+
+**Off the ladder, and named here so they stop being copied:** `text-[13px]`,
+`text-[11px]` as a row subtitle, `h-9`, `w-9`, `py-1.5`. Every one lives only in
+`components/mobile/`, and every one sits between two values that already mean
+something. See [audit.md](audit.md) M2.
+
+### Fixed geometry
+
+| | Value | Why fixed |
+|---|---|---|
+| Header | `h-14` — the desktop's own | One number for the app's top edge. A second one earns nothing and goes stale separately. |
+| Bottom nav | `h-14`, plus `env(safe-area-inset-bottom)` | Four `44px` targets need `h-14` to breathe; the inset is added, not absorbed. |
+| Page padding | `px-4 py-4` | |
+| Body's bottom padding | the nav's height **plus** the inset, derived | `pb-20` is a guess at a number the nav owns. This is `top-[73px]` again ([audit.md](audit.md) A5), on the other edge of the screen. |
+| Bottom sheet | `rounded-t-xl`, bottom corners square | It is anchored to an edge, so it has two corners. |
+| Overlay scrim | `bg-zinc-950/80` | The dialog's, not the drawer's: a sheet covers most of the screen. **One exception** — the canvas inspector takes none ([patterns.md](patterns.md) §7f). |
+
+**Anything anchored to the bottom edge carries `env(safe-area-inset-bottom)`** —
+the nav, a bottom sheet, and a sheet's confirm row. A control the home indicator
+sits on is a control that misses.
+
+### What the phone does not re-decide
+
+Colour, derivation, shape and wording are width-independent (P9). A tape colour is
+the same hex, drawn as a `w-[3px]` bar on a sheet row and as the same 3 px on a
+list row's leading edge — one derivation, two geometries. A missing link is
+`red-400` and says what is missing. A collision is amber and a word. **48 V is a
+bar in the hand too**, for exactly the reason it is one on the desk (P5).
+
+The fixed geometry of §3 — the 7 px port dot, the 18 px port row, the 3 px tape —
+is **drawing**, and it survives on a phone unchanged. What does not survive is
+using it as a target (P9).

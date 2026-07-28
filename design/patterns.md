@@ -329,7 +329,7 @@ primary action" rather than "the page you are on".
 |---|---|
 | frame | `sticky top-0 z-20 flex h-14 items-center border-b border-zinc-800 bg-zinc-950/95 backdrop-blur px-8` |
 | title | `text-base font-semibold text-zinc-100` |
-| mobile | `px-4 py-3`, title `text-sm font-semibold` |
+| phone | the same `h-14`, at `px-4`, title `text-sm font-semibold` — §7a |
 
 The mockup's own bar title is 13 px at an 11 px base — `text-base` is that carried
 across. A 24 px page title above a 14 px panel title inverts the hierarchy.
@@ -361,17 +361,228 @@ Between the header and the tab strip, `text-lg font-semibold` with venue and dat
 `text-sm text-zinc-400` — one step below the panel it introduces, one step above
 nothing.
 
-## 7 · Mobile
+## 7 · The phone
 
-The Flow canvas is desktop-only, and that is a decision rather than a limitation: a
-patch graph on a phone is unreadable at any density. Mobile keeps the list-and-sheet
-editor, a bottom nav (`MobileNav`), and per-entity edit sheets.
+Everything above, at arm's length (P9). The phone is not a section of the
+application — it is the application, composed for one hand, and every pattern in
+§§1–4c has a form here. Values are in [tokens.md](tokens.md) §7; components in
+[components.md](components.md) §5.
 
-Mobile is **not** a third density tier. It uses navigation-surface sizing
-throughout — a touch target does not shrink because the data is dense — with
-`py-2.5`/`py-3` rows and `h-5 w-5` icons. Anything sized for a mouse
-(`h-3.5 w-3.5` icons, 7 px port dots, `text-[10px]` labels) does not appear on
-mobile at all.
+The one thing that decides a phone layout is that **a column is not available**.
+A sheet's twelve columns, a canvas beside a rail, a drawer over the sheet it is
+read against — all three are the same move, laying two things side by side so one
+can be read against the other. On a 375 px screen that move is gone, and every
+sub-pattern below is what replaces it: stack it, put it behind a tap, or say it
+is a desk job.
+
+### 7a · The shell
+
+| Part | Value |
+|---|---|
+| header | `sticky top-0 z-20 h-14 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur px-4` |
+| header content | brand mark, page title `text-sm font-semibold`, avatar at `h-7 w-7` |
+| body | `px-4 py-4`, bottom padding derived from the nav's height |
+| bottom nav | `fixed inset-x-0 bottom-0 h-14 border-t border-zinc-800 bg-zinc-950`, plus the safe inset |
+
+The sidebar has no phone form and needs none: it is four destinations, and four
+destinations are a bottom bar. What it keeps is P8 — the nav is on the **same
+ground as the content**, marked by its rule, and the active item is
+`text-amber-400` with no fill. The desktop's 2 px left edge has no bottom-bar
+equivalent, so the colour carries it alone; this is the one place the accent marks
+position rather than action, and it is legible only because the bar holds four
+slots and nothing else on the phone is amber except a primary button.
+
+**`More` is an overflow, not a menu.** Three of the four slots are destinations
+because three labelled 44 px targets fit across 375 px; the fourth takes the rest —
+My Defaults, and sign-out, which the desktop keeps in the header. Which items land
+there is a consequence of the count, not a judgement about them, and a fifth
+destination would change the arithmetic rather than join the sheet.
+
+### 7b · The panel, at 375 px
+
+P1 does not have a width condition. A phone surface is one bordered thing:
+
+```
+┌─────────────────────────────┐
+│ Audio Inputs      [🔍] [＋] │  bar — wraps to two rows before it scrolls
+├─────────────────────────────┤
+│▎12  Kick In              ✎  │
+│     Beta 91A · SB1 in 12    │  rows, 44 px, in the frame
+│▎13  Snare Top            ✎  │
+│     e906 · SB1 in 13        │
+├─────────────────────────────┤
+│ ● 3 gaps · 16 ch · SD10     │  strip — the same verdict as the desk
+└─────────────────────────────┘
+```
+
+- **The bar keeps §1's order** — title, toggle, search, drawers, `flex-1`, primary
+  action — and wraps rather than scrolls. What does not fit at 375 px goes into the
+  overflow the same way the nav's fourth slot works; it does not silently vanish.
+- **The strip is not optional here.** It is the only thing on the phone that says
+  whether the plan holds, and the phone is where someone is standing in the room
+  the plan describes. A surface that has a strip on the desk has one in the hand.
+- **A search box that filters nothing is absent**, as on the desktop.
+
+### 7c · The row
+
+A sheet row's columns become a title and a subtitle, ranked. Nothing shrinks
+([tokens.md](tokens.md) §7).
+
+| | Carries |
+|---|---|
+| leading edge | the derived colour, as `border-l-[3px]` and a `1a` tint — the tape bar's data in the row's own geometry |
+| title | the number in mono amber, then the name |
+| subtitle | the next two facts, joined by `·` — source and routing on a channel; universe, address and mode on a fixture |
+| trailing | one state or one affordance, never both |
+
+Choosing what the subtitle carries is the phone's real design work, and it is the
+same question §4b asks about the numbers band: *what does someone need to know
+without opening it?* On a channel that is where the signal comes from and where it
+lands, because those are what a patch is. Everything else waits behind the tap.
+
+**A row is always tappable.** What the tap does depends on the role; that it
+responds does not (P9). A viewer taps to read.
+
+### 7d · The sheet, and its three jobs
+
+One bottom sheet (`ui/Sheet`) does on a phone what three things do on a desk: the
+**row editor** of §2, the **drawer** of §3, and the **inspector** of §4. It rises
+from the edge the thumb is on — a centred dialog puts the confirm button under the
+keyboard.
+
+**The sheet is the frame; the tier of its contents is not the sheet's to decide.**
+§3 already settles this for the desktop drawer — *frame navigation tier, contents
+the tier of the surface that references them* — and the phone changes nothing
+about it except the geometry of what gets pressed
+([tokens.md](tokens.md) §7, amendment 2). So a phone drawer looks like a drawer:
+`MicroLabel` section headings, `GearCard`s, `GearSpecs` at 10 px mono, `Pill`
+chips, one filled primary among `outline` and `ghost` — all of it at `h-10` and
+44 px instead of `h-8` and `h-7`.
+
+That is the whole of the difference. A sheet built out of sentence-case labels and
+generic mobile form fields is a different application wearing this one's colours.
+
+**And each job keeps its own commit behaviour**, because the sheet is a container
+and containers do not have opinions about drafts:
+
+| Job | Contents | Commits |
+|---|---|---|
+| Row editor | `RowEditor` / `GearForm` fields | a draft, confirmed — one **Save** |
+| Drawer | `DrawerSection` + `GearCard`s | per card: each opens its own `GearForm`, which is the same construction again |
+| Inspector | `InspectorRail`'s `Field`s | per field (`components.md` §3 — the rail holds no draft) |
+
+- **Fields stack**, two side by side only where they are one idea — stagebox and
+  input number, universe and address. The inspector keeps its label-beside-control
+  `Field` grid, because that is what the component is.
+- **A failed save keeps the sheet open with every value intact**, error inline
+  above the fields. Already true, and worth stating: a phone edit happens in a
+  loading bay on a bad connection, and losing it retypes the form.
+- **Confirm is full width at the bottom**, delete kept apart from it (§2).
+- The sheet scrolls inside itself; the page behind it does not.
+
+### 7e · The section switcher
+
+Nine tabs do not fit, so the phone names the current section and opens the list on
+a tap. It is `ui/Tabs`'s job in a different shape — *what you are looking at* — so
+it takes no trough, and the current section is amber in the open list, not on the
+closed control. **A control that is amber whether or not anything is selected has
+spent the accent on furniture** (P4).
+
+It lists sections and nothing else. A phone-only badge grading each section's
+completeness is the P9 violation in its purest form: it invents a vocabulary the
+desktop does not have, to describe the state of the *build* rather than the state
+of the *show*, and it tells a viewer that Audio Inputs is "Editable".
+
+### 7f · A canvas in the hand
+
+Both canvases render on a phone. This reverses the rule that stood here, which
+made the Flow canvas desktop-only — the surface a technician most wants on site is
+the picture of where the signal goes.
+
+| | Phone |
+|---|---|
+| Pan | one finger, both axes, unbounded |
+| Zoom | pinch, and the bar's `ZoomControl` at a 44 px target |
+| Select | tap a node or a rail row — the label, never the 7 px dot |
+| Inspect **and edit** | the rail's contents in a bottom sheet (`components.md` §5) |
+| Place · patch · drag | **absent** — see 7g |
+
+Everything drawn stays exactly as it is drawn: 7 px ports, 18 px port rows, lane
+bands, derived cable colours, the dashed network hop. Nothing is re-sized for the
+phone, because nothing on the canvas is a target except the node (P9, *drawing is
+not targeting*). Ports are never truncated, here least of all.
+
+**The canvas is a viewport, and nothing is pinned to its edges.** The graph has one
+local coordinate system; pan and zoom move the window onto it and move nothing
+within it. So on a phone there are **no rails** — not the sources rail, not the
+inspector, not a legend anchored to a corner. Panning to the sources means the desk
+leaves the screen, which is the point: a 375 px window over a 20-node graph is
+useful exactly because it can be pointed somewhere.
+
+This is why the desktop's two columns split differently here. The **sources rail is
+already in canvas space** on the desktop — it is drawn among the nodes, not beside
+them — so it pans and zooms with everything else and needs no phone decision at
+all. The **inspector rail is a real column** (`w-60 shrink-0 border-l`), and a
+column is the one thing a phone does not have (§7), so it becomes the sheet.
+
+A canvas whose edges carry fixed furniture is a canvas with less canvas, on the
+device that has least of it. A viewport that keeps a rail pinned while the graph
+slides under it also breaks the one thing the canvas is *for*: everything on it is
+in one coordinate system, and its position means something.
+
+**The inspector sheet edits.** It is `InputFlowInspector` and `OutputFlowInspector`
+unchanged — kind, mic, **stand**, 48 V, connector, width — committing per field as
+the rail does on a desk (`components.md` §3). Changing which stand a source is on
+while standing next to the source is the phone's best case, not an edge case, and
+nothing about it is direct manipulation.
+
+**The inspector sheet takes no scrim.** It is the one sheet read *against* what is
+behind it — you tapped the node to find out about the node, and dimming it to show
+its own fields answers the wrong question. Every other sheet gets the scrim in
+[tokens.md](tokens.md) §7, because a form is read instead of the surface, not
+against it.
+
+### 7g · What stays a desk job
+
+Exactly one thing, stated once so it stops being decided per tab: **direct
+manipulation of a spatial artifact.** Dragging a cable from one port to another,
+and positioning an element on a scale drawing. Both are a mouse's precision over a
+picture, and both have a desk-shaped answer already.
+
+The line is the **gesture**, not the object and not the screen. Everything an
+element *is* — its name, its kind, its mic, its stand, its notes, its address — is
+a form over a row, and forms are what a phone is good at. So the same stage plot
+that will not let you move a riser will let you tap it and rename it; the same flow
+canvas that will not let you patch will let you change what is on the end of the
+cable that is already there.
+
+Everything else that is a form over a row has a phone form, whether or not it is
+built yet: equipment lines, rental quantities, event settings, overview details,
+inventory items, and the rig, buses and universes drawers — a stagebox that
+arrives on site is declared on site.
+
+A surface withholding a gesture says so, in the panel, in one sentence naming the
+reason, and names what is still available:
+
+> *Placing elements is a desk job — open this plot on a computer. Tap anything on
+> it to read or edit what it is.*
+
+That sentence is the whole of the treatment. It is not a banner, not a dialog, and
+not a disabled control (P7); it sits where the editor would be, and the read view
+above it is complete for everyone.
+
+**`!isMobile` never appears in a permission expression.** A capability is a role
+question. Whether a surface has built its phone editor yet is a fact about the
+surface, and it belongs in the sentence above — where the user can read it.
+
+### 7h · Printing from a phone
+
+A phone branch that renders `print:hidden` and nothing else prints a blank page.
+The print sheet is not chrome — it belongs to the tab, at every width, and the
+branch renders it exactly as the desktop branch does (§8).
+
+Every phone surface reaches the export it has: PDF and `.xlsx` are downloads, and
+downloads are the one thing a phone does as well as a desk.
 
 ## 8 · Print
 

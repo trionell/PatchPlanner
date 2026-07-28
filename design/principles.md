@@ -1,6 +1,6 @@
 # 01 · Principles
 
-Eight rules. They are here to settle arguments, so each one is stated as something
+Nine rules. They are here to settle arguments, so each one is stated as something
 that can be violated, with the violation named.
 
 ---
@@ -160,16 +160,56 @@ reaching a panel whose title is 14 px. The loudest type on the screen is the wor
 
 **Violation:** navigation type larger than the content title it sits above.
 
+## P9 · The phone is the same application at arm's length
+
+Not a companion app, not a viewer, not a cut-down edition. The same data, the same
+derivations and the same words, composed for one hand instead of a desk.
+
+Three consequences, in the order they get broken.
+
+**Nothing is read-only because of a width.** P7 says a restricted *role* never
+loses reading; a restricted *viewport* does not either. On a desktop sheet a row
+carries every column, so a viewer who cannot open the editor has still read the
+row — which is why `onClick={readOnly ? undefined : …}` is harmless in
+`InputSheet`. On a phone the row is a **truncation**: a title, a subtitle, and the
+rest behind the tap. The same expression there is a reading gate. Whether a tap
+*edits* is a role question; whether it *responds* is not.
+
+**Drawing is not targeting.** A 7 px port dot may be drawn on a phone. It may not
+be the thing you hit. A canvas is legible at the size it already is — what does
+not survive the phone is the *gesture*, so the node becomes the target and the dot
+stays paint. This replaces the rule that used to stand here — *"anything sized for
+a mouse does not appear on mobile at all"* — which threw away the picture in order
+to avoid the hit area, and left a technician on site unable to see the patch they
+were standing in.
+
+**What genuinely has no phone form says so.** Direct manipulation of a spatial
+artifact is the one thing the phone cannot take over: placing a box on a scale
+drawing, dragging a cable between two ports. That stays desk work, stated in one
+sentence beside the read view — which everyone gets. A surface that silently
+renders fewer facts on a phone has decided something for the user without saying
+so.
+
+**Violation:** `!isMobile` inside a permission expression. A phone-only word,
+colour or badge for a concept the desktop already names. A phone branch that shows
+less than its desktop branch and does not say why.
+
+> The application has one vocabulary. If a thing needs explaining on the phone, it
+> needed explaining on the desktop, and the explanation belongs to both.
+
 ---
 
 ## The tiebreaker
 
 When two of these pull in different directions, the order is:
 
-**P6 (derived) → P5 (shape) → P7 (roles) → P4 (amber) → P1 (frame) → P2 (density)
-→ P3 (labels) → P8 (chrome).**
+**P6 (derived) → P5 (shape) → P7 (roles) → P9 (reach) → P4 (amber) → P1 (frame)
+→ P2 (density) → P3 (labels) → P8 (chrome).**
 
-Correctness of meaning beats legibility beats consistency beats compactness. A
+Correctness of meaning beats legibility beats reach beats consistency beats
+compactness. P9 sits directly under P7 because they answer one question from two
+sides — *who may do this* and *from where* — and a surface that fails either is
+one somebody cannot use at all. A
 value shared for its own sake, where the two callers genuinely mean different
 things, is not consistency — it is one of them being wrong on purpose. The
 inspector legend is the worked example: the **strokes** are shared, because their

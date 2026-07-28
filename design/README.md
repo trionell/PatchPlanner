@@ -39,6 +39,26 @@ audio tabs or is a direct carry of a value that is. Where a document states a ru
 the audio surface itself breaks, it is marked and listed in [audit.md](audit.md) —
 the reference surface is the best thing in the codebase, not a perfect one.
 
+**The phone is the exception, and it is prescriptive throughout.**
+`components/mobile/` was built in Slice 21, two slices before this language
+existed, and Waves 0–5 converged the desktop around it without touching it. So
+[principles.md](principles.md) P9, [tokens.md](tokens.md) §7,
+[components.md](components.md) §5 and [patterns.md](patterns.md) §7 describe what
+the phone must become, and [audit.md](audit.md) M1–M12 is the distance from there
+to what it is.
+
+**Three of those documents' rules were not merely unbuilt but wrong**, and are
+corrected rather than enforced:
+
+- The phone keeps **the app's one label voice**. A sheet holding a drawer's or an
+  editor's fields renders the same mono micro-label the desktop does — *type is
+  read, geometry is touched* ([tokens.md](tokens.md) §7, amendment 2).
+- The Flow canvas is **viewable** on a phone, as a viewport with nothing pinned to
+  its edges. The picture of where the signal goes is what a technician wants on
+  site.
+- What stays at the desk is a **gesture**, not an object: placing and patching.
+  Tapping a source to change its mic stand is phone work.
+
 ## How this relates to the slice contracts
 
 `specs/025-patch-visual-language/contracts/visual-language.md` and
