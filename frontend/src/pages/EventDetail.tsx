@@ -81,11 +81,8 @@ export function EventDetailPage() {
 
   if (isMobile) {
     return (
-      /* A column, so the section below the switcher fills what is left and a
-         panel's strip stays on screen (Wave 6b). The heading and the switcher
-         are `flex-none`; everything else is the surface's. */
-      <div className="flex min-h-0 flex-1 flex-col gap-3">
-        <div className="flex flex-none items-center justify-between gap-3">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h2 className="truncate text-lg font-semibold">{eventQuery.data.name}</h2>
             <p className="truncate text-xs text-zinc-400">{eventQuery.data.venue || 'Venue TBD'} · {formatEventDates(eventQuery.data).long ?? 'Date TBD'}</p>
@@ -94,7 +91,7 @@ export function EventDetailPage() {
         </div>
         {eventQuery.data.yourRole === 'viewer' && <ReadOnlyBanner />}
         <SectionSwitcher current={currentSection} onSelect={selectSection} />
-        <div className="flex min-h-0 flex-1 flex-col">{renderSection(currentSection, eventId, readOnly)}</div>
+        <div>{renderSection(currentSection, eventId, readOnly)}</div>
       </div>
     )
   }

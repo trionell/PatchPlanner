@@ -41,8 +41,14 @@ interface MobilePanelProps {
  * and three targets and that scarcity is what would otherwise tempt nine call sites into
  * nine compromises. Everything only some surfaces have arrives through `actions`.
  *
- * The panel **fills the body and only its rows scroll**, so the bar and the strip are on
- * screen at every scroll position. A strip you have to scroll to is a strip nobody reads.
+ * **The page scrolls, not the panel.** This slice tried it the other way — a
+ * fixed-height shell, so the bar and the strip stayed on screen at every scroll
+ * position — and reverted it in the same slice. A flex column makes every child a flex
+ * item, and a flex item whose root is a scroll container has an automatic minimum size
+ * of *zero*: the three phone surfaces that are not panels yet (`OverviewTab`'s Card,
+ * and `PatchPanel` as reached by event Settings and by `/my-defaults`) were compressed
+ * below their content and clipped, with no scrollbar anywhere. Those three are Wave
+ * 6c's, and the shell can become a column once they are panels too.
  */
 export function MobilePanel({
   title,
@@ -55,12 +61,22 @@ export function MobilePanel({
   children,
 }: MobilePanelProps) {
   const searchable = onSearch != null
-  const [searchOpen, setSearchOpen] = useState(false)
+  const [opened, setOpened] = useState(false)
   const fieldRef = useRef<HTMLInputElement>(null)
 
+  /*
+    Derived, not stored. A closed row and a non-empty query must not coexist, or the
+    list is filtered by something the user cannot see — and holding that as local
+    state made it a property of the *callers*, all of whom happen to mount the panel
+    and the query together. Four of them share the query with a desktop branch whose
+    field is always open, so typing at 800px and narrowing to 375 handed this
+    component a query with the row shut.
+  */
+  const searchOpen = opened || (search ?? '') !== ''
+
   useEffect(() => {
-    if (searchOpen) fieldRef.current?.focus()
-  }, [searchOpen])
+    if (opened) fieldRef.current?.focus()
+  }, [opened])
 
   /**
    * Closing always clears. The pair (closed, non-empty query) must not exist, or the
@@ -68,12 +84,12 @@ export function MobilePanel({
    * mode a search behind a tap has, and the only one worth guarding.
    */
   const closeSearch = () => {
-    setSearchOpen(false)
+    setOpened(false)
     onSearch?.('')
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-zinc-700 bg-zinc-950/40">
+    <div className="flex flex-col overflow-hidden rounded-xl border border-zinc-700 bg-zinc-950/40">
       <div className="flex flex-none flex-wrap items-center gap-2 border-b border-zinc-800 px-3 py-2">
         <span className="text-sm font-semibold text-zinc-100">{title}</span>
         <span className="flex-1" />
@@ -81,7 +97,7 @@ export function MobilePanel({
           <button
             aria-label={searchOpen ? 'Close search' : 'Search'}
             className="flex h-11 w-11 items-center justify-center rounded-md border border-zinc-700 bg-zinc-900 text-zinc-400"
-            onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
+            onClick={() => (searchOpen ? closeSearch() : setOpened(true))}
             type="button"
           >
             <Search className="h-4 w-4" />
@@ -119,13 +135,14 @@ export function MobilePanel({
         </div>
       )}
 
-      {/* The only scrolling region, and it owns no padding and no gap: rows are
-          separated by a hairline, not by air, which is what makes eight of them read as
-          one list rather than eight objects. */}
-      <div className="flex-1 overflow-y-auto overscroll-contain">{children}</div>
+      {/* The rows own no padding and no gap: they are separated by a hairline, not by
+          air, which is what makes eight of them read as one list rather than eight
+          objects. */}
+      <div>{children}</div>
 
       {/* A sibling of the rows, never inside them — the same invariant `ui/Sheet`'s
-          footer has, one edge over. A strip that scrolls away cannot state anything. */}
+          footer has, one edge over. It is what closes the panel, so it cannot be part
+          of what the panel contains. */}
       {strip}
     </div>
   )

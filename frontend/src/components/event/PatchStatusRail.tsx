@@ -43,7 +43,10 @@ export function PatchStatusRail({ status, noun, onShowGaps, gapsOnly, onOpenRig 
   return (
     <StatusStrip
       tint={STRIP_TINT[state]}
-      filter={state === 'gaps' && onShowGaps ? { label: gapsOnly ? 'Show all' : 'Show only gaps', onClick: onShowGaps } : undefined}
+      /* `|| gapsOnly` is the escape hatch: fix the last gap while the filter is on and
+         the state becomes `complete`, which is not a control — leaving the list filtered
+         to nothing with no way back. A filter must outlive the condition it filtered on. */
+      filter={(state === 'gaps' || gapsOnly) && onShowGaps ? { label: gapsOnly ? 'Show all' : 'Show only gaps', onClick: onShowGaps } : undefined}
       /* `Open Rig` does not travel: the drawer is not mounted in any phone branch
          until audit.md M5 closes, and a control that opens nothing is worse than one
          that is absent (P7). */

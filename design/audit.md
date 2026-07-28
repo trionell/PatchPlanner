@@ -205,16 +205,27 @@ shipping.
 **And the strip is the control.** The rails' desktop filter buttons are a size below
 `xs` for a good reason and a 24 px target for a bad one; on a phone the strip's root
 becomes the button, full width at 44 px, filtering to exactly what it just reported.
-A strip with nothing to filter to draws no chevron and is not a control. The desktop
+A strip with nothing to filter to draws no chevron and is not a control — **unless its own
+filter is on**, or fixing the last gap would leave the list filtered to nothing with the
+control gone. A filter has to outlive the condition it filtered on, and the desktop had
+the same latent trap. The desktop
 return of all four rails was verified byte-identical by rendering every state before and
 after and diffing the markup.
 
-**Two things this phase changed that no finding had named.** The phone shell is now a
-fixed-height `h-[100svh]` column, because a panel cannot fill a body that has no height
-and a strip below the fold states nothing — which affects every phone surface, including
-the four 6c owns. And `useIsMobile` guards a missing `window`: without it, every
-component that branches on reach is unrenderable by this project's own test method,
-which is why `ui/Drawer` has never had a test.
+**And one thing the phase tried, reverted, and handed to 6c.** A panel that *fills the
+body* — scrolling only its rows, so the bar and the strip stay on screen — is what a
+strip is for, and it needs the shell to be a fixed-height column. 6b built that and took
+it out again in the same slice: a column makes every child a flex item, and **a flex item
+whose root is a scroll container has an automatic minimum size of zero**, so the three
+phone surfaces that are not panels yet — `OverviewTab`'s `Card`, and `PatchPanel` as
+reached by event Settings and by `/my-defaults`, which is in the bottom nav — were
+compressed below their content and clipped, with no scrollbar anywhere. It is 6c's,
+because 6c is what makes those three panels. Until then the page scrolls and the strip is
+reached by scrolling to it.
+
+**One thing changed that no finding had named:** `useIsMobile` guards a missing `window`.
+Without it, every component that branches on reach is unrenderable by this project's own
+test method, which is why `ui/Drawer` has never had a test.
 
 ### M8 · The phone's sheet was a centred dialog · Wave 6a
 

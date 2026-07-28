@@ -7,9 +7,9 @@ import { MobilePanel } from './MobilePanel'
  *
  * Same reasoning as `Sheet.test.tsx`: what a frame must get right is **what is a
  * sibling of what**, which is invisible in a screenshot and plain in the element
- * order. P2 below is the one that matters — a strip nested inside the scrolling rows
- * scrolls away with them, and a strip you have to scroll to is a strip nobody reads
- * (audit.md M3, and the same failure `ui/Sheet`'s footer has one edge over).
+ * order. P2 below is the one that matters: the strip is what *closes* the panel, so it
+ * must not be part of what the panel contains — the same invariant `ui/Sheet`'s footer
+ * has, one edge over, and invisible in a screenshot either way.
  *
  * Tests run without a DOM, so these read the markup. Nothing here asserts a height:
  * `renderToStaticMarkup` produces no layout, and the row arithmetic lives in
@@ -27,25 +27,20 @@ describe('MobilePanel', () => {
   it('P1 · draws one bordered frame, and the rows get no padding or gap of their own', () => {
     const markup = render(<MobilePanel title="Audio Inputs">{rows}</MobilePanel>)
     expect(markup.match(/rounded-xl border border-zinc-700/g)).toHaveLength(1)
-    const scroller = markup.match(/class="([^"]*overflow-y-auto[^"]*)"/)?.[1] ?? ''
-    expect(scroller).toContain('flex-1')
-    expect(scroller).not.toMatch(/\bp-|\bpx-|\bpy-|\bgap-/)
+    // The rows container is a bare `<div>`: no class at all, so it cannot be adding
+    // padding, a gap, or a second scroll region inside the page's.
+    expect(markup).toContain('<div><div id="rows">')
   })
 
-  it('P2 · the strip is a sibling of the scrolling rows, never inside them', () => {
+  it('P2 · the strip is a sibling of the rows, never inside them', () => {
     const markup = render(
       <MobilePanel title="Audio Inputs" strip={strip}>
         {rows}
       </MobilePanel>,
     )
-    const scrollerStart = markup.indexOf('overflow-y-auto')
-    const scrollerOpenTagEnd = markup.indexOf('>', scrollerStart)
-    // The strip must appear after the scrolling region closes, not within it.
-    const rowsIndex = markup.indexOf('id="rows"')
-    const stripIndex = markup.indexOf('id="strip"')
-    expect(rowsIndex).toBeGreaterThan(scrollerOpenTagEnd)
-    expect(stripIndex).toBeGreaterThan(rowsIndex)
-    expect(markup.slice(rowsIndex, stripIndex)).toContain('</div>')
+    // It is what closes the panel, so it cannot be part of what the panel contains:
+    // the rows container must have closed before the strip appears.
+    expect(markup).toContain('<div><div id="rows">eight rows</div></div><div id="strip">')
   })
 
   it('P6 · a role that cannot act gets no primary element at all, not a disabled one', () => {
@@ -105,5 +100,18 @@ describe('MobilePanel', () => {
       </MobilePanel>,
     )
     expect(markup.indexOf('id="filter"')).toBeLessThan(markup.indexOf('id="add"'))
+  })
+
+  it('a non-empty query always draws the row, however it arrived', () => {
+    // The invariant is the component's, not its callers': four call sites share the
+    // query with a desktop branch whose field is always open, so crossing 768 px with
+    // `mic` typed used to hand this component a filter with the row shut.
+    const markup = render(
+      <MobilePanel title="Equipment" search="mic" onSearch={() => {}} searchPlaceholder="Find a line…">
+        {rows}
+      </MobilePanel>,
+    )
+    expect(markup).toContain('value="mic"')
+    expect(markup).toContain('aria-label="Clear search"')
   })
 })

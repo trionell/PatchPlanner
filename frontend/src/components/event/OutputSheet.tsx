@@ -312,7 +312,7 @@ export function OutputSheet({
       <PatchStatusRail
         status={status}
         noun="output"
-        onShowGaps={status.gaps.length > 0 ? () => setGapsOnly((only) => !only) : undefined}
+        onShowGaps={status.gaps.length > 0 || gapsOnly ? () => setGapsOnly((only) => !only) : undefined}
         gapsOnly={gapsOnly}
         onOpenRig={onOpenRig}
       />

@@ -270,6 +270,14 @@ read:
 | Row | **`min-h-[44px]`**, `px-3`, two lines, `leading-tight` | title `text-sm`, subtitle `text-xs`. **The height is the stated value; the padding derives from it** — see below |
 | **Minimum tap target** | **44 px** | amendment 1. Below it, a control is a suggestion |
 | Panel bar control | `h-11 w-11` around an `h-4 w-4` icon | 44 px, the same target `ui/Sheet`'s close takes. A bar with a 36 px icon is amendment 1 broken by the control that adds a row |
+
+> **The one control below 44 px, and it is deliberate.** A text field is `md` — `h-10`,
+> 40 px — by the row above, and that has been the phone's input height since the tier
+> table was written. Amendment 1 governs the things you *aim* at: a button, an icon
+> target, a row, a strip. A field is aimed at once and then typed into, its target is the
+> full width of the bar, and raising every input on the phone by 4 px is an application-
+> wide change rather than a panel's. Stated here so the next reader finds a decision
+> rather than an oversight.
 | Input · Select · Textarea | `md` (`h-10`) | never `sm` — `h-8` is a mouse's height |
 | Button | `sm` in a bar · `md` for a form's confirm | never `xs`; the **variant** is unchanged |
 | Icon, tappable | `h-4 w-4` in text · `h-5 w-5` in the bottom nav | never `h-3.5` |

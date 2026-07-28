@@ -56,7 +56,7 @@ export function EquipmentTab({ eventId, readOnly = false }: { eventId: number; r
         search={search}
         onSearch={setSearch}
         searchPlaceholder="Find a line…"
-        strip={<EquipmentStatusRail rows={rows} filter={mobileFilter} onFilterChange={setMobileFilter} />}
+        strip={<EquipmentStatusRail rows={rows} filter={mobileFilter} onFilterChange={readOnly ? undefined : setMobileFilter} />}
       >
         {visible.map((row) => {
           const split = row.source === 'rented' ? quantitySplit(row) : undefined

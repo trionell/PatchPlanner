@@ -15,6 +15,7 @@ import type { UnplacedLine } from '../../types'
 import { CondensedListRow } from '../mobile/CondensedListRow'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
+import { hasManualPart } from '../../lib/rentalOrder'
 import { type RentalFilter, RentalStatusRail } from './RentalStatusRail'
 import { MobilePanel } from '../ui/MobilePanel'
 import { PatchPanel } from '../ui/PatchPanel'
@@ -93,9 +94,9 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
           <RentalStatusRail
             summary={rentalQuery.data}
             items={items}
-            manualCount={0}
+            manualCount={items.filter(hasManualPart).length}
             filter={mobileFilter}
-            onFilterChange={setMobileFilter}
+            onFilterChange={readOnly ? undefined : setMobileFilter}
           />
         }
       >

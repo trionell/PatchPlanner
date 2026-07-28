@@ -381,7 +381,7 @@ is a desk job.
 |---|---|
 | header | `sticky top-0 z-20 h-14 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur px-4` |
 | header content | brand mark, page title `text-sm font-semibold`, avatar at `h-7 w-7` |
-| body | `px-4 py-4`, bottom padding derived from the nav's height. **The scroller** — the shell is a fixed-height `h-[100svh]` column, so the page itself does not scroll |
+| body | `px-4 py-4`, bottom padding derived from the nav's height. **The page scrolls**, not the surface — see §7b |
 | bottom nav | `fixed inset-x-0 bottom-0 h-14 border-t border-zinc-800 bg-zinc-950`, plus the safe inset |
 
 The sidebar has no phone form and needs none: it is four destinations, and four
@@ -439,10 +439,17 @@ P1 does not have a width condition. A phone surface is one bordered thing:
   *addressed*, *all covered* — draws no chevron and is not a control; neither is one
   whose caller passed no handler, which is how a read-only role already sees every one
   of them.
-- **The panel fills the body and only its rows scroll**, so the bar and the strip are on
-  screen at every scroll position. A strip you have to scroll to is a strip nobody
-  reads. That is why the phone shell is a fixed-height column ([§7a](#7a--the-shell)) —
-  a panel cannot fill a body that has no height.
+- **The page scrolls, not the panel** — and this is the one thing on the phone that is
+  *not* yet what it should be. A panel that filled the body, scrolling only its rows,
+  would keep the bar and the strip on screen at every position, which is what a strip is
+  for. Wave 6b built that and reverted it in the same slice: it requires the shell to be
+  a fixed-height column, a column makes every child a flex item, and **a flex item whose
+  root is a scroll container has an automatic minimum size of zero** — so the three phone
+  surfaces that are not panels yet (Overview's card, and the panel behind event Settings
+  and *My Defaults*) were compressed below their content and clipped, with no scrollbar
+  anywhere. The shell becomes a column in **6c**, when those three are panels too, and
+  the strip becomes permanently visible then. Until then it sits after the rows and is
+  reached by scrolling.
 
 ### 7c · The row
 

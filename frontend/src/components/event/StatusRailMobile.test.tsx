@@ -105,4 +105,24 @@ describe('the strip on a phone', () => {
     expect(markup).toContain('<button')
     expect(markup).toContain('text-[11px]')
   })
+
+  it('stays a control once its own filter has emptied the thing it reported', () => {
+    setWidth(true)
+    // Fix the last gap while the filter is on and the state becomes `complete`. If a
+    // complete strip is not a control, the list stays filtered to nothing with no way
+    // back — a filter has to outlive the condition it filtered on.
+    const markup = renderToStaticMarkup(
+      <PatchStatusRail status={clean} noun="channel" gapsOnly onShowGaps={() => {}} />,
+    )
+    expect(markup.startsWith('<button')).toBe(true)
+    expect(markup).toContain('Show all')
+  })
+
+  it('is still a sentence when a complete patch was never filtered', () => {
+    setWidth(true)
+    const markup = renderToStaticMarkup(
+      <PatchStatusRail status={clean} noun="channel" gapsOnly={false} onShowGaps={() => {}} />,
+    )
+    expect(markup.startsWith('<div')).toBe(true)
+  })
 })

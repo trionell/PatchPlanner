@@ -60,8 +60,11 @@ export function LightingStatusRail({ map, fixtures, filter, onFilterChange }: Li
     <StatusStrip
       tint={STRIP_TINT[state]}
       filter={
-        onFilterChange && state !== 'clean'
-          ? { label: filter ? 'Show all' : `Show only ${state === 'errors' ? 'errors' : 'unaddressed'}`, onClick: () => onFilterChange(filter ? null : state) }
+        onFilterChange && (state !== 'clean' || filter)
+          ? {
+              label: filter ? 'Show all' : `Show only ${state === 'errors' ? 'errors' : 'unaddressed'}`,
+              onClick: () => onFilterChange(filter || state === 'clean' ? null : state),
+            }
           : undefined
       }
     >

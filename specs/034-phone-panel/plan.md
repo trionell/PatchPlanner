@@ -161,15 +161,21 @@ than a surprise (research R10).
    diffing the markup — which is stronger than the `twMerge` comparison 6a used, because
    it catches element order and not only class strings. **Verified: all eleven states
    identical.**
-3. **The phone shell becomes a fixed-height column.** *Added during Phase 1, and
-   recorded here rather than absorbed.* A panel can only fill the body if something
-   above it has a height; without it the strip sits below the fold, which defeats the
-   finding this slice exists to close. `Layout`'s phone branch is `h-[100svh]` with
-   `main` as the scroller, and the chain from there down — `EventDetail`'s phone return,
-   its section wrapper, each tab's phone wrapper — is explicit. **Blast radius**: every
-   phone surface, including the four that 6c owns; they scroll inside `main` instead of
-   on the page. **Not verifiable here**: whether a handset's address bar still collapses,
-   which is quickstart.md's row 10.
+3. **The phone shell becomes a fixed-height column — attempted, then reverted.**
+   Added during Phase 1 so a panel could fill the body; **removed after review**. A
+   column makes every child a flex item, and a flex item whose root is a scroll
+   container has an automatic minimum size of *zero*, so `OverviewTab`'s `Card` and
+   `PatchPanel` (event Settings, and `/my-defaults`, which is in the bottom nav) were
+   compressed below their content and clipped with no scrollbar anywhere. Those three
+   surfaces are 6c's; the shell becomes a column there. The page scrolls in the
+   meantime, and the strip is reached by scrolling. **Net delta: none** — `Layout.tsx`
+   and `EventDetail.tsx` are back to their `main` state.
+5. **One desktop behaviour change, found by review.** A status rail now keeps its filter
+   control while its own filter is on, even once the condition it filtered on is gone.
+   Previously, clearing the last gap with *Show only gaps* active left the sheet filtered
+   to nothing with the control removed. All eleven snapshotted desktop states remain
+   byte-identical; the state that changed is the stuck one, which was not reachable as a
+   correct rendering.
 4. **`useIsMobile` is guarded for a missing `window`.** One condition. Without it, every
    component that branches on reach is unrenderable by this project's own test method —
    which is why `ui/Drawer` has never had a test.

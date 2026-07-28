@@ -29,7 +29,7 @@ export function EquipmentStatusRail({ rows, filter, onFilterChange }: EquipmentS
     <StatusStrip
       tint={problems > 0 ? 'border-red-400/40 bg-red-500/[0.05]' : 'border-zinc-800 bg-zinc-950/60'}
       filter={
-        onFilterChange && problems > 0
+        onFilterChange && (problems > 0 || filter)
           ? { label: filter ? 'Show all' : 'Show only problems', onClick: () => onFilterChange(filter ? null : 'problems') }
           : undefined
       }

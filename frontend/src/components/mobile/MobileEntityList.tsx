@@ -38,6 +38,7 @@ export function MobileEntityList({
   addLabel,
   emptyLabel,
   strip,
+  filtered = false,
 }: {
   /** The surface's name, repeated in the bar (patterns.md §1). */
   title: string
@@ -50,9 +51,15 @@ export function MobileEntityList({
   emptyLabel: string
   /** The surface's status rail. */
   strip?: ReactNode
+  /**
+   * Whether the caller has already narrowed `items` with the strip's filter. Without
+   * it an emptied filter reads as an empty surface — *"No input channels yet."* on an
+   * event with sixteen channels — because this component only ever sees what survived.
+   */
+  filtered?: boolean
 }) {
   const [query, setQuery] = useState('')
-  const filtered = useMemo(() => {
+  const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return items
     return items.filter(
@@ -82,7 +89,7 @@ export function MobileEntityList({
       }
       strip={strip}
     >
-      {filtered.map((item) => (
+      {visible.map((item) => (
         <CondensedListRow
           key={item.id}
           title={
@@ -99,8 +106,10 @@ export function MobileEntityList({
           trailing={!readOnly && <Pencil className="h-4 w-4 text-zinc-500" />}
         />
       ))}
-      {filtered.length === 0 && (
-        <p className="px-3 py-3 text-sm text-zinc-500">{items.length === 0 ? emptyLabel : 'No matches.'}</p>
+      {visible.length === 0 && (
+        <p className="px-3 py-3 text-sm text-zinc-500">
+          {items.length > 0 ? 'No matches.' : filtered ? 'Nothing left to fix — tap the strip to show everything.' : emptyLabel}
+        </p>
       )}
     </MobilePanel>
   )

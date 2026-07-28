@@ -44,14 +44,16 @@ narrowed to 375 px; **rows 7–9 need a phone**, and are the reason this list ex
 |---|---|---|
 | 1 | Open Audio Inputs at 375 px | One bordered frame. No row draws a border, radius or raised ground of its own. |
 | 2 | Count the rows visible at 375 × 667 | **Eight** — no fewer than before this slice. This is SC-002 and the whole of **F3**. |
-| 3 | Scroll the list to its end | The bar and the strip are both still on screen. Only the rows scrolled. |
+| 3 | Scroll the list to its end | The page scrolls and the strip is at the foot of the panel. **The panel does not fill the body** — that is 6c's, see plan.md delta 3. |
 | 4 | Tap the search target | The bar's second row opens with the field focused. Press `Escape` — it closes and the query clears. |
 | 5 | Type a query, then delete it character by character | The row stays open at empty. A filter is never applied invisibly. |
 | 6 | Tap the strip on a patch with gaps | The list filters to exactly the gaps; the strip says so. Tap again — everything returns. |
 | 7 | **On a device**: open a surface with a strip | The strip clears the home indicator. The bottom nav is not overlapping it. |
 | 8 | **On a device**: tap the bar's controls and the strip with a thumb, one-handed | Nothing mis-fires. The strip is the easiest target on the screen. |
 | 9 | **On a device**: open a 56-channel patch | The strip wraps to two lines with the verdict on the first. The list still shows its rows. |
-| 10 | **On a device**: scroll a long list up and down | The address bar behaves acceptably. The shell is a fixed-height column now (plan.md, declared delta 3), so the page itself no longer scrolls — this is the one behaviour change this slice cannot check without a handset. |
+| 10 | Fix the last gap while the strip's filter is on | The strip stays a control and says *Show all*; the list says *Nothing left to fix* rather than claiming the surface is empty. |
+| 11 | With a query typed, cross 768 px in both directions | The search row is open with the query in it at phone width. A filter is never applied invisibly. |
+| 12 | Open Equipment and Rental as a **viewer** | The strip is a sentence with no chevron, exactly as it is on the desktop. |
 
 ### Per-surface sweep
 

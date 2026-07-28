@@ -172,7 +172,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
     })
     const editingOutput = typeof editingOutputId === 'number' ? outputs.find((o) => o.id === editingOutputId) : undefined
     return (
-      <div className="flex min-h-0 flex-1 flex-col print:hidden">
+      <div className="print:hidden">
         <MobileEntityList
           title="Audio Outputs"
           strip={
@@ -180,10 +180,11 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
               status={status}
               noun="output"
               gapsOnly={gapsOnly}
-              onShowGaps={status.gaps.length > 0 ? () => setGapsOnly((only) => !only) : undefined}
+              onShowGaps={status.gaps.length > 0 || gapsOnly ? () => setGapsOnly((only) => !only) : undefined}
             />
           }
           items={items}
+          filtered={gapsOnly}
           onSelect={setEditingOutputId}
           onAdd={() => setEditingOutputId('new')}
           readOnly={readOnly}

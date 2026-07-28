@@ -319,7 +319,7 @@ export function InputSheet({
       <PatchStatusRail
         status={status}
         noun="channel"
-        onShowGaps={status.gaps.length > 0 ? () => setGapsOnly((only) => !only) : undefined}
+        onShowGaps={status.gaps.length > 0 || gapsOnly ? () => setGapsOnly((only) => !only) : undefined}
         gapsOnly={gapsOnly}
         onOpenRig={onOpenRig}
       />

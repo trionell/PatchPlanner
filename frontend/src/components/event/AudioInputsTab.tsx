@@ -111,7 +111,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
     })
     const editingChannel = typeof editingChannelId === 'number' ? channels.find((c) => c.id === editingChannelId) : undefined
     return (
-      <div className="flex min-h-0 flex-1 flex-col print:hidden">
+      <div className="print:hidden">
         <MobileEntityList
           title="Audio Inputs"
           strip={
@@ -119,10 +119,11 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
               status={status}
               noun="channel"
               gapsOnly={gapsOnly}
-              onShowGaps={status.gaps.length > 0 ? () => setGapsOnly((only) => !only) : undefined}
+              onShowGaps={status.gaps.length > 0 || gapsOnly ? () => setGapsOnly((only) => !only) : undefined}
             />
           }
           items={items}
+          filtered={gapsOnly}
           onSelect={setEditingChannelId}
           onAdd={() => setEditingChannelId('new')}
           readOnly={readOnly}

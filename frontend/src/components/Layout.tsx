@@ -43,20 +43,19 @@ export function Layout() {
       The header takes the desktop header's `h-14` for the same reason, before
       anything positions against it rather than after (patterns.md §7a).
 
-      **The shell is a fixed-height column** (Wave 6b), so the scrolling happens
-      inside the surface rather than on the page. That is what lets a panel fill
-      the body and scroll only its rows, which is what keeps its bar and its
-      status strip on screen at every scroll position — a strip you have to
-      scroll to is a strip nobody reads (audit.md M3). `svh` and not `dvh` or
-      `vh`, for the reason tokens.md §7 gives about the sheet: `dvh` resizes
-      live as browser chrome collapses, and `vh` is the largest viewport, so the
-      nav would sit below the fold while the address bar shows.
-
-      Print resets both, or a phone print would be clipped to one screen.
+      **The page scrolls, not the surface.** Wave 6b made this a fixed-height
+      `h-[100svh]` column so a panel could fill the body and keep its status
+      strip on screen, and reverted it in the same slice: a flex column makes
+      every child a flex item, and a flex item whose root is a scroll container
+      has an automatic minimum size of *zero* — so `OverviewTab`'s Card, and
+      `PatchPanel` as reached by event Settings and by `/my-defaults`, were
+      compressed below their content and clipped, with no scrollbar anywhere.
+      Those three surfaces are Wave 6c's, and the shell can become a column
+      once they are panels too. See audit.md M3.
     */
     return (
-      <div className="flex h-[100svh] flex-col bg-zinc-950 pb-[calc(3.5rem+env(safe-area-inset-bottom))] text-zinc-100 print:h-auto print:pb-0">
-        <header className="flex h-14 flex-none items-center justify-between border-b border-zinc-800 bg-zinc-950/95 px-4 backdrop-blur print:hidden">
+      <div className="min-h-screen bg-zinc-950 pb-[calc(3.5rem+env(safe-area-inset-bottom))] text-zinc-100">
+        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-zinc-800 bg-zinc-950/95 px-4 backdrop-blur print:hidden">
           <div className="flex items-center gap-2">
             <div className="rounded-md bg-amber-500/15 p-1.5 text-amber-400">
               <Cable className="h-4 w-4" />
@@ -67,7 +66,7 @@ export function Layout() {
             <img src={user.pictureUrl} alt="" referrerPolicy="no-referrer" className="h-7 w-7 rounded-full" />
           )}
         </header>
-        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-4 print:overflow-visible print:p-0">
+        <main className="px-4 py-4 print:p-0">
           <Outlet />
         </main>
         <MobileNav />

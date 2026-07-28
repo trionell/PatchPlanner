@@ -49,7 +49,7 @@ export function RentalStatusRail({ summary, items, manualCount, filter, onFilter
     <StatusStrip
       tint={STRIP_TINT[state]}
       filter={
-        onFilterChange && state !== 'clean'
+        onFilterChange && (state !== 'clean' || filter)
           ? { label: filter ? 'Show all' : 'Show only problems', onClick: () => onFilterChange(filter ? null : 'problems') }
           : undefined
       }
