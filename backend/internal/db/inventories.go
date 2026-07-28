@@ -21,8 +21,28 @@ func CreateInventory(database *sql.DB, ownerUserID int64, name string) (domain.I
 	return GetInventory(database, id)
 }
 
+// ListInventoriesForOwner returns the user's catalogs with the three counts
+// the list view is made of (Slice 32): items, categories, and the events
+// bound to each catalog.
+//
+// The counts are correlated sub-selects rather than joins because a join
+// fans out and then has to be undone with COUNT(DISTINCT …) three times
+// over. They are computed here rather than in the browser for the reason
+// Slice 29 settled: the browser derives what it can already see, and the
+// database counts what only it can — an event's binding lives in a table
+// this user's catalog page never loads. The alternative was what the page
+// used to do: fetch all 308 items of every imported catalog to call
+// .length on them.
+//
+// The event count's predicate is DeleteInventory's, so what the column
+// shows and what the refusal says cannot disagree.
 func ListInventoriesForOwner(database *sql.DB, ownerUserID int64) ([]domain.Inventory, error) {
-	rows, err := database.Query(`SELECT `+inventoryColumns+` FROM inventories WHERE owner_user_id = ? ORDER BY name ASC`, ownerUserID)
+	rows, err := database.Query(`
+		SELECT `+inventoryColumns+`,
+			(SELECT COUNT(*) FROM inventory_items WHERE inventory_id = inventories.id),
+			(SELECT COUNT(*) FROM inventory_categories WHERE inventory_id = inventories.id),
+			(SELECT COUNT(*) FROM events WHERE inventory_id = inventories.id)
+		FROM inventories WHERE owner_user_id = ? ORDER BY name ASC`, ownerUserID)
 	if err != nil {
 		return nil, fmt.Errorf("list inventories: %w", err)
 	}
@@ -30,13 +50,52 @@ func ListInventoriesForOwner(database *sql.DB, ownerUserID int64) ([]domain.Inve
 
 	inventories := make([]domain.Inventory, 0)
 	for rows.Next() {
-		inventory, err := scanInventory(rows)
-		if err != nil {
-			return nil, err
+		// Not scanInventory: this is the one query that carries counts, and
+		// the single-inventory readers must keep returning them unset.
+		var inventory domain.Inventory
+		if err := rows.Scan(
+			&inventory.ID, &inventory.OwnerUserID, &inventory.Name,
+			&inventory.SourceFilename, &inventory.SourceFormat, &inventory.CreatedAt,
+			&inventory.ItemCount, &inventory.CategoryCount, &inventory.EventCount,
+		); err != nil {
+			return nil, fmt.Errorf("scan inventory: %w", err)
 		}
 		inventories = append(inventories, inventory)
 	}
 	return inventories, rows.Err()
+}
+
+// ListEventsForInventory returns every event bound to a catalog, oldest
+// first, for the manage drawer's "Used on" section (Slice 32).
+//
+// It carries no membership predicate, unlike ListEventsForUser, and that
+// is deliberate: it must return exactly the set ListInventoriesForOwner
+// counted, or a section headed 9 renders eight rows. The route is already
+// owner-only, and an event can only bind to a catalog its own creator
+// owns, so the two sets are the same events by construction rather than
+// by coincidence.
+func ListEventsForInventory(database *sql.DB, inventoryID int64) ([]domain.Event, error) {
+	rows, err := database.Query(`
+		SELECT id, name, COALESCE(load_in_date, ''), COALESCE(start_date, ''), COALESCE(end_date, ''),
+			COALESCE(load_out_date, ''), COALESCE(venue, ''), COALESCE(notes, ''),
+			COALESCE(created_at, ''), COALESCE(updated_at, ''), COALESCE(inventory_id, 0)
+		FROM events WHERE inventory_id = ?
+		ORDER BY COALESCE(start_date, '') ASC, name ASC`, inventoryID)
+	if err != nil {
+		return nil, fmt.Errorf("list events for inventory: %w", err)
+	}
+	defer rows.Close()
+
+	events := make([]domain.Event, 0)
+	for rows.Next() {
+		var event domain.Event
+		if err := rows.Scan(&event.ID, &event.Name, &event.LoadInDate, &event.StartDate, &event.EndDate,
+			&event.LoadOutDate, &event.Venue, &event.Notes, &event.CreatedAt, &event.UpdatedAt, &event.InventoryID); err != nil {
+			return nil, fmt.Errorf("scan event: %w", err)
+		}
+		events = append(events, event)
+	}
+	return events, rows.Err()
 }
 
 func GetInventory(database *sql.DB, id int64) (domain.Inventory, error) {

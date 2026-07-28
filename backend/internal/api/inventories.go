@@ -36,6 +36,8 @@ func (h InventoriesHandler) RegisterOwned(r chi.Router) {
 	r.Patch("/", h.rename)
 	r.Delete("/", h.delete)
 	r.Post("/duplicate", h.duplicate)
+	// Read-only, and owner-only like everything else in this group.
+	r.Get("/events", h.listEvents)
 	r.Get("/categories", h.listCategories)
 	r.Post("/categories", h.createCategory)
 	r.Patch("/categories/{categoryID}", h.updateCategory)
@@ -99,6 +101,23 @@ func (h InventoriesHandler) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, inventory)
+}
+
+// listEvents answers "which shows would break if I changed this catalog"
+// (Slice 32). The manage drawer lists every one of them as a link, and the
+// number it returns is the eventCount the list column shows and the count
+// DELETE refuses with — one query behind all three.
+func (h InventoriesHandler) listEvents(w http.ResponseWriter, r *http.Request) {
+	inventoryID, ok := parseID(w, chi.URLParam(r, "inventoryID"))
+	if !ok {
+		return
+	}
+	events, err := dbstore.ListEventsForInventory(h.DB, inventoryID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, events)
 }
 
 func (h InventoriesHandler) rename(w http.ResponseWriter, r *http.Request) {

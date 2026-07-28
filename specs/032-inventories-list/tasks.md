@@ -51,8 +51,8 @@ reviewable.
 **The gates, run before every commit:**
 
 ```bash
-cd backend  && go vet ./... && go test ./... && golangci-lint run
-cd frontend && npx tsc -b && npm run lint && npm run test
+cd backend  && go vet ./... && go test ./...
+cd frontend && npm run lint && npm run typecheck && npm test
 ```
 
 `tsc -b`, never `tsc --noEmit` — the root tsconfig is references-only and
@@ -65,15 +65,15 @@ cd frontend && npx tsc -b && npm run lint && npm run test
 **Purpose**: everything the page needs from the server, before anything renders
 differently. Blocks US1, US2 and US3. Nothing in this phase is visible.
 
-- [ ] T001 Add `ItemCount`, `CategoryCount`, `EventCount` (all `int`, all `json:"…,omitempty"`) to `Inventory` in `backend/internal/domain/inventory.go`, with a comment recording that only the list query populates them and that `omitempty` follows `InventoryCategory.ItemCount`
-- [ ] T002 Extend the listing query in `backend/internal/db/inventories.go` — `ListInventoriesForOwner` gains three correlated sub-selects over `inventory_items`, `inventory_categories` and `events` per [research.md](research.md) R1, scanned into the three new fields. `scanInventory` stays as it is for the single-inventory readers; the list scans its own row
-- [ ] T003 Add `ListEventsForInventory(database *sql.DB, inventoryID int64) ([]domain.Event, error)` to `backend/internal/db/inventories.go` — every event with `inventory_id = ?`, ordered `COALESCE(start_date, '') ASC, name ASC`, no membership predicate, with a comment saying why (it must return the set `EventCount` counted)
-- [ ] T004 Add the `listEvents` handler to `backend/internal/api/inventories.go` and register `r.Get("/events", h.listEvents)` in `RegisterOwned`, returning `[]` rather than `null` for an empty result, as `listMine` already does
-- [ ] T005 [P] Test the counts in `backend/internal/db/inventories_test.go`: a catalog with items, categories and two bound events reports 3 correct numbers; an empty catalog reports zeroes; a second owner's catalog is not listed
-- [ ] T006 [P] Test `ListEventsForInventory` in `backend/internal/db/inventories_test.go`: ordering by start date, an undated event sorting first, and an unbound catalog returning an empty slice
-- [ ] T007 Test the payload in `backend/internal/api/inventories_test.go`: `GET /inventories` carries `itemCount`/`categoryCount`/`eventCount`, and a zero count is **absent** from the JSON rather than `0`
-- [ ] T008 Test the route in `backend/internal/api/inventories_test.go`: `GET /inventories/{id}/events` returns the bound events for the owner and `404` for a non-owner, and **the number it returns equals the `eventCount` the list reported and the count `DELETE` refuses with** — one test asserting all three agree ([data-model.md](data-model.md))
-- [ ] T009 Run the gates, then **commit 1**
+- [X] T001 Add `ItemCount`, `CategoryCount`, `EventCount` (all `int`, all `json:"…,omitempty"`) to `Inventory` in `backend/internal/domain/inventory.go`, with a comment recording that only the list query populates them and that `omitempty` follows `InventoryCategory.ItemCount`
+- [X] T002 Extend the listing query in `backend/internal/db/inventories.go` — `ListInventoriesForOwner` gains three correlated sub-selects over `inventory_items`, `inventory_categories` and `events` per [research.md](research.md) R1, scanned into the three new fields. `scanInventory` stays as it is for the single-inventory readers; the list scans its own row
+- [X] T003 Add `ListEventsForInventory(database *sql.DB, inventoryID int64) ([]domain.Event, error)` to `backend/internal/db/inventories.go` — every event with `inventory_id = ?`, ordered `COALESCE(start_date, '') ASC, name ASC`, no membership predicate, with a comment saying why (it must return the set `EventCount` counted)
+- [X] T004 Add the `listEvents` handler to `backend/internal/api/inventories.go` and register `r.Get("/events", h.listEvents)` in `RegisterOwned`, returning `[]` rather than `null` for an empty result, as `listMine` already does
+- [X] T005 [P] Test the counts in `backend/internal/db/inventories_test.go`: a catalog with items, categories and two bound events reports 3 correct numbers; an empty catalog reports zeroes; a second owner's catalog is not listed
+- [X] T006 [P] Test `ListEventsForInventory` in `backend/internal/db/inventories_test.go`: ordering by start date, an undated event sorting first, and an unbound catalog returning an empty slice
+- [X] T007 Test the payload in `backend/internal/api/inventories_test.go`: `GET /inventories` carries `itemCount`/`categoryCount`/`eventCount`, and a zero count is **absent** from the JSON rather than `0`
+- [X] T008 Test the route in `backend/internal/api/inventories_test.go`: `GET /inventories/{id}/events` returns the bound events for the owner and `404` for a non-owner, and **the number it returns equals the `eventCount` the list reported and the count `DELETE` refuses with** — one test asserting all three agree ([data-model.md](data-model.md))
+- [X] T009 Run the gates, then **commit 1**
 
 ## Phase 2: Foundational — the pure module
 

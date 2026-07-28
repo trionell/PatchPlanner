@@ -17,9 +17,13 @@ Then open `/inventories`.
 Everything below must pass before a commit in this slice is considered done.
 
 ```bash
-cd backend  && go vet ./... && go test ./... && golangci-lint run
-cd frontend && npx tsc -b && npm run lint && npm run test
+cd backend  && go vet ./... && go test ./...
+cd frontend && npm run lint && npm run typecheck && npm test && npm run build
 ```
+
+These are exactly what `.github/workflows/ci.yml` runs, and nothing more —
+earlier slices' quickstarts list `golangci-lint run`, which is neither installed
+here nor part of CI.
 
 **`tsc -b`, not `tsc --noEmit`.** The root `tsconfig.json` is references-only, so
 `--noEmit` type-checks nothing and passes on a broken tree. This has bitten the

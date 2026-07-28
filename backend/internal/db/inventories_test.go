@@ -267,3 +267,113 @@ func TestItemBelongsToInventory(t *testing.T) {
 		t.Errorf("nonexistent item: belongs=%v err=%v, want false", belongs, err)
 	}
 }
+
+// The three counts the list view is made of (Slice 32). Seeded by hand
+// rather than through the import path, so the numbers in the assertions
+// are the numbers in the fixture.
+func TestListInventoriesCarriesCounts(t *testing.T) {
+	database := openTestDB(t)
+	owner, _ := UpsertUserByGoogleSub(database, "owner-sub", "owner@example.com", "Owner", "")
+	stranger, _ := UpsertUserByGoogleSub(database, "stranger-sub", "stranger@example.com", "Stranger", "")
+
+	catalog, err := CreateInventory(database, owner.ID, "A catalog")
+	if err != nil {
+		t.Fatalf("create inventory: %v", err)
+	}
+	if _, err := CreateInventory(database, owner.ID, "B empty"); err != nil {
+		t.Fatalf("create empty inventory: %v", err)
+	}
+	if _, err := CreateInventory(database, stranger.ID, "C someone else's"); err != nil {
+		t.Fatalf("create stranger inventory: %v", err)
+	}
+
+	result, err := database.Exec(`INSERT INTO inventory_categories (inventory_id, name, category_type) VALUES (?, 'Mics', 'audio')`, catalog.ID)
+	if err != nil {
+		t.Fatalf("seed category: %v", err)
+	}
+	categoryID, _ := result.LastInsertId()
+	if _, err := database.Exec(`INSERT INTO inventory_categories (inventory_id, name, category_type) VALUES (?, 'Stands', 'audio')`, catalog.ID); err != nil {
+		t.Fatalf("seed second category: %v", err)
+	}
+	for _, name := range []string{"SM58", "SM57", "Beta 91"} {
+		if _, err := database.Exec(`INSERT INTO inventory_items (inventory_id, category_id, name, quantity_available, price_ex_vat) VALUES (?, ?, ?, 1, 10)`, catalog.ID, categoryID, name); err != nil {
+			t.Fatalf("seed item %s: %v", name, err)
+		}
+	}
+	for _, name := range []string{"Gig one", "Gig two"} {
+		if _, err := CreateEvent(database, testEvent(name), owner.ID, catalog.ID); err != nil {
+			t.Fatalf("seed event %s: %v", name, err)
+		}
+	}
+
+	list, err := ListInventoriesForOwner(database, owner.ID)
+	if err != nil {
+		t.Fatalf("list inventories: %v", err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("list = %+v, want only the owner's two catalogs", list)
+	}
+
+	// ORDER BY name ASC: "A catalog" then "B empty".
+	if got := list[0]; got.ItemCount != 3 || got.CategoryCount != 2 || got.EventCount != 2 {
+		t.Errorf("counts on the seeded catalog = items %d categories %d events %d, want 3/2/2",
+			got.ItemCount, got.CategoryCount, got.EventCount)
+	}
+	if got := list[1]; got.ItemCount != 0 || got.CategoryCount != 0 || got.EventCount != 0 {
+		t.Errorf("counts on the empty catalog = items %d categories %d events %d, want zeroes",
+			got.ItemCount, got.CategoryCount, got.EventCount)
+	}
+
+	// The single-inventory readers stay uncounted: a GET of one catalog has
+	// never counted anything and must not start reporting zeroes as facts.
+	single, err := GetInventory(database, catalog.ID)
+	if err != nil {
+		t.Fatalf("get inventory: %v", err)
+	}
+	if single.ItemCount != 0 || single.CategoryCount != 0 || single.EventCount != 0 {
+		t.Errorf("GetInventory returned counts %+v, want all zero", single)
+	}
+}
+
+// The drawer's "Used on" section: every bound event, oldest first, and the
+// same set the count counted.
+func TestListEventsForInventory(t *testing.T) {
+	database := openTestDB(t)
+	owner, _ := UpsertUserByGoogleSub(database, "owner-sub", "owner@example.com", "Owner", "")
+	catalog, _ := CreateInventory(database, owner.ID, "Bound")
+	other, _ := CreateInventory(database, owner.ID, "Unbound")
+
+	late := testEvent("Later show")
+	late.StartDate = "2026-09-18"
+	early := testEvent("Earlier show")
+	early.StartDate = "2026-02-07"
+	undated := testEvent("Undated sketch")
+	for _, event := range []domain.Event{late, early, undated} {
+		if _, err := CreateEvent(database, event, owner.ID, catalog.ID); err != nil {
+			t.Fatalf("seed event %s: %v", event.Name, err)
+		}
+	}
+
+	events, err := ListEventsForInventory(database, catalog.ID)
+	if err != nil {
+		t.Fatalf("list events for inventory: %v", err)
+	}
+	if len(events) != 3 {
+		t.Fatalf("events = %+v, want three", events)
+	}
+	// Undated sorts first under COALESCE(start_date, ''), then chronological.
+	want := []string{"Undated sketch", "Earlier show", "Later show"}
+	for i, name := range want {
+		if events[i].Name != name {
+			t.Errorf("events[%d] = %q, want %q (order: %+v)", i, events[i].Name, name, events)
+		}
+	}
+
+	unbound, err := ListEventsForInventory(database, other.ID)
+	if err != nil {
+		t.Fatalf("list events for unbound inventory: %v", err)
+	}
+	if len(unbound) != 0 {
+		t.Errorf("unbound catalog returned %+v, want an empty slice", unbound)
+	}
+}

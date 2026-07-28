@@ -1,8 +1,11 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -265,5 +268,133 @@ func TestInventoriesNonOwnerAccessDenied(t *testing.T) {
 	_ = postResponse.Body.Close()
 	if postResponse.StatusCode != http.StatusNotFound {
 		t.Errorf("duplicate as non-owner: status %d, want 404", postResponse.StatusCode)
+	}
+}
+
+// The list payload's three counts (Slice 32), and the one claim the whole
+// list view rests on: the number the column shows, the number the drawer's
+// "Used on" section lists, and the number DELETE refuses with are one
+// number. Asserted here rather than reasoned about, because these three
+// used to be computed in three places and one of them was the browser.
+func TestInventoriesListCountsAgreeWithEventsAndDelete(t *testing.T) {
+	server, database := newTestServer(t)
+	inventoryID := testOwnerInventoryID(t, server.URL)
+	seedItem(t, database, "Shure SM58", 4, 150) // also seeds one category
+	eventID := seedEvent(t, server.URL)         // bound to the same inventory
+
+	status, raw := doJSON(t, http.MethodGet, server.URL+"/inventories", nil)
+	if status != http.StatusOK {
+		t.Fatalf("list: status %d body %s", status, raw)
+	}
+	var rows []map[string]any
+	if err := json.Unmarshal(raw, &rows); err != nil {
+		t.Fatalf("decode list %s: %v", raw, err)
+	}
+
+	var listed map[string]any
+	for _, row := range rows {
+		if int64(row["id"].(float64)) == inventoryID {
+			listed = row
+		}
+	}
+	if listed == nil {
+		t.Fatalf("inventory %d absent from %s", inventoryID, raw)
+	}
+	if got := listed["itemCount"]; got != float64(1) {
+		t.Errorf("itemCount = %v, want 1 (body %s)", got, raw)
+	}
+	if got := listed["categoryCount"]; got != float64(1) {
+		t.Errorf("categoryCount = %v, want 1 (body %s)", got, raw)
+	}
+	if got := listed["eventCount"]; got != float64(1) {
+		t.Errorf("eventCount = %v, want 1 (body %s)", got, raw)
+	}
+
+	invURL := fmt.Sprintf("%s/inventories/%d", server.URL, inventoryID)
+
+	// The same events, listed rather than counted.
+	status, raw = doJSON(t, http.MethodGet, invURL+"/events", nil)
+	if status != http.StatusOK {
+		t.Fatalf("list events: status %d body %s", status, raw)
+	}
+	events := decodeJSON[[]domain.Event](t, raw)
+	if len(events) != 1 || events[0].ID != eventID {
+		t.Fatalf("events = %+v, want just event %d", events, eventID)
+	}
+
+	// And the refusal names the same number.
+	request, err := http.NewRequest(http.MethodDelete, invURL, nil)
+	if err != nil {
+		t.Fatalf("build delete request: %v", err)
+	}
+	response, err := httpClient.Do(request)
+	if err != nil {
+		t.Fatalf("delete inventory: %v", err)
+	}
+	defer func() { _ = response.Body.Close() }()
+	body, _ := io.ReadAll(response.Body)
+	if response.StatusCode != http.StatusConflict {
+		t.Fatalf("delete in-use inventory: status %d body %s, want 409", response.StatusCode, body)
+	}
+	if !strings.Contains(string(body), "1 event") {
+		t.Errorf("refusal %s does not name the same count the list reported", body)
+	}
+}
+
+// A count of zero is absent from the JSON rather than serialised as 0 —
+// which is what lets the page render "—" for a catalog no event uses
+// without a second field saying whether the count was computed.
+func TestInventoriesListOmitsZeroCounts(t *testing.T) {
+	server, _ := newTestServer(t)
+
+	status, raw := doJSON(t, http.MethodPost, server.URL+"/inventories", map[string]any{"name": "Sandbox"})
+	if status != http.StatusCreated {
+		t.Fatalf("create: status %d body %s", status, raw)
+	}
+	created := decodeJSON[domain.Inventory](t, raw)
+
+	status, raw = doJSON(t, http.MethodGet, server.URL+"/inventories", nil)
+	if status != http.StatusOK {
+		t.Fatalf("list: status %d body %s", status, raw)
+	}
+	var rows []map[string]any
+	if err := json.Unmarshal(raw, &rows); err != nil {
+		t.Fatalf("decode list %s: %v", raw, err)
+	}
+	for _, row := range rows {
+		if int64(row["id"].(float64)) != created.ID {
+			continue
+		}
+		for _, key := range []string{"itemCount", "categoryCount", "eventCount"} {
+			if _, present := row[key]; present {
+				t.Errorf("%s present on an empty catalog: %s", key, raw)
+			}
+		}
+		return
+	}
+	t.Fatalf("created inventory absent from %s", raw)
+}
+
+// The events route is owner-only like the rest of the group: 404, with no
+// role gradient, for anyone else.
+func TestInventoryEventsNonOwnerDenied(t *testing.T) {
+	server, database := newTestServer(t)
+	inventoryID := testOwnerInventoryID(t, server.URL)
+
+	stranger, err := db.UpsertUserByGoogleSub(database, "stranger-sub", "stranger@example.com", "Stranger", "")
+	if err != nil {
+		t.Fatalf("seed stranger: %v", err)
+	}
+	strangerToken, err := db.CreateSession(database, stranger.ID, time.Hour)
+	if err != nil {
+		t.Fatalf("create stranger session: %v", err)
+	}
+	response, err := clientForSession(t, server.URL, strangerToken).Get(fmt.Sprintf("%s/inventories/%d/events", server.URL, inventoryID))
+	if err != nil {
+		t.Fatalf("GET events as non-owner: %v", err)
+	}
+	defer func() { _ = response.Body.Close() }()
+	if response.StatusCode != http.StatusNotFound {
+		t.Errorf("GET events as non-owner: status %d, want 404", response.StatusCode)
 	}
 }

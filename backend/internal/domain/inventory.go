@@ -106,4 +106,17 @@ type Inventory struct {
 	// stopped being the same question once a second importer existed.
 	SourceFormat string `json:"sourceFormat,omitempty"`
 	CreatedAt    string `json:"createdAt"`
+	// The three counts the list view is made of (Slice 32). Derived per
+	// request by ListInventoriesForOwner and populated by nothing else: an
+	// endpoint returning a single inventory has never counted anything and
+	// must not start claiming zeroes. `omitempty` follows
+	// InventoryCategory.ItemCount, which has carried a derived count this
+	// way since Slice 22 — absent and zero mean the same thing, and the
+	// page reads both as `?? 0`.
+	//
+	// EventCount is the same predicate DeleteInventory refuses on, so the
+	// number shown and the refusal that follows cannot disagree.
+	ItemCount     int `json:"itemCount,omitempty"`
+	CategoryCount int `json:"categoryCount,omitempty"`
+	EventCount    int `json:"eventCount,omitempty"`
 }
