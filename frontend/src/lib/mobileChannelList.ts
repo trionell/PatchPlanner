@@ -1,4 +1,5 @@
 import { buildInputChannelFlows } from './inputSignalFlow'
+import { inputChainSegments } from './patchSheet'
 import type { InputCable, InputChannel, InputDevice, InputSource, StageMulti, Stagebox } from '../types'
 
 /** One row in the mobile Audio Inputs/Outputs list — read projection only, never a new query (data-model.md). */
@@ -11,6 +12,20 @@ export interface MobileChannelListItem {
   sourceLabel: string
   /** Nearest upstream hop (usually "Stagebox A — In 7"), or "—" for a gap. */
   routingLabel: string
+  /**
+   * True when this channel is one of the ones the status strip is counting.
+   *
+   * It is a flag rather than a `sourceLabel === '—'` test at the call site because that
+   * would make a filter depend on a display value: the next person to write "no source"
+   * instead of an em dash would break a filter in a file they never opened (research.md
+   * R7).
+   *
+   * And it is read from **the sheet's own chain model**, not derived here, so the
+   * phone's filtered view and the strip's count cannot disagree — the strip says
+   * *3 gaps* and the filter must show those three, by construction rather than by two
+   * definitions that happen to agree today.
+   */
+  hasGap: boolean
 }
 
 interface ListContext {
@@ -24,7 +39,8 @@ interface ListContext {
 
 /** Builds the mobile channel list from the same audio-patch data the desktop tab already fetches. */
 export function buildMobileChannelList(channels: InputChannel[], context: ListContext): MobileChannelListItem[] {
-  const flows = buildInputChannelFlows(channels, { ...context, channels })
+  const flowContext = { ...context, channels }
+  const flows = buildInputChannelFlows(channels, flowContext)
   const byNumber = new Map(flows.map((flow) => [flow.channelNumber, flow]))
   return [...channels]
     .sort((a, b) => a.channel_number - b.channel_number)
@@ -38,6 +54,7 @@ export function buildMobileChannelList(channels: InputChannel[], context: ListCo
         color: channel.color,
         sourceLabel: path?.sourceName ?? '—',
         routingLabel: path?.hops.at(-1)?.label ?? '—',
+        hasGap: inputChainSegments(channel, flowContext).hasGap,
       }
     })
 }

@@ -93,8 +93,9 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
     }))
     const editingChannel = typeof editingChannelId === 'number' ? channels.find((c) => c.id === editingChannelId) : undefined
     return (
-      <div className="print:hidden">
+      <div className="flex min-h-0 flex-1 flex-col print:hidden">
         <MobileEntityList
+          title="Audio Inputs"
           items={items}
           onSelect={setEditingChannelId}
           onAdd={() => setEditingChannelId('new')}

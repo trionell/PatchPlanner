@@ -20,18 +20,18 @@ surfaces.
 **Independent test**: Audio Inputs, Audio Outputs and Lighting Rig at 375 px are each one
 bordered frame with a titled bar and rows inside it. Eight rows visible at 375 × 667.
 
-- [ ] T001 Create `frontend/src/components/ui/MobilePanel.tsx` — frame, bar, search row, rows region, strip slot — to the values in `contracts/mobile-panel.md`. The strip renders as a **sibling** of the rows region.
-- [ ] T002 [P] Rewrite `frontend/src/components/mobile/CondensedListRow.tsx`: drop the border, radius and raised ground; `min-h-[44px]` with `leading-tight`; `text-sm` / `text-xs`; leading edge as a `w-[3px]` element with the tint on the content; both lines truncate.
-- [ ] T003 Write `frontend/src/components/ui/MobilePanel.test.tsx` pinning P1, P2 and P6 from research R9 — one frame, the strip is a sibling of the scrolling region, no primary element for a role that cannot act.
-- [ ] T004 [P] Write `frontend/src/components/mobile/CondensedListRow.test.tsx` pinning P3 — emits `min-h-[44px]` and `leading-tight`, emits neither `text-[13px]` nor `text-[11px]`, and does not emit `bg-zinc-900` or `rounded-md` on its root.
-- [ ] T005 Rewrite `frontend/src/components/mobile/MobileEntityList.tsx` as a `MobilePanel`: takes `title` and `strip`, search becomes the panel's, the add control becomes `primaryAction` at 44 px, the row's pencil goes to `h-4`.
-- [ ] T006 [P] `frontend/src/lib/mobileChannelList.ts` — add `hasGap` to `MobileChannelListItem`, derived in the same pass as the labels (research R7).
-- [ ] T007 [P] `frontend/src/lib/mobileOutputList.ts` — same for `MobileOutputListItem`.
-- [ ] T008 [P] Extend `frontend/src/lib/mobileChannelList.test.ts` to cover `hasGap` (P7).
-- [ ] T009 [US1] `AudioInputsTab.tsx` phone branch — pass `title="Audio Inputs"` and the search placeholder through the list.
-- [ ] T010 [P] [US1] `AudioOutputsTab.tsx` phone branch — same, `title="Audio Outputs"`.
-- [ ] T011 [P] [US1] `LightingTab.tsx` phone branch — same, `title="Lighting"`.
-- [ ] T012 Gates.
+- [X] T001 Create `frontend/src/components/ui/MobilePanel.tsx` — frame, bar, search row, rows region, strip slot — to the values in `contracts/mobile-panel.md`. The strip renders as a **sibling** of the rows region.
+- [X] T002 [P] Rewrite `frontend/src/components/mobile/CondensedListRow.tsx`: drop the border, radius and raised ground; `min-h-[44px]` with `leading-tight`; `text-sm` / `text-xs`; leading edge as a `w-[3px]` element with the tint on the content; both lines truncate.
+- [X] T003 Write `frontend/src/components/ui/MobilePanel.test.tsx` pinning P1, P2 and P6 from research R9 — one frame, the strip is a sibling of the scrolling region, no primary element for a role that cannot act.
+- [X] T004 [P] Write `frontend/src/components/mobile/CondensedListRow.test.tsx` pinning P3 — emits `min-h-[44px]` and `leading-tight`, emits neither `text-[13px]` nor `text-[11px]`, and does not emit `bg-zinc-900` or `rounded-md` on its root.
+- [X] T005 Rewrite `frontend/src/components/mobile/MobileEntityList.tsx` as a `MobilePanel`: takes `title` and `strip`, search becomes the panel's, the add control becomes `primaryAction` at 44 px, the row's pencil goes to `h-4`.
+- [X] T006 [P] `frontend/src/lib/mobileChannelList.ts` — add `hasGap` to `MobileChannelListItem`, derived in the same pass as the labels (research R7).
+- [X] T007 [P] `frontend/src/lib/mobileOutputList.ts` — same for `MobileOutputListItem`.
+- [X] T008 [P] Extend `frontend/src/lib/mobileChannelList.test.ts` to cover `hasGap` (P7).
+- [X] T009 [US1] `AudioInputsTab.tsx` phone branch — pass `title="Audio Inputs"` and the search placeholder through the list.
+- [X] T010 [P] [US1] `AudioOutputsTab.tsx` phone branch — same, `title="Audio Outputs"`.
+- [X] T011 [P] [US1] `LightingTab.tsx` phone branch — same, `title="Lighting"`.
+- [X] T012 Gates.
 
 ---
 

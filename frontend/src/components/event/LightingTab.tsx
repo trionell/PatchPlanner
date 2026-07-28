@@ -109,8 +109,9 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
     }))
     const editingFixture = typeof editingFixtureId === 'number' ? fixtures.find((f) => f.id === editingFixtureId) : undefined
     return (
-      <div className="print:hidden">
+      <div className="flex min-h-0 flex-1 flex-col print:hidden">
         <MobileEntityList
+          title="Lighting"
           items={items}
           onSelect={setEditingFixtureId}
           onAdd={() => rigId != null && setEditingFixtureId('new')}
