@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { Fragment, type CSSProperties, type ReactNode } from 'react'
 import type { EventSummary, ReadinessVerdict } from '../../lib/eventSummary'
 import { NODE_BORDER, NODE_BORDER_DESK } from './graph/tokens'
 import { Meter } from '../ui/GearList'
@@ -94,27 +94,56 @@ export function NumbersBand({ summary, onOpenTab }: { summary: EventSummary; onO
  * width of a sentence, in the application's own picture of itself, rather than
  * introducing a second visual language for data the canvas already draws.
  *
- * No animation: Overview is a working screen inside the event, and a tool that
- * animates while a technician is counting channels is in the way
- * (design/tokens.md §6). The dashboard's copy of this ribbon is where the
- * sanctioned pulse goes.
+ * **One flat row.** Each node used to sit inside its own `flex-1` wrapper with
+ * the run before it, which meant every wrapper took an equal share of the width
+ * and the run got whatever the node inside it did not: a wide node left a short
+ * run, a narrow one a long run, and the gaps tightened rightward for no reason
+ * anybody could see. The first wrapper had no run at all and still claimed its
+ * share, so the line started in mid-air instead of at the first node. Nodes are
+ * `shrink-0` siblings and runs are `flex-1` siblings now, so the free space is
+ * split between the runs and only the runs — every gap identical, the first one
+ * touching the first node.
+ *
+ * `pulse` is the dashboard, and only the dashboard. Overview is a working
+ * screen inside the event, and a tool that animates while a technician counts
+ * channels is in the way (design/tokens.md §6) — but that is a difference of
+ * one prop, not of one component, and it was a second copy of this markup until
+ * the geometry had to be fixed in two places.
  */
-export function RigRibbon({ label, nodes, trailing }: { label: string; nodes: RibbonNode[]; trailing?: ReactNode }) {
+export function RigRibbon({
+  label,
+  nodes,
+  trailing,
+  pulse,
+  className,
+}: {
+  /** Omitted on the dashboard, where the ribbon is the hero's own band. */
+  label?: string
+  nodes: RibbonNode[]
+  trailing?: ReactNode
+  pulse?: boolean
+  className?: string
+}) {
   const shown = nodes.filter((node) => node.count == null || node.count > 0)
   if (shown.length === 0) return null
   return (
-    <div className="flex items-center gap-2">
-      <MicroLabel className="w-[4.5rem] shrink-0">{label}</MicroLabel>
+    <div className={`flex items-center gap-2 ${className ?? ''}`}>
+      {label && <MicroLabel className="w-[4.5rem] shrink-0">{label}</MicroLabel>}
       {shown.map((node, index) => (
-        <div key={node.label} className="flex min-w-0 flex-1 items-center gap-2 last:flex-none">
-          {index > 0 && <span className="h-0.5 min-w-4 flex-1 rounded-sm bg-zinc-700" />}
+        <Fragment key={node.label}>
+          {index > 0 && (
+            <span
+              className={`h-0.5 min-w-4 flex-1 rounded-sm bg-zinc-700 ${pulse ? 'pp-run' : ''}`}
+              style={pulse ? ({ ['--pp-delay' as string]: `${index * 0.25}s` } as CSSProperties) : undefined}
+            />
+          )}
           <div
             className={`shrink-0 rounded-[7px] border ${node.desk ? NODE_BORDER_DESK : NODE_BORDER} bg-zinc-850 px-2.5 py-1 shadow-[0_2px_8px_rgba(0,0,0,0.4)]`}
           >
             <div className="font-mono text-xs tabular-nums leading-tight text-zinc-100">{node.value}</div>
             <MicroLabel className="block text-[9px]">{node.label}</MicroLabel>
           </div>
-        </div>
+        </Fragment>
       ))}
       {trailing && <div className="ml-3 flex shrink-0 items-center gap-2">{trailing}</div>}
     </div>

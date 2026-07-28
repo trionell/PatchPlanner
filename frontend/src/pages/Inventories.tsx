@@ -304,7 +304,7 @@ function InventoryDetail({ inventory, onBack }: { inventory: Inventory; onBack: 
         {error && <p className="border-b border-zinc-800 px-3 py-2 text-xs text-red-400">{error}</p>}
 
         <PanelCols>
-          <PanelRail className="max-h-[70vh]">
+          <PanelRail>
             <PanelRailRow
               label="All items"
               count={allItemsQuery.data?.length}

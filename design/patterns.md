@@ -141,11 +141,18 @@ the edge it shares with the sheet, scrolling on its own. The inventory catalog
 filters by category with it and the vocabulary panel picks a vocabulary with it.
 
 **A filter has to be entirely visible**, which is the whole reason it exists. The
-inventory page's twelve categories used to show about four, because each tile
-carried a rename, a delete, a picker-role select and a count stacked in its
+inventory page's categories used to show about four of twenty-seven, because each
+tile carried a rename, a delete, a picker-role select and a count stacked in its
 corner. Everything that was not filtering moved into a drawer — a category is
 *declared once and referenced by every item*, which is §3 stated exactly — and
 `PanelRailRow` takes no children and no action slot so it cannot happen again.
+
+**And it gets no height of its own.** `PanelCols` stretches the rail to the
+panel; a `max-h` on top of that reproduces the failure by another route, which is
+what a leftover `max-h-[70vh]` did to the same twenty-seven categories — cut off
+at the fold, in a private scrollbar, on a page with room to spare below. The rail
+is as tall as the sheet beside it and scrolls only when its own rows outrun that.
+A cap is right only if the panel is pinned to the viewport, and none of them are.
 
 The three columns of a panel, in one sentence: **the palette offers, the rail
 filters, the inspector edits.**

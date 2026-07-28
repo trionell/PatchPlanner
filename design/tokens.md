@@ -201,6 +201,11 @@ Both are on **landing** pages. Neither appears on a surface anyone works on —
 Overview draws the same ribbon as the dashboard and deliberately does not animate
 it, which is the line: a page you arrive at may move, a page you work in may not.
 
+That difference is a `pulse` prop on one `RigRibbon`, not two copies of the
+ribbon. It was two, and both copies drifted into the same geometry bug before
+anyone noticed either: **where a surface differs from another only by whether it
+moves, the motion is the parameter.**
+
 **Focus.** Every interactive element shows focus. Buttons:
 `focus-visible:ring-2 focus-visible:ring-amber-500`. Inputs and selects:
 `focus:border-amber-500`. A control that removes the outline without replacing it

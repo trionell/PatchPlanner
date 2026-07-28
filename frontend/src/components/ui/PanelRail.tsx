@@ -23,6 +23,16 @@ export function PanelCols({ children, className }: { children: ReactNode; classN
   return <div className={cn('flex items-stretch', className)}>{children}</div>
 }
 
+/**
+ * **Give it no height of its own.** `PanelCols` stretches it to the panel, so
+ * it is already as tall as the sheet beside it and only scrolls when its own
+ * rows outrun that. The inventory rail carried a `max-h-[70vh]` and the result
+ * was the failure this component exists to prevent: twenty-seven categories cut
+ * off at the fold, in a private scrollbar, on a page with room to spare below.
+ *
+ * A cap is only ever right if the panel itself is pinned to the viewport, and
+ * none of them are.
+ */
 export function PanelRail({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div

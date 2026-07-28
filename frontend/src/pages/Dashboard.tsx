@@ -11,7 +11,7 @@ import { getRentalSummary } from '../api/rentals'
 import { listStagePlots } from '../api/stagePlots'
 import { EventFormDialog } from '../components/EventFormDialog'
 import { CondensedListRow } from '../components/mobile/CondensedListRow'
-import { NODE_BORDER, NODE_BORDER_DESK } from '../components/event/graph/tokens'
+import { RigRibbon, type RibbonNode } from '../components/event/OverviewBands'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { MicroLabel } from '../components/ui/Label'
@@ -143,9 +143,12 @@ export function DashboardPage() {
 /**
  * The next show, bordered the way the desk is.
  *
- * `NODE_BORDER_DESK` is the canvas's own mark for *the box every other box is
+ * The desk's border is the canvas's own mark for *the box every other box is
  * arranged around*, and on this page that is exactly what the next event is. The
  * words `Next show` sit above it, so the border is never the only carrier (P4).
+ *
+ * The ribbon inside it is Overview's `RigRibbon` with `pulse` — the same
+ * component, not the same drawing made twice.
  */
 function NextShow({ event }: { event: Event }) {
   const eventId = event.id
@@ -167,14 +170,16 @@ function NextShow({ event }: { event: Event }) {
     [event, patchQuery.data, rigQuery.data, rentalQuery.data, plotsQuery.data],
   )
 
-  const nodes = [
-    { label: 'sources', value: summary.sources },
-    { label: 'stageboxes', value: summary.stageboxes },
-    { label: 'console', value: summary.consoleName, desk: true },
-    { label: 'devices', value: summary.outputDevices },
-    { label: 'outputs', value: summary.outputChannels },
-    { label: 'fixtures', value: summary.fixtures },
-  ].filter((node) => (typeof node.value === 'number' ? node.value > 0 : Boolean(node.value)))
+  // Overview's ribbon with the pulse turned on. It was a second copy of that
+  // markup, which is how both of them ended up with the same broken geometry.
+  const nodes: RibbonNode[] = [
+    { label: 'sources', value: summary.sources ?? 0, count: summary.sources },
+    { label: 'stageboxes', value: summary.stageboxes ?? 0, count: summary.stageboxes },
+    { label: 'console', value: summary.consoleName ?? '—', count: summary.consoleName ? 1 : 0, desk: true },
+    { label: 'devices', value: summary.outputDevices ?? 0, count: summary.outputDevices },
+    { label: 'outputs', value: summary.outputChannels ?? 0, count: summary.outputChannels },
+    { label: 'fixtures', value: summary.fixtures ?? 0, count: summary.fixtures },
+  ]
 
   return (
     <div className="overflow-hidden rounded-xl border border-amber-500/55 bg-zinc-950/40">
@@ -195,26 +200,7 @@ function NextShow({ event }: { event: Event }) {
         </div>
       </div>
 
-      {nodes.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 px-5 py-5">
-          {nodes.map((node, index) => (
-            <div key={node.label} className="flex min-w-0 flex-1 items-center gap-2 last:flex-none">
-              {index > 0 && (
-                <span
-                  className="pp-run h-0.5 min-w-4 flex-1 rounded-sm bg-zinc-700"
-                  style={{ ['--pp-delay' as string]: `${index * 0.25}s` }}
-                />
-              )}
-              <div
-                className={`shrink-0 rounded-[7px] border ${node.desk ? NODE_BORDER_DESK : NODE_BORDER} bg-zinc-850 px-2.5 py-1 shadow-[0_2px_8px_rgba(0,0,0,0.4)]`}
-              >
-                <div className="font-mono text-xs leading-tight tabular-nums text-zinc-100">{node.value}</div>
-                <MicroLabel className="block text-[9px]">{node.label}</MicroLabel>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <RigRibbon nodes={nodes} pulse className="px-5 py-5" />
 
       <div className="flex flex-wrap border-y border-zinc-800 bg-zinc-950/60">
         <Figure label="channels in / out" value={summary.inputChannels} unit={summary.outputChannels != null ? `/ ${summary.outputChannels}` : undefined} />
