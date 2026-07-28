@@ -29,12 +29,12 @@ export function partitionEvents(events: Event[] | undefined, today = new Date())
   const dated: Event[] = []
   const undated: Event[] = []
   for (const event of events ?? []) {
-    if (event.date) dated.push(event)
+    if (event.startDate) dated.push(event)
     else undated.push(event)
   }
 
-  const future = dated.filter((event) => event.date!.slice(0, 10) >= cutoff).sort(byDateAscending)
-  const past = dated.filter((event) => event.date!.slice(0, 10) < cutoff).sort(byDateDescending)
+  const future = dated.filter((event) => event.startDate!.slice(0, 10) >= cutoff).sort(byDateAscending)
+  const past = dated.filter((event) => event.startDate!.slice(0, 10) < cutoff).sort(byDateDescending)
 
   // An undated event is never the hero: "the next show" is a claim about when,
   // and an event nobody has dated makes no claim. It still belongs under
@@ -48,11 +48,11 @@ export function partitionEvents(events: Event[] | undefined, today = new Date())
 }
 
 function byDateAscending(a: Event, b: Event): number {
-  return a.date!.localeCompare(b.date!)
+  return a.startDate!.localeCompare(b.startDate!)
 }
 
 function byDateDescending(a: Event, b: Event): number {
-  return b.date!.localeCompare(a.date!)
+  return b.startDate!.localeCompare(a.startDate!)
 }
 
 /** `02 Oct` — short, and the same width for every month, so the column lines up. */

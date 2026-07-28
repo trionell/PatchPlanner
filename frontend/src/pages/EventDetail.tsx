@@ -84,7 +84,7 @@ export function EventDetailPage() {
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h2 className="truncate text-lg font-semibold">{eventQuery.data.name}</h2>
-            <p className="truncate text-xs text-zinc-400">{eventQuery.data.venue || 'Venue TBD'} · {eventQuery.data.date || 'Date TBD'}</p>
+            <p className="truncate text-xs text-zinc-400">{eventQuery.data.venue || 'Venue TBD'} · {eventQuery.data.startDate || 'Date TBD'}</p>
           </div>
           <Link className="shrink-0 text-xs text-amber-400" to="/events">← Events</Link>
         </div>
@@ -100,7 +100,7 @@ export function EventDetailPage() {
       <div className="flex items-center justify-between gap-4 print:hidden">
         <div>
           <h2 className="text-lg font-semibold">{eventQuery.data.name}</h2>
-          <p className="text-sm text-zinc-400">{eventQuery.data.venue || 'Venue TBD'} · {eventQuery.data.date || 'Date TBD'}</p>
+          <p className="text-sm text-zinc-400">{eventQuery.data.venue || 'Venue TBD'} · {eventQuery.data.startDate || 'Date TBD'}</p>
         </div>
         <div className="flex items-center gap-4">
           {canManageMembers && (

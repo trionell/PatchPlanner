@@ -1,7 +1,7 @@
 export interface Event {
   id: number
   name: string
-  date?: string
+  startDate?: string
   venue?: string
   notes?: string
   created_at: string

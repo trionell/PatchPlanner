@@ -50,13 +50,13 @@ nothing.
 landing it by itself keeps every later diff small enough to read. FR-005 requires it as its
 own commit.
 
-- [ ] T001 Write `backend/migrations/045_event_start_date_rename.up.sql` and `.down.sql` — one `ALTER TABLE events RENAME COLUMN` each way, with a header comment recording why the rename happened (three siblings arriving in 046 make `date` the one column a reader has to be told about)
-- [ ] T002 Rename `Date` → `StartDate` with tag `startDate,omitempty` in `backend/internal/domain/event.go`
-- [ ] T003 Update the three SQL statements and their scans in `backend/internal/db/events.go` — `ListEventsForUser` (select + `ORDER BY e.start_date IS NULL, e.start_date ASC, e.id DESC`), `GetEvent`, `CreateEvent`, `UpdateEvent`
-- [ ] T004 [P] Rename `date` → `startDate` on the `Event` interface in `frontend/src/types/index.ts`
-- [ ] T005 Update every frontend reader: `frontend/src/lib/dashboard.ts`, `frontend/src/lib/eventSummary.ts`, `frontend/src/pages/Events.tsx`, `frontend/src/pages/Dashboard.tsx`, `frontend/src/pages/EventDetail.tsx`, `frontend/src/components/EventFormDialog.tsx`, `frontend/src/components/event/EventDetailsDrawer.tsx`, `frontend/src/components/event/OverviewTab.tsx`, `frontend/src/components/print/PrintSheet.tsx`
-- [ ] T006 [P] Update `date` references in existing tests: `backend/internal/db/events_test.go`, `backend/internal/api/*_test.go`, `frontend/src/lib/dashboard.test.ts`, `frontend/src/lib/eventSummary.test.ts`
-- [ ] T007 Run the gates against a **copy** of the database (`cp backend/patchplanner.db /tmp/pp-030.db && PATCHPLANNER_DB=/tmp/pp-030.db`), confirm migration 045 applies and reverses, then **commit 1**
+- [x] T001 Write `backend/migrations/045_event_start_date_rename.up.sql` and `.down.sql` — one `ALTER TABLE events RENAME COLUMN` each way, with a header comment recording why the rename happened (three siblings arriving in 046 make `date` the one column a reader has to be told about)
+- [x] T002 Rename `Date` → `StartDate` with tag `startDate,omitempty` in `backend/internal/domain/event.go`
+- [x] T003 Update the three SQL statements and their scans in `backend/internal/db/events.go` — `ListEventsForUser` (select + `ORDER BY e.start_date IS NULL, e.start_date ASC, e.id DESC`), `GetEvent`, `CreateEvent`, `UpdateEvent`
+- [x] T004 [P] Rename `date` → `startDate` on the `Event` interface in `frontend/src/types/index.ts`
+- [x] T005 Update every frontend reader: `frontend/src/lib/dashboard.ts`, `frontend/src/lib/eventSummary.ts`, `frontend/src/pages/Events.tsx`, `frontend/src/pages/Dashboard.tsx`, `frontend/src/pages/EventDetail.tsx`, `frontend/src/components/EventFormDialog.tsx`, `frontend/src/components/event/EventDetailsDrawer.tsx`, `frontend/src/components/event/OverviewTab.tsx`, `frontend/src/components/print/PrintSheet.tsx`
+- [x] T006 [P] Update `date` references in existing tests: `backend/internal/db/events_test.go`, `backend/internal/api/*_test.go`, `frontend/src/lib/dashboard.test.ts`, `frontend/src/lib/eventSummary.test.ts`
+- [x] T007 Run the gates against a **copy** of the database (`cp backend/patchplanner.db /tmp/pp-030.db && PATCHPLANNER_DB=/tmp/pp-030.db`), confirm migration 045 applies and reverses, then **commit 1**
 
 **Checkpoint**: The application behaves exactly as before. Nothing user-visible changed.
 

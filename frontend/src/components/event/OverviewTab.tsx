@@ -18,7 +18,7 @@ import { Card } from '../ui/Card'
 import { Dialog } from '../ui/Dialog'
 import { MicroLabel } from '../ui/Label'
 import { EventInventoryBrowser } from './EventInventoryBrowser'
-import { EventDetailsDrawer } from './EventDetailsDrawer'
+import { type EventDraft, EventDetailsDrawer } from './EventDetailsDrawer'
 import { DmxMeter, NumbersBand, ReadinessRow, RigRibbon } from './OverviewBands'
 
 /**
@@ -81,7 +81,7 @@ export function OverviewTab({ eventId, readOnly = false }: { eventId: number; re
   )
 
   const saveEvent = useMutation({
-    mutationFn: (payload: { name: string; venue: string; date: string; notes: string }) => updateEvent(eventId, payload),
+    mutationFn: (payload: EventDraft) => updateEvent(eventId, payload),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['event', eventId] })
       setEditing(false)
@@ -98,7 +98,7 @@ export function OverviewTab({ eventId, readOnly = false }: { eventId: number; re
           <div className="min-w-0">
             <h2 className="text-lg font-semibold text-zinc-100">{event?.name ?? 'Event'}</h2>
             <p className="mt-0.5 text-sm text-zinc-400">
-              {[event?.venue || 'Venue TBD', formatEventDate(event?.date)].filter(Boolean).join(' · ')}
+              {[event?.venue || 'Venue TBD', formatEventDate(event?.startDate)].filter(Boolean).join(' · ')}
               {summary.dayLabel && <span className="ml-2 text-zinc-500">({summary.dayLabel})</span>}
             </p>
           </div>

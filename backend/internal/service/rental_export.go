@@ -201,7 +201,7 @@ func exportFilename(event domain.Event, suffix string) string {
 	if name == "" {
 		name = fmt.Sprintf("Event %d", event.ID)
 	}
-	if date := strings.TrimSpace(event.Date); date != "" {
+	if date := strings.TrimSpace(event.StartDate); date != "" {
 		name += " - " + unsafeFilenameChars.ReplaceAllString(date, "_")
 	}
 	return "Hyrorder - " + name + suffix

@@ -58,7 +58,7 @@ export function EventsPage() {
               key={event.id}
               onClick={() => navigate(`/events/${event.id}`)}
               title={event.name}
-              subtitle={`${event.venue || 'Venue TBD'} · ${event.date || 'Date not set'}`}
+              subtitle={`${event.venue || 'Venue TBD'} · ${event.startDate || 'Date not set'}`}
               trailing={
                 event.yourRole && event.yourRole !== 'owner' ? (
                   <Badge variant={event.yourRole === 'viewer' ? 'warning' : 'default'}>{event.yourRole}</Badge>
@@ -82,7 +82,7 @@ export function EventsPage() {
                       <Badge variant={event.yourRole === 'viewer' ? 'warning' : 'default'}>{event.yourRole}</Badge>
                     )}
                   </div>
-                  <div className="text-sm text-zinc-300">{event.date || 'Date not set'}</div>
+                  <div className="text-sm text-zinc-300">{event.startDate || 'Date not set'}</div>
                   <p className="line-clamp-3 text-sm text-zinc-500">{event.notes || 'No notes yet.'}</p>
                 </CardContent>
               </Card>

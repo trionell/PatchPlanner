@@ -27,7 +27,7 @@ import { Textarea } from '../ui/Textarea'
 export interface EventDraft {
   name: string
   venue: string
-  date: string
+  startDate: string
   notes: string
 }
 
@@ -62,7 +62,7 @@ function EventDetailsForm({
   const [draft, setDraft] = useState<EventDraft>({
     name: event.name,
     venue: event.venue ?? '',
-    date: event.date ?? '',
+    startDate: event.startDate ?? '',
     notes: event.notes ?? '',
   })
 
@@ -88,7 +88,7 @@ function EventDetailsForm({
         </div>
         <div>
           <FieldLabel>Date</FieldLabel>
-          <Input type="date" value={draft.date} onChange={(e) => setDraft((prev) => ({ ...prev, date: e.target.value }))} />
+          <Input type="date" value={draft.startDate} onChange={(e) => setDraft((prev) => ({ ...prev, startDate: e.target.value }))} />
         </div>
         <div>
           <FieldLabel>Notes</FieldLabel>

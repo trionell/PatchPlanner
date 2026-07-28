@@ -12,7 +12,7 @@ import { FieldLabel } from './ui/Label'
 
 const eventSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  date: z.string().optional(),
+  startDate: z.string().optional(),
   venue: z.string().optional(),
   notes: z.string().optional(),
   inventoryId: z.number().positive('Choose an inventory'),
@@ -20,7 +20,7 @@ const eventSchema = z.object({
 
 type EventFormValues = {
   name: string
-  date: string
+  startDate: string
   venue: string
   notes: string
   inventoryId: number
@@ -51,7 +51,7 @@ export function EventFormDialog({
     resolver: zodResolver(eventSchema),
     defaultValues: {
       name: initialValues?.name ?? '',
-      date: initialValues?.date ?? '',
+      startDate: initialValues?.startDate ?? '',
       venue: initialValues?.venue ?? '',
       notes: initialValues?.notes ?? '',
       inventoryId: initialValues?.inventoryId ?? 0,
@@ -61,7 +61,7 @@ export function EventFormDialog({
   useEffect(() => {
     form.reset({
       name: initialValues?.name ?? '',
-      date: initialValues?.date ?? '',
+      startDate: initialValues?.startDate ?? '',
       venue: initialValues?.venue ?? '',
       notes: initialValues?.notes ?? '',
       inventoryId: initialValues?.inventoryId ?? 0,
@@ -93,7 +93,7 @@ export function EventFormDialog({
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <FieldLabel>Date</FieldLabel>
-            <Input type="date" {...form.register('date')} />
+            <Input type="date" {...form.register('startDate')} />
           </div>
           <div>
             <FieldLabel>Venue</FieldLabel>

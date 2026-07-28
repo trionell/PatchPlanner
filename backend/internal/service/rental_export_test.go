@@ -76,7 +76,7 @@ func exportSetup(t *testing.T) (database *sql.DB, sourcePath string, eventID int
 	for _, item := range items {
 		ids[item.Name] = item.ID
 	}
-	event, err := db.CreateEvent(database, domain.Event{Name: "Sommarfest", Date: "2026-08-01"}, owner.ID, inventory.ID)
+	event, err := db.CreateEvent(database, domain.Event{Name: "Sommarfest", StartDate: "2026-08-01"}, owner.ID, inventory.ID)
 	if err != nil {
 		t.Fatalf("create event: %v", err)
 	}

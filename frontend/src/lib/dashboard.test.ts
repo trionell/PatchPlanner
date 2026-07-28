@@ -4,8 +4,8 @@ import type { Event } from '../types'
 
 const TODAY = new Date(2026, 6, 28) // 2026-07-28
 
-function event(id: number, name: string, date?: string): Event {
-  return { id, name, date, created_at: '', updated_at: '', inventoryId: 1 }
+function event(id: number, name: string, startDate?: string): Event {
+  return { id, name, startDate, created_at: '', updated_at: '', inventoryId: 1 }
 }
 
 describe('partitionEvents', () => {

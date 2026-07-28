@@ -59,7 +59,7 @@ export function DashboardPage() {
 
   const { next, upcoming, past } = useMemo(() => partitionEvents(eventsQuery.data), [eventsQuery.data])
   const totalEvents = eventsQuery.data?.length ?? 0
-  const upcomingCount = (next ? 1 : 0) + upcoming.filter((event) => event.date).length
+  const upcomingCount = (next ? 1 : 0) + upcoming.filter((event) => event.startDate).length
 
   if (isMobile) {
     return (
@@ -77,7 +77,7 @@ export function DashboardPage() {
               key={event!.id}
               onClick={() => navigate(`/events/${event!.id}`)}
               title={event!.name}
-              subtitle={`${event!.venue || 'Venue TBD'} · ${event!.date || 'Date not set'}`}
+              subtitle={`${event!.venue || 'Venue TBD'} · ${event!.startDate || 'Date not set'}`}
             />
           ))}
           {totalEvents === 0 && <p className="px-1 py-2 text-sm text-zinc-500">No events yet.</p>}
@@ -189,7 +189,7 @@ function NextShow({ event }: { event: Event }) {
             {event.name}
           </Link>
           <p className="mt-0.5 text-sm text-zinc-400">
-            {[event.venue || 'Venue TBD', longDate(event.date)].filter(Boolean).join(' · ')}
+            {[event.venue || 'Venue TBD', longDate(event.startDate)].filter(Boolean).join(' · ')}
           </p>
         </div>
         <div className="shrink-0 text-right">
@@ -283,7 +283,7 @@ function EventRows({ label, events, past }: { label: string; events: Event[]; pa
           <span
             className={`w-[4.5rem] shrink-0 font-mono text-xs tabular-nums ${past ? 'text-zinc-600' : 'text-zinc-400'}`}
           >
-            {shortDate(event.date) ?? <span className="text-zinc-600">no date</span>}
+            {shortDate(event.startDate) ?? <span className="text-zinc-600">no date</span>}
           </span>
           <span className={`w-60 shrink-0 truncate ${past ? 'text-zinc-400' : 'font-medium text-zinc-100'}`}>
             {event.name}

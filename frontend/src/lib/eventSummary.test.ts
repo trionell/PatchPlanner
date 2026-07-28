@@ -158,31 +158,31 @@ describe('eventSummary — nothing loaded', () => {
 
 describe('eventSummary — the day arithmetic', () => {
   it('is undefined when the event has no date', () => {
-    const summary = eventSummary({ today: TODAY, event: event({ date: undefined }) })
+    const summary = eventSummary({ today: TODAY, event: event({ startDate: undefined }) })
     expect(summary.daysToLoadIn).toBeUndefined()
     expect(summary.dayLabel).toBeUndefined()
   })
 
   it('counts whole days regardless of the time of day', () => {
-    const summary = eventSummary({ today: new Date(2026, 6, 28, 23, 55), event: event({ date: '2026-08-14' }) })
+    const summary = eventSummary({ today: new Date(2026, 6, 28, 23, 55), event: event({ startDate: '2026-08-14' }) })
     expect(summary.daysToLoadIn).toBe(17)
     expect(summary.dayLabel).toBe('in 17 days')
   })
 
   it('says today, tomorrow and yesterday rather than a number', () => {
-    expect(eventSummary({ today: TODAY, event: event({ date: '2026-07-28' }) }).dayLabel).toBe('today')
-    expect(eventSummary({ today: TODAY, event: event({ date: '2026-07-29' }) }).dayLabel).toBe('tomorrow')
-    expect(eventSummary({ today: TODAY, event: event({ date: '2026-07-27' }) }).dayLabel).toBe('yesterday')
+    expect(eventSummary({ today: TODAY, event: event({ startDate: '2026-07-28' }) }).dayLabel).toBe('today')
+    expect(eventSummary({ today: TODAY, event: event({ startDate: '2026-07-29' }) }).dayLabel).toBe('tomorrow')
+    expect(eventSummary({ today: TODAY, event: event({ startDate: '2026-07-27' }) }).dayLabel).toBe('yesterday')
   })
 
   it('says a past date in the past tense, never as a negative', () => {
-    const summary = eventSummary({ today: TODAY, event: event({ date: '2026-07-18' }) })
+    const summary = eventSummary({ today: TODAY, event: event({ startDate: '2026-07-18' }) })
     expect(summary.daysToLoadIn).toBe(-10)
     expect(summary.dayLabel).toBe('10 days ago')
   })
 
   it('ignores a timestamp suffix on the stored date', () => {
-    expect(eventSummary({ today: TODAY, event: event({ date: '2026-08-14T00:00:00Z' }) }).daysToLoadIn).toBe(17)
+    expect(eventSummary({ today: TODAY, event: event({ startDate: '2026-08-14T00:00:00Z' }) }).daysToLoadIn).toBe(17)
   })
 })
 

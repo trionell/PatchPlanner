@@ -152,7 +152,7 @@ func writePDFDocumentHeader(pdf *fpdf.Fpdf, tr func(string) string, event domain
 	pdf.SetFont("Helvetica", "", 9)
 	pdf.SetTextColor(90, 90, 90)
 	var where []string
-	if date := strings.TrimSpace(event.Date); date != "" {
+	if date := strings.TrimSpace(event.StartDate); date != "" {
 		where = append(where, date)
 	}
 	if venue := strings.TrimSpace(event.Venue); venue != "" {

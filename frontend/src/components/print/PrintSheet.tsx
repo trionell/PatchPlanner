@@ -51,7 +51,7 @@ export function PrintSheet({
       <header className="mb-3 hidden print:block">
         <h2 className="text-lg font-semibold">{title}</h2>
         {event && (
-          <p className="text-sm">{[event.name, event.venue, event.date].filter(Boolean).join(' · ')}</p>
+          <p className="text-sm">{[event.name, event.venue, event.startDate].filter(Boolean).join(' · ')}</p>
         )}
       </header>
       {empty ? <p className="text-sm">Nothing planned on this sheet.</p> : children}

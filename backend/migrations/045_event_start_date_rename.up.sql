@@ -1,0 +1,12 @@
+-- `date` has been the only date an event has since migration 001, so a name
+-- that says nothing more than "the date" was accurate. Migration 046 gives it
+-- three siblings — load_in_date, end_date, load_out_date — and at that point
+-- `date` becomes the one column a reader of the schema has to be told about.
+--
+-- Renaming rather than rebuilding: SQLite has supported RENAME COLUMN since
+-- 3.25 and it preserves every row, every index and the table's identity, so
+-- nothing referencing events(id) is disturbed. The classic copy-into-a-new-
+-- table workaround would drop and recreate every foreign key pointing here,
+-- with PRAGMA foreign_keys enforced on every pooled connection since Slice 0,
+-- for a column name.
+ALTER TABLE events RENAME COLUMN date TO start_date;

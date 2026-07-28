@@ -140,8 +140,8 @@ export function eventSummary(input: EventSummaryInput): EventSummary {
   const summary: EventSummary = { readiness: [] }
 
   // ---- when ----
-  if (input.event?.date) {
-    const days = daysBetween(input.event.date, today)
+  if (input.event?.startDate) {
+    const days = daysBetween(input.event.startDate, today)
     if (days !== undefined) {
       summary.daysToLoadIn = days
       summary.dayLabel = dayLabelFor(days)

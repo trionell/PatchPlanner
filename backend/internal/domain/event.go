@@ -3,7 +3,7 @@ package domain
 type Event struct {
 	ID          int64  `json:"id"`
 	Name        string `json:"name"`
-	Date        string `json:"date,omitempty"`
+	StartDate   string `json:"startDate,omitempty"`
 	Venue       string `json:"venue,omitempty"`
 	Notes       string `json:"notes,omitempty"`
 	CreatedAt   string `json:"created_at"`
