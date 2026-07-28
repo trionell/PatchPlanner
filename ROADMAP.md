@@ -1086,6 +1086,30 @@ on inventory items, a duration multiplier through the rental aggregation, and
 every export format following — under the standing invariant that every planned
 item appears on the rental order and in every export.
 
+## Slice 32 — The inventory list, and the catalogs nobody could see (spec: `inventories-list`)
+
+The last card list. `/inventories`' list view becomes one panel with
+navigation-tier rows, a search field and a closing strip; the two tabs become
+**Rental catalogs** and **Owned gear**.
+
+The column that carries the slice is **Used on** — the count of events bound to
+each catalog. `DeleteInventory` has computed it since Slice 16 and spent it
+entirely on a 409 after the user confirmed a browser dialog. `GET /inventories`
+now returns it alongside item and category counts as sub-selects, which also
+deletes one request per row (the page used to fetch all 308 items of every
+imported catalog to call `.length`). One new read-only route,
+`GET /inventories/{id}/events`, gives the manage drawer the events themselves.
+
+Rename, duplicate, delete and create move into one `ui/Drawer` built from
+`ui/GearList`, from the row's ⋯ and from the catalog panel's own bar. Delete is
+**absent** while events depend on the catalog — the drawer lists every one of
+them as a link instead — and asks in place when they do not. The application's
+only `window.prompt` goes with it.
+
+No migration. Two rules came out of it into `design/patterns.md` §3: a drawer's
+frame is navigation tier while its contents are the work surface's, and no
+section inside a drawer takes a height of its own.
+
 ## Dependency graph
 
 ```
@@ -1097,5 +1121,7 @@ Slice 11 (output signal graph) ──→ Slice 12 (input signal graph, same patt
 Slice 11 + Slice 12 ──→ Slice 23 (audio patch shell & the console) ──→ Slice 24 (field-test fixes) ──→ Slice 25 (the mockup's visual language) ──→ Slice 26 (an inspector for the outputs flow graph)
 Slice 7 (lighting rig) + Slice 12 ──→ Slice 13 (stage plots; supersedes Slice 0's truss sections) ✅
 Slice 7 (lighting rig) + Slice 25 (visual language) ──→ Slice 27 (Lighting becomes a sheet; design wave 3) ──→ Slice 28 (the remaining event tabs; design wave 4) ──→ Slice 29 (pages and residue; design wave 5 — convergence complete) ──→ Slice 30 (the Events timeline, and events that have length) ──→ Slice 31 (rental pricing by duration)
+
+Slice 16 (inventory ownership) + Slice 29 (pages and residue) + Slice 30 (the spine) ──→ Slice 32 (the inventory list — the last card list)
 Slice 14 (auth) ──→ Slice 15 (event ownership & sharing) ──→ Slice 16 (inventory ownership) ──→ Slice 17 (event settings) ──→ Slice 18 (deployment) ✅
 ```

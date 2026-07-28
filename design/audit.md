@@ -24,6 +24,38 @@ gets added.
 
 ## Part 1b — Closed
 
+### A6b · The last card list · Slice 32
+
+A6 closed in Wave 5 with two card lists deliberately left standing, under P1's
+exception for a list of genuinely independent objects: `Events`, and the
+inventory list. Slice 30 spent the first. **Slice 32 spends the second, and P1's
+exception now has no instances in the tree.**
+
+```
+grep -rn "rounded-xl border border-zinc-700 bg-zinc-850" --include='*.tsx' frontend/src
+#  1 hit: ui/Card.tsx, the component itself     (was 2 — the other was a row)
+grep -rln "from '.*ui/Card'" frontend/src
+#  1 file: OverviewTab, which renders one card, not a list of them
+```
+
+The rule stays exactly as written — a list of independent objects *may* be a
+grid — and its worked example becomes a closed case rather than a live one. Both
+times, nothing was in violation and nothing a grep could find was wrong; both
+times the answer came from asking what the surface was *for*. Here it was for
+knowing which catalog your shows run on, which the page could not answer at all:
+the count existed only inside `DeleteInventory`, to refuse with.
+
+**Two rules came out of the slice rather than into it**, both now in
+[patterns.md](patterns.md) §3, and both discovered by drawing a mockup wrong:
+
+1. A drawer's frame is navigation tier and its **contents are the work
+   surface's**. Two revisions of the mockup drew `h-10` fields inside a drawer
+   before the reference — Rig, Buses, Universes — settled it. Nothing in these
+   documents had said it, and P2's list of navigation surfaces names "drawer
+   forms", which reads as the opposite.
+2. **No section inside a drawer takes a height of its own.** §4's category-rail
+   finding was about a rail; the same mistake was one `max-h` away in a drawer.
+
 ### A4 · `rounded-lg` is not in the radius ladder · Waves 1–5
 
 ```

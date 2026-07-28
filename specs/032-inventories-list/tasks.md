@@ -152,11 +152,11 @@ a chip; the catalog screen offers the drawer.
 **Purpose**: the design language and the roadmap catch up in the same slice,
 which is [design/audit.md](../../design/audit.md) Part 3's standing rule.
 
-- [ ] T038 [P] Update `design/audit.md`: the inventory list was the last card list and is gone, so P1's exception now has **no instances** in the tree — the rule stays and its worked example becomes a closed case. Record it under Wave 5's successor rather than reopening a finding
-- [ ] T039 [P] Update `design/patterns.md` §3 with the rule this slice had to state out loud — *a drawer's frame is navigation tier; its contents take the tier of the surface that references them* — and §4's no-height rule gaining the drawer section as its second instance
-- [ ] T040 [P] Add Slice 32 to `ROADMAP.md` with its one-line summary and its dependency on Slices 16, 29 and 30
-- [ ] T041 Walk [quickstart.md](quickstart.md) against a **copy** of the database (`PATCHPLANNER_DB=/tmp/claude-1000/pp-032.db`), including the forty-event scroll case and the middle-click on an event link
-- [ ] T042 Run the gates one last time, then **commit 6**
+- [X] T038 [P] Update `design/audit.md`: the inventory list was the last card list and is gone, so P1's exception now has **no instances** in the tree — the rule stays and its worked example becomes a closed case. Record it under Wave 5's successor rather than reopening a finding
+- [X] T039 [P] Update `design/patterns.md` §3 with the rule this slice had to state out loud — *a drawer's frame is navigation tier; its contents take the tier of the surface that references them* — and §4's no-height rule gaining the drawer section as its second instance
+- [X] T040 [P] Add Slice 32 to `ROADMAP.md` with its one-line summary and its dependency on Slices 16, 29 and 30
+- [X] T041 Walk [quickstart.md](quickstart.md) against a **copy** of the database (`PATCHPLANNER_DB=/tmp/claude-1000/pp-verify/pp-032.db`). **Server-side verified against the real data**: the list payload carries `itemCount`/`categoryCount`/`eventCount` and omits `eventCount` for the catalog nothing is bound to; `/inventories/2/events` returns both bound shows oldest-first; `/inventories/3/events` returns `[]`; `DELETE` on catalog 2 answers `409 inventory is in use by 2 event(s)` — the same 2 the column shows; the route is `401` without a session. **Not verified: anything visual.** There is no browser in this toolchain, so the panel, the drawer's tier, the scroll behaviour with forty events and the middle-click on an event link are for a human to confirm
+- [X] T042 Run the gates one last time, then **commit 6**
 
 ---
 

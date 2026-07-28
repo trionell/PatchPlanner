@@ -107,6 +107,22 @@ multi fields too narrow to type into.
 The footer states what the contents *mean*, not how many there are twice over:
 *"Every row here is one line on the rental order · 12 items."*
 
+**A drawer's frame is navigation tier; its contents take the tier of the surface
+that references them.** The frame is `text-lg` over `px-5 py-4`, and everything
+inside it is the work surface's: `DrawerSection` with a `MicroLabel` heading,
+`GearCard` at `px-2.5 py-2`, `GearSpecs` at 10 px mono, `Button size="xs"`,
+`Input size="sm"`. Rig, Buses, Universes, Categories and the catalog's own
+manage drawer are all built this way, and none of `design/` said so until Slice
+32's mockup was drawn at the navigation tier twice and rejected twice. The
+reason is not aesthetic: what is declared in a drawer is referenced from a
+sheet, so it is drawn at the density of the thing that reads it.
+
+**And no section inside a drawer takes a height of its own.** The body is
+already `flex-1 overflow-y-auto`; a `max-h` on a section reproduces §4's
+category-rail failure by another route — a private scrollbar inside a scrolling
+overlay. The manage drawer's *Used on* section lists forty events if there are
+forty, and the body scrolls.
+
 ## 4 · Canvas and inspector
 
 ```
