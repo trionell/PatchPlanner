@@ -28,6 +28,15 @@ func Open(databasePath string, migrationsPath string, logger *slog.Logger) (*sql
 		dsn += "?"
 	}
 	dsn += "_pragma=foreign_keys(1)"
+	// And a busy handler, for the same pooling reason. Without one SQLite
+	// fails a locked read *immediately* rather than waiting, and database/sql
+	// hands concurrent requests separate connections — so any write blocks
+	// every reader that overlaps it, and the reader gets an error instead of
+	// the row. The audio graphs make that collision constantly: moving a node
+	// writes a position and invalidates a query, so the save and the refetch
+	// race each other on every drag. Five seconds is far longer than any write
+	// here takes; it is a ceiling, not a delay.
+	dsn += "&_pragma=busy_timeout(5000)"
 
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {

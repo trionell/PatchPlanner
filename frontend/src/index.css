@@ -51,6 +51,56 @@ textarea {
   }
 }
 
+/*
+ * The same pulse, on a straight run rather than an SVG path (Slice 29 FR-041).
+ *
+ * The start page animates a dot along `offset-path`; the dashboard's rig ribbon
+ * draws its runs as 2 px divs, so this is a horizontal translate — same visual
+ * claim, appropriate mechanism. Staggered by `--pp-delay` so the signal walks
+ * the rig rather than every hop firing at once.
+ *
+ * design/tokens.md permits exactly two animations and names this one. It stays
+ * off every working surface: a tool that animates while a technician is counting
+ * channels is in the way, which is why Overview's copy of this ribbon has none.
+ */
+.pp-run {
+  position: relative;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pp-run::after {
+    content: "";
+    position: absolute;
+    top: -2px;
+    left: 0;
+    width: 6px;
+    height: 6px;
+    margin-left: -3px;
+    border-radius: 9999px;
+    background: #f59e0b;
+    filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.9));
+    animation: pp-run-travel 3.6s ease-in-out infinite;
+    animation-delay: var(--pp-delay, 0s);
+  }
+}
+
+@keyframes pp-run-travel {
+  0% {
+    left: 0;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
+}
+
 @keyframes pp-travel {
   0% {
     offset-distance: 0%;

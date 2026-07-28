@@ -34,6 +34,10 @@ action. Same order on every tab; only the nouns change.
 - The **primary action is last and is the only filled button on the surface.**
 - Everything a restricted role cannot do is **absent**, not disabled (P7). The
   caller passes no handler.
+- **A tab with no print sheet puts its exports in the Print slot.** The rental
+  order is the instance: three `xs outline` buttons, because the PDF export *is*
+  its paper. A bar carrying three secondary actions is the exception, not the
+  rule, and the reason has to be that the tab's whole output is those files.
 
 **Toggling a view preserves state.** The selected row or node survives the switch,
 so Flow opens on the channel you were editing; search stays applied and dims
@@ -59,13 +63,24 @@ that wrap, confirm at `ml-auto`, delete kept apart from confirm.
   that did this — thirteen columns and twenty-four live controls — and Wave 3
   converted it.
 - One row edits at a time.
+- **A sheet whose every value is derived has no editor**, and says so by offering
+  a destination instead. Signal Flow is the instance: nothing on it is stored, so
+  a row click opens the tab where the chain is actually built. That is a
+  statement about the data, not a missing feature.
 - The editor is the same construction used to **add** a row, which is what makes
   adding and editing look like the same operation.
 - Where a row's deeper structure lives on another view, the editor offers a
   hand-off carrying the selection with it: *Edit in Flow →* on the audio sheets,
-  *Hang in plot →* on Lighting, whose truss is decided on the stage plot. The
-  prop is `handoff={{ label, text, onSelect }}` for that reason — a
-  destination-specific name in the type would be wrong on one of the three.
+  *Hang in plot →* on Lighting, whose truss is decided on the stage plot,
+  *See on rental order →* and *See on Equipment →* between the two tabs that
+  render the same manual line. The prop is `handoff={{ label, text, onSelect }}`
+  for that reason — a destination-specific name in the type would be wrong on
+  four of the five.
+- **A hand-off is a URL.** The event tab lives in `?tab=`, read and written by
+  `useEventTab()`, so going somewhere else survives a reload, can be pasted to a
+  colleague, and the back button returns. It also carries *only* the tab: finding
+  the row once you are there is still yours. Selection inside a destination
+  panel is that panel's business.
 - Where confirming a value would collide with something already there, the editor
   **asks in place** rather than refusing or silently accepting. Lighting's address
   prompt is the instance: a full-width block in the editor's own amber body
@@ -119,6 +134,29 @@ The footer states what the contents *mean*, not how many there are twice over:
 - **Zoom lives in the panel's bar.** It used to sit in a strip between the bar and
   the canvas, which is what broke the one-frame reading.
 
+### The filter rail, as the fourth
+
+`ui/PanelRail` is the same construction once more: `w-56 shrink-0`, bordered on
+the edge it shares with the sheet, scrolling on its own. The inventory catalog
+filters by category with it and the vocabulary panel picks a vocabulary with it.
+
+**A filter has to be entirely visible**, which is the whole reason it exists. The
+inventory page's categories used to show about four of twenty-seven, because each
+tile carried a rename, a delete, a picker-role select and a count stacked in its
+corner. Everything that was not filtering moved into a drawer — a category is
+*declared once and referenced by every item*, which is §3 stated exactly — and
+`PanelRailRow` takes no children and no action slot so it cannot happen again.
+
+**And it gets no height of its own.** `PanelCols` stretches the rail to the
+panel; a `max-h` on top of that reproduces the failure by another route, which is
+what a leftover `max-h-[70vh]` did to the same twenty-seven categories — cut off
+at the fold, in a private scrollbar, on a page with room to spare below. The rail
+is as tall as the sheet beside it and scrolls only when its own rows outrun that.
+A cap is right only if the panel is pinned to the viewport, and none of them are.
+
+The three columns of a panel, in one sentence: **the palette offers, the rail
+filters, the inspector edits.**
+
 ### The stage plot, as the third instance
 
 The pattern is not only for sheets and flow graphs. Stage Plots is one `PatchPanel`
@@ -134,6 +172,49 @@ The canvas is `h-[70vh] min-h-[560px]`. A canvas height is a fraction of the
 viewport or a stated constant — never `100vh` minus the sum of the chrome above it,
 which is a number that goes stale the first time the chrome changes and did.
 
+## 4b · The summary surface
+
+One tab per event answers *how is this show doing*, and it is neither a sheet nor
+a canvas. Overview is the instance, and the shape generalises to any landing
+screen over work that lives elsewhere.
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ Event name                                    [Edit details]│
+│ Venue · Saturday 14 August 2026  (in 17 days)              │
+├────────────────────────────────────────────────────────────┤
+│ │ notes, quoted                                            │
+├──────────┬──────────┬──────────┬──────────┬────────────────┤
+│    18    │  32 / 16 │    64    │   128    │     24190 kr   │  numbers
+│ DAYS…    │ CHANNELS │ FIXTURES │ CABLES…  │ RENTAL, EX VAT │
+├──────────┴──────────┴──────────┴──────────┴────────────────┤
+│ AUDIO    [12 sources]──[2 SB]──[SD10]──[3 dev]──[16 out]   │  ribbon
+│ LIGHTING [64 fixtures]──[3 universes]──[4 truss]  ▓▓▓░ 1104│
+├────────────────────────────────────────────────────────────┤
+│ READY?  audio ●routed  lighting ●addressed  rental ●1 over │  readiness
+└────────────────────────────────────────────────────────────┘
+```
+
+- **Navigation tier, one frame.** A `Card`, divided by rules rather than by gaps.
+  The bands are `bg-zinc-950/60` — the inset role — so they recede into the card
+  rather than stacking on it.
+- **The numbers band is the one place type gets big.** `font-mono tabular-nums
+  text-[26px]`, five figures, each a link to the tab that derives it. It works
+  *because* everything else is 10–14 px; it is scale contrast, not decoration. An
+  undefined figure is `—`, never `0` (§5, Undeclared).
+- **The ribbon is the canvas, one row high.** Real nodes at `rounded-[7px]` with
+  `NODE_BORDER`, the console at `NODE_BORDER_DESK`, runs between them. It answers
+  *what shape is this show* in the app's own picture of itself rather than
+  introducing a chart. A node whose count is zero is omitted, not drawn empty.
+- **Readiness is every strip's verdict, gathered.** Same words, same tints, from
+  the same derivations — so this is not a second opinion about the plan.
+- **Editing is a drawer, and the surface has no form control.** That is what keeps
+  it a summary. It also gives P7 for free: a viewer is passed no handler and the
+  rest of the screen is identical for them.
+- **Nothing animates.** This is a working screen inside the event, and
+  [tokens.md](tokens.md) §6 is explicit that a tool which animates while a
+  technician is counting is in the way.
+
 ## 5 · States
 
 | State | Treatment |
@@ -142,7 +223,7 @@ which is a number that goes stale the first time the chrome changes and did.
 | Error | `rounded-md border border-red-800 bg-red-950/50 px-4 py-3 text-sm text-red-300`, inline above the content it concerns. Never a toast; the user needs to see it next to what failed. |
 | Empty, actionable | One sentence saying what to do, and the control that does it. *"Your owned-gear catalog is empty — add items on the Inventory page first."* |
 | Empty, expected | `—` in `text-zinc-600`. A cell with nothing in it says so; it does not sit blank. |
-| Undeclared | Nothing at all. A capacity of 0 means nobody has said yet: it renders `—`, draws no meter, and **must never warn**. This is distinct from empty, and conflating them is how a desk nobody has measured appears to be over capacity. |
+| Undeclared | Nothing at all. A capacity of 0 means nobody has said yet: it renders `—`, draws no meter, and **must never warn**. This is distinct from empty, and conflating them is how a desk nobody has measured appears to be over capacity. Overview's numbers band draws the same distinction at 26 px: an event with no patch has not got zero channels, it has no patch. |
 | Read-only | Controls absent (P7). A banner states the role once — `ReadOnlyBanner` — rather than each control explaining itself. |
 
 ## 6 · App chrome

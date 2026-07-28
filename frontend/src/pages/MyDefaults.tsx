@@ -1,8 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createReferenceTemplateValue, deleteReferenceTemplateValue, updateReferenceTemplateValue } from '../api/referenceTemplates'
-import { VocabularyCard } from '../components/VocabularyCard'
+import { VocabularyPanel } from '../components/VocabularyPanel'
 import { useReferenceTemplate } from '../hooks/useReferenceData'
-import { vocabularyTitles } from '../lib/vocabularyTitles'
 
 /**
  * A user's own personal planning-vocabulary template (Slice 17) — used
@@ -32,23 +31,16 @@ export function MyDefaultsPage() {
   })
 
   return (
-    <div className="space-y-6">
-      <p className="text-sm text-zinc-400">
-        Your personal planning vocabularies — every new event you create starts with a copy of these. Editing them here
-        never changes any event you've already created.
-      </p>
-      <div className="grid gap-6 xl:grid-cols-2">
-        {Object.keys(vocabularyTitles).map((vocabulary) => (
-          <VocabularyCard
-            key={vocabulary}
-            title={vocabularyTitles[vocabulary]}
-            values={data?.[vocabulary] ?? []}
-            onCreate={(value, label) => createMutation.mutateAsync({ vocabulary, value, label })}
-            onRename={(id, label) => renameMutation.mutateAsync({ vocabulary, id, label })}
-            onDelete={(id) => deleteMutation.mutateAsync({ vocabulary, id })}
-          />
-        ))}
-      </div>
-    </div>
+    <VocabularyPanel
+      title="My defaults"
+      data={data}
+      // A template is not referenced by any plan, so it has no usage to report —
+      // showing `0` would imply it could have one (Slice 29 FR-034).
+      showUsage={false}
+      note="every new event starts with a copy of these — editing them changes no existing event"
+      onCreate={(vocabulary, value, label) => createMutation.mutateAsync({ vocabulary, value, label })}
+      onRename={(vocabulary, id, label) => renameMutation.mutateAsync({ vocabulary, id, label })}
+      onDelete={(vocabulary, id) => deleteMutation.mutateAsync({ vocabulary, id })}
+    />
   )
 }

@@ -33,8 +33,13 @@ the user, not about taste:
 Yes → **work surface**. Patch sheets, the flow canvas, the rig and buses drawers,
 the lighting fixture table, the rental order, stage-plot inspectors.
 
-No → **navigation surface**. Dashboard, Events, Inventories, Login, Settings,
-dialogs, the start page.
+No → **navigation surface**. Dashboard, Events, the inventory list, Login,
+dialogs, drawer forms.
+
+> The **signed-out start page is outside this language entirely** — exempted in
+> writing in [audit.md](audit.md) Part 2b. It shares the brand mark, the accent
+> and the type families, and nothing else. It used to be listed here, which
+> settled its density and was read as a claim that it was inside the system.
 
 A work surface earns its density: a technician reading a 200-row patch needs the
 whole chain on one line, and 12 px of vertical padding per row costs them four

@@ -1,0 +1,1669 @@
+<!--
+  PatchPlanner — Wave 4: the remaining event tabs. Redesign mockup.
+
+  For approval before the spec is written. Rental Order, Equipment, Signal Flow
+  and Overview are the four tabs the design audit still lists as card stacks on
+  the navigation tier (design/audit.md A6, A7, and A4 on these surfaces).
+
+  Everything drawn here is the language already shipped on the audio tabs,
+  stage plots and — since Wave 3 — Lighting. Where this page proposes something
+  new, it is tagged and argued in the margin.
+
+  The file is an HTML *fragment*: the Artifact publisher wraps it in
+  doctype/head/body, so there are deliberately no <html>, <head> or <body> tags.
+
+  Specimen CSS is lifted from specs/027-lighting-sheet/mockup.html, which lifted
+  it from design/design-language.html. The claim of both pages is that these
+  surfaces need no new bricks, so they are drawn with the existing ones.
+-->
+
+<title>Wave 4 — the remaining event tabs</title>
+
+<style>
+  /* ==================================================================
+     DOCUMENT CHROME — theme-aware, tokens only.
+     ================================================================== */
+  :root {
+    --ground: #f2f2f4;
+    --raised: #ffffff;
+    --sunken: #e8e8ec;
+    --rule: #d7d7de;
+    --rule-soft: #e4e4ea;
+    --ink: #16171b;
+    --ink-2: #43444d;
+    --muted: #6c6d78;
+    --faint: #90919c;
+    --amber: #b45309;
+    --keep: #0e7490;
+    --drop: #9f1239;
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --measure: 68ch;
+    --wrap: 1180px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0a0b0d;
+      --raised: #14151a;
+      --sunken: #101014;
+      --rule: #26272e;
+      --rule-soft: #1d1e24;
+      --ink: #f2f2f4;
+      --ink-2: #b6b7c0;
+      --muted: #8b8c96;
+      --faint: #62636d;
+      --amber: #f59e0b;
+      --keep: #22d3ee;
+      --drop: #fb7185;
+    }
+  }
+
+  :root[data-theme="light"] {
+    --ground: #f2f2f4; --raised: #ffffff; --sunken: #e8e8ec;
+    --rule: #d7d7de; --rule-soft: #e4e4ea;
+    --ink: #16171b; --ink-2: #43444d; --muted: #6c6d78; --faint: #90919c;
+    --amber: #b45309; --keep: #0e7490; --drop: #9f1239;
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0a0b0d; --raised: #14151a; --sunken: #101014;
+    --rule: #26272e; --rule-soft: #1d1e24;
+    --ink: #f2f2f4; --ink-2: #b6b7c0; --muted: #8b8c96; --faint: #62636d;
+    --amber: #f59e0b; --keep: #22d3ee; --drop: #fb7185;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px 110px; }
+
+  h1, h2, h3 { margin: 0; font-family: var(--mono); font-weight: 500; }
+  h1 {
+    font-size: clamp(28px, 4.4vw, 46px);
+    line-height: 1.04; letter-spacing: -0.035em; text-wrap: balance;
+  }
+  h2 {
+    font-size: clamp(19px, 2.3vw, 25px);
+    letter-spacing: -0.02em; text-wrap: balance;
+  }
+  h3 { font-size: 14px; letter-spacing: 0.02em; color: var(--ink-2); }
+
+  p { margin: 0; max-width: var(--measure); }
+  a { color: inherit; }
+
+  .head {
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 68px 0 30px; border-bottom: 1px solid var(--rule);
+  }
+  .head__eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--amber);
+  }
+  .head__lede { font-size: 18px; color: var(--ink-2); line-height: 1.5; }
+
+  section { display: flex; flex-direction: column; gap: 22px; padding: 56px 0 0; }
+  .sec__no {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  .sec__hd { display: flex; flex-direction: column; gap: 8px; }
+  .prose { display: flex; flex-direction: column; gap: 13px; color: var(--ink-2); font-size: 15.5px; }
+  .prose strong { color: var(--ink); font-weight: 600; }
+  .prose code {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  /* the specimen frame */
+  .spec { display: flex; flex-direction: column; gap: 9px; }
+  .spec__frame {
+    overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px;
+    background: #09090b; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  }
+  .spec__cap {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-left: 2px;
+  }
+  .spec__cap b { color: var(--ink-2); font-weight: 500; }
+
+  /* the ledger of decisions */
+  .led { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .led__row {
+    display: grid; grid-template-columns: 132px minmax(0, 1fr);
+    gap: 18px; padding: 15px 2px; border-bottom: 1px solid var(--rule-soft);
+    align-items: start;
+  }
+  .led__k {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-top: 3px;
+  }
+  .led__v { font-size: 15px; color: var(--ink-2); line-height: 1.5; }
+  .led__v b { color: var(--ink); font-weight: 600; }
+  .led__v em { font-style: normal; color: var(--faint); }
+
+  .tag {
+    display: inline-block; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase; padding: 1px 6px;
+    border-radius: 4px; vertical-align: 2px; margin-left: 7px;
+  }
+  .tag--keep { color: var(--keep); border: 1px solid currentColor; }
+  .tag--drop { color: var(--drop); border: 1px solid currentColor; }
+  .tag--new { color: var(--amber); border: 1px solid currentColor; }
+
+  .ask {
+    border: 1px solid var(--rule); border-left: 3px solid var(--amber);
+    border-radius: 0 8px 8px 0; padding: 16px 18px; background: var(--raised);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .ask h3 { color: var(--ink); }
+  .ask p { font-size: 15px; color: var(--ink-2); max-width: none; }
+
+  @media (max-width: 720px) {
+    .led__row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  }
+
+  /* ==================================================================
+     SPECIMENS — the app's real colours, in both themes. Lifted from
+     design/design-language.html; nothing here reads a document token.
+     ================================================================== */
+  .app {
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 14px; line-height: 1.45;
+    color: #f4f4f5; background: #09090b;
+    padding: 16px; min-width: 1040px;
+  }
+  .app--tight { padding: 0; min-width: 0; }
+  .app *, .app *::before, .app *::after { box-sizing: border-box; }
+
+  .pan { border: 1px solid #3f3f46; border-radius: 12px; background: rgba(9, 9, 11, 0.4); overflow: hidden; }
+  .pan__bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    border-bottom: 1px solid #27272a; padding: 10px 12px;
+  }
+  .pan__ti { font-size: 14px; font-weight: 600; color: #f4f4f5; margin-right: 4px; }
+  .grow { flex: 1; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 28px; padding: 0 10px; border: 1px solid transparent; border-radius: 6px;
+    font-size: 12px; font-weight: 500; white-space: nowrap; font-family: inherit;
+  }
+  .btn--primary { background: #f59e0b; border-color: #f59e0b; color: #09090b; }
+  .btn--outline { background: #18181b; border-color: #3f3f46; color: #f4f4f5; }
+  .btn--ghost { background: transparent; color: #f4f4f5; }
+  .btn--sm { height: 24px; padding: 0 8px; font-size: 11px; }
+  .btn--md { height: 40px; padding: 0 16px; font-size: 14px; }
+  .btn--danger-ghost { background: transparent; color: #f87171; }
+  .btn svg { flex: none; }
+
+  .fld {
+    height: 32px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b;
+    display: inline-flex; align-items: center; padding: 0 8px;
+    font-size: 12px; color: #e4e4e7; min-width: 0;
+  }
+  .fld--ph { color: #71717a; }
+  .fld--sel::after { content: "▾"; margin-left: auto; padding-left: 8px; color: #71717a; font-size: 10px; }
+  .fld--srch { position: relative; padding-left: 26px; min-width: 190px; max-width: 260px; flex: 1; }
+  .fld--srch svg { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); }
+  .fld--foc { border-color: #f59e0b; }
+
+  .lbl {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #71717a; font-weight: 500;
+  }
+
+  .pill {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 1px 6px; font-size: 10px; font-weight: 500; white-space: nowrap;
+  }
+  .t-ok   { background: rgba(52, 211, 153, 0.15); color: #6ee7b7; }
+  .t-warn { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
+  .t-err  { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+  .t-def  { background: #3f3f46; color: #f4f4f5; }
+  .t-sky  { background: rgba(56, 189, 248, 0.15); color: #7dd3fc; }
+
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* -- the sheet -- */
+  .sheet { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .sheet th {
+    text-align: left; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.14em; text-transform: uppercase; color: #71717a; font-weight: 500;
+    padding: 6px 8px; background: rgba(9, 9, 11, 0.6);
+    border-bottom: 1px solid #27272a; white-space: nowrap;
+  }
+  .sheet td { padding: 4px 8px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); vertical-align: middle; color: #e4e4e7; }
+  .sheet tr.alt td { background: rgba(255, 255, 255, 0.014); }
+  .sheet td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #a1a1aa; }
+  .sheet td.num--hot { color: #f87171; }
+  .sheet td.num--warn { color: #fcd34d; }
+  .sheet tr.open td { background: rgba(245, 158, 11, 0.04); border-bottom-color: transparent; }
+  .sheet tr.eds td { background: rgba(245, 158, 11, 0.04); padding: 0 8px 10px; }
+  .sheet .nm { color: #fafafa; white-space: nowrap; }
+  .sheet .md { font-family: var(--mono); font-size: 11px; color: #71717a; }
+  .sheet .qt { color: #71717a; }
+  .sheet .none { color: #52525b; }
+  .sheet .notes { color: #71717a; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sheet .desc { color: #71717a; max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* a qualifier badge: information, not a warning — the node badge's treatment */
+  .shr {
+    font-family: var(--mono); font-size: 10px; color: #a1a1aa; background: #27272a;
+    border-radius: 3px; padding: 0 4px; margin-left: 5px;
+  }
+
+  .chip { display: inline-flex; align-items: center; gap: 5px; }
+
+  .rowed {
+    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px;
+    border-left: 2px solid #f59e0b; border-radius: 0 6px 6px 0;
+    background: rgba(245, 158, 11, 0.05); padding: 10px 12px;
+  }
+  .rowed__f { display: flex; flex-direction: column; gap: 4px; }
+  .rowed__f .fld { width: 160px; }
+  .rowed__f--count .fld { width: 80px; }
+  .rowed__f--short .fld { width: 112px; }
+  .rowed__f--grow { flex: 1; min-width: 170px; }
+  .rowed__f--grow .fld { width: 100%; }
+  .rowed__acts { display: flex; align-items: flex-end; gap: 8px; margin-left: auto; }
+  .rowed__keys { font-size: 11px; color: #71717a; padding: 6px 12px 0; }
+  .rowed__keys kbd {
+    font-family: var(--mono); font-size: 10px; border: 1px solid #3f3f46;
+    border-radius: 4px; padding: 0 4px; color: #a1a1aa;
+  }
+  .warn {
+    border: 1px solid rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.06);
+    border-radius: 6px; padding: 8px 10px; margin-top: 2px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;
+    font-size: 12px; color: #fcd34d; width: 100%;
+  }
+  .warn b { color: #fde68a; font-weight: 600; }
+  .warn span.q { color: #a1a1aa; }
+  .warn .acts { display: flex; gap: 6px; margin-left: auto; }
+
+  .rowed__ro { font-size: 12px; color: #a1a1aa; height: 32px; display: inline-flex; align-items: center; gap: 8px; }
+  .rowed__ro em { font-style: normal; color: #52525b; }
+
+  /* -- the status strip -- */
+  .strip {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
+    padding: 8px 12px; border-top: 1px solid #27272a;
+    background: rgba(9, 9, 11, 0.6); font-size: 11px; color: #a1a1aa;
+  }
+  .strip--warn { border-top-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.05); }
+  .strip--err { border-top-color: rgba(248, 113, 113, 0.4); background: rgba(239, 68, 68, 0.05); }
+  .strip .mono { color: #e4e4e7; }
+  .strip .q { color: #71717a; }
+  .strip .hot { color: #fca5a5; }
+  .strip .wrn { color: #fcd34d; }
+
+  /* -- the "before" reproduction: navigation-tier table full of controls -- */
+  .old { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .old th {
+    text-align: left; font-size: 14px; font-weight: 500; color: #a1a1aa;
+    padding: 12px; border-bottom: 1px solid #27272a; white-space: nowrap;
+  }
+  .old td { padding: 12px; vertical-align: top; color: #e4e4e7; border-bottom: 1px solid #27272a; }
+  .old tr.odd td { background: #18181b; }
+  .old tr.even td { background: #1f2028; }
+  .old tr.bad td { background: rgba(69, 10, 10, 0.4); }
+  .old .nm { font-weight: 500; color: #fafafa; white-space: nowrap; }
+  .old .sub { font-size: 12px; color: #71717a; margin-top: 4px; }
+
+  /* ==================================================================
+     ADDITIONS FOR WAVE 4 — navigation-tier specimens, a section band
+     inside a sheet, and the chain line. All values from design/tokens.md.
+     ================================================================== */
+  .ncard { border: 1px solid #3f3f46; border-radius: 12px; background: #18181b; overflow: hidden; }
+  .ncard__hd {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 16px 20px; border-bottom: 1px solid #27272a;
+  }
+  .ncard__hd h4 { margin: 0; font-size: 18px; font-weight: 600; color: #fafafa; font-family: inherit; }
+  .ncard__hd p { margin: 4px 0 0; font-size: 14px; color: #a1a1aa; max-width: none; }
+  .ncard__bd { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+  .ncard__sec { padding: 16px 20px; border-top: 1px solid #27272a; display: flex; align-items: center; gap: 14px; }
+  .ncard__ft {
+    padding: 12px 20px; border-top: 1px solid #27272a; background: rgba(9, 9, 11, 0.6);
+    font-size: 14px; color: #a1a1aa; display: flex; flex-wrap: wrap; gap: 6px 20px; align-items: center;
+  }
+  .ncard__ft b { color: #e4e4e7; font-weight: 500; }
+
+  .nfld {
+    height: 40px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b;
+    display: flex; align-items: center; padding: 0 12px; font-size: 14px; color: #e4e4e7;
+  }
+  .nfld--area { height: auto; min-height: 78px; align-items: flex-start; padding-top: 10px; }
+  .nfld--ph { color: #71717a; }
+  .nlbl { display: block; font-size: 12px; color: #d4d4d8; margin-bottom: 6px; }
+
+  .badge {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 2px 10px; font-size: 12px; font-weight: 500; white-space: nowrap;
+  }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .oldtile { border: 1px solid #27272a; border-radius: 8px; background: #18181b; padding: 12px 16px; }
+  .oldtile .l { font-size: 14px; color: #a1a1aa; }
+  .oldtile .v { font-size: 20px; font-weight: 600; color: #f4f4f5; margin-top: 8px; }
+
+  /* a labelled band dividing one sheet into sections */
+  .band {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 8px; background: rgba(9, 9, 11, 0.6);
+    border-top: 1px solid #27272a; border-bottom: 1px solid #27272a;
+  }
+  .band .ct { font-family: var(--mono); font-size: 10px; color: #52525b; }
+  .band .note { margin-left: auto; font-size: 11px; color: #52525b; }
+
+  /* the signal chain, at the tokens' own values */
+  .chain { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 11px; color: #d4d4d8; }
+  .chain .ar { color: #52525b; padding: 0 2px; }
+  .chain .gap { color: #fcd34d; font-weight: 600; }
+  .chain .desk { color: #fcd34d; }
+  .chain .det { color: #71717a; }
+  .chain + .chain { display: block; margin-top: 2px; }
+
+  .inline-err {
+    border: 1px solid #991b1b; background: rgba(69, 10, 10, 0.5); border-radius: 6px;
+    padding: 8px 10px; font-size: 12px; color: #fca5a5;
+  }
+  .inline-amber {
+    border: 1px solid rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.06);
+    border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #fcd34d;
+  }
+  .inline-amber ul { margin: 6px 0 0; padding-left: 18px; }
+  .inline-amber li { margin-top: 2px; }
+
+  /* -- the drawer, for the Overview editor -- */
+  .drw { width: 420px; border: 1px solid #3f3f46; border-radius: 12px; background: #09090b; overflow: hidden; }
+  .drw__hd { padding: 16px 20px; border-bottom: 1px solid #27272a; }
+  .drw__hd h4 { margin: 0; font-size: 18px; font-weight: 600; color: #fafafa; font-family: inherit; }
+  .drw__hd p { margin: 2px 0 0; font-size: 12px; color: #71717a; max-width: none; }
+  .drw__bd { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+  .drw__ft { padding: 12px 20px; border-top: 1px solid #27272a; font-size: 12px; color: #71717a; }
+
+  .meter { height: 3px; width: 120px; border-radius: 2px; background: #27272a; overflow: hidden; }
+  .meter i { display: block; height: 100%; background: #f59e0b; }
+
+  /* the numbers band — the one place in the app where type gets big */
+  .nums { display: flex; flex-wrap: wrap; border-top: 1px solid #27272a; border-bottom: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); }
+  .nums > div { flex: 1; min-width: 132px; padding: 14px 20px; border-left: 1px solid #27272a; }
+  .nums > div:first-child { border-left: 0; }
+  .nums .v {
+    font-family: var(--mono); font-variant-numeric: tabular-nums;
+    font-size: 26px; font-weight: 600; color: #fafafa; line-height: 1.1;
+  }
+  .nums .v small { font-size: 14px; font-weight: 500; color: #71717a; margin-left: 2px; }
+  .nums .l {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #71717a; margin-top: 6px;
+  }
+
+  /* the rig in one line — the flow canvas's own encoding, one row high */
+  .rib { display: flex; align-items: center; gap: 8px; }
+  .rib__k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #71717a; width: 74px; flex: none; }
+  .node {
+    border: 1px solid #3f3f46; border-radius: 7px; background: #1f2028;
+    padding: 3px 9px; display: inline-flex; flex-direction: column; gap: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+  .node--desk { border-color: rgba(245, 158, 11, 0.55); }
+  .node .n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #fafafa; font-size: 12px; line-height: 1.3; }
+  .node .k { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: #71717a; }
+  .run { flex: 1; min-width: 18px; height: 2px; border-radius: 2px; background: #3f3f46; }
+
+  /* readiness: a pill and a word, never a bare coloured dot (P5) */
+  .ready { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+  .ready span.a { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #71717a; }
+  .ready span.a b { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #52525b; font-weight: 500; }
+
+  .quote { font-size: 14px; color: #a1a1aa; border-left: 2px solid #27272a; padding-left: 12px; }
+  .q { color: #52525b; }
+
+  /* counts strip under a specimen */
+  .tally {
+    display: flex; flex-wrap: wrap; gap: 8px 20px; font-family: var(--mono);
+    font-size: 11px; color: var(--faint); padding-left: 2px;
+  }
+  .tally b { color: var(--ink-2); font-weight: 500; }
+</style>
+
+<div class="wrap">
+
+  <header class="head">
+    <span class="head__eyebrow">Design convergence · Wave 4 · mockup for approval</span>
+    <h1>Four tabs, one shape</h1>
+    <p class="head__lede">
+      Rental Order, Equipment and Signal Flow are the last work surfaces in the
+      application still drawn as stacked cards on the navigation tier. Wave 3 built the
+      template and proved it on the hardest case; these three are the same conversion
+      with no derivation to invent. Overview is the fourth tab and the odd one out: it
+      stops being a form altogether, and becomes the one screen that says what the whole
+      event amounts to.
+    </p>
+  </header>
+
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">01 · where they stand</span>
+      <h2>Five cards, four tables, and two forms that are always open</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        The four tabs between them render <strong>five <code>Card</code> headers</strong>,
+        four navigation-tier <code>ui/Table</code>s at <code>px-3 py-3</code> with
+        <code>text-sm</code> and zebra striping, and <strong>two inline add-forms that are
+        permanently expanded</strong> above the data they add to. Every editable row
+        carries a visible <em>Edit</em> and a visible trash icon.
+      </p>
+      <p>
+        None of that is a new finding — it is
+        <code>design/audit.md</code> A6 and A7, which Wave 3 closed on Lighting and
+        deliberately left open here. What is new since Wave 3 is that the template exists:
+        <code>PatchPanel</code> → <code>SheetTable</code> → <code>RowEditor</code> →
+        status strip, and <code>RowEditor</code> now carries every slot these four need.
+      </p>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">Rental order</div>
+        <div class="led__v">
+          One card, <b>nine columns</b>, a totals row faked inside the table body, three
+          same-weight export buttons in the header, and a four-field manual-line form that
+          is open whether or not you are adding a line. <em>50–300 rows in a real event.</em>
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Equipment</div>
+        <div class="led__v">
+          <b>Two cards</b> stacked with <code>space-y-6</code>, each with its own
+          description, its own always-open form and its own table. The second card's rows
+          are the <em>same records</em> the Rental Order tab calls manual lines.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Signal flow</div>
+        <div class="led__v">
+          <b>Two cards</b>, a gap count rendered as a coloured sentence above the first
+          table, and signal chains set in <b>proportional 14 px sans</b> — the one thing
+          on the surface that is a fixed-pitch string a technician reads hop by hop.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Overview</div>
+        <div class="led__v">
+          <b>Two cards</b>, three stat tiles at <code>rounded-lg</code>, and four form
+          fields sitting open on the tab you land on. It knows more about the event than
+          any other screen and shows almost none of it — so this one converges by
+          <em>changing what it is for</em>.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       02 · RENTAL ORDER
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">02 · rental order</span>
+      <h2>The tab that produces the paperwork</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        This is the tab with the most rows in it and the fewest editable values: almost
+        every number on it is <strong>derived</strong> from the patch and the rig
+        (Principle P6). The only thing a person types here is a manual line — an item the
+        plan cannot know about, like spares.
+      </p>
+      <p>
+        Today that asymmetry is invisible. The manual form sits open above the table
+        whether or not it is wanted, and each manual row grows two buttons the other
+        rows do not have.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div class="ncard">
+            <div class="ncard__hd">
+              <div><h4>Rental order</h4></div>
+              <div style="display:flex; gap:8px">
+                <span class="btn btn--outline btn--md">Export LL.xlsx</span>
+                <span class="btn btn--outline btn--md">Export .xlsx</span>
+                <span class="btn btn--outline btn--md">Export PDF</span>
+              </div>
+            </div>
+            <div style="padding:24px">
+              <div class="inline-err" style="font-size:14px; padding:12px 16px; margin-bottom:16px">
+                Some lines exceed the renter's available stock or reference items no longer in
+                the price list. Resolve them before submitting the order.
+              </div>
+              <div style="display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px; border:1px solid #27272a; border-radius:8px; background:rgba(24,24,27,0.6); padding:12px; margin-bottom:16px">
+                <div style="flex:1; min-width:256px">
+                  <span class="nlbl">Manual line — catalog item</span>
+                  <span class="nfld nfld--ph" style="justify-content:space-between">Select item… <span style="color:#71717a">▾</span></span>
+                </div>
+                <div><span class="nlbl">Audio qty</span><span class="nfld" style="width:96px">0</span></div>
+                <div><span class="nlbl">Lighting qty</span><span class="nfld" style="width:96px">0</span></div>
+                <div style="min-width:160px"><span class="nlbl">Note</span><span class="nfld nfld--ph">e.g. spares</span></div>
+                <span class="btn btn--primary btn--md">+ Set line</span>
+              </div>
+              <table class="old">
+                <thead>
+                  <tr>
+                    <th>Item</th><th>Description</th><th>Qty Audio</th><th>Qty Lighting</th>
+                    <th>Total</th><th>Stock</th><th>Price (ex VAT)</th><th>Subtotal</th><th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="odd">
+                    <td><span class="nm">Shure SM58</span></td>
+                    <td style="color:#a1a1aa">Dynamic vocal microphone</td>
+                    <td>8</td><td>0</td><td>8</td>
+                    <td style="color:#a1a1aa">24 available</td>
+                    <td>45.00</td><td>360.00</td><td></td>
+                  </tr>
+                  <tr class="even">
+                    <td><span class="nm">K&amp;M 210/9</span><div class="sub">spares for the support act</div></td>
+                    <td style="color:#a1a1aa">Microphone boom stand</td>
+                    <td>10 <span style="font-size:12px; color:#71717a">(2 manual)</span></td><td>0</td><td>10</td>
+                    <td style="color:#a1a1aa">40 available</td>
+                    <td>25.00</td><td>250.00</td>
+                    <td>
+                      <div style="display:flex; gap:4px">
+                        <span class="btn btn--ghost btn--md" style="height:32px">Edit</span>
+                        <span class="btn btn--ghost btn--md" style="height:32px">🗑</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr class="bad">
+                    <td><span class="nm">Radial JDI</span></td>
+                    <td style="color:#a1a1aa">Passive DI box</td>
+                    <td>6</td><td>0</td><td>6</td>
+                    <td style="color:#f87171; font-weight:500">exceeds stock (4 available)</td>
+                    <td>85.00</td><td>510.00</td><td></td>
+                  </tr>
+                  <tr class="odd">
+                    <td>
+                      <div style="display:flex; align-items:center; gap:8px">
+                        <span class="nm">Chamsys MagicQ MQ50</span>
+                        <span class="badge" style="background:rgba(245,158,11,0.15); color:#fcd34d">discontinued</span>
+                      </div>
+                    </td>
+                    <td style="color:#a1a1aa">Lighting console</td>
+                    <td>0</td><td>1</td><td>1</td>
+                    <td style="color:#a1a1aa">0 available</td>
+                    <td>950.00</td><td>950.00</td><td></td>
+                  </tr>
+                  <tr class="even">
+                    <td style="font-weight:600">Totals</td>
+                    <td></td><td></td><td></td>
+                    <td style="font-weight:600">187</td>
+                    <td></td><td></td>
+                    <td style="font-weight:600">24190.00</td><td></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>before</b> — reproduced at its real sizes. Four rows shown; a real order has fifty to three hundred</div>
+    </div>
+
+    <div class="prose">
+      <p>
+        And what it becomes. The three exports move into the bar, the totals row moves into
+        the status strip where a total belongs, the over-stock banner becomes the strip's
+        own error state, and the manual form collapses into the editor that opens under the
+        row it edits.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div class="pan">
+            <div class="pan__bar">
+              <span class="pan__ti">Rental order</span>
+              <span class="fld fld--srch fld--ph">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                Find an item…
+              </span>
+              <span class="btn btn--outline">Export .xlsx</span>
+              <span class="btn btn--outline">Export PDF</span>
+              <span class="btn btn--outline">Export LL.xlsx</span>
+              <span class="grow"></span>
+              <span class="btn btn--primary">+ Manual line</span>
+            </div>
+
+            <table class="sheet">
+              <thead>
+                <tr>
+                  <th>Item</th><th>Description</th><th>Audio</th><th>Light</th>
+                  <th>Qty</th><th>Stock</th><th>Price</th><th>Subtotal</th><th>Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="nm">Shure SM58</td>
+                  <td class="desc">Dynamic vocal microphone</td>
+                  <td class="num">8</td><td class="num none">—</td><td class="num">8</td>
+                  <td class="num">24</td><td class="num">45.00</td><td class="num">360.00</td>
+                  <td class="notes none">—</td>
+                </tr>
+                <tr class="alt">
+                  <td class="nm">Sennheiser e904</td>
+                  <td class="desc">Clip-on drum microphone</td>
+                  <td class="num">4</td><td class="num none">—</td><td class="num">4</td>
+                  <td class="num">12</td><td class="num">65.00</td><td class="num">260.00</td>
+                  <td class="notes none">—</td>
+                </tr>
+                <tr>
+                  <td class="nm">Radial JDI</td>
+                  <td class="desc">Passive DI box</td>
+                  <td class="num">6</td><td class="num none">—</td><td class="num">6</td>
+                  <td class="num num--hot" title="6 planned, renter has 4">4</td>
+                  <td class="num">85.00</td><td class="num">510.00</td>
+                  <td class="notes none">—</td>
+                </tr>
+                <tr class="alt">
+                  <td class="nm">XLR 10 m</td>
+                  <td class="desc">Microphone cable, Neutrik</td>
+                  <td class="num">42</td><td class="num none">—</td><td class="num">42</td>
+                  <td class="num">120</td><td class="num">12.00</td><td class="num">504.00</td>
+                  <td class="notes none">—</td>
+                </tr>
+                <tr>
+                  <td class="nm">Robe LEDBeam 150</td>
+                  <td class="desc">Moving-head beam, 15 ch</td>
+                  <td class="num none">—</td><td class="num">12</td><td class="num">12</td>
+                  <td class="num">16</td><td class="num">420.00</td><td class="num">5040.00</td>
+                  <td class="notes none">—</td>
+                </tr>
+                <tr class="alt">
+                  <td class="nm">Martin Rush PAR 2</td>
+                  <td class="desc">LED wash par</td>
+                  <td class="num none">—</td><td class="num">24</td><td class="num">24</td>
+                  <td class="num">24</td><td class="num">150.00</td><td class="num">3600.00</td>
+                  <td class="notes none">—</td>
+                </tr>
+                <tr>
+                  <td class="nm">
+                    Chamsys MagicQ MQ50
+                    <span class="pill t-warn" style="margin-left:6px">discontinued</span>
+                  </td>
+                  <td class="desc">Lighting console</td>
+                  <td class="num none">—</td><td class="num">1</td><td class="num">1</td>
+                  <td class="num">0</td><td class="num">950.00</td><td class="num">950.00</td>
+                  <td class="notes none">—</td>
+                </tr>
+
+                <tr class="open">
+                  <td class="nm">K&amp;M 210/9</td>
+                  <td class="desc">Microphone boom stand</td>
+                  <td class="num">10<span class="shr" title="8 from the plan · 2 added by hand">+2</span></td>
+                  <td class="num none">—</td><td class="num">10</td>
+                  <td class="num">40</td><td class="num">25.00</td><td class="num">250.00</td>
+                  <td class="notes">spares for the support act</td>
+                </tr>
+                <tr class="eds">
+                  <td colspan="9">
+                    <div class="rowed">
+                      <div class="rowed__f">
+                        <span class="lbl">From the plan</span>
+                        <span class="rowed__ro mono">8 audio · 0 lighting</span>
+                      </div>
+                      <div class="rowed__f rowed__f--count">
+                        <span class="lbl">Manual audio</span><span class="fld fld--foc">2</span>
+                      </div>
+                      <div class="rowed__f rowed__f--count">
+                        <span class="lbl">Manual light</span><span class="fld">0</span>
+                      </div>
+                      <div class="rowed__f rowed__f--grow">
+                        <span class="lbl">Note</span><span class="fld">spares for the support act</span>
+                      </div>
+                      <div class="rowed__f">
+                        <span class="lbl">Equipment</span>
+                        <span class="btn btn--outline">See on Equipment →</span>
+                      </div>
+                      <div class="rowed__acts">
+                        <span class="btn btn--danger-ghost">Remove manual</span>
+                        <span class="btn btn--primary">Done</span>
+                      </div>
+                    </div>
+                    <div class="rowed__keys"><kbd>⌘↵</kbd> save · <kbd>esc</kbd> close</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="strip strip--err">
+              <span class="pill t-err">1 over stock</span>
+              <span><span class="mono">8</span> lines</span>
+              <span class="q">·</span>
+              <span><span class="mono">98</span> pieces</span>
+              <span class="q">·</span>
+              <span><span class="mono">11474.00</span> kr ex VAT</span>
+              <span class="q">·</span>
+              <span><span class="mono">1</span> manual</span>
+              <span class="q">·</span>
+              <span><span class="mono">1</span> discontinued</span>
+              <span class="q">·</span>
+              <span class="hot">Radial JDI needs 6, renter has 4</span>
+              <span class="btn btn--outline btn--sm" style="margin-left:auto">Show only problems</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>after</b> — one panel, nine columns, no control in a closed row, one row open</div>
+    </div>
+
+    <div class="tally">
+      <span>rows on a 900 px screen <b>7 → 28</b></span>
+      <span>cards <b>1 → 1 panel</b></span>
+      <span>always-open forms <b>1 → 0</b></span>
+      <span>controls in the closed sheet <b>2 per manual row → 0</b></span>
+      <span>totals faked into the table body <b>1 → 0</b></span>
+    </div>
+
+    <div class="prose">
+      <p>
+        <strong>The editor states what it cannot change.</strong> <em>From the plan ·
+        8 audio · 0 lighting</em> is a read-only field, not a disabled input: the number
+        comes from the patch and the rig, and the only way to change it is to change
+        those. That sentence is the whole reason this tab exists, and it is currently
+        nowhere on the screen.
+      </p>
+      <p>
+        <strong>The <code>+2</code> badge is the shared-address badge from Wave 3</strong>,
+        reused unchanged, because it means the same thing: a count that qualifies the
+        number beside it. Its title reads <em>8 from the plan · 2 added by hand</em>.
+      </p>
+      <p>
+        <strong>Over stock stops tinting the whole row.</strong> Today an over-stock line
+        paints <code>bg-red-950/40</code> across nine cells, which at three hundred rows is
+        a banding pattern of its own. The cell that is wrong turns
+        <code>text-red-400</code>, and the strip counts and names them — the treatment a
+        DMX clash gets, for the same reason.
+      </p>
+      <p>
+        <strong>The export report keeps its block.</strong> When the LL export cannot place
+        every line, the lines it dropped are a list a person must act on, so they stay an
+        inline amber block above the sheet (<code>design/patterns.md</code> §5) rather than
+        being compressed into the strip.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app app--tight" style="padding:16px">
+          <div class="inline-amber">
+            <b>The exported file is missing 2 lines — add these to the order manually:</b>
+            <ul>
+              <li>Chamsys MagicQ MQ50 — audio 0, lighting 1 <span style="color:#a1a1aa">(no longer in the price list)</span></li>
+              <li>Radial JDI — audio 6, lighting 0 <span style="color:#a1a1aa">(price-list row changed since last import)</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap">the unplaced-lines report, unchanged in substance, at work-surface density</div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       03 · EQUIPMENT
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">03 · equipment</span>
+      <h2>Two cards that are one list</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Equipment is <em>everything coming to the gig beyond the patch and the rig</em> —
+        that is the tab's own docstring. It renders that as two cards: <strong>Owned
+        gear</strong>, which you bring, and <strong>Rented extras</strong>, which you hire.
+        Each has a description, an always-open five-field form, and a table.
+      </p>
+      <p>
+        They are two cards because they come from two API endpoints, which is a reason the
+        person planning the show does not have. What they are asking is <em>what is coming
+        with us, and have I got enough of it</em> — one question, one list, with a column
+        saying where each line comes from.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div style="display:flex; flex-direction:column; gap:24px">
+            <div class="ncard">
+              <div class="ncard__hd">
+                <div>
+                  <h4>Owned gear</h4>
+                  <p>Equipment you bring yourself — never part of the rental order.</p>
+                </div>
+              </div>
+              <div style="padding:24px">
+                <div style="display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px; border:1px solid #27272a; border-radius:8px; background:rgba(24,24,27,0.6); padding:12px; margin-bottom:16px">
+                  <div style="flex:1; min-width:256px">
+                    <span class="nlbl">Owned item</span>
+                    <span class="nfld nfld--ph" style="justify-content:space-between">Select item… <span>▾</span></span>
+                  </div>
+                  <div><span class="nlbl">Quantity</span><span class="nfld" style="width:96px">1</span></div>
+                  <div style="min-width:160px"><span class="nlbl">Note</span><span class="nfld nfld--ph">e.g. FOH laptop</span></div>
+                  <span class="btn btn--primary btn--md">+ Set line</span>
+                </div>
+                <table class="old">
+                  <thead><tr><th>Item</th><th>Type</th><th>Quantity</th><th>Owned</th><th>Note</th><th></th></tr></thead>
+                  <tbody>
+                    <tr class="odd">
+                      <td><span class="nm">MacBook Pro 16"</span></td>
+                      <td><span class="badge" style="background:#3f3f46; color:#f4f4f5">control</span></td>
+                      <td>1</td><td>1</td><td style="color:#a1a1aa">FOH laptop + Dante interface</td>
+                      <td><div style="display:flex; gap:4px"><span class="btn btn--ghost btn--md" style="height:32px">Edit</span><span class="btn btn--ghost btn--md" style="height:32px">🗑</span></div></td>
+                    </tr>
+                    <tr class="bad">
+                      <td><span class="nm">Shure PSM1000</span></td>
+                      <td><span class="badge" style="background:#3f3f46; color:#f4f4f5">audio</span></td>
+                      <td>4 <span style="font-size:12px; color:#f87171; font-weight:500">exceeds owned (2)</span></td>
+                      <td>2</td><td style="color:#a1a1aa">—</td>
+                      <td><div style="display:flex; gap:4px"><span class="btn btn--ghost btn--md" style="height:32px">Edit</span><span class="btn btn--ghost btn--md" style="height:32px">🗑</span></div></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="ncard">
+              <div class="ncard__hd">
+                <div>
+                  <h4>Rented extras</h4>
+                  <p>Manual rental lines beyond the patch and rig — shared with the Rental Order tab.</p>
+                </div>
+              </div>
+              <div style="padding:24px">
+                <div style="display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px; border:1px solid #27272a; border-radius:8px; background:rgba(24,24,27,0.6); padding:12px; margin-bottom:16px">
+                  <div style="flex:1; min-width:256px">
+                    <span class="nlbl">Catalog item</span>
+                    <span class="nfld nfld--ph" style="justify-content:space-between">Select item… <span>▾</span></span>
+                  </div>
+                  <div><span class="nlbl">Audio qty</span><span class="nfld" style="width:96px">0</span></div>
+                  <div><span class="nlbl">Lighting qty</span><span class="nfld" style="width:96px">0</span></div>
+                  <div style="min-width:160px"><span class="nlbl">Note</span><span class="nfld"></span></div>
+                  <span class="btn btn--primary btn--md">+ Set line</span>
+                </div>
+                <table class="old">
+                  <thead><tr><th>Item</th><th>Manual audio</th><th>Manual lighting</th><th>Note</th><th></th></tr></thead>
+                  <tbody>
+                    <tr class="odd">
+                      <td><span class="nm">K&amp;M 210/9</span></td><td>2</td><td>0</td>
+                      <td style="color:#a1a1aa">spares for the support act</td>
+                      <td><div style="display:flex; gap:4px"><span class="btn btn--ghost btn--md" style="height:32px">Edit</span><span class="btn btn--ghost btn--md" style="height:32px">🗑</span></div></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>before</b> — two cards, two forms, two tables, ten controls visible with three lines of data</div>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div class="pan">
+            <div class="pan__bar">
+              <span class="pan__ti">Equipment</span>
+              <span class="fld fld--srch fld--ph">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                Find a line…
+              </span>
+              <span class="grow"></span>
+              <span class="btn btn--primary">+ Line</span>
+            </div>
+
+            <table class="sheet">
+              <thead>
+                <tr><th>Item</th><th>Source</th><th>Type</th><th>Qty</th><th>Have</th><th>Note</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="nm">MacBook Pro 16"</td>
+                  <td><span class="pill t-def">owned</span></td>
+                  <td class="qt">control</td>
+                  <td class="num">1</td><td class="num">1</td>
+                  <td class="notes">FOH laptop + Dante interface</td>
+                </tr>
+                <tr class="alt">
+                  <td class="nm">DiGiCo SD-Rack</td>
+                  <td><span class="pill t-def">owned</span></td>
+                  <td class="qt">audio</td>
+                  <td class="num">2</td><td class="num">2</td>
+                  <td class="notes none">—</td>
+                </tr>
+                <tr>
+                  <td class="nm">Shure PSM1000</td>
+                  <td><span class="pill t-def">owned</span></td>
+                  <td class="qt">audio</td>
+                  <td class="num">4</td>
+                  <td class="num num--hot" title="4 planned, you own 2">2</td>
+                  <td class="notes none">—</td>
+                </tr>
+                <tr class="alt">
+                  <td class="nm">Midas DL16</td>
+                  <td><span class="pill t-warn">rented</span></td>
+                  <td class="qt">audio</td>
+                  <td class="num">2<span class="shr" title="2 audio · 0 lighting">2a</span></td>
+                  <td class="num none">—</td>
+                  <td class="notes">extra stagebox for the DJ riser</td>
+                </tr>
+
+                <tr class="open">
+                  <td class="nm">K&amp;M 210/9</td>
+                  <td><span class="pill t-warn">rented</span></td>
+                  <td class="qt">stands</td>
+                  <td class="num">2<span class="shr" title="2 audio · 0 lighting">2a</span></td>
+                  <td class="num none">—</td>
+                  <td class="notes">spares for the support act</td>
+                </tr>
+                <tr class="eds">
+                  <td colspan="6">
+                    <div class="rowed">
+                      <div class="rowed__f rowed__f--short">
+                        <span class="lbl">Source</span><span class="fld fld--sel">rented</span>
+                      </div>
+                      <div class="rowed__f rowed__f--grow">
+                        <span class="lbl">Item</span><span class="fld fld--sel">Stands — K&amp;M 210/9</span>
+                      </div>
+                      <div class="rowed__f rowed__f--count">
+                        <span class="lbl">Audio</span><span class="fld fld--foc">2</span>
+                      </div>
+                      <div class="rowed__f rowed__f--count">
+                        <span class="lbl">Light</span><span class="fld">0</span>
+                      </div>
+                      <div class="rowed__f rowed__f--grow">
+                        <span class="lbl">Note</span><span class="fld">spares for the support act</span>
+                      </div>
+                      <div class="rowed__f">
+                        <span class="lbl">Rental</span>
+                        <span class="btn btn--outline">See on rental order →</span>
+                      </div>
+                      <div class="rowed__acts">
+                        <span class="btn btn--danger-ghost">Remove</span>
+                        <span class="btn btn--primary">Done</span>
+                      </div>
+                    </div>
+                    <div class="rowed__keys"><kbd>⌘↵</kbd> save · <kbd>esc</kbd> close</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="strip strip--err">
+              <span class="pill t-err">1 over owned</span>
+              <span><span class="mono">5</span> lines</span>
+              <span class="q">·</span>
+              <span><span class="mono">3</span> owned</span>
+              <span class="q">·</span>
+              <span><span class="mono">2</span> rented</span>
+              <span class="q">·</span>
+              <span class="hot">Shure PSM1000: 4 planned, you own 2</span>
+              <span class="btn btn--outline btn--sm" style="margin-left:auto">Show only problems</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>after</b> — one panel, one sheet, one editor. <code>Source</code> is the first field, and it switches the item picker</div>
+    </div>
+
+    <div class="tally">
+      <span>cards <b>2 → 1 panel</b></span>
+      <span>always-open forms <b>2 → 0</b></span>
+      <span>tables <b>2 → 1</b></span>
+      <span>controls visible with 5 lines of data <b>10 → 0</b></span>
+      <span>row height <b>~48 px → 25 px</b></span>
+    </div>
+
+    <div class="prose">
+      <p>
+        <strong>The <code>Source</code> column is the whole merge.</strong> It is a
+        <code>Pill</code>, not a <code>Badge</code>, because this is a work surface
+        (<code>design/tokens.md</code> §3) — and it is the editor's <em>first</em> field,
+        where switching it swaps the item picker between your owned-gear catalog and the
+        event's rental catalog. One editor, one switch, instead of two forms that differ in
+        which endpoint they post to.
+      </p>
+      <p>
+        <strong>A rented line has two quantities and an owned line has one</strong>, because
+        the rental order splits by department. Rather than give the sheet two mostly-empty
+        columns, <code>Qty</code> carries the total and the badge carries the split —
+        <code>2a</code>, <code>1l</code>, <code>8a·4l</code> — with the full reading in the
+        title. The editor still has both fields.
+      </p>
+      <p>
+        <strong>The hand-off is the real prize.</strong> A rented extra <em>is</em> a manual
+        rental line: the same record, reached from two tabs. Today nothing on either
+        surface says so except a sentence in a card description. Wave 3 generalised
+        <code>RowEditor</code>'s <code>handoff</code> prop exactly so a destination could be
+        named per surface, and this is its second and third use — <em>See on rental order →</em>
+        one way, <em>See on Equipment →</em> the other.
+      </p>
+      <p>
+        <strong>Sorting is owned first, then rented, then by name</strong>, so the two lists
+        that used to be two cards are still two blocks — but on one scroll, under one set of
+        column heads, counted by one strip.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       04 · SIGNAL FLOW
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">04 · signal flow</span>
+      <h2>The one sheet with nothing to edit</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Every value on this tab is derived (P6): the chains are walked from
+        <code>input_cables</code> and <code>output_cables</code> by
+        <code>lib/inputSignalFlow</code> and <code>lib/signalFlow</code>, the same
+        functions the flow canvases use. Nothing here is stored, so nothing here is
+        editable — which makes it the only sheet in the application with no row editor,
+        and that is worth saying out loud rather than leaving as an accident.
+      </p>
+      <p>
+        What it is for is chasing a dead line at load-in with a printed copy in one hand.
+        So the chain has to read hop by hop, and today it is set in <strong>14 px
+        proportional sans</strong>: <em>Beta 91A → XLR 10 m → SB1 · 1 → Console ch 1</em>
+        where every hop is a different width and nothing lines up between rows.
+        <code>design/tokens.md</code> §4 names signal chains as one of the four things mono
+        exists for.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div class="ncard">
+            <div class="ncard__hd">
+              <div>
+                <h4>Signal flow</h4>
+                <p>Input channels: source → cable → stagebox / multi → console. Output channels: console → chain of hops → destination. Edit on the Audio Inputs/Outputs tabs.</p>
+              </div>
+              <span class="btn btn--outline btn--md">Print</span>
+            </div>
+            <div style="padding:24px">
+              <p style="color:#fcd34d; font-size:14px; margin-bottom:16px">⚠ 2 channels have gaps</p>
+              <table class="old">
+                <thead><tr><th>Ch#</th><th>Name</th><th>Groups / DCA</th><th>Signal chain</th></tr></thead>
+                <tbody>
+                  <tr class="odd">
+                    <td>1</td><td>Kick In</td>
+                    <td><span class="badge" style="background:rgba(56,189,248,0.15); color:#7dd3fc">Drums</span></td>
+                    <td>Beta 91A <span style="color:#71717a">→</span> XLR 10 m <span style="color:#71717a">→</span> SB1 · 1 <span style="color:#71717a">→</span> Console ch 1</td>
+                  </tr>
+                  <tr class="even">
+                    <td>9</td><td>Bass DI</td>
+                    <td><span class="badge" style="background:rgba(167,139,250,0.15); color:#c4b5fd">Bass</span></td>
+                    <td style="color:#fcd34d; font-weight:500">⚠ no source connected</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>before</b> — one of two cards; the second, "Output signal flow", is stacked below it with <code>mt-6</code></div>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div class="pan">
+            <div class="pan__bar">
+              <span class="pan__ti">Signal flow</span>
+              <span class="fld fld--srch fld--ph">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                Find a channel or a device…
+              </span>
+              <span class="grow"></span>
+              <span class="btn btn--outline">Print</span>
+            </div>
+
+            <div class="band">
+              <span class="lbl">Inputs</span>
+              <span class="ct">32</span>
+              <span class="note">click a row to open it on Audio Inputs</span>
+            </div>
+
+            <table class="sheet">
+              <thead>
+                <tr><th style="width:44px">Ch</th><th style="width:180px">Name</th><th style="width:190px">Buses</th><th>Signal chain</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="num">1</td><td class="nm">Kick In</td>
+                  <td><span class="pill t-sky">Drums</span> <span class="pill t-def">DCA 1</span></td>
+                  <td><span class="chain">Beta 91A<span class="ar">→</span>XLR 10 m<span class="ar">→</span>SB1 · 1<span class="ar">→</span>Console ch 1</span></td>
+                </tr>
+                <tr class="alt">
+                  <td class="num">2</td><td class="nm">Kick Out</td>
+                  <td><span class="pill t-sky">Drums</span> <span class="pill t-def">DCA 1</span></td>
+                  <td><span class="chain">Beta 52A<span class="ar">→</span>XLR 10 m<span class="ar">→</span>SB1 · 2<span class="ar">→</span>Console ch 2</span></td>
+                </tr>
+                <tr>
+                  <td class="num">3</td><td class="nm">Snare Top</td>
+                  <td><span class="pill t-sky">Drums</span></td>
+                  <td><span class="chain">SM57<span class="ar">→</span>XLR 5 m<span class="ar">→</span>SB1 · 3<span class="ar">→</span>Console ch 3</span></td>
+                </tr>
+                <tr class="alt">
+                  <td class="num">9</td><td class="nm">Bass DI</td>
+                  <td><span class="pill" style="background:rgba(167,139,250,0.15); color:#c4b5fd">Bass</span></td>
+                  <td><span class="chain gap">⚠ no source connected</span></td>
+                </tr>
+                <tr>
+                  <td class="num">17</td><td class="nm">Keys</td>
+                  <td><span class="pill" style="background:rgba(52,211,153,0.15); color:#6ee7b7">Keys</span></td>
+                  <td>
+                    <span class="chain">Nord Stage 4<span class="ar">→</span>DI 1<span class="ar">→</span>XLR 5 m<span class="ar">→</span>SB2 · 5<span class="ar">→</span>Console ch 17 <span class="det">L</span></span>
+                    <span class="chain">Nord Stage 4<span class="ar">→</span>DI 2<span class="ar">→</span>XLR 5 m<span class="ar">→</span>SB2 · 6<span class="ar">→</span>Console ch 17 <span class="det">R</span></span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="band">
+              <span class="lbl">Outputs</span>
+              <span class="ct">16</span>
+              <span class="note">click a row to open it on Audio Outputs</span>
+            </div>
+
+            <table class="sheet">
+              <thead>
+                <tr><th style="width:44px">Out</th><th style="width:180px">Name</th><th>Signal chain</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="num">1</td><td class="nm">FOH L</td>
+                  <td><span class="chain">Console out 1<span class="ar">→</span><span class="desk">SD-Rack · 1</span><span class="ar">→</span>NL4 25 m<span class="ar">→</span>d&amp;b D20 A<span class="ar">→</span>Y10P SL</span></td>
+                </tr>
+                <tr class="alt">
+                  <td class="num">2</td><td class="nm">FOH R</td>
+                  <td><span class="chain">Console out 2<span class="ar">→</span><span class="desk">SD-Rack · 2</span><span class="ar">→</span>NL4 25 m<span class="ar">→</span>d&amp;b D20 B<span class="ar">→</span>Y10P SR</span></td>
+                </tr>
+                <tr>
+                  <td class="num">3</td><td class="nm">Sub</td>
+                  <td><span class="chain">Console out 3<span class="ar">→</span><span class="desk">SD-Rack · 3</span><span class="ar">→</span><span class="gap">⚠ nothing patched</span></span></td>
+                </tr>
+                <tr class="alt">
+                  <td class="num">7</td><td class="nm">IEM Drums</td>
+                  <td><span class="chain">Console out 7<span class="ar">→</span><span class="desk">SD-Rack · 7</span><span class="ar">→</span>XLR 3 m<span class="ar">→</span>PSM1000 TX 1</span></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="strip strip--warn">
+              <span class="pill t-warn">2 gaps</span>
+              <span><span class="mono">32</span> inputs</span>
+              <span class="q">·</span>
+              <span><span class="mono">16</span> outputs</span>
+              <span class="q">·</span>
+              <span><span class="mono">104</span> hops</span>
+              <span class="q">·</span>
+              <span class="wrn">ch 9 Bass DI has no source · out 3 Sub reaches nothing</span>
+              <span class="btn btn--outline btn--sm" style="margin-left:auto">Show only gaps</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>after</b> — one panel, two labelled bands, chains in mono at 11 px</div>
+    </div>
+
+    <div class="prose">
+      <p>
+        <strong>No <code>Inputs | Outputs</code> toggle, and the reason is print.</strong>
+        A trough would be defensible — they are two views of one panel — but the tab is
+        wrapped in <code>PrintSheet</code>, and a toggle prints half the document. A load-in
+        sheet that silently omits the output patch is worse than a long one. So both stay on
+        one scroll, divided by a labelled band, and the printed page is the whole thing.
+      </p>
+      <p>
+        <strong>Two tables, not one.</strong> An input row carries its bus memberships and
+        an output row has no equivalent; forcing them into shared columns would put a
+        dash in sixteen cells to save one heading. The band is the divider, and each
+        table keeps the columns its own rows need.
+        <span class="tag tag--new">new brick</span> — a section band inside a panel is a
+        few lines on the inset ground with a micro-label, the same construction
+        <code>DrawerSection</code>'s header already is.
+      </p>
+      <p>
+        <strong>The gap sentence becomes the strip.</strong> <em>2 channels have gaps</em>
+        is exactly what a status strip says, tinting its ground and its rule, with a pill,
+        the first problem named, and a filter — the treatment shipped on the audio tabs
+        and on Lighting.
+      </p>
+      <p>
+        <strong>Bus chips become <code>Pill</code>s.</strong> They are <code>Badge</code>s
+        today, which is the navigation tier on a surface a technician scans forty rows of.
+        Same tint formula, same <code>lib/vocabularyTint</code>, one size down. This is the
+        A9 finding, on the surfaces the audit did not list it under.
+      </p>
+      <p>
+        <strong>The chain is the point of the tab, so it gets the chain treatment</strong>:
+        <code>font-mono text-[11px] text-zinc-300</code>, arrows at
+        <code>text-zinc-600</code> — quieter than the hops they separate — the desk's own
+        socket in <code>amber-300</code>, the one hop that is not a billable cable, and a
+        missing link in <code>amber-400</code> with a shape beside it, never colour alone
+        (P4, P5). Those are <code>ChainCell</code>'s values, not new ones.
+      </p>
+      <p>
+        <strong>A row hands off rather than opening.</strong> There is nothing to edit here,
+        but there is always somewhere to go: clicking an input row opens Audio Inputs with
+        that channel selected, and an output row opens Audio Outputs. The band says so,
+        once, instead of every row growing a link.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       05 · OVERVIEW
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">05 · overview</span>
+      <h2>The tab that stops being a form</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Overview is the tab you land on, and it is four text inputs and a notes box. You
+        arrive at your own event and are shown a form for the three facts you are least
+        likely to have forgotten — its name, its venue, its date.
+      </p>
+      <p>
+        Meanwhile it is the only screen positioned to answer <em>how is this show
+        doing</em>, and it answers none of it. Everything needed is already derived
+        somewhere else in the application: the patch knows its channel count and its gaps,
+        the rig knows its fixtures and its DMX occupancy, the rental order knows its total
+        and its over-stock lines. Eight tabs each hold one shard of the answer and no
+        screen holds the answer.
+      </p>
+      <p>
+        So: <strong>editing moves into a drawer, and the tab becomes what it should have
+        been</strong> — the event, stated.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div style="display:flex; flex-direction:column; gap:24px">
+            <div class="ncard">
+              <div class="ncard__hd"><div><h4>Event overview</h4></div></div>
+              <div class="ncard__bd">
+                <div class="grid2">
+                  <div><span class="nlbl">Name</span><span class="nfld">Fest i Parken 2026</span></div>
+                  <div><span class="nlbl">Venue</span><span class="nfld">Slottsparken, Malmö</span></div>
+                  <div><span class="nlbl">Date</span><span class="nfld">2026-08-14</span></div>
+                </div>
+                <div><span class="nlbl">Notes</span><span class="nfld nfld--area">Load-in 08:00 from the east gate. Support act shares the drum kit.</span></div>
+                <div class="grid3">
+                  <div class="oldtile"><div class="l">Rental items</div><div class="v">34</div></div>
+                  <div class="oldtile"><div class="l">Rental quantity</div><div class="v">187</div></div>
+                  <div class="oldtile"><div class="l">Ex VAT total</div><div class="v">24190.00 kr</div></div>
+                </div>
+                <div style="display:flex; justify-content:flex-end"><span class="btn btn--primary btn--md">Save event</span></div>
+              </div>
+            </div>
+            <div class="ncard">
+              <div class="ncard__hd"><div><h4>Inventory</h4></div></div>
+              <div style="padding:16px 20px; display:flex; align-items:center; justify-content:space-between; gap:12px">
+                <div>
+                  <div style="font-weight:500; color:#f4f4f5">Nordic Rental AB</div>
+                  <div style="font-size:12px; color:#71717a">Imported from LL-prislista-2026.xlsx</div>
+                </div>
+                <span class="btn btn--outline btn--md">Manage</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>before</b> — two cards, three <code>rounded-lg</code> tiles</div>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div class="ncard">
+            <div class="ncard__hd">
+              <div>
+                <h4>Fest i Parken 2026</h4>
+                <p>Slottsparken, Malmö · Saturday 14 August 2026</p>
+              </div>
+              <span class="btn btn--outline btn--md">Edit details</span>
+            </div>
+
+            <div style="padding:16px 20px">
+              <p class="quote">Load-in 08:00 from the east gate. Support act shares the drum kit.</p>
+            </div>
+
+            <div class="nums">
+              <div><div class="v">18</div><div class="l">days to load-in</div></div>
+              <div><div class="v">32<small> / 16</small></div><div class="l">channels in / out</div></div>
+              <div><div class="v">64</div><div class="l">fixtures</div></div>
+              <div><div class="v">128</div><div class="l">cables picked</div></div>
+              <div><div class="v">24190<small> kr</small></div><div class="l">rental, ex vat</div></div>
+            </div>
+
+            <div style="padding:18px 20px; display:flex; flex-direction:column; gap:14px">
+              <div class="rib">
+                <span class="rib__k">Audio</span>
+                <span class="node"><span class="n">12</span><span class="k">sources</span></span>
+                <span class="run"></span>
+                <span class="node"><span class="n">2</span><span class="k">stageboxes</span></span>
+                <span class="run"></span>
+                <span class="node node--desk"><span class="n">SD10</span><span class="k">console</span></span>
+                <span class="run"></span>
+                <span class="node"><span class="n">3</span><span class="k">amps</span></span>
+                <span class="run"></span>
+                <span class="node"><span class="n">8</span><span class="k">speakers</span></span>
+              </div>
+              <div class="rib">
+                <span class="rib__k">Lighting</span>
+                <span class="node"><span class="n">64</span><span class="k">fixtures</span></span>
+                <span class="run"></span>
+                <span class="node"><span class="n">3</span><span class="k">universes</span></span>
+                <span class="run"></span>
+                <span class="node"><span class="n">4</span><span class="k">trusses</span></span>
+                <span style="margin-left:12px; display:flex; align-items:center; gap:8px">
+                  <span class="meter"><i style="width:72%"></i></span>
+                  <span class="mono" style="font-size:11px; color:#a1a1aa">1104 / 1536 ch</span>
+                </span>
+              </div>
+            </div>
+
+            <div class="ncard__sec" style="padding-top:14px; padding-bottom:14px">
+              <span class="rib__k" style="width:74px">Ready?</span>
+              <div class="ready" style="flex:1">
+                <span class="a"><b>Audio</b><span class="pill t-warn">2 gaps</span></span>
+                <span class="a"><b>Lighting</b><span class="pill t-ok">addressed</span></span>
+                <span class="a"><b>Rental</b><span class="pill t-err">1 over stock</span></span>
+                <span class="a"><b>Equipment</b><span class="pill t-ok">5 lines</span></span>
+                <span class="a"><b>Plots</b><span class="pill t-def">3 plots</span></span>
+              </div>
+            </div>
+
+            <div class="ncard__sec" style="padding-top:14px; padding-bottom:14px">
+              <span class="rib__k" style="width:74px">Inventory</span>
+              <div style="flex:1">
+                <div style="color:#f4f4f5">Nordic Rental AB</div>
+                <div style="font-size:12px; color:#71717a">LL-prislista-2026.xlsx · 308 items · imported 2026-05-04</div>
+              </div>
+              <span class="btn btn--outline btn--md">Manage</span>
+            </div>
+
+            <div class="ncard__ft">
+              <span>Created 2026-03-02</span>
+              <span class="q">·</span>
+              <span><b>3</b> people have access</span>
+              <span class="q">·</span>
+              <span>You are the <b>owner</b></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>after</b> — one card, no form, and every number a link to the tab that owns it</div>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app app--tight" style="padding:16px; min-width:0">
+          <div class="drw">
+            <div class="drw__hd">
+              <h4>Event details</h4>
+              <p>Name, venue, date and notes</p>
+            </div>
+            <div class="drw__bd">
+              <div><span class="nlbl">Name</span><span class="nfld">Fest i Parken 2026</span></div>
+              <div><span class="nlbl">Venue</span><span class="nfld">Slottsparken, Malmö</span></div>
+              <div><span class="nlbl">Date</span><span class="nfld">2026-08-14</span></div>
+              <div><span class="nlbl">Notes</span><span class="nfld nfld--area">Load-in 08:00 from the east gate. Support act shares the drum kit.</span></div>
+              <div style="display:flex; gap:8px; justify-content:flex-end">
+                <span class="btn btn--ghost btn--md">Cancel</span>
+                <span class="btn btn--primary btn--md">Save</span>
+              </div>
+            </div>
+            <div class="drw__ft">
+              Renaming an event never changes its patch, its rig or its rental order.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>after</b> — the four fields, in the drawer, at navigation-tier sizing</div>
+    </div>
+
+    <div class="tally">
+      <span>cards <b>2 → 1</b></span>
+      <span>form controls on the tab <b>4 → 0</b></span>
+      <span>facts about the event shown <b>7 → 24</b></span>
+      <span>tabs you must open to know where the plan stands <b>5 → 0</b></span>
+    </div>
+
+    <div class="prose">
+      <p>
+        <strong>Editing moves into a drawer, and that settles the Save button.</strong> A
+        tab with an explicit Save was the app's one inconsistency; a <em>drawer</em> with
+        one is ordinary — it opens, you change things, you save or you cancel. The read-only
+        role falls out for free: a viewer is passed no handler, so there is no
+        <em>Edit details</em> button and nothing else on the tab differs (P7).
+      </p>
+      <p>
+        <strong>The drawer's fields are navigation-tier, and that is not an
+        inconsistency.</strong> The Rig, Buses and Universes drawers hold lists of many
+        things and are dense for it; this one holds four fields. P2 decides density by
+        asking about the surface's job, <em>not per component</em> — the drawer chrome is
+        shared, the contents are sized for what they are.
+      </p>
+      <p>
+        <strong>The numbers band is the one place in the application where type gets
+        big.</strong> Everything else is 10 to 14 px, on purpose, and that is exactly what
+        makes a row of 26 px mono numerals land. It is scale contrast rather than
+        decoration: five figures, <code>tabular-nums</code>, on the inset ground, each one
+        a link to the tab that derives it. Nothing is invented for it — the channel counts,
+        the fixture count, the picked-cable count and the rental total are all already
+        computed and already displayed, in five different places, small.
+      </p>
+      <p>
+        <strong>The rig in one line is the flow canvas, one row high.</strong> Real nodes
+        with their real border, the desk in <code>amber-500/55</code> because it is the box
+        every other box is arranged around, and runs between them — the canvas's own
+        encoding at a glance rather than a new chart type. It answers <em>what shape is
+        this show</em> in the width of a sentence: twelve sources, two stageboxes, an SD10,
+        three amps, eight boxes. A second ribbon does the same for the rig, with the DMX
+        meter beside it.
+      </p>
+      <p>
+        <strong>“Ready?” is the status strip, one level up.</strong> Every work panel in
+        the application already closes itself with a line saying whether the plan holds;
+        this collects those five verdicts onto the tab you land on, in the same pills, with
+        the same tints, each one a link to the panel that raised it. It is the whole reason
+        to open Overview rather than skip it.
+      </p>
+      <p>
+        <strong>What this costs: one pure function, and no endpoint.</strong> This page
+        first proposed <code>GET /events/{id}/summary</code>, on the grounds that fetching
+        the whole patch and the whole rig to show six numbers is the wrong shape. Writing
+        the spec killed it, and the argument is Slice 27's R3 pointing the other way:
+        these are not counts a database can produce. <em>2 gaps</em> is
+        <code>buildInputChannelFlows</code> walking the cable graph; <em>addressed</em> is
+        <code>dmxMap</code> partitioning identical spans; <em>128 cables picked</em> is the
+        patch-capacity derivation. Computing them in Go would put four derivations in two
+        languages and let Overview's verdict disagree with the strip on the tab it links
+        to — the exact failure P6 exists to prevent.
+      </p>
+      <p>
+        So the summary is <code>lib/eventSummary.ts</code>: a pure function over payloads
+        the app already fetches, under the query keys the audio, lighting and rental tabs
+        already use. Opening Overview <em>warms</em> the cache for the tabs you are about
+        to open rather than duplicating them. <strong>Wave 4 stays frontend-only.</strong>
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       06 · SCOPE
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">06 · scope</span>
+      <h2>What this wave does not touch</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <strong>No backend at all.</strong> Every value on all four tabs is already fetched
+        by the application today, and the totals, counts, gaps and verdicts are already
+        computed in the browser and merely rendered in the wrong place — Overview included,
+        once the summary is written as a pure function rather than an endpoint (§05).
+      </p>
+      <p>
+        <strong>One addition to <code>components/ui/</code>, and it is not cosmetic.</strong>
+        <code>Tabs</code> gains optional <code>value</code> / <code>onValueChange</code>, so
+        <code>EventDetail</code> can drive the desktop tabs from a <code>?tab=</code> param
+        the way the phone already drives its sections. Without it a hand-off cannot work:
+        Wave 3 shipped <code>RowEditor</code>'s <code>handoff</code> slot and
+        <code>LightingSheet</code>'s <code>onOpenPlot</code> prop, and
+        <code>LightingTab</code> has never passed it, because there is no way for a tab to
+        switch tabs. Wave 4 needs that three times, so it makes the selection addressable
+        — and wires Lighting's dangling hand-off while it is there.
+      </p>
+      <p>
+        <strong><code>components/ui/</code> is untouched</strong>, and that will be asserted
+        by a diff rather than assumed, as it was in Wave 3. <code>RowEditor</code> should
+        need nothing new either — the <code>handoff</code> and <code>notice</code> slots
+        Wave 3 added are exactly what Rental and Equipment want.
+      </p>
+      <p>
+        <strong>Mobile keeps its own branch.</strong> All four tabs already render a
+        <code>CondensedListRow</code> list on a phone, and Rental and Equipment are
+        read-only there for every role. Mobile is not a third density tier
+        (<code>design/patterns.md</code> §7); the phone view is out of scope for this wave.
+      </p>
+      <p>
+        <strong>Print is unchanged.</strong> The signal-flow print sheet stays
+        black-on-white at 9 pt. The chain's move to mono on screen does not change
+        <code>ChainText</code>, which is already mono on paper.
+      </p>
+      <p>
+        <strong>The exports keep their formats.</strong> Three buttons, three files, same
+        server-side generation. This wave moves them into a bar; it does not touch what
+        they produce.
+      </p>
+      <p>
+        <strong>Not done, deliberately:</strong> the rental order still cannot be filtered
+        by department, the equipment sheet still cannot be grouped by type, and neither
+        sheet is sortable by column. All three are conveniences, and none of them is what
+        makes these tabs hard to read today.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       07 · THE ASKS
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">07 · decided</span>
+      <h2>What was asked, and what was answered</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        This page was published to settle four calls before the specification was written.
+        The first three were approved as drawn. The fourth came back changed, and the
+        change is the largest single thing in the wave — the drawings above have been
+        revised to match, so this page and <code>spec.md</code> will say the same thing.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>1 · Rental order — three export buttons in the bar <span class="tag tag--keep">approved</span></h3>
+      <p>
+        The canonical bar has one primary action and, before it, Print. This tab has three
+        exports and no print sheet, so the exports <em>are</em> its print. Drawn as three
+        <code>xs outline</code> buttons — <em>Export .xlsx</em>, <em>Export PDF</em>, and
+        <em>Export LL.xlsx</em> only when the inventory came from a price list. The
+        alternative is one <em>Exports</em> button opening a drawer that explains what each
+        file is for. Three buttons is simpler; the drawer is the only place the LL export's
+        unplaced-lines behaviour could be explained before you run it.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>2 · Equipment — owned and rented become one sheet <span class="tag tag--keep">approved</span></h3>
+      <p>
+        Two cards, two forms and two tables collapse into one panel with a
+        <code>Source</code> column, and the editor's first field switches which catalog the
+        item picker reads. The alternative is keeping them as two bands in one panel, the
+        way Signal Flow's inputs and outputs are drawn — which preserves each list's own
+        columns but keeps two add flows. I recommend the merge: unlike inputs and outputs,
+        these two lists answer the same question and differ only in where the gear comes
+        from.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>3 · Signal flow — one scroll, two bands, no toggle <span class="tag tag--keep">approved</span></h3>
+      <p>
+        Because the tab prints, and a view toggle would print half of it. Chains move to
+        mono at 11 px, bus chips drop from <code>Badge</code> to <code>Pill</code>, the gap
+        sentence becomes a status strip, and clicking a row opens that channel on the Audio
+        Inputs or Outputs tab. The labelled band is the one new construction in the wave.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>4 · Overview — answered by changing the question <span class="tag tag--new">revised</span></h3>
+      <p>
+        Asked as “the two cards merge, and does <em>Save event</em> stay?”. Answered:
+        <strong>editing moves into a drawer and the tab shows information</strong>, with a
+        statistic worth looking at. That is a better answer than either option offered, and
+        it dissolves the Save question rather than deciding it — a drawer with a Save is
+        ordinary, and the tab has no form left to save.
+      </p>
+      <p>
+        It also changes what the wave costs. Overview was the smallest item on this page
+        and is now the largest. This page briefly proposed an endpoint to feed it and then
+        withdrew it while the spec was being written — the numbers are derivations, not
+        counts, and computing them server-side would put four of them in two languages
+        (§05). What it does cost is one additive change to <code>Tabs</code>, without which
+        none of the wave's hand-offs can work — including the one Wave 3 shipped and never
+        wired.
+      </p>
+    </div>
+  </section>
+
+</div>

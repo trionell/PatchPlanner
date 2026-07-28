@@ -1644,11 +1644,11 @@
         in the codebase, not a perfect one.
       </p>
       <p class="body">
-        <strong>Waves 0 to 3 have landed.</strong> Eight findings are struck below and stay
-        struck — the list is a record of what was wrong and when it stopped being wrong, not a queue
-        that empties. A twelfth finding was added by Wave 2, because converting a surface is how you
-        discover what an audit's greps could not see; and Wave 3 turned out to be the wave where the
-        <em>audit</em> was wrong, not just the code.
+        <strong>All five waves have landed, and every finding is struck.</strong> The list stays as a
+        record of what was wrong and when it stopped being wrong, not a queue that emptied. A twelfth
+        finding was added by Wave 2, because converting a surface is how you discover what an audit's
+        greps could not see — and twice the <em>audit</em> turned out to be wrong rather than the
+        code: about Lighting in Wave 3, and about the inventory catalog in Wave 5.
       </p>
     </header>
 
@@ -1669,17 +1669,17 @@
         <div class="find__hd"><span class="find__id">A11</span><span class="find__ti">Fifty-seven inline form labels</span><span class="find__done">Wave 0</span><span class="find__p">P3</span></div>
         <p class="find__b"><span class="k">mb-1 block text-sm text-zinc-300</span>, copied across <span class="find__n">10</span> files — 14 in Lighting alone. → <span class="k">FieldLabel</span>, in the same file as <span class="k">MicroLabel</span> so picking the wrong tier takes a deliberate act.</p>
       </div>
-      <div class="find">
-        <div class="find__hd"><span class="find__id">A6 · A7</span><span class="find__ti">Card stacks, and the wrong table</span><span class="find__p">P1 · P2</span></div>
-        <p class="find__b"><span class="find__n">Five</span> surfaces are still <span class="k">Card</span> → <span class="k">CardHeader</span> → <span class="k">Table</span> stacks, and three of them are work surfaces by P2's test — rental lines, equipment lines, and a 308-item inventory — rendered on the navigation-tier table. The zebra striping is the tell. Lighting was the sixth and the fourth; Wave 3 took it.</p>
+      <div class="find find--done">
+        <div class="find__hd"><span class="find__id">A6 · A7</span><span class="find__ti">Card stacks, and the wrong table</span><span class="find__done">Waves 3–5</span><span class="find__p">P1 · P2</span></div>
+        <p class="find__b">Every stack converted, and every work surface off the navigation-tier table. The card <em>lists</em> stayed lists, which was always P1's exception. The last of them was the inventory catalog — <span class="find__n">308</span> rows, the largest table in the application, filed by the audit under “pages, mostly already right”.</p>
       </div>
       <div class="find find--done">
         <div class="find__hd"><span class="find__id">A5</span><span class="find__ti">The chrome announces the page three times</span><span class="find__done">Wave 1</span><span class="find__p">P8</span></div>
         <p class="find__b">24 px page title over a 20 px event name over a 14 px panel title, on a sidebar lighter than the content. → <span class="find__n">16 / 18 / 14</span>, sidebar on the content's own ground, tab strip with no trough. Drawn in §7.</p>
       </div>
-      <div class="find">
-        <div class="find__hd"><span class="find__id">A4 · A9</span><span class="find__ti">The residue</span><span class="find__p">P2 · P3</span></div>
-        <p class="find__b"><span class="k">rounded-lg</span> is not in the ladder: <span class="find__n">30</span> uses at the start, <span class="find__n">13</span> left, all on surfaces waves 4 and 5 own. And navigation-tier <span class="k">Badge</span> inside the work-surface drawers.</p>
+      <div class="find find--done">
+        <div class="find__hd"><span class="find__id">A4 · A9</span><span class="find__ti">The residue</span><span class="find__done">Waves 1–5</span><span class="find__p">P2 · P3</span></div>
+        <p class="find__b"><span class="k">rounded-lg</span>: <span class="find__n">30</span> → <span class="find__n">0</span>, and the two textual hits left are inside comments. <strong>A4 was never a radius finding</strong> — seven of its uses were one layout idiom, a bordered block of fields floating above a table, which waves 4 and 5 <em>deleted</em> rather than corrected. The radius was how a habit showed up in a grep. And <span class="k">Pill</span> replaced <span class="k">Badge</span> on every work surface as each one converted.</p>
       </div>
       <div class="find find--done">
         <div class="find__hd"><span class="find__id">A10</span><span class="find__ti">A third toolbar idiom</span><span class="find__done">Wave 2</span><span class="find__p">P1</span></div>
@@ -1711,7 +1711,8 @@
         <div class="wave wave--done"><span class="wave__n">Wave 1 ✓</span><span class="wave__t">Chrome</span><span class="wave__d">A5, and A4 where it touched chrome. Smallest diff, largest perceived change, and it changed no tab — only the two files that had hard-coded the chrome's dimensions.</span></div>
         <div class="wave wave--done"><span class="wave__n">Wave 2 ✓</span><span class="wave__t">Stage plots</span><span class="wave__d">A10, A12. The panel pattern transferred to a canvas that is neither a sheet nor a list, and <span class="k">PatchPanel</span> needed no change — but the zoom control, the inspector rail and <span class="k">Tab</span> each did, which is why this wave came before four more tabs depend on them.</span></div>
         <div class="wave wave--done"><span class="wave__n">Wave 3 ✓</span><span class="wave__t">Lighting</span><span class="wave__d">A8, and A6–A7 on this surface. The restyle was the smaller half: the rig had no DMX map at all, so nothing had ever noticed two fixtures sharing addresses. Sharing turned out to be <em>legitimate</em> — twenty pars on one address is how a room wash is rigged — which the audit had not considered, and which restructured the whole finding. Only <span class="k">RowEditor</span> changed in <span class="k">ui/</span>-adjacent code, by addition; the backend ended <em>smaller</em>.</span></div>
-        <div class="wave"><span class="wave__n">Wave 4–5</span><span class="wave__t">Tabs, then pages</span><span class="wave__d">Rental, Equipment, Overview, Signal Flow — same shape as Lighting and much smaller, because none of them has a derivation to build. Then the pages, which are mostly already right.</span></div>
+        <div class="wave wave--done"><span class="wave__n">Wave 4 ✓</span><span class="wave__t">The remaining event tabs</span><span class="wave__d">Rental, Equipment and Signal Flow were the conversion the audit predicted. <strong>Overview was not.</strong> Filed as “a form that needs the navigation tier applied consistently”, it became the screen that says what the whole event amounts to — five figures at 26 px, the rig drawn as the flow canvas one row high, and every panel's own verdict in one line. It also found that <span class="k">RowEditor</span>'s hand-off had never rendered: the desktop tab strip was uncontrolled, so no tab could open another.</span></div>
+        <div class="wave wave--done"><span class="wave__n">Wave 5 ✓</span><span class="wave__t">Pages and residue</span><span class="wave__d">The audit's second miss: the 308-item inventory catalog, filed under pages. Categories became a filter column doing one job — they used to show four of twenty-seven, because each tile also carried a rename, a delete and a picker-role select. The dashboard was rebuilt rather than trimmed and lost cards entirely. The signed-out start page is <em>exempt</em>, in writing, rather than half-converted.</span></div>
       </div>
     </div>
   </section>
@@ -1726,10 +1727,12 @@
       can be revised and republished to the same URL.
     </p>
     <p class="body small">
-      What is <strong>not</strong> settled and worth an opinion: whether the navigation tier's table
-      is worth keeping at all once its remaining users have moved to the sheet, and whether the two
-      rig operations Wave 3 added should be undoable. The tab strip's trough is settled — it lost it
-      in Wave 1 — and Wave 3's lighting rework was one slice.
+      What is <strong>not</strong> settled and worth an opinion: whether the two rig operations Wave 3
+      added should be undoable, and whether a hand-off should carry the row as well as the tab — today
+      it opens the right screen and finding the row there is still yours. The navigation tier's table
+      is settled: six surfaces left it, and what remains uses it correctly. So is the start page — it
+      is outside this language on purpose, and the one thing that came <em>out</em> of it is the pulse
+      now travelling the dashboard's ribbon.
     </p>
   </footer>
 

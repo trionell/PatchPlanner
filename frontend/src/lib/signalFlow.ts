@@ -114,25 +114,44 @@ function walkFromPort(port: PortRef, context: OutputFlowContext, gapNodes: Set<s
       cableId: cable.id,
     })
 
-    // A device mixes/distributes internally, so every declared output
-    // port — plus any link-out ports, for a chained destination device —
-    // is a candidate continuation. A stage multi, a stagebox, or a desk's
-    // own jack panel is a straight pass-through — input index N is
-    // physically the same jack as output index N, so only that one port
-    // continues.
+    // A stage multi, a stagebox, or a desk's own jack panel is a straight
+    // pass-through — input index N is physically the same jack as output
+    // index N, so only that one port continues.
+    //
+    // A device with **as many outputs as inputs** is the same claim about a
+    // different box: an amplifier, an EQ, a comp, a symmetric DSP all carry
+    // channel N to channel N. Treating every device as a distributor instead
+    // meant a stereo output through a 2×2 amp branched from both its inputs to
+    // both its outputs — four chains where the room has two, printed as
+    // duplicate L and R lines with no way to tell which was real. A device
+    // whose port counts differ genuinely does distribute (one in, four out is
+    // a splitter), so that case still fans out.
+    //
+    // This is the rule the input graph has always used — inputSignalFlow's
+    // `upstreamPort` pairs a device same-index when its two sides match and
+    // falls back to the sole input when they do not. The two graphs disagreed
+    // about the same piece of hardware; now they do not.
+    //
+    // Link-outs never take the jack rule: a link is a copy of the whole input,
+    // which is the entire reason a subwoofer has one.
     //
     // console_local needs its own branch (Slice 24, research.md R9): before
     // this it fell through to the stagebox case, looked itself up among the
     // stageboxes, found nothing, and yielded no continuation — so a bus routed
     // to a local out and cabled onward to an amplifier read as ending at the
     // desk.
-    const sameJack = (p: PortRef) => p.port === cable.to_port && isPortConnected(p.kind, p.id, p.port, 'out', context.cables)
+    const connectedOut = (p: PortRef) => isPortConnected(p.kind, p.id, p.port, 'out', context.cables)
+    const sameJack = (p: PortRef) => p.port === cable.to_port && connectedOut(p)
     let outPorts: PortRef[] = []
     if (cable.to_kind === 'device') {
       const device = context.devices.find((d) => d.id === cable.to_id)
       if (device) {
         const ports = devicePorts(device)
-        outPorts = [...ports.outputs, ...ports.links].filter((p) => isPortConnected(p.kind, p.id, p.port, 'out', context.cables))
+        const channelPerChannel = device.output_port_count > 0 && device.output_port_count === device.input_port_count
+        outPorts = [
+          ...ports.outputs.filter(channelPerChannel ? sameJack : connectedOut),
+          ...ports.links.filter(connectedOut),
+        ]
       }
     } else if (cable.to_kind === 'stage_multi') {
       const multi = context.stageMultis.find((sm) => sm.id === cable.to_id)
@@ -140,7 +159,7 @@ function walkFromPort(port: PortRef, context: OutputFlowContext, gapNodes: Set<s
     } else if (cable.to_kind === 'console_local') {
       const desk = context.consoles?.find((c) => c.id === cable.to_id)
       if (desk) outPorts = consoleLocalPorts(desk).outputs.filter(sameJack)
-    } else {
+    } else if (cable.to_kind === 'stagebox') {
       const stagebox = context.stageboxes.find((sb) => sb.id === cable.to_id)
       if (stagebox) outPorts = stageboxPorts(stagebox).outputs.filter(sameJack)
     }

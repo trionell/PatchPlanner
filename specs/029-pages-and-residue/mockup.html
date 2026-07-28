@@ -1,0 +1,1711 @@
+<!--
+  PatchPlanner — Wave 5: pages and residue. Redesign mockup.
+
+  For approval before the spec is written. Inventories, Owned gear, Settings,
+  My Defaults, Dashboard, Events, Login and the Start page are what remains
+  after Wave 4 — design/audit.md A4 and the last of A6.
+
+  The audit calls this wave "mostly already right", and for five of the eight
+  surfaces that is true. This page's job is to say which three are not, and to
+  ask for the one exemption it wants.
+
+  The file is an HTML *fragment*: the Artifact publisher wraps it in
+  doctype/head/body, so there are deliberately no <html>, <head> or <body> tags.
+
+  Specimen CSS is shared with specs/028-event-tabs/mockup.html, which lifted it
+  from design/design-language.html.
+-->
+
+<title>Wave 5 — pages and residue</title>
+
+<style>
+  /* ==================================================================
+     DOCUMENT CHROME — theme-aware, tokens only.
+     ================================================================== */
+  :root {
+    --ground: #f2f2f4;
+    --raised: #ffffff;
+    --sunken: #e8e8ec;
+    --rule: #d7d7de;
+    --rule-soft: #e4e4ea;
+    --ink: #16171b;
+    --ink-2: #43444d;
+    --muted: #6c6d78;
+    --faint: #90919c;
+    --amber: #b45309;
+    --keep: #0e7490;
+    --drop: #9f1239;
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --measure: 68ch;
+    --wrap: 1180px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0a0b0d;
+      --raised: #14151a;
+      --sunken: #101014;
+      --rule: #26272e;
+      --rule-soft: #1d1e24;
+      --ink: #f2f2f4;
+      --ink-2: #b6b7c0;
+      --muted: #8b8c96;
+      --faint: #62636d;
+      --amber: #f59e0b;
+      --keep: #22d3ee;
+      --drop: #fb7185;
+    }
+  }
+
+  :root[data-theme="light"] {
+    --ground: #f2f2f4; --raised: #ffffff; --sunken: #e8e8ec;
+    --rule: #d7d7de; --rule-soft: #e4e4ea;
+    --ink: #16171b; --ink-2: #43444d; --muted: #6c6d78; --faint: #90919c;
+    --amber: #b45309; --keep: #0e7490; --drop: #9f1239;
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0a0b0d; --raised: #14151a; --sunken: #101014;
+    --rule: #26272e; --rule-soft: #1d1e24;
+    --ink: #f2f2f4; --ink-2: #b6b7c0; --muted: #8b8c96; --faint: #62636d;
+    --amber: #f59e0b; --keep: #22d3ee; --drop: #fb7185;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px 110px; }
+
+  h1, h2, h3 { margin: 0; font-family: var(--mono); font-weight: 500; }
+  h1 {
+    font-size: clamp(28px, 4.4vw, 46px);
+    line-height: 1.04; letter-spacing: -0.035em; text-wrap: balance;
+  }
+  h2 {
+    font-size: clamp(19px, 2.3vw, 25px);
+    letter-spacing: -0.02em; text-wrap: balance;
+  }
+  h3 { font-size: 14px; letter-spacing: 0.02em; color: var(--ink-2); }
+
+  p { margin: 0; max-width: var(--measure); }
+  a { color: inherit; }
+
+  .head {
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 68px 0 30px; border-bottom: 1px solid var(--rule);
+  }
+  .head__eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--amber);
+  }
+  .head__lede { font-size: 18px; color: var(--ink-2); line-height: 1.5; }
+
+  section { display: flex; flex-direction: column; gap: 22px; padding: 56px 0 0; }
+  .sec__no {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  .sec__hd { display: flex; flex-direction: column; gap: 8px; }
+  .prose { display: flex; flex-direction: column; gap: 13px; color: var(--ink-2); font-size: 15.5px; }
+  .prose strong { color: var(--ink); font-weight: 600; }
+  .prose code {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  .spec { display: flex; flex-direction: column; gap: 9px; }
+  .spec__frame {
+    overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px;
+    background: #09090b; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  }
+  .spec__cap {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-left: 2px;
+  }
+  .spec__cap b { color: var(--ink-2); font-weight: 500; }
+
+  .led { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .led__row {
+    display: grid; grid-template-columns: 132px minmax(0, 1fr);
+    gap: 18px; padding: 15px 2px; border-bottom: 1px solid var(--rule-soft);
+    align-items: start;
+  }
+  .led__k {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-top: 3px;
+  }
+  .led__v { font-size: 15px; color: var(--ink-2); line-height: 1.5; }
+  .led__v b { color: var(--ink); font-weight: 600; }
+  .led__v em { font-style: normal; color: var(--faint); }
+  .led__v code {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  .tag {
+    display: inline-block; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase; padding: 1px 6px;
+    border-radius: 4px; vertical-align: 2px; margin-left: 7px;
+  }
+  .tag--keep { color: var(--keep); border: 1px solid currentColor; }
+  .tag--drop { color: var(--drop); border: 1px solid currentColor; }
+  .tag--new { color: var(--amber); border: 1px solid currentColor; }
+
+  .ask {
+    border: 1px solid var(--rule); border-left: 3px solid var(--amber);
+    border-radius: 0 8px 8px 0; padding: 16px 18px; background: var(--raised);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .ask h3 { color: var(--ink); }
+  .ask p { font-size: 15px; color: var(--ink-2); max-width: none; }
+
+  @media (max-width: 720px) {
+    .led__row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  }
+
+  /* ==================================================================
+     SPECIMENS
+     ================================================================== */
+  .app {
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 14px; line-height: 1.45;
+    color: #f4f4f5; background: #09090b;
+    padding: 16px; min-width: 1040px;
+  }
+  .app--tight { padding: 16px; min-width: 0; }
+  .app *, .app *::before, .app *::after { box-sizing: border-box; }
+
+  .pan { border: 1px solid #3f3f46; border-radius: 12px; background: rgba(9, 9, 11, 0.4); overflow: hidden; }
+  .pan__bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    border-bottom: 1px solid #27272a; padding: 10px 12px;
+  }
+  .pan__ti { font-size: 14px; font-weight: 600; color: #f4f4f5; margin-right: 4px; }
+  .grow { flex: 1; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 28px; padding: 0 10px; border: 1px solid transparent; border-radius: 6px;
+    font-size: 12px; font-weight: 500; white-space: nowrap; font-family: inherit;
+  }
+  .btn--primary { background: #f59e0b; border-color: #f59e0b; color: #09090b; }
+  .btn--outline { background: #18181b; border-color: #3f3f46; color: #f4f4f5; }
+  .btn--ghost { background: transparent; color: #f4f4f5; }
+  .btn--sm { height: 24px; padding: 0 8px; font-size: 11px; }
+  .btn--md { height: 40px; padding: 0 16px; font-size: 14px; }
+  .btn--danger-ghost { background: transparent; color: #f87171; }
+
+  .fld {
+    height: 32px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b;
+    display: inline-flex; align-items: center; padding: 0 8px;
+    font-size: 12px; color: #e4e4e7; min-width: 0;
+  }
+  .fld--ph { color: #71717a; }
+  .fld--sel::after { content: "▾"; margin-left: auto; padding-left: 8px; color: #71717a; font-size: 10px; }
+  .fld--srch { position: relative; padding-left: 26px; min-width: 190px; max-width: 260px; flex: 1; }
+  .fld--srch svg { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); }
+  .fld--foc { border-color: #f59e0b; }
+
+  .lbl {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #71717a; font-weight: 500;
+  }
+
+  .pill {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 1px 6px; font-size: 10px; font-weight: 500; white-space: nowrap;
+  }
+  .t-ok   { background: rgba(52, 211, 153, 0.15); color: #6ee7b7; }
+  .t-warn { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
+  .t-err  { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+  .t-def  { background: #3f3f46; color: #f4f4f5; }
+
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  .sheet { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .sheet th {
+    text-align: left; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.14em; text-transform: uppercase; color: #71717a; font-weight: 500;
+    padding: 6px 8px; background: rgba(9, 9, 11, 0.6);
+    border-bottom: 1px solid #27272a; white-space: nowrap;
+  }
+  .sheet td { padding: 4px 8px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); vertical-align: middle; color: #e4e4e7; }
+  .sheet tr.alt td { background: rgba(255, 255, 255, 0.014); }
+  .sheet td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #a1a1aa; }
+  .sheet tr.open td { background: rgba(245, 158, 11, 0.04); border-bottom-color: transparent; }
+  .sheet tr.eds td { background: rgba(245, 158, 11, 0.04); padding: 0 8px 10px; }
+  .sheet .nm { color: #fafafa; white-space: nowrap; }
+  .sheet .qt { color: #71717a; }
+  .sheet .none { color: #52525b; }
+  .sheet .desc { color: #71717a; max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .shr {
+    font-family: var(--mono); font-size: 10px; color: #a1a1aa; background: #27272a;
+    border-radius: 3px; padding: 0 4px; margin-left: 5px;
+  }
+
+  .rowed {
+    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px;
+    border-left: 2px solid #f59e0b; border-radius: 0 6px 6px 0;
+    background: rgba(245, 158, 11, 0.05); padding: 10px 12px;
+  }
+  .rowed__f { display: flex; flex-direction: column; gap: 4px; }
+  .rowed__f .fld { width: 160px; }
+  .rowed__f--count .fld { width: 80px; }
+  .rowed__f--short .fld { width: 112px; }
+  .rowed__f--grow { flex: 1; min-width: 170px; }
+  .rowed__f--grow .fld { width: 100%; }
+  .rowed__acts { display: flex; align-items: flex-end; gap: 8px; margin-left: auto; }
+  .rowed__keys { font-size: 11px; color: #71717a; padding: 6px 12px 0; }
+  .rowed__keys kbd {
+    font-family: var(--mono); font-size: 10px; border: 1px solid #3f3f46;
+    border-radius: 4px; padding: 0 4px; color: #a1a1aa;
+  }
+  .notice {
+    width: 100%; border: 1px solid #27272a; background: rgba(9, 9, 11, 0.6);
+    border-radius: 5px; padding: 8px 10px; margin-top: 2px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    font-size: 12px; color: #a1a1aa;
+  }
+
+  .strip {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
+    padding: 8px 12px; border-top: 1px solid #27272a;
+    background: rgba(9, 9, 11, 0.6); font-size: 11px; color: #a1a1aa;
+  }
+  .strip .mono { color: #e4e4e7; }
+  .strip .q { color: #71717a; }
+
+  /* -- before reproductions -- */
+  .old { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .old th {
+    text-align: left; font-size: 14px; font-weight: 500; color: #a1a1aa;
+    padding: 12px; border-bottom: 1px solid #27272a; white-space: nowrap;
+  }
+  .old td { padding: 12px; vertical-align: top; color: #e4e4e7; border-bottom: 1px solid #27272a; }
+  .old tr.odd td { background: #18181b; }
+  .old tr.even td { background: #1f2028; }
+  .old .nm { font-weight: 500; color: #fafafa; white-space: nowrap; }
+
+  .ncard { border: 1px solid #3f3f46; border-radius: 12px; background: #18181b; overflow: hidden; }
+  .ncard__hd {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 16px 20px; border-bottom: 1px solid #27272a;
+  }
+  .ncard__hd h4 { margin: 0; font-size: 18px; font-weight: 600; color: #fafafa; font-family: inherit; }
+  .ncard__hd p { margin: 4px 0 0; font-size: 14px; color: #a1a1aa; max-width: none; }
+  .ncard__bd { padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+
+  .nfld {
+    height: 40px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b;
+    display: flex; align-items: center; padding: 0 12px; font-size: 14px; color: #e4e4e7;
+  }
+  .nfld--ph { color: #71717a; }
+  .nlbl { display: block; font-size: 12px; color: #d4d4d8; margin-bottom: 6px; }
+
+  .badge {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 2px 10px; font-size: 12px; font-weight: 500; white-space: nowrap;
+  }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+
+  /* ==================================================================
+     ADDITIONS FOR WAVE 5 — the rail column, the stats row, the
+     navigation-tier list row.
+     ================================================================== */
+  .cols { display: flex; align-items: stretch; }
+  .rail { width: 232px; flex: none; border-right: 1px solid #27272a; padding: 8px 6px; display: flex; flex-direction: column; gap: 1px; }
+  .rail__row {
+    display: flex; align-items: center; gap: 8px; border-radius: 6px;
+    padding: 4px 8px; font-size: 12px; color: #d4d4d8; cursor: default;
+  }
+  .rail__row--on { background: rgba(245, 158, 11, 0.1); color: #fcd34d; }
+  .rail__row .ty { color: #52525b; font-size: 11px; }
+  .rail__row .ct { margin-left: auto; font-family: var(--mono); font-size: 10px; color: #71717a; }
+  .colmain { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+  .stats { display: flex; border: 1px solid #3f3f46; border-radius: 12px; background: #1f2028; overflow: hidden; }
+  .stats > div { flex: 1; padding: 14px 20px; border-left: 1px solid #27272a; }
+  .stats > div:first-child { border-left: 0; }
+  .stats .l { font-size: 14px; color: #a1a1aa; }
+  .stats .v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 24px; font-weight: 600; color: #fafafa; margin-top: 2px; }
+
+  .lrow {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    border: 1px solid #27272a; border-radius: 6px; background: #1f2028; padding: 10px 16px;
+  }
+  .lrow .t { font-weight: 500; color: #f4f4f5; }
+  .lrow .s { font-size: 14px; color: #a1a1aa; }
+
+  .oldtile { border: 1px solid #27272a; border-radius: 8px; background: #1f2028; padding: 18px 20px; }
+  .oldtile .l { font-size: 14px; color: #a1a1aa; }
+  .oldtile .v { font-size: 30px; font-weight: 600; color: #fafafa; }
+
+  .q { color: #52525b; }
+
+  /* -- the dashboard hero: the next show, bordered the way the desk is -- */
+  .hero { border: 1px solid rgba(245, 158, 11, 0.55); border-radius: 12px; background: rgba(9, 9, 11, 0.4); overflow: hidden; }
+  .hero__hd { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 16px 20px 0; }
+  .hero__ti { font-size: 20px; font-weight: 600; color: #fafafa; }
+  .hero__sub { font-size: 14px; color: #a1a1aa; margin-top: 2px; }
+  .hero__cd { text-align: right; flex: none; }
+  .hero__cd .v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 30px; font-weight: 600; color: #f59e0b; line-height: 1; }
+  .hero__cd .l { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #71717a; margin-top: 4px; }
+  .hero__ft {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
+    padding: 10px 20px; border-top: 1px solid #27272a; background: rgba(9, 9, 11, 0.6);
+  }
+
+  .nums { display: flex; flex-wrap: wrap; }
+  .nums > div { flex: 1; min-width: 118px; padding: 4px 20px; border-left: 1px solid #27272a; }
+  .nums > div:first-child { border-left: 0; padding-left: 0; }
+  .nums .v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 22px; font-weight: 600; color: #fafafa; line-height: 1.1; }
+  .nums .v small { font-size: 13px; font-weight: 500; color: #71717a; margin-left: 2px; }
+  .nums .l { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #71717a; margin-top: 5px; }
+
+  /* the rig in one line — the flow canvas's own encoding, one row high */
+  .rib { display: flex; align-items: center; gap: 8px; }
+  .node {
+    border: 1px solid #3f3f46; border-radius: 7px; background: #1f2028;
+    padding: 3px 9px; display: inline-flex; flex-direction: column;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+  .node--desk { border-color: rgba(245, 158, 11, 0.55); }
+  .node .n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #fafafa; font-size: 12px; line-height: 1.3; }
+  .node .k { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: #71717a; }
+  .run { position: relative; flex: 1; min-width: 26px; height: 2px; border-radius: 2px; background: #3f3f46; }
+
+  /* the one sanctioned animation, in the wrapper tokens.md requires */
+  @keyframes pp-travel-x {
+    0% { left: 0; opacity: 0; }
+    12% { opacity: 1; }
+    88% { opacity: 1; }
+    100% { left: 100%; opacity: 0; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .run::after {
+      content: ""; position: absolute; top: -2px; margin-left: -3px;
+      width: 6px; height: 6px; border-radius: 999px; background: #f59e0b;
+      filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.9));
+      animation: pp-travel-x 3.6s ease-in-out infinite;
+      animation-delay: var(--d, 0s);
+    }
+  }
+
+  .ready { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+  .ready span.a { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #71717a; }
+  .ready span.a b {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #52525b; font-weight: 500;
+  }
+
+  /* the dated lists: a labelled rule instead of a card header */
+  .tlhd { display: flex; align-items: center; gap: 12px; padding: 0 0 6px; }
+  .tlhd .rule { flex: 1; height: 1px; background: #27272a; }
+  .tlhd .ct { font-family: var(--mono); font-size: 10px; color: #52525b; }
+  .tlrow {
+    display: flex; align-items: center; gap: 16px; padding: 9px 12px;
+    border-bottom: 1px solid rgba(39, 39, 42, 0.6); font-size: 14px;
+  }
+  .tlrow--on { background: #18181b; }
+  .tlrow .d { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: #a1a1aa; width: 76px; flex: none; }
+  .tlrow .n { color: #f4f4f5; font-weight: 500; width: 240px; flex: none; }
+  .tlrow .v { color: #71717a; flex: 1; }
+  .tlrow--past .n { color: #a1a1aa; font-weight: 400; }
+  .tlrow--past .d { color: #52525b; }
+
+  .tally {
+    display: flex; flex-wrap: wrap; gap: 8px 20px; font-family: var(--mono);
+    font-size: 11px; color: var(--faint); padding-left: 2px;
+  }
+  .tally b { color: var(--ink-2); font-weight: 500; }
+
+  .radius { width: 100%; border-collapse: collapse; font-size: 15px; }
+  .radius th {
+    text-align: left; font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); font-weight: 500;
+    padding: 8px 12px 8px 2px; border-bottom: 1px solid var(--rule);
+  }
+  .radius td { padding: 10px 12px 10px 2px; border-bottom: 1px solid var(--rule-soft); color: var(--ink-2); vertical-align: top; }
+  .radius code {
+    font-family: var(--mono); font-size: 0.85em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+  .radius .w { color: var(--drop); }
+  .radius .r { color: var(--keep); }
+</style>
+
+<div class="wrap">
+
+  <header class="head">
+    <span class="head__eyebrow">Design convergence · Wave 5 · mockup for approval</span>
+    <h1>The pages, and what is left over</h1>
+    <p class="head__lede">
+      Eight surfaces outside the event tabs. The audit calls them “mostly already
+      right” — navigation surfaces built with navigation-surface components — and for
+      four of them that holds. The inventory catalog is a 308-row work surface wearing a
+      card stack. The vocabulary settings render nine cards where one panel would do. And
+      the dashboard, the screen you land on every working day, is five bordered boxes
+      saying twelve, four, two and here are some links — the one page here that needs
+      <em>more</em>, not less. This page draws those three, closes the radius ladder, and
+      records the exemption granted to the start page.
+    </p>
+  </header>
+
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">01 · triage</span>
+      <h2>Five that are right, three that are not</h2>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">Inventories<span class="tag tag--drop">convert</span></div>
+        <div class="led__v">
+          The catalog detail is <b>three cards and a 308-row table</b> on the navigation
+          tier, with a permanently-open five-field add form, a per-row modes dialog, and
+          category management crammed into the filter list. <em>This is the wave.</em>
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Owned gear<span class="tag tag--drop">convert</span></div>
+        <div class="led__v">
+          The second tab of the same page: one card, one always-open form, one
+          navigation-tier table. Same conversion as Inventories, a fifth of the size.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Settings ·<br>My Defaults<span class="tag tag--drop">convert</span></div>
+        <div class="led__v">
+          <b>Nine <code>VocabularyCard</code>s in a two-column grid</b>, each with a list of
+          live inputs, a stored-value <code>&lt;code&gt;</code> beside every one, and its own
+          add form. Nine always-open forms on one page, and the same component on two
+          pages.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Dashboard<span class="tag tag--drop">rebuild</span></div>
+        <div class="led__v">
+          <b>Five cards</b> to say twelve, four, two and here are some links. Three stat
+          badges repeat the first word of the label beside them — <em>Total</em>,
+          <em>Upcoming</em>, <em>Inventories</em> — and “Quick actions” holds one button
+          and a sentence of marketing copy. <em>This is the screen you see every working
+          day, and it should make you want to open something.</em>
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Events<span class="tag tag--keep">keep</span></div>
+        <div class="led__v">
+          A card grid of independent objects, which is P1's own stated exception. Gains a
+          search field and an actionable empty state; loses one line of prose.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Login<span class="tag tag--new">trim</span></div>
+        <div class="led__v">
+          Correct, except that the sign-in control is an <code>&lt;a&gt;</code> with the
+          primary button's classes <b>retyped</b>, and the error block is
+          <code>border-red-900</code> where the token is <code>red-800</code>.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Start page<span class="tag tag--keep">exempt</span></div>
+        <div class="led__v">
+          A marketing page in its own visual language — <code>rounded-2xl</code>,
+          gradients, a 44 px display heading, an animated cable. It should be
+          <b>exempted in writing</b> rather than half-converted. See §07.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Radius<span class="tag tag--drop">close A4</span></div>
+        <div class="led__v">
+          <b>Twelve <code>rounded-lg</code> occurrences remain — and one of them is inside a
+          comment</b> in <code>PatchPanel.tsx</code>, describing the card stack it replaced.
+          Wave 4 removes four; this wave takes the rest. See §08.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       02 · INVENTORIES
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">02 · inventories</span>
+      <h2>Three hundred and eight rows on the navigation tier</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        The sample catalog has 308 items in 12 categories, and every one of them is a
+        <code>px-3 py-3</code> row at <code>text-sm</code>. By P2's question this is
+        unambiguously a work surface — it is the same list the rental order is derived
+        from — and it is the largest table in the application by row count.
+      </p>
+      <p>
+        Around it are three cards: the category list, the item list, and, above both, a
+        page header with the import controls. The category card does four jobs at once —
+        it filters the item list, it renames categories, it assigns each category's
+        <em>planning picker role</em>, and it holds its own add form — and the item card
+        holds a fifth.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px">
+            <div style="display:flex; align-items:center; gap:12px">
+              <span class="btn btn--ghost btn--md">← Back</span>
+              <span style="font-size:18px; font-weight:600; color:#f4f4f5">Nordic Rental AB</span>
+            </div>
+            <div style="display:flex; gap:8px">
+              <span class="btn btn--ghost btn--md">Template</span>
+              <span class="btn btn--primary btn--md">Import (.xlsx)</span>
+            </div>
+          </div>
+          <p style="color:#6ee7b7; font-size:14px; margin-bottom:24px">Imported 12 categories and 308 items from the LL price list.</p>
+
+          <div style="display:grid; grid-template-columns:320px 1fr; gap:24px">
+            <div class="ncard">
+              <div class="ncard__hd"><div><h4>Categories</h4></div></div>
+              <div class="ncard__bd">
+                <div style="display:flex; justify-content:space-between; gap:8px; border:1px solid #f59e0b; background:rgba(245,158,11,0.1); border-radius:8px; padding:12px">
+                  <div><div style="font-weight:500; color:#fcd34d">Microphones</div><div style="font-size:12px; color:#71717a">audio</div></div>
+                  <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px">
+                    <span class="badge" style="background:#3f3f46; color:#f4f4f5">64</span>
+                    <span style="border:1px solid #3f3f46; border-radius:4px; padding:1px 4px; font-size:12px; color:#a1a1aa">no picker ▾</span>
+                    <span style="font-size:12px; color:#71717a">✎ &nbsp;🗑</span>
+                  </div>
+                </div>
+                <div style="display:flex; justify-content:space-between; gap:8px; border:1px solid #27272a; background:#18181b; border-radius:8px; padding:12px">
+                  <div><div style="font-weight:500">Cables</div><div style="font-size:12px; color:#71717a">audio</div></div>
+                  <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px">
+                    <span class="badge" style="background:#3f3f46; color:#f4f4f5">41</span>
+                    <span style="border:1px solid #3f3f46; border-radius:4px; padding:1px 4px; font-size:12px; color:#a1a1aa">Cable ▾</span>
+                    <span style="font-size:12px; color:#71717a">✎ &nbsp;🗑</span>
+                  </div>
+                </div>
+                <div style="border-top:1px solid #27272a; padding-top:12px">
+                  <p style="font-size:12px; font-weight:500; text-transform:uppercase; letter-spacing:0.05em; color:#71717a; margin-bottom:8px">Add category</p>
+                  <span class="nfld nfld--ph" style="margin-bottom:8px">Category name</span>
+                  <span class="nfld" style="margin-bottom:8px; justify-content:space-between">audio <span style="color:#71717a">▾</span></span>
+                  <span class="btn btn--primary btn--md">Add</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="ncard">
+              <div class="ncard__hd"><div><h4>Microphones</h4></div></div>
+              <div style="padding:24px">
+                <div style="display:flex; flex-wrap:wrap; align-items:flex-end; gap:8px; border:1px solid #27272a; border-radius:8px; background:rgba(24,24,27,0.6); padding:12px; margin-bottom:16px">
+                  <div style="flex:1; min-width:160px"><span class="nlbl">Category</span><span class="nfld nfld--ph" style="justify-content:space-between">Select… <span>▾</span></span></div>
+                  <div style="flex:1; min-width:160px"><span class="nlbl">Name</span><span class="nfld nfld--ph">e.g. Shure SM58</span></div>
+                  <div style="flex:1; min-width:160px"><span class="nlbl">Description</span><span class="nfld"></span></div>
+                  <div><span class="nlbl">Qty</span><span class="nfld" style="width:88px">0</span></div>
+                  <div><span class="nlbl">Price</span><span class="nfld" style="width:88px">0</span></div>
+                  <span class="btn btn--primary btn--md">Add item</span>
+                </div>
+                <table class="old">
+                  <thead><tr><th>Item</th><th>Description</th><th>Qty</th><th>Price ex VAT</th><th>Category</th><th></th></tr></thead>
+                  <tbody>
+                    <tr class="odd">
+                      <td><span class="nm">Shure SM58</span></td>
+                      <td style="color:#a1a1aa">Dynamic vocal microphone</td>
+                      <td>24</td><td>45.00</td><td>Microphones</td>
+                      <td><div style="display:flex; gap:4px"><span class="btn btn--ghost btn--md" style="height:32px">✎</span><span class="btn btn--ghost btn--md" style="height:32px">🗑</span></div></td>
+                    </tr>
+                    <tr class="even">
+                      <td><span class="nm">Robe LEDBeam 150</span></td>
+                      <td style="color:#a1a1aa">Moving-head beam</td>
+                      <td>16</td><td>420.00</td><td>Moving lights</td>
+                      <td><div style="display:flex; gap:4px"><span class="btn btn--ghost btn--md" style="height:32px">⚙ Modes</span><span class="btn btn--ghost btn--md" style="height:32px">✎</span><span class="btn btn--ghost btn--md" style="height:32px">🗑</span></div></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>before</b> — two rows of 308 shown. Two categories of 12. The page header is a third frame above both</div>
+    </div>
+
+    <div class="prose">
+      <p>
+        The conversion is the one Wave 2 already worked out for a surface that is neither
+        a sheet nor a list: <strong>the categories become a column of the panel</strong>,
+        bordered on the edge it shares with the items — the mirror of the stage plot's
+        palette (<code>design/patterns.md</code> §4). Everything the category list was
+        doing besides filtering moves into a drawer, because a category is
+        <em>declared once and referenced by every item</em>, which is the drawer rule
+        stated exactly.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div class="pan">
+            <div class="pan__bar">
+              <span class="btn btn--ghost">← Back</span>
+              <span class="pan__ti">Nordic Rental AB</span>
+              <span class="fld fld--srch fld--ph">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                Find an item…
+              </span>
+              <span class="btn btn--outline">Categories</span>
+              <span class="btn btn--outline">Import</span>
+              <span class="grow"></span>
+              <span class="btn btn--primary">+ Item</span>
+            </div>
+
+            <div class="cols">
+              <div class="rail">
+                <div class="rail__row"><span>All items</span><span class="ct">308</span></div>
+                <div class="rail__row rail__row--on"><span>Microphones</span><span class="ty">audio</span><span class="ct">64</span></div>
+                <div class="rail__row"><span>Cables</span><span class="ty">audio</span><span class="ct">41</span></div>
+                <div class="rail__row"><span>Stands</span><span class="ty">audio</span><span class="ct">18</span></div>
+                <div class="rail__row"><span>Consoles</span><span class="ty">audio</span><span class="ct">9</span></div>
+                <div class="rail__row"><span>Moving lights</span><span class="ty">lighting</span><span class="ct">37</span></div>
+                <div class="rail__row"><span>Wash &amp; par</span><span class="ty">lighting</span><span class="ct">52</span></div>
+                <div class="rail__row"><span>Truss</span><span class="ty">rigging</span><span class="ct">24</span></div>
+                <div class="rail__row"><span>Motors</span><span class="ty">rigging</span><span class="ct">11</span></div>
+                <div class="rail__row"><span>Projection</span><span class="ty">video</span><span class="ct">14</span></div>
+                <div class="rail__row"><span>Power</span><span class="ty">misc</span><span class="ct">38</span></div>
+              </div>
+
+              <div class="colmain">
+                <table class="sheet">
+                  <thead>
+                    <tr><th>Item</th><th>Description</th><th>Category</th><th>Qty</th><th>Price</th><th>Modes</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="nm">Shure SM58</td>
+                      <td class="desc">Dynamic vocal microphone</td>
+                      <td class="qt">Microphones</td>
+                      <td class="num">24</td><td class="num">45.00</td><td class="num none">—</td>
+                    </tr>
+                    <tr class="alt">
+                      <td class="nm">Shure SM57</td>
+                      <td class="desc">Dynamic instrument microphone</td>
+                      <td class="qt">Microphones</td>
+                      <td class="num">18</td><td class="num">42.00</td><td class="num none">—</td>
+                    </tr>
+                    <tr>
+                      <td class="nm">Sennheiser e904</td>
+                      <td class="desc">Clip-on drum microphone</td>
+                      <td class="qt">Microphones</td>
+                      <td class="num">12</td><td class="num">65.00</td><td class="num none">—</td>
+                    </tr>
+                    <tr class="alt">
+                      <td class="nm">DPA 4099</td>
+                      <td class="desc">Instrument condenser, supercardioid</td>
+                      <td class="qt">Microphones</td>
+                      <td class="num">6</td><td class="num">180.00</td><td class="num none">—</td>
+                    </tr>
+                    <tr>
+                      <td class="nm">Beta 91A</td>
+                      <td class="desc">Half-cardioid boundary microphone</td>
+                      <td class="qt">Microphones</td>
+                      <td class="num">4</td><td class="num">95.00</td><td class="num none">—</td>
+                    </tr>
+
+                    <tr class="open">
+                      <td class="nm">Robe LEDBeam 150</td>
+                      <td class="desc">Moving-head beam</td>
+                      <td class="qt">Moving lights</td>
+                      <td class="num">16</td><td class="num">420.00</td>
+                      <td class="num">4</td>
+                    </tr>
+                    <tr class="eds">
+                      <td colspan="6">
+                        <div class="rowed">
+                          <div class="rowed__f rowed__f--short">
+                            <span class="lbl">Category</span><span class="fld fld--sel">Moving lights</span>
+                          </div>
+                          <div class="rowed__f rowed__f--grow">
+                            <span class="lbl">Name</span><span class="fld fld--foc">Robe LEDBeam 150</span>
+                          </div>
+                          <div class="rowed__f rowed__f--grow">
+                            <span class="lbl">Description</span><span class="fld">Moving-head beam</span>
+                          </div>
+                          <div class="rowed__f rowed__f--count">
+                            <span class="lbl">Qty</span><span class="fld">16</span>
+                          </div>
+                          <div class="rowed__f rowed__f--count">
+                            <span class="lbl">Price</span><span class="fld">420.00</span>
+                          </div>
+                          <div class="rowed__acts">
+                            <span class="btn btn--danger-ghost">Delete</span>
+                            <span class="btn btn--primary">Done</span>
+                          </div>
+                          <div class="notice">
+                            <span class="lbl" style="flex:none">DMX modes</span>
+                            <span class="mono" style="color:#d4d4d8">Standard <span style="color:#71717a">6 ch</span></span>
+                            <span style="color:#3f3f46">·</span>
+                            <span class="mono" style="color:#d4d4d8">Extended <span style="color:#71717a">15 ch</span></span>
+                            <span style="color:#3f3f46">·</span>
+                            <span class="mono" style="color:#d4d4d8">Pixel <span style="color:#71717a">39 ch</span></span>
+                            <span style="color:#3f3f46">·</span>
+                            <span class="mono" style="color:#d4d4d8">Full <span style="color:#71717a">45 ch</span></span>
+                            <span style="margin-left:auto; display:flex; gap:6px">
+                              <span class="fld" style="width:96px" >Mode name</span>
+                              <span class="fld" style="width:56px">ch</span>
+                              <span class="btn btn--outline">Add mode</span>
+                            </span>
+                          </div>
+                        </div>
+                        <div class="rowed__keys"><kbd>⌘↵</kbd> save · <kbd>esc</kbd> close</div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="strip">
+              <span class="pill t-ok">imported</span>
+              <span><span class="mono">308</span> items</span>
+              <span class="q">·</span>
+              <span><span class="mono">12</span> categories</span>
+              <span class="q">·</span>
+              <span><span class="mono">64</span> in Microphones</span>
+              <span class="q">·</span>
+              <span><span class="mono">41</span> lighting items carry DMX modes</span>
+              <span class="q">·</span>
+              <span class="q">LL-prislista-2026.xlsx, 2026-05-04</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>after</b> — one panel, a category rail, one editor, and the modes dialog gone</div>
+    </div>
+
+    <div class="tally">
+      <span>cards <b>3 → 1 panel</b></span>
+      <span>always-open forms <b>2 → 0</b></span>
+      <span>dialogs <b>1 → 0</b></span>
+      <span>controls per closed item row <b>2–3 → 0</b></span>
+      <span>items on a 900 px screen <b>~9 → ~30</b></span>
+      <span>categories visible at once <b>~4 → 12</b></span>
+    </div>
+
+    <div class="prose">
+      <p>
+        <strong>The rail only filters.</strong> Renaming a category, retyping it, deleting
+        it and assigning its planning picker role all move into a <em>Categories</em>
+        drawer. Today those four controls are stacked in the corner of every category
+        tile, which is why only four categories fit on screen out of twelve — a filter you
+        cannot see all of is a filter that does not work.
+      </p>
+      <p>
+        <strong>Import becomes a drawer, not a button and a green paragraph.</strong> It is
+        the one operation on this page with something to explain: the server detects
+        whether the file is an LL price list or a generic list, and today that is a
+        <code>title</code> tooltip. The drawer holds the file picker, the blank-template
+        download, the format note, and the result of the last import — which currently
+        renders as a bare sentence above the layout and shifts everything down when it
+        appears.
+      </p>
+      <p>
+        <strong>DMX modes move into the item's editor</strong>, in <code>RowEditor</code>'s
+        <code>notice</code> slot — the full-width block Wave 3 added for the address
+        prompt. A mode belongs to an item; opening a dialog from a row to edit part of that
+        row is the pattern the whole convergence has been removing. The sheet gains a
+        <code>Modes</code> column so you can see which items have them without opening
+        anything, which today takes twelve clicks.
+      </p>
+      <p>
+        <strong>The list view stays a card list</strong> — P1's stated exception, since
+        each inventory is an independent object. It loses the “Create a new inventory”
+        card, which becomes the page's one primary action, and each card gains its item
+        count, so the size of a catalog is visible before you open it.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app app--tight">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px">
+            <p style="font-size:14px; color:#a1a1aa; max-width:60ch">
+              Each inventory is its own independent equipment catalog. Bind one to an event when
+              you create it, and reuse it across events.
+            </p>
+            <span class="btn btn--primary btn--md">+ New inventory</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:12px">
+            <div class="lrow">
+              <div>
+                <div class="t">Nordic Rental AB</div>
+                <div class="s">308 items · 12 categories · imported from LL-prislista-2026.xlsx</div>
+              </div>
+              <div style="display:flex; gap:4px">
+                <span class="btn btn--ghost btn--md">Rename</span>
+                <span class="btn btn--ghost btn--md">Duplicate</span>
+                <span class="btn btn--ghost btn--md">Delete</span>
+              </div>
+            </div>
+            <div class="lrow">
+              <div>
+                <div class="t">Backline</div>
+                <div class="s">42 items · 5 categories · no price list imported yet</div>
+              </div>
+              <div style="display:flex; gap:4px">
+                <span class="btn btn--ghost btn--md">Rename</span>
+                <span class="btn btn--ghost btn--md">Duplicate</span>
+                <span class="btn btn--ghost btn--md">Delete</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>after</b> — the list view: a card list stays a card list, with counts and one primary action</div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       03 · OWNED GEAR
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">03 · owned gear</span>
+      <h2>The same conversion, a fifth of the size</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <code>OwnedGearManager</code> is the second tab of the Inventories page: one card,
+        one always-open five-field form, one navigation-tier table of
+        <em>Item · Type · Owned · Notes · Planned on · actions</em>. It converts to a panel
+        with no rail — there is nothing to filter by — and it is the smallest piece of work
+        in the wave.
+      </p>
+      <p>
+        The one column worth keeping exactly as it is: <strong>Planned on</strong>, which
+        counts how many events have this item on their equipment list. It is a derivation
+        (P6), it is why deleting an owned item can fail, and it is the only reason to look
+        at this page rather than the event you are planning.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div class="pan">
+            <div class="pan__bar">
+              <span class="pan__ti">Owned gear</span>
+              <span class="fld fld--srch fld--ph">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                Find an item…
+              </span>
+              <span class="grow"></span>
+              <span class="btn btn--primary">+ Item</span>
+            </div>
+            <table class="sheet">
+              <thead><tr><th>Item</th><th>Type</th><th>Owned</th><th>Planned on</th><th>Notes</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td class="nm">MacBook Pro 16"</td>
+                  <td><span class="pill t-def">control</span></td>
+                  <td class="num">1</td><td class="num">3 events</td>
+                  <td class="desc">FOH laptop + Dante interface</td>
+                </tr>
+                <tr class="alt">
+                  <td class="nm">DiGiCo SD-Rack</td>
+                  <td><span class="pill t-def">audio</span></td>
+                  <td class="num">2</td><td class="num">1 event</td>
+                  <td class="desc none">—</td>
+                </tr>
+                <tr>
+                  <td class="nm">Shure PSM1000</td>
+                  <td><span class="pill t-def">audio</span></td>
+                  <td class="num">2</td><td class="num none">—</td>
+                  <td class="desc">two belt packs, one spare aerial</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="strip">
+              <span class="pill t-ok">10 items</span>
+              <span><span class="mono">4</span> audio</span>
+              <span class="q">·</span>
+              <span><span class="mono">3</span> lighting</span>
+              <span class="q">·</span>
+              <span><span class="mono">3</span> control</span>
+              <span class="q">·</span>
+              <span><span class="mono">5</span> planned on an event</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>after</b> — no rail, no drawer, one primary action</div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       04 · SETTINGS AND MY DEFAULTS
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">04 · settings · my defaults</span>
+      <h2>Nine cards, nine add forms, one page</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        The event's Settings tab and the personal My Defaults page render the same
+        component nine times: one <code>VocabularyCard</code> per planning vocabulary, in a
+        two-column grid. Each card is a list of live <code>Input</code>s that persist on
+        blur, a <code>&lt;code&gt;</code> showing the stored key beside every label, a trash
+        button per row, and an add form at the bottom.
+      </p>
+      <p>
+        Nine cards is five screens of scrolling to find <em>Truss types</em>, and nine
+        add forms open at once. The stored key — <code>dmx5</code> next to
+        <em>DMX 5-pin</em> — is a debugging detail on a page a lighting tech uses to add
+        a connector type.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div class="grid2">
+            <div class="ncard">
+              <div class="ncard__hd"><div><h4>Signal types</h4></div></div>
+              <div class="ncard__bd">
+                <div style="display:flex; align-items:center; gap:8px">
+                  <span class="nfld" style="flex:1">Microphone</span>
+                  <code style="width:128px; font-size:12px; color:#71717a; font-family:var(--mono)">mic</code>
+                  <span class="btn btn--ghost btn--md">🗑</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px">
+                  <span class="nfld" style="flex:1">Line</span>
+                  <code style="width:128px; font-size:12px; color:#71717a; font-family:var(--mono)">line</code>
+                  <span class="btn btn--ghost btn--md">🗑</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px">
+                  <span class="nfld" style="flex:1">DI</span>
+                  <code style="width:128px; font-size:12px; color:#71717a; font-family:var(--mono)">di</code>
+                  <span class="btn btn--ghost btn--md">🗑</span>
+                </div>
+                <div style="display:flex; align-items:flex-end; gap:8px; border-top:1px solid #27272a; padding-top:12px">
+                  <div style="flex:1"><span class="nlbl">Label</span><span class="nfld nfld--ph">DMX 5-pin</span></div>
+                  <div style="width:160px"><span class="nlbl">Value (stored)</span><span class="nfld nfld--ph">dmx5</span></div>
+                  <span class="btn btn--primary btn--md">+ Add</span>
+                </div>
+              </div>
+            </div>
+            <div class="ncard">
+              <div class="ncard__hd"><div><h4>Preamp connectors</h4></div></div>
+              <div class="ncard__bd">
+                <div style="display:flex; align-items:center; gap:8px">
+                  <span class="nfld" style="flex:1">XLR</span>
+                  <code style="width:128px; font-size:12px; color:#71717a; font-family:var(--mono)">xlr</code>
+                  <span class="btn btn--ghost btn--md">🗑</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px">
+                  <span class="nfld" style="flex:1">TRS</span>
+                  <code style="width:128px; font-size:12px; color:#71717a; font-family:var(--mono)">trs</code>
+                  <span class="btn btn--ghost btn--md">🗑</span>
+                </div>
+                <div style="display:flex; align-items:flex-end; gap:8px; border-top:1px solid #27272a; padding-top:12px">
+                  <div style="flex:1"><span class="nlbl">Label</span><span class="nfld nfld--ph">DMX 5-pin</span></div>
+                  <div style="width:160px"><span class="nlbl">Value (stored)</span><span class="nfld nfld--ph">dmx5</span></div>
+                  <span class="btn btn--primary btn--md">+ Add</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p style="color:#52525b; font-size:13px; margin-top:16px; text-align:center">…and seven more cards below the fold</p>
+        </div>
+      </div>
+      <div class="spec__cap"><b>before</b> — two of nine. Nine add forms are open on this page at once</div>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div class="pan">
+            <div class="pan__bar">
+              <span class="pan__ti">Vocabularies</span>
+              <span class="fld fld--srch fld--ph">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                Find a value…
+              </span>
+              <span class="grow"></span>
+              <span class="btn btn--primary">+ Value</span>
+            </div>
+            <div class="cols">
+              <div class="rail">
+                <div class="rail__row rail__row--on"><span>Signal types</span><span class="ct">6</span></div>
+                <div class="rail__row"><span>Preamp connectors</span><span class="ct">4</span></div>
+                <div class="rail__row"><span>Signal cable types</span><span class="ct">7</span></div>
+                <div class="rail__row"><span>Speaker cable types</span><span class="ct">3</span></div>
+                <div class="rail__row"><span>Output types</span><span class="ct">8</span></div>
+                <div class="rail__row"><span>Mic stands</span><span class="ct">5</span></div>
+                <div class="rail__row"><span>Power connectors</span><span class="ct">4</span></div>
+                <div class="rail__row"><span>Truss types</span><span class="ct">6</span></div>
+                <div class="rail__row"><span>Channel colors</span><span class="ct">12</span></div>
+              </div>
+              <div class="colmain">
+                <table class="sheet">
+                  <thead><tr><th>Label</th><th>Stored value</th><th>In use</th></tr></thead>
+                  <tbody>
+                    <tr><td class="nm">Microphone</td><td class="num">mic</td><td class="num">18 channels</td></tr>
+                    <tr class="alt"><td class="nm">Line</td><td class="num">line</td><td class="num">6 channels</td></tr>
+                    <tr><td class="nm">DI</td><td class="num">di</td><td class="num">4 channels</td></tr>
+                    <tr class="alt"><td class="nm">Return</td><td class="num">return</td><td class="num none">—</td></tr>
+                    <tr class="open"><td class="nm">Wireless</td><td class="num">wireless</td><td class="num">2 channels</td></tr>
+                    <tr class="eds">
+                      <td colspan="3">
+                        <div class="rowed">
+                          <div class="rowed__f rowed__f--grow">
+                            <span class="lbl">Label</span><span class="fld fld--foc">Wireless</span>
+                          </div>
+                          <div class="rowed__f">
+                            <span class="lbl">Stored value</span>
+                            <span class="fld" style="color:#71717a">wireless</span>
+                          </div>
+                          <div class="rowed__acts">
+                            <span class="btn btn--danger-ghost">Delete</span>
+                            <span class="btn btn--primary">Done</span>
+                          </div>
+                          <div class="notice">
+                            Two input channels use this value. Renaming the label is safe — the stored
+                            value never changes, so no saved plan moves. Deleting is refused while it is in use.
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="strip">
+              <span class="pill t-def">9 vocabularies</span>
+              <span><span class="mono">55</span> values</span>
+              <span class="q">·</span>
+              <span><span class="mono">6</span> in Signal types</span>
+              <span class="q">·</span>
+              <span class="q">this event's own copy — editing it changes nothing anywhere else</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>after</b> — the same rail construction as Inventories, its second use</div>
+    </div>
+
+    <div class="prose">
+      <p>
+        <strong>The stored value stops being a caption and becomes a column.</strong> It
+        matters — it is what saved plans point at, and it is why renaming is safe and
+        deleting is not — so it is shown once per row, in mono, where a column of keys
+        lines up, instead of squeezed beside every label at 128 px and truncated.
+      </p>
+      <p>
+        <strong><code>In use</code> is new, and it is the point.</strong> The backend
+        already refuses to delete a value a plan references; today the interface finds out
+        by trying, and reports the refusal as an error the user caused. Counting the
+        references is the same derivation, made visible <em>before</em> the click — so a
+        value safe to delete looks different from one that is load-bearing, at rest,
+        without touching anything. <span class="tag tag--new">endpoint approved</span> It
+        also turns the notice from a warning into a fact: <em>two input channels use this
+        value</em>, rather than <em>deletion may be refused</em>.
+      </p>
+      <p>
+        <strong>One component, still two pages.</strong> Settings and My Defaults keep
+        sharing it; the difference stays what it is today — which API the callbacks hit,
+        and the sentence in the strip.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       05 · DASHBOARD AND EVENTS
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">05 · dashboard · events</span>
+      <h2>The page you land on</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        The Dashboard's three stat cards each carry a <code>Badge</code> containing the
+        first word of the label beside it. <em>Total events · 12 · <span
+        style="color:#a1a1aa">Total</span></em>. It is a coloured chip that carries no
+        information, on the surface that establishes what colour means, and by P4 that is
+        the violation named in the principle: <em>a state distinguishable from its
+        neighbour only by being amber</em> — except here it does not even distinguish.
+      </p>
+      <p>
+        Beside them, a card called “Quick actions” holds one button and a sentence of
+        marketing copy, and a card called “Recent events” holds five links.
+        <strong>Five bordered boxes to say twelve, four, two, and here are some
+        links.</strong>
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div class="grid3" style="margin-bottom:24px">
+            <div class="oldtile">
+              <div class="l">Total events</div>
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-top:12px">
+                <div class="v">12</div><span class="badge" style="background:#3f3f46; color:#f4f4f5">Total</span>
+              </div>
+            </div>
+            <div class="oldtile">
+              <div class="l">Upcoming events</div>
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-top:12px">
+                <div class="v">4</div><span class="badge" style="background:rgba(245,158,11,0.15); color:#fcd34d">Upcoming</span>
+              </div>
+            </div>
+            <div class="oldtile">
+              <div class="l">Inventories</div>
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-top:12px">
+                <div class="v">2</div><span class="badge" style="background:rgba(16,185,129,0.15); color:#6ee7b7">Inventories</span>
+              </div>
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:2fr 1fr; gap:24px">
+            <div class="ncard">
+              <div class="ncard__hd"><div><h4>Recent events</h4></div></div>
+              <div class="ncard__bd">
+                <div style="display:flex; align-items:center; justify-content:space-between; border:1px solid #27272a; border-radius:8px; background:#18181b; padding:12px 16px">
+                  <div><div style="font-weight:500; color:#f4f4f5">Fest i Parken 2026</div><div style="color:#a1a1aa">Slottsparken, Malmö</div></div>
+                  <span class="badge" style="background:rgba(245,158,11,0.15); color:#fcd34d">2026-08-14</span>
+                </div>
+              </div>
+            </div>
+            <div class="ncard">
+              <div class="ncard__hd"><div><h4>Quick actions</h4></div></div>
+              <div class="ncard__bd">
+                <span class="btn btn--primary btn--md" style="width:100%">Create Event</span>
+                <p style="font-size:14px; color:#a1a1aa; max-width:none">Start with event details, then build audio, lighting, and rental plans in one place.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>before</b> — three badges that repeat their own labels, and a card holding one button</div>
+    </div>
+
+    <div class="prose">
+      <p>
+        But trimming it is not enough. This is the screen a user lands on every working
+        day, and what it currently offers is three counts of things they own and a link to
+        the event they were already looking at. It should make you want to open something.
+      </p>
+      <p>
+        So the dashboard stops being a grid of cards and becomes <strong>one show, then a
+        dated list</strong>: the next event drawn at full size with the shape of its rig
+        and where its plan stands, and everything else on a spine of dates.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px">
+            <span class="lbl">Next show</span>
+            <span class="btn btn--primary btn--md">+ New event</span>
+          </div>
+
+          <div class="hero">
+            <div class="hero__hd">
+              <div>
+                <div class="hero__ti">Fest i Parken 2026</div>
+                <div class="hero__sub">Slottsparken, Malmö · Saturday 14 August 2026</div>
+              </div>
+              <div class="hero__cd">
+                <div class="v">18</div>
+                <div class="l">days to load-in</div>
+              </div>
+            </div>
+
+            <div style="padding:20px 20px 16px">
+              <div class="rib">
+                <span class="node"><span class="n">12</span><span class="k">sources</span></span>
+                <span class="run" style="--d:0s"></span>
+                <span class="node"><span class="n">2</span><span class="k">stageboxes</span></span>
+                <span class="run" style="--d:.25s"></span>
+                <span class="node node--desk"><span class="n">SD10</span><span class="k">console</span></span>
+                <span class="run" style="--d:.5s"></span>
+                <span class="node"><span class="n">3</span><span class="k">amps</span></span>
+                <span class="run" style="--d:.75s"></span>
+                <span class="node"><span class="n">8</span><span class="k">speakers</span></span>
+                <span class="run" style="--d:1s"></span>
+                <span class="node"><span class="n">64</span><span class="k">fixtures</span></span>
+              </div>
+            </div>
+
+            <div style="padding:0 20px 16px">
+              <div class="nums">
+                <div><div class="v">32<small> / 16</small></div><div class="l">channels in / out</div></div>
+                <div><div class="v">128</div><div class="l">cables picked</div></div>
+                <div><div class="v">3</div><div class="l">dmx universes</div></div>
+                <div><div class="v">3</div><div class="l">stage plots</div></div>
+                <div><div class="v">24190<small> kr</small></div><div class="l">rental, ex vat</div></div>
+              </div>
+            </div>
+
+            <div class="hero__ft">
+              <div class="ready" style="flex:1">
+                <span class="a"><b>Audio</b><span class="pill t-warn">2 gaps</span></span>
+                <span class="a"><b>Lighting</b><span class="pill t-ok">addressed</span></span>
+                <span class="a"><b>Rental</b><span class="pill t-err">1 over stock</span></span>
+                <span class="a"><b>Equipment</b><span class="pill t-ok">5 lines</span></span>
+              </div>
+              <span class="btn btn--outline">Open the show →</span>
+            </div>
+          </div>
+
+          <div style="margin-top:26px">
+            <div class="tlhd">
+              <span class="lbl">Also coming up</span>
+              <span class="rule"></span>
+              <span class="ct">3</span>
+            </div>
+            <div class="tlrow tlrow--on">
+              <span class="d">02 Oct</span>
+              <span class="n">Höstfest Kulturhuset</span>
+              <span class="v">Kulturhuset, Lund</span>
+              <span class="badge" style="background:#3f3f46; color:#f4f4f5">contributor</span>
+            </div>
+            <div class="tlrow">
+              <span class="d">14 Nov</span>
+              <span class="n">Vinterspelningen</span>
+              <span class="v">Venue TBD</span>
+            </div>
+            <div class="tlrow">
+              <span class="d q">no date</span>
+              <span class="n">Sommarturné 2027</span>
+              <span class="v">12 dates, venues to confirm</span>
+            </div>
+          </div>
+
+          <div style="margin-top:26px">
+            <div class="tlhd">
+              <span class="lbl">Done</span>
+              <span class="rule"></span>
+              <span class="ct">8</span>
+            </div>
+            <div class="tlrow tlrow--past">
+              <span class="d">12 Jun</span>
+              <span class="n">Valborg på Torget</span>
+              <span class="v">Stortorget, Lund</span>
+            </div>
+            <div class="tlrow tlrow--past">
+              <span class="d">03 May</span>
+              <span class="n">Studentskivan</span>
+              <span class="v">Akademiska Föreningen</span>
+              <span class="badge" style="background:rgba(245,158,11,0.15); color:#fcd34d">viewer</span>
+            </div>
+            <div class="tlrow tlrow--past">
+              <span class="d">28 Mar</span>
+              <span class="n">Vårkonsert</span>
+              <span class="v">Palladium, Malmö</span>
+            </div>
+          </div>
+
+          <div class="strip" style="border:1px solid #27272a; border-radius:12px; margin-top:26px">
+            <span><span class="mono">12</span> events</span>
+            <span class="q">·</span>
+            <span><span class="mono">4</span> upcoming</span>
+            <span class="q">·</span>
+            <span><span class="mono">2</span> inventories</span>
+            <span class="q">·</span>
+            <span><span class="mono">350</span> catalog items</span>
+            <span class="q">·</span>
+            <span><span class="mono">10</span> owned items</span>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>after</b> — one show at full size, then a spine of dates. The dot travels the rig; it stops if you have asked for less motion</div>
+    </div>
+
+    <div class="tally">
+      <span>cards <b>5 → 0</b></span>
+      <span>chips carrying no information <b>3 → 0</b></span>
+      <span>events visible <b>5 → 6 + the next one in full</b></span>
+      <span>facts about the next show <b>2 → 13</b></span>
+      <span>marketing sentences <b>1 → 0</b></span>
+    </div>
+
+    <div class="prose">
+      <p>
+        <strong>The next show is bordered the way the desk is.</strong>
+        <code>amber-500/55</code> is the canvas's own encoding for <em>the box every other
+        box is arranged around</em>, and on this page that is exactly what the next event
+        is. Reusing it is not decoration — it is the same claim, on a different surface.
+        The word <em>Next show</em> is above it, so the border is never the only carrier
+        (P4).
+      </p>
+      <p>
+        <strong>The ribbon is the flow canvas, one row high, and the dot travels
+        it.</strong> Real nodes with their real border and shadow, the console in amber,
+        runs between them — twelve sources into two stageboxes into an SD10 into three amps
+        into eight boxes and sixty-four fixtures. It says what shape the show is in the
+        width of a sentence, and it is the product's own picture of itself.
+      </p>
+      <p>
+        <strong>The animation is the one the language already sanctions.</strong>
+        <code>design/tokens.md</code> §6 permits exactly two things — <code>transition-colors</code>,
+        and the signal-flow pulse, “already wrapped in
+        <code>prefers-reduced-motion: no-preference</code>”, with the instruction that any
+        new animation gets the same wrapper. That pulse exists today only on the
+        signed-out start page. Bringing it to the signed-in landing page is the same
+        animation in the same wrapper, staggered along the runs so the signal walks the rig.
+        It stays off every working surface, because a tool that animates while a technician
+        is counting channels is in the way — and a landing page is not that.
+      </p>
+      <p>
+        <strong>Everything else is a spine of dates.</strong> No cards, no grid: a
+        micro-label and a rule, then rows of <em>date · name · venue · role</em> with the
+        dates in mono so they line up as a column you can run your eye down. Past events
+        keep their own block, dimmed, because they are how you find last year's file for
+        the same festival — which is currently impossible without scrolling a grid of
+        identical boxes.
+      </p>
+      <p>
+        <strong>The three counts become the strip.</strong> They were never the headline;
+        they are the footnote, and the footnote is where they go — joined by the catalog
+        and owned-gear counts, so the strip states what your account contains rather than
+        just how many events are in it.
+      </p>
+      <p>
+        <strong>What this costs is the derivation Wave 4 already builds.</strong> The hero
+        needs the next event's counts and verdicts, which is
+        <code>lib/eventSummary.ts</code> — written for the Overview tab, called here for
+        exactly one event. Wave 4 first proposed a summary <em>endpoint</em> for this and
+        withdrew it: these are derivations, not counts, and a Go copy would let the hero
+        disagree with the tab it links to. So the dashboard fetches the same three queries
+        Overview does, for the next show only, under the same cache keys.
+      </p>
+      <p>
+        <strong>Events barely changes.</strong> It is a grid of independent objects and P1
+        exempts it by name. It gains a search field, because twelve events fit and forty do
+        not, and an actionable empty state — <em>“No events yet”</em> beside the button
+        that makes one, rather than a sentence at the bottom of an empty grid. The
+        introductory line of prose above the grid goes.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       06 · LOGIN
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">06 · login</span>
+      <h2>One retyped button</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Login is forty-seven lines and almost entirely correct. Two things in it are not,
+        and both are P3's failure mode rather than a visual problem:
+      </p>
+      <p>
+        The sign-in control is an <code>&lt;a&gt;</code> carrying
+        <code>rounded-md border border-amber-500 bg-amber-500 px-4 py-2.5 text-sm
+        font-medium text-zinc-950</code> — the primary button's classes, retyped. It is a
+        link, so it cannot be a <code>&lt;button&gt;</code>; but a shared style that is
+        copied instead of imported is exactly how the micro-label ended up with four
+        definitions and two sizes.
+      </p>
+      <p>
+        And the error block is <code>border-red-900 bg-red-950/50</code> where
+        <code>design/tokens.md</code> §5 says <code>border-red-800 bg-red-950/50</code>. One
+        step, invisible, and the sort of drift that is only ever fixed by someone grepping
+        for it.
+      </p>
+      <p>
+        <strong>The fix</strong> is to let <code>Button</code> expose its class string —
+        or to render an anchor through it with an <code>as</code> escape hatch — and to use
+        the token. Nothing on the page moves.
+        <span class="tag tag--new">touches ui/Button</span> This is the only change in
+        either wave that reaches into <code>components/ui/</code>, and it is worth flagging
+        for that reason alone.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       07 · START PAGE
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">07 · start page</span>
+      <h2>The exemption <span class="tag tag--keep" style="vertical-align:6px">granted</span></h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        The Start page is the signed-out marketing page, built in Slice 20. It uses
+        <code>rounded-2xl</code> cards, <code>rounded-full</code> chips, a
+        <code>rounded-[9px]</code> brand tile, two radial-gradient grounds, a 44 px mono
+        display heading and an animated dot travelling a cable path. None of that is in
+        the design language, and <strong>none of it should be.</strong>
+      </p>
+      <p>
+        <code>design/principles.md</code> P2 lists “the start page” among the navigation
+        surfaces, which is the only place the documents say anything about it, and that
+        line is doing more work than it was meant to: it settles the page's
+        <em>density</em>, and it has been read as claiming the page is inside the system.
+        A landing page's job is to be memorable to someone who has never seen the product;
+        the application's job is to disappear behind the patch. Those are different
+        briefs, and one visual language cannot serve both without one of them losing.
+      </p>
+      <p>
+        <strong>What I would do instead of converting it:</strong> write the exemption into
+        <code>design/audit.md</code> and <code>design/principles.md</code> explicitly —
+        <em>the signed-out marketing surface is outside this language; it shares the brand
+        mark, the amber accent and the type families, and nothing else</em> — and change
+        exactly one thing on the page, the single <code>rounded-lg</code> on the feature
+        icon tile, which is neither the page's own <code>rounded-2xl</code> nor the
+        ladder's <code>rounded-md</code> and is therefore just a stray.
+      </p>
+      <p>
+        The alternative was to converge it: flatten the gradients, drop the display type to
+        the ladder, lose the patch-bay graphic, and make the audit's grep come out clean at
+        the cost of the only page in the product whose job is to be memorable.
+        <strong>The exemption was granted</strong>, so that is what the spec will say, and
+        the audit will carry the exemption in writing rather than a permanently open
+        finding nobody intends to close.
+      </p>
+      <p>
+        One thread does run back the other way. The start page owns the
+        <code>pp-pulse-dot</code> animation — a dot travelling a cable path — and the
+        design language sanctions it by name as the app's only permitted motion. §05 brings
+        it inside, to the signed-in landing page. Exempting the start page from the
+        language does not mean nothing may come out of it.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       08 · THE RADIUS LADDER
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">08 · finding a4</span>
+      <h2>Twelve occurrences, and one of them is a comment</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        The audit's own command reports twelve <code>rounded-lg</code> left. Running it
+        against the current tree and reading each one:
+      </p>
+    </div>
+
+    <div class="spec__frame" style="background:transparent; border:0; box-shadow:none">
+      <table class="radius">
+        <thead>
+          <tr><th>Where</th><th>What it is</th><th>Becomes</th><th>Wave</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>ui/PatchPanel.tsx</code></td>
+            <td>a <b>comment</b>, describing the three-card layout the panel replaced</td>
+            <td class="r">nothing — the grep counts prose</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td><code>event/RentalTab.tsx</code></td>
+            <td>the manual-line form block</td>
+            <td class="r">deleted with the form (row editor)</td>
+            <td>4</td>
+          </tr>
+          <tr>
+            <td><code>event/EquipmentTab.tsx</code> ×2</td>
+            <td>both add-line form blocks</td>
+            <td class="r">deleted with the forms</td>
+            <td>4</td>
+          </tr>
+          <tr>
+            <td><code>event/OverviewTab.tsx</code></td>
+            <td><code>MiniStat</code>'s tile</td>
+            <td class="r">deleted with the tiles (footer line)</td>
+            <td>4</td>
+          </tr>
+          <tr>
+            <td><code>pages/Inventories.tsx</code> ×3</td>
+            <td>mobile category-filter button · category tile · item add-form block</td>
+            <td class="r"><code>rounded-md</code> · rail row · deleted</td>
+            <td>5</td>
+          </tr>
+          <tr>
+            <td><code>components/OwnedGearManager.tsx</code></td>
+            <td>the add-item form block</td>
+            <td class="r">deleted with the form</td>
+            <td>5</td>
+          </tr>
+          <tr>
+            <td><code>event/EventInventoryCard.tsx</code></td>
+            <td>a category button in the read-only browse dialog</td>
+            <td class="r"><code>rounded-md</code> — it is a control</td>
+            <td>5</td>
+          </tr>
+          <tr>
+            <td><code>pages/Dashboard.tsx</code></td>
+            <td>the recent-event link row</td>
+            <td class="r"><code>rounded-md</code> — it is a control</td>
+            <td>5</td>
+          </tr>
+          <tr>
+            <td><code>pages/StartPage.tsx</code></td>
+            <td>a feature icon tile among <code>rounded-2xl</code> neighbours</td>
+            <td class="w">the one stray on an exempt page</td>
+            <td>5</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="prose">
+      <p>
+        <strong>Seven of the eleven real uses are deleted rather than corrected</strong>,
+        because they are the always-open form blocks the two waves are removing anyway.
+        That is the useful thing this table says: A4 was never really a radius problem. It
+        was a marker for a layout idiom — <em>a bordered block of fields floating above a
+        table</em> — that the codebase reached for seven times, and the radius was how it
+        showed up in a grep.
+      </p>
+      <p>
+        The lesson matches A12's, from Wave 2: a grep that matches a <em>value</em> finds
+        instances, not the reason there are instances. The four genuine radius corrections
+        are one-line changes; the seven that matter were a pattern.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       09 · SCOPE
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">09 · scope</span>
+      <h2>What this wave does not touch</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <strong>One endpoint, no migration.</strong> The vocabulary sheet's
+        <code>In use</code> column needs a reference count the API does not expose today —
+        a count, not a derivation, which is exactly why it belongs on the server where
+        Overview's numbers did not. The dashboard hero reuses
+        <code>lib/eventSummary.ts</code>, which Wave 4 builds for the Overview tab.
+        Everything else in the wave renders data already fetched.
+      </p>
+      <p>
+        <strong>One touch on <code>components/ui/</code></strong>, on <code>Button</code>,
+        so Login can stop retyping its classes. Wave 4 touches none. Both will be asserted
+        by a diff.
+      </p>
+      <p>
+        <strong>Mobile keeps its own branches.</strong> Inventories, Events and the
+        vocabulary cards all have <code>isMobile</code> paths rendering
+        <code>CondensedListRow</code> lists and full-screen filter dialogs. The rail is a
+        desktop construction — on a phone the category filter stays the dialog it is today.
+      </p>
+      <p>
+        <strong>Nothing about auth, roles or sharing.</strong> The read-only paths on these
+        pages already follow P7: a viewer is passed no handler and sees no control.
+      </p>
+      <p>
+        <strong>Not done, deliberately:</strong> the inventory sheet is not sortable, there
+        is no bulk edit and no bulk delete, and an item still cannot be moved between
+        categories except by editing it. Import already handles the bulk case, which is
+        how a 308-item catalog gets there in the first place.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       10 · THE ASKS
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">10 · decided</span>
+      <h2>What was asked, and what was answered</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Four calls, all answered. Two were approved as drawn, one was approved with the
+        hedge removed, and one came back asking for more rather than less — the drawings
+        above have been revised to match.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>1 · Inventories — a category rail, and two drawers <span class="tag tag--keep">approved</span></h3>
+      <p>
+        The categories become a filter column of the panel; renaming, retyping, deleting
+        and picker-role assignment move into a <em>Categories</em> drawer; the import
+        controls, the blank template and the last import's result move into an
+        <em>Import</em> drawer; DMX modes move from a dialog into the item editor's
+        <code>notice</code> slot. The list view stays a card list and gains item counts.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>2 · The <em>In use</em> count is worth an endpoint <span class="tag tag--keep">approved</span></h3>
+      <p>
+        Asked as “is it worth it, or should it be deferred?”. Answered: build it. So the
+        column is not a nice-to-have hanging off the design — it is the reason the sheet
+        has three columns, and the reason the editor's notice states a fact rather than
+        issuing a warning. The rest of the call stands as drawn: nine cards become one
+        panel, the vocabularies become the rail, and the stored key becomes a column rather
+        than a caption beside every label.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>3 · Dashboard — rebuilt, not trimmed <span class="tag tag--new">revised</span></h3>
+      <p>
+        Asked as “the badges go and so does Quick actions”. Answered: <strong>less card-y,
+        and make it exciting</strong> — this is the logged-in landing page. So the page
+        loses cards entirely. The next show is drawn at full size with the shape of its rig
+        as a one-row flow ribbon, a countdown, five numbers and the readiness verdicts from
+        every tab; everything else falls onto a spine of dates, upcoming and done; the
+        three counts become the footer strip they always were.
+      </p>
+      <p>
+        The pulse comes with it. <code>tokens.md</code> §6 permits exactly one animation
+        and names it, so this is the language's own allowance being spent where it belongs
+        — on the page you land on, never on a surface anyone works on. §05 above is the
+        result.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>4 · The Start page is exempt <span class="tag tag--keep">granted</span></h3>
+      <p>
+        Recorded in <code>design/audit.md</code> and <code>design/principles.md</code>: the
+        signed-out marketing surface is outside this language and shares only the brand
+        mark, the accent and the type families. Its one stray <code>rounded-lg</code> is
+        fixed and the rest is left alone — so A4 closes honestly rather than staying open
+        against a page nobody intends to convert.
+      </p>
+    </div>
+  </section>
+
+</div>

@@ -8,9 +8,39 @@ interface TabsContextValue {
 
 const TabsContext = createContext<TabsContextValue | null>(null)
 
-export function Tabs({ defaultValue, children, className }: { defaultValue: string; children: ReactNode; className?: string }) {
-  const [value, setValue] = useState(defaultValue)
-  const contextValue = useMemo(() => ({ value, setValue }), [value])
+interface TabsProps {
+  /** The tab shown until something selects another one. */
+  defaultValue: string
+  /**
+   * Drives the selection from outside, for a strip whose choice belongs
+   * somewhere addressable — `EventDetail` keeps it in `?tab=`, so a hand-off
+   * from one tab to another survives a reload, a bookmark and the back button
+   * (Slice 28 FR-083).
+   *
+   * Optional rather than a second component: the two behaviours differ only in
+   * where the value is stored, and `Inventories` genuinely does not care where
+   * its own choice lives. Same shape as the `active` prop `Tab` already carries.
+   */
+  value?: string
+  onValueChange?: (value: string) => void
+  children: ReactNode
+  className?: string
+}
+
+export function Tabs({ defaultValue, value, onValueChange, children, className }: TabsProps) {
+  const [uncontrolled, setUncontrolled] = useState(defaultValue)
+  const controlled = value != null
+  const current = controlled ? value : uncontrolled
+  const contextValue = useMemo(
+    () => ({
+      value: current,
+      setValue: (next: string) => {
+        if (!controlled) setUncontrolled(next)
+        onValueChange?.(next)
+      },
+    }),
+    [current, controlled, onValueChange],
+  )
   return (
     <TabsContext.Provider value={contextValue}>
       <div className={cn('space-y-4', className)}>{children}</div>

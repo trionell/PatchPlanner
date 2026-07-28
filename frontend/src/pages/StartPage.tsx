@@ -9,6 +9,19 @@ import {
 } from 'lucide-react'
 import { loginUrl } from '../api/auth'
 
+/*
+ * The signed-out marketing page, and it is **outside the design language**
+ * (Slice 29, design/audit.md). It shares the brand mark, the amber accent and
+ * the type families with the application, and nothing else: the rounded-2xl
+ * cards, the gradient grounds and the 44 px display heading are a different
+ * brief. A landing page must be memorable to someone who has never seen the
+ * product; the application must disappear behind the patch.
+ *
+ * So do not "converge" this file. The one thing Wave 5 changed was a stray
+ * rounded-lg on the feature tile, which matched neither this page's own scale
+ * nor the ladder it is exempt from.
+ */
+
 type Feature = {
   icon: LucideIcon
   tag: string
@@ -249,7 +262,7 @@ export function StartPage() {
             <div className="grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-800 sm:grid-cols-2 lg:grid-cols-3">
               {FEATURES.map(({ icon: Icon, tag, title, description }) => (
                 <div key={title} className="bg-zinc-900 p-6">
-                  <div className="mb-4 flex h-[34px] w-[34px] items-center justify-center rounded-lg border border-zinc-800 bg-zinc-950 text-amber-500">
+                  <div className="mb-4 flex h-[34px] w-[34px] items-center justify-center rounded-xl border border-zinc-800 bg-zinc-950 text-amber-500">
                     <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
                   </div>
                   <span className="mb-2 block font-mono text-[10px] tracking-wider text-zinc-500">

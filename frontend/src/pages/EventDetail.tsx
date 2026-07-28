@@ -18,6 +18,7 @@ import { useIsMobile } from '../hooks/useIsMobile'
 import { SectionSwitcher } from '../components/mobile/SectionSwitcher'
 import { Button } from '../components/ui/Button'
 import { Tab, TabList, TabPanel, Tabs } from '../components/ui/Tabs'
+import { DEFAULT_EVENT_TAB, useEventTab } from '../hooks/useEventTab'
 import { MOBILE_SECTION_CAPABILITIES, type MobileSectionCapability } from '../types/mobile'
 
 const MOBILE_SECTIONS = MOBILE_SECTION_CAPABILITIES.map((entry) => entry.section)
@@ -52,6 +53,7 @@ export function EventDetailPage() {
   const [membersOpen, setMembersOpen] = useState(false)
   const isMobile = useIsMobile()
   const [searchParams, setSearchParams] = useSearchParams()
+  const { tab, openTab } = useEventTab()
 
   if (!Number.isFinite(eventId)) return <p className="text-sm text-red-400">Invalid event id.</p>
   if (eventQuery.isLoading) return <p className="text-sm text-zinc-400">Loading event...</p>
@@ -60,9 +62,10 @@ export function EventDetailPage() {
   const canManageMembers = eventQuery.data.yourRole !== 'viewer'
   const readOnly = eventQuery.data.yourRole === 'viewer'
 
-  // Deep-link support (FR-016): a `?section=` param picks the initial
-  // section on mobile instead of always defaulting to Overview. Desktop's
-  // Tabs stays uncontrolled/unsynced, unchanged from before this feature.
+  // Deep-link support (Slice 21 FR-016): a `?section=` param picks the section
+  // on mobile instead of always defaulting to Overview. Desktop's own `?tab=`
+  // is the same idea and lives in `useEventTab`; the two params are separate
+  // because the phone's section list is shorter than the tab strip.
   const sectionParam = searchParams.get('section')
   const currentSection = (MOBILE_SECTIONS as string[]).includes(sectionParam ?? '')
     ? (sectionParam as MobileSectionCapability['section'])
@@ -114,7 +117,10 @@ export function EventDetailPage() {
 
       {eventQuery.data.yourRole === 'viewer' && <ReadOnlyBanner />}
 
-      <Tabs defaultValue="overview">
+      {/* Controlled from `?tab=` so a tab can hand off to another one, and so
+          any tab is reachable by link (FR-084). The phone's `?section=` above
+          is the same idea, and predates this. */}
+      <Tabs defaultValue={DEFAULT_EVENT_TAB} value={tab} onValueChange={openTab}>
         <TabList className="print:hidden">
           <Tab value="overview">Overview</Tab>
           <Tab value="audio-inputs">Audio Inputs</Tab>

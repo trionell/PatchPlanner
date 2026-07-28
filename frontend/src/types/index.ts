@@ -404,6 +404,15 @@ export interface EventRental {
   inventory_item_id: number
   inventory_item_name?: string
   description?: string
+  /**
+   * The catalog category, sent since Slice 22 so the PDF and spreadsheet
+   * exports can group lines without a second query. Declared here from Slice 28,
+   * when the Equipment sheet started reading it to type a rented line — the
+   * server has been sending all three all along.
+   */
+  category_id?: number
+  category_name?: string
+  category_type?: string
   quantity_audio: number
   quantity_lighting: number
   total_quantity: number
@@ -476,6 +485,21 @@ export interface ReferenceValue {
   vocabulary: string
   value: string
   label: string
+  /**
+   * How many plan rows use this value (Slice 29). Derived per request by the
+   * same function that guards the delete, so the number shown and the refusal
+   * that follows cannot disagree. Absent on a reference *template*, which no
+   * plan can reference — reporting `0` there would imply it could.
+   */
+  usageCount?: number
+  /**
+   * True when no planning column stores this vocabulary at all — four of the
+   * nine outlived the columns that once consumed them. On those, `usageCount`
+   * is not a count of zero but the absence of a question: nothing can ever
+   * reference the value, so a blank `In use` would read as "unused yet" when
+   * it means "this is not wired to anything".
+   */
+  usageUntracked?: boolean
 }
 
 export type ReferenceData = Record<string, ReferenceValue[]>

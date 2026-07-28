@@ -89,6 +89,64 @@ describe('buildOutputChannelFlow', () => {
     expect(flow.hasGap).toBe(true)
   })
 
+  // The event-1 shape: a stereo LR through a 2-in/2-out amplifier, each side
+  // carrying on to its own speaker. The walk used to branch from either input
+  // to *both* outputs, so the sheet printed two Left chains and two Right ones
+  // and neither could be told from the other.
+  it('carries channel N to channel N through a device with matching port counts', () => {
+    const amp = device({ id: 12, name: 'LR Amplifier', input_port_count: 2, output_port_count: 2 })
+    const speakerL = device({ id: 10, name: 'Speaker L', input_port_count: 1 })
+    const speakerR = device({ id: 11, name: 'Speaker R', input_port_count: 1 })
+    const cables = [
+      cable({ id: 1, from_kind: 'mixer', from_id: 1, from_port: 0, to_kind: 'device', to_id: 12, to_port: 0 }),
+      cable({ id: 2, from_kind: 'mixer', from_id: 1, from_port: 1, to_kind: 'device', to_id: 12, to_port: 1 }),
+      cable({ id: 3, from_kind: 'device', from_id: 12, from_port: 0, to_kind: 'device', to_id: 10, to_port: 0 }),
+      cable({ id: 4, from_kind: 'device', from_id: 12, from_port: 1, to_kind: 'device', to_id: 11, to_port: 0 }),
+    ]
+    const flow = buildOutputChannelFlow(output({ width: 'stereo' }), outputContext([amp, speakerL, speakerR], cables))
+
+    expect(flow.paths).toHaveLength(2)
+    expect(flow.paths[0]).toMatchObject({
+      sideLabel: 'Main L',
+      hops: [{ label: 'LR Amplifier ch 1' }, { label: 'Speaker L ch 1' }],
+    })
+    expect(flow.paths[1]).toMatchObject({
+      sideLabel: 'Main R',
+      hops: [{ label: 'LR Amplifier ch 2' }, { label: 'Speaker R ch 1' }],
+    })
+  })
+
+  it('still fans out through a device that has more outputs than inputs', () => {
+    // One in, two out is a splitter: the signal really does reach both.
+    const splitter = device({ id: 12, name: 'Splitter', input_port_count: 1, output_port_count: 2 })
+    const speakerA = device({ id: 10, name: 'Speaker A', input_port_count: 1 })
+    const speakerB = device({ id: 11, name: 'Speaker B', input_port_count: 1 })
+    const cables = [
+      cable({ id: 1, from_kind: 'mixer', from_id: 1, from_port: 0, to_kind: 'device', to_id: 12, to_port: 0 }),
+      cable({ id: 2, from_kind: 'device', from_id: 12, from_port: 0, to_kind: 'device', to_id: 10, to_port: 0 }),
+      cable({ id: 3, from_kind: 'device', from_id: 12, from_port: 1, to_kind: 'device', to_id: 11, to_port: 0 }),
+    ]
+    const flow = buildOutputChannelFlow(output({}), outputContext([splitter, speakerA, speakerB], cables))
+
+    expect(flow.paths).toHaveLength(2)
+    expect(flow.paths.map((path) => path.hops[path.hops.length - 1].label)).toEqual(['Speaker A ch 1', 'Speaker B ch 1'])
+  })
+
+  it('carries a link-out on regardless of which input the signal arrived at', () => {
+    // A sub's link is a copy of its whole input, not a channel-per-channel
+    // jack — so the same-index rule must not reach it.
+    const sub = device({ id: 15, name: 'Sub L 1', input_port_count: 1, link_port_count: 1 })
+    const next = device({ id: 16, name: 'Sub L 2', input_port_count: 1 })
+    const cables = [
+      cable({ id: 1, from_kind: 'mixer', from_id: 1, from_port: 0, to_kind: 'device', to_id: 15, to_port: 0 }),
+      cable({ id: 2, from_kind: 'device_link', from_id: 15, from_port: 0, to_kind: 'device', to_id: 16, to_port: 0 }),
+    ]
+    const flow = buildOutputChannelFlow(output({}), outputContext([sub, next], cables))
+
+    expect(flow.paths).toHaveLength(1)
+    expect(flow.paths[0].hops).toMatchObject([{ label: 'Sub L 1 ch 1' }, { label: 'Sub L 2 ch 1' }])
+  })
+
   it('treats an unconnected mixer port as direct, not a gap', () => {
     const flow = buildOutputChannelFlow(output({}), outputContext([], []))
     expect(flow.paths).toEqual([{ sideLabel: undefined, hops: [{ label: 'Direct to output', kind: 'direct', missing: false }] }])
