@@ -164,12 +164,12 @@ bottom-anchored clearance is a literal.
 **Independent test**: this one has no gate. [quickstart.md](quickstart.md) §
 *What a gate cannot see* — a handset, one pass, four things.
 
-- [ ] T037 [US4] Add `viewport-fit=cover` and `interactive-widget=resizes-content` to the viewport meta in `frontend/index.html`. Comment the file: without the first, every `env(safe-area-inset-*)` in the tree evaluates to `0` on iOS; the second is honoured by Chromium and ignored by WebKit, so nothing may depend on it ([research.md](research.md) R6)
-- [ ] T038 [US4] State the bottom nav's height in `frontend/src/components/mobile/MobileNav.tsx`: `h-14` on the `nav`, replacing the emergent sum of `py-2.5` + icon + label, with `pb-[env(safe-area-inset-bottom)]` kept **added** to it. Items become `flex-1 flex-col items-center justify-center gap-0.5` inside the stated height (FR-072)
-- [ ] T039 [US4] Derive the phone body's bottom padding in `frontend/src/components/Layout.tsx`: `pb-20` becomes `pb-[calc(3.5rem+env(safe-area-inset-bottom))]`, with a comment naming this as A5 on the other edge of the screen — a height a sibling positions against has to be a value someone chose (FR-073)
-- [ ] T040 [US4] State the phone header's height in the same file: `px-4 py-3` becomes `h-14 px-4`, the desktop header's own number ([patterns.md](../../design/patterns.md) §7a). Nothing positions against it yet, which is exactly why it is cheap now and was expensive on the other edge (FR-074)
-- [ ] T041 [US4] Record the stated visual deltas of this phase in the commit message: the phone's nav goes ~66 px → 56 px and its header ~53 px → 56 px. Both are the numbers `tokens.md` §7 already specified; neither is a new value
-- [ ] T042 Run the gates, then **commit 5**
+- [X] T037 [US4] Add `viewport-fit=cover` and `interactive-widget=resizes-content` to the viewport meta in `frontend/index.html`. Comment the file: without the first, every `env(safe-area-inset-*)` in the tree evaluates to `0` on iOS; the second is honoured by Chromium and ignored by WebKit, so nothing may depend on it ([research.md](research.md) R6)
+- [X] T038 [US4] State the bottom nav's height in `frontend/src/components/mobile/MobileNav.tsx`: `h-14` on the `nav`, replacing the emergent sum of `py-2.5` + icon + label, with `pb-[env(safe-area-inset-bottom)]` kept **added** to it. Items become `flex-1 flex-col items-center justify-center gap-0.5` inside the stated height (FR-072)
+- [X] T039 [US4] Derive the phone body's bottom padding in `frontend/src/components/Layout.tsx`: `pb-20` becomes `pb-[calc(3.5rem+env(safe-area-inset-bottom))]`, with a comment naming this as A5 on the other edge of the screen — a height a sibling positions against has to be a value someone chose (FR-073)
+- [X] T040 [US4] State the phone header's height in the same file: `px-4 py-3` becomes `h-14 px-4`, the desktop header's own number ([patterns.md](../../design/patterns.md) §7a). Nothing positions against it yet, which is exactly why it is cheap now and was expensive on the other edge (FR-074)
+- [X] T041 [US4] Record the stated visual deltas of this phase in the commit message: the phone's nav goes ~66 px → 56 px and its header ~53 px → 56 px. Both are the numbers `tokens.md` §7 already specified; neither is a new value
+- [X] T042 Run the gates, then **commit 5**
 
 ---
 

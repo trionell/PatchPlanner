@@ -31,9 +31,21 @@ export function Layout() {
   }
 
   if (isMobile) {
+    /*
+      Both edges of the phone are stated numbers now, and neither is a sum.
+
+      The body's bottom padding is `MobileNav`'s own `h-14` plus the inset that
+      bar carries. `pb-20` was 80px, guessed at the height of a padding plus an
+      icon plus a font size, plus an inset that varies by device — which is
+      `top-[73px]` (audit.md A5) on the opposite edge of the screen. A height a
+      sibling positions against has to be a value someone chose.
+
+      The header takes the desktop header's `h-14` for the same reason, before
+      anything positions against it rather than after (patterns.md §7a).
+    */
     return (
-      <div className="min-h-screen bg-zinc-950 pb-20 text-zinc-100">
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-zinc-800 bg-zinc-950/95 px-4 py-3 backdrop-blur print:hidden">
+      <div className="min-h-screen bg-zinc-950 pb-[calc(3.5rem+env(safe-area-inset-bottom))] text-zinc-100">
+        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-zinc-800 bg-zinc-950/95 px-4 backdrop-blur print:hidden">
           <div className="flex items-center gap-2">
             <div className="rounded-md bg-amber-500/15 p-1.5 text-amber-400">
               <Cable className="h-4 w-4" />
