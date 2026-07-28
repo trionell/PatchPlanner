@@ -381,7 +381,7 @@ is a desk job.
 |---|---|
 | header | `sticky top-0 z-20 h-14 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur px-4` |
 | header content | brand mark, page title `text-sm font-semibold`, avatar at `h-7 w-7` |
-| body | `px-4 py-4`, bottom padding derived from the nav's height |
+| body | `px-4 py-4`, bottom padding derived from the nav's height. **The scroller** — the shell is a fixed-height `h-[100svh]` column, so the page itself does not scroll |
 | bottom nav | `fixed inset-x-0 bottom-0 h-14 border-t border-zinc-800 bg-zinc-950`, plus the safe inset |
 
 The sidebar has no phone form and needs none: it is four destinations, and four
@@ -415,18 +415,47 @@ P1 does not have a width condition. A phone surface is one bordered thing:
 └─────────────────────────────┘
 ```
 
-- **The bar keeps §1's order** — title, toggle, search, drawers, `flex-1`, primary
-  action — and wraps rather than scrolls. What does not fit at 375 px goes into the
-  overflow the same way the nav's fourth slot works; it does not silently vanish.
+- **The bar keeps §1's order** — title, `flex-1`, search, the surface's own controls,
+  primary action — and wraps rather than scrolls. What does not fit at 375 px goes into
+  the overflow the same way the nav's fourth slot works; it does not silently vanish.
+  Every control in it is 44 px ([tokens.md](tokens.md) §7).
+- **Search is a target, not a field.** It opens the bar's second row, which is what
+  *wraps to two rows* means. A field that is always open costs 44 px on every screen to
+  serve something done on some of them, and it is what leaves a 375 px bar with room for
+  nothing else. Opening focuses the field; `Escape`, the clear control, or an emptied
+  field closes the row and clears the query — **a closed row and a non-empty query must
+  not coexist**, or the list is filtered by something the user cannot see.
+- **A search box that filters nothing is absent**, as on the desktop.
 - **The strip is not optional here.** It is the only thing on the phone that says
   whether the plan holds, and the phone is where someone is standing in the room
   the plan describes. A surface that has a strip on the desk has one in the hand.
-- **A search box that filters nothing is absent**, as on the desktop.
+- **And on a phone the strip is the control.** The desktop's filter button is a size
+  below `xs` for a good reason — a control inside a strip must not set the height of the
+  bar closing the panel — and that makes it a 24 px target in the hand, where giving it
+  44 would double the height of the one element on the one surface where height is rows.
+  So the strip's root *becomes* the button: full width, 44 px, at the bottom edge the
+  thumb is already on, filtering to exactly what it just reported. The sentence and the
+  control are the same object. A strip with nothing to filter to — *complete*,
+  *addressed*, *all covered* — draws no chevron and is not a control; neither is one
+  whose caller passed no handler, which is how a read-only role already sees every one
+  of them.
+- **The panel fills the body and only its rows scroll**, so the bar and the strip are on
+  screen at every scroll position. A strip you have to scroll to is a strip nobody
+  reads. That is why the phone shell is a fixed-height column ([§7a](#7a--the-shell)) —
+  a panel cannot fill a body that has no height.
 
 ### 7c · The row
 
 A sheet row's columns become a title and a subtitle, ranked. Nothing shrinks
 ([tokens.md](tokens.md) §7).
+
+**A row is 44 px, and that is the stated value** — `min-h-[44px]` with `leading-tight`,
+the padding derived. It is not a card: no border, no radius, no ground of its own, and a
+hairline rather than a gap to the next one. That is what makes eight of them read as one
+list rather than eight objects, and it is also what pays for the type: the card's own
+2 px of border and 4 px of gap are the difference between a 48 px pitch at 13/11 and a
+45 px pitch at 14/12. **Both lines truncate** — a row that grows to fit its content
+breaks the pitch the list is read at, which is the one thing a fixed row height is for.
 
 | | Carries |
 |---|---|

@@ -94,6 +94,7 @@ frontend/src/
 │   │   ├── CondensedListRow.tsx     # the row stops being a card
 │   │   └── MobileEntityList.tsx     # becomes a panel
 │   └── event/
+│       ├── StatusStrip.tsx          # NEW — the shell the four rails share
 │       ├── PatchStatusRail.tsx      # phone form + strip-as-control
 │       ├── LightingStatusRail.tsx   #   "
 │       ├── EquipmentStatusRail.tsx  #   "
@@ -109,7 +110,10 @@ frontend/src/
 │   ├── patchCapacity.ts             # gains inputPatchStatus / outputPatchStatus
 │   ├── mobileChannelList.ts         # gains hasGap
 │   └── mobileOutputList.ts          # gains hasGap
+├── hooks/
+│   └── useIsMobile.ts               # guarded for a missing window (delta 4)
 └── pages/
+    ├── EventDetail.tsx              # the phone column (delta 3)
     ├── Dashboard.tsx                # 1 list → panel
     ├── Events.tsx                   # 1 list → panel, headings inside the frame
     └── Inventories.tsx              # 2 lists → panels

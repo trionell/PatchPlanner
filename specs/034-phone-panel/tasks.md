@@ -80,13 +80,13 @@ free-standing row card.
 **Goal**: `design/` matches the code in the same slice that changed it, and the three
 findings are recorded where the next agent will find them.
 
-- [ ] T032 `design/tokens.md` §7 — the row's line states `min-h-[44px]` + `leading-tight` and drops `px-3 py-2.5` (**F3**); the off-ladder list **withdraws `py-1.5`** and says why; the bar's control target is stated at 44 px.
-- [ ] T033 [P] `design/patterns.md` §7b — the search behaviour, the bar's 44 px targets, and the strip-as-control rule; §7c — the row states a height.
-- [ ] T034 [P] `design/components.md` §5 — the **`MobilePanel` gap closes**, replaced by the component's description; the row's entry updated.
-- [ ] T035 `design/audit.md` — `M1`, `M2` and `M3` move to Part 1b with Wave 6b; `M2`'s entry records the `py-1.5` withdrawal; **F2** recorded as a correction to the wave table; the Wave 6 phase table updated to *6b done*.
-- [ ] T036 [P] `design/design-language.html` §8 — the panel specimen's bar redrawn at 44 px; the section switcher's per-section counts **removed** (**F1**); the four closed findings marked in §9.
-- [ ] T037 [P] `ROADMAP.md` — Slice 34.
-- [ ] T038 Final gates, the scope assertions from quickstart.md, and `go vet` / `go test` to prove the backend was not touched.
+- [X] T032 `design/tokens.md` §7 — the row's line states `min-h-[44px]` + `leading-tight` and drops `px-3 py-2.5` (**F3**); the off-ladder list **withdraws `py-1.5`** and says why; the bar's control target is stated at 44 px.
+- [X] T033 [P] `design/patterns.md` §7b — the search behaviour, the bar's 44 px targets, and the strip-as-control rule; §7c — the row states a height.
+- [X] T034 [P] `design/components.md` §5 — the **`MobilePanel` gap closes**, replaced by the component's description; the row's entry updated.
+- [X] T035 `design/audit.md` — `M1`, `M2` and `M3` move to Part 1b with Wave 6b; `M2`'s entry records the `py-1.5` withdrawal; **F2** recorded as a correction to the wave table; the Wave 6 phase table updated to *6b done*.
+- [X] T036 [P] `design/design-language.html` §8 — the panel specimen's bar redrawn at 44 px; the section switcher's per-section counts **removed** (**F1**); the four closed findings marked in §9.
+- [X] T037 [P] `ROADMAP.md` — Slice 34.
+- [X] T038 Final gates, the scope assertions from quickstart.md, and `go vet` / `go test` to prove the backend was not touched.
 
 ---
 

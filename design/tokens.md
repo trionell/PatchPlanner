@@ -267,14 +267,36 @@ read:
 
 | | Phone | |
 |---|---|---|
-| Row | `px-3 py-2.5`, two lines | title `text-sm`, subtitle `text-xs` — 44 px tall |
+| Row | **`min-h-[44px]`**, `px-3`, two lines, `leading-tight` | title `text-sm`, subtitle `text-xs`. **The height is the stated value; the padding derives from it** — see below |
 | **Minimum tap target** | **44 px** | amendment 1. Below it, a control is a suggestion |
+| Panel bar control | `h-11 w-11` around an `h-4 w-4` icon | 44 px, the same target `ui/Sheet`'s close takes. A bar with a 36 px icon is amendment 1 broken by the control that adds a row |
 | Input · Select · Textarea | `md` (`h-10`) | never `sm` — `h-8` is a mouse's height |
 | Button | `sm` in a bar · `md` for a form's confirm | never `xs`; the **variant** is unchanged |
 | Icon, tappable | `h-4 w-4` in text · `h-5 w-5` in the bottom nav | never `h-3.5` |
 | Icon, drawn | whatever the desktop draws | it is not a target |
 | Chip · label | whatever the surface's tier uses | amendment 2 — see below |
 | Heading over a run of rows | `MicroLabel` + a `border-zinc-800` rule | the app's one label voice, at every width |
+
+### The row states a height, not a padding
+
+This line used to read `px-3 py-2.5` **and** "44 px tall", together, and the two
+cannot both be true. Tailwind's `text-sm` carries a 20 px line box and `text-xs` a
+16 px one; `py-2.5` adds 20 more. **20 + 16 + 20 = 56.** A row built to the letter of
+that line is a quarter taller than the one that ships, and at 375 × 667 it costs
+**two rows of data** — eight become six.
+
+Nothing ever built it. The drawn specimen is `min-height: 44px` with 5 px of padding
+and a 1.3 line box; the code reached the same 44 px from the other side, with
+`py-1.5` and `leading-tight`. Two implementations agreed with each other and
+disagreed with this table for five waves, because nothing checked.
+
+So the row joins the fixed geometry below: **the height is stated and the padding
+falls out of it** — `min-h-[44px]` with `leading-tight`, which lands at 44.5. This is
+the same move the header, the nav and the body's bottom padding already make here,
+and for the same reason: a padding is an input, a row height is the thing anyone
+actually cares about, and stating both invites them to disagree.
+`CondensedListRow.test.tsx` asserts the height and the leading, so the next edit that
+reaches for `py-2.5` trips over a test rather than shipping.
 
 **Density on a phone comes from stacking, never from shrinking.** A sheet's twelve
 columns become a title and a subtitle joined by `·`, in that order of importance;
@@ -319,9 +341,15 @@ the heading side, and they were correct all along against a document that forbad
 them.
 
 **Off the ladder, and named here so they stop being copied:** `text-[13px]`,
-`text-[11px]` as a row subtitle, `h-9`, `w-9`, `py-1.5`. Every one lives only in
-`components/mobile/`, and every one sits between two values that already mean
-something. See [audit.md](audit.md) M2.
+`text-[11px]` as a row subtitle, `h-9`, `w-9`. Every one sat between two values that
+already mean something, and every one is gone as of Wave 6b. See
+[audit.md](audit.md) M2.
+
+> **`py-1.5` was on this list and has been withdrawn.** It was never the defect: it
+> is what makes 44 px with two lines of `leading-tight`, and it is exactly what the
+> corrected rule above arrives back at. What was wrong were the two type sizes it was
+> holding. A value is off the ladder because of what it is, not because of the
+> company it keeps.
 
 ### Fixed geometry
 
