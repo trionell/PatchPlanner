@@ -16,7 +16,7 @@ import { Dialog } from '../components/ui/Dialog'
 import { Input } from '../components/ui/Input'
 import { PanelCols, PanelMain, PanelRail, PanelRailRow } from '../components/ui/PanelRail'
 import { PatchPanel } from '../components/ui/PatchPanel'
-import { Pill } from '../components/ui/SheetTable'
+import { Pill, SheetHead, SheetHeadCell } from '../components/ui/SheetTable'
 import { Tab, TabList, TabPanel, Tabs } from '../components/ui/Tabs'
 import type { Inventory, InventoryCategory } from '../types'
 
@@ -178,16 +178,20 @@ function InventoryList({
           <p className="px-5 py-8 text-sm text-zinc-400">No catalog matches “{search.trim()}”.</p>
         ) : (
           <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="bg-zinc-950/60 text-zinc-400">
-                <th className="border-b border-zinc-800 px-3 py-2 text-left text-xs font-medium">Catalog</th>
-                <th className="border-b border-zinc-800 px-3 py-2 text-right text-xs font-medium">Items</th>
-                <th className="border-b border-zinc-800 px-3 py-2 text-right text-xs font-medium">Categories</th>
-                <th className="border-b border-zinc-800 px-3 py-2 text-right text-xs font-medium">Used on</th>
-                <th className="border-b border-zinc-800 px-3 py-2 text-left text-xs font-medium">Source</th>
-                <th className="border-b border-zinc-800 px-3 py-2" />
+            {/* The app's one label voice — `SheetHeadCell`'s micro-label,
+                imported rather than retyped (P3). A column header is a header
+                wherever it appears; the tier decides its padding, not its
+                font, and every other table in the tree is mono. */}
+            <SheetHead>
+              <tr>
+                <SheetHeadCell className="px-3 py-2">Catalog</SheetHeadCell>
+                <SheetHeadCell className="px-3 py-2 text-right">Items</SheetHeadCell>
+                <SheetHeadCell className="px-3 py-2 text-right">Categories</SheetHeadCell>
+                <SheetHeadCell className="px-3 py-2 text-right">Used on</SheetHeadCell>
+                <SheetHeadCell className="px-3 py-2">Source</SheetHeadCell>
+                <SheetHeadCell className="px-3 py-2" />
               </tr>
-            </thead>
+            </SheetHead>
             <tbody>
               {summary.visible.map((inventory) => (
                 <InventoryRow

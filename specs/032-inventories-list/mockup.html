@@ -14,6 +14,9 @@
   decisions are settled — the tabs become "Rental catalogs" and "Owned gear",
   and a row click opens the catalog rather than unfolding.
 
+  Revision 6: the column header is SheetHeadCell — mono, like every other
+  table header in the application. Reported against the built page.
+
   Revision 5: the panel's bar is drawn at the work tier — xs button, h-3.5
   icon — so it matches Owned gear's bar on the sibling tab. Reported against
   the built page; the rule is now design/patterns.md §1.
@@ -360,7 +363,8 @@
   /* -- the navigation-tier table: text-sm rows, no zebra, no micro-labels -- */
   .nav { width: 100%; border-collapse: collapse; font-size: 14px; }
   .nav th {
-    text-align: left; font-size: 12px; font-weight: 500; color: #a1a1aa;
+    text-align: left; font-family: var(--mono); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.14em; text-transform: uppercase; color: #71717a;
     padding: 7px 12px; background: rgba(9, 9, 11, 0.6);
     border-bottom: 1px solid #27272a; white-space: nowrap;
   }
@@ -476,7 +480,7 @@
 <div class="wrap">
 
   <header class="head">
-    <span class="head__eyebrow">the inventory list · built · revision 5</span>
+    <span class="head__eyebrow">the inventory list · built · revision 6</span>
     <h1>The last card list</h1>
     <p class="head__lede">
       Everything else has been through the language. The catalog itself converged in
@@ -502,7 +506,7 @@
        ================================================================== -->
   <section>
     <div class="sec__hd">
-      <span class="sec__no">00 · revision 5</span>
+      <span class="sec__no">00 · revision 6</span>
       <h2>What changed</h2>
     </div>
 
@@ -527,6 +531,17 @@
           <code>MicroLabel</code> heading and a mono count, <code>GearCard</code>,
           <code>GearSpecs</code>, and the amber-edged <code>GearForm</code> that only appears
           once there is something to edit. §05.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">The header is mono<span class="tag tag--new">fixed</span></div>
+        <div class="led__v">
+          Also reported against the built page: the column header was the only sans one in
+          the application. It is <code>SheetHeadCell</code> now — the app's one label voice,
+          imported rather than retyped — at <code>px-3 py-2</code> so it lines up over
+          navigation-tier rows. <code>design/tokens.md</code> §3 says so now; its nav-tier
+          "table header" row described <code>ui/Table</code> and was read as guidance for a
+          new table.
         </div>
       </div>
       <div class="led__row">
@@ -864,10 +879,16 @@
         <div class="led__v">
           <b>Navigation tier inside a panel frame</b>, which is what Events does and is the
           honest answer to P2’s question: nobody scans five catalogs cross-referencing as
-          they go. So <code>text-sm</code> rows at <code>px-3 py-2.5</code>, a
-          <code>text-xs</code> sans header — and no micro-labels, no <code>Pill</code>, no
-          striping. A 10&nbsp;px mono header over five rows would be the sheet costume worn
-          by something that is not a sheet.
+          they go. So <code>text-sm</code> rows at <code>px-3 py-2.5</code> — and no
+          <code>Pill</code>, no striping.
+          <br><br>
+          <b>The column header is the exception, and it is mono.</b> Revisions 1–5 drew it
+          <code>text-xs</code> sans, on the argument that a 10&nbsp;px mono header over five
+          rows is the sheet costume worn by something that is not a sheet. Reported against
+          the built page, and rightly: every other table header in the application is
+          <code>SheetHeadCell</code>, and a column header is a header wherever it appears.
+          It is that component now, with a padding override so the columns line up over
+          <code>px-3</code> rows. The tier decides the padding, not the font.
           <br><br>
           <b>The bar is the exception, and it is chrome.</b> Revision 4 drew the primary
           button at <code>size="sm"</code>, the navigation tier’s own, which put a

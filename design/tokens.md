@@ -65,11 +65,19 @@ not per component.
 | Input / Select | `size="sm"` → `h-8 px-2 text-xs` | `size="md"` → `h-10 px-3 text-sm` |
 | Button | `size="xs"` → `h-7 px-2.5 text-xs` | `size="sm"` → `h-8 px-3` · `size="md"` → `h-10 px-4` |
 | Table row | `px-2 py-1` | `px-3 py-3` |
-| Table header | `px-2 py-1.5` micro-label on inset | `px-3 py-3 text-zinc-400 font-medium` |
+| Table header | `px-2 py-1.5` micro-label on inset | `px-3 py-2` micro-label on inset — see below |
 | Chip | `Pill` → `px-1.5 py-px text-[10px]` | `Badge` → `px-2.5 py-0.5 text-xs` |
 | Container padding | `p-2.5` · `px-3 py-2` | `px-5 py-4` |
 | Stack gap | `gap-1.5` · `gap-2` · `gap-2.5` | `gap-3` · `gap-4` · `space-y-6` |
 | Icon | `h-3.5 w-3.5` | `h-4 w-4` |
+
+**A column header is a micro-label in both tiers.** The tier decides its
+padding, not its font: `SheetHeadCell` is the one implementation, imported with
+a padding override where the rows are navigation tier (the catalog list). This
+row used to read `text-zinc-400 font-medium` on the right-hand side, which
+described `ui/Table` — a component one surface still renders — and reading it
+as guidance for a *new* table is how the catalog list shipped with the only
+sans header in the application.
 
 **Fixed geometry** — work surfaces only, and not on the tier ladder because these
 are structural rather than typographic:
