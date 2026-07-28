@@ -34,6 +34,12 @@ action. Same order on every tab; only the nouns change.
 - The **primary action is last and is the only filled button on the surface.**
 - Everything a restricted role cannot do is **absent**, not disabled (P7). The
   caller passes no handler.
+- **Where one page's tabs each own a panel, their bars match.** Inventories is
+  the instance: *Rental catalogs* is a navigation surface and *Owned gear* is a
+  work surface, and the tier difference belongs in the **rows**, where it means
+  something. The bar is chrome. Two `+` buttons one step apart in the same
+  position on sibling tabs read as an accident, because they are one — the
+  catalog list's bar is `xs` like its sibling's, above rows that stay `text-sm`.
 - **A tab with no print sheet puts its exports in the Print slot.** The rental
   order is the instance: three `xs outline` buttons, because the PDF export *is*
   its paper. A bar carrying three secondary actions is the exception, not the

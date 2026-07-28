@@ -14,6 +14,10 @@
   decisions are settled — the tabs become "Rental catalogs" and "Owned gear",
   and a row click opens the catalog rather than unfolding.
 
+  Revision 5: the panel's bar is drawn at the work tier — xs button, h-3.5
+  icon — so it matches Owned gear's bar on the sibling tab. Reported against
+  the built page; the rule is now design/patterns.md §1.
+
   Revision 4: "Used on" lists every event, each linking to that show, with the
   drawer body scrolling rather than the section carrying a max-height.
 
@@ -345,10 +349,6 @@
      drawer, the page tabs, and the browser's own dialogs.
      ================================================================== */
 
-  /* the navigation tier's own button height — size="sm", h-8 px-3 text-sm —
-     which the shared specimen sheet has no class for, having been written for
-     work surfaces where xs (28px) is the bar's size */
-  .btn--h8 { height: 32px; padding: 0 12px; font-size: 14px; }
   .strip .sep { color: #3f3f46; }
   .btn--destr { background: #ef4444; border-color: #ef4444; color: #fff; }
 
@@ -476,7 +476,7 @@
 <div class="wrap">
 
   <header class="head">
-    <span class="head__eyebrow">the inventory list · mockup for approval · revision 4</span>
+    <span class="head__eyebrow">the inventory list · built · revision 5</span>
     <h1>The last card list</h1>
     <p class="head__lede">
       Everything else has been through the language. The catalog itself converged in
@@ -502,7 +502,7 @@
        ================================================================== -->
   <section>
     <div class="sec__hd">
-      <span class="sec__no">00 · revision 4</span>
+      <span class="sec__no">00 · revision 5</span>
       <h2>What changed</h2>
     </div>
 
@@ -527,6 +527,17 @@
           <code>MicroLabel</code> heading and a mono count, <code>GearCard</code>,
           <code>GearSpecs</code>, and the amber-edged <code>GearForm</code> that only appears
           once there is something to edit. §05.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">The bar matches its sibling<span class="tag tag--new">fixed</span></div>
+        <div class="led__v">
+          Reported against the built page: <em>＋ New catalog</em> and <em>＋ Item</em> were
+          different sizes on two tabs of one screen. Revision 4 drew the bar at the
+          navigation tier because the rows are; the bar is <b>chrome</b>, and takes the
+          page's tier rather than its own content's. It is now <code>size="xs"</code> with a
+          <code>h-3.5</code> icon and the same search field Owned gear carries, above rows
+          that stay <code>text-sm</code>. Recorded in <code>design/patterns.md</code> §1.
         </div>
       </div>
       <div class="led__row">
@@ -769,7 +780,7 @@
                 Find a catalog…
               </span>
               <span class="grow"></span>
-              <span class="btn btn--h8 btn--primary">＋ New catalog</span>
+              <span class="btn btn--primary">＋ New catalog</span>
             </div>
 
             <table class="nav">
@@ -854,9 +865,17 @@
           <b>Navigation tier inside a panel frame</b>, which is what Events does and is the
           honest answer to P2’s question: nobody scans five catalogs cross-referencing as
           they go. So <code>text-sm</code> rows at <code>px-3 py-2.5</code>, a
-          <code>text-xs</code> sans header, <code>size="sm"</code> on the primary button —
-          and no micro-labels, no <code>Pill</code>, no striping. A 10&nbsp;px mono header
-          over five rows would be the sheet costume worn by something that is not a sheet.
+          <code>text-xs</code> sans header — and no micro-labels, no <code>Pill</code>, no
+          striping. A 10&nbsp;px mono header over five rows would be the sheet costume worn
+          by something that is not a sheet.
+          <br><br>
+          <b>The bar is the exception, and it is chrome.</b> Revision 4 drew the primary
+          button at <code>size="sm"</code>, the navigation tier’s own, which put a
+          <span class="mono">32px</span> <em>＋ New catalog</em> directly above a
+          <span class="mono">28px</span> <em>＋ Item</em> on the sibling tab — the same
+          control, in the same corner, one step apart. The bar now matches Owned gear’s
+          exactly (<code>size="xs"</code>, <code>h-3.5</code> icon, the same search field),
+          and the tier difference lives in the rows, where it means something.
         </div>
       </div>
       <div class="led__row">
@@ -1009,7 +1028,7 @@
                   Find a catalog…
                 </span>
                 <span class="grow"></span>
-                <span class="btn btn--h8 btn--primary">＋ New catalog</span>
+                <span class="btn btn--primary">＋ New catalog</span>
               </div>
               <table class="nav">
                 <thead>
@@ -1087,7 +1106,7 @@
                   Find a catalog…
                 </span>
                 <span class="grow"></span>
-                <span class="btn btn--h8 btn--primary">＋ New catalog</span>
+                <span class="btn btn--primary">＋ New catalog</span>
               </div>
               <table class="nav">
                 <thead>
@@ -1364,7 +1383,7 @@
                   Find a catalog…
                 </span>
                 <span class="grow"></span>
-                <span class="btn btn--h8 btn--primary">＋ New catalog</span>
+                <span class="btn btn--primary">＋ New catalog</span>
               </div>
               <table class="nav">
                 <thead>
@@ -1475,7 +1494,7 @@
             <div class="pan__bar">
               <span class="pan__ti">Rental catalogs</span>
               <span class="grow"></span>
-              <span class="btn btn--h8 btn--primary">＋ New catalog</span>
+              <span class="btn btn--primary">＋ New catalog</span>
             </div>
             <div class="empty">
               <p>

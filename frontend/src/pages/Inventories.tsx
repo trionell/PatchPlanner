@@ -142,11 +142,11 @@ function InventoryList({
             {/* Absent on an empty account: a control for narrowing nothing is
                 a claim that there is something to narrow. */}
             {hasAny && (
-              <div className="relative min-w-[12rem] max-w-xs flex-1">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+              <div className="relative min-w-[10rem] max-w-xs flex-1">
+                <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
                 <Input
                   size="sm"
-                  className="pl-8"
+                  className="pl-7"
                   placeholder="Name or price list…"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
@@ -156,16 +156,19 @@ function InventoryList({
 
             <span className="flex-1" />
 
-            <Button size="sm" onClick={() => setCreating(true)}>
-              <Plus className="mr-1.5 h-4 w-4" />
+            {/* `xs`, matching Owned gear's + Item and the catalog panel's
+                own bar. A panel's bar is chrome and takes the page's tier, not
+                its own content's: two + buttons one step apart in the same
+                position on sibling tabs read as an accident. The tier
+                difference belongs in the rows (patterns §1). */}
+            <Button size="xs" onClick={() => setCreating(true)}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
               New catalog
             </Button>
           </>
         }
       >
-        {error && (
-          <div className="border-b border-zinc-800 bg-red-950/50 px-3 py-2 text-sm text-red-300">{error}</div>
-        )}
+        {error && <p className="border-b border-zinc-800 px-3 py-2 text-xs text-red-400">{error}</p>}
 
         {loading ? (
           <p className="px-5 py-8 text-sm text-zinc-400">Loading catalogs…</p>
