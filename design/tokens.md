@@ -332,11 +332,22 @@ something. See [audit.md](audit.md) M2.
 | Page padding | `px-4 py-4` | |
 | Body's bottom padding | the nav's height **plus** the inset, derived | `pb-20` is a guess at a number the nav owns. This is `top-[73px]` again ([audit.md](audit.md) A5), on the other edge of the screen. |
 | Bottom sheet | `rounded-t-xl`, bottom corners square | It is anchored to an edge, so it has two corners. |
-| Overlay scrim | `bg-zinc-950/80` | The dialog's, not the drawer's: a sheet covers most of the screen. **One exception** — the canvas inspector takes none ([patterns.md](patterns.md) §7f). |
+| Sheet height | `max-h-[85svh]`, no minimum | `svh` and not `dvh`: `dvh` is live, so the sheet would resize under the thumb as browser chrome collapses while a long form is being read. Not `vh` either — that is the *largest* viewport, so with the address bar showing the confirm can start below the fold. |
+| Sheet close target | `h-11 w-11` around an `h-5 w-5` icon | 44 px. A bare `×` glyph is a 14 px target, which is amendment 1 broken by the control that gets pressed when a form is abandoned. |
+| Overlay scrim | `bg-zinc-950/80` | The dialog's, not the drawer's: a sheet covers most of the screen. **One exception** — the canvas inspector takes none ([patterns.md](patterns.md) §7f), and taking none means **no backdrop element at all**, so the canvas behind stays live and the sheet is not modal. |
 
 **Anything anchored to the bottom edge carries `env(safe-area-inset-bottom)`** —
 the nav, a bottom sheet, and a sheet's confirm row. A control the home indicator
-sits on is a control that misses.
+sits on is a control that misses. It is **added to** the element's own padding,
+never absorbed by it: `pb-[calc(env(safe-area-inset-bottom)+0.75rem)]`, not
+`pb-[env(safe-area-inset-bottom)]`, or a device without an inset loses the
+padding the control needed anyway.
+
+> And the inset only exists if the document asks for it. `index.html`'s viewport
+> meta carries **`viewport-fit=cover`**; without it iOS lays the page out inside
+> the safe area and every `env(safe-area-inset-*)` evaluates to `0`. That was
+> true here from Slice 21 to Slice 33 — two call sites, inert, on the device
+> they were written for ([audit.md](audit.md) M10).
 
 ### What the phone does not re-decide
 

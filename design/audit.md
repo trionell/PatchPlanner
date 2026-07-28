@@ -16,9 +16,10 @@ findings still open will move as the waves land.
 **Every finding the desktop opened is closed** — see Part 1b, and the wave that
 closed each. Part 2's five waves are done.
 
-**Twelve are open on the phone**, below. They are one finding wearing twelve
-names, and the name is a date: `components/mobile/` was built in **Slice 21**,
-two slices before the language existed. Waves 0–5 then converged nine tabs and
+**Four of the phone's twelve are closed** — M7, M8, M10 and M12, by Wave 6a
+(Slice 33); they are in Part 1b with the rest. **Eight remain**, below. They are
+one finding wearing eight names, and the name is a date: `components/mobile/`
+was built in **Slice 21**, two slices before the language existed. Waves 0–5 then converged nine tabs and
 five pages around it without touching it — Wave 4 says so in writing (*"the phone
 branches, the print sheets and the whole backend are untouched"*), and that was
 the right call at the time, because a wave that mixes a refactor with a redesign
@@ -49,7 +50,8 @@ removing from the desktop. It also puts the row on `bg-zinc-900`, which is the
 inputs.
 
 The fix is [patterns.md](patterns.md) §7b and the `MobilePanel` gap in
-[components.md](components.md) §5.
+[components.md](components.md) §5 — now the only gap in that document, since
+Wave 6a built the other one.
 
 ### M2 · The row is off both ladders, and the document said otherwise · P2 · P3
 
@@ -69,8 +71,10 @@ appear on mobile at all" — while the code shipped a `h-3.5` pencil on every ro
 and a `MicroLabel` on three phone surfaces. A rule nothing obeys is not a rule,
 and this one had been quoted. [tokens.md](tokens.md) §7 now states the ladder and
 names these five values as off it, and the micro-label half of the rule is
-**corrected rather than enforced** — see M12, which is the same mistake read from
-the other end.
+**corrected rather than enforced** — see M12 in Part 1b, which is the same
+mistake read from the other end, and which Wave 6a closed. The five values named
+here are still open: they live in `CondensedListRow` and `MobileEntityList`,
+which are 6b's.
 
 ### M3 · No phone surface states whether the plan holds · P1 · P9
 
@@ -139,48 +143,12 @@ canvas at 375 px:
   no rails: panning to the sources takes the desk off-screen, which is what makes
   a 375 px window over a 20-node graph worth having. The sources rail is already
   drawn in canvas space and needs no decision; `InspectorRail` is a real column
-  and becomes the sheet (M8).
+  and becomes the sheet — `ui/Sheet` with `scrim={false}`, which Wave 6a built
+  and left unwired for exactly this (M8, Part 1b).
 - **The inspector sheet edits.** `InputFlowInspector` already holds kind, mic,
   stand, 48 V, connector and width, and already commits per field. Changing which
   stand a source is on, while standing next to the source, is the phone's best
   case — and it is not direct manipulation, so nothing in 7g withholds it.
-
-### M7 · A phone-only vocabulary, in a reserved hue · P3 · P4 · P9
-
-`SectionSwitcher` grades all nine sections `editable` / `read-only` / `viewer` —
-three words the application does not otherwise use, describing the state of the
-*build* rather than the state of the *show*, in a fixed table that tells a
-viewer-role user Audio Inputs is "Editable". Its own type comment says the badge
-"never overrides a user's actual role-based permission", which is the admission
-that the screen shows two kinds of read-only and distinguishes neither.
-
-Three token-level violations ride along:
-
-- `bg-sky-500/15 text-sky-400` — `sky` is reserved by [tokens.md](tokens.md) §5
-  for the legend's sample stroke, which stands for *"a colour"* and not for a
-  state.
-- `text-[10px] font-bold uppercase tracking-wide` — the **sixth** micro-label
-  definition, after A1 found four and A12 found a fifth. Neither grep would have
-  caught this one either: it is a third synonym.
-- `border-amber-500/60` on the trigger, permanently. Amber marks the thing you are
-  working on; a control that is amber whether or not anything is selected has
-  spent the accent on furniture (P4).
-
-### M8 · The phone's sheet is a centred dialog · Patterns §7d
-
-```
-grep -rn "<Dialog" frontend/src/components/mobile/ frontend/src/pages/Inventories.tsx | wc -l
-#  5
-```
-
-`ui/Dialog` is `max-w-2xl`, centred, with **no `Escape` handler and no internal
-scroll** — `ui/Drawer` has both. As a confirmation box that is survivable; as the
-phone's edit form it means a long sheet cannot be scrolled to its confirm button,
-and the confirm button sits where the keyboard opens.
-
-Meanwhile `MobileNav` contains a correct bottom sheet — anchored, `rounded-t-xl`,
-scrim, safe inset — written inline. The pattern exists in the tree and is not a
-component, which is the condition A1 and A3 were both filed under.
 
 ### M9 · Two tabs have no phone branch at all · P9
 
@@ -196,51 +164,6 @@ high* — a pattern built to be scanned across a desk. On a phone the band wraps
 and the ribbon overflows. §4b needs a phone form, not a phone exemption; the
 figures are the right five facts for someone on site.
 
-### M10 · The body's bottom padding is a guess · A5, again
-
-```
-frontend/src/components/Layout.tsx:35    <div className="min-h-screen bg-zinc-950 pb-20 …">
-frontend/src/components/mobile/MobileNav.tsx:24  …bottom-0 … py-2.5 pb-[env(safe-area-inset-bottom)]
-```
-
-`pb-20` is 80 px, chosen to clear a bar whose height is the sum of a padding, an
-icon and a font size, plus an inset that varies by device. This is `top-[73px]`
-exactly ([Wave 1](#wave-1--chrome--done)) on the opposite edge of the screen: **a
-height a sibling positions against has to be a value someone chose.**
-
-The phone header has the same shape of problem and no consequence yet: it is
-`px-4 py-3`, so its height is again a sum rather than a number, and nothing
-positions against it only because nothing on the phone is sticky below it. Wave 1
-stated the desktop's as `h-14`; the phone takes the same one ([tokens.md](tokens.md)
-§7), because a second number for the app's top edge earns nothing and goes stale
-separately.
-
-### M12 · The phone's forms speak a second label voice · P3
-
-```
-grep -rho "<FieldLabel>" frontend/src/components/mobile/ | wc -l
-#  18        MicroLabel in the same directory: 0
-```
-
-Every field in all three phone edit sheets is labelled `FieldLabel` — sentence
-case, 14 px, sans. The desktop form these sheets stand in for is `FieldStack`,
-which renders a **`MicroLabel`**: mono, uppercase, `tracking-[0.14em]`. So the
-Rig drawer and the phone's channel sheet label the same field two different ways,
-and P3 — *one label style per tier* — is broken across a width rather than across
-a component, which is why the A1 and A12 greps could not have found it.
-
-The correction is [tokens.md](tokens.md) §7, amendment 2: **type is read, geometry
-is touched.** A phone sheet keeps the mono label, the 10 px spec line and the
-`Pill`, and moves only what a finger presses — `h-8` to `h-10`, `h-7` to `h-10`.
-Sentence-case 14 px labels are not "more legible at arm's length"; they are a
-second application's form wearing this one's colours, and they are the reason a
-phone drawer does not currently look like a drawer.
-
-This is M2 from the other end. M2 found five values below both tiers; M12 finds a
-whole voice beside them. Both came from the same premise — that a phone is a
-navigation surface — which was never true: a phone is *every* surface, at a
-different reach.
-
 ### M11 · A print from a phone is a blank page · Patterns §7h
 
 `AudioInputsTab` imports `InputPatchSheet` and renders it only in its desktop
@@ -251,6 +174,101 @@ chrome — it belongs to the tab at every width.
 ---
 
 ## Part 1b — Closed
+
+### M8 · The phone's sheet was a centred dialog · Wave 6a
+
+```
+grep -rn "<Dialog" frontend/src/components/mobile/ frontend/src/pages/Inventories.tsx | wc -l
+#  0        (was 5)
+```
+
+`ui/Sheet` exists. `ui/Dialog` gained `Escape` and an internal scroll at the
+sheet's own `85svh` — both strict additions, both things `Drawer` already did —
+and **stays centred at every width**, because M8 was never *"`Dialog` is the
+wrong shape"*. It was *"`Dialog` is being used as the phone's edit form"*, and
+that is fixed at the call sites.
+
+`MobileNav`'s inline bottom sheet is the component now. The pattern had existed
+in the tree without being one, which is the condition A1 and A3 were both filed
+under, and it took a third instance of that exact condition before anyone wrote
+it down.
+
+**`ui/Drawer` anchors itself**, which was not the plan and is the part worth
+keeping. Six drawers — Rig, Buses, Universes, Categories, Import, the catalog's
+manage drawer — acquired a phone form from four lines inside one component,
+without one of their own files appearing in the diff. Branching at the call
+sites would have asked the same question six times, which is how `NodeShell`,
+`PortDot` and `PortRow` each ended up with two copies and cost Slice 25 to undo.
+
+### M12 · The phone's forms spoke a second label voice · Wave 6a
+
+```
+grep -rho "<FieldLabel>" frontend/src/components/mobile/ | wc -l
+#  0        (was 18)
+```
+
+All eighteen are `FieldStack`, which is the label the Rig drawer renders above
+the same fields on a desk. §7 amendment 2 is what made it cheap — *type is read,
+geometry is touched* — and the geometry needed no work at all: `Input`, `Select`
+and `Button` already default to the `h-10` a phone wants. **Only the voice
+changed.**
+
+`FieldStack` gained one width, `full`. `grow` could not be reused because its
+`flex-1` grows the *height* inside a `flex-col`. One entry in an existing map,
+rather than a second component that renders a micro-label above a control —
+which would have been A1 and A12 for the third time, a synonym no grep catches.
+
+**A defect fell out of the fix.** `FieldLabel` was used as a *sibling* of its
+control in all three sheets, so it labelled nothing; `FieldStack` wraps the
+control in its own `<label>`. The phone's forms acquired real label association
+as a consequence of a tier correction, which is the argument for tier
+corrections in one line.
+
+### M7 · A phone-only vocabulary, in a reserved hue · Wave 6a
+
+```
+grep -rn "sky-" frontend/src/components/ frontend/src/pages/
+#  0
+```
+
+`MobileCapability` and the badge are gone, and nothing replaced them. The three
+token violations went with it: the reserved `sky`, the **sixth** micro-label
+definition — written as `text-[10px] font-bold uppercase tracking-wide`, a third
+synonym neither the A1 nor the A12 grep would have found — and the
+`border-amber-500/60` a closed control wore permanently.
+
+The current section is marked by the **sidebar's own 2 px left edge**, in the
+open list. That is the one piece of vocabulary the desktop's navigation and the
+phone's can genuinely share, and it arrived by deleting an invented one rather
+than by inventing another.
+
+The lesson is about the type, not the pixel: the field's own doc comment said
+*"informational only; never overrides a user's actual role-based permission."*
+**A field whose comment says it may not be believed is a field with no reader.**
+
+### M10 · The body's bottom padding was a guess · Wave 6a
+
+```
+grep -rn "pb-20" frontend/src/components/Layout.tsx
+#  0
+```
+
+`MobileNav` states `h-14`; `Layout` derives `pb-[calc(3.5rem+env(safe-area-inset-bottom))]`
+from it; the phone header takes the same `h-14` while the file is open, before
+anything positions against it rather than after.
+
+**The finding was worse than filed, and only looking at the keyboard found it.**
+`index.html` had no `viewport-fit=cover`, and without it iOS lays the page out
+inside the safe area and every `env(safe-area-inset-*)` evaluates to `0`. So the
+two insets `MobileNav` had carried since Slice 21 were **inert, on the device
+they were written for, from the day they landed** — and `pb-20` was not merely a
+guess at a sum, it was a guess at a sum one of whose terms was always zero.
+
+Nothing about that is visible in a desktop browser at 375 px, which is why five
+waves of review did not catch it, and it is why fixing the meta tag is what
+turned M10 from dormant into urgent: the moment the inset becomes real, `pb-20`
+under-clears the nav on exactly the devices the inset exists for. Closing half of
+it would have left the live half.
 
 ### A6b · The last card list · Slice 32
 
@@ -644,7 +662,7 @@ disagree — asserted directly by a Go test over every seeded value.
 (import is the bulk path, which is how 308 items arrive), no rail on the phone,
 and the start page is exempt (below).
 
-### Wave 6 · The phone — **not started**
+### Wave 6 · The phone — **6a done, 6b–6d not started**
 
 M1–M12, and the one surface Waves 0–5 deliberately did not touch. It is ordered
 last for the reason it was skipped: every wave before it was changing the thing
@@ -656,18 +674,28 @@ is worth doing twice:
 
 | Phase | What | Why it is first |
 |---|---|---|
-| 6a | `ui/Sheet`, and `Drawer`'s phone anchoring | M8. Five call sites are waiting on it, and the correct implementation already exists inline in `MobileNav`. |
+| 6a | `ui/Sheet`, and `Drawer`'s phone anchoring — **done**, Slice 33 | M8, and **M12, M7 and M10 with it**. Five call sites were waiting on it, and the correct implementation already existed inline in `MobileNav`. |
 | 6b | `MobilePanel` — bar, rows, strip | M1, M2, M3. The frame has to exist before a surface can be put in it, and the strips it ends with already exist. |
 | 6c | The nine surfaces | M4, M5, M9, M11 — each tab's phone branch onto 6a/6b, plus the two that have no branch at all. |
 | 6d | The canvases | M6. Ordered last because it is the only phase that is a new capability rather than a conversion, and because 6c settles what a phone bar and a phone sheet are before a canvas has to use both. |
+
+**The wave table above under-assigned the wave**, and 6a is where that showed.
+M8 was the only finding it named for the phase; M7, M10 and M12 were listed in
+Part 1 and assigned to nothing. All three live *inside the six files 6a rewrites*
+— which means the phase either took them or opened those files a second time for
+the other half of one appearance. It took them, and the correction is recorded
+here rather than in the phase's own spec, because the mistake was this
+document's: **a finding with no phase is a finding nobody has agreed to close.**
 
 **What this wave must not do** is take the desktop with it. Every M finding is
 inside `components/mobile/`, a phone branch, or `Layout`'s phone return — with two
 exceptions that are shared code and have to be handled as additions, the way Wave
 2 handled `ZoomControl` and `InspectorRail`:
 
-- `ui/Dialog` gains `Escape` and internal scroll (M8). Both are strict additions,
-  and both are things `Drawer` already does.
+- `ui/Dialog` gains `Escape` and internal scroll (M8) — **done**. Both were strict
+  additions, and both are things `Drawer` already does. The one visible desktop
+  delta in the phase, stated in advance: a dialog taller than `85svh` now scrolls
+  instead of overflowing off both ends.
 - `graph/InspectorRail`'s contents must be renderable without its `w-60 border-l`
   frame (`components.md` §5). Wave 2 already split this component along exactly
   this seam once, for the stage plot.
