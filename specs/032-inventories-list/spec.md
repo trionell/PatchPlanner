@@ -61,7 +61,10 @@ shown**, plus the frame the rest of the application already uses.
 | Events using a catalog | Not shown anywhere |
 | Search | None |
 
-The two `window.*` calls are the only ones in the application.
+`window.prompt` appears **nowhere else in the application** — this page owns
+the only call. `window.confirm` is another matter: nineteen other call sites
+use it, all outside this slice, and converting them is not in scope. What this
+slice settles is the shape of the replacement.
 
 ### A drawer's frame is navigation tier; its contents are not
 
@@ -352,8 +355,10 @@ are touch-height and carry the same four facts.
 - **SC-002**: Rendering the list issues **one** request, down from one plus one
   per catalog — 309 rows of JSON per imported catalog no longer cross the wire
   to produce a three-character count.
-- **SC-003**: The application contains **zero** `window.prompt`/`window.confirm`
-  calls, down from two.
+- **SC-003**: The catalog list and its drawer contain **zero** `window.prompt`
+  or `window.confirm` calls, down from two — which also removes the
+  application's only `window.prompt`. Nineteen `window.confirm` call sites
+  remain elsewhere and are explicitly out of scope.
 - **SC-004**: Each row carries **one** control besides itself, down from three.
 - **SC-005**: A user can tell which catalogs no event uses without opening
   anything.

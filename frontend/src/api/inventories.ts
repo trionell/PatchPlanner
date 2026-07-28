@@ -1,4 +1,4 @@
-import type { FixtureMode, Inventory, InventoryCategory, InventoryImportResult, InventoryItem } from '../types'
+import type { Event, FixtureMode, Inventory, InventoryCategory, InventoryImportResult, InventoryItem } from '../types'
 import { API_BASE, request } from './client'
 
 // Owner-scoped inventory management (Slice 16) — every route here is
@@ -15,6 +15,12 @@ export const renameInventory = (inventoryId: number, name: string) =>
 export const deleteInventory = (inventoryId: number) => request<void>(`/inventories/${inventoryId}`, { method: 'DELETE' })
 export const duplicateInventory = (inventoryId: number) =>
   request<Inventory>(`/inventories/${inventoryId}/duplicate`, { method: 'POST' })
+
+// Every event bound to this catalog — what the manage drawer lists, and the
+// same set the list's `eventCount` counted (Slice 32). Not derived from the
+// events query: that one is membership-scoped and the count is not.
+export const listInventoryEvents = (inventoryId: number) =>
+  request<Event[]>(`/inventories/${inventoryId}/events`)
 
 export const listCategories = (inventoryId: number) => request<InventoryCategory[]>(`/inventories/${inventoryId}/categories`)
 export const updateCategoryPickerRole = (inventoryId: number, categoryId: number, role: 'cable' | 'stand' | 'truss' | null) =>

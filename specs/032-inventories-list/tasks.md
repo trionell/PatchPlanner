@@ -34,12 +34,18 @@ last of them, for **six commits** in total:
 |---|---|---|
 | 1 | the counts and the route | — |
 | 2 | the pure module | — |
-| 3 | the page: panel, columns, drawer | US1, US2, US3 |
-| 4 | search | US4 |
-| 5 | the phone | US5 |
-| 6 | the documents | — |
+| 3 | the page: panel, columns, drawer, search, phone | US1–US5 |
+| 4 | the documents | — |
 
-**Commit 3 carries three stories on purpose.** The panel and the drawer land
+**Commit 3 carries five stories, three of them on purpose and two as
+delivered.** The panel and the drawer were always going to land together (see
+below). Search and the mobile branch were planned as commits 4 and 5 and were
+written in the same pass, because all three live in `pages/Inventories.tsx` and
+splitting them would have meant writing the panel's bar twice and the list's
+row twice, to produce two commits nobody would review separately. Four commits,
+not six.
+
+**The panel and the drawer land together on purpose.** The panel and the drawer land
 together because there is no honest intermediate state: the three per-row ghost
 buttons and the create `Dialog` are the operations the drawer replaces, and a
 commit that removes them before the drawer exists leaves the page unable to
@@ -96,26 +102,26 @@ anywhere.
 
 ### The drawer (US3)
 
-- [ ] T014 [US3] Add `listInventoryEvents(inventoryId)` to `frontend/src/api/inventories.ts`, returning `Event[]`
-- [ ] T015 [US3] Create `frontend/src/components/inventory/InventoryDrawer.tsx` — one `Drawer width="narrow"` whose mode is implied by whether it was given an inventory. Header title and subtitle per [mockup.html](mockup.html); footer stating what duplication carries
-- [ ] T016 [US3] Build the *Catalog* section with `DrawerSection` + `GearCard` + `GearTop` + `GearSpecs`/`Spec` (items, categories, format, created) and **Duplicate** as the section's `action` at `Button size="xs" variant="outline"` — no form control inside the card
-- [ ] T017 [US3] Build the name form with `GearForm` + `FieldStack` + `FormActions` at `Input size="sm"`, serving both create (empty name, confirm reads *Create*) and rename (confirm reads *Save*)
-- [ ] T018 [US3] Delete: render no control at all when `eventCount > 0`; otherwise place it in `FormActions` apart from the confirm, and on press replace nothing — add a full-width block inside the form naming the catalog and its item count, with a `destructive` confirm and a `ghost` cancel ([spec.md](spec.md) FR-025, FR-026)
-- [ ] T019 [US2] Build the *Used on* section: `DrawerSection label="Used on" count={events.length}` over `listInventoryEvents`, **every** event as a `GearCard`, oldest first, each an `<a href="/events/{id}">` that closes the drawer, with venue and start date and a `text-zinc-600` `→`. No `max-h` anywhere in the section ([research.md](research.md) R5)
-- [ ] T020 [US2] Add the one-sentence note under the section heading stating that a catalog cannot be deleted while an event uses it, and `—` handling for an undated event's date
-- [ ] T021 [US3] Wire the drawer's mutations — create, rename, duplicate, delete — invalidating `['inventories']`, closing on success, and surfacing failures through the caller's inline error block, never a toast
+- [X] T014 [US3] Add `listInventoryEvents(inventoryId)` to `frontend/src/api/inventories.ts`, returning `Event[]`
+- [X] T015 [US3] Create `frontend/src/components/inventory/InventoryDrawer.tsx` — one `Drawer width="narrow"` whose mode is implied by whether it was given an inventory. Header title and subtitle per [mockup.html](mockup.html); footer stating what duplication carries
+- [X] T016 [US3] Build the *Catalog* section with `DrawerSection` + `GearCard` + `GearTop` + `GearSpecs`/`Spec` (items, categories, format, created) and **Duplicate** as the section's `action` at `Button size="xs" variant="outline"` — no form control inside the card
+- [X] T017 [US3] Build the name form with `GearForm` + `FieldStack` + `FormActions` at `Input size="sm"`, serving both create (empty name, confirm reads *Create*) and rename (confirm reads *Save*)
+- [X] T018 [US3] Delete: render no control at all when `eventCount > 0`; otherwise place it in `FormActions` apart from the confirm, and on press replace nothing — add a full-width block inside the form naming the catalog and its item count, with a `destructive` confirm and a `ghost` cancel ([spec.md](spec.md) FR-025, FR-026)
+- [X] T019 [US2] Build the *Used on* section: `DrawerSection label="Used on" count={events.length}` over `listInventoryEvents`, **every** event as a `GearCard`, oldest first, each an `<a href="/events/{id}">` that closes the drawer, with venue and start date and a `text-zinc-600` `→`. No `max-h` anywhere in the section ([research.md](research.md) R5)
+- [X] T020 [US2] Add the one-sentence note under the section heading stating that a catalog cannot be deleted while an event uses it, and `—` handling for an undated event's date
+- [X] T021 [US3] Wire the drawer's mutations — create, rename, duplicate, delete — invalidating `['inventories']`, closing on success, and surfacing failures through the caller's inline error block, never a toast
 
 ### The list (US1, US2)
 
-- [ ] T022 [US1] Replace `InventoryList` in `frontend/src/pages/Inventories.tsx` with one `PatchPanel`: bar carrying the title and `Button size="sm"` **New catalog**, the rows, and the strip. Delete the explanatory paragraph and the create `Dialog`
-- [ ] T023 [US1] [US2] Replace `InventoryRow` with a navigation-tier row — name, items, categories, *used on*, source — at `text-sm` with `px-3 py-2.5`, mono `tabular-nums` right-aligned counts, `—` in `text-zinc-600` for no bound event and `0` for no items, and format-then-filename in the source cell. **Delete the per-row `listItems` query**
-- [ ] T024 [US1] Make the row open the catalog on click across its whole width, with the drawer's `⋯` control as a sibling rather than a nested button, labelled *Manage {name}* for assistive technology
-- [ ] T025 [US1] Add the column header row at `text-xs text-zinc-400 font-medium` on the inset ground, right-aligned over the three numeric columns
-- [ ] T026 [US1] Add the strip from `summariseInventories` — whole phrases in `font-mono tabular-nums`, separators at `text-zinc-700`, as `Events`' strip draws them
-- [ ] T027 [US1] Empty account: the actionable empty state inside the panel, with **New catalog** and the blank-template download, and no search field
-- [ ] T028 [US1] Rename the two tabs to **Rental catalogs** and **Owned gear**, and set the panel title to match; leave the sidebar item, the header title and the route alone
-- [ ] T029 [US3] Add **Manage** to the catalog panel's own bar in `InventoryDetail` (`Button size="xs" variant="outline"`, beside Categories and Import) opening the same drawer
-- [ ] T030 Confirm `grep -rn "window.prompt\|window.confirm\|window.alert" frontend/src` returns nothing, run the gates, then **commit 3**
+- [X] T022 [US1] Replace `InventoryList` in `frontend/src/pages/Inventories.tsx` with one `PatchPanel`: bar carrying the title and `Button size="sm"` **New catalog**, the rows, and the strip. Delete the explanatory paragraph and the create `Dialog`
+- [X] T023 [US1] [US2] Replace `InventoryRow` with a navigation-tier row — name, items, categories, *used on*, source — at `text-sm` with `px-3 py-2.5`, mono `tabular-nums` right-aligned counts, `—` in `text-zinc-600` for no bound event and `0` for no items, and format-then-filename in the source cell. **Delete the per-row `listItems` query**
+- [X] T024 [US1] Make the row open the catalog on click across its whole width, with the drawer's `⋯` control as a sibling rather than a nested button, labelled *Manage {name}* for assistive technology
+- [X] T025 [US1] Add the column header row at `text-xs text-zinc-400 font-medium` on the inset ground, right-aligned over the three numeric columns
+- [X] T026 [US1] Add the strip from `summariseInventories` — whole phrases in `font-mono tabular-nums`, separators at `text-zinc-700`, as `Events`' strip draws them
+- [X] T027 [US1] Empty account: the actionable empty state inside the panel, with **New catalog** and the blank-template download, and no search field
+- [X] T028 [US1] Rename the two tabs to **Rental catalogs** and **Owned gear**, and set the panel title to match; leave the sidebar item, the header title and the route alone
+- [X] T029 [US3] Add **Manage** to the catalog panel's own bar in `InventoryDetail` (`Button size="xs" variant="outline"`, beside Categories and Import) opening the same drawer
+- [X] T030 Confirm `grep -rn "window.prompt\|window.confirm\|window.alert" frontend/src` returns nothing, run the gates, then **commit 3**
 
 ## Phase 4: US4 — search
 
@@ -125,10 +131,10 @@ spreadsheet it came from.
 **Independent test**: `2025` narrows by name, `backline-2026` narrows by source
 filename, `zzz` leaves a sentence and `0 of 5 catalogs`.
 
-- [ ] T031 [US4] Add the search field to the panel's bar in `frontend/src/pages/Inventories.tsx` — patterns §1 order (title, search, `flex-1`, primary), `Input size="sm"` with the leading `Search` icon at `pl-8`, `min-w-[12rem] max-w-xs flex-1`
-- [ ] T032 [US4] Feed it through `summariseInventories`; render the no-match sentence in place of the rows, naming what was searched for, and keep the field's contents
-- [ ] T033 [US4] Make the strip read `N of M catalogs` while a search is active, and hide the field entirely when the account has no catalogs
-- [ ] T034 Run the gates, then **commit 4**
+- [X] T031 [US4] Add the search field to the panel's bar in `frontend/src/pages/Inventories.tsx` — patterns §1 order (title, search, `flex-1`, primary), `Input size="sm"` with the leading `Search` icon at `pl-8`, `min-w-[12rem] max-w-xs flex-1`
+- [X] T032 [US4] Feed it through `summariseInventories`; render the no-match sentence in place of the rows, naming what was searched for, and keep the field's contents
+- [X] T033 [US4] Make the strip read `N of M catalogs` while a search is active, and hide the field entirely when the account has no catalogs
+- [X] T034 Run the gates, then **commit 4**
 
 ## Phase 5: US5 — the phone
 
@@ -137,9 +143,9 @@ filename, `zzz` leaves a sentence and `0 of 5 catalogs`.
 **Independent test**: below the breakpoint, rows carry name, counts, source and
 a chip; the catalog screen offers the drawer.
 
-- [ ] T035 [US5] Add the mobile branch to the list in `frontend/src/pages/Inventories.tsx` using `CondensedListRow` — title the name, subtitle `N items · N categories · source`, trailing a `Badge` reading `N events` or `unused`
-- [ ] T036 [US5] Add **Manage** to `MobileInventoryDetail`'s header so the drawer is reachable on the phone, and leave the phone list itself without a per-row control
-- [ ] T037 Run the gates, then **commit 5**
+- [X] T035 [US5] Add the mobile branch to the list in `frontend/src/pages/Inventories.tsx` using `CondensedListRow` — title the name, subtitle `N items · N categories · source`, trailing a `Badge` reading `N events` or `unused`
+- [X] T036 [US5] Add **Manage** to `MobileInventoryDetail`'s header so the drawer is reachable on the phone, and leave the phone list itself without a per-row control
+- [X] T037 Run the gates, then **commit 5**
 
 ## Phase 6: Polish — the documents
 

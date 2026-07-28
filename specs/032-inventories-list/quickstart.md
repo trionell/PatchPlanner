@@ -104,8 +104,16 @@ asks inside the form, naming the catalog and `3 items`. Cancel leaves
 everything; confirming returns you to the list without it.
 
 **No browser dialogs.** Nothing in this page may produce the browser's own grey
-dialog. `grep -rn "window.prompt\|window.confirm" frontend/src` must return
-nothing.
+dialog:
+
+```bash
+grep -rn "window\.\(prompt\|confirm\|alert\)" \
+  frontend/src/pages/Inventories.tsx frontend/src/components/inventory/
+```
+
+must return nothing but the comment in `InventoryDrawer.tsx` saying what it
+replaced. Note the scope: `window.confirm` survives in nineteen other files and
+this slice does not touch them.
 
 **The bar of the catalog itself.** Open a catalog and check its bar carries
 **Manage**, opening the same drawer over the sheet.
