@@ -477,8 +477,24 @@ and containers do not have opinions about drafts:
 - **A failed save keeps the sheet open with every value intact**, error inline
   above the fields. Already true, and worth stating: a phone edit happens in a
   loading bay on a bad connection, and losing it retypes the form.
-- **Confirm is full width at the bottom**, delete kept apart from it (§2).
 - The sheet scrolls inside itself; the page behind it does not.
+
+**The footer holds the confirm, full width, and nothing else.** Settled in Wave
+6a, against a specimen that drew `Save`, `Cancel` and `Delete` in one row. At
+375 px three controls and two gaps leave the confirm about 185 px of a 343 px
+row and put a destructive control 10 px from it, in the corner a thumb rests
+on — so *full width* was not what that produced, and §2's *delete kept apart
+from confirm* was a rule written for a mouse that matters more here, not less.
+
+| | Where | Why |
+|---|---|---|
+| **Confirm** | the footer, `w-full`, alone, named for the operation — *Save channel* | It is the one control you came for, and the footer is the thumb's own zone |
+| **Delete** | the **foot of the body**, left-aligned, ghost + `red-400` | It scrolls with the content, so it is never under a thumb at rest. In a single column that is what "apart" can mean |
+| **Cancel** | **absent** | The close target, the scrim and the platform's back gesture are three ways out already. A fourth is not reassurance; it is a third of the confirm's width |
+
+The cost is that delete scrolls away on a long form, and that is the right
+trade: **delete is not a thing you should be able to reach without having read
+the form.**
 
 ### 7e · The section switcher
 

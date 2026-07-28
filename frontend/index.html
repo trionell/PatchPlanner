@@ -3,7 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      `viewport-fit=cover` is not cosmetic. Without it iOS lays the page out
+      inside the safe area and every `env(safe-area-inset-*)` evaluates to 0 —
+      so the two insets `MobileNav` has carried since Slice 21 have been inert,
+      on the device they were written for, since the day they landed. Nothing
+      about that is visible in a desktop browser at 375px, which is why five
+      waves of review did not catch it (design/audit.md M10).
+
+      `interactive-widget=resizes-content` makes the virtual keyboard resize the
+      *layout* viewport rather than only the visual one, so a bottom-anchored
+      confirm lands above the keyboard instead of behind it. Chromium honours
+      it; WebKit ignores it. Nothing may depend on it: `ui/Sheet` scrolls its
+      own body, which is the half of this that is ours.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+    />
     <title>PatchPlanner</title>
   </head>
   <body>

@@ -1110,6 +1110,54 @@ No migration. Two rules came out of it into `design/patterns.md` §3: a drawer's
 frame is navigation tier while its contents are the work surface's, and no
 section inside a drawer takes a height of its own.
 
+## Slice 33 — The sheet, and the edge the thumb is on (spec: `phone-sheet`)
+
+Wave 6a of the design convergence, and the first of the phone's four phases. It
+builds no surface: two primitives, one hardening, six conversions.
+
+`ui/Sheet` is the phone's sibling of `ui/Drawer` — bottom-anchored,
+`max-h-[85svh]`, the body the only thing that scrolls, the safe-area inset added
+under whatever the last row is. Six props, and it decides nothing about its
+contents, which is the reason it is a component rather than a `className` on
+`Dialog`. **`ui/Drawer` anchors itself**, so Rig, Buses, Universes, Categories,
+Import and the catalog's manage drawer all acquired a phone form from four lines
+in one component, without one of their own files being touched.
+
+- **`ui/Dialog` stays centred, and the rule is now written down**: an overlay
+  with fields is a `Sheet`; an overlay that is a sentence and two buttons is a
+  `Dialog`. M8 was never *"`Dialog` is the wrong shape"* — it was *"`Dialog` is
+  being used as the phone's edit form"*. It gained `Escape` and internal scroll
+  by addition; the one desktop delta in the slice, stated in advance, is that a
+  dialog taller than the viewport now scrolls instead of overflowing.
+- **The footer was drawn wrong and the prose was right.** `design-language.html`
+  had Save, Cancel and Delete in one row — at 375 px a ~185 px confirm with a
+  destructive control 10 px from it, in the corner a thumb rests on. The footer
+  now holds the confirm, full width, alone; delete sits at the foot of the
+  scrolling body; Cancel is gone, because the close target, the scrim and the
+  back gesture were already three ways out. The specimen was redrawn to match.
+- **Eighteen `FieldLabel`s became `FieldStack`** (M12) — the label the Rig
+  drawer renders above the same fields on a desk. The geometry needed no work at
+  all: the phone's controls already defaulted to `h-10`. Only the voice changed,
+  and the forms gained real label association on the way, because `FieldLabel`
+  had been a *sibling* of its control and labelled nothing.
+- **The section switcher stopped grading what it cannot know** (M7). Nine
+  sections were labelled *editable / read-only / viewer* from a fixed table that
+  cannot see a user's role — it told a viewer that Audio Inputs was "Editable" —
+  in a hue reserved for the legend's stroke, through a sixth micro-label
+  definition no grep would have found. All deleted; `sky` now appears nowhere in
+  `components/`.
+- **The safe area had never existed.** `index.html` had no `viewport-fit=cover`,
+  so every `env(safe-area-inset-*)` evaluated to `0` on iOS and both call sites
+  added in Slice 21 were inert from the day they landed — invisible in a desktop
+  browser at 375 px. Fixing it is what turned M10 from dormant into urgent, so
+  the nav states `h-14` and the body derives its padding from that.
+- Frontend only, asserted rather than assumed: no endpoint, no migration, no
+  backend file. `Drawer`'s desktop return is byte-identical and every class
+  string on both components' desktop paths was compared through `twMerge`.
+- **Still a phase of its own:** the panel frame and the status strip (6b), the
+  nine surfaces (6c), and the canvases (6d) — where the sheet's un-scrimmed,
+  non-modal form was built for and left unwired.
+
 ## Dependency graph
 
 ```
@@ -1123,5 +1171,6 @@ Slice 7 (lighting rig) + Slice 12 ──→ Slice 13 (stage plots; supersedes Sl
 Slice 7 (lighting rig) + Slice 25 (visual language) ──→ Slice 27 (Lighting becomes a sheet; design wave 3) ──→ Slice 28 (the remaining event tabs; design wave 4) ──→ Slice 29 (pages and residue; design wave 5 — convergence complete) ──→ Slice 30 (the Events timeline, and events that have length) ──→ Slice 31 (rental pricing by duration)
 
 Slice 16 (inventory ownership) + Slice 29 (pages and residue) + Slice 30 (the spine) ──→ Slice 32 (the inventory list — the last card list)
+Slice 21 (mobile redesign) + Slice 29 (the language it converges onto) ──→ Slice 33 (the phone's bottom sheet; design wave 6a) ──→ 6b MobilePanel ──→ 6c the nine surfaces ──→ 6d the canvases
 Slice 14 (auth) ──→ Slice 15 (event ownership & sharing) ──→ Slice 16 (inventory ownership) ──→ Slice 17 (event settings) ──→ Slice 18 (deployment) ✅
 ```

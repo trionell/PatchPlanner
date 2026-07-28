@@ -5,10 +5,10 @@ import { createLightingFixture, updateLightingFixture } from '../../api/lighting
 import { toOptionalNumber } from '../../lib/utils'
 import type { LightingFixture } from '../../types'
 import { Button } from '../ui/Button'
-import { Dialog } from '../ui/Dialog'
+import { FieldStack } from '../ui/GearList'
 import { Input } from '../ui/Input'
-import { FieldLabel } from '../ui/Label'
 import { Select } from '../ui/Select'
+import { Sheet } from '../ui/Sheet'
 
 /**
  * On-site edit form for one lighting fixture: fixture ID, universe,
@@ -96,65 +96,63 @@ export function MobileFixtureEditSheet({
   }
 
   return (
-    <Dialog open onClose={onClose} title={fixture ? `Edit fixture ${fixture.fixture_number ?? fixture.id}` : 'Add fixture'}>
-      <div className="space-y-4">
-        {error && <div className="rounded-md border border-red-800 bg-red-950/50 px-3 py-2 text-sm text-red-300">{error}</div>}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <FieldLabel>Fixture ID</FieldLabel>
-            <Input type="number" min={1} value={fixtureNumber} onChange={(e) => setFixtureNumber(e.target.value)} placeholder="Console (GrandMA) ID" autoFocus />
-          </div>
-          <div>
-            <FieldLabel>Label</FieldLabel>
-            <Input value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder="Custom name" />
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <FieldLabel>DMX universe</FieldLabel>
-            <Input type="number" min={1} value={universe} onChange={(e) => setUniverse(Number(e.target.value))} />
-          </div>
-          <div>
-            <FieldLabel>DMX address</FieldLabel>
-            <Input type="number" min={1} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Start address" />
-          </div>
-        </div>
-        {modes.length > 0 ? (
-          <div>
-            <FieldLabel>Mode</FieldLabel>
-            <Select
-              value={modes.find((m) => m.name === mode && m.channel_count === channelCount)?.id ?? ''}
-              onChange={(e) => {
-                const picked = modes.find((m) => m.id === Number(e.target.value))
-                if (picked) {
-                  setMode(picked.name)
-                  setChannelCount(picked.channel_count)
-                }
-              }}
-            >
-              <option value="">custom…</option>
-              {modes.map((m) => (
-                <option key={m.id} value={m.id}>{m.name} ({m.channel_count} ch)</option>
-              ))}
-            </Select>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FieldLabel>Mode</FieldLabel>
-              <Input value={mode} onChange={(e) => setMode(e.target.value)} />
-            </div>
-            <div>
-              <FieldLabel>Channels</FieldLabel>
-              <Input type="number" min={1} value={channelCount} onChange={(e) => setChannelCount(Number(e.target.value))} />
-            </div>
-          </div>
-        )}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save changes'}</Button>
-        </div>
+    <Sheet
+      open
+      onClose={onClose}
+      title={fixture ? `Fixture ${fixture.fixture_number ?? fixture.id}` : 'Add fixture'}
+      footer={
+        <Button className="w-full" onClick={handleSave} disabled={saving}>
+          {saving ? 'Saving…' : 'Save fixture'}
+        </Button>
+      }
+    >
+      {error && <div className="rounded-md border border-red-800 bg-red-950/50 px-3 py-2 text-sm text-red-300">{error}</div>}
+      <div className="flex gap-2.5">
+        <FieldStack label="FID" width="short">
+          <Input type="number" min={1} value={fixtureNumber} onChange={(e) => setFixtureNumber(e.target.value)} placeholder="GrandMA" autoFocus />
+        </FieldStack>
+        <FieldStack label="Label" width="grow">
+          <Input value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder="Custom name" />
+        </FieldStack>
       </div>
-    </Dialog>
+      {/* Universe and address are one idea — an address means nothing without
+          the universe it is in — so they are the pair that stays side by side. */}
+      <div className="flex gap-2.5">
+        <FieldStack label="Universe" width="grow">
+          <Input type="number" min={1} value={universe} onChange={(e) => setUniverse(Number(e.target.value))} />
+        </FieldStack>
+        <FieldStack label="Address" width="grow">
+          <Input type="number" min={1} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Start" />
+        </FieldStack>
+      </div>
+      {modes.length > 0 ? (
+        <FieldStack label="Mode" width="full">
+          <Select
+            value={modes.find((m) => m.name === mode && m.channel_count === channelCount)?.id ?? ''}
+            onChange={(e) => {
+              const picked = modes.find((m) => m.id === Number(e.target.value))
+              if (picked) {
+                setMode(picked.name)
+                setChannelCount(picked.channel_count)
+              }
+            }}
+          >
+            <option value="">custom…</option>
+            {modes.map((m) => (
+              <option key={m.id} value={m.id}>{m.name} ({m.channel_count} ch)</option>
+            ))}
+          </Select>
+        </FieldStack>
+      ) : (
+        <div className="flex gap-2.5">
+          <FieldStack label="Mode" width="grow">
+            <Input value={mode} onChange={(e) => setMode(e.target.value)} />
+          </FieldStack>
+          <FieldStack label="Channels" width="short">
+            <Input type="number" min={1} value={channelCount} onChange={(e) => setChannelCount(Number(e.target.value))} />
+          </FieldStack>
+        </div>
+      )}
+    </Sheet>
   )
 }

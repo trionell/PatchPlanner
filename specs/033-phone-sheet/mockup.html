@@ -1,0 +1,1805 @@
+<!--
+  PatchPlanner — Wave 6a: `ui/Sheet`, and the drawer anchored to the thumb.
+  Redesign mockup, revision 1. For approval before the spec is written.
+
+  Wave 6 is the phone, and 6a is the first of its four phases: two primitives,
+  one hardening, six conversions, and not one surface. audit.md orders it first
+  because "five call sites are waiting on it, and the correct implementation
+  already exists inline in MobileNav" — so this phase is mostly a container
+  swap, and the design work in it is deciding what the container is.
+
+  Three things in here are *not* a container swap and are what this document is
+  actually asking about:
+
+    1. The footer. patterns.md §7d says "confirm is full width at the bottom,
+       delete kept apart from it"; design/design-language.html draws Save,
+       Cancel and Delete in one row. They disagree, and 6a is the phase that
+       has to settle it because 6a builds the thing. §04.
+    2. The label voice (M12) and the capability badges (M7) live inside the six
+       files 6a rewrites. Converting the container and leaving them means two
+       passes over one file for one appearance. §08.
+    3. `env(safe-area-inset-bottom)` is 0 on iOS today and has been since Slice
+       21, because index.html has no `viewport-fit=cover`. The sheet cannot fix
+       that from inside. §07.
+
+  The file is an HTML *fragment*: the Artifact publisher wraps it in
+  doctype/head/body, so there are deliberately no <html>, <head> or <body> tags.
+
+  Specimen CSS is shared with specs/032-inventories-list/mockup.html, which
+  shares it with 030/029/028, which lifted it from design/design-language.html.
+  The phone specimens (.m-*) are lifted verbatim from design-language.html §8 —
+  that is the language drawn for review, and a second set of values is how two
+  of them drift. Everything below the ADDITIONS block is new here.
+-->
+
+<title>Wave 6a · the bottom sheet</title>
+
+<style>
+  /* ==================================================================
+     DOCUMENT CHROME — theme-aware, tokens only.
+     ================================================================== */
+  :root {
+    --ground: #f2f2f4;
+    --raised: #ffffff;
+    --sunken: #e8e8ec;
+    --rule: #d7d7de;
+    --rule-soft: #e4e4ea;
+    --ink: #16171b;
+    --ink-2: #43444d;
+    --muted: #6c6d78;
+    --faint: #90919c;
+    --amber: #b45309;
+    --keep: #0e7490;
+    --drop: #9f1239;
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --measure: 68ch;
+    --wrap: 1180px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0a0b0d; --raised: #14151a; --sunken: #101014;
+      --rule: #26272e; --rule-soft: #1d1e24;
+      --ink: #f2f2f4; --ink-2: #b6b7c0; --muted: #8b8c96; --faint: #62636d;
+      --amber: #f59e0b; --keep: #22d3ee; --drop: #fb7185;
+    }
+  }
+
+  :root[data-theme="light"] {
+    --ground: #f2f2f4; --raised: #ffffff; --sunken: #e8e8ec;
+    --rule: #d7d7de; --rule-soft: #e4e4ea;
+    --ink: #16171b; --ink-2: #43444d; --muted: #6c6d78; --faint: #90919c;
+    --amber: #b45309; --keep: #0e7490; --drop: #9f1239;
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0a0b0d; --raised: #14151a; --sunken: #101014;
+    --rule: #26272e; --rule-soft: #1d1e24;
+    --ink: #f2f2f4; --ink-2: #b6b7c0; --muted: #8b8c96; --faint: #62636d;
+    --amber: #f59e0b; --keep: #22d3ee; --drop: #fb7185;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px 110px; }
+
+  h1, h2, h3 { margin: 0; font-family: var(--mono); font-weight: 500; }
+  h1 {
+    font-size: clamp(28px, 4.4vw, 46px);
+    line-height: 1.04; letter-spacing: -0.035em; text-wrap: balance;
+  }
+  h2 { font-size: clamp(19px, 2.3vw, 25px); letter-spacing: -0.02em; text-wrap: balance; }
+  h3 { font-size: 14px; letter-spacing: 0.02em; color: var(--ink-2); }
+
+  p { margin: 0; max-width: var(--measure); }
+  a { color: inherit; }
+
+  .head {
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 68px 0 30px; border-bottom: 1px solid var(--rule);
+  }
+  .head__eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--amber);
+  }
+  .head__lede { font-size: 18px; color: var(--ink-2); line-height: 1.5; }
+
+  section { display: flex; flex-direction: column; gap: 22px; padding: 56px 0 0; }
+  .sec__no {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  .sec__hd { display: flex; flex-direction: column; gap: 8px; }
+  .prose { display: flex; flex-direction: column; gap: 13px; color: var(--ink-2); font-size: 15.5px; }
+  .prose strong { color: var(--ink); font-weight: 600; }
+  .prose code, .k {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  .spec { display: flex; flex-direction: column; gap: 9px; }
+  .spec__frame {
+    overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px;
+    background: #09090b; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  }
+  .spec__cap {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-left: 2px;
+  }
+  .spec__cap b { color: var(--ink-2); font-weight: 500; }
+
+  .led { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .led__row {
+    display: grid; grid-template-columns: 148px minmax(0, 1fr);
+    gap: 18px; padding: 15px 2px; border-bottom: 1px solid var(--rule-soft);
+    align-items: start;
+  }
+  .led__k {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-top: 3px;
+  }
+  .led__v { font-size: 15px; color: var(--ink-2); line-height: 1.5; }
+  .led__v b { color: var(--ink); font-weight: 600; }
+  .led__v em { font-style: normal; color: var(--faint); }
+  .led__v code, .led__v .k {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  .tag {
+    display: inline-block; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase; padding: 1px 6px;
+    border-radius: 4px; vertical-align: 2px; margin-left: 7px;
+  }
+  .tag--keep { color: var(--keep); border: 1px solid currentColor; }
+  .tag--drop { color: var(--drop); border: 1px solid currentColor; }
+  .tag--new { color: var(--amber); border: 1px solid currentColor; }
+
+  .ask {
+    border: 1px solid var(--rule); border-left: 3px solid var(--amber);
+    border-radius: 0 8px 8px 0; padding: 16px 18px; background: var(--raised);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .ask h3 { color: var(--ink); }
+  .ask p { font-size: 15px; color: var(--ink-2); max-width: none; }
+
+  .tbl { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  .tbl th {
+    text-align: left; font-family: var(--mono); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint);
+    padding: 8px 12px 8px 2px; border-bottom: 1px solid var(--rule);
+  }
+  .tbl td {
+    padding: 11px 12px 11px 2px; border-bottom: 1px solid var(--rule-soft);
+    color: var(--ink-2); vertical-align: top;
+  }
+  .tbl td b { color: var(--ink); font-weight: 600; }
+  .tbl td .k { white-space: nowrap; }
+  .tbl td em { font-style: normal; color: var(--faint); }
+
+  @media (max-width: 720px) {
+    .led__row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  }
+
+  /* ==================================================================
+     SPECIMENS — the app's own faces and values.
+     ================================================================== */
+  .app {
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px; line-height: 1.45;
+    color: #f4f4f5; background: #09090b;
+    padding: 16px; min-width: 1040px;
+  }
+  .app--tight { padding: 16px; min-width: 0; }
+  .app *, .app *::before, .app *::after { box-sizing: border-box; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 28px; padding: 0 10px; border: 1px solid transparent; border-radius: 6px;
+    font-size: 12px; font-weight: 500; white-space: nowrap; font-family: inherit;
+  }
+  .btn--primary { background: #f59e0b; border-color: #f59e0b; color: #09090b; }
+  .btn--outline { background: #18181b; border-color: #3f3f46; color: #f4f4f5; }
+  .btn--ghost { background: transparent; color: #f4f4f5; }
+  .btn--sm { height: 24px; padding: 0 8px; font-size: 11px; }
+  .btn--md { height: 40px; padding: 0 16px; font-size: 14px; }
+  .btn--danger-ghost { background: transparent; color: #f87171; }
+  .seg { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; }
+
+  .fld {
+    height: 32px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b;
+    display: inline-flex; align-items: center; padding: 0 8px;
+    font-size: 12px; color: #e4e4e7; min-width: 0;
+  }
+  .fld--md { height: 40px; font-size: 14px; padding: 0 12px; }
+  .fld--ph { color: #71717a; }
+  .fld--sel::after { content: "▾"; margin-left: auto; padding-left: 8px; color: #71717a; font-size: 10px; }
+  .fld--foc { border-color: #f59e0b; }
+
+  .lbl {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #71717a; font-weight: 500;
+  }
+  .lbl--nav { font-family: inherit; font-size: 14px; letter-spacing: 0; text-transform: none; color: #d4d4d8; font-weight: 400; }
+
+  .pill {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 1px 6px; font-size: 10px; font-weight: 500; white-space: nowrap;
+  }
+  .t-drum { background: rgba(56, 189, 248, 0.15); color: #7dd3fc; }
+  .t-ok   { background: rgba(52, 211, 153, 0.15); color: #6ee7b7; }
+  .t-warn { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
+  .t-err  { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+  .t-def  { background: #3f3f46; color: #f4f4f5; }
+  .t-sky  { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .p48 { display: inline-block; width: 8px; height: 3px; border-radius: 2px; background: #ef4444; box-shadow: 0 0 5px rgba(239, 68, 68, 0.65); vertical-align: 2px; }
+  .tape { display: inline-block; width: 3px; height: 14px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+
+  .badge {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 2px 10px; font-size: 12px; font-weight: 500; white-space: nowrap;
+  }
+
+  /* the desktop drawer, for the side-by-side in §05 */
+  .dstack { position: relative; min-height: 400px; overflow: hidden; }
+  .scrim { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.7); }
+  .sd {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 420px;
+    background: #18181b; border-left: 1px solid #3f3f46;
+    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.5);
+    display: flex; flex-direction: column;
+  }
+  .sd__hd { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 14px 20px; border-bottom: 1px solid #27272a; }
+  .sd__ti { font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .sd__sub { font-size: 12px; color: #71717a; margin-top: 2px; }
+  .sd__x { color: #a1a1aa; font-size: 15px; line-height: 1.2; }
+  .sd__body { padding: 16px 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+  .sd__ft { margin-top: auto; padding: 12px 20px; border-top: 1px solid #27272a; font-size: 12px; color: #71717a; }
+  .sd__ft b { color: #a1a1aa; font-weight: 500; }
+  .dsec { display: flex; flex-direction: column; gap: 6px; }
+  .dsec__hd { display: flex; align-items: center; gap: 8px; }
+  .dsec__ct { font-family: var(--mono); font-size: 10px; color: #52525b; }
+  .gear {
+    border: 1px solid #27272a; border-radius: 6px; background: #18181b;
+    padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .gear__top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+  .gear__nm { font-size: 14px; font-weight: 500; color: #f4f4f5; }
+  .gear__ac { margin-left: auto; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; color: #a1a1aa; }
+  .gear__sp { display: flex; flex-wrap: wrap; gap: 2px 12px; font-family: var(--mono); font-size: 10px; color: #71717a; }
+  .gear__sp b { color: #d4d4d8; font-weight: 400; }
+  .insp__box { border: 1px solid #27272a; border-radius: 5px; background: rgba(9, 9, 11, 0.6); padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+  .insp__lg { display: flex; align-items: center; gap: 8px; font-size: 10px; color: #a1a1aa; }
+
+  /* ==================================================================
+     THE PHONE — lifted verbatim from design/design-language.html §8.
+     True 375 px width, 14 px base, 44 px targets.
+     ================================================================== */
+  .phones { display: flex; flex-wrap: wrap; gap: 22px; }
+  .phone { display: flex; flex-direction: column; gap: 9px; width: 375px; }
+  .phone__frame {
+    width: 375px; height: 690px; flex: none;
+    border: 1px solid #3f3f46; border-radius: 22px; background: #09090b;
+    overflow: hidden; position: relative;
+    display: flex; flex-direction: column;
+    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    font-size: 14px; line-height: 1.45; color: #f4f4f5;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  }
+  .phone__frame * { box-sizing: border-box; }
+  .phone__cap { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .phone__cap b { color: var(--ink-2); font-weight: 500; }
+  .phone__cap--bad b { color: var(--drop); }
+
+  .m-hd { display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 56px; padding: 0 16px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-hd__ti { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; min-width: 0; }
+  .m-hd__ic { width: 26px; height: 26px; border-radius: 6px; background: rgba(245, 158, 11, 0.15); color: #fbbf24; display: grid; place-items: center; flex: none; font-size: 13px; }
+  .m-hd__av { width: 28px; height: 28px; border-radius: 999px; background: #27272a; flex: none; }
+  .m-bd { flex: 1; overflow: hidden; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .m-nav { display: flex; height: 56px; border-top: 1px solid #27272a; background: #09090b; flex: none; }
+  .m-nav__i { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; color: #a1a1aa; }
+  .m-nav__i.on { color: #fbbf24; }
+  .m-nav__g { font-size: 18px; line-height: 1; }
+
+  .m-pan { border: 1px solid #3f3f46; border-radius: 12px; background: rgba(9, 9, 11, 0.4); overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+  .m-pan--fill { flex: 1; }
+  .m-pan__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-pan__ti { font-size: 14px; font-weight: 600; color: #f4f4f5; margin-right: auto; }
+  .m-pan__ic { width: 36px; height: 36px; border-radius: 6px; border: 1px solid #3f3f46; background: #18181b; display: grid; place-items: center; color: #a1a1aa; font-size: 14px; flex: none; }
+  .m-pan__ic--pri { background: #f59e0b; border-color: #f59e0b; color: #09090b; font-size: 17px; }
+  .m-pan__rows { flex: 1; min-height: 0; overflow: hidden; }
+
+  .m-row { display: flex; align-items: stretch; min-height: 44px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-row__e { width: 3px; flex: none; }
+  .m-row__c { flex: 1; min-width: 0; padding: 5px 12px; display: flex; flex-direction: column; justify-content: center; }
+  .m-row__t { font-size: 14px; font-weight: 500; line-height: 1.3; color: #f4f4f5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-row__s { font-size: 12px; line-height: 1.3; color: #a1a1aa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-row__n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #fbbf24; margin-right: 7px; }
+
+  .m-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 12px; padding: 10px 12px; border-top: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); font-size: 12px; color: #a1a1aa; flex: none; }
+  .m-strip .mono { color: #e4e4e7; }
+
+  .m-sw { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 44px; padding: 0 12px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; flex: none; }
+  .m-sw__t { font-size: 14px; font-weight: 600; }
+  .m-sw--old { border-color: rgba(245, 158, 11, 0.6); }
+
+  /* -- ui/Sheet, the phone's sibling of the drawer -- */
+  .m-sheet { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.8); display: flex; align-items: flex-end; }
+  .m-sheet--noscrim { background: transparent; pointer-events: none; }
+  .m-sheet__p { width: 100%; max-height: 85%; overflow: hidden; border-top: 1px solid #3f3f46; border-radius: 12px 12px 0 0; background: #18181b; display: flex; flex-direction: column; }
+  .m-sheet__hd { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-sheet__ti { font-size: 18px; font-weight: 600; }
+  .m-sheet__sub { font-size: 12px; color: #71717a; margin-top: 2px; }
+  .m-sheet__x { margin-left: auto; width: 44px; height: 44px; margin-right: -10px; display: grid; place-items: center; color: #a1a1aa; font-size: 18px; flex: none; }
+  .m-sheet__bd { padding: 16px; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+  .m-sheet__ft { display: flex; align-items: center; gap: 10px; padding: 12px 16px 20px; border-top: 1px solid #27272a; flex: none; }
+  .m-fld { display: flex; flex-direction: column; gap: 5px; }
+  .m-insp { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; align-items: center; }
+
+  .m-jump { display: flex; flex-direction: column; }
+  .m-jump__i { display: flex; align-items: center; gap: 11px; min-height: 52px; padding: 0 14px 0 12px; border-left: 2px solid transparent; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-jump__i.on { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.06); }
+  .m-jump__n { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; letter-spacing: 0.14em; color: #52525b; width: 16px; flex: none; }
+  .m-jump__i.on .m-jump__n { color: #f59e0b; }
+  .m-jump__l { font-size: 14px; color: #d4d4d8; flex: 1; min-width: 0; }
+  .m-jump__i.on .m-jump__l { color: #fcd34d; font-weight: 600; }
+  .m-jump__c { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 11px; color: #71717a; flex: none; }
+
+  .m-cvs { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #09090b; }
+  .cvs__band { position: absolute; top: 0; bottom: 0; }
+  .node { position: absolute; border: 1px solid #3f3f46; border-radius: 7px; background: #1f2028; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); overflow: hidden; }
+  .node__hd { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-bottom: 1px solid #27272a; font-size: 11px; font-weight: 600; color: #fafafa; }
+  .node__bdg { margin-left: auto; font-family: var(--mono); font-size: 9px; background: #27272a; border-radius: 3px; padding: 0 3px; color: #a1a1aa; }
+  .node__body { padding: 3px 0; }
+  .node__ft { padding: 3px 6px; border-top: 1px solid #27272a; font-family: var(--mono); font-size: 9px; color: #71717a; }
+  .prow { display: flex; align-items: center; gap: 6px; height: 18px; padding: 0 6px; font-size: 11px; color: #d4d4d8; }
+  .port { width: 7px; height: 7px; border-radius: 50%; border: 1px solid #71717a; background: #27272a; flex: none; }
+  .port--c { border-color: var(--c); background: color-mix(in srgb, var(--c) 75%, transparent); }
+  .srail { position: absolute; border: 1px solid #3f3f46; border-radius: 7px; background: #1f2028; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); overflow: hidden; }
+  .srail__hd { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 6px; border-bottom: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); }
+  .srail__hd b { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; font-weight: 500; }
+  .srail__hd span { font-family: var(--mono); font-size: 10px; color: #52525b; margin-left: auto; }
+  .srow { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 6px 0 0; border-bottom: 1px solid rgba(39, 39, 42, 0.6); font-size: 11px; color: #d4d4d8; }
+  .srow--sel { background: rgba(245, 158, 11, 0.1); }
+  .srow__tape { width: 3px; align-self: stretch; flex: none; }
+  .srow__nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 4px; }
+  .srow__md { font-family: var(--mono); font-size: 10px; color: #71717a; flex: none; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6a — the centred dialog as it stands today, the
+     virtual keyboard, the anatomy diagram, the safe area.
+     ================================================================== */
+
+  /* the centred dialog, at ui/Dialog's real values, inside a 375 px frame */
+  .m-dlg { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.8); display: flex; align-items: center; justify-content: center; padding: 0 16px; }
+  .m-dlg__p { width: 100%; border: 1px solid #3f3f46; border-radius: 12px; background: #18181b; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6); }
+  .m-dlg__hd { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #27272a; }
+  .m-dlg__ti { font-size: 18px; font-weight: 600; }
+  .m-dlg__x { color: #a1a1aa; font-size: 16px; }
+  .m-dlg__bd { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+  /* the two things that make it not a sheet: it is centred, and it does not
+     scroll — so anything past the frame is simply gone. */
+  .m-dlg--clip { overflow: hidden; }
+  .m-cut { position: absolute; left: 0; right: 0; height: 1px; background: repeating-linear-gradient(90deg, #f87171 0 6px, transparent 6px 12px); }
+  .m-cut__l {
+    position: absolute; right: 6px; transform: translateY(-100%);
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: #f87171; padding-bottom: 2px;
+  }
+
+  /* the virtual keyboard, drawn because it is half the finding */
+  .m-kbd { position: absolute; inset-inline: 0; bottom: 0; height: 268px; background: #1c1c1e; border-top: 1px solid #3f3f46; padding: 8px 4px 26px; display: flex; flex-direction: column; gap: 8px; }
+  .m-kbd__r { display: flex; gap: 5px; justify-content: center; flex: 1; }
+  .m-kbd__k { flex: 1; max-width: 32px; border-radius: 5px; background: #48484a; box-shadow: 0 1px 0 rgba(0,0,0,0.4); }
+  .m-kbd__k--w { max-width: 120px; }
+  .m-kbd__k--sp { max-width: 170px; }
+  .m-kbd__home { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 134px; height: 5px; border-radius: 3px; background: #f4f4f5; opacity: 0.85; }
+
+  /* the anatomy diagram — labelled parts down the right of a real sheet */
+  .anat { display: grid; grid-template-columns: 375px minmax(0, 1fr); gap: 26px; align-items: start; }
+  @media (max-width: 860px) { .anat { grid-template-columns: minmax(0, 1fr); } }
+  .anat__parts { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .anat__p { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--rule-soft); align-items: start; }
+  .anat__n { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); padding-top: 3px; }
+  .anat__v { font-size: 14.5px; color: var(--ink-2); line-height: 1.5; }
+  .anat__v b { color: var(--ink); font-weight: 600; }
+  .anat__v .k { font-size: 0.85em; }
+  .anat__v .cls { display: block; font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-top: 4px; word-break: break-word; }
+
+  /* the marker that pins a specimen part to its row in the anatomy list */
+  .mk {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; border-radius: 999px; flex: none;
+    background: #f59e0b; color: #09090b;
+    font-family: var(--mono); font-size: 9px; font-weight: 700;
+  }
+  .mk--doc { background: var(--amber); color: var(--ground); }
+  .mk--abs { position: absolute; z-index: 5; }
+
+  /* safe area, drawn */
+  .safe { position: absolute; inset-inline: 0; bottom: 0; height: 22px; background: repeating-linear-gradient(45deg, rgba(245,158,11,0.16) 0 5px, transparent 5px 10px); border-top: 1px dashed rgba(245,158,11,0.45); }
+  .safe__l { position: absolute; right: 8px; top: 3px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: #fbbf24; }
+
+  /* two-up comparison of one decision */
+  .vs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  @media (max-width: 860px) { .vs { grid-template-columns: minmax(0, 1fr); } }
+  .vs__c { display: flex; flex-direction: column; gap: 9px; }
+  .vs__hd { display: flex; align-items: baseline; gap: 9px; }
+  .vs__hd b { font-size: 15px; color: var(--ink); }
+  .vs__hd span { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+  .vs__note { font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+  .vs__note b { color: var(--ink-2); font-weight: 600; }
+
+  /* the thumb, drawn where the argument is about reach */
+  .thumb { position: absolute; border-radius: 999px; border: 1px dashed rgba(248, 113, 113, 0.55); background: rgba(248, 113, 113, 0.07); pointer-events: none; }
+  .thumb__l { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: #f87171; white-space: nowrap; }
+
+  .files { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .file { display: grid; grid-template-columns: 22px minmax(0, 260px) minmax(0, 1fr); gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--rule-soft); align-items: baseline; }
+  .file__s { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  .file__s--new { color: var(--amber); }
+  .file__s--del { color: var(--drop); }
+  .file__n { font-family: var(--mono); font-size: 13px; color: var(--ink); word-break: break-word; }
+  .file__w { font-size: 14px; color: var(--ink-2); line-height: 1.5; }
+  .file__w b { color: var(--ink); font-weight: 600; }
+
+  .code {
+    border: 1px solid var(--rule); border-radius: 8px; background: var(--sunken);
+    padding: 14px 16px; overflow-x: auto;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.65; color: var(--ink-2);
+    white-space: pre;
+  }
+  .code b { color: var(--ink); font-weight: 600; }
+  .code i { font-style: normal; color: var(--faint); }
+  .code u { text-decoration: none; color: var(--amber); }
+
+  .empty { padding: 34px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+</style>
+
+<div class="wrap">
+
+  <header class="head">
+    <span class="head__eyebrow">wave 6a · the bottom sheet · revision 1</span>
+    <h1>The edge the thumb is on</h1>
+    <p class="head__lede">
+      Wave 6 is the phone, and it is one finding wearing twelve names.
+      <strong>6a is the first of its four phases and it builds no surface at all</strong> — two
+      primitives, one hardening, six conversions. <code>audit.md</code> orders it first for a
+      reason that is unusually concrete: <em>“five call sites are waiting on it, and the correct
+      implementation already exists inline in <code>MobileNav</code>.”</em>
+    </p>
+    <p class="head__lede">
+      So most of this phase is a container swap, and the design work is deciding what the
+      container is. Three things in here are <strong>not</strong> a swap, and they are what this
+      document is asking about: the footer, where the written rule and the drawn specimen
+      disagree; the label voice and the capability badges, which live inside the same six files;
+      and <code>env(safe-area-inset-bottom)</code>, which has been evaluating to <span class="mono">0</span>
+      since Slice 21 and cannot be fixed from inside a component.
+    </p>
+  </header>
+
+  <!-- ==================================================================
+       00 · THE JOB
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">00 · the job</span>
+      <h2>Two primitives, one hardening, six conversions</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <code>M8</code> is the whole of it: <strong>the phone's edit form is a centred dialog</strong>,
+        and <code>ui/Dialog</code> is <code>max-w-2xl</code>, centred, with no <code>Escape</code>
+        handler and no internal scroll. As the short confirmation box it was built for, that is
+        survivable. As the phone's edit form it means a long sheet cannot be scrolled to its
+        confirm button, and the confirm button sits where the keyboard opens.
+      </p>
+      <p>
+        Meanwhile the tree already contains a correct bottom sheet — anchored, <code>rounded-t-xl</code>,
+        scrim, safe inset — written inline inside <code>MobileNav</code>'s <strong>More</strong> menu.
+        The pattern exists and is not a component, which is the condition <code>A1</code> and
+        <code>A3</code> were both filed under.
+      </p>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">Build<span class="tag tag--new">new</span></div>
+        <div class="led__v">
+          <b><span class="k">ui/Sheet</span></b> — the bottom sheet, and the phone's sibling of
+          <span class="k">ui/Drawer</span>. It does three jobs and <em>decides nothing about any of
+          them</em>, which is the reason it is a component rather than a <span class="k">className</span>
+          on <span class="k">Dialog</span>. §02, §03.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Anchor</div>
+        <div class="led__v">
+          <b><span class="k">ui/Drawer</span> renders a sheet on a phone.</b> Same props, two anchors,
+          one branch — instead of eight call sites each discovering the question. Every drawer in the
+          application gets its phone form from this one change, before 6c reaches any of them. §05.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Harden</div>
+        <div class="led__v">
+          <b><span class="k">ui/Dialog</span> gains <span class="k">Escape</span> and internal
+          scroll.</b> Both are strict additions, and both are things <span class="k">Drawer</span>
+          already does. This is the one piece of shared desktop code the wave touches, and it is
+          handled the way Wave 2 handled <span class="k">ZoomControl</span>. §06.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Convert</div>
+        <div class="led__v">
+          <b>Six call sites</b> — three phone edit sheets, the section switcher, the inventory
+          category filter, and <span class="k">MobileNav</span>'s inline one. §08.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Fix outside</div>
+        <div class="led__v">
+          <b><span class="k">index.html</span>'s viewport meta.</b> Half of M8's sentence — <em>“the
+          confirm button sits where the keyboard opens”</em> — is not a component problem. §07.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Not in it<span class="tag tag--drop">out</span></div>
+        <div class="led__v">
+          No frame (<span class="k">MobilePanel</span> is 6b), no status strip, no tab converted, no
+          canvas, no <span class="k">!isMobile</span> permission expression, no print branch.
+          <b>6a changes what an overlay is; it does not change what is inside one</b> — except where
+          the same file has to be opened anyway. §08 is explicit about which those are.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       01 · TODAY
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">01 · today</span>
+      <h2>A centred box, and the keyboard under the button</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Drawn at true width, with the keyboard up, because that is the state the form is in for the
+        whole of its useful life. The left frame is <code>MobileChannelEditSheet</code> exactly as it
+        renders now: five fields, sentence-case labels, and <strong>Save</strong> under 268 px of
+        keyboard. There is no internal scroll, so the fields below the cut are not scrolled past —
+        they are <em>gone</em>.
+      </p>
+    </div>
+
+    <div class="phones">
+      <!-- 1 · the channel editor, today -->
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__av"></div>
+          </div>
+          <div class="m-bd" style="opacity: 0.3;">
+            <div class="m-sw m-sw--old"><span class="m-sw__t">Audio Inputs</span><span style="color: #a1a1aa;">▾</span></div>
+          </div>
+
+          <div class="m-dlg m-dlg--clip">
+            <div class="m-dlg__p">
+              <div class="m-dlg__hd">
+                <span class="m-dlg__ti">Edit channel 12</span>
+                <span class="m-dlg__x">×</span>
+              </div>
+              <div class="m-dlg__bd">
+                <div class="m-fld"><span class="lbl lbl--nav">Channel name</span><span class="fld fld--md fld--foc">Kick In</span></div>
+                <div class="m-fld"><span class="lbl lbl--nav">Channel color</span><span class="fld fld--md fld--sel"><span class="tape" style="background: #38bdf8;"></span>Sky</span></div>
+                <div style="display: flex; gap: 12px;">
+                  <div class="m-fld" style="flex: 1; min-width: 0;"><span class="lbl lbl--nav">Stagebox</span><span class="fld fld--md fld--sel">SB1</span></div>
+                  <div class="m-fld" style="flex: 1; min-width: 0;"><span class="lbl lbl--nav">Input #</span><span class="fld fld--md fld--sel">In 12</span></div>
+                </div>
+                <div class="m-fld"><span class="lbl lbl--nav">Source / mic</span><span class="fld fld--md fld--sel">Shure Beta 91A</span></div>
+                <div class="m-fld"><span class="lbl lbl--nav">Notes</span><span class="fld fld--md fld--ph">—</span></div>
+                <div style="display: flex; justify-content: flex-end; gap: 8px; padding-top: 8px;">
+                  <span class="btn btn--md btn--ghost">Cancel</span>
+                  <span class="btn btn--md btn--primary">Save changes</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="m-kbd">
+            <div class="m-kbd__r"><span class="m-kbd__k"></span><span class="m-kbd__k"></span><span class="m-kbd__k"></span><span class="m-kbd__k"></span><span class="m-kbd__k"></span><span class="m-kbd__k"></span><span class="m-kbd__k"></span><span class="m-kbd__k"></span><span class="m-kbd__k"></span><span class="m-kbd__k"></span></div>
+            <div class="m-kbd__r"><span class="m-kbd__k"></span><span class="m-kbd__k"></span><span class="m-kbd__k"></span><span class="m-kbd__k"></span><span class="m-kbd__k"></span><span class="m-kbd__k"></span><span class="m-kbd__k"></span><span class="m-kbd__k"></span><span class="m-kbd__k"></span></div>
+            <div class="m-kbd__r"><span class="m-kbd__k m-kbd__k--w"></span><span class="m-kbd__k"></span><span class="m-kbd__k"></span><span class="m-kbd__k"></span><span class="m-kbd__k"></span><span class="m-kbd__k"></span><span class="m-kbd__k"></span><span class="m-kbd__k m-kbd__k--w"></span></div>
+            <div class="m-kbd__r"><span class="m-kbd__k m-kbd__k--w"></span><span class="m-kbd__k m-kbd__k--sp"></span><span class="m-kbd__k m-kbd__k--w"></span></div>
+            <span class="m-kbd__home"></span>
+          </div>
+          <div class="m-cut" style="bottom: 268px;"><span class="m-cut__l">everything below is unreachable — no scroll</span></div>
+        </div>
+        <p class="phone__cap phone__cap--bad"><b>Today</b> · ui/Dialog, centred · Save is behind the keyboard, and the sheet does not scroll</p>
+      </div>
+
+      <!-- 2 · the section switcher, today -->
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__av"></div>
+          </div>
+          <div class="m-bd" style="opacity: 0.3;">
+            <div class="m-sw m-sw--old"><span class="m-sw__t">Audio Inputs <span class="pill t-warn" style="margin-left: 6px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700;">Editable</span></span><span style="color: #a1a1aa;">▾</span></div>
+          </div>
+          <div class="m-dlg">
+            <div class="m-dlg__p">
+              <div class="m-dlg__hd">
+                <span class="m-dlg__ti">Jump to section</span>
+                <span class="m-dlg__x">×</span>
+              </div>
+              <div class="m-dlg__bd" style="gap: 4px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 6px; font-size: 14px; color: #e4e4e7;">Overview<span class="pill t-warn" style="text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700;">Editable</span></div>
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 6px; font-size: 14px; background: rgba(245,158,11,0.1); color: #fcd34d;">Audio Inputs<span class="pill t-warn" style="text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700;">Editable</span></div>
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 6px; font-size: 14px; color: #e4e4e7;">Stage Plots<span class="pill t-sky" style="text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700;">Viewer</span></div>
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 6px; font-size: 14px; color: #e4e4e7;">Signal Flow<span class="pill t-sky" style="text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700;">Viewer</span></div>
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 6px; font-size: 14px; color: #e4e4e7;">Equipment<span class="pill t-sky" style="text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700;">View only</span></div>
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 6px; font-size: 14px; color: #e4e4e7;">Rental Order<span class="pill t-sky" style="text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700;">View only</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="phone__cap phone__cap--bad"><b>Today</b> · the switcher · a phone-only vocabulary, in a reserved hue, telling a viewer that Audio Inputs is “Editable”</p>
+      </div>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">The count</div>
+        <div class="led__v">
+          <span class="k">grep -rn "&lt;Dialog" components/mobile/ pages/Inventories.tsx</span> →
+          <b>5</b>. Plus one real bottom sheet written inline in
+          <span class="k">MobileNav</span>. Six overlays, two shapes, no component.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">The voice<span class="tag tag--drop">M12</span></div>
+        <div class="led__v">
+          <b><span class="mono">18</span> <span class="k">&lt;FieldLabel&gt;</span> in
+          <span class="k">components/mobile/</span>, and <span class="mono">0</span>
+          <span class="k">MicroLabel</span>.</b> The desktop form these sheets stand in for is
+          <span class="k">FieldStack</span>, which renders a mono, uppercase, tracked label — so the
+          Rig drawer and the phone's channel sheet label the same field two different ways.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">The badge<span class="tag tag--drop">M7</span></div>
+        <div class="led__v">
+          <span class="k">SectionSwitcher</span> grades all nine sections
+          <em>editable / read-only / viewer</em> from a fixed table, in <span class="k">sky</span> —
+          which <span class="k">tokens.md</span> §5 reserves for the legend's sample stroke. Its own
+          type comment admits the badge <em>“never overrides a user's actual role-based
+          permission”</em>. And the closed trigger carries <span class="k">border-amber-500/60</span>
+          permanently: a control that is amber whether or not anything is selected has spent the
+          accent on furniture.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">The inset</div>
+        <div class="led__v">
+          <b>Two <span class="k">env(safe-area-inset-bottom)</span> call sites, and both evaluate to
+          <span class="mono">0</span> on iOS today.</b> §07.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       02 · THE SHEET
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">02 · the component</span>
+      <h2>What <code>ui/Sheet</code> owns, and what it refuses to</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        The sheet owns the shell and nothing else: <strong>the anchor, the radius, the scrim (and
+        its one exception), the internal scroll, <code>Escape</code>, and the safe-area inset under
+        whatever the last row is.</strong> What goes in keeps its own tier, its own labels and its
+        own commit behaviour — <code>patterns.md</code> §7d, and the same split
+        <code>ui/Drawer</code> already lives by.
+      </p>
+    </div>
+
+    <div class="anat">
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__av"></div>
+          </div>
+          <div class="m-bd" style="opacity: 0.3;">
+            <div class="m-sw"><span class="m-sw__t">Audio Inputs</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar"><span class="m-pan__ti">Audio Inputs</span><span class="m-pan__ic">🔍</span><span class="m-pan__ic m-pan__ic--pri">+</span></div>
+            </div>
+          </div>
+
+          <span class="mk mk--abs" style="top: 176px; right: 12px;">1</span>
+          <div class="m-sheet">
+            <div class="m-sheet__p">
+              <div class="m-sheet__hd">
+                <span class="mk" style="margin-right: 4px;">2</span>
+                <div style="min-width: 0;">
+                  <div class="m-sheet__ti">Channel 12</div>
+                  <div class="m-sheet__sub">Audio Inputs · Sommarfest Gävle</div>
+                </div>
+                <span class="m-sheet__x">✕</span>
+              </div>
+              <div class="m-sheet__bd" style="overflow-y: auto;">
+                <span class="mk" style="align-self: flex-start;">3</span>
+                <div class="m-fld"><span class="lbl">Channel</span><span class="fld fld--md fld--foc">Kick In</span></div>
+                <div style="display: flex; gap: 10px;">
+                  <div class="m-fld" style="flex: 1; min-width: 0;"><span class="lbl">Tape</span><span class="fld fld--md fld--sel"><span class="tape" style="background: #38bdf8;"></span>sky</span></div>
+                  <div class="m-fld" style="flex: 1; min-width: 0;"><span class="lbl">Width</span><span class="fld fld--md fld--sel">Mono</span></div>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                  <div class="m-fld" style="flex: 1; min-width: 0;"><span class="lbl">Stagebox</span><span class="fld fld--md fld--sel">SB1</span></div>
+                  <div class="m-fld" style="flex: 1; min-width: 0;"><span class="lbl">In</span><span class="fld fld--md fld--sel">12</span></div>
+                </div>
+                <div class="m-fld"><span class="lbl">Source</span><span class="fld fld--md fld--sel">Shure Beta 91A</span></div>
+                <div class="gear__sp" style="font-size: 10px;">
+                  <span>SB1 <b>8 / 32</b></span><span>48 V <b>on</b></span><span>reaches <b>SD10 ch 12</b></span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; padding-top: 2px;">
+                  <span class="btn btn--md btn--danger-ghost" style="padding-left: 0;">Delete channel</span>
+                  <span class="mk">4</span>
+                </div>
+              </div>
+              <div class="m-sheet__ft">
+                <span class="btn btn--md btn--primary" style="flex: 1;">Save channel</span>
+                <span class="mk mk--abs" style="right: 6px; bottom: 26px;">5</span>
+              </div>
+              <div class="safe"><span class="safe__l">safe inset</span></div>
+              <span class="mk mk--abs" style="right: 6px; bottom: 2px;">6</span>
+            </div>
+          </div>
+        </div>
+        <p class="phone__cap"><b>ui/Sheet</b> · the row-editor job, with every part it owns marked</p>
+      </div>
+
+      <div class="anat__parts">
+        <div class="anat__p">
+          <div class="anat__n"><span class="mk mk--doc">1</span> scrim</div>
+          <div class="anat__v">
+            The dialog's, not the drawer's — a sheet covers most of the screen. Tapping it closes.
+            It also carries <span class="k">touch-none</span>, so the page behind cannot be scrolled
+            through it.
+            <span class="cls">fixed inset-0 z-50 flex items-end bg-zinc-950/80 touch-none</span>
+          </div>
+        </div>
+        <div class="anat__p">
+          <div class="anat__n"><span class="mk mk--doc">2</span> header</div>
+          <div class="anat__v">
+            <b>The drawer's header, at the phone's padding.</b> <span class="k">text-lg</span> title,
+            optional <span class="k">text-xs</span> subtitle, close on the right as a real
+            <span class="mono">44 px</span> target rather than a <span class="mono">14 px</span>
+            glyph. <span class="k">title</span> is a <span class="k">ReactNode</span>, because the
+            inspector puts a <span class="k">MicroLabel</span> and a <span class="k">Pill</span>
+            there instead of a string — see §03.
+            <span class="cls">flex flex-none items-center gap-2 border-b border-zinc-800 px-4 py-3.5</span>
+          </div>
+        </div>
+        <div class="anat__p">
+          <div class="anat__n"><span class="mk mk--doc">3</span> body</div>
+          <div class="anat__v">
+            The one thing that scrolls. <span class="k">overscroll-contain</span> so a flick at its
+            end does not scroll the page behind it. <b>No section inside it takes a height of its
+            own</b> — <span class="k">patterns.md</span> §3, which Slice 32 wrote for the drawer and
+            which is the same rule here.
+            <span class="cls">flex-1 overflow-y-auto overscroll-contain px-4 py-4 flex flex-col gap-3.5</span>
+          </div>
+        </div>
+        <div class="anat__p">
+          <div class="anat__n"><span class="mk mk--doc">4</span> delete</div>
+          <div class="anat__v">
+            <b>At the foot of the body, not in the footer.</b> It scrolls with the content, so it is
+            never under a thumb at rest. This is the decision §04 is about.
+            <span class="cls">Button variant="ghost" size="md" · text-red-400 · self-start</span>
+          </div>
+        </div>
+        <div class="anat__p">
+          <div class="anat__n"><span class="mk mk--doc">5</span> footer</div>
+          <div class="anat__v">
+            Pinned, and it holds <b>exactly one thing</b>: the confirm, full width, labelled with the
+            verb of the operation. When the job is a drawer this same slot holds the drawer's
+            statement line instead — <em>“Every row here is one line on the rental order · 12
+            items.”</em>
+            <span class="cls">flex-none border-t border-zinc-800 px-4 py-3</span>
+          </div>
+        </div>
+        <div class="anat__p">
+          <div class="anat__n"><span class="mk mk--doc">6</span> inset</div>
+          <div class="anat__v">
+            <span class="k">env(safe-area-inset-bottom)</span>, <b>added to the footer's padding
+            rather than absorbed by it</b>. A confirm the home indicator sits on is a confirm that
+            misses. Today this evaluates to <span class="mono">0</span>; §07.
+            <span class="cls">pb-[calc(env(safe-area-inset-bottom)+0.75rem)]</span>
+          </div>
+        </div>
+        <div class="anat__p">
+          <div class="anat__n">panel</div>
+          <div class="anat__v">
+            <span class="k">rounded-t-xl</span> with the bottom corners square, because it is
+            anchored to an edge and therefore has two corners. <span class="k">border-zinc-700</span>
+            — the Frame role, one step up from <span class="k">MobileNav</span>'s inline sheet, which
+            used <span class="k">zinc-800</span>.
+            <span class="cls">w-full max-h-[85svh] flex flex-col rounded-t-xl border-t border-zinc-700 bg-zinc-900 shadow-2xl</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spec">
+      <div class="code"><b>interface</b> SheetProps {
+  open:      <i>boolean</i>
+  onClose:   <i>() =&gt; void</i>
+  title:     <i>ReactNode</i>   <u>// a string, or the rail's MicroLabel + Pill</u>
+  subtitle?: <i>string</i>
+  children:  <i>ReactNode</i>
+  footer?:   <i>ReactNode</i>   <u>// the confirm row, or the drawer's statement line</u>
+
+  <u>/** Off for the canvas inspector, and only it: it is read *against* what</u>
+  <u>    is behind it, so it takes no scrim — and is therefore not modal. */</u>
+  scrim?:    <i>boolean</i>     <u>// default true</u>
+
+  <u>/** Contents that are a run of full-bleed rows own their own padding:</u>
+  <u>    the section list, the category filter. */</u>
+  flush?:    <i>boolean</i>     <u>// default false</u>
+}</div>
+      <p class="spec__cap">The whole API · <b>six props</b>, four of which <span class="k">Drawer</span> already has</p>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">Height</div>
+        <div class="led__v">
+          <b><span class="k">max-h-[85svh]</span>, and no minimum.</b> A three-row sheet is three rows
+          tall. <span class="k">svh</span> rather than <span class="k">vh</span> because a phone's
+          <span class="k">vh</span> includes browser chrome that is not there — the sheet would be
+          taller than the screen while the address bar is showing.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">No handle</div>
+        <div class="led__v">
+          <b>No grab handle, and no drag-to-dismiss.</b> A handle is the platform's promise that the
+          sheet can be dragged; drawing one over a sheet that cannot is a control that does not work.
+          Two ways out — the close target and the scrim — and both do.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">No cancel</div>
+        <div class="led__v">
+          <b>The footer holds no Cancel.</b> There are already three ways to leave without saving —
+          the close target, the scrim, and the platform's own back gesture — and a fourth costs a
+          third of the confirm's width. Dropping it is what makes <em>full width</em> literal rather
+          than aspirational.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Where it lives</div>
+        <div class="led__v">
+          <span class="k">components/ui/Sheet.tsx</span>, not
+          <span class="k">components/mobile/</span> — <span class="k">ui/Drawer</span> imports it, and
+          a <span class="k">ui/</span> component reaching into <span class="k">mobile/</span> is the
+          layering inversion <span class="k">components.md</span> §5 exists to prevent. It is the same
+          correction <span class="k">A1</span> made when <span class="k">MICRO_LABEL</span> left
+          <span class="k">graph/tokens.ts</span>.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Also owns</div>
+        <div class="led__v">
+          <span class="k">role="dialog"</span>, <span class="k">aria-modal={scrim}</span> — the
+          un-scrimmed inspector is genuinely not modal — an accessible name from
+          <span class="k">title</span>, focus moved in on open and returned to the trigger on close.
+          <b>None of this exists on <span class="k">Dialog</span> today</b>, and building it once here
+          is cheaper than five times later.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       03 · THE THREE JOBS
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">03 · three jobs</span>
+      <h2>One shell, three tenants, three commit behaviours</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        On a desk, three separate things do these three jobs: the <strong>row editor</strong> of §2,
+        the <strong>drawer</strong> of §3, and the <strong>inspector</strong> of §4. On a phone one
+        sheet does all three, and <em>the sheet is a container — containers do not have opinions
+        about drafts</em>. Each job keeps its own.
+      </p>
+      <p>
+        This is the test the component has to pass, so all three are drawn. If the shell needed a
+        prop to tell them apart beyond <code>scrim</code> and <code>flush</code>, it would be doing
+        someone else's job.
+      </p>
+    </div>
+
+    <table class="tbl">
+      <thead>
+        <tr><th style="width: 140px;">Job</th><th style="width: 34%;">Contents</th><th style="width: 24%;">Commits</th><th>Header · footer</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>Row editor</b></td>
+          <td><span class="k">RowEditor</span> / <span class="k">GearForm</span> fields, at the work
+            surface's <span class="k">MicroLabel</span></td>
+          <td>a draft, confirmed — one <b>Save</b></td>
+          <td>the row's name · the confirm</td>
+        </tr>
+        <tr>
+          <td><b>Drawer</b></td>
+          <td><span class="k">DrawerSection</span> + <span class="k">GearCard</span> +
+            <span class="k">GearSpecs</span>, unchanged</td>
+          <td>per card — each opens its own <span class="k">GearForm</span></td>
+          <td>the drawer's title · its statement line</td>
+        </tr>
+        <tr>
+          <td><b>Inspector</b></td>
+          <td><span class="k">InspectorRail</span>'s <span class="k">Field</span>,
+            <span class="k">Note</span>, <span class="k">Legend</span> — without the
+            <span class="k">w-60 border-l</span> frame</td>
+          <td>per field — <em>the rail holds no draft</em></td>
+          <td><span class="k">MicroLabel</span> + <span class="k">Pill</span> · none</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="phones">
+      <!-- job 2 · the drawer -->
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__av"></div>
+          </div>
+          <div class="m-bd" style="opacity: 0.3;">
+            <div class="m-sw"><span class="m-sw__t">Audio Inputs</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-pan m-pan--fill"><div class="m-pan__bar"><span class="m-pan__ti">Audio Inputs</span><span class="m-pan__ic">▤</span><span class="m-pan__ic m-pan__ic--pri">+</span></div></div>
+          </div>
+          <div class="m-sheet">
+            <div class="m-sheet__p" style="max-height: 88%;">
+              <div class="m-sheet__hd">
+                <div style="min-width: 0;">
+                  <div class="m-sheet__ti">Rig</div>
+                  <div class="m-sheet__sub">Declared once, referenced by every channel</div>
+                </div>
+                <span class="m-sheet__x">✕</span>
+              </div>
+              <div class="m-sheet__bd" style="gap: 18px; overflow-y: auto;">
+                <div class="dsec">
+                  <div class="dsec__hd"><span class="lbl">Consoles</span><span class="dsec__ct">1</span><span style="margin-left: auto;" class="btn btn--md btn--outline">＋ Add</span></div>
+                  <div class="gear" style="border-color: rgba(245,158,11,0.35); background: rgba(245,158,11,0.04);">
+                    <div class="gear__top"><span class="gear__nm">SD10</span><span class="pill t-drum">FOH</span><span class="gear__ac">96 / 48</span></div>
+                    <div class="gear__sp"><span>in <b>96</b></span><span>out <b>48</b></span><span>local <b>8 / 8</b></span></div>
+                  </div>
+                </div>
+                <div class="dsec">
+                  <div class="dsec__hd"><span class="lbl">Stageboxes</span><span class="dsec__ct">2</span><span style="margin-left: auto;" class="btn btn--md btn--outline">＋ Add</span></div>
+                  <div class="gear">
+                    <div class="gear__top"><span class="gear__nm">SB1</span><span class="gear__ac">8 / 32</span></div>
+                    <div class="gear__sp"><span>in <b>32</b></span><span>out <b>16</b></span><span>on <b>stage L</b></span></div>
+                  </div>
+                  <div class="gear">
+                    <div class="gear__top"><span class="gear__nm">SB2</span><span class="gear__ac">0 / 16</span></div>
+                    <div class="gear__sp"><span>in <b>16</b></span><span>out <b>8</b></span><span>on <b>stage R</b></span></div>
+                  </div>
+                </div>
+                <div class="dsec">
+                  <div class="dsec__hd"><span class="lbl">Stage multis</span><span class="dsec__ct">1</span><span style="margin-left: auto;" class="btn btn--md btn--outline">＋ Add</span></div>
+                  <div class="gear">
+                    <div class="gear__top"><span class="gear__nm">Multi A</span><span class="gear__ac">12 / 24</span></div>
+                    <div class="gear__sp"><span>ch <b>24</b></span><span>length <b>30 m</b></span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="m-sheet__ft" style="justify-content: flex-start;">
+                <span style="font-size: 12px; color: #71717a;">Every row here is one line on the rental order · <span class="mono" style="color: #a1a1aa;">6</span> items</span>
+              </div>
+              <div class="safe"></div>
+            </div>
+          </div>
+        </div>
+        <p class="phone__cap"><b>Job 2 · the drawer</b> · the same component tree as the desk, at h-10 instead of h-8</p>
+      </div>
+
+      <!-- job 3 · the inspector, no scrim -->
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__av"></div>
+          </div>
+          <div class="m-bd">
+            <div class="m-sw"><span class="m-sw__t">Audio Inputs</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar">
+                <span class="m-pan__ti">Audio Inputs</span>
+                <span class="seg" style="padding: 3px;"><span class="btn btn--ghost" style="height: 32px; font-size: 13px;">Sheet</span><span class="btn btn--primary" style="height: 32px; font-size: 13px;">Flow</span></span>
+              </div>
+              <div class="m-cvs">
+                <div class="cvs__band" style="left: 0; width: 168px; background: rgba(255,255,255,0.022);"></div>
+                <div class="cvs__band" style="left: 168px; right: 0; background: rgba(255,255,255,0.012);"></div>
+                <svg style="position: absolute; inset: 0; overflow: visible;">
+                  <path d="M137 70 C 160 70, 174 71, 195 71" fill="none" stroke="#38bdf8" stroke-width="1.4" />
+                  <path d="M137 90 C 160 90, 174 89, 195 89" fill="none" stroke="#38bdf8" stroke-width="1.4" />
+                  <path d="M137 110 C 160 110, 174 107, 195 107" fill="none" stroke="#a78bfa" stroke-width="1.4" />
+                </svg>
+                <div class="srail" style="left: -10px; top: 40px; width: 156px;">
+                  <div class="srail__hd"><b>Sources</b><span>12</span></div>
+                  <div class="srow srow--sel"><span class="srow__tape" style="background: #38bdf8;"></span><span class="srow__nm">Kick In</span><span class="srow__md">Beta 91A</span><span class="port port--c" style="--c: #38bdf8;"></span></div>
+                  <div class="srow"><span class="srow__tape" style="background: #38bdf8;"></span><span class="srow__nm">Kick Out</span><span class="srow__md">e902</span><span class="port port--c" style="--c: #38bdf8;"></span></div>
+                  <div class="srow"><span class="srow__tape" style="background: #a78bfa;"></span><span class="srow__nm">Bass DI</span><span class="srow__md">J48</span><span class="port port--c" style="--c: #a78bfa;"></span></div>
+                </div>
+                <div class="node" style="left: 186px; top: 34px; width: 150px;">
+                  <div class="node__hd">SB1<span class="node__bdg">32</span></div>
+                  <div class="node__body">
+                    <div class="prow"><span class="port port--c" style="--c: #38bdf8;"></span><span>1 Kick In</span></div>
+                    <div class="prow"><span class="port port--c" style="--c: #38bdf8;"></span><span>2 Kick Out</span></div>
+                    <div class="prow"><span class="port port--c" style="--c: #a78bfa;"></span><span>8 Bass DI</span></div>
+                  </div>
+                  <div class="node__ft">8 / 32 used</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="m-sheet m-sheet--noscrim">
+            <div class="m-sheet__p" style="max-height: 54%; pointer-events: auto;">
+              <div class="m-sheet__hd">
+                <span class="lbl">Source</span>
+                <span class="pill t-drum">MIC</span>
+                <span class="m-sheet__x">✕</span>
+              </div>
+              <div class="m-sheet__bd" style="gap: 10px;">
+                <div class="m-insp"><span class="lbl">Name</span><span class="fld fld--md">Kick In</span></div>
+                <div class="m-insp"><span class="lbl">Mic</span><span class="fld fld--md fld--sel">Shure Beta 91A</span></div>
+                <div class="m-insp"><span class="lbl">Stand</span><span class="fld fld--md fld--sel fld--foc">Short boom</span></div>
+                <div class="m-insp"><span class="lbl">48 V</span><span class="fld fld--md fld--sel"><span class="p48"></span><span style="margin-left: 6px;">on</span></span></div>
+                <div class="insp__box" style="padding: 9px 10px;">
+                  <div class="insp__lg" style="font-size: 12px;"><svg width="22" height="4"><line x1="0" y1="2" x2="22" y2="2" stroke="#38bdf8" stroke-width="1.4" /></svg>lands on SD10 ch 1</div>
+                </div>
+              </div>
+              <div class="safe"></div>
+            </div>
+          </div>
+        </div>
+        <p class="phone__cap"><b>Job 3 · the inspector</b> · no scrim, no footer, no draft — and therefore not modal</p>
+      </div>
+    </div>
+
+    <div class="ask">
+      <h3>The scrim exception is a behaviour, not a colour</h3>
+      <p>
+        <code>tokens.md</code> §7 grants the canvas inspector one exception to the
+        <code>bg-zinc-950/80</code> scrim, and <code>patterns.md</code> §7f gives the reason: <em>it is
+        the one sheet read </em>against<em> what is behind it — you tapped the node to find out about
+        the node, and dimming it answers the wrong question.</em>
+      </p>
+      <p>
+        Implementing that honestly means more than setting the backdrop transparent. <strong>With no
+        scrim there is no backdrop element at all</strong>, so the canvas stays live: panning still
+        pans, and tapping another node <em>re-points the sheet</em> rather than closing it. That is
+        the behaviour the exception implies, and it is why <code>aria-modal</code> follows
+        <code>scrim</code> rather than being hard-coded true. The canvas is 6d's problem; the
+        component has to be able to express it in 6a, or 6d re-opens this file.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       04 · THE FOOTER
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">04 · the footer</span>
+      <h2>Where the rule and the drawing disagree</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <code>patterns.md</code> §7d: <strong>“Confirm is full width at the bottom, delete kept apart
+        from it (§2).”</strong> <code>design/design-language.html</code> §8 draws
+        <code>Save</code> at <code>flex: 1</code>, then <code>Cancel</code>, then <code>Delete</code>,
+        all in one row. Those are two different footers, and 6a is the phase that has to pick,
+        because 6a is the phase that builds the thing.
+      </p>
+      <p>
+        At 375 px, three buttons and two gaps leave the confirm about <span class="mono">185 px</span>
+        of a <span class="mono">343 px</span> row — and put a destructive control roughly
+        <span class="mono">10 px</span> from it, in the bottom-right corner, which is the single
+        most-tapped area of a phone held in one hand. §2's <em>delete kept apart from confirm</em>
+        is a rule written for a mouse; it matters more here, not less.
+      </p>
+    </div>
+
+    <div class="vs">
+      <div class="vs__c">
+        <div class="vs__hd"><b>A · as drawn today</b><span>design-language.html §8</span></div>
+        <div class="phone" style="width: 100%;">
+          <div class="phone__frame" style="height: 300px; width: 100%; max-width: 375px;">
+            <div class="m-sheet" style="background: transparent;">
+              <div class="m-sheet__p" style="max-height: 100%;">
+                <div class="m-sheet__hd"><span class="m-sheet__ti">Channel 12</span><span class="m-sheet__x">✕</span></div>
+                <div class="m-sheet__bd">
+                  <div class="m-fld"><span class="lbl">Channel</span><span class="fld fld--md">Kick In</span></div>
+                  <div class="m-fld"><span class="lbl">Source</span><span class="fld fld--md fld--sel">Shure Beta 91A</span></div>
+                </div>
+                <div class="m-sheet__ft">
+                  <span class="btn btn--md btn--primary" style="flex: 1;">Save</span>
+                  <span class="btn btn--md btn--outline">Cancel</span>
+                  <span class="btn btn--md btn--danger-ghost">Delete</span>
+                </div>
+                <div class="thumb" style="right: -30px; bottom: -30px; width: 150px; height: 150px;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="vs__note">
+          Three controls in the thumb's arc, one of them destructive and one of them redundant.
+          <b>“Full width” is not what this is.</b>
+        </p>
+      </div>
+
+      <div class="vs__c">
+        <div class="vs__hd"><b>B · as written</b><span>patterns.md §7d · proposed</span></div>
+        <div class="phone" style="width: 100%;">
+          <div class="phone__frame" style="height: 300px; width: 100%; max-width: 375px;">
+            <div class="m-sheet" style="background: transparent;">
+              <div class="m-sheet__p" style="max-height: 100%;">
+                <div class="m-sheet__hd"><span class="m-sheet__ti">Channel 12</span><span class="m-sheet__x">✕</span></div>
+                <div class="m-sheet__bd">
+                  <div class="m-fld"><span class="lbl">Channel</span><span class="fld fld--md">Kick In</span></div>
+                  <div class="m-fld"><span class="lbl">Source</span><span class="fld fld--md fld--sel">Shure Beta 91A</span></div>
+                  <span class="btn btn--md btn--danger-ghost" style="align-self: flex-start; padding-left: 0;">Delete channel</span>
+                </div>
+                <div class="m-sheet__ft">
+                  <span class="btn btn--md btn--primary" style="flex: 1;">Save channel</span>
+                </div>
+                <div class="thumb" style="right: -30px; bottom: -30px; width: 150px; height: 150px;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="vs__note">
+          One control in the arc, and it is the one you came for. Delete is at the foot of the form,
+          left-aligned, and <b>scrolls with the content</b> — apart in the only way a single column
+          allows.
+        </p>
+      </div>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">Recommend</div>
+        <div class="led__v">
+          <b>B.</b> The prose is right and the specimen is a drafting error — it was drawn before any
+          of these sheets had a delete to place, and it inherited <span class="k">FormActions</span>'
+          desktop row without asking what a single column does to it. Taking B means
+          <span class="k">design/design-language.html</span> is redrawn in the same commit, which is
+          <span class="k">audit.md</span> Part 3's standing rule.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Cancel</div>
+        <div class="led__v">
+          Gone in B, and worth saying plainly: <b>the close target, the scrim and the platform's back
+          gesture are three ways out already.</b> A fourth is not reassurance, it is a third of the
+          confirm's width.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">The verb</div>
+        <div class="led__v">
+          The confirm is named for what it does — <b>Save channel</b>, <b>Save fixture</b> — matching
+          the desktop editor's own wording, and it becomes <span class="k">Saving…</span> disabled.
+          One word for one operation, wherever it appears.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Where B hurts</div>
+        <div class="led__v">
+          <em>Delete scrolls away.</em> On a long form you must reach the end to find it. That is the
+          trade, and it is the right one: <b>delete is not a thing you should be able to reach
+          without having read the form.</b>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       05 · THE DRAWER, ANCHORED
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">05 · the drawer</span>
+      <h2>Same props, two anchors, one branch</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <code>ui/Drawer</code> and <code>ui/Sheet</code> have the same shape: title, subtitle, body,
+        footer, backdrop-and-<code>Escape</code> to close, nothing rendered when closed. The only
+        prop <code>Drawer</code> has that <code>Sheet</code> cannot use is <code>width</code>, and a
+        phone has one width.
+      </p>
+      <p>
+        So <strong><code>Drawer</code> reads <code>useIsMobile()</code> and returns a
+        <code>Sheet</code></strong>. One branch, in one file, and every drawer in the application has
+        a phone form the moment 6a lands — the Rig, the Buses, the Universes, Categories, the
+        catalog's manage drawer — <em>without 6c having to reach any of them</em>. The alternative
+        is eight call sites each discovering the same question, which is how
+        <code>NodeShell</code> ended up with two copies.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app app--tight" style="min-width: 0;">
+          <div class="dstack" style="min-height: 360px; border: 1px solid #27272a; border-radius: 10px;">
+            <div style="padding: 12px;">
+              <div style="border: 1px solid #3f3f46; border-radius: 12px; background: rgba(9,9,11,0.4); overflow: hidden;">
+                <div style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #27272a;">
+                  <span style="font-size: 14px; font-weight: 600;">Audio Inputs</span>
+                  <span class="seg"><span class="btn btn--ghost">Sheet</span><span class="btn btn--primary">Flow</span></span>
+                  <span class="fld" style="width: 190px; color: #71717a;">Search…</span>
+                  <span class="btn btn--outline">Rig</span><span class="btn btn--outline">Buses</span>
+                  <span style="flex: 1;"></span>
+                  <span class="btn btn--outline">Print</span><span class="btn btn--primary">＋ Channel</span>
+                </div>
+                <div style="height: 210px;"></div>
+              </div>
+            </div>
+            <div class="scrim"></div>
+            <div class="sd">
+              <div class="sd__hd">
+                <div><div class="sd__ti">Rig</div><div class="sd__sub">Declared once, referenced by every channel</div></div>
+                <span class="sd__x">×</span>
+              </div>
+              <div class="sd__body">
+                <div class="dsec">
+                  <div class="dsec__hd"><span class="lbl">Consoles</span><span class="dsec__ct">1</span><span style="margin-left: auto;" class="btn btn--outline">＋ Add</span></div>
+                  <div class="gear" style="border-color: rgba(245,158,11,0.35); background: rgba(245,158,11,0.04);">
+                    <div class="gear__top"><span class="gear__nm">SD10</span><span class="pill t-drum">FOH</span><span class="gear__ac">96 / 48</span></div>
+                    <div class="gear__sp"><span>in <b>96</b></span><span>out <b>48</b></span><span>local <b>8 / 8</b></span></div>
+                  </div>
+                </div>
+                <div class="dsec">
+                  <div class="dsec__hd"><span class="lbl">Stageboxes</span><span class="dsec__ct">2</span><span style="margin-left: auto;" class="btn btn--outline">＋ Add</span></div>
+                  <div class="gear">
+                    <div class="gear__top"><span class="gear__nm">SB1</span><span class="gear__ac">8 / 32</span></div>
+                    <div class="gear__sp"><span>in <b>32</b></span><span>out <b>16</b></span><span>on <b>stage L</b></span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="sd__ft">Every row here is one line on the rental order · <b>6</b> items</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="spec__cap">The desk · <b>unchanged, byte for byte</b> — the phone form of the same drawer is in §03</p>
+    </div>
+
+    <table class="tbl">
+      <thead>
+        <tr><th style="width: 150px;">Prop</th><th style="width: 32%;">On a desk</th><th>On a phone</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><span class="k">title</span> · <span class="k">subtitle</span></td><td><span class="k">text-lg</span> over <span class="k">px-5 py-4</span></td><td><b>the same type</b>, at <span class="k">px-4 py-3.5</span> — the phone's page padding, not a smaller title</td></tr>
+        <tr><td><span class="k">children</span></td><td><span class="k">flex-1 overflow-y-auto</span>, sections at <span class="k">gap-5</span></td><td>the same, at <span class="k">gap-4.5</span> and the phone's padding</td></tr>
+        <tr><td><span class="k">footer</span></td><td><span class="k">border-t px-5 py-3 text-xs text-zinc-500</span></td><td>the same, <b>plus the safe inset</b></td></tr>
+        <tr><td><span class="k">width</span></td><td><span class="k">wide</span> <span class="k">max-w-3xl</span> · <span class="k">narrow</span> <span class="k">max-w-md</span></td><td><em>ignored</em> — a phone has one width</td></tr>
+        <tr><td>anchor</td><td>right, <span class="k">border-l</span>, full height</td><td>bottom, <span class="k">border-t rounded-t-xl</span>, <span class="k">max-h-[85svh]</span></td></tr>
+        <tr><td>scrim</td><td><span class="k">bg-zinc-950/70</span> — the drawer's</td><td><span class="k">bg-zinc-950/80</span> — <b>the sheet's, because a sheet covers most of the screen</b></td></tr>
+      </tbody>
+    </table>
+
+    <div class="ask">
+      <h3>The contents were already right — that is the point of doing this first</h3>
+      <p>
+        <code>patterns.md</code> §3, written out of Slice 32's mockup being drawn wrong twice: <em>a
+        drawer's frame is navigation tier and its contents are the work surface's.</em> Every drawer
+        in the tree is already built that way — <code>MicroLabel</code> headings,
+        <code>GearCard</code> at <code>px-2.5 py-2</code>, <code>GearSpecs</code> at 10 px mono.
+      </p>
+      <p>
+        <code>tokens.md</code> §7 amendment 2 then says a phone keeps that type and gives up only the
+        geometry a finger presses. So the Rig drawer on a phone is <strong>the same component tree at
+        <code>h-10</code> instead of <code>h-8</code></strong> — which is exactly what the §03
+        specimen is, and it costs a <code>size</code> prop rather than a rewrite. <em>Had 6a not
+        anchored <code>Drawer</code>, every one of those drawers would have got a bespoke phone form
+        in 6c.</em>
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       06 · THE DIALOG
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">06 · the dialog</span>
+      <h2>Hardened, and left centred</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <code>ui/Dialog</code> is the one piece of shared desktop code this wave touches, and it is
+        touched only by addition — the way Wave 2 added <code>onZoomIn</code> to
+        <code>ZoomControl</code> rather than forking it.
+      </p>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">Escape<span class="tag tag--new">add</span></div>
+        <div class="led__v">
+          The same effect <span class="k">Drawer</span> has had since Slice 23. Three components now
+          want it, so it becomes <span class="k">hooks/useEscapeToClose.ts</span> — three callers is
+          past the line Principle V draws, and the alternative is a fourth copy in
+          <span class="k">Sheet</span>.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Scroll<span class="tag tag--new">add</span></div>
+        <div class="led__v">
+          <span class="k">max-h-[85svh] flex flex-col</span>, header <span class="k">flex-none</span>,
+          body <span class="k">overflow-y-auto</span> — <b>the sheet's own numbers</b>, so a tall
+          overlay behaves the same way whichever anchor it has.
+          <em>This is the wave's one visible desktop delta:</em> a dialog taller than the viewport now
+          scrolls instead of overflowing off both ends. Nothing in the tree is currently that tall,
+          which is why it has never been reported.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Anchor<span class="tag tag--keep">keep</span></div>
+        <div class="led__v">
+          <b>A dialog stays centred at every width.</b> The rule, stated once so it stops being
+          decided per call site: <em>an overlay with fields is a <span class="k">Sheet</span>; an
+          overlay that is a sentence and two buttons is a <span class="k">Dialog</span>.</em> M8 is not
+          “<span class="k">Dialog</span> is the wrong shape” — it is
+          “<span class="k">Dialog</span> is being used as an edit form”, and six conversions fix that
+          at the call site rather than by making <span class="k">Dialog</span> into something else.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Still open</div>
+        <div class="led__v">
+          Four <span class="k">Dialog</span>s a phone can reach are <em>not</em> in 6a's six:
+          <span class="k">ChainCell</span>'s hop detail, the two cable pickers, and
+          <span class="k">EventMembersDialog</span>. All four are short and read-only or near enough,
+          and all four now scroll and take <span class="k">Escape</span>. If any turns out to want a
+          sheet, it wants it as part of <b>its own</b> surface's phase — not this one.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       07 · WHAT THE SHEET CANNOT FIX
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">07 · outside the component</span>
+      <h2>The safe area has never existed</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        M8's sentence has two halves. <em>“A long sheet cannot be scrolled to its confirm button”</em>
+        is a component problem and §02 solves it. <em>“The confirm button sits where the keyboard
+        opens”</em> is not, and neither is the inset the sheet is supposed to sit above.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="code"><i>frontend/index.html — today</i>
+&lt;meta name="viewport" content="<b>width=device-width, initial-scale=1.0</b>" /&gt;
+
+<i>proposed</i>
+&lt;meta name="viewport" content="<b>width=device-width, initial-scale=1.0</b><u>, viewport-fit=cover</u><u>, interactive-widget=resizes-content</u>" /&gt;</div>
+      <p class="spec__cap">One line · <b>and two independent findings behind it</b></p>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">viewport-fit</div>
+        <div class="led__v">
+          <b>Without <span class="k">viewport-fit=cover</span>, every
+          <span class="k">env(safe-area-inset-*)</span> evaluates to <span class="mono">0</span> on
+          iOS.</b> There are two such call sites in the tree, both in
+          <span class="k">MobileNav</span>, both added in Slice 21, and both have therefore been
+          inert on the device they were written for since the day they landed. Nothing about this is
+          visible in a desktop browser at 375 px, which is why five waves of review did not catch it.
+          <em>This is <span class="k">A5</span>'s lesson once more: a value a sibling positions
+          against has to be a value that exists.</em>
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">interactive-widget</div>
+        <div class="led__v">
+          Makes the virtual keyboard resize the <b>layout</b> viewport rather than only the visual
+          one, so a bottom-anchored footer lands above the keyboard instead of behind it.
+          <b>Chromium honours it; WebKit does not</b>, so it is an improvement on Android and a no-op
+          on iOS — which is why the sheet does not lean on it. The sheet's own defence is that its
+          body scrolls and the focused field can be brought into view; the meta key just means
+          Android does not need to.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Honestly</div>
+        <div class="led__v">
+          <b>Neither line can be verified in this toolchain.</b> There is no browser in it, let alone
+          two mobile ones. This is Wave 1's stage-plot canvas again — the one thing in the phase worth
+          a human glance on a real handset, and the spec should say so rather than claim a gate
+          covers it.
+        </div>
+      </div>
+    </div>
+
+    <div class="spec">
+      <div class="phones">
+        <div class="phone">
+          <div class="phone__frame" style="height: 300px;">
+            <div class="m-sheet" style="background: transparent;">
+              <div class="m-sheet__p" style="max-height: 100%;">
+                <div class="m-sheet__hd"><span class="m-sheet__ti">Channel 12</span><span class="m-sheet__x">✕</span></div>
+                <div class="m-sheet__bd"><div class="m-fld"><span class="lbl">Channel</span><span class="fld fld--md">Kick In</span></div></div>
+                <div class="m-sheet__ft" style="padding-bottom: 12px;">
+                  <span class="btn btn--md btn--primary" style="flex: 1;">Save channel</span>
+                </div>
+              </div>
+            </div>
+            <div style="position: absolute; inset-inline: 0; bottom: 0; height: 22px; background: rgba(9,9,11,0.85); display: flex; align-items: center; justify-content: center;">
+              <span style="width: 134px; height: 5px; border-radius: 3px; background: #f4f4f5; opacity: 0.9;"></span>
+            </div>
+          </div>
+          <p class="phone__cap phone__cap--bad"><b>Inset 0</b> · the home indicator sits on the confirm</p>
+        </div>
+        <div class="phone">
+          <div class="phone__frame" style="height: 300px;">
+            <div class="m-sheet" style="background: transparent;">
+              <div class="m-sheet__p" style="max-height: 100%;">
+                <div class="m-sheet__hd"><span class="m-sheet__ti">Channel 12</span><span class="m-sheet__x">✕</span></div>
+                <div class="m-sheet__bd"><div class="m-fld"><span class="lbl">Channel</span><span class="fld fld--md">Kick In</span></div></div>
+                <div class="m-sheet__ft" style="padding-bottom: 34px;">
+                  <span class="btn btn--md btn--primary" style="flex: 1;">Save channel</span>
+                </div>
+                <div class="safe"><span class="safe__l">inset</span></div>
+              </div>
+            </div>
+            <div style="position: absolute; inset-inline: 0; bottom: 0; height: 22px; display: flex; align-items: center; justify-content: center;">
+              <span style="width: 134px; height: 5px; border-radius: 3px; background: #f4f4f5; opacity: 0.9;"></span>
+            </div>
+          </div>
+          <p class="phone__cap"><b>Inset honoured</b> · the confirm clears it</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       08 · THE SIX CONVERSIONS
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">08 · the conversions</span>
+      <h2>Six call sites, and what rides along with each</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <code>audit.md</code> Part 3 closes with the rule the M findings exist because nobody had:
+        <strong>a slice that changes a surface changes its phone form in the same slice, or writes
+        down that it did not and why.</strong> The same logic points inward here. Three of these six
+        files hold <code>M12</code> and one holds <code>M7</code>, and 6a is opening all of them.
+        Rewriting a sheet's container and leaving its labels in a second voice means two passes over
+        one file for one appearance — and the second pass is the one that never gets scheduled.
+      </p>
+      <p>
+        <strong>So 6a takes M12 and M7 with it, and the wave table in <code>audit.md</code> gains
+        them.</strong> They were unassigned; that is the gap this notices, not a scope grab.
+      </p>
+    </div>
+
+    <div class="files">
+      <div class="file">
+        <span class="file__s file__s--new">+</span>
+        <span class="file__n">components/ui/Sheet.tsx</span>
+        <span class="file__w"><b>New.</b> §02. The shell, six props, no opinion about contents.</span>
+      </div>
+      <div class="file">
+        <span class="file__s file__s--new">+</span>
+        <span class="file__n">hooks/useEscapeToClose.ts</span>
+        <span class="file__w"><b>New.</b> Six lines, three callers — <span class="k">Drawer</span>, <span class="k">Dialog</span>, <span class="k">Sheet</span>.</span>
+      </div>
+      <div class="file">
+        <span class="file__s">~</span>
+        <span class="file__n">components/ui/Drawer.tsx</span>
+        <span class="file__w">Returns a <span class="k">Sheet</span> under <span class="k">useIsMobile()</span>. Desktop branch <b>byte-identical</b>, asserted by a diff.</span>
+      </div>
+      <div class="file">
+        <span class="file__s">~</span>
+        <span class="file__n">components/ui/Dialog.tsx</span>
+        <span class="file__w"><span class="k">Escape</span> and internal scroll. §06.</span>
+      </div>
+      <div class="file">
+        <span class="file__s">~</span>
+        <span class="file__n">components/mobile/MobileChannelEditSheet.tsx</span>
+        <span class="file__w"><span class="k">Sheet</span>, full-width confirm, delete at the foot — <b>and 6 <span class="k">FieldLabel</span>s become <span class="k">FieldStack</span></b> <span class="tag tag--drop">M12</span></span>
+      </div>
+      <div class="file">
+        <span class="file__s">~</span>
+        <span class="file__n">components/mobile/MobileOutputEditSheet.tsx</span>
+        <span class="file__w">The same, for an output. <span class="tag tag--drop">M12</span></span>
+      </div>
+      <div class="file">
+        <span class="file__s">~</span>
+        <span class="file__n">components/mobile/MobileFixtureEditSheet.tsx</span>
+        <span class="file__w">The same, for a fixture. <span class="tag tag--drop">M12</span></span>
+      </div>
+      <div class="file">
+        <span class="file__s">~</span>
+        <span class="file__n">components/mobile/SectionSwitcher.tsx</span>
+        <span class="file__w"><span class="k">Sheet</span> titled <b>Sections</b>, <span class="k">flush</span>. <b>The capability badge goes</b>, with its <span class="k">sky</span> tint, its sixth micro-label definition and the trigger's permanent amber border. <span class="tag tag--drop">M7</span></span>
+      </div>
+      <div class="file">
+        <span class="file__s">~</span>
+        <span class="file__n">pages/Inventories.tsx</span>
+        <span class="file__w">The phone's category filter becomes a <span class="k">flush</span> <span class="k">Sheet</span>. Its rows lose <span class="k">border + bg-zinc-900</span> — <b>the Control role, on a list of destinations</b>.</span>
+      </div>
+      <div class="file">
+        <span class="file__s">~</span>
+        <span class="file__n">components/mobile/MobileNav.tsx</span>
+        <span class="file__w"><b>The inline sheet becomes the component it already is.</b> Net negative — and its <span class="k">zinc-800</span> border becomes the Frame role's <span class="k">zinc-700</span>.</span>
+      </div>
+      <div class="file">
+        <span class="file__s file__s--del">−</span>
+        <span class="file__n">types/mobile.ts</span>
+        <span class="file__w"><span class="k">MobileCapability</span> and the <span class="k">capability</span> field on every one of the nine entries. The section list keeps <span class="k">section</span> and <span class="k">label</span>. <span class="tag tag--drop">M7</span></span>
+      </div>
+      <div class="file">
+        <span class="file__s">~</span>
+        <span class="file__n">index.html</span>
+        <span class="file__w">Two viewport keys. §07.</span>
+      </div>
+      <div class="file">
+        <span class="file__s">~</span>
+        <span class="file__n">design/ — patterns §7d, tokens §7, components §5, audit</span>
+        <span class="file__w"><b>In the same commit.</b> §7d's footer settles (§04), <span class="k">design-language.html</span>'s sheet specimen is redrawn to match, <span class="k">ui/Sheet</span> stops being marked <em>gap</em>, and M7, M8 and M12 move to Part 1b.</span>
+      </div>
+    </div>
+
+    <div class="phones">
+      <!-- the section switcher, after -->
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__av"></div>
+          </div>
+          <div class="m-bd" style="opacity: 0.3;">
+            <div class="m-sw"><span class="m-sw__t">Audio Inputs</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-pan m-pan--fill"><div class="m-pan__bar"><span class="m-pan__ti">Audio Inputs</span><span class="m-pan__ic m-pan__ic--pri">+</span></div></div>
+          </div>
+          <div class="m-sheet">
+            <div class="m-sheet__p" style="max-height: 82%;">
+              <div class="m-sheet__hd">
+                <span class="m-sheet__ti">Sections</span>
+                <span class="m-sheet__x">✕</span>
+              </div>
+              <div class="m-sheet__bd" style="gap: 0; padding: 0; overflow-y: auto;">
+                <div class="m-jump">
+                  <div class="m-jump__i"><span class="m-jump__n">01</span><span class="m-jump__l">Overview</span></div>
+                  <div class="m-jump__i on"><span class="m-jump__n">02</span><span class="m-jump__l">Audio Inputs</span></div>
+                  <div class="m-jump__i"><span class="m-jump__n">03</span><span class="m-jump__l">Audio Outputs</span></div>
+                  <div class="m-jump__i"><span class="m-jump__n">04</span><span class="m-jump__l">Lighting Rig</span></div>
+                  <div class="m-jump__i"><span class="m-jump__n">05</span><span class="m-jump__l">Stage Plots</span></div>
+                  <div class="m-jump__i"><span class="m-jump__n">06</span><span class="m-jump__l">Signal Flow</span></div>
+                  <div class="m-jump__i"><span class="m-jump__n">07</span><span class="m-jump__l">Equipment</span></div>
+                  <div class="m-jump__i"><span class="m-jump__n">08</span><span class="m-jump__l">Rental Order</span></div>
+                  <div class="m-jump__i"><span class="m-jump__n">09</span><span class="m-jump__l">Settings</span></div>
+                </div>
+              </div>
+              <div class="safe"></div>
+            </div>
+          </div>
+        </div>
+        <p class="phone__cap"><b>The switcher, after</b> · nine destinations, the sidebar's 2 px marker, no invented vocabulary</p>
+      </div>
+
+      <!-- More, as the component -->
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Inventories</div>
+            <div class="m-hd__av"></div>
+          </div>
+          <div class="m-bd" style="opacity: 0.3;">
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar"><span class="m-pan__ti">Rental catalogs</span><span class="m-pan__ic">🔍</span><span class="m-pan__ic m-pan__ic--pri">+</span></div>
+              <div class="m-pan__rows">
+                <div class="m-row"><span class="m-row__e"></span><div class="m-row__c"><span class="m-row__t">Ljud &amp; Ljus AB</span><span class="m-row__s">308 items · 12 categories · used on 9</span></div></div>
+                <div class="m-row"><span class="m-row__e"></span><div class="m-row__c"><span class="m-row__t">Festivalpaket 2026</span><span class="m-row__s">142 items · 8 categories · used on 2</span></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav" style="opacity: 0.3;">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Dashboard</div>
+            <div class="m-nav__i"><span class="m-nav__g">▦</span>Events</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▥</span>Inventories</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+          <div class="m-sheet">
+            <div class="m-sheet__p">
+              <div class="m-sheet__hd">
+                <span class="m-sheet__ti">More</span>
+                <span class="m-sheet__x">✕</span>
+              </div>
+              <div class="m-sheet__bd" style="gap: 0; padding: 0;">
+                <div class="m-jump">
+                  <div class="m-jump__i" style="min-height: 52px;"><span class="m-jump__n">⚙</span><span class="m-jump__l">My Defaults</span></div>
+                  <div class="m-jump__i" style="min-height: 52px;"><span class="m-jump__n">⤴</span><span class="m-jump__l">Sign out</span></div>
+                </div>
+              </div>
+              <div class="safe"></div>
+            </div>
+          </div>
+        </div>
+        <p class="phone__cap"><b>More, as the component</b> · the same markup it already had, with a border role corrected</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       09 · WHAT IT COSTS
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">09 · what it costs</span>
+      <h2>Twelve files, no endpoint, no migration</h2>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">Backend</div>
+        <div class="led__v"><b>Nothing.</b> Asserted by a gate rather than assumed: <span class="k">git diff --stat -- backend/</span> is empty for the whole phase, the way Slice 26 asserted the same claim.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Desktop</div>
+        <div class="led__v">
+          <b>One visible delta, and it is in §06:</b> a dialog taller than <span class="mono">85svh</span> now scrolls. Everything else is asserted unchanged — <span class="k">Drawer</span>'s desktop return, and every <span class="k">Dialog</span> shorter than the viewport, compared class-string by class-string through <span class="k">twMerge</span> the way Wave 0 caught its own four rows.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Tests</div>
+        <div class="led__v">
+          There is nothing pure to test here — this is a shell. The gates are <span class="k">tsc -b</span>, <span class="k">eslint</span>, <span class="k">vitest</span> green, the two diffs above, and <b>a grep pair</b>: <span class="k">&lt;Dialog</span> in <span class="k">components/mobile/</span> goes <span class="mono">4 → 0</span>, and <span class="k">FieldLabel</span> there goes <span class="mono">18 → 0</span>.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Field test</div>
+        <div class="led__v">
+          <b>One handset, two browsers, four things:</b> the confirm clears the home indicator; the keyboard does not cover it; a long sheet scrolls to its end; and the back gesture closes the sheet rather than leaving the page. §07 says why none of these has a gate.
+        </div>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p><strong>Deliberately not in 6a</strong>, each with its phase:</p>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">The frame<span class="tag tag--keep">6b</span></div>
+        <div class="led__v"><span class="k">MobilePanel</span> — the bar, the rows, the strip. The specimens above draw it dimmed behind every sheet because a sheet has to open over <em>something</em>; none of that is built in this phase, and the sheets land on the card stack that is there now.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">The counts<span class="tag tag--keep">6c</span></div>
+        <div class="led__v">
+          <span class="k">design-language.html</span> draws the section list with a derived count on each row — <em>16 ch · 3 gaps</em>. Those come from <span class="k">lib/eventSummary.ts</span>, which needs each tab's data, and the phone branches do not all load it yet. <b>6a ships the list; the counts arrive with the surfaces that derive them.</b> Written down here so the deferral stays visible, which is the failure mode Part 3 names.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">The editors<span class="tag tag--keep">6c</span></div>
+        <div class="led__v">
+          The three <span class="k">Mobile*EditSheet</span>s get the right container and the right label voice here. <b>Whether they should be <span class="k">RowEditor</span> outright</b> — which is what §7d's table says the row-editor job holds — is a question about each surface, and each surface has a phase.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">The canvas<span class="tag tag--keep">6d</span></div>
+        <div class="led__v">The inspector job is <b>drawn and speccable but not wired</b>: no canvas mounts on a phone until 6d. What 6a owes 6d is the <span class="k">scrim={false}</span> behaviour in §03 — built now so 6d does not re-open this file.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Permissions</div>
+        <div class="led__v"><span class="k">!isMobile</span> stays in three <span class="k">editable</span> expressions <span class="tag tag--drop">M4</span> and two tabs still have no phone branch <span class="tag tag--drop">M9</span>. Both are about surfaces. 6a is about overlays.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       READY
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">open</span>
+      <h2>Three answers, and the spec writes itself</h2>
+    </div>
+
+    <div class="ask">
+      <h3>1 · The footer — A or B?</h3>
+      <p>
+        <strong>B is recommended</strong> (§04): full-width confirm alone in the footer, delete at the
+        foot of the body, no Cancel. It follows <code>patterns.md</code> §7d as written and costs a
+        redraw of <code>design-language.html</code>'s sheet specimen in the same commit. A keeps the
+        drawing and rewrites §7d instead.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>2 · Do M7 and M12 ride along?</h3>
+      <p>
+        <strong>Recommended yes</strong> (§08). They live inside the six files 6a already opens, and
+        neither is assigned to a phase today. The cost is about 60 lines and one type field; the cost
+        of not doing it is opening the same six files twice for one appearance — and the second time
+        is the visit that stops being scheduled.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>3 · Is the viewport meta in this phase?</h3>
+      <p>
+        <strong>Recommended yes</strong> (§07). It is one line in <code>index.html</code>, it is the
+        other half of M8's own sentence, and the sheet's safe-area padding is decorative without it.
+        It is also the only change in the phase that <em>cannot</em> be verified here, so it wants to
+        be in the phase whose field test is already a handset in a hand.
+      </p>
+    </div>
+
+    <div class="prose">
+      <p>
+        With those three answered the spec is short: one new component with six props, one branch in
+        <code>Drawer</code>, two additions to <code>Dialog</code>, six conversions, a meta tag, and
+        four <code>design/</code> files updated in the same commit. <strong>No endpoint, no
+        migration, no backend file, and one visible desktop delta stated in advance</strong> — which
+        is the shape a phase that builds a primitive is supposed to have.
+      </p>
+    </div>
+  </section>
+
+</div>

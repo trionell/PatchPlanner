@@ -6,10 +6,10 @@ import { toOptionalNumber } from '../../lib/utils'
 import type { InputCable, InputChannel, InputSource, Stagebox } from '../../types'
 import { ColorSelect } from '../event/ColorSelect'
 import { Button } from '../ui/Button'
-import { Dialog } from '../ui/Dialog'
+import { FieldStack } from '../ui/GearList'
 import { Input } from '../ui/Input'
-import { FieldLabel } from '../ui/Label'
 import { Select } from '../ui/Select'
+import { Sheet } from '../ui/Sheet'
 
 /**
  * On-site edit form for one audio input channel — name, color, notes, and
@@ -106,62 +106,61 @@ export function MobileChannelEditSheet({
   }
 
   return (
-    <Dialog open onClose={onClose} title={channel ? `Edit channel ${channel.channel_number}` : 'Add channel'}>
-      <div className="space-y-4">
-        {error && <div className="rounded-md border border-red-800 bg-red-950/50 px-3 py-2 text-sm text-red-300">{error}</div>}
-        <div>
-          <FieldLabel>Channel name</FieldLabel>
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Kick In" autoFocus />
-        </div>
-        <div>
-          <FieldLabel>Channel color</FieldLabel>
-          <ColorSelect eventId={eventId} value={color} onChange={setColor} />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <FieldLabel>Stagebox</FieldLabel>
-            <Select
-              value={stageboxId ?? ''}
-              onChange={(e) => {
-                setStageboxId(toOptionalNumber(e.target.value))
-                setPort(undefined)
-              }}
-            >
-              <option value="">— none —</option>
-              {stageboxes.map((sb) => (
-                <option key={sb.id} value={sb.id}>{sb.name}</option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <FieldLabel>Input #</FieldLabel>
-            <Select value={port ?? ''} onChange={(e) => setPort(toOptionalNumber(e.target.value))} disabled={!selectedStagebox}>
-              <option value="">—</option>
-              {selectedStagebox &&
-                Array.from({ length: selectedStagebox.output_count }, (_, i) => (
-                  <option key={i} value={i}>In {i + 1}</option>
-                ))}
-            </Select>
-          </div>
-        </div>
-        <div>
-          <FieldLabel>Source / mic</FieldLabel>
-          <Select value={sourceId ?? ''} onChange={(e) => setSourceId(toOptionalNumber(e.target.value))}>
+    <Sheet
+      open
+      onClose={onClose}
+      title={channel ? `Channel ${channel.channel_number}` : 'Add channel'}
+      footer={
+        <Button className="w-full" onClick={handleSave} disabled={saving || !name.trim()}>
+          {saving ? 'Saving…' : 'Save channel'}
+        </Button>
+      }
+    >
+      {error && <div className="rounded-md border border-red-800 bg-red-950/50 px-3 py-2 text-sm text-red-300">{error}</div>}
+      <FieldStack label="Channel" width="full">
+        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Kick In" autoFocus />
+      </FieldStack>
+      <FieldStack label="Tape" width="full">
+        <ColorSelect eventId={eventId} value={color} onChange={setColor} />
+      </FieldStack>
+      {/* Two side by side only where they are one idea: a stagebox and the
+          socket on it are one route (tokens.md §7). Everything else stacks. */}
+      <div className="flex gap-2.5">
+        <FieldStack label="Stagebox" width="grow">
+          <Select
+            value={stageboxId ?? ''}
+            onChange={(e) => {
+              setStageboxId(toOptionalNumber(e.target.value))
+              setPort(undefined)
+            }}
+          >
             <option value="">— none —</option>
-            {sources.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
+            {stageboxes.map((sb) => (
+              <option key={sb.id} value={sb.id}>{sb.name}</option>
             ))}
           </Select>
-        </div>
-        <div>
-          <FieldLabel>Notes</FieldLabel>
-          <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
-        </div>
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving || !name.trim()}>{saving ? 'Saving…' : 'Save changes'}</Button>
-        </div>
+        </FieldStack>
+        <FieldStack label="In" width="short">
+          <Select value={port ?? ''} onChange={(e) => setPort(toOptionalNumber(e.target.value))} disabled={!selectedStagebox}>
+            <option value="">—</option>
+            {selectedStagebox &&
+              Array.from({ length: selectedStagebox.output_count }, (_, i) => (
+                <option key={i} value={i}>In {i + 1}</option>
+              ))}
+          </Select>
+        </FieldStack>
       </div>
-    </Dialog>
+      <FieldStack label="Source" width="full">
+        <Select value={sourceId ?? ''} onChange={(e) => setSourceId(toOptionalNumber(e.target.value))}>
+          <option value="">— none —</option>
+          {sources.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </Select>
+      </FieldStack>
+      <FieldStack label="Notes" width="full">
+        <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
+      </FieldStack>
+    </Sheet>
   )
 }

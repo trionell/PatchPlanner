@@ -698,6 +698,9 @@
   .wave__d { font-size: 13px; color: var(--muted); line-height: 1.45; }
   /* A landed wave is marked by its rule, not only by a tick — see P5. */
   .wave--done { box-shadow: inset 3px 0 0 var(--work); }
+  /* A wave one phase in takes the same rule, half height: shape carries the
+     span, which is P5 again. */
+  .wave--part { background-image: linear-gradient(var(--work), var(--work)); background-size: 3px 50%; background-repeat: no-repeat; background-position: left top; }
   .wave--done .wave__n { color: var(--work); }
 
   footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--rule); display: flex; flex-direction: column; gap: 12px; }
@@ -1653,16 +1656,24 @@
                 <div class="gear__sp" style="font-size: 10px;">
                   <span>SB1 <b>8 / 32</b></span><span>48 V <b>on</b></span><span>reaches <b>SD10 ch 3</b></span>
                 </div>
+                <!--
+                  Delete is at the foot of the *body*, so it scrolls with the
+                  content and is never under a thumb at rest. In a single column
+                  that is what §2's "kept apart from confirm" can mean. Revision
+                  drawn in Wave 6a: this row used to hold Save, Cancel and Delete
+                  together, which put a destructive control 10px from the confirm
+                  in the corner a thumb rests on — and left "full width" meaning
+                  a third of the row.
+                -->
+                <span class="btn btn--md btn--danger-ghost" style="align-self: flex-start; padding-left: 0;">Delete channel</span>
               </div>
               <div class="m-sheet__ft">
-                <span class="btn btn--md btn--primary" style="flex: 1;">Save</span>
-                <span class="btn btn--md btn--outline">Cancel</span>
-                <span class="btn btn--md btn--danger-ghost">Delete</span>
+                <span class="btn btn--md btn--primary" style="flex: 1;">Save channel</span>
               </div>
             </div>
           </div>
         </div>
-        <p class="phone__cap"><b>The sheet, as a row editor</b> · the drawer's mono labels, at the phone's 44 px</p>
+        <p class="phone__cap"><b>The sheet, as a row editor</b> · the drawer's mono labels, at the phone's 44 px · one confirm, full width</p>
       </div>
 
       <!-- 3 · the section switcher -->
@@ -1931,7 +1942,10 @@
         than the code: about Lighting in Wave 3, and about the inventory catalog in Wave 5.
       </p>
       <p class="body">
-        <strong>Twelve are open, and all twelve are the phone.</strong> They are one finding wearing
+        <strong>Four are closed and eight are open, and all twelve are the phone.</strong> Wave 6a
+        took M8 with M7, M10 and M12 — three of which this table had left unassigned, and all three
+        of which lived inside the six files 6a was already rewriting. <strong>A finding with no
+        phase is a finding nobody has agreed to close.</strong> They are one finding wearing
         twelve names, and the name is a date: <span class="k">components/mobile/</span> was built in
         Slice 21, two slices before this language existed, and every wave since converged the desktop
         <em>around</em> it. Wave 4 says so in writing — <em>“the phone branches, the print sheets and
@@ -1943,7 +1957,7 @@
 
     <div>
       <div class="find">
-        <div class="find__hd"><span class="find__id">M1</span><span class="find__ti">The phone has no frame</span><span class="find__todo">Wave 6a–b</span><span class="find__p">P1</span></div>
+        <div class="find__hd"><span class="find__id">M1</span><span class="find__ti">The phone has no frame</span><span class="find__todo">Wave 6b</span><span class="find__p">P1</span></div>
         <p class="find__b"><span class="k">grep -rn "PatchPanel\|StatusRail" components/mobile/</span> → <span class="find__n">0</span>. Every phone surface is a heading, a search box, then rows as free-standing bordered cards on the page ground — P1's named violation, and the exact shape Waves 3–5 spent five slices removing from the desktop. The row sits on <span class="k">bg-zinc-900</span>, which is the <em>control</em> role: the list reads as a column of inputs.</p>
       </div>
       <div class="find">
@@ -1966,25 +1980,25 @@
         <div class="find__hd"><span class="find__id">M6</span><span class="find__ti">The Flow canvas never mounts on a phone</span><span class="find__todo">Wave 6d</span><span class="find__p">P9</span></div>
         <p class="find__b">The rule both documents carried — <em>“a patch graph on a phone is unreadable at any density”</em> — is <strong>reversed</strong>, on the report that the picture of where the signal goes is exactly what is wanted on site. The canvas is drawn as it is drawn and only the editing gesture is withheld. Stage Plots already does the viewable half and is the working precedent.</p>
       </div>
-      <div class="find">
-        <div class="find__hd"><span class="find__id">M7</span><span class="find__ti">A phone-only vocabulary, in a reserved hue</span><span class="find__todo">Wave 6c</span><span class="find__p">P3 · P4 · P9</span></div>
-        <p class="find__b">The section switcher grades all nine sections <em>editable / read-only / viewer</em> — three words the application does not otherwise use, describing the state of the <em>build</em> rather than the <em>show</em>, telling a viewer-role user that Audio Inputs is “Editable”. Riding along: <span class="k">sky</span>, which tokens §5 reserves for the legend stroke; a <strong>sixth</strong> micro-label definition, written as <span class="k">font-bold tracking-wide</span> so neither the A1 nor the A12 grep would have found it; and a trigger that is amber whether or not anything is selected.</p>
+      <div class="find find--done">
+        <div class="find__hd"><span class="find__id">M7</span><span class="find__ti">A phone-only vocabulary, in a reserved hue</span><span class="find__done">Wave 6a</span><span class="find__p">P3 · P4 · P9</span></div>
+        <p class="find__b">The section switcher graded all nine sections <em>editable / read-only / viewer</em> — three words the application does not otherwise use, describing the state of the <em>build</em> rather than the <em>show</em>, telling a viewer-role user that Audio Inputs is “Editable”. Riding along: <span class="k">sky</span>, which tokens §5 reserves for the legend stroke; a <strong>sixth</strong> micro-label definition, written as <span class="k">font-bold tracking-wide</span> so neither the A1 nor the A12 grep would have found it; and a trigger that was amber whether or not anything was selected. → All of it deleted, nothing put in its place, and the current section marked by the <strong>sidebar's own 2 px left edge</strong> in the open list. Its type comment had said the badge <em>“never overrides a user's actual role-based permission”</em>: <strong>a field whose comment says it may not be believed is a field with no reader.</strong></p>
       </div>
-      <div class="find">
-        <div class="find__hd"><span class="find__id">M8</span><span class="find__ti">The phone's sheet is a centred dialog</span><span class="find__todo">Wave 6a</span><span class="find__p">Patterns §7d</span></div>
-        <p class="find__b"><span class="find__n">5</span> call sites use <span class="k">ui/Dialog</span> — <span class="k">max-w-2xl</span>, centred, <strong>no Escape and no internal scroll</strong>, where <span class="k">ui/Drawer</span> has both. A long form cannot be scrolled to its confirm button, and the confirm button sits where the keyboard opens. Meanwhile a correct bottom sheet already exists in the tree, written inline inside <span class="k">MobileNav</span>.</p>
+      <div class="find find--done">
+        <div class="find__hd"><span class="find__id">M8</span><span class="find__ti">The phone's sheet is a centred dialog</span><span class="find__done">Wave 6a</span><span class="find__p">Patterns §7d</span></div>
+        <p class="find__b"><span class="find__n">5</span> call sites used <span class="k">ui/Dialog</span> — <span class="k">max-w-2xl</span>, centred, <strong>no Escape and no internal scroll</strong>, where <span class="k">ui/Drawer</span> had both. A long form could not be scrolled to its confirm, and the confirm sat where the keyboard opens. → <span class="k">ui/Sheet</span>, and <span class="k">ui/Dialog</span> gains both by addition while staying centred at every width. <strong><span class="k">ui/Drawer</span> anchors itself</strong>, so six drawers acquired a phone form from four lines in one component without one of their own files being touched.</p>
       </div>
       <div class="find">
         <div class="find__hd"><span class="find__id">M9</span><span class="find__ti">Two tabs have no phone branch at all</span><span class="find__todo">Wave 6c</span><span class="find__p">P9</span></div>
         <p class="find__b">Overview and Settings render their desktop markup at 375 px. Overview is the worse and the more interesting: it is Wave 4's best surface, and its numbers band is five <span class="k">text-[26px]</span> figures in a row while its ribbon is <em>the flow canvas one row high</em>. On a phone the band wraps and the ribbon overflows — yet those five figures are the right five facts for someone on site. It needs a phone form, not an exemption.</p>
       </div>
-      <div class="find">
-        <div class="find__hd"><span class="find__id">M10</span><span class="find__ti">The body's bottom padding is a guess</span><span class="find__todo">Wave 6a</span><span class="find__p">A5, again</span></div>
-        <p class="find__b"><span class="k">pb-20</span> clears a bar whose height is a padding plus an icon plus a font size, plus a safe-area inset that varies by device. This is <span class="k">top-[73px]</span> exactly, on the opposite edge of the screen: <strong>a height a sibling positions against has to be a value someone chose.</strong></p>
+      <div class="find find--done">
+        <div class="find__hd"><span class="find__id">M10</span><span class="find__ti">The body's bottom padding is a guess</span><span class="find__done">Wave 6a</span><span class="find__p">A5, again</span></div>
+        <p class="find__b"><span class="k">pb-20</span> cleared a bar whose height was a padding plus an icon plus a font size, plus a safe-area inset that varies by device. <strong>And the inset was always 0:</strong> <span class="k">index.html</span> had no <span class="k">viewport-fit=cover</span>, so both call sites had been inert on the device they were written for since Slice 21 — invisible in a desktop browser at 375 px, which is why five waves of review missed it. → The meta tag, a <strong>stated</strong> <span class="k">h-14</span> on the nav, and a body padding derived from it. Fixing the tag is what turned the rest from dormant into urgent.</p>
       </div>
-      <div class="find">
-        <div class="find__hd"><span class="find__id">M12</span><span class="find__ti">The phone's forms speak a second label voice</span><span class="find__todo">Wave 6a</span><span class="find__p">P3</span></div>
-        <p class="find__b"><span class="find__n">18</span> <span class="k">&lt;FieldLabel&gt;</span> in <span class="k">components/mobile/</span>, and <span class="find__n">0</span> <span class="k">MicroLabel</span>. The desktop form these sheets stand in for is <span class="k">FieldStack</span>, which renders a <strong>mono, uppercase, tracked</strong> label — so the Rig drawer and the phone's channel sheet label the same field two different ways. P3 broken across a <em>width</em> rather than across a component, which is why the A1 and A12 greps could not have found it. This is M2 read from the other end: both came from the premise that a phone is a navigation surface, and a phone is <em>every</em> surface at a different reach.</p>
+      <div class="find find--done">
+        <div class="find__hd"><span class="find__id">M12</span><span class="find__ti">The phone's forms speak a second label voice</span><span class="find__done">Wave 6a</span><span class="find__p">P3</span></div>
+        <p class="find__b"><span class="find__n">18</span> <span class="k">&lt;FieldLabel&gt;</span> in <span class="k">components/mobile/</span>, and <span class="find__n">0</span> <span class="k">MicroLabel</span>, where the desktop form these sheets stand in for renders a <strong>mono, uppercase, tracked</strong> label. P3 broken across a <em>width</em> rather than across a component, which is why the A1 and A12 greps could not have found it. → All 18 are <span class="k">FieldStack</span>, which needed one new width and no geometry work at all: the phone's controls already defaulted to <span class="k">h-10</span>. Only the voice changed — and the forms gained real label association, because <span class="k">FieldLabel</span> had been a <em>sibling</em> of its control and labelled nothing.</p>
       </div>
       <div class="find">
         <div class="find__hd"><span class="find__id">M11</span><span class="find__ti">A print from a phone is a blank page</span><span class="find__todo">Wave 6c</span><span class="find__p">Patterns §7h</span></div>
@@ -2051,7 +2065,7 @@
         <div class="wave wave--done"><span class="wave__n">Wave 3 ✓</span><span class="wave__t">Lighting</span><span class="wave__d">A8, and A6–A7 on this surface. The restyle was the smaller half: the rig had no DMX map at all, so nothing had ever noticed two fixtures sharing addresses. Sharing turned out to be <em>legitimate</em> — twenty pars on one address is how a room wash is rigged — which the audit had not considered, and which restructured the whole finding. Only <span class="k">RowEditor</span> changed in <span class="k">ui/</span>-adjacent code, by addition; the backend ended <em>smaller</em>.</span></div>
         <div class="wave wave--done"><span class="wave__n">Wave 4 ✓</span><span class="wave__t">The remaining event tabs</span><span class="wave__d">Rental, Equipment and Signal Flow were the conversion the audit predicted. <strong>Overview was not.</strong> Filed as “a form that needs the navigation tier applied consistently”, it became the screen that says what the whole event amounts to — five figures at 26 px, the rig drawn as the flow canvas one row high, and every panel's own verdict in one line. It also found that <span class="k">RowEditor</span>'s hand-off had never rendered: the desktop tab strip was uncontrolled, so no tab could open another.</span></div>
         <div class="wave wave--done"><span class="wave__n">Wave 5 ✓</span><span class="wave__t">Pages and residue</span><span class="wave__d">The audit's second miss: the 308-item inventory catalog, filed under pages. Categories became a filter column doing one job — they used to show four of twenty-seven, because each tile also carried a rename, a delete and a picker-role select. The dashboard was rebuilt rather than trimmed and lost cards entirely. The signed-out start page is <em>exempt</em>, in writing, rather than half-converted.</span></div>
-        <div class="wave"><span class="wave__n">Wave 6</span><span class="wave__t">The phone</span><span class="wave__d">M1–M12, ordered last for the reason it was skipped: every wave before it was changing the thing the phone would have had to converge <em>onto</em>, and converging twice is how a value gets three definitions. Two primitives first — <span class="k">ui/Sheet</span> (6a) and <span class="k">MobilePanel</span> (6b) — then the nine surfaces (6c), then the canvases (6d), which are last because they are the only phase that adds a capability rather than converting one. <strong>Shared code changes only by addition:</strong> <span class="k">Dialog</span> gains Escape and internal scroll, and <span class="k">InspectorRail</span>'s contents must render without its <span class="k">w-60 border-l</span> frame — a seam Wave 2 already split once.</span></div>
+        <div class="wave wave--part"><span class="wave__n">Wave 6 · 6a done</span><span class="wave__t">The phone</span><span class="wave__d">M1–M12, ordered last for the reason it was skipped: every wave before it was changing the thing the phone would have had to converge <em>onto</em>, and converging twice is how a value gets three definitions. Two primitives first — <span class="k">ui/Sheet</span> (6a) and <span class="k">MobilePanel</span> (6b) — then the nine surfaces (6c), then the canvases (6d), which are last because they are the only phase that adds a capability rather than converting one. <strong>6a is done</strong> (Slice 33): <span class="k">ui/Sheet</span>, <span class="k">Drawer</span> anchoring itself so six drawers got a phone form from one branch, and <span class="k">Dialog</span> gaining Escape and internal scroll by addition. <span class="k">InspectorRail</span>'s contents must still render without its <span class="k">w-60 border-l</span> frame — a seam Wave 2 already split once — which is 6d's.</span></div>
       </div>
     </div>
   </section>

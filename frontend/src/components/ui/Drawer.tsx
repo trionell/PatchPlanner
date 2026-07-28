@@ -1,5 +1,8 @@
-import { useEffect, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
+import { useEscapeToClose } from '../../hooks/useEscapeToClose'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { cn } from '../../lib/utils'
+import { Sheet } from './Sheet'
 
 interface DrawerProps {
   open: boolean
@@ -20,18 +23,31 @@ interface DrawerProps {
  * shifts, and narrowing the window can't squeeze the table
  * (research.md R13). Same conventions as Dialog: backdrop click closes,
  * `cn` merges classes, nothing renders when closed.
+ *
+ * **On a phone it is a `Sheet`** (patterns.md §7d). A column is the one thing a
+ * 375px screen does not have, so the drawer gives up the edge it is anchored to
+ * and keeps everything else — its contents are the work surface's tier at both
+ * widths, and only the geometry a finger presses changes (tokens.md §7,
+ * amendment 2). The branch lives here rather than at the call sites so that all
+ * six drawers acquire a phone form at once; six call sites each answering the
+ * same question is how `NodeShell` ended up with two copies.
  */
 export function Drawer({ open, onClose, title, subtitle, width = 'wide', children, footer }: DrawerProps) {
-  useEffect(() => {
-    if (!open) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [open, onClose])
+  useEscapeToClose(open, onClose)
+  const isMobile = useIsMobile()
 
   if (!open) return null
+
+  // `width` is deliberately not forwarded: a phone has one width, so a sheet
+  // that accepted it would carry an API it must never use (audit.md A11's
+  // reasoning, applied to an anchor rather than to a tier).
+  if (isMobile) {
+    return (
+      <Sheet open onClose={onClose} title={title} subtitle={subtitle} footer={footer}>
+        {children}
+      </Sheet>
+    )
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-zinc-950/70" onClick={onClose}>

@@ -1,7 +1,7 @@
 # 03 · Components
 
 What to reach for. Every component below exists today; nothing here is proposed
-except the two marked **gap**, both in §5.
+except the one marked **gap**, in §5. It was two until Wave 6a built `ui/Sheet`.
 
 The rule that decides between the two columns is P2's question, applied to the
 surface — never to the component in isolation. A `Badge` inside a work panel is
@@ -79,7 +79,7 @@ to read than the sections it replaced.
 | `GearSpecs` / `Spec` | The capacity line, mono, `text-[10px]`. What makes "is this box big enough?" answerable at a glance. |
 | `Meter` | `h-[3px]`, amber, `red-400` past 100 %. Draws **nothing** when capacity is 0 — an undeclared count must never appear full or empty. |
 | `GearForm` | Add and edit are one construction, which is what makes them look like the same operation. `border-l-2 border-amber-500 bg-amber-500/[0.04]`, fields wrap. |
-| `FieldStack` | Label above control. Widths `default` `w-40` · `grow` · `count` `w-20` · `short` `w-28`. Never a fixed column track — that is what compressed these into unusability in the first place. |
+| `FieldStack` | Label above control — a `MicroLabel`, and a real `<label>` wrapping the control. Widths `default` `w-40` · `grow` · `count` `w-20` · `short` `w-28` · `full` `w-full`. Never a fixed column track — that is what compressed these into unusability in the first place. `full` is the phone's, added in Wave 6a: `grow`'s `flex-1` grows the *height* inside the `flex-col` a bottom sheet stacks its fields in. |
 | `FormActions` | `ml-auto`: confirm, and a labelled delete kept apart from it. |
 
 ### `event/graph/` — the canvas
@@ -222,10 +222,21 @@ Navigation-surface components; values in [tokens.md](tokens.md). `Dialog` and
 `Drawer` already share their header, padding and close conventions, and should
 continue to.
 
-`Dialog` is centred, `max-w-2xl`, and has **no `Escape` handler and no internal
-scroll** — `Drawer` has both. That is survivable for the short confirmations it
-was built for and it is not survivable as the phone's edit sheet, which is what
-five call sites currently use it as. See §5 and [audit.md](audit.md) M8.
+`Dialog` is centred, `max-w-2xl`, and **stays centred at every width**. Wave 6a
+gave it `Escape` and an internal scroll at the sheet's own `max-h-[85svh]`, both
+things `Drawer` already had, so a tall overlay behaves the same way whichever
+anchor it has.
+
+The rule it settled, stated once so it stops being decided per call site:
+**an overlay with fields is a `Sheet`; an overlay that is a sentence and two
+buttons is a `Dialog`.** [audit.md](audit.md) M8 was never *"`Dialog` is the
+wrong shape"* — it was *"`Dialog` is being used as the phone's edit form"*, and
+six conversions fixed that at the call sites rather than by making `Dialog` into
+something else.
+
+The `Escape` handler now lives in `hooks/useEscapeToClose`, shared by `Drawer`,
+`Dialog` and `Sheet`. Three callers, in one commit — Principle V forbids
+abstracting ahead of a second caller; it does not ask for a third copy.
 
 `Badge` and `Pill` both read their tint from `lib/vocabularyTint.ts`, so the two
 sizes of one chip cannot disagree about what colour a `monitor` is. It takes any
@@ -244,8 +255,8 @@ set of values.
 
 | Export | What it is |
 |---|---|
-| `MobileNav` | The bottom bar that replaces the sidebar: three destinations and a **More** overflow. Active is `text-amber-400` with no fill — the sidebar's restraint, which has no left edge to use here. Carries the safe-area inset. |
-| `SectionSwitcher` | The phone's tab strip: one control naming the current section, opening a list of the nine. It is the phone's form of `ui/Tabs`, so it says *what you are looking at* and takes no trough (§4, `ui/Tabs`). |
+| `MobileNav` | The bottom bar that replaces the sidebar: three destinations and a **More** overflow, which is a `Sheet`. `h-14`, **stated**, because `Layout`'s body padding derives from it. Active is `text-amber-400` with no fill — the sidebar's restraint, which has no left edge to use here. Carries the safe-area inset. |
+| `SectionSwitcher` | The phone's tab strip: one control naming the current section, opening a `Sheet` listing the nine. It is the phone's form of `ui/Tabs`, so it says *what you are looking at* and takes no trough (§4, `ui/Tabs`). The current section is marked in the **open list** by the sidebar's own 2 px amber left edge, never on the closed control. It lists sections and nothing else — the capability badge it used to render was deleted in Wave 6a ([audit.md](audit.md) M7). |
 | `MobileEntityList` | Search, rows, and the add control, over `MobileEntityRow` — one component for channels, outputs and fixtures, because all three differ only in what `number`, `subtitle` and `color` mean. Correct as a decision; the shape it renders is the **gap** below. |
 | `CondensedListRow` | One row: leading tape edge, title, subtitle, trailing slot. Its `accentColor` draws the derived colour as a `border-l-[3px]` and a tint at `1a` — the sheet's tape bar in the geometry a phone row has. |
 | `MobileChannelEditSheet` · `MobileOutputEditSheet` · `MobileFixtureEditSheet` | The phone's row editor, one per entity, deliberately not one configurable form — the same reasoning as `GearList`. A failed save keeps the sheet open with every value intact. |
@@ -259,13 +270,16 @@ than cards, and whose foot is the surface's existing status rail. The strips
 already exist (`PatchStatusRail`, `LightingStatusRail`, `RentalStatusRail`,
 `EquipmentStatusRail`) and take the phone's `text-xs`.
 
-**`ui/Sheet` — gap.** The bottom sheet, and the phone's sibling of `ui/Drawer`:
+**`ui/Sheet`.** The bottom sheet, and the phone's sibling of `ui/Drawer`:
 anchored to the bottom edge, `rounded-t-xl`, `max-h-[85svh]` with the body
 scrolling inside it, `Escape` and backdrop to close, `env(safe-area-inset-bottom)`
-under the confirm row. It exists twice today and neither time as a component —
-`Dialog` is centred and stands in for it at five call sites, and `MobileNav`'s
-**More** menu is a real bottom sheet written inline. `Drawer` and `Sheet` share a
-header the way `Drawer` and `Dialog` already do.
+under the confirm row. Built in Wave 6a, where it replaced the five `Dialog`s
+standing in for it and the one real bottom sheet written inline inside
+`MobileNav`'s **More** menu.
+
+Six props and no more — `open`, `onClose`, `title` (a node: the inspector puts a
+`MicroLabel` and a `Pill` there), `subtitle`, `children`, `footer`, `scrim`,
+`flush`. No `variant`, no `size`, no `onSave`, no field layout.
 
 It does three jobs, and it decides nothing about any of them — which is the reason
 it is worth a component rather than a `className` on `Dialog`. **A sheet holds
@@ -290,6 +304,20 @@ the geometry a finger has to hit:
 The one thing `Sheet` does own is the shell: the anchor, the radius, the scrim
 (and its one exception), the internal scroll, `Escape`, and the safe-area inset
 under whatever the last row is.
+
+**The scrim's exception is structural, not chromatic.** `scrim={false}` renders
+**no backdrop element at all**. A transparent full-screen layer would satisfy
+§7f's sentence and lose its point: it still swallows every touch, so the canvas
+the inspector is read against would be frozen. It follows that such a sheet is
+genuinely not modal — `aria-modal` follows `scrim`, focus is not trapped, and
+there is no tap-outside-to-close because there is nothing outside to tap.
+
+**`ui/Drawer` is `Sheet` on a phone.** The branch is in the component, so all
+six drawers — Rig, Buses, Universes, Categories, Import, the catalog's manage
+drawer — got a phone form in Wave 6a without one of their files being touched.
+`width` is not forwarded: a phone has one width, and a sheet that accepted it
+would carry an API it must never use. Six call sites each answering that
+question is how `NodeShell` ended up with two copies.
 
 ## 6 · Naming
 
