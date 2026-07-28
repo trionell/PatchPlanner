@@ -7,12 +7,13 @@ import { EventFormDialog } from '../components/EventFormDialog'
 import { TimelineRow } from '../components/events/TimelineRow'
 import { CondensedListRow } from '../components/mobile/CondensedListRow'
 import { Badge } from '../components/ui/Badge'
+import { Pill } from '../components/ui/SheetTable'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { MicroLabel } from '../components/ui/Label'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { formatEventDates, isoDay } from '../lib/dashboard'
-import { buildTimeline, type TimelineTense } from '../lib/eventTimeline'
+import { buildTimeline, type CollisionMap, findCollisions, type TimelineTense } from '../lib/eventTimeline'
 import { matchesSearch } from '../lib/patchSearch'
 import type { Event } from '../types'
 
@@ -53,6 +54,11 @@ export function EventsPage() {
       }),
     [eventsQuery.data, today, tense, search],
   )
+
+  // Derived from the on-site spans, never stored (P6), and from the same sweep
+  // that assigns the year track its lanes — so the brace on the spine and the
+  // stacking on the track cannot disagree about what collides.
+  const collisions = useMemo(() => findCollisions(eventsQuery.data), [eventsQuery.data])
 
   const createMutation = useMutation({
     mutationFn: createEvent,
@@ -136,10 +142,15 @@ export function EventsPage() {
       ) : timeline.counts.total === 0 ? (
         <Empty hasAnyEvents={hasAnyEvents} search={search} onCreate={() => setOpen(true)} />
       ) : (
-        <Spine timeline={timeline} today={today} onOpen={(id) => navigate(`/events/${id}`)} />
+        <Spine
+          timeline={timeline}
+          today={today}
+          collisions={collisions}
+          onOpen={(id) => navigate(`/events/${id}`)}
+        />
       )}
 
-      {timeline.counts.total > 0 && <Strip counts={timeline.counts} />}
+      {timeline.counts.total > 0 && <Strip counts={timeline.counts} clashes={collisions.groups} />}
 
       {dialog}
     </div>
@@ -156,10 +167,12 @@ export function EventsPage() {
 function Spine({
   timeline,
   today,
+  collisions,
   onOpen,
 }: {
   timeline: ReturnType<typeof buildTimeline>
   today: string
+  collisions: CollisionMap
   onOpen: (id: number) => void
 }) {
   const todayRef = useRef<HTMLDivElement>(null)
@@ -175,6 +188,18 @@ function Spine({
     <div className="py-1">
       {timeline.items.map((item, index) => {
         if (item.kind === 'event') {
+          const collision = collisions.byEventId.get(item.event.id)
+          const previous = timeline.items[index - 1]
+          const next = timeline.items[index + 1]
+          // The brace joins consecutive rows of one group. Drawing it per row —
+          // rounded where the group starts and ends — keeps the markup a flat
+          // list rather than needing a wrapper element per group.
+          const bracedAbove =
+            previous?.kind === 'event' &&
+            collisions.byEventId.get(previous.event.id)?.groupId === collision?.groupId
+          const bracedBelow =
+            next?.kind === 'event' && collisions.byEventId.get(next.event.id)?.groupId === collision?.groupId
+
           return (
             <TimelineRow
               key={`e-${item.event.id}`}
@@ -182,6 +207,14 @@ function Spine({
               phase={item.phase}
               isNext={item.isNext}
               today={today}
+              brace={collision ? { above: bracedAbove, below: bracedBelow } : undefined}
+              collision={
+                collision && (
+                  <Pill className="bg-amber-500/15 text-amber-300">
+                    {collision.kind === 'overlap' ? 'overlaps' : 'on-site clash'}
+                  </Pill>
+                )
+              }
               onToggle={() => onOpen(item.event.id)}
             />
           )
@@ -221,7 +254,7 @@ function Spine({
 }
 
 /** What the page contains, as the footnote it always was. */
-function Strip({ counts }: { counts: ReturnType<typeof buildTimeline>['counts'] }) {
+function Strip({ counts, clashes }: { counts: ReturnType<typeof buildTimeline>['counts']; clashes: number }) {
   const parts = [
     `${counts.total} ${counts.total === 1 ? 'event' : 'events'}`,
     counts.running > 0 ? `${counts.running} running` : undefined,
@@ -238,6 +271,18 @@ function Strip({ counts }: { counts: ReturnType<typeof buildTimeline>['counts'] 
           <span className="font-mono tabular-nums">{part}</span>
         </span>
       ))}
+      {clashes > 0 && (
+        <>
+          <span className="flex-1" />
+          {/* The one place on this page where a count is also a warning — and
+              amber, never red: a clash is a fact about a plan, not an error in
+              it. tokens.md reserves red for destructive, over capacity, a
+              broken link and 48 V. */}
+          <span className="font-mono tabular-nums text-amber-300">
+            {clashes} {clashes === 1 ? 'clash' : 'clashes'}
+          </span>
+        </>
+      )}
     </div>
   )
 }

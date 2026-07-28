@@ -28,6 +28,7 @@ export function TimelineRow({
   today,
   open,
   collision,
+  brace,
   onToggle,
 }: {
   event: Event
@@ -36,6 +37,8 @@ export function TimelineRow({
   today: string
   open?: boolean
   collision?: ReactNode
+  /** Set when this row shares days with a neighbour; the flags close the brace's ends. */
+  brace?: { above: boolean; below: boolean }
   onToggle?: () => void
 }) {
   const dates = resolveDates(event)
@@ -48,9 +51,23 @@ export function TimelineRow({
     <button
       type="button"
       onClick={onToggle}
-      className="flex w-full items-stretch text-left"
+      className="relative flex w-full items-stretch text-left"
       aria-expanded={onToggle ? Boolean(open) : undefined}
     >
+      {/* A 2 px amber brace in the gutter, joining the rows that share days.
+          Amber because it is the app's "look here"; the word beside it, because
+          P4 forbids amber being the only carrier; in the gutter, because it says
+          WHICH rows without anyone reading anything. */}
+      {brace && (
+        <span
+          className="absolute left-[68px] w-0.5 bg-amber-500/45"
+          style={{
+            top: brace.above ? 0 : 9,
+            bottom: brace.below ? 0 : 9,
+            borderRadius: 2,
+          }}
+        />
+      )}
       <Gutter dates={dates} past={past} />
 
       <div

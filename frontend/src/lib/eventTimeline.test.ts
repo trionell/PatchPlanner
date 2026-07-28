@@ -3,6 +3,7 @@ import {
   buildTimeline,
   countdownLabel,
   dateOrderError,
+  findCollisions,
   type TimelineEventRow,
   type TimelineHeading,
   eventPhase,
@@ -377,5 +378,117 @@ describe('countdownLabel', () => {
 
   it('says nothing for an undated event', () => {
     expect(countdownLabel(ev({}), TODAY)).toBeUndefined()
+  })
+})
+
+describe('findCollisions', () => {
+  const ev = (id: number, name: string, dates: Partial<Event> = {}): Event => ({
+    id, name, created_at: '', updated_at: '', inventoryId: 1, ...dates,
+  })
+
+  it('calls it an overlap when the show spans intersect', () => {
+    const { byEventId, groups } = findCollisions([
+      ev(1, 'Kulturnatt', { loadInDate: '2026-09-03', startDate: '2026-09-04', endDate: '2026-09-06' }),
+      ev(2, 'Höstsalongen', { startDate: '2026-09-05' }),
+    ])
+    expect(groups).toBe(1)
+    expect(byEventId.get(1)?.kind).toBe('overlap')
+    expect(byEventId.get(2)?.kind).toBe('overlap')
+    expect(byEventId.get(1)?.groupId).toBe(byEventId.get(2)?.groupId)
+  })
+
+  it('calls it an on-site clash when only the on-site spans meet', () => {
+    // The case a date range alone cannot represent: Företagsfest is one evening
+    // on the 17th and Bruksrock's first band plays on the 18th. On show dates
+    // they do not touch. On the ground you are in Avesta rigging on the 17th.
+    const { byEventId, groups } = findCollisions([
+      ev(1, 'Företagsfest', { startDate: '2026-09-17' }),
+      ev(2, 'Bruksrock', {
+        loadInDate: '2026-09-17', startDate: '2026-09-18',
+        endDate: '2026-09-20', loadOutDate: '2026-09-21',
+      }),
+    ])
+    expect(groups).toBe(1)
+    expect(byEventId.get(1)?.kind).toBe('on-site-clash')
+    expect(byEventId.get(2)?.kind).toBe('on-site-clash')
+  })
+
+  it('finds nothing when the on-site spans are merely adjacent', () => {
+    const { byEventId, groups } = findCollisions([
+      ev(1, 'First', { startDate: '2026-09-17' }),
+      ev(2, 'Second', { startDate: '2026-09-18' }),
+    ])
+    expect(groups).toBe(0)
+    expect(byEventId.size).toBe(0)
+  })
+
+  it('puts three mutually touching events in one group, on three lanes', () => {
+    const { byEventId, laneByEventId, groups } = findCollisions([
+      ev(1, 'A', { startDate: '2026-09-04', endDate: '2026-09-08' }),
+      ev(2, 'B', { startDate: '2026-09-05', endDate: '2026-09-07' }),
+      ev(3, 'C', { startDate: '2026-09-06' }),
+    ])
+    expect(groups).toBe(1)
+    expect(new Set([byEventId.get(1)?.groupId, byEventId.get(2)?.groupId, byEventId.get(3)?.groupId]).size).toBe(1)
+    expect(new Set([laneByEventId.get(1), laneByEventId.get(2), laneByEventId.get(3)])).toEqual(new Set([0, 1, 2]))
+  })
+
+  it('reuses a lane once its occupant has finished', () => {
+    const { laneByEventId } = findCollisions([
+      ev(1, 'A', { startDate: '2026-09-04', endDate: '2026-09-05' }),
+      ev(2, 'B', { startDate: '2026-09-05', endDate: '2026-09-06' }),
+      ev(3, 'C', { startDate: '2026-09-20' }),
+    ])
+    expect(laneByEventId.get(1)).toBe(0)
+    expect(laneByEventId.get(2)).toBe(1)
+    // Nothing is open by the 20th, so C is back on lane 0.
+    expect(laneByEventId.get(3)).toBe(0)
+  })
+
+  it('counts separate collisions as separate groups', () => {
+    const { groups } = findCollisions([
+      ev(1, 'A', { startDate: '2026-09-04', endDate: '2026-09-06' }),
+      ev(2, 'B', { startDate: '2026-09-05' }),
+      ev(3, 'C', { startDate: '2026-11-14', endDate: '2026-11-16' }),
+      ev(4, 'D', { startDate: '2026-11-15' }),
+    ])
+    expect(groups).toBe(2)
+  })
+
+  it('never collides an undated event', () => {
+    const { byEventId, groups } = findCollisions([
+      ev(1, 'Skiss', {}),
+      ev(2, 'Another skiss', {}),
+      ev(3, 'Dated', { startDate: '2026-09-04' }),
+    ])
+    expect(groups).toBe(0)
+    expect(byEventId.size).toBe(0)
+  })
+
+  it('ignores the user role entirely — a viewer event collides like an owned one', () => {
+    const { byEventId } = findCollisions([
+      ev(1, 'Mine', { startDate: '2026-09-04', endDate: '2026-09-06' }),
+      { ...ev(2, 'Theirs', { startDate: '2026-09-05' }), yourRole: 'viewer' },
+    ])
+    expect(byEventId.get(2)?.kind).toBe('overlap')
+  })
+
+  it('reports overlaps for an event that both overlaps and merely clashes', () => {
+    const { byEventId } = findCollisions([
+      ev(1, 'Long', { loadInDate: '2026-09-01', startDate: '2026-09-04', endDate: '2026-09-08' }),
+      ev(2, 'Overlapping show', { startDate: '2026-09-05' }),
+      ev(3, 'Rig-day only', { startDate: '2026-09-02' }),
+    ])
+    expect(byEventId.get(1)?.kind).toBe('overlap')
+    expect(byEventId.get(3)?.kind).toBe('on-site-clash')
+  })
+
+  it('gives every dated event a lane, colliding or not', () => {
+    const { laneByEventId } = findCollisions([
+      ev(1, 'Alone', { startDate: '2026-03-21' }),
+      ev(2, 'Also alone', { startDate: '2026-05-09' }),
+    ])
+    expect(laneByEventId.get(1)).toBe(0)
+    expect(laneByEventId.get(2)).toBe(0)
   })
 })

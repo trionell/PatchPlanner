@@ -134,11 +134,11 @@ grouping, the today marker, the toggle and the search without opening anything.
 intersect but whose on-site spans do. Confirm both pairs are marked, marked differently, and
 that neither was blocked at save.
 
-- [ ] T036 [US5] Add the single sweep to `frontend/src/lib/eventTimeline.ts` ([research.md](research.md) R4): sort by first on-site day, walk once maintaining open intervals, emit `{groupId, kind, lane}` per event. `kind` is `overlap` when the show spans intersect and `on-site-clash` when only the on-site spans do. **The lane assignment is produced by this same walk** — the year track consumes it in Phase 7
-- [ ] T037 [P] [US5] Extend `frontend/src/lib/eventTimeline.test.ts`: intersecting show spans → `overlap`; touching on-site spans only → `on-site-clash`; adjacent-but-not-touching → no collision; three mutually touching events → one group, three lanes; an undated event never collides; role is irrelevant; an event overlapping one neighbour and merely on-site-clashing with another reports `overlaps`
-- [ ] T038 [US5] Draw the collision in `frontend/src/components/events/TimelineRow.tsx` and `frontend/src/pages/Events.tsx` — a 2 px amber brace in the gutter spanning the grouped rows, and the word (`overlaps` / `on-site clash`) as a `Pill` on each row. Never red, never blocking
-- [ ] T039 [US5] Add the colliding-pair count to the closing strip, in amber, at the end of the line
-- [ ] T040 [US5] Run the gates, walk [quickstart.md](quickstart.md) checks 1 and 2 — **check 1 is the one that fails if the discriminant tests the wrong pair of intervals** — then **commit 6**
+- [x] T036 [US5] Add the single sweep to `frontend/src/lib/eventTimeline.ts` ([research.md](research.md) R4): sort by first on-site day, walk once maintaining open intervals, emit `{groupId, kind, lane}` per event. `kind` is `overlap` when the show spans intersect and `on-site-clash` when only the on-site spans do. **The lane assignment is produced by this same walk** — the year track consumes it in Phase 7
+- [x] T037 [P] [US5] Extend `frontend/src/lib/eventTimeline.test.ts`: intersecting show spans → `overlap`; touching on-site spans only → `on-site-clash`; adjacent-but-not-touching → no collision; three mutually touching events → one group, three lanes; an undated event never collides; role is irrelevant; an event overlapping one neighbour and merely on-site-clashing with another reports `overlaps`
+- [x] T038 [US5] Draw the collision in `frontend/src/components/events/TimelineRow.tsx` and `frontend/src/pages/Events.tsx` — a 2 px amber brace in the gutter spanning the grouped rows, and the word (`overlaps` / `on-site clash`) as a `Pill` on each row. Never red, never blocking
+- [x] T039 [US5] Add the colliding-pair count to the closing strip, in amber, at the end of the line
+- [x] T040 [US5] Run the gates, walk [quickstart.md](quickstart.md) checks 1 and 2 — **check 1 is the one that fails if the discriminant tests the wrong pair of intervals** — then **commit 6**
 
 **Checkpoint**: Collisions visible. Saving is still never blocked by one.
 

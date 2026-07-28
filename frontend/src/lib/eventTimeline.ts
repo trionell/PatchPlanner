@@ -310,3 +310,107 @@ export function countdownLabel(event: Event, todayIso: string): string | undefin
   if (days <= 56) return `${prefix}${Math.floor(days / 7)} wk${suffix}`
   return `${prefix}${Math.round(days / 30.44)} mo${suffix}`
 }
+
+/* ------------------------------------------------------------- collisions */
+
+export type CollisionKind = 'overlap' | 'on-site-clash'
+
+export interface Collision {
+  /** Which set of mutually-touching events this belongs to. Rows sharing it are braced. */
+  groupId: number
+  kind: CollisionKind
+  /** Which row within the year track. Assigned by the same sweep. */
+  lane: number
+}
+
+export interface CollisionMap {
+  byEventId: Map<number, Collision>
+  /** Lane for every dated event, colliding or not — the track needs all of them. */
+  laneByEventId: Map<number, number>
+  /** How many colliding groups there are. Pairs, not rows: two events touching is one thing to look into. */
+  groups: number
+}
+
+/**
+ * Which events share days, and which lane each one draws on (Slice 30 US5).
+ *
+ * **One sweep produces both**, and that is the point. Two functions — one
+ * finding collisions, one packing lanes — would be two implementations of "do
+ * these two events share a day", which is the failure mode P6 names and the one
+ * Wave 4 avoided by refusing a summary endpoint. Two implementations of one
+ * claim eventually disagree, and the disagreement would show up as a pair of
+ * rows braced on the spine whose marks do not stack on the track.
+ *
+ * **The comparison is the on-site span, not the show span.** That is the whole
+ * reason load-in earns a column: a one-evening job on the 17th and a festival
+ * whose first band plays on the 18th do not touch on show dates, but you are in
+ * the other town rigging on the 17th. That collision cannot be represented at
+ * all without a load-in date, and it is the kind you otherwise find out about by
+ * turning up.
+ *
+ * Which of the two words applies is then a second, cheaper test on the show
+ * spans — run only for pairs already known to collide.
+ */
+export function findCollisions(events: Event[] | undefined): CollisionMap {
+  const dated = (events ?? [])
+    .map((event) => ({ event, dates: resolveDates(event) }))
+    .filter((entry): entry is { event: Event; dates: ResolvedDates } => Boolean(entry.dates))
+    .sort((a, b) => a.dates.loadIn.localeCompare(b.dates.loadIn))
+
+  const byEventId = new Map<number, Collision>()
+  const laneByEventId = new Map<number, number>()
+  // Lanes still occupied, as [loadOut, eventId] — index is the lane number.
+  const openLanes: { until: string; entry: { event: Event; dates: ResolvedDates } }[] = []
+  let groups = 0
+  let groupId = -1
+
+  for (const entry of dated) {
+    // Retire any lane whose event ended before this one arrives.
+    const stillOpen = openLanes.filter((lane) => lane !== undefined && lane.until >= entry.dates.loadIn)
+    if (stillOpen.length === 0) {
+      // Nothing overlaps: the group is over and the lanes reset.
+      openLanes.length = 0
+      groupId = -1
+    }
+
+    // First free lane: the lowest index whose occupant has already finished.
+    let lane = openLanes.findIndex((occupant) => !occupant || occupant.until < entry.dates.loadIn)
+    if (lane === -1) lane = openLanes.length
+    laneByEventId.set(entry.event.id, lane)
+
+    const touching = stillOpen.map((occupant) => occupant.entry)
+    if (touching.length > 0) {
+      if (groupId === -1) {
+        groupId = groups
+        groups += 1
+      }
+      for (const other of [...touching, entry]) {
+        const kind = collisionKind(other, [...touching, entry])
+        byEventId.set(other.event.id, { groupId, kind, lane: laneByEventId.get(other.event.id) ?? 0 })
+      }
+    }
+
+    openLanes[lane] = { until: entry.dates.loadOut, entry }
+  }
+
+  return { byEventId, laneByEventId, groups }
+}
+
+/**
+ * `overlap` if this event's show span meets any other member's show span;
+ * `on-site-clash` if only the on-site spans meet.
+ *
+ * An event that overlaps one neighbour and merely clashes on-site with another
+ * reports the stronger relationship it personally has — `overlaps` — because
+ * that is the more urgent fact about it.
+ */
+function collisionKind(
+  self: { event: Event; dates: ResolvedDates },
+  members: { event: Event; dates: ResolvedDates }[],
+): CollisionKind {
+  for (const other of members) {
+    if (other.event.id === self.event.id) continue
+    if (self.dates.first <= other.dates.last && other.dates.first <= self.dates.last) return 'overlap'
+  }
+  return 'on-site-clash'
+}
