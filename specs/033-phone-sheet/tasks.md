@@ -93,14 +93,14 @@ bottom edge with the same sections, headings and spec lines as the desk. Open it
 above 768 px — right-anchored, unchanged. No drawer call site appears in the
 diff.
 
-- [ ] T013 [US2] Replace `Drawer`'s inline `Escape` effect in `frontend/src/components/ui/Drawer.tsx` with `useEscapeToClose(open, onClose)`, called in the same position — before the `if (!open) return null`
-- [ ] T014 [US2] Add the phone branch to `Drawer`: `const isMobile = useIsMobile()`, then after the closed-guard, `if (isMobile) return <Sheet open onClose={onClose} title={title} subtitle={subtitle} footer={footer}>{children}</Sheet>`. **`width` is not forwarded** — a phone has one width, and forwarding it would be an API that must never be used (invariant D2)
-- [ ] T015 [US2] Move `Drawer`'s existing desktop return below the new branch **verbatim** — not one line inside it changes. Add a comment above it naming what the branch above is and pointing at [patterns.md](../../design/patterns.md) §7d. Then read the diff and confirm the desktop block shows as moved, not modified (invariant D1)
-- [ ] T016 [US2] Add `useEscapeToClose(open, onClose)` to `frontend/src/components/ui/Dialog.tsx`, before its `if (!open) return null` (contract G1)
-- [ ] T017 [US2] Give `Dialog` internal scroll: the panel gains `flex max-h-[85svh] flex-col`, its header `flex-none`, its body `flex-1 overflow-y-auto` — **the sheet's own numbers**, so a tall overlay behaves the same at either anchor. Comment records this as the phase's one stated desktop delta: a dialog taller than the viewport now scrolls instead of overflowing off both ends (contract G2)
-- [ ] T018 [US2] Confirm no `Drawer` or `Dialog` call site changed: `git diff --name-only` names exactly `Drawer.tsx` and `Dialog.tsx` for this phase (invariant D4)
-- [ ] T019 [US2] Compare the desktop's rendered class strings before and after through `twMerge` for `Drawer`'s panel, header, body and footer, and for `Dialog`'s panel and header — computed, not eyeballed, which is what caught Wave 0's four deltas ([research.md](research.md) R8.3)
-- [ ] T020 Run the gates, then **commit 2**
+- [X] T013 [US2] Replace `Drawer`'s inline `Escape` effect in `frontend/src/components/ui/Drawer.tsx` with `useEscapeToClose(open, onClose)`, called in the same position — before the `if (!open) return null`
+- [X] T014 [US2] Add the phone branch to `Drawer`: `const isMobile = useIsMobile()`, then after the closed-guard, `if (isMobile) return <Sheet open onClose={onClose} title={title} subtitle={subtitle} footer={footer}>{children}</Sheet>`. **`width` is not forwarded** — a phone has one width, and forwarding it would be an API that must never be used (invariant D2)
+- [X] T015 [US2] Move `Drawer`'s existing desktop return below the new branch **verbatim** — not one line inside it changes. Add a comment above it naming what the branch above is and pointing at [patterns.md](../../design/patterns.md) §7d. Then read the diff and confirm the desktop block shows as moved, not modified (invariant D1)
+- [X] T016 [US2] Add `useEscapeToClose(open, onClose)` to `frontend/src/components/ui/Dialog.tsx`, before its `if (!open) return null` (contract G1)
+- [X] T017 [US2] Give `Dialog` internal scroll: the panel gains `flex max-h-[85svh] flex-col`, its header `flex-none`, its body `flex-1 overflow-y-auto` — **the sheet's own numbers**, so a tall overlay behaves the same at either anchor. Comment records this as the phase's one stated desktop delta: a dialog taller than the viewport now scrolls instead of overflowing off both ends (contract G2)
+- [X] T018 [US2] Confirm no `Drawer` or `Dialog` call site changed: `git diff --name-only` names exactly `Drawer.tsx` and `Dialog.tsx` for this phase (invariant D4)
+- [X] T019 [US2] Compare the desktop's rendered class strings before and after through `twMerge` for `Drawer`'s panel, header, body and footer, and for `Dialog`'s panel and header — computed, not eyeballed, which is what caught Wave 0's four deltas ([research.md](research.md) R8.3)
+- [X] T020 Run the gates, then **commit 2**
 
 ---
 
