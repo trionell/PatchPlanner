@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildTimeline,
+  countdownLabel,
   dateOrderError,
+  type TimelineEventRow,
+  type TimelineHeading,
   eventPhase,
   hasDistinctOnSite,
   isCurrent,
@@ -193,5 +197,185 @@ describe('dateOrderError', () => {
     expect(
       dateOrderError({ loadInDate: '2026-09-19', startDate: '2026-09-18', endDate: '2026-09-01' }),
     ).toMatch(/Load-in/)
+  })
+})
+
+describe('buildTimeline', () => {
+  const TODAY = '2026-07-28'
+
+  function ev(id: number, name: string, dates: Partial<Event> = {}): Event {
+    return { id, name, created_at: '', updated_at: '', inventoryId: 1, ...dates }
+  }
+
+  const rows = (t: ReturnType<typeof buildTimeline>) =>
+    t.items.filter((i): i is TimelineEventRow => i.kind === 'event')
+  const headings = (t: ReturnType<typeof buildTimeline>, kind: TimelineHeading['kind']) =>
+    t.items.filter((i): i is TimelineHeading => i.kind === kind)
+  const kinds = (t: ReturnType<typeof buildTimeline>) => t.items.map((i) => i.kind)
+
+  it('orders oldest first — reading down is moving forward', () => {
+    const timeline = buildTimeline(
+      [
+        ev(1, 'November', { startDate: '2026-11-14' }),
+        ev(2, 'Last year', { startDate: '2025-08-16' }),
+        ev(3, 'August', { startDate: '2026-08-14' }),
+      ],
+      { today: TODAY },
+    )
+    expect(rows(timeline).map((r) => r.event.name)).toEqual(['Last year', 'August', 'November'])
+  })
+
+  it('groups under year and month headings, counting the rows beneath each month', () => {
+    const timeline = buildTimeline(
+      [
+        ev(1, 'A', { startDate: '2026-09-04' }),
+        ev(2, 'B', { startDate: '2026-09-18' }),
+        ev(3, 'C', { startDate: '2026-11-14' }),
+      ],
+      { today: TODAY },
+    )
+    expect(headings(timeline, 'month').map((m) => [m.label, m.count])).toEqual([
+      ['Sep', 2],
+      ['Nov', 1],
+    ])
+    expect(headings(timeline, 'year')).toHaveLength(1)
+  })
+
+  it('files a span crossing a month under its first show day', () => {
+    const timeline = buildTimeline([ev(1, 'Nyår', { startDate: '2026-07-31', endDate: '2026-08-02' })], {
+      today: TODAY,
+    })
+    expect(headings(timeline, 'month').map((m) => m.label)).toEqual(['Jul'])
+  })
+
+  it('files a span crossing a year under its start year, once', () => {
+    const timeline = buildTimeline([ev(1, 'Nyår', { startDate: '2026-12-31', endDate: '2027-01-01' })], {
+      today: TODAY,
+    })
+    expect(headings(timeline, 'year').map((y) => y.label)).toEqual(['2026'])
+    expect(rows(timeline)).toHaveLength(1)
+  })
+
+  it('puts the today rule between the last started event and the first upcoming one', () => {
+    const timeline = buildTimeline(
+      [
+        ev(1, 'Past', { startDate: '2026-07-11' }),
+        ev(2, 'Running', { startDate: '2026-07-27', endDate: '2026-07-29' }),
+        ev(3, 'Upcoming', { startDate: '2026-08-14' }),
+      ],
+      { today: TODAY },
+    )
+    const order = kinds(timeline)
+    const todayAt = order.indexOf('today')
+    const names = timeline.items.map((i) => (i.kind === 'event' ? i.event.name : i.kind))
+    expect(names.indexOf('Running')).toBeLessThan(todayAt)
+    expect(names.indexOf('Upcoming')).toBeGreaterThan(todayAt)
+  })
+
+  it('still places the today rule when everything is in the past', () => {
+    const timeline = buildTimeline([ev(1, 'Past', { startDate: '2026-07-11' })], { today: TODAY })
+    expect(kinds(timeline)).toContain('today')
+    expect(kinds(timeline).indexOf('today')).toBe(kinds(timeline).length - 1)
+  })
+
+  it('marks exactly one row as next, skipping anything already running', () => {
+    const timeline = buildTimeline(
+      [
+        ev(1, 'Running', { startDate: '2026-07-27', endDate: '2026-07-29' }),
+        ev(2, 'Soonest', { startDate: '2026-08-14' }),
+        ev(3, 'Later', { startDate: '2026-09-18' }),
+      ],
+      { today: TODAY },
+    )
+    expect(rows(timeline).filter((r) => r.isNext).map((r) => r.event.name)).toEqual(['Soonest'])
+  })
+
+  it('lists undated events last, under their own heading', () => {
+    const timeline = buildTimeline(
+      [ev(1, 'Skiss', {}), ev(2, 'Dated', { startDate: '2026-08-14' })],
+      { today: TODAY },
+    )
+    const names = rows(timeline).map((r) => r.event.name)
+    expect(names).toEqual(['Dated', 'Skiss'])
+    expect(kinds(timeline)).toContain('undated')
+    expect(kinds(timeline).indexOf('undated')).toBeGreaterThan(kinds(timeline).indexOf('today'))
+  })
+
+  it('filters by tense, and drops undated events from the past view', () => {
+    const events = [
+      ev(1, 'Past', { startDate: '2026-07-11' }),
+      ev(2, 'Upcoming', { startDate: '2026-08-14' }),
+      ev(3, 'Skiss', {}),
+    ]
+    expect(rows(buildTimeline(events, { today: TODAY, tense: 'past' })).map((r) => r.event.name)).toEqual(['Past'])
+    expect(rows(buildTimeline(events, { today: TODAY, tense: 'upcoming' })).map((r) => r.event.name)).toEqual([
+      'Upcoming',
+      'Skiss',
+    ])
+  })
+
+  it('counts what is listed, so a search narrows the strip too', () => {
+    const events = [
+      ev(1, 'Gävle', { startDate: '2026-07-11' }),
+      ev(2, 'Falun', { startDate: '2026-08-14' }),
+      ev(3, 'Skiss', {}),
+    ]
+    const all = buildTimeline(events, { today: TODAY })
+    expect(all.counts).toEqual({ total: 3, running: 0, toCome: 1, done: 1, undated: 1 })
+
+    const searched = buildTimeline(events, { today: TODAY, matches: (e) => e.name === 'Gävle' })
+    expect(searched.counts).toEqual({ total: 1, running: 0, toCome: 0, done: 1, undated: 0 })
+  })
+
+  it('lists the years that have events, ascending and unique', () => {
+    const timeline = buildTimeline(
+      [
+        ev(1, 'A', { startDate: '2026-09-04' }),
+        ev(2, 'B', { startDate: '2025-08-16' }),
+        ev(3, 'C', { startDate: '2026-11-14' }),
+        ev(4, 'Skiss', {}),
+      ],
+      { today: TODAY },
+    )
+    expect(timeline.years).toEqual([2025, 2026])
+  })
+})
+
+describe('countdownLabel', () => {
+  const TODAY = '2026-07-28'
+  const ev = (dates: Partial<Event>): Event => ({
+    id: 1, name: 'T', created_at: '', updated_at: '', inventoryId: 1, ...dates,
+  })
+
+  it('counts days up to a month', () => {
+    expect(countdownLabel(ev({ startDate: '2026-08-14' }), TODAY)).toBe('in 17 d')
+    expect(countdownLabel(ev({ startDate: '2026-08-22' }), TODAY)).toBe('in 25 d')
+  })
+
+  it('counts weeks between a month and two', () => {
+    expect(countdownLabel(ev({ startDate: '2026-09-05' }), TODAY)).toBe('in 5 wk')
+    expect(countdownLabel(ev({ startDate: '2026-09-18' }), TODAY)).toBe('in 7 wk')
+  })
+
+  it('counts months beyond that', () => {
+    expect(countdownLabel(ev({ startDate: '2026-11-14' }), TODAY)).toBe('in 4 mo')
+  })
+
+  it('counts to load-in, not to the first show day', () => {
+    expect(countdownLabel(ev({ loadInDate: '2026-08-13', startDate: '2026-08-14' }), TODAY)).toBe('in 16 d')
+  })
+
+  it('says on now while the show is running or rigging', () => {
+    expect(countdownLabel(ev({ startDate: '2026-07-27', endDate: '2026-07-29' }), TODAY)).toBe('on now')
+    expect(countdownLabel(ev({ loadInDate: TODAY, startDate: '2026-07-30' }), TODAY)).toBe('on now')
+  })
+
+  it('measures a past event from its load-out', () => {
+    expect(countdownLabel(ev({ startDate: '2026-07-11' }), TODAY)).toBe('17 d ago')
+    expect(countdownLabel(ev({ startDate: '2025-08-16' }), TODAY)).toBe('11 mo ago')
+  })
+
+  it('says nothing for an undated event', () => {
+    expect(countdownLabel(ev({}), TODAY)).toBeUndefined()
   })
 })

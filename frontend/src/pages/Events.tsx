@@ -1,30 +1,57 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import { Plus, Search } from 'lucide-react'
 import { createEvent, listEvents } from '../api/events'
 import { EventFormDialog } from '../components/EventFormDialog'
-import { useIsMobile } from '../hooks/useIsMobile'
+import { TimelineRow } from '../components/events/TimelineRow'
 import { CondensedListRow } from '../components/mobile/CondensedListRow'
-import { matchesSearch } from '../lib/patchSearch'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
-import { Card, CardContent } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
-import { Search } from 'lucide-react'
+import { MicroLabel } from '../components/ui/Label'
+import { useIsMobile } from '../hooks/useIsMobile'
+import { formatEventDates, isoDay } from '../lib/dashboard'
+import { buildTimeline, type TimelineTense } from '../lib/eventTimeline'
+import { matchesSearch } from '../lib/patchSearch'
+import type { Event } from '../types'
 
+/**
+ * Every show you have, on a timeline (Slice 30).
+ *
+ * This was a grid of `Card`s in creation order — the last surface that never
+ * converged. `design/audit.md` A6 exempted it under P1, correctly, as a list of
+ * genuinely independent objects. That settled the *frame* and never asked what
+ * the page is *for*: finding one show among a hundred, which creation order
+ * answers neither for *which is next* nor for *where is last year's file for
+ * this festival*.
+ *
+ * It is now one panel (patterns §1) whose body is a chronological spine. The
+ * date gutter is the structure, and the whole of it is derived by
+ * `lib/eventTimeline.ts` — so the page's behaviour is tested without rendering
+ * anything.
+ *
+ * The dashboard is unchanged and still answers *what am I doing next*. The
+ * division between the two pages is a division of tense.
+ */
 export function EventsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const isMobile = useIsMobile()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [tense, setTense] = useState<TimelineTense>('all')
   const eventsQuery = useQuery({ queryKey: ['events'], queryFn: listEvents })
 
-  // Twelve events fit on a screen and forty do not — the grid stays, because
-  // P1 exempts a list of genuinely independent objects, but it needs a way in.
-  const events = useMemo(
-    () => (eventsQuery.data ?? []).filter((event) => matchesSearch(search, event.name, event.venue, event.notes)),
-    [eventsQuery.data, search],
+  const today = isoDay(new Date())
+  const timeline = useMemo(
+    () =>
+      buildTimeline(eventsQuery.data, {
+        today,
+        tense,
+        matches: (event) => matchesSearch(search, event.name, event.venue, event.notes),
+      }),
+    [eventsQuery.data, today, tense, search],
   )
 
   const createMutation = useMutation({
@@ -36,84 +63,323 @@ export function EventsPage() {
     },
   })
 
+  const hasAnyEvents = (eventsQuery.data?.length ?? 0) > 0
+
+  const dialog = (
+    <EventFormDialog
+      open={open}
+      onClose={() => setOpen(false)}
+      title="Create event"
+      submitLabel="Create event"
+      submitting={createMutation.isPending}
+      onSubmit={async (values) => createMutation.mutateAsync(values)}
+    />
+  )
+
+  if (isMobile) {
+    return (
+      <MobileEvents
+        events={eventsQuery.data}
+        today={today}
+        search={search}
+        onSearch={setSearch}
+        onOpen={(id) => navigate(`/events/${id}`)}
+        onCreate={() => setOpen(true)}
+        dialog={dialog}
+      />
+    )
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="relative min-w-[12rem] max-w-sm flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-          <Input
-            className="pl-9"
-            placeholder="Find an event…"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </div>
-        <Button onClick={() => setOpen(true)}>New Event</Button>
+    <div className="overflow-hidden rounded-xl border border-zinc-700 bg-zinc-950/40">
+      <div className="flex flex-wrap items-center gap-2 border-b border-zinc-800 px-3 py-2.5">
+        <span className="mr-1 text-sm font-semibold text-zinc-100">Events</span>
+
+        {hasAnyEvents && (
+          <>
+            <div className="inline-flex gap-0.5 rounded-md border border-zinc-700 bg-zinc-900 p-0.5">
+              {(['upcoming', 'past', 'all'] as const).map((option) => (
+                <Button
+                  key={option}
+                  size="xs"
+                  variant={tense === option ? 'default' : 'ghost'}
+                  onClick={() => setTense(option)}
+                  className="capitalize"
+                >
+                  {option}
+                </Button>
+              ))}
+            </div>
+
+            <div className="relative min-w-[12rem] max-w-xs flex-1">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+              <Input
+                size="sm"
+                className="pl-8"
+                placeholder="Name, venue or notes…"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </div>
+          </>
+        )}
+
+        <div className="flex-1" />
+        <Button size="sm" onClick={() => setOpen(true)}>
+          <Plus className="mr-1.5 h-4 w-4" />
+          New event
+        </Button>
       </div>
 
-      {isMobile ? (
-        <div className="space-y-1">
-          {events.map((event) => (
-            <CondensedListRow
-              key={event.id}
-              onClick={() => navigate(`/events/${event.id}`)}
-              title={event.name}
-              subtitle={`${event.venue || 'Venue TBD'} · ${event.startDate || 'Date not set'}`}
-              trailing={
-                event.yourRole && event.yourRole !== 'owner' ? (
-                  <Badge variant={event.yourRole === 'viewer' ? 'warning' : 'default'}>{event.yourRole}</Badge>
-                ) : undefined
-              }
-            />
-          ))}
-        </div>
+      {eventsQuery.isLoading ? (
+        <p className="px-5 py-8 text-sm text-zinc-400">Loading events…</p>
+      ) : timeline.counts.total === 0 ? (
+        <Empty hasAnyEvents={hasAnyEvents} search={search} onCreate={() => setOpen(true)} />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {events.map((event) => (
-            <Link key={event.id} to={`/events/${event.id}`}>
-              <Card className="h-full transition hover:border-amber-500/50">
-                <CardContent className="space-y-3 py-5">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h3 className="text-lg font-semibold text-zinc-100">{event.name}</h3>
-                      <p className="text-sm text-zinc-400">{event.venue || 'Venue TBD'}</p>
-                    </div>
-                    {event.yourRole && event.yourRole !== 'owner' && (
-                      <Badge variant={event.yourRole === 'viewer' ? 'warning' : 'default'}>{event.yourRole}</Badge>
-                    )}
-                  </div>
-                  <div className="text-sm text-zinc-300">{event.startDate || 'Date not set'}</div>
-                  <p className="line-clamp-3 text-sm text-zinc-500">{event.notes || 'No notes yet.'}</p>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
+        <Spine timeline={timeline} today={today} onOpen={(id) => navigate(`/events/${id}`)} />
       )}
 
-      {events.length === 0 && (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-5 py-8 text-center">
-          <p className="text-sm text-zinc-400">
-            {eventsQuery.data?.length
-              ? 'No event matches.'
-              : 'No events yet — create your first show file, and the patch, the rig and the rental order follow from it.'}
-          </p>
-          {!eventsQuery.data?.length && (
-            <Button className="mt-4" onClick={() => setOpen(true)}>
-              New Event
-            </Button>
+      {timeline.counts.total > 0 && <Strip counts={timeline.counts} />}
+
+      {dialog}
+    </div>
+  )
+}
+
+/**
+ * The rows, their headings, and the today rule.
+ *
+ * The page scrolls to today on arrival, and does so **without** smooth
+ * scrolling: this is a page you land on, and a list that animates itself into
+ * position while you are trying to read it is in the way.
+ */
+function Spine({
+  timeline,
+  today,
+  onOpen,
+}: {
+  timeline: ReturnType<typeof buildTimeline>
+  today: string
+  onOpen: (id: number) => void
+}) {
+  const todayRef = useRef<HTMLDivElement>(null)
+  const anchored = useRef(false)
+
+  useEffect(() => {
+    if (anchored.current || !todayRef.current) return
+    anchored.current = true
+    todayRef.current.scrollIntoView({ block: 'center' })
+  }, [timeline])
+
+  return (
+    <div className="py-1">
+      {timeline.items.map((item, index) => {
+        if (item.kind === 'event') {
+          return (
+            <TimelineRow
+              key={`e-${item.event.id}`}
+              event={item.event}
+              phase={item.phase}
+              isNext={item.isNext}
+              today={today}
+              onToggle={() => onOpen(item.event.id)}
+            />
+          )
+        }
+        if (item.kind === 'today') {
+          return (
+            <div key="today" ref={todayRef} className="flex items-center py-1">
+              <span className="w-[84px] shrink-0 pr-3 text-right font-mono text-[10px] uppercase tracking-[0.14em] text-amber-500">
+                Today
+              </span>
+              <span className="h-px flex-1 bg-amber-500/45" />
+            </div>
+          )
+        }
+        if (item.kind === 'year') {
+          // Big enough to land as you scroll past, dark enough that you never
+          // read it on purpose. The inverse of Overview's numbers band, where
+          // the big mono figure is the answer; here it is the ruler.
+          return (
+            <div key={`${item.anchor}-${index}`} id={item.anchor} className="flex items-center pt-4">
+              <span className="w-[84px] shrink-0 pr-2.5 text-right font-mono text-[26px] font-semibold leading-none tabular-nums text-zinc-800">
+                {item.label}
+              </span>
+            </div>
+          )
+        }
+        return (
+          <div key={`${item.anchor}-${index}`} id={item.anchor} className="flex items-center gap-2.5 px-3 pb-1 pt-2">
+            <MicroLabel className="w-[72px] shrink-0 text-right">{item.label}</MicroLabel>
+            <span className="h-px flex-1 bg-zinc-800" />
+            <span className="font-mono text-[10px] tabular-nums text-zinc-600">{item.count}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/** What the page contains, as the footnote it always was. */
+function Strip({ counts }: { counts: ReturnType<typeof buildTimeline>['counts'] }) {
+  const parts = [
+    `${counts.total} ${counts.total === 1 ? 'event' : 'events'}`,
+    counts.running > 0 ? `${counts.running} running` : undefined,
+    counts.toCome > 0 ? `${counts.toCome} to come` : undefined,
+    counts.done > 0 ? `${counts.done} done` : undefined,
+    counts.undated > 0 ? `${counts.undated} undated` : undefined,
+  ].filter((part): part is string => Boolean(part))
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-zinc-800 bg-zinc-950/60 px-3 py-2 text-[11px] text-zinc-400">
+      {parts.map((part, index) => (
+        <span key={part} className="flex items-center gap-3">
+          {index > 0 && <span className="text-zinc-700">·</span>}
+          <span className="font-mono tabular-nums">{part}</span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * Two empty states, and they are different states.
+ *
+ * An unmatched search keeps the whole bar — the text you typed is still there
+ * to correct. An account with no events at all has no bar to keep: nothing to
+ * filter, nothing to search, and one sentence saying what to do beside the
+ * control that does it (patterns §5).
+ */
+function Empty({
+  hasAnyEvents,
+  search,
+  onCreate,
+}: {
+  hasAnyEvents: boolean
+  search: string
+  onCreate: () => void
+}) {
+  if (hasAnyEvents) {
+    return (
+      <div className="mx-3 my-4 rounded-xl border border-dashed border-zinc-700 px-6 py-7 text-center">
+        <p className="text-sm text-zinc-400">
+          {search ? (
+            <>
+              No event matches <span className="font-mono text-zinc-200">{search}</span>.
+            </>
+          ) : (
+            'No events in this view.'
           )}
-        </div>
-      )}
+        </p>
+        <p className="mt-2 text-[13px] text-zinc-500">
+          {search ? 'Search covers name, venue and notes.' : 'Try All to see everything.'}
+        </p>
+      </div>
+    )
+  }
+  return (
+    <div className="mx-3 my-4 flex flex-col items-center gap-3 rounded-xl border border-dashed border-zinc-700 px-6 py-8 text-center">
+      <p className="text-sm text-zinc-400">No events yet.</p>
+      <p className="max-w-[44ch] text-[13px] text-zinc-500">
+        Create your first show file and the patch, the rig and the rental order follow from it.
+      </p>
+      <Button onClick={onCreate}>
+        <Plus className="mr-1.5 h-4 w-4" />
+        New event
+      </Button>
+    </div>
+  )
+}
 
-      <EventFormDialog
-        open={open}
-        onClose={() => setOpen(false)}
-        title="Create event"
-        submitLabel="Create event"
-        submitting={createMutation.isPending}
-        onSubmit={async (values) => createMutation.mutateAsync(values)}
-      />
+/**
+ * The phone keeps `CondensedListRow`, and gains the month headings and the
+ * today rule — those are structure, not density, and they are worth more on a
+ * small screen than a large one. The gutter, the year track and the unfold are
+ * desktop only: a 3 px mark is not a touch target and the ribbon does not fit.
+ */
+function MobileEvents({
+  events,
+  today,
+  search,
+  onSearch,
+  onOpen,
+  onCreate,
+  dialog,
+}: {
+  events?: Event[]
+  today: string
+  search: string
+  onSearch: (value: string) => void
+  onOpen: (id: number) => void
+  onCreate: () => void
+  dialog: React.ReactNode
+}) {
+  const timeline = useMemo(
+    () =>
+      buildTimeline(events, {
+        today,
+        matches: (event) => matchesSearch(search, event.name, event.venue, event.notes),
+      }),
+    [events, today, search],
+  )
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <MicroLabel>Your events</MicroLabel>
+        <Button size="sm" onClick={onCreate}>
+          <Plus className="mr-1.5 h-4 w-4" />
+          New event
+        </Button>
+      </div>
+
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+        <Input className="pl-9" placeholder="Find an event…" value={search} onChange={(e) => onSearch(e.target.value)} />
+      </div>
+
+      <div className="space-y-1">
+        {timeline.items.map((item, index) => {
+          if (item.kind === 'event') {
+            const formatted = formatEventDates(item.event)
+            return (
+              <CondensedListRow
+                key={`e-${item.event.id}`}
+                onClick={() => onOpen(item.event.id)}
+                title={item.event.name}
+                subtitle={`${item.event.venue || 'Venue TBD'} · ${formatted.short ?? 'Date not set'}`}
+                trailing={
+                  item.event.yourRole && item.event.yourRole !== 'owner' ? (
+                    <Badge variant={item.event.yourRole === 'viewer' ? 'warning' : 'default'}>
+                      {item.event.yourRole}
+                    </Badge>
+                  ) : undefined
+                }
+              />
+            )
+          }
+          if (item.kind === 'today') {
+            return (
+              <div key="today" className="flex items-center gap-2 py-1">
+                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-amber-500">Today</span>
+                <span className="h-px flex-1 bg-amber-500/45" />
+              </div>
+            )
+          }
+          if (item.kind === 'year') return null
+          return (
+            <div key={`${item.anchor}-${index}`} className="flex items-center gap-2 pt-2">
+              <MicroLabel>
+                {item.kind === 'month' ? `${item.label} ${item.anchor.slice(2, 6)}` : item.label}
+              </MicroLabel>
+              <span className="h-px flex-1 bg-zinc-800" />
+            </div>
+          )
+        })}
+        {timeline.counts.total === 0 && <p className="px-1 py-2 text-sm text-zinc-500">No events yet.</p>}
+      </div>
+
+      {dialog}
     </div>
   )
 }
