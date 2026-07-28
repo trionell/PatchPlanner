@@ -1,4 +1,6 @@
+import { isoDay } from './dashboard'
 import { type DmxStatusState, UNIVERSE_SIZE, dmxMap, dmxStatusState } from './dmxMap'
+import { eventPhase, onSiteDays, resolveDates, showDays } from './eventTimeline'
 import { buildInputChannelFlows } from './inputSignalFlow'
 import { cablesPicked } from './patchCapacity'
 import { buildOutputChannelFlows } from './signalFlow'
@@ -37,10 +39,23 @@ import type {
 
 /** Every figure is optional, and the distinction is load-bearing — see `EventSummary`. */
 export interface EventSummary {
-  /** Whole days from today to the event's date; negative once it is past. */
+  /**
+   * Whole days from today to the event's **load-in**; negative once it is past.
+   *
+   * The label on this figure has said "days to load-in" since Wave 4 while the
+   * value counted to the event's only date. Slice 30 gives an event a load-in
+   * date, so the value moves to meet the word rather than the word being
+   * walked back.
+   */
   daysToLoadIn?: number
-  /** How to say it: `today`, `tomorrow`, `in 18 days`, `3 days ago`. */
+  /** How to say it: `today`, `tomorrow`, `in 18 days`, `3 days ago`, `load-in today`, `day 2 of 3`. */
   dayLabel?: string
+  /** Which day of the run today is, 1-based. Only while the show is running. */
+  runningDay?: number
+  /** How many show days there are in total. Present whenever the event has a date. */
+  showDays?: number
+  /** How many days at the venue, load-in to load-out. Present whenever the event has a date. */
+  onSiteDays?: number
 
   inputChannels?: number
   outputChannels?: number
@@ -140,11 +155,30 @@ export function eventSummary(input: EventSummaryInput): EventSummary {
   const summary: EventSummary = { readiness: [] }
 
   // ---- when ----
-  if (input.event?.startDate) {
-    const days = daysBetween(input.event.startDate, today)
+  // Counts to load-in, and says which day of the run it is once the run has
+  // started. Both come from the same resolution the timeline uses, so the
+  // dashboard and the Events page cannot disagree about when a show is.
+  const dates = input.event ? resolveDates(input.event) : undefined
+  if (input.event && dates) {
+    summary.showDays = showDays(dates)
+    summary.onSiteDays = onSiteDays(dates)
+    const days = daysBetween(dates.loadIn, today)
     if (days !== undefined) {
       summary.daysToLoadIn = days
-      summary.dayLabel = dayLabelFor(days)
+      const phase = eventPhase(input.event, isoDay(today))
+      if (phase === 'load-in') {
+        summary.dayLabel = 'load-in today'
+      } else if (phase === 'running') {
+        // `daysBetween` counts forward from today to the target, so the first
+        // show day is *negative* once the run has started. The day of the run
+        // is the other direction: 1 on the first show day, 2 the next morning.
+        const untilFirst = daysBetween(dates.first, today) ?? 0
+        summary.runningDay = Math.max(1, 1 - untilFirst)
+        summary.dayLabel =
+          summary.showDays > 1 ? `day ${summary.runningDay} of ${summary.showDays}` : 'today'
+      } else {
+        summary.dayLabel = dayLabelFor(days)
+      }
     }
   }
 

@@ -116,3 +116,33 @@ export function eventPhase(event: Event, todayIso: string): EventPhase {
 export function isCurrent(phase: EventPhase): boolean {
   return phase === 'running' || phase === 'load-in'
 }
+
+/* ------------------------------------------------------------- validation */
+
+/**
+ * The same ordering rule the server enforces, worded for a person looking at
+ * four date fields.
+ *
+ * Reports only the chronologically earliest broken pair: one mistyped year
+ * breaks every comparison downstream of it, and four messages about one typo is
+ * noise rather than detail. Named in the same order as the fields, so the
+ * message says which two boxes to look at.
+ */
+export function dateOrderError(values: {
+  loadInDate?: string
+  startDate?: string
+  endDate?: string
+  loadOutDate?: string
+}): string | undefined {
+  if (!values.startDate) {
+    if (values.loadInDate || values.endDate || values.loadOutDate) {
+      return 'Set a first day before the others.'
+    }
+    return undefined
+  }
+  const dates = resolveDates(values)!
+  if (dates.loadIn > dates.first) return 'Load-in must not be after the first day.'
+  if (dates.last < dates.first) return 'The last day must not be before the first day.'
+  if (dates.loadOut < dates.last) return 'Load-out must not be before the last day.'
+  return undefined
+}

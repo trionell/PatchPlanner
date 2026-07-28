@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  dateOrderError,
   eventPhase,
   hasDistinctOnSite,
   isCurrent,
@@ -142,5 +143,55 @@ describe('eventPhase', () => {
     const phase = eventPhase(event({}), TODAY)
     expect(phase).toBe('undated')
     expect(isCurrent(phase)).toBe(false)
+  })
+})
+
+describe('dateOrderError', () => {
+  it('accepts an event with no dates, and one with only a first day', () => {
+    expect(dateOrderError({})).toBeUndefined()
+    expect(dateOrderError({ startDate: '2026-08-22' })).toBeUndefined()
+  })
+
+  it('accepts four dates in order, including four equal ones', () => {
+    expect(
+      dateOrderError({
+        loadInDate: '2026-09-17',
+        startDate: '2026-09-18',
+        endDate: '2026-09-20',
+        loadOutDate: '2026-09-21',
+      }),
+    ).toBeUndefined()
+    expect(
+      dateOrderError({
+        loadInDate: '2026-09-18',
+        startDate: '2026-09-18',
+        endDate: '2026-09-18',
+        loadOutDate: '2026-09-18',
+      }),
+    ).toBeUndefined()
+  })
+
+  it('asks for a first day when any other date is set without one', () => {
+    expect(dateOrderError({ endDate: '2026-09-20' })).toMatch(/first day/i)
+  })
+
+  it('names the pair that is wrong', () => {
+    expect(dateOrderError({ loadInDate: '2026-09-19', startDate: '2026-09-18' })).toMatch(/Load-in/)
+    expect(dateOrderError({ startDate: '2026-09-18', endDate: '2026-09-16' })).toMatch(/last day/)
+    expect(
+      dateOrderError({ startDate: '2026-09-18', endDate: '2026-09-20', loadOutDate: '2026-09-19' }),
+    ).toMatch(/Load-out/)
+  })
+
+  it('catches a load-out before the start when there is no end date — the double fallback', () => {
+    expect(dateOrderError({ startDate: '2026-09-18', loadOutDate: '2026-09-17' })).toMatch(/Load-out/)
+  })
+
+  it('reports only the chronologically earliest broken pair', () => {
+    // Both loadIn > start and end < start are wrong here. One mistyped year
+    // breaks everything downstream of it; four messages is noise.
+    expect(
+      dateOrderError({ loadInDate: '2026-09-19', startDate: '2026-09-18', endDate: '2026-09-01' }),
+    ).toMatch(/Load-in/)
   })
 })

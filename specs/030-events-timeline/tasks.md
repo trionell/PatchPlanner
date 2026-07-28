@@ -91,16 +91,16 @@ occupies. The disappearing-event defect is repaired.
 before. Create one with all four, reopen it, confirm the values and the two derived spans.
 Put the clock inside a multi-day span and confirm the dashboard still shows it.
 
-- [ ] T018 [US1] Add `formatEventDates(event)` to `frontend/src/lib/dashboard.ts` returning both a long form (`Fri 18 – Sun 20 September 2026`) and a short form (`18–20 Sep`), collapsing to the single-date form when start and end resolve equal; keep `shortDate`/`longDate` as its internals or delete them once the last caller moves
-- [ ] T019 [US1] Add the `running` bucket to `partitionEvents` in `frontend/src/lib/dashboard.ts` and change the past test to `(loadOut ?? end ?? start) < today` — **load-out, not end** ([research.md](research.md) R2). `next` remains the soonest event that has not started
-- [ ] T020 [P] [US1] Extend `frontend/src/lib/dashboard.test.ts`: an event running today is `running` not `past`; still running on its last show day; still running on its load-out day with no show that day; past the day after load-out; a load-in day counts as running; an undated event is never in any of the three
-- [ ] T021 [US1] In `frontend/src/lib/eventSummary.ts`, count `daysToLoadIn` to `loadInDate ?? startDate` and extend `dayLabel` with `load-in` (today is the load-in day and it precedes the first show) and `running` (`day 2 of 3`)
-- [ ] T022 [P] [US1] Extend `frontend/src/lib/eventSummary.test.ts` for both new labels and the boundary between them
-- [ ] T023 [US1] Create `frontend/src/components/event/EventDates.tsx` — four date inputs as one object with each empty field's placeholder naming its default (`same as first day`, `same day`, `same as last day`), the two derived brackets underneath (`5 days on site`, `3 show days`, collapsing to `1 day`), and client-side ordering validation matching the server's. Navigation density tier
-- [ ] T024 [US1] Replace the single Date field in `frontend/src/components/EventFormDialog.tsx` with `EventDates`, extending the zod schema and `EventFormValues` with the three new fields
-- [ ] T025 [US1] Replace the single Date field in `frontend/src/components/event/EventDetailsDrawer.tsx` with `EventDates`, extending `EventDraft`
-- [ ] T026 [US1] In `frontend/src/pages/Dashboard.tsx`, draw `running[0] ?? next` as the hero, and label its big figure `day N of M` when running rather than `days to load-in`
-- [ ] T027 [US1] Run the gates and walk the [quickstart.md](quickstart.md) fixture checks 3, 4, 5 and 6, then **commits 3 and 4** (derivations, then forms)
+- [x] T018 [US1] Add `formatEventDates(event)` to `frontend/src/lib/dashboard.ts` returning both a long form (`Fri 18 – Sun 20 September 2026`) and a short form (`18–20 Sep`), collapsing to the single-date form when start and end resolve equal; keep `shortDate`/`longDate` as its internals or delete them once the last caller moves
+- [x] T019 [US1] Add the `running` bucket to `partitionEvents` in `frontend/src/lib/dashboard.ts` and change the past test to `(loadOut ?? end ?? start) < today` — **load-out, not end** ([research.md](research.md) R2). `next` remains the soonest event that has not started
+- [x] T020 [P] [US1] Extend `frontend/src/lib/dashboard.test.ts`: an event running today is `running` not `past`; still running on its last show day; still running on its load-out day with no show that day; past the day after load-out; a load-in day counts as running; an undated event is never in any of the three
+- [x] T021 [US1] In `frontend/src/lib/eventSummary.ts`, count `daysToLoadIn` to `loadInDate ?? startDate` and extend `dayLabel` with `load-in` (today is the load-in day and it precedes the first show) and `running` (`day 2 of 3`)
+- [x] T022 [P] [US1] Extend `frontend/src/lib/eventSummary.test.ts` for both new labels and the boundary between them
+- [x] T023 [US1] Create `frontend/src/components/event/EventDates.tsx` — four date inputs as one object with each empty field's placeholder naming its default (`same as first day`, `same day`, `same as last day`), the two derived brackets underneath (`5 days on site`, `3 show days`, collapsing to `1 day`), and client-side ordering validation matching the server's. Navigation density tier
+- [x] T024 [US1] Replace the single Date field in `frontend/src/components/EventFormDialog.tsx` with `EventDates`, extending the zod schema and `EventFormValues` with the three new fields
+- [x] T025 [US1] Replace the single Date field in `frontend/src/components/event/EventDetailsDrawer.tsx` with `EventDates`, extending `EventDraft`
+- [x] T026 [US1] In `frontend/src/pages/Dashboard.tsx`, draw `running[0] ?? next` as the hero, and label its big figure `day N of M` when running rather than `days to load-in`
+- [x] T027 [US1] Run the gates and walk the [quickstart.md](quickstart.md) fixture checks 3, 4, 5 and 6, then **commits 3 and 4** (derivations, then forms)
 
 **Checkpoint**: US1 is deliverable on its own. The Events page is still the old grid.
 

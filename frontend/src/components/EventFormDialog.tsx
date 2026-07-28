@@ -1,10 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 import { listMyInventories } from '../api/inventories'
 import type { Event } from '../types'
+import { EventDates, type EventDateValues } from './event/EventDates'
+import { dateOrderError } from '../lib/eventTimeline'
 import { Button } from './ui/Button'
 import { Dialog } from './ui/Dialog'
 import { Input } from './ui/Input'
@@ -12,7 +14,10 @@ import { FieldLabel } from './ui/Label'
 
 const eventSchema = z.object({
   name: z.string().min(1, 'Name is required'),
+  loadInDate: z.string().optional(),
   startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  loadOutDate: z.string().optional(),
   venue: z.string().optional(),
   notes: z.string().optional(),
   inventoryId: z.number().positive('Choose an inventory'),
@@ -20,7 +25,10 @@ const eventSchema = z.object({
 
 type EventFormValues = {
   name: string
+  loadInDate: string
   startDate: string
+  endDate: string
+  loadOutDate: string
   venue: string
   notes: string
   inventoryId: number
@@ -51,17 +59,36 @@ export function EventFormDialog({
     resolver: zodResolver(eventSchema),
     defaultValues: {
       name: initialValues?.name ?? '',
+      loadInDate: initialValues?.loadInDate ?? '',
       startDate: initialValues?.startDate ?? '',
+      endDate: initialValues?.endDate ?? '',
+      loadOutDate: initialValues?.loadOutDate ?? '',
       venue: initialValues?.venue ?? '',
       notes: initialValues?.notes ?? '',
       inventoryId: initialValues?.inventoryId ?? 0,
     },
   })
 
+  // The four dates live in the form like every other field; EventDates just
+  // needs them as one value, because it derives two spans from all four.
+  const watched = useWatch({
+    control: form.control,
+    name: ['loadInDate', 'startDate', 'endDate', 'loadOutDate'],
+  })
+  const dates: EventDateValues = {
+    loadInDate: watched[0] ?? '',
+    startDate: watched[1] ?? '',
+    endDate: watched[2] ?? '',
+    loadOutDate: watched[3] ?? '',
+  }
+
   useEffect(() => {
     form.reset({
       name: initialValues?.name ?? '',
+      loadInDate: initialValues?.loadInDate ?? '',
       startDate: initialValues?.startDate ?? '',
+      endDate: initialValues?.endDate ?? '',
+      loadOutDate: initialValues?.loadOutDate ?? '',
       venue: initialValues?.venue ?? '',
       notes: initialValues?.notes ?? '',
       inventoryId: initialValues?.inventoryId ?? 0,
@@ -81,6 +108,7 @@ export function EventFormDialog({
       <form
         className="space-y-4"
         onSubmit={form.handleSubmit(async (values) => {
+          if (dateOrderError(values)) return
           await onSubmit(values)
           form.reset()
         })}
@@ -90,16 +118,18 @@ export function EventFormDialog({
           <Input {...form.register('name')} />
           {form.formState.errors.name && <p className="mt-1 text-sm text-red-400">{form.formState.errors.name.message}</p>}
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <FieldLabel>Date</FieldLabel>
-            <Input type="date" {...form.register('startDate')} />
-          </div>
-          <div>
-            <FieldLabel>Venue</FieldLabel>
-            <Input {...form.register('venue')} />
-          </div>
+        <div>
+          <FieldLabel>Venue</FieldLabel>
+          <Input {...form.register('venue')} />
         </div>
+        <EventDates
+          values={dates}
+          onChange={(next) => {
+            for (const [key, value] of Object.entries(next)) {
+              form.setValue(key as keyof EventDateValues, value, { shouldDirty: true })
+            }
+          }}
+        />
         <div>
           <FieldLabel>Notes</FieldLabel>
           <textarea
