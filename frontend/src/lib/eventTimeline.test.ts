@@ -4,6 +4,7 @@ import {
   countdownLabel,
   dateOrderError,
   findCollisions,
+  yearTrack,
   type TimelineEventRow,
   type TimelineHeading,
   eventPhase,
@@ -490,5 +491,84 @@ describe('findCollisions', () => {
     ])
     expect(laneByEventId.get(1)).toBe(0)
     expect(laneByEventId.get(2)).toBe(0)
+  })
+})
+
+describe('yearTrack', () => {
+  const ev = (id: number, name: string, dates: Partial<Event> = {}): Event => ({
+    id, name, created_at: '', updated_at: '', inventoryId: 1, ...dates,
+  })
+  const track = (events: Event[], year: number, today = '2026-07-28') =>
+    yearTrack(events, year, { today, collisions: findCollisions(events) })
+
+  it('draws every event once, with no cap and none aggregated', () => {
+    const events = Array.from({ length: 11 }, (_, i) =>
+      ev(i + 1, `Nov ${i + 1}`, { startDate: `2026-11-${String(i + 1).padStart(2, '0')}` }),
+    )
+    // Eleven events in one month. The design this replaced drew one bar capped
+    // at four; this draws eleven marks.
+    expect(track(events, 2026).marks).toHaveLength(11)
+  })
+
+  it('positions by day of year and sizes by the on-site span', () => {
+    const { marks } = track([ev(1, 'Bruksrock', {
+      loadInDate: '2026-09-17', startDate: '2026-09-18', endDate: '2026-09-20', loadOutDate: '2026-09-21',
+    })], 2026)
+    // 17 Sep is day 259 of a 365-day year (0-based), five days on site.
+    expect(marks[0].left).toBeCloseTo((259 / 365) * 100, 4)
+    expect(marks[0].width).toBeCloseTo((5 / 365) * 100, 4)
+  })
+
+  it('uses the real length of a leap year, so December does not drift', () => {
+    const inLeap = track([ev(1, 'NYE', { startDate: '2028-12-31' })], 2028).marks[0]
+    const inCommon = track([ev(1, 'NYE', { startDate: '2026-12-31' })], 2026).marks[0]
+    expect(inLeap.left).toBeCloseTo((365 / 366) * 100, 4)
+    expect(inCommon.left).toBeCloseTo((364 / 365) * 100, 4)
+    expect(inLeap.left).toBeLessThan(100)
+  })
+
+  it('never floors the width — the 3 px minimum is CSS, so the position stays honest', () => {
+    const { marks } = track([ev(1, 'One day', { startDate: '2026-12-28' })], 2026)
+    expect(marks[0].width).toBeCloseTo((1 / 365) * 100, 4)
+  })
+
+  it('draws a year-crossing event in its start year only', () => {
+    const events = [ev(1, 'Nyår', { startDate: '2026-12-31', endDate: '2027-01-01' })]
+    expect(track(events, 2026).marks).toHaveLength(1)
+    expect(track(events, 2027).marks).toHaveLength(0)
+  })
+
+  it('stacks collisions into lanes, matching the braced groups exactly', () => {
+    const events = [
+      ev(1, 'Kulturnatt', { loadInDate: '2026-09-03', startDate: '2026-09-04', endDate: '2026-09-06' }),
+      ev(2, 'Höstsalongen', { startDate: '2026-09-05' }),
+      ev(3, 'Alone', { startDate: '2026-11-14' }),
+    ]
+    const result = track(events, 2026)
+    const collisions = findCollisions(events)
+    expect(result.lanes).toBe(2)
+    for (const mark of result.marks) {
+      expect(mark.lane).toBe(collisions.laneByEventId.get(mark.event.id))
+    }
+  })
+
+  it('marks today only in the year that contains it', () => {
+    expect(track([ev(1, 'A', { startDate: '2026-09-04' })], 2026).todayAt).toBeCloseTo((208 / 365) * 100, 4)
+    expect(track([ev(1, 'A', { startDate: '2025-09-04' })], 2025).todayAt).toBeUndefined()
+  })
+
+  it('names dates and event in the mark title, adding on-site only when it differs', () => {
+    expect(track([ev(1, 'Höstsalongen', { startDate: '2026-09-05' })], 2026).marks[0].title).toBe('5 Sep · Höstsalongen')
+    expect(
+      track([ev(1, 'Kulturnatt', { loadInDate: '2026-09-03', startDate: '2026-09-04', endDate: '2026-09-06' })], 2026)
+        .marks[0].title,
+    ).toBe('4–6 Sep · on site 3–6 Sep · Kulturnatt')
+  })
+
+  it('places twelve month boundaries, the first at zero', () => {
+    const { monthAt } = track([], 2026)
+    expect(monthAt).toHaveLength(12)
+    expect(monthAt[0]).toBe(0)
+    expect(monthAt[11]).toBeCloseTo((334 / 365) * 100, 4)
   })
 })

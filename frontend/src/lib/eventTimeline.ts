@@ -414,3 +414,104 @@ function collisionKind(
   }
   return 'on-site-clash'
 }
+
+/* ------------------------------------------------------------- year track */
+
+export interface TrackMark {
+  event: Event
+  /** Percentage across the year, from its load-in day. */
+  left: number
+  /** Percentage of the year its on-site span covers. Never floored here — see below. */
+  width: number
+  lane: number
+  /** `04–06 Sep · Kulturnatt Falun`, for the mark's title. */
+  title: string
+}
+
+export interface YearTrack {
+  marks: TrackMark[]
+  /** How many lanes the band has to be tall enough for. At least 1. */
+  lanes: number
+  /** Percentage across the year where today falls, or undefined in another year. */
+  todayAt?: number
+  /** The month boundaries, so the scale can be drawn without recomputing them. */
+  monthAt: number[]
+}
+
+/**
+ * Every event of one year, placed on a calendar scale (Slice 30 US4).
+ *
+ * **Nothing is aggregated, so nothing is capped.** The first design drew twelve
+ * bars, one per month, height stepped by count and capped at four — which made
+ * the strip an approximation of the list, and an approximation invites the
+ * question *of what?*. Each event is drawn once, positioned by its load-in day
+ * and sized by its on-site span.
+ *
+ * The real `daysInYear` is used rather than a constant 365, so December's marks
+ * do not drift in a leap year — a one-day error nobody would report and
+ * everybody would half-notice.
+ *
+ * **The 3 px minimum is applied in CSS, not here.** Clamping the computed
+ * percentage would push a one-day event in late December visibly off its date;
+ * a `min-width` keeps the position honest and the mark clickable. That is the
+ * one place the track is not to scale, and the smallest lie available.
+ *
+ * Lanes come from `findCollisions` rather than being packed again here, so a
+ * pair braced on the spine is a pair stacked on the track (research.md R4).
+ */
+export function yearTrack(
+  events: Event[] | undefined,
+  year: number,
+  options: { today: string; collisions: CollisionMap },
+): YearTrack {
+  const total = daysInYear(year)
+  const marks: TrackMark[] = []
+  let lanes = 1
+
+  for (const event of events ?? []) {
+    const dates = resolveDates(event)
+    if (!dates || Number(dates.first.slice(0, 4)) !== year) continue
+    const from = dayOfYear(dates.loadIn, year)
+    const lane = options.collisions.laneByEventId.get(event.id) ?? 0
+    lanes = Math.max(lanes, lane + 1)
+    marks.push({
+      event,
+      left: (from / total) * 100,
+      width: (onSiteDays(dates) / total) * 100,
+      lane,
+      title: `${describeSpan(dates)} · ${event.name}`,
+    })
+  }
+
+  const todayYear = Number(options.today.slice(0, 4))
+  return {
+    marks,
+    lanes,
+    todayAt: todayYear === year ? (dayOfYear(options.today, year) / total) * 100 : undefined,
+    monthAt: Array.from({ length: 12 }, (_, month) => (dayOfYear(`${year}-${String(month + 1).padStart(2, '0')}-01`, year) / total) * 100),
+  }
+}
+
+function daysInYear(year: number): number {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365
+}
+
+/** 0-based, so 1 January sits at the very left edge. */
+function dayOfYear(iso: string, year: number): number {
+  const start = Date.parse(`${year}-01-01T00:00:00`)
+  const target = Date.parse(`${iso.slice(0, 10)}T00:00:00`)
+  if (Number.isNaN(target)) return 0
+  return Math.max(0, Math.round((target - start) / 86_400_000))
+}
+
+const TRACK_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** `04–06 Sep`, or `17–21 Sep on site` when the load-in adds something. */
+function describeSpan(dates: ResolvedDates): string {
+  const label = (iso: string) => `${Number(iso.slice(8, 10))} ${TRACK_MONTHS[Number(iso.slice(5, 7)) - 1]}`
+  const show = dates.first === dates.last ? label(dates.first) : `${Number(dates.first.slice(8, 10))}–${label(dates.last)}`
+  if (!hasDistinctOnSite(dates)) return show
+  const site =
+    dates.loadIn === dates.loadOut ? label(dates.loadIn) : `${Number(dates.loadIn.slice(8, 10))}–${label(dates.loadOut)}`
+  return `${show} · on site ${site}`
+}

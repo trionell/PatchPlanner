@@ -6,6 +6,7 @@ import { createEvent, listEvents } from '../api/events'
 import { EventFormDialog } from '../components/EventFormDialog'
 import { EventUnfold } from '../components/events/EventUnfold'
 import { TimelineRow } from '../components/events/TimelineRow'
+import { YearTrack } from '../components/events/YearTrack'
 import { CondensedListRow } from '../components/mobile/CondensedListRow'
 import { Badge } from '../components/ui/Badge'
 import { Pill } from '../components/ui/SheetTable'
@@ -14,7 +15,13 @@ import { Input } from '../components/ui/Input'
 import { MicroLabel } from '../components/ui/Label'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { formatEventDates, isoDay } from '../lib/dashboard'
-import { buildTimeline, type CollisionMap, findCollisions, type TimelineTense } from '../lib/eventTimeline'
+import {
+  buildTimeline,
+  type CollisionMap,
+  findCollisions,
+  type TimelineTense,
+  yearTrack,
+} from '../lib/eventTimeline'
 import { matchesSearch } from '../lib/patchSearch'
 import type { Event } from '../types'
 
@@ -45,6 +52,7 @@ export function EventsPage() {
   const [tense, setTense] = useState<TimelineTense>('all')
   // One row open at a time (patterns §2). Local UI state, not server state.
   const [openRow, setOpenRow] = useState<number | null>(null)
+  const [trackYear, setTrackYear] = useState<number | null>(null)
   const eventsQuery = useQuery({ queryKey: ['events'], queryFn: listEvents })
 
   const today = isoDay(new Date())
@@ -62,6 +70,22 @@ export function EventsPage() {
   // that assigns the year track its lanes — so the brace on the spine and the
   // stacking on the track cannot disagree about what collides.
   const collisions = useMemo(() => findCollisions(eventsQuery.data), [eventsQuery.data])
+
+  // The track shows the year today falls in until the user steps away from it,
+  // and falls back to the nearest year that actually has events.
+  const year = trackYear ?? (timeline.years.includes(Number(today.slice(0, 4)))
+    ? Number(today.slice(0, 4))
+    : (timeline.years[timeline.years.length - 1] ?? Number(today.slice(0, 4))))
+
+  // The track redraws against the search — it is a readout of what is below it.
+  const matching = useMemo(
+    () => (eventsQuery.data ?? []).filter((event) => matchesSearch(search, event.name, event.venue, event.notes)),
+    [eventsQuery.data, search],
+  )
+  const track = useMemo(
+    () => yearTrack(matching, year, { today, collisions }),
+    [matching, year, today, collisions],
+  )
 
   const createMutation = useMutation({
     mutationFn: createEvent,
@@ -140,6 +164,22 @@ export function EventsPage() {
         </Button>
       </div>
 
+      {/* Absent while loading and when the account is empty: a strip of twelve
+          empty months is a claim that you have no shows. */}
+      {!eventsQuery.isLoading && hasAnyEvents && (
+        <YearTrack
+          track={track}
+          year={year}
+          years={timeline.years}
+          today={today}
+          onYear={setTrackYear}
+          onSelect={(event) => {
+            setOpenRow(event.id)
+            document.getElementById(`event-${event.id}`)?.scrollIntoView({ block: 'center' })
+          }}
+        />
+      )}
+
       {eventsQuery.isLoading ? (
         <p className="px-5 py-8 text-sm text-zinc-400">Loading events…</p>
       ) : timeline.counts.total === 0 ? (
@@ -208,7 +248,7 @@ function Spine({
 
           const isOpen = openRow === item.event.id
           return (
-            <div key={`e-${item.event.id}`}>
+            <div key={`e-${item.event.id}`} id={`event-${item.event.id}`}>
             <TimelineRow
               event={item.event}
               phase={item.phase}

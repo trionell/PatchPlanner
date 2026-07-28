@@ -168,11 +168,11 @@ another and confirm the first closes.
 **Independent test**: With events of varying lengths across one year, confirm each is drawn
 once, in the right place, at the right relative width, with collisions on separate lanes.
 
-- [ ] T046 [US4] Add `yearTrack(events, year)` to `frontend/src/lib/eventTimeline.ts` — `left = dayOfYear(loadIn) / daysInYear`, `width = onSiteDays / daysInYear`, both as percentages, using the **real** `daysInYear` so December does not drift in a leap year; lanes reused from T036's sweep; and the list of years that contain events
-- [ ] T047 [P] [US4] Extend `frontend/src/lib/eventTimeline.test.ts`: leap-year positioning; an event spanning a year boundary appears in its start year only; every event drawn exactly once with no cap; lanes match the collision groups
-- [ ] T048 [US4] Create `frontend/src/components/events/YearTrack.tsx` — the inset band, the year stepper offering a direction only when that year has events, twelve month letters as the scale with faint month boundaries, the marks with `min-width: 3px` applied in CSS (never by clamping the percentage — [research.md](research.md) R5), a `title` giving dates and name, the amber today vertical, and the current month's letter in amber
-- [ ] T049 [US4] Wire it into `frontend/src/pages/Events.tsx` directly under the bar — redrawing against the active search, scrolling the spine to an event when its mark is selected, and absent entirely when there are no events or while loading
-- [ ] T050 [US4] Run the gates, walk [quickstart.md](quickstart.md) checks 9 and 10, then **commit 8**
+- [x] T046 [US4] Add `yearTrack(events, year)` to `frontend/src/lib/eventTimeline.ts` — `left = dayOfYear(loadIn) / daysInYear`, `width = onSiteDays / daysInYear`, both as percentages, using the **real** `daysInYear` so December does not drift in a leap year; lanes reused from T036's sweep; and the list of years that contain events
+- [x] T047 [P] [US4] Extend `frontend/src/lib/eventTimeline.test.ts`: leap-year positioning; an event spanning a year boundary appears in its start year only; every event drawn exactly once with no cap; lanes match the collision groups
+- [x] T048 [US4] Create `frontend/src/components/events/YearTrack.tsx` — the inset band, the year stepper offering a direction only when that year has events, twelve month letters as the scale with faint month boundaries, the marks with `min-width: 3px` applied in CSS (never by clamping the percentage — [research.md](research.md) R5), a `title` giving dates and name, the amber today vertical, and the current month's letter in amber
+- [x] T049 [US4] Wire it into `frontend/src/pages/Events.tsx` directly under the bar — redrawing against the active search, scrolling the spine to an event when its mark is selected, and absent entirely when there are no events or while loading
+- [x] T050 [US4] Run the gates, walk [quickstart.md](quickstart.md) checks 9 and 10, then **commit 8**
 
 **Checkpoint**: All five user stories delivered.
 
