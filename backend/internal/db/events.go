@@ -13,7 +13,7 @@ import (
 // role on is completely absent, not just unlisted).
 func ListEventsForUser(db *sql.DB, userID int64) ([]domain.Event, error) {
 	rows, err := db.Query(`
-		SELECT e.id, e.name, COALESCE(e.start_date, ''), COALESCE(e.venue, ''), COALESCE(e.notes, ''), COALESCE(e.created_at, ''), COALESCE(e.updated_at, ''), COALESCE(e.inventory_id, 0),
+		SELECT e.id, e.name, COALESCE(e.load_in_date, ''), COALESCE(e.start_date, ''), COALESCE(e.end_date, ''), COALESCE(e.load_out_date, ''), COALESCE(e.venue, ''), COALESCE(e.notes, ''), COALESCE(e.created_at, ''), COALESCE(e.updated_at, ''), COALESCE(e.inventory_id, 0),
 			CASE WHEN e.owner_user_id = ? THEN 'owner' ELSE m.role END AS your_role
 		FROM events e
 		LEFT JOIN event_memberships m ON m.event_id = e.id AND m.user_id = ?
@@ -27,7 +27,7 @@ func ListEventsForUser(db *sql.DB, userID int64) ([]domain.Event, error) {
 	events := make([]domain.Event, 0)
 	for rows.Next() {
 		var event domain.Event
-		if err := rows.Scan(&event.ID, &event.Name, &event.StartDate, &event.Venue, &event.Notes, &event.CreatedAt, &event.UpdatedAt, &event.InventoryID, &event.YourRole); err != nil {
+		if err := rows.Scan(&event.ID, &event.Name, &event.LoadInDate, &event.StartDate, &event.EndDate, &event.LoadOutDate, &event.Venue, &event.Notes, &event.CreatedAt, &event.UpdatedAt, &event.InventoryID, &event.YourRole); err != nil {
 			return nil, fmt.Errorf("scan event: %w", err)
 		}
 		events = append(events, event)
@@ -81,8 +81,8 @@ func ClaimOwnerlessEvents(db *sql.DB, userID int64) (int64, error) {
 
 func GetEvent(db *sql.DB, id int64) (domain.Event, error) {
 	var event domain.Event
-	err := db.QueryRow(`SELECT id, name, COALESCE(start_date, ''), COALESCE(venue, ''), COALESCE(notes, ''), COALESCE(created_at, ''), COALESCE(updated_at, ''), COALESCE(inventory_id, 0) FROM events WHERE id = ?`, id).
-		Scan(&event.ID, &event.Name, &event.StartDate, &event.Venue, &event.Notes, &event.CreatedAt, &event.UpdatedAt, &event.InventoryID)
+	err := db.QueryRow(`SELECT id, name, COALESCE(load_in_date, ''), COALESCE(start_date, ''), COALESCE(end_date, ''), COALESCE(load_out_date, ''), COALESCE(venue, ''), COALESCE(notes, ''), COALESCE(created_at, ''), COALESCE(updated_at, ''), COALESCE(inventory_id, 0) FROM events WHERE id = ?`, id).
+		Scan(&event.ID, &event.Name, &event.LoadInDate, &event.StartDate, &event.EndDate, &event.LoadOutDate, &event.Venue, &event.Notes, &event.CreatedAt, &event.UpdatedAt, &event.InventoryID)
 	if err != nil {
 		return domain.Event{}, err
 	}
@@ -96,7 +96,8 @@ func CreateEvent(db *sql.DB, event domain.Event, ownerUserID, inventoryID int64)
 	}
 	defer tx.Rollback()
 
-	result, err := tx.Exec(`INSERT INTO events (name, start_date, venue, notes, owner_user_id, inventory_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`, event.Name, nullString(event.StartDate), nullString(event.Venue), nullString(event.Notes), ownerUserID, inventoryID)
+	result, err := tx.Exec(`INSERT INTO events (name, load_in_date, start_date, end_date, load_out_date, venue, notes, owner_user_id, inventory_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+		event.Name, nullString(event.LoadInDate), nullString(event.StartDate), nullString(event.EndDate), nullString(event.LoadOutDate), nullString(event.Venue), nullString(event.Notes), ownerUserID, inventoryID)
 	if err != nil {
 		return domain.Event{}, fmt.Errorf("create event: %w", err)
 	}
@@ -133,7 +134,8 @@ func CreateEvent(db *sql.DB, event domain.Event, ownerUserID, inventoryID int64)
 }
 
 func UpdateEvent(db *sql.DB, id int64, event domain.Event) (domain.Event, error) {
-	_, err := db.Exec(`UPDATE events SET name = ?, start_date = ?, venue = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, event.Name, nullString(event.StartDate), nullString(event.Venue), nullString(event.Notes), id)
+	_, err := db.Exec(`UPDATE events SET name = ?, load_in_date = ?, start_date = ?, end_date = ?, load_out_date = ?, venue = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		event.Name, nullString(event.LoadInDate), nullString(event.StartDate), nullString(event.EndDate), nullString(event.LoadOutDate), nullString(event.Venue), nullString(event.Notes), id)
 	if err != nil {
 		return domain.Event{}, fmt.Errorf("update event: %w", err)
 	}

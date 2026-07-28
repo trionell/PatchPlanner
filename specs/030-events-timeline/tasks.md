@@ -67,16 +67,16 @@ own commit.
 **Purpose**: The data has to exist and be trustworthy before anything derives from it.
 **Blocks every user story.**
 
-- [ ] T008 Write `backend/migrations/046_event_spans.up.sql` (three `ADD COLUMN … TEXT`) and `.down.sql` (three `DROP COLUMN`), with a header comment stating that null means "derives from its neighbour" so every pre-existing row is correct the moment the columns exist
-- [ ] T009 Add `LoadInDate`, `EndDate`, `LoadOutDate` to `backend/internal/domain/event.go`, all `omitempty`, ordered chronologically in the struct so it reads like the event
-- [ ] T010 Carry the three columns through select, insert and update in `backend/internal/db/events.go`, using the existing `nullString` helper so an empty string stores as `NULL`
-- [ ] T011 [P] Add to `backend/internal/db/events_test.go`: a four-date round trip, an all-null round trip, and a read of a row written before 046 (all three new columns `NULL`)
-- [ ] T012 Add a `validateEventDates(domain.Event) error` helper in `backend/internal/api/events.go` implementing the resolution chain from [data-model.md](data-model.md) §2 (note `loadOut` falls back **twice**) and the ordering rule `loadIn ≤ start ≤ end ≤ loadOut`; check format before comparing, and report the chronologically earliest broken pair. Wire it into `create` and `update` before any write
-- [ ] T013 Write `backend/internal/api/events_dates_test.go` — the twelve-row table in [contracts/events-api.md](contracts/events-api.md) §4, asserting status **and** that each message names the offending pair
-- [ ] T014 [P] Add `loadInDate`, `endDate`, `loadOutDate` as optional strings to `Event` in `frontend/src/types/index.ts`
-- [ ] T015 Create `frontend/src/lib/eventTimeline.ts` with the pure core only: `resolveDates(event)` returning `{loadIn, first, last, loadOut}`, `showSpan`, `onSiteSpan`, `showDays`, `onSiteDays`, `hasDistinctOnSite`. String comparison throughout — ISO dates sort lexicographically
-- [ ] T016 [P] Create `frontend/src/lib/eventTimeline.test.ts` covering resolution: only a start date; end without load-out (**must** fall back to end, not start); load-in only; no dates at all; inclusive day counts where a one-day event is `1`
-- [ ] T017 Run the gates, rehearse 046 up and down on the database copy, then **commit 2**
+- [x] T008 Write `backend/migrations/046_event_spans.up.sql` (three `ADD COLUMN … TEXT`) and `.down.sql` (three `DROP COLUMN`), with a header comment stating that null means "derives from its neighbour" so every pre-existing row is correct the moment the columns exist
+- [x] T009 Add `LoadInDate`, `EndDate`, `LoadOutDate` to `backend/internal/domain/event.go`, all `omitempty`, ordered chronologically in the struct so it reads like the event
+- [x] T010 Carry the three columns through select, insert and update in `backend/internal/db/events.go`, using the existing `nullString` helper so an empty string stores as `NULL`
+- [x] T011 [P] Add to `backend/internal/db/events_test.go`: a four-date round trip, an all-null round trip, and a read of a row written before 046 (all three new columns `NULL`)
+- [x] T012 Add a `validateEventDates(domain.Event) error` helper in `backend/internal/api/events.go` implementing the resolution chain from [data-model.md](data-model.md) §2 (note `loadOut` falls back **twice**) and the ordering rule `loadIn ≤ start ≤ end ≤ loadOut`; check format before comparing, and report the chronologically earliest broken pair. Wire it into `create` and `update` before any write
+- [x] T013 Write `backend/internal/api/events_dates_test.go` — the twelve-row table in [contracts/events-api.md](contracts/events-api.md) §4, asserting status **and** that each message names the offending pair
+- [x] T014 [P] Add `loadInDate`, `endDate`, `loadOutDate` as optional strings to `Event` in `frontend/src/types/index.ts`
+- [x] T015 Create `frontend/src/lib/eventTimeline.ts` with the pure core only: `resolveDates(event)` returning `{loadIn, first, last, loadOut}`, `showSpan`, `onSiteSpan`, `showDays`, `onSiteDays`, `hasDistinctOnSite`. String comparison throughout — ISO dates sort lexicographically
+- [x] T016 [P] Create `frontend/src/lib/eventTimeline.test.ts` covering resolution: only a start date; end without load-out (**must** fall back to end, not start); load-in only; no dates at all; inclusive day counts where a one-day event is `1`
+- [x] T017 Run the gates, rehearse 046 up and down on the database copy, then **commit 2**
 
 **Checkpoint**: The four dates round-trip and are validated. Nothing reads them yet.
 
