@@ -1031,6 +1031,61 @@ vocabulary.
   and shrank one. **A4, A6, A7 and A9 are closed**; the audit has no open
   findings left.
 
+## Slice 30 — The Events timeline, and events that have length (spec: `events-timeline`)
+
+Two things, because the second was found inside the first.
+
+**The Events page was the last surface that never converged.** `audit.md` A6
+exempted it under P1 as a list of genuinely independent objects — correctly, and
+that settled the frame while never asking what the page was *for*. It is now one
+panel containing a chronological spine: a date gutter carrying every time label,
+a hairline with a mark per event, today cutting across it in amber, month and
+year headings, and a closing strip. A row opens in place into the show's rig,
+its counts and every tab's readiness verdict. Above the list, a year track draws
+every event of a year at calendar scale — nothing aggregated, so nothing capped.
+
+**An event stopped being one day long.** Three nullable columns join the one it
+had — `load_in_date`, `end_date`, `load_out_date` — each deriving from its
+neighbour when absent, so every existing row means exactly what it always meant.
+`date` was renamed `start_date` in its own commit, since with three siblings it
+was otherwise the one column a reader has to be told about.
+
+- **This repaired a live defect.** An event was past the moment its single date
+  was behind today, so a multi-day show vanished from the dashboard on its
+  second morning — while the user was standing in the venue working it. Past is
+  now decided by load-out, and a `running` bucket takes precedence over the next
+  show on the dashboard hero.
+- **`days to load-in` became true.** It has been labelled that since Wave 4
+  while counting to the event's only date. The value moved to meet the word.
+- **Recording load-in is what makes clash detection correct**, not merely
+  possible. Two events can share on-site days without sharing a show day — a
+  one-evening job the day you rig a festival — which is the collision you
+  otherwise find out about by turning up. `overlaps` and `on-site clash` are two
+  words because they are two facts, both derived from one sweep that also packs
+  the year track's lanes, so the brace on the spine and the stacking on the
+  track cannot disagree.
+- **A clash is a fact about a plan, not an error in it**: amber and a word,
+  never red, and never blocking a save.
+- **Writing one date formatter turned up another bug.** `shortDate` has claimed
+  since Slice 29 to be a fixed width, and `en-GB` under a current ICU renders
+  September as `Sept`. Month and weekday names are tabulated now, which also
+  makes the output stable across ICU builds.
+- No new endpoint, no new `components/ui/` component, and one migration pair.
+  `design/` gains patterns §4c, the collision colour rule and the unfold as the
+  second sanctioned motion.
+
+**Out of scope, and named as a decision:** rental pricing by duration. The order
+quotes a five-day hire as a one-day hire, which it did before too — what changed
+is that the tool now *knows* the duration, which is why it is the next slice.
+
+## Slice 31 — Rental pricing by duration (planned)
+
+Now that an event has a length, an order that quotes a five-day hire at the
+one-day rate is visibly wrong rather than merely unknowing. Needs a per-day rate
+on inventory items, a duration multiplier through the rental aggregation, and
+every export format following — under the standing invariant that every planned
+item appears on the rental order and in every export.
+
 ## Dependency graph
 
 ```
@@ -1041,6 +1096,6 @@ Slice 10 (output chains) ──→ Slice 11 (output signal graph, replaces it) �
 Slice 11 (output signal graph) ──→ Slice 12 (input signal graph, same pattern reversed) ✅
 Slice 11 + Slice 12 ──→ Slice 23 (audio patch shell & the console) ──→ Slice 24 (field-test fixes) ──→ Slice 25 (the mockup's visual language) ──→ Slice 26 (an inspector for the outputs flow graph)
 Slice 7 (lighting rig) + Slice 12 ──→ Slice 13 (stage plots; supersedes Slice 0's truss sections) ✅
-Slice 7 (lighting rig) + Slice 25 (visual language) ──→ Slice 27 (Lighting becomes a sheet; design wave 3) ──→ Slice 28 (the remaining event tabs; design wave 4) ──→ Slice 29 (pages and residue; design wave 5 — convergence complete)
+Slice 7 (lighting rig) + Slice 25 (visual language) ──→ Slice 27 (Lighting becomes a sheet; design wave 3) ──→ Slice 28 (the remaining event tabs; design wave 4) ──→ Slice 29 (pages and residue; design wave 5 — convergence complete) ──→ Slice 30 (the Events timeline, and events that have length) ──→ Slice 31 (rental pricing by duration)
 Slice 14 (auth) ──→ Slice 15 (event ownership & sharing) ──→ Slice 16 (inventory ownership) ──→ Slice 17 (event settings) ──→ Slice 18 (deployment) ✅
 ```

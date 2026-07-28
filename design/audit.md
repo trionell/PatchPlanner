@@ -54,6 +54,20 @@ The card **lists** stayed lists, which was always the point of P1's exception:
 `Events`, and the inventory list. The dashboard's five cards went entirely — it
 was never a list of independent objects, it was one account described five times.
 
+**`Events`' exemption is spent (Slice 30).** It was invoked correctly — a list
+of genuinely independent objects is exactly what P1 exempts — and it settled the
+*frame* while never asking what the page was *for*. Finding one show among a
+hundred is what it is for, and a grid in creation order answers neither *which
+is next* nor *where is last year's file for this festival*. The page is now one
+panel containing a dated spine ([patterns.md](patterns.md) §4c), and the
+inventory list is the only card list left.
+
+The lesson generalises, and it is the mirror of A4's: **a rule that correctly
+permits something is not a reason to keep it.** P1's exception says a list of
+independent objects *may* be a grid; it never said a grid was the best answer
+for one. Nothing in the audit could have caught this, because nothing was in
+violation — it took asking what the surface was for.
+
 ### A7 · Work-surface data on the navigation-surface table · Waves 3–5
 
 Rental order lines, equipment lines, lighting fixtures, signal chains, inventory

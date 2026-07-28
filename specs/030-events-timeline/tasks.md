@@ -182,15 +182,15 @@ once, in the right place, at the right relative width, with collisions on separa
 
 **Purpose**: Everything else that reads a date, and the written record.
 
-- [ ] T051 [P] Move the heading in `frontend/src/pages/EventDetail.tsx` (both branches) onto `formatEventDates`
-- [ ] T052 [P] Delete the private `formatEventDate` from `frontend/src/components/event/OverviewTab.tsx` and use the shared one
-- [ ] T053 [P] Move `frontend/src/components/print/PrintSheet.tsx` onto `formatEventDates`, long form, with the on-site span alongside where the paperwork needs it
-- [ ] T054 Extend the mobile branch of `frontend/src/pages/Events.tsx`: `CondensedListRow` keeps its treatment and gains month headings, the today rule, the date range in its subtitle, the `day N of M` pill and the collision word. No track, no gutter, no unfold (FR-043)
-- [ ] T055 [P] Add **§4c · the spine** to `design/patterns.md`, beside §4b's summary surface — the date gutter as structure, the mark shapes, the today rule, and the sheet-and-editor pattern applied over a summary rather than a form
-- [ ] T056 [P] Update `design/tokens.md`: §6 records the unfold as the second sanctioned motion with its reduced-motion wrapper and states that the pulse stays off this page; §5 records that a collision is amber-plus-a-word and never red, with the reason (red is reserved for destructive, over capacity, a broken link and 48 V)
-- [ ] T057 [P] Update `design/audit.md`: A6's exemption of Events under P1 was invoked correctly and outlived its usefulness — record what changed and why the exemption is now spent
-- [ ] T058 [P] Add Slice 30 to `ROADMAP.md` with its outcome, and add the dependency edge from Slice 29; name rental pricing by duration as the next slice
-- [ ] T059 Run every gate one final time, walk the whole [quickstart.md](quickstart.md) fixture including the backwards-compatibility check against a copy of a real pre-slice database, then **commits 9 and 10** (consumers, then the record)
+- [x] T051 [P] Move the heading in `frontend/src/pages/EventDetail.tsx` (both branches) onto `formatEventDates`
+- [x] T052 [P] Delete the private `formatEventDate` from `frontend/src/components/event/OverviewTab.tsx` and use the shared one
+- [x] T053 [P] Move `frontend/src/components/print/PrintSheet.tsx` onto `formatEventDates`, long form, with the on-site span alongside where the paperwork needs it
+- [x] T054 Extend the mobile branch of `frontend/src/pages/Events.tsx`: `CondensedListRow` keeps its treatment and gains month headings, the today rule, the date range in its subtitle, the `day N of M` pill and the collision word. No track, no gutter, no unfold (FR-043)
+- [x] T055 [P] Add **§4c · the spine** to `design/patterns.md`, beside §4b's summary surface — the date gutter as structure, the mark shapes, the today rule, and the sheet-and-editor pattern applied over a summary rather than a form
+- [x] T056 [P] Update `design/tokens.md`: §6 records the unfold as the second sanctioned motion with its reduced-motion wrapper and states that the pulse stays off this page; §5 records that a collision is amber-plus-a-word and never red, with the reason (red is reserved for destructive, over capacity, a broken link and 48 V)
+- [x] T057 [P] Update `design/audit.md`: A6's exemption of Events under P1 was invoked correctly and outlived its usefulness — record what changed and why the exemption is now spent
+- [x] T058 [P] Add Slice 30 to `ROADMAP.md` with its outcome, and add the dependency edge from Slice 29; name rental pricing by duration as the next slice
+- [x] T059 Run every gate one final time, walk the whole [quickstart.md](quickstart.md) fixture including the backwards-compatibility check against a copy of a real pre-slice database, then **commits 9 and 10** (consumers, then the record)
 
 ---
 

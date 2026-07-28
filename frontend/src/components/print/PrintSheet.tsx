@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getEvent } from '../../api/events'
+import { formatEventDates } from '../../lib/dashboard'
 import { cn } from '../../lib/utils'
 
 /** Shared cell classes for print sheet tables. */
@@ -51,7 +52,7 @@ export function PrintSheet({
       <header className="mb-3 hidden print:block">
         <h2 className="text-lg font-semibold">{title}</h2>
         {event && (
-          <p className="text-sm">{[event.name, event.venue, event.startDate].filter(Boolean).join(' · ')}</p>
+          <p className="text-sm">{[event.name, event.venue, formatEventDates(event).long].filter(Boolean).join(' · ')}</p>
         )}
       </header>
       {empty ? <p className="text-sm">Nothing planned on this sheet.</p> : children}

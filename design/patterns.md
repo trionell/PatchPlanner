@@ -215,6 +215,59 @@ screen over work that lives elsewhere.
   [tokens.md](tokens.md) §6 is explicit that a tool which animates while a
   technician is counting is in the way.
 
+## 4c · The spine
+
+A list of dated things, where the date is what you are scanning for. Events is
+the instance.
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ Events  [Upcoming|Past|All]  [ search… ]        [＋ New event]│  bar
+├──────────────────────────────────────────────────────────────┤
+│ ‹ 2026 ›  ▁▁▁▂▁▁█▁▂▁▁▁  J F M A M J J A S O N D    15 in 2026 │  year track
+├──────────────────────────────────────────────────────────────┤
+│  2026                                                        │  year numeral
+│   AUG ──────────────────────────────────────────────── 2     │  month
+│    14 │● Sommarfest Gävle    Gasklockorna         in 17 d    │
+│   FRI │                                                      │
+│ TODAY ├──────────────────────────────────────────────────────│  today rule
+│ 18–20 ▐ Bruksrock   Avesta   on site 17–21        in 7 wk    │  capsule
+│FRI–SUN│                                                      │
+├──────────────────────────────────────────────────────────────┤
+│ 29 events · 1 running · 9 to come · 18 done      2 clashes    │  strip
+└──────────────────────────────────────────────────────────────┘
+```
+
+- **The gutter carries every time label; the column carries content.** Day
+  number, weekday, month headings and the year all sit in a fixed 84 px column,
+  right-aligned. Nothing else does.
+- **The year is a 26 px `text-zinc-800` numeral** — big enough to land as you
+  scroll past, dark enough that you never read it on purpose. It is the inverse
+  of §4b's numbers band: there the big mono figure is the answer, here it is the
+  ruler. That is what keeps one page from having two things shouting.
+- **The spine is one hairline**, the content column's own `border-l
+  border-zinc-800`, with a mark per row sitting on it. A dot on a line is the
+  canvas's own grammar; P5 reserves circles for *patchable ports*, which is a
+  rule about the canvas, and there are no ports here.
+- **Shape carries the span** (P5). One day is a 7 px dot; several days is a
+  7 × 24 px capsule at the same x, whose inner fill is the show days inside the
+  on-site span. A span must not be a differently-tinted dot, for the same reason
+  48 V is a bar.
+- **Strictly chronological, oldest first.** Reading down is moving forward. The
+  alternative — future above the rule ascending, past below it descending — puts
+  the two rows nearest today at opposite ends of the page, and needs a special
+  case for an event that is running, which belongs on both sides of the rule.
+- **Today cuts across in amber, with the word in the gutter** (P4), and is where
+  the page is positioned on arrival — without smooth scrolling, because a list
+  that animates into place while you are reading it is in the way.
+- **Undated rows go last**, under their own heading, with `—` in the gutter.
+  They have not been placed in time, so they sit after it.
+- **A row opens beneath itself** into a summary, which is §2 with the editor
+  replaced by what §2 already prescribes for a surface whose every value is
+  derived: a destination instead. One row at a time.
+- **The overview strip above the list is a readout, not a control.** It redraws
+  against the search, which is why it is above the rows rather than in the bar.
+
 ## 5 · States
 
 | State | Treatment |
