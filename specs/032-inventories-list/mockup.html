@@ -1,0 +1,1720 @@
+<!--
+  PatchPlanner — the inventory list ("My Inventories"). Redesign mockup,
+  revision 2.
+
+  For approval before the spec is written. This is the last surface that has
+  not been through the design language: /inventories/{id} converged in Wave 5
+  and Owned gear with it, and the list they both hang off did not — audit.md
+  calls it, in as many words, "the only card list left".
+
+  Revision 2: the bar gains a search field (revision 1 argued it out; the
+  answer was to put it in ahead of the list growing), the drawer frame is
+  redrawn at design/design-language.html's own .dstack/.scrim/.sd values
+  instead of the floating rounded card revision 1 invented, and both open
+  decisions are settled — the tabs become "Rental catalogs" and "Owned gear",
+  and a row click opens the catalog rather than unfolding.
+
+  Revision 4: "Used on" lists every event, each linking to that show, with the
+  drawer body scrolling rather than the section carrying a max-height.
+
+  Revision 3: the drawer's *interior* follows, in ui/GearList — DrawerSection,
+  GearCard, GearSpecs, GearForm — since that is what Rig, Buses and Universes
+  are made of, and revision 2 had left navigation-tier fields inside a
+  work-tier drawer. And the specimens stop rendering the app in this
+  document's faces: --mono is scoped inside .app to Tailwind's own stack, and
+  the summary strip sets whole phrases in mono the way Events' strip does.
+
+  The file is an HTML *fragment*: the Artifact publisher wraps it in
+  doctype/head/body, so there are deliberately no <html>, <head> or <body> tags.
+
+  Specimen CSS is shared with specs/030-events-timeline/mockup.html, which
+  shares it with 029 and 028, which lifted it from design/design-language.html.
+  Everything below the ADDITIONS block is new here.
+-->
+
+<title>The inventory list</title>
+
+<style>
+  /* ==================================================================
+     DOCUMENT CHROME — theme-aware, tokens only.
+     ================================================================== */
+  :root {
+    --ground: #f2f2f4;
+    --raised: #ffffff;
+    --sunken: #e8e8ec;
+    --rule: #d7d7de;
+    --rule-soft: #e4e4ea;
+    --ink: #16171b;
+    --ink-2: #43444d;
+    --muted: #6c6d78;
+    --faint: #90919c;
+    --amber: #b45309;
+    --keep: #0e7490;
+    --drop: #9f1239;
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --measure: 68ch;
+    --wrap: 1180px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0a0b0d;
+      --raised: #14151a;
+      --sunken: #101014;
+      --rule: #26272e;
+      --rule-soft: #1d1e24;
+      --ink: #f2f2f4;
+      --ink-2: #b6b7c0;
+      --muted: #8b8c96;
+      --faint: #62636d;
+      --amber: #f59e0b;
+      --keep: #22d3ee;
+      --drop: #fb7185;
+    }
+  }
+
+  :root[data-theme="light"] {
+    --ground: #f2f2f4; --raised: #ffffff; --sunken: #e8e8ec;
+    --rule: #d7d7de; --rule-soft: #e4e4ea;
+    --ink: #16171b; --ink-2: #43444d; --muted: #6c6d78; --faint: #90919c;
+    --amber: #b45309; --keep: #0e7490; --drop: #9f1239;
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0a0b0d; --raised: #14151a; --sunken: #101014;
+    --rule: #26272e; --rule-soft: #1d1e24;
+    --ink: #f2f2f4; --ink-2: #b6b7c0; --muted: #8b8c96; --faint: #62636d;
+    --amber: #f59e0b; --keep: #22d3ee; --drop: #fb7185;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px 110px; }
+
+  h1, h2, h3 { margin: 0; font-family: var(--mono); font-weight: 500; }
+  h1 {
+    font-size: clamp(28px, 4.4vw, 46px);
+    line-height: 1.04; letter-spacing: -0.035em; text-wrap: balance;
+  }
+  h2 {
+    font-size: clamp(19px, 2.3vw, 25px);
+    letter-spacing: -0.02em; text-wrap: balance;
+  }
+  h3 { font-size: 14px; letter-spacing: 0.02em; color: var(--ink-2); }
+
+  p { margin: 0; max-width: var(--measure); }
+  a { color: inherit; }
+
+  .head {
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 68px 0 30px; border-bottom: 1px solid var(--rule);
+  }
+  .head__eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--amber);
+  }
+  .head__lede { font-size: 18px; color: var(--ink-2); line-height: 1.5; }
+
+  section { display: flex; flex-direction: column; gap: 22px; padding: 56px 0 0; }
+  .sec__no {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  .sec__hd { display: flex; flex-direction: column; gap: 8px; }
+  .prose { display: flex; flex-direction: column; gap: 13px; color: var(--ink-2); font-size: 15.5px; }
+  .prose strong { color: var(--ink); font-weight: 600; }
+  .prose code {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  .spec { display: flex; flex-direction: column; gap: 9px; }
+  .spec__frame {
+    overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px;
+    background: #09090b; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  }
+  .spec__cap {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-left: 2px;
+  }
+  .spec__cap b { color: var(--ink-2); font-weight: 500; }
+
+  .led { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .led__row {
+    display: grid; grid-template-columns: 132px minmax(0, 1fr);
+    gap: 18px; padding: 15px 2px; border-bottom: 1px solid var(--rule-soft);
+    align-items: start;
+  }
+  .led__k {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-top: 3px;
+  }
+  .led__v { font-size: 15px; color: var(--ink-2); line-height: 1.5; }
+  .led__v b { color: var(--ink); font-weight: 600; }
+  .led__v em { font-style: normal; color: var(--faint); }
+  .led__v code {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  .tag {
+    display: inline-block; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase; padding: 1px 6px;
+    border-radius: 4px; vertical-align: 2px; margin-left: 7px;
+  }
+  .tag--keep { color: var(--keep); border: 1px solid currentColor; }
+  .tag--drop { color: var(--drop); border: 1px solid currentColor; }
+  .tag--new { color: var(--amber); border: 1px solid currentColor; }
+
+  .ask {
+    border: 1px solid var(--rule); border-left: 3px solid var(--amber);
+    border-radius: 0 8px 8px 0; padding: 16px 18px; background: var(--raised);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .ask h3 { color: var(--ink); }
+  .ask p { font-size: 15px; color: var(--ink-2); max-width: none; }
+
+  @media (max-width: 720px) {
+    .led__row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  }
+
+  /* ==================================================================
+     SPECIMENS
+     ================================================================== */
+  .app {
+    /* The app's own two stacks, verbatim: index.css line 8 for the sans, and
+       Tailwind's default `font-mono` for the mono — this document's --mono is
+       a documentation face and resolves to a different monospace on Linux,
+       which is why the strip's counters were not the app's counters. */
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px; line-height: 1.45;
+    color: #f4f4f5; background: #09090b;
+    padding: 16px; min-width: 1040px;
+  }
+  .app--tight { padding: 16px; min-width: 0; }
+  .app *, .app *::before, .app *::after { box-sizing: border-box; }
+
+  .pan { border: 1px solid #3f3f46; border-radius: 12px; background: rgba(9, 9, 11, 0.4); overflow: hidden; }
+  .pan__bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    border-bottom: 1px solid #27272a; padding: 10px 12px;
+  }
+  .pan__ti { font-size: 14px; font-weight: 600; color: #f4f4f5; margin-right: 4px; }
+  .grow { flex: 1; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 28px; padding: 0 10px; border: 1px solid transparent; border-radius: 6px;
+    font-size: 12px; font-weight: 500; white-space: nowrap; font-family: inherit;
+  }
+  .btn--primary { background: #f59e0b; border-color: #f59e0b; color: #09090b; }
+  .btn--outline { background: #18181b; border-color: #3f3f46; color: #f4f4f5; }
+  .btn--ghost { background: transparent; color: #f4f4f5; }
+  .btn--sm { height: 24px; padding: 0 8px; font-size: 11px; }
+  .btn--md { height: 40px; padding: 0 16px; font-size: 14px; }
+  .btn--danger-ghost { background: transparent; color: #f87171; }
+
+  .fld {
+    height: 32px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b;
+    display: inline-flex; align-items: center; padding: 0 8px;
+    font-size: 12px; color: #e4e4e7; min-width: 0;
+  }
+  .fld--ph { color: #71717a; }
+  .fld--sel::after { content: "▾"; margin-left: auto; padding-left: 8px; color: #71717a; font-size: 10px; }
+  .fld--srch { position: relative; padding-left: 26px; min-width: 190px; max-width: 260px; flex: 1; }
+  .fld--srch svg { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); }
+  .fld--foc { border-color: #f59e0b; }
+
+  .lbl {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #71717a; font-weight: 500;
+  }
+
+  .pill {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 1px 6px; font-size: 10px; font-weight: 500; white-space: nowrap;
+  }
+  .t-ok   { background: rgba(52, 211, 153, 0.15); color: #6ee7b7; }
+  .t-warn { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
+  .t-err  { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+  .t-def  { background: #3f3f46; color: #f4f4f5; }
+
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  .sheet { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .sheet th {
+    text-align: left; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.14em; text-transform: uppercase; color: #71717a; font-weight: 500;
+    padding: 6px 8px; background: rgba(9, 9, 11, 0.6);
+    border-bottom: 1px solid #27272a; white-space: nowrap;
+  }
+  .sheet td { padding: 4px 8px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); vertical-align: middle; color: #e4e4e7; }
+  .sheet tr.alt td { background: rgba(255, 255, 255, 0.014); }
+  .sheet td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #a1a1aa; }
+  .sheet tr.open td { background: rgba(245, 158, 11, 0.04); border-bottom-color: transparent; }
+  .sheet tr.eds td { background: rgba(245, 158, 11, 0.04); padding: 0 8px 10px; }
+  .sheet .nm { color: #fafafa; white-space: nowrap; }
+  .sheet .qt { color: #71717a; }
+  .sheet .none { color: #52525b; }
+  .sheet .desc { color: #71717a; max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .shr {
+    font-family: var(--mono); font-size: 10px; color: #a1a1aa; background: #27272a;
+    border-radius: 3px; padding: 0 4px; margin-left: 5px;
+  }
+
+  .rowed {
+    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px;
+    border-left: 2px solid #f59e0b; border-radius: 0 6px 6px 0;
+    background: rgba(245, 158, 11, 0.05); padding: 10px 12px;
+  }
+  .rowed__f { display: flex; flex-direction: column; gap: 4px; }
+  .rowed__f .fld { width: 160px; }
+  .rowed__f--count .fld { width: 80px; }
+  .rowed__f--short .fld { width: 112px; }
+  .rowed__f--grow { flex: 1; min-width: 170px; }
+  .rowed__f--grow .fld { width: 100%; }
+  .rowed__acts { display: flex; align-items: flex-end; gap: 8px; margin-left: auto; }
+  .rowed__keys { font-size: 11px; color: #71717a; padding: 6px 12px 0; }
+  .rowed__keys kbd {
+    font-family: var(--mono); font-size: 10px; border: 1px solid #3f3f46;
+    border-radius: 4px; padding: 0 4px; color: #a1a1aa;
+  }
+  .notice {
+    width: 100%; border: 1px solid #27272a; background: rgba(9, 9, 11, 0.6);
+    border-radius: 5px; padding: 8px 10px; margin-top: 2px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    font-size: 12px; color: #a1a1aa;
+  }
+
+  .strip {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
+    padding: 8px 12px; border-top: 1px solid #27272a;
+    background: rgba(9, 9, 11, 0.6); font-size: 11px; color: #a1a1aa;
+  }
+  .strip .mono { color: #e4e4e7; }
+  .strip .q { color: #71717a; }
+
+  /* -- before reproductions -- */
+  .old { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .old th {
+    text-align: left; font-size: 14px; font-weight: 500; color: #a1a1aa;
+    padding: 12px; border-bottom: 1px solid #27272a; white-space: nowrap;
+  }
+  .old td { padding: 12px; vertical-align: top; color: #e4e4e7; border-bottom: 1px solid #27272a; }
+  .old tr.odd td { background: #18181b; }
+  .old tr.even td { background: #1f2028; }
+  .old .nm { font-weight: 500; color: #fafafa; white-space: nowrap; }
+
+  .ncard { border: 1px solid #3f3f46; border-radius: 12px; background: #18181b; overflow: hidden; }
+  .ncard__hd {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 16px 20px; border-bottom: 1px solid #27272a;
+  }
+  .ncard__hd h4 { margin: 0; font-size: 18px; font-weight: 600; color: #fafafa; font-family: inherit; }
+  .ncard__hd p { margin: 4px 0 0; font-size: 14px; color: #a1a1aa; max-width: none; }
+  .ncard__bd { padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+
+  .nfld {
+    height: 40px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b;
+    display: flex; align-items: center; padding: 0 12px; font-size: 14px; color: #e4e4e7;
+  }
+  .nfld--ph { color: #71717a; }
+  .nlbl { display: block; font-size: 12px; color: #d4d4d8; margin-bottom: 6px; }
+
+  .badge {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 2px 10px; font-size: 12px; font-weight: 500; white-space: nowrap;
+  }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+
+  /* ==================================================================
+     ADDITIONS FOR THE INVENTORY LIST — the navigation-tier table, the
+     drawer, the page tabs, and the browser's own dialogs.
+     ================================================================== */
+
+  /* the navigation tier's own button height — size="sm", h-8 px-3 text-sm —
+     which the shared specimen sheet has no class for, having been written for
+     work surfaces where xs (28px) is the bar's size */
+  .btn--h8 { height: 32px; padding: 0 12px; font-size: 14px; }
+  .strip .sep { color: #3f3f46; }
+  .btn--destr { background: #ef4444; border-color: #ef4444; color: #fff; }
+
+  /* -- the page tab strip, at its real values (patterns §6) -- */
+  .tabs { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }
+  .tab { border-radius: 6px; padding: 4px 12px; font-size: 14px; color: #a1a1aa; }
+  .tab--on { background: #f59e0b; color: #09090b; font-weight: 600; }
+
+  /* -- the navigation-tier table: text-sm rows, no zebra, no micro-labels -- */
+  .nav { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .nav th {
+    text-align: left; font-size: 12px; font-weight: 500; color: #a1a1aa;
+    padding: 7px 12px; background: rgba(9, 9, 11, 0.6);
+    border-bottom: 1px solid #27272a; white-space: nowrap;
+  }
+  .nav td {
+    padding: 10px 12px; border-bottom: 1px solid rgba(39, 39, 42, 0.6);
+    color: #d4d4d8; vertical-align: middle;
+  }
+  .nav tr.hov td { background: #18181b; }
+  .nav .nm { color: #fafafa; font-weight: 500; white-space: nowrap; }
+  .nav .r { text-align: right; }
+  .nav .n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #d4d4d8; text-align: right; }
+  .nav .n--q { color: #71717a; }
+  .nav .none { color: #52525b; text-align: right; }
+  .nav .src { color: #71717a; }
+  .nav .src b { color: #a1a1aa; font-weight: 400; }
+  .nav .act { width: 1%; padding-left: 0; text-align: right; }
+
+  .ibtn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: 6px; color: #a1a1aa;
+    border: 1px solid transparent;
+  }
+  .ibtn--hov { background: #27272a; color: #f4f4f5; }
+
+  /* -- the drawer, lifted verbatim from design/design-language.html's own
+     drawer specimen (.dstack / .scrim / .sd), because that is the language
+     drawn for review and a second set of values is how two of them drift.
+     It is a right-anchored overlay over a scrim, bordered on the edge it
+     shares with the page and square on that edge — never a floating
+     rounded card, which is what revision 1 drew. -- */
+  .dstack { position: relative; min-height: 470px; overflow: hidden; }
+  .scrim { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.7); }
+  .sd {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 448px;
+    background: #18181b; border-left: 1px solid #3f3f46;
+    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.5);
+    display: flex; flex-direction: column;
+  }
+  .sd__hd { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 14px 20px; border-bottom: 1px solid #27272a; }
+  .sd__ti { font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .sd__sub { font-size: 12px; color: #71717a; margin-top: 2px; }
+  .sd__x { color: #a1a1aa; font-size: 15px; line-height: 1.2; }
+  /* the body is the one thing in here that scrolls — ui/Drawer's own
+     `flex-1 overflow-y-auto`. No section inside it takes a height of its own. */
+  .sd__body { padding: 16px 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+  .sd__ft { margin-top: auto; padding: 12px 20px; border-top: 1px solid #27272a; font-size: 12px; color: #71717a; }
+  .sd__ft b { color: #a1a1aa; font-weight: 500; }
+  .dsec { display: flex; flex-direction: column; gap: 6px; }
+
+  /* the drawer's interior — ui/GearList, which is what Rig, Buses and
+     Universes are made of: a micro-labelled section, cards at px-2.5 py-2, a
+     mono spec line, and the amber-edged form that only exists once Edit is
+     pressed. Same names as design-language.html's drawer specimen. */
+  .dsec__hd { display: flex; align-items: center; gap: 8px; }
+  .dsec__ct { font-family: var(--mono); font-size: 10px; color: #52525b; }
+  .gear {
+    border: 1px solid #27272a; border-radius: 6px; background: #18181b;
+    padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .gear__top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+  .gear__nm { font-size: 14px; font-weight: 500; color: #f4f4f5; }
+  .gear__it { font-size: 12px; color: #a1a1aa; }
+  .gear__ac { margin-left: auto; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; color: #a1a1aa; }
+  .gear__sp { display: flex; flex-wrap: wrap; gap: 2px 12px; font-family: var(--mono); font-size: 10px; color: #71717a; }
+  .gear__sp b { color: #d4d4d8; font-weight: 400; }
+  .gear--link { cursor: pointer; }
+  .gear--link:hover { border-color: #3f3f46; background: rgba(39, 39, 42, 0.4); }
+  .gear__go { color: #52525b; font-size: 12px; margin-left: 2px; }
+  .dnote { font-size: 12px; color: #71717a; }
+
+  /* -- before: the card row, at its real values -- */
+  .brow {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    border: 1px solid #3f3f46; border-radius: 12px; background: #1f2028; padding: 12px 16px;
+  }
+  .brow .t { font-weight: 500; color: #f4f4f5; }
+  .brow .s { font-size: 12px; color: #71717a; margin-top: 1px; }
+  .brow__acts { display: flex; align-items: center; gap: 4px; flex: none; }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .lede { font-size: 14px; color: #a1a1aa; max-width: 60ch; }
+
+  /* -- the browser's own dialogs, which is the point of drawing them -- */
+  .sys {
+    width: 460px; max-width: 100%; border-radius: 8px; background: #f6f6f7; color: #202124;
+    font-family: system-ui, "Segoe UI", sans-serif; font-size: 13px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5); overflow: hidden;
+  }
+  .sys__bd { padding: 18px 20px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .sys__ti { font-size: 13px; color: #202124; }
+  .sys input {
+    height: 26px; border: 1px solid #b7b7bb; border-radius: 3px; background: #fff;
+    padding: 0 6px; font: inherit; color: #202124; width: 100%;
+  }
+  .sys__ft { display: flex; justify-content: flex-end; gap: 8px; padding: 0 20px 16px; }
+  .sys__btn { border: 1px solid #c6c6ca; border-radius: 4px; padding: 5px 16px; background: #fff; color: #202124; font: inherit; }
+  .sys__btn--p { background: #1a73e8; border-color: #1a73e8; color: #fff; }
+  .sysrow { display: flex; gap: 16px; flex-wrap: wrap; padding: 22px 16px; background: #09090b; justify-content: center; }
+
+  /* -- the phone -- */
+  .ph { width: 384px; max-width: 100%; margin: 0 auto; }
+  .phrow {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    border-bottom: 1px solid rgba(39, 39, 42, 0.6); padding: 12px 4px; font-size: 14px;
+  }
+  .phrow .t { color: #f4f4f5; font-weight: 500; }
+  .phrow .s { font-size: 12px; color: #71717a; margin-top: 2px; }
+
+  .empty { padding: 34px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+  .empty p { font-size: 14px; color: #a1a1aa; max-width: 46ch; }
+
+</style>
+
+<div class="wrap">
+
+  <header class="head">
+    <span class="head__eyebrow">the inventory list · mockup for approval · revision 4</span>
+    <h1>The last card list</h1>
+    <p class="head__lede">
+      Everything else has been through the language. The catalog itself converged in
+      Wave&nbsp;5 — a panel, a category rail, a 308-row sheet — and
+      <strong>the list you reach it from did not</strong>. It is still a stack of rounded
+      boxes under a paragraph of explanation, with three ghost buttons on every row and two
+      of the browser’s own dialogs behind them. <code>design/audit.md</code> says so in as
+      many words: <em>“the inventory list is the only card list left.”</em>
+    </p>
+    <p class="head__lede">
+      P1 exempts it, and the exemption is correctly invoked — these are genuinely
+      independent objects. Slice 30 wrote down what that is worth: <strong>a rule that
+      correctly permits something is not a reason to keep it.</strong> So the question here
+      is the one that rebuilt Events — not <em>is this in violation</em>, but
+      <em>what is this page for</em>. It is for picking which catalog to open, and for
+      knowing which one your shows are actually running on. The second question the page
+      cannot answer at all today.
+    </p>
+  </header>
+
+  <!-- ==================================================================
+       00 · WHAT CHANGED
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">00 · revision 4</span>
+      <h2>What changed</h2>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">Search arrives<span class="tag tag--new">changed</span></div>
+        <div class="led__v">
+          Revision 1 argued a search field over five rows was furniture and left it out.
+          Overruled, and rightly: <b>it goes in now, in preparation for the list growing.</b>
+          A control that only appears once a list crosses a threshold is one nobody has a
+          habit for by the time they need it. Bar order and behaviour in §03.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">The drawer, redrawn<span class="tag tag--new">fixed</span></div>
+        <div class="led__v">
+          Twice. Revision 1 drew a floating <code>rounded-xl</code> card; revision 2 fixed
+          the <em>frame</em> — right-anchored over a <code>bg-zinc-950/70</code> scrim,
+          <code>border-l</code>, square on that edge — and left the <em>interior</em> at
+          navigation tier, which is not what Rig, Buses or Universes look like. It is now
+          <code>ui/GearList</code> throughout: <code>DrawerSection</code> with a
+          <code>MicroLabel</code> heading and a mono count, <code>GearCard</code>,
+          <code>GearSpecs</code>, and the amber-edged <code>GearForm</code> that only appears
+          once there is something to edit. §05.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Used on lists them all<span class="tag tag--new">changed</span></div>
+        <div class="led__v">
+          Revision 3 showed three events and <em>+ 6 more</em>. It shows <b>every</b> event
+          now, each one a link to that show, and the drawer body scrolls when the list outruns
+          it — with no height on the section itself, for the reason patterns §4 gives about
+          the category rail. §05.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">The specimens’ font<span class="tag tag--new">fixed</span></div>
+        <div class="led__v">
+          The specimen sheet was rendering the app in <em>this document’s</em> faces. The mono
+          stack ended <code>"DejaVu Sans Mono"</code>, which is the one that wins on Linux and
+          is not the one Tailwind’s <code>font-mono</code> picks — so every counter in the
+          panel, and the whole summary strip, was set in a face the app never uses. The
+          specimen now scopes both stacks to the app’s own: <code>index.css</code>’s sans and
+          Tailwind’s default mono. And the strip sets <b>whole phrases</b> in mono, not the
+          digits alone — <span class="mono">733 items</span>, not
+          <span class="mono">733</span> items — because that is what
+          <code>Events</code>’ strip does and it is the strip this one is a sibling of.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Naming<span class="tag tag--keep">settled</span></div>
+        <div class="led__v">
+          The tabs are <b>Rental catalogs</b> and <b>Owned gear</b>; the panel title follows
+          the tab, as patterns §1 requires. The sidebar item and the <code>/inventories</code>
+          route are untouched — the page is still Inventories, and the tabs now say which two
+          kinds of thing are on it.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Row click<span class="tag tag--keep">settled</span></div>
+        <div class="led__v">
+          A row <b>opens the catalog</b>. No unfold: the row already shows everything a
+          summary would, and the list of events that hold a catalog lives in the drawer,
+          next to the delete it is the answer to.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       01 · THE JOB
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">01 · the job</span>
+      <h2>Which catalog, and is it live?</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        A catalog list is short — five rows, not five hundred — and it is opened for two
+        reasons. <strong>Open the one I work in</strong>, which is a click on a name. And
+        <strong>work out which of these five matters</strong>, which happens when last
+        year’s price list is still sitting there, when a duplicate was made in October and
+        never named properly, and when something needs deleting.
+      </p>
+      <p>
+        The second one is where the page fails, and it fails in a way the application
+        already knows how to fix. <strong>An inventory’s identity is its use.</strong>
+        <code>DeleteInventory</code> counts the events pointing at a catalog and refuses
+        while any do — the number exists, it is authoritative, and today it is spent
+        entirely on producing a 409 <em>after</em> you have already confirmed a native
+        dialog. Owned gear settled this exact argument one wave ago: its
+        <em>Planned&nbsp;on</em> column is, in the spec’s own words, <em>“the only reason to
+        open this page rather than the event you are working on”</em>. Same number, same
+        reason, other catalog.
+      </p>
+      <p>
+        So the redesign is not mainly a restyle. It is <strong>one column that has never
+        been shown</strong>, wrapped in the frame the rest of the app already uses.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       02 · TODAY
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">02 · today</span>
+      <h2>What is there now</h2>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div class="tabs">
+            <span class="tab tab--on">My Inventories</span>
+            <span class="tab">Owned gear</span>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px;">
+            <p class="lede">
+              Each inventory is its own independent equipment catalog. Bind one to an event when
+              you create it, and reuse it across events.
+            </p>
+            <span class="btn btn--primary btn--md">＋ New inventory</span>
+          </div>
+          <div class="stack">
+            <div class="brow">
+              <div>
+                <div class="t">LL prislista 2026</div>
+                <div class="s">308 items · imported from LL-2026.xlsx</div>
+              </div>
+              <div class="brow__acts">
+                <span class="btn btn--ghost">✎</span>
+                <span class="btn btn--ghost">⧉</span>
+                <span class="btn btn--ghost">🗑</span>
+              </div>
+            </div>
+            <div class="brow">
+              <div>
+                <div class="t">Backline &amp; PA</div>
+                <div class="s">84 items · imported from backline-2026.xlsx</div>
+              </div>
+              <div class="brow__acts">
+                <span class="btn btn--ghost">✎</span>
+                <span class="btn btn--ghost">⧉</span>
+                <span class="btn btn--ghost">🗑</span>
+              </div>
+            </div>
+            <div class="brow">
+              <div>
+                <div class="t">Sandbox</div>
+                <div class="s">3 items · no price list imported yet</div>
+              </div>
+              <div class="brow__acts">
+                <span class="btn btn--ghost">✎</span>
+                <span class="btn btn--ghost">⧉</span>
+                <span class="btn btn--ghost">🗑</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>before</b> — three cards, a paragraph, nine ghost buttons, and no fact you could not have guessed from the name</div>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">Cards<span class="tag tag--drop">goes</span></div>
+        <div class="led__v">
+          Three <code>rounded-xl border-zinc-700 bg-zinc-850</code> boxes with gaps between
+          them, which is P1’s <em>“a gap says these are separate”</em> spent on rows of one
+          table. Nothing else in the application still does this.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">The paragraph<span class="tag tag--drop">goes</span></div>
+        <div class="led__v">
+          Sixty characters explaining what an inventory is, above a list of the five you
+          already have. Documentation in the position where a bar belongs (P8).
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Nine ghost buttons<span class="tag tag--drop">goes</span></div>
+        <div class="led__v">
+          Rename, duplicate and delete on <b>every</b> row, permanently, for operations you
+          perform perhaps twice a year. This is the failure the category rail was rebuilt to
+          end — <code>PanelRailRow</code> takes no action slot precisely <em>“so it cannot
+          happen again”</em>. It kept happening one component away.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Two native dialogs<span class="tag tag--drop">goes</span></div>
+        <div class="led__v">
+          <code>window.prompt</code> renames; <code>window.confirm</code> deletes. They are
+          the only two in the application, they are drawn by Chrome and not by us, and the
+          confirm asks you to approve something the server may then refuse.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">One query per row<span class="tag tag--drop">goes</span></div>
+        <div class="led__v">
+          The item count on each card is a full <code>GET /inventories/{id}/items</code>
+          whose only use is <code>.length</code> — 308 rows over the wire to render the
+          characters <span class="mono">308</span>, once per catalog.
+        </div>
+      </div>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="sysrow">
+          <div class="sys">
+            <div class="sys__bd">
+              <div class="sys__ti">patchplanner.se says</div>
+              <div class="sys__ti">Rename inventory</div>
+              <input value="LL prislista 2026" readonly />
+            </div>
+            <div class="sys__ft">
+              <span class="sys__btn">Cancel</span>
+              <span class="sys__btn sys__btn--p">OK</span>
+            </div>
+          </div>
+          <div class="sys">
+            <div class="sys__bd">
+              <div class="sys__ti">patchplanner.se says</div>
+              <div class="sys__ti">Delete “LL prislista 2026”? This can’t be undone.</div>
+            </div>
+            <div class="sys__ft">
+              <span class="sys__btn">Cancel</span>
+              <span class="sys__btn sys__btn--p">OK</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>before</b> — the two dialogs, reproduced. Press OK on the right-hand one and nine events say no</div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       03 · THE PANEL
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">03 · the panel</span>
+      <h2>One frame, five rows, the column that was missing</h2>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div class="tabs">
+            <span class="tab tab--on">Rental catalogs</span>
+            <span class="tab">Owned gear</span>
+          </div>
+          <div class="pan">
+            <div class="pan__bar">
+              <span class="pan__ti">Rental catalogs</span>
+              <span class="fld fld--srch fld--ph">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+                Find a catalog…
+              </span>
+              <span class="grow"></span>
+              <span class="btn btn--h8 btn--primary">＋ New catalog</span>
+            </div>
+
+            <table class="nav">
+              <thead>
+                <tr>
+                  <th>Catalog</th>
+                  <th class="r">Items</th>
+                  <th class="r">Categories</th>
+                  <th class="r">Used on</th>
+                  <th>Source</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="hov">
+                  <td class="nm">LL prislista 2026</td>
+                  <td class="n">308</td>
+                  <td class="n n--q">12</td>
+                  <td class="n">9 events</td>
+                  <td class="src"><b>LL price list</b> · LL-2026.xlsx</td>
+                  <td class="act"><span class="ibtn ibtn--hov">⋯</span></td>
+                </tr>
+                <tr>
+                  <td class="nm">Backline &amp; PA</td>
+                  <td class="n">84</td>
+                  <td class="n n--q">6</td>
+                  <td class="n">2 events</td>
+                  <td class="src"><b>Generic</b> · backline-2026.xlsx</td>
+                  <td class="act"><span class="ibtn">⋯</span></td>
+                </tr>
+                <tr>
+                  <td class="nm">LL prislista 2025</td>
+                  <td class="n">291</td>
+                  <td class="n n--q">12</td>
+                  <td class="none">—</td>
+                  <td class="src"><b>LL price list</b> · LL-2025.xlsx</td>
+                  <td class="act"><span class="ibtn">⋯</span></td>
+                </tr>
+                <tr>
+                  <td class="nm">Ljus – Gasklockorna</td>
+                  <td class="n">47</td>
+                  <td class="n n--q">4</td>
+                  <td class="n">1 event</td>
+                  <td class="src">hand-built</td>
+                  <td class="act"><span class="ibtn">⋯</span></td>
+                </tr>
+                <tr>
+                  <td class="nm">Sandbox</td>
+                  <td class="n">3</td>
+                  <td class="n n--q">1</td>
+                  <td class="none">—</td>
+                  <td class="src">hand-built</td>
+                  <td class="act"><span class="ibtn">⋯</span></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="strip">
+              <span class="mono">5 catalogs</span>
+              <span class="sep">·</span> <span class="mono">733 items</span>
+              <span class="sep">·</span> <span class="mono">12 events run on them</span>
+              <span class="sep">·</span> <span class="mono">2 unused</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>after</b> — bar, rows, strip. Click a row and the catalog opens; the ⋯ opens the drawer</div>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">Frame</div>
+        <div class="led__v">
+          One <code>PatchPanel</code>: bar, content, strip. The panel title repeats the tab
+          name above it, as patterns §1 requires — it is what anchors a surface that now has
+          a top edge of its own.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Density</div>
+        <div class="led__v">
+          <b>Navigation tier inside a panel frame</b>, which is what Events does and is the
+          honest answer to P2’s question: nobody scans five catalogs cross-referencing as
+          they go. So <code>text-sm</code> rows at <code>px-3 py-2.5</code>, a
+          <code>text-xs</code> sans header, <code>size="sm"</code> on the primary button —
+          and no micro-labels, no <code>Pill</code>, no striping. A 10&nbsp;px mono header
+          over five rows would be the sheet costume worn by something that is not a sheet.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">The row is a link</div>
+        <div class="led__v">
+          Clicking anywhere in it opens the catalog — one click, because that is the page’s
+          whole job. <b>The Events unfold is deliberately not carried over:</b> there, a row
+          expands because the summary answers most of what you came for without the
+          commitment of opening a show. Here the row already <em>is</em> the summary, and an
+          unfold would be a second click in front of the only thing anyone came to do.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Search<span class="tag tag--new">new</span></div>
+        <div class="led__v">
+          In the bar, in patterns §1’s fixed order — title, search, <code>flex-1</code>, the
+          one primary action. <code>Input size="sm"</code> with the icon at
+          <code>pl-8</code>, <code>min-w-[12rem] max-w-xs flex-1</code>: the same field
+          Events and the catalog panel already carry, so the bar reads as the app’s bar at
+          the first glance rather than the second. It matches <b>name and source filename</b>
+          through <code>matchesSearch</code> — the same helper the other five surfaces use —
+          which means <em>2025</em> finds the price list whether you named it that or the
+          spreadsheet did.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Five rows, still</div>
+        <div class="led__v">
+          It is there <b>before</b> it is needed, deliberately: a control that appears once a
+          list crosses some threshold is a control nobody has built a habit around by the
+          time they need it. Over five rows it costs a field of chrome; over thirty it is the
+          only way in. The cost is bounded and the benefit is not, so it goes in now.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Order</div>
+        <div class="led__v">
+          Alphabetical, unchanged (<code>ORDER BY name ASC</code>). Events earned a
+          chronological spine because <em>when</em> is what you scan for; catalogs are
+          scanned by name, and a list that reorders itself as usage shifts is a list you have
+          to re-find your place in.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Strip</div>
+        <div class="led__v">
+          Same construction as every other panel’s: a top border, <code>text-[11px]</code>,
+          and a verdict rather than a repeat of the column headings. <b>2 unused</b> is the
+          line that tells you there is tidying to do. It <b>redraws against the search</b> —
+          filtering to <em>2025</em> makes it read
+          <span class="mono">1</span> of <span class="mono">5</span> catalogs · <span class="mono">291</span> items ·
+          not used by any event — because a readout that ignores the filter above it is
+          answering a question nobody asked (patterns §4c).
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       04 · THE COLUMNS
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">04 · the columns</span>
+      <h2>Five, and why each one is there</h2>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">Catalog</div>
+        <div class="led__v">The name, and the link. <code>text-zinc-100 font-medium</code>.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Items</div>
+        <div class="led__v">
+          Mono, <code>tabular-nums</code>, right-aligned — the app’s rule for a number a
+          technician compares against the number above it. Already on the card today; now it
+          arrives with the list instead of costing a request per row.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Categories<span class="tag tag--new">new</span></div>
+        <div class="led__v">
+          Quieter than Items, one step down in ink. It is how you tell a real catalog from a
+          scratch one at a glance — <span class="mono">291</span> items in
+          <span class="mono">12</span> categories is a price list;
+          <span class="mono">3</span> in <span class="mono">1</span> is somebody testing the
+          import.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Used on<span class="tag tag--new">new</span></div>
+        <div class="led__v">
+          <b>The reason this section exists.</b> The count of events bound to the catalog —
+          the number the backend has always computed to guard the delete, shown before you
+          reach for it rather than after. An unused catalog renders <code>—</code> in
+          <code>text-zinc-600</code>, which patterns §5 reserves for <em>empty and
+          expected</em>: nothing has been planned on it, and that is a fact, not a warning.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Source</div>
+        <div class="led__v">
+          Format then filename: <b>LL price list</b>, <b>Generic</b>, or <em>hand-built</em>.
+          Not decoration — <code>sourceFormat === 'll'</code> is what gates the price-list
+          export, so this column is the answer to “why does this catalog have fewer export
+          buttons than that one”.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Not a Badge</div>
+        <div class="led__v">
+          The format is plain text. <code>Badge</code> and <code>Pill</code> tint
+          <em>database vocabulary values</em> through <code>lib/vocabularyTint</code>
+          (tokens §5); a source format is neither, and five chips down a five-row table
+          would be colour spent on something nobody sorts by.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       05 · THE DRAWER
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">05 · the drawer</span>
+      <h2>One drawer, two jobs, no dialogs</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Creating a catalog and managing one are the same construction, opened from two
+        places — which is the argument §2 makes about add-and-edit and the argument the last
+        commit on Events made about creating a show: <em>“creating an event is a drawer, like
+        editing one.”</em> Same again here, and it takes the page’s remaining
+        <code>Dialog</code> with it.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app" style="padding: 0;">
+          <div class="dstack">
+            <div class="pan" style="margin: 16px;">
+              <div class="pan__bar">
+                <span class="pan__ti">Rental catalogs</span>
+                <span class="fld fld--srch fld--ph">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+                  Find a catalog…
+                </span>
+                <span class="grow"></span>
+                <span class="btn btn--h8 btn--primary">＋ New catalog</span>
+              </div>
+              <table class="nav">
+                <thead>
+                  <tr>
+                    <th>Catalog</th><th class="r">Items</th><th class="r">Categories</th>
+                    <th class="r">Used on</th><th>Source</th><th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="nm">LL prislista 2026</td><td class="n">308</td><td class="n n--q">12</td>
+                    <td class="n">9 events</td><td class="src"><b>LL price list</b> · LL-2026.xlsx</td>
+                    <td class="act"><span class="ibtn">⋯</span></td>
+                  </tr>
+                  <tr>
+                    <td class="nm">Backline &amp; PA</td><td class="n">84</td><td class="n n--q">6</td>
+                    <td class="n">2 events</td><td class="src"><b>Generic</b> · backline-2026.xlsx</td>
+                    <td class="act"><span class="ibtn">⋯</span></td>
+                  </tr>
+                  <tr>
+                    <td class="nm">LL prislista 2025</td><td class="n">291</td><td class="n n--q">12</td>
+                    <td class="none">—</td><td class="src"><b>LL price list</b> · LL-2025.xlsx</td>
+                    <td class="act"><span class="ibtn">⋯</span></td>
+                  </tr>
+                  <tr>
+                    <td class="nm">Sandbox</td><td class="n">3</td><td class="n n--q">1</td>
+                    <td class="none">—</td><td class="src">hand-built</td>
+                    <td class="act"><span class="ibtn">⋯</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="scrim"></div>
+            <div class="sd">
+              <div class="sd__hd">
+                <div>
+                  <div class="sd__ti">New catalog</div>
+                  <div class="sd__sub">An independent catalog of equipment and prices</div>
+                </div>
+                <span class="sd__x">×</span>
+              </div>
+              <div class="sd__body">
+                <div class="dsec">
+                  <div class="dsec__hd">
+                    <span class="lbl">Catalog</span>
+                  </div>
+                  <div class="rowed">
+                    <div class="rowed__f rowed__f--grow">
+                      <span class="lbl">Name</span>
+                      <span class="fld fld--ph">e.g. Backline</span>
+                    </div>
+                    <div class="rowed__acts">
+                      <span class="btn btn--primary">Create</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="sd__ft">A catalog holds its own <b>categories</b> and <b>items</b> · import a price list into it, or build it by hand</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>after</b> — create, over the list. <code>DrawerSection</code> → <code>GearForm</code>: add and edit are one construction</div>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app" style="padding: 0;">
+          <div class="dstack">
+            <div class="pan" style="margin: 16px;">
+              <div class="pan__bar">
+                <span class="pan__ti">Rental catalogs</span>
+                <span class="fld fld--srch fld--ph">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+                  Find a catalog…
+                </span>
+                <span class="grow"></span>
+                <span class="btn btn--h8 btn--primary">＋ New catalog</span>
+              </div>
+              <table class="nav">
+                <thead>
+                  <tr>
+                    <th>Catalog</th><th class="r">Items</th><th class="r">Categories</th>
+                    <th class="r">Used on</th><th>Source</th><th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="nm">LL prislista 2026</td><td class="n">308</td><td class="n n--q">12</td>
+                    <td class="n">9 events</td><td class="src"><b>LL price list</b> · LL-2026.xlsx</td>
+                    <td class="act"><span class="ibtn">⋯</span></td>
+                  </tr>
+                  <tr>
+                    <td class="nm">Backline &amp; PA</td><td class="n">84</td><td class="n n--q">6</td>
+                    <td class="n">2 events</td><td class="src"><b>Generic</b> · backline-2026.xlsx</td>
+                    <td class="act"><span class="ibtn">⋯</span></td>
+                  </tr>
+                  <tr>
+                    <td class="nm">LL prislista 2025</td><td class="n">291</td><td class="n n--q">12</td>
+                    <td class="none">—</td><td class="src"><b>LL price list</b> · LL-2025.xlsx</td>
+                    <td class="act"><span class="ibtn">⋯</span></td>
+                  </tr>
+                  <tr>
+                    <td class="nm">Sandbox</td><td class="n">3</td><td class="n n--q">1</td>
+                    <td class="none">—</td><td class="src">hand-built</td>
+                    <td class="act"><span class="ibtn">⋯</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="scrim"></div>
+            <div class="sd">
+              <div class="sd__hd">
+                <div>
+                  <div class="sd__ti">LL prislista 2026</div>
+                  <div class="sd__sub">Imported 14 January 2026 · used on 9 events</div>
+                </div>
+                <span class="sd__x">×</span>
+              </div>
+              <div class="sd__body">
+                <div class="dsec">
+                  <div class="dsec__hd">
+                    <span class="lbl">Catalog</span>
+                    <span class="grow"></span>
+                    <span class="btn btn--outline">Duplicate</span>
+                  </div>
+                  <div class="gear">
+                    <div class="gear__top">
+                      <span class="gear__nm">LL prislista 2026</span>
+                      <span class="gear__it">LL-2026.xlsx</span>
+                      <span class="gear__ac">308 items</span>
+                    </div>
+                    <div class="gear__sp">
+                      <span>items <b>308</b></span>
+                      <span>categories <b>12</b></span>
+                      <span>format <b>LL price list</b></span>
+                      <span>created <b>2026-01-14</b></span>
+                    </div>
+                  </div>
+                  <div class="rowed">
+                    <div class="rowed__f rowed__f--grow">
+                      <span class="lbl">Name</span>
+                      <span class="fld">LL prislista 2026</span>
+                    </div>
+                    <div class="rowed__acts">
+                      <span class="btn btn--primary">Save</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="dsec">
+                  <div class="dsec__hd">
+                    <span class="lbl">Used on</span>
+                    <span class="dsec__ct">9</span>
+                  </div>
+                  <p class="dnote">A catalog can’t be deleted while an event uses it.</p>
+                  <div class="gear gear--link">
+                    <div class="gear__top">
+                      <span class="gear__nm">Vinterfest Falun</span>
+                      <span class="gear__it">Magasinet</span>
+                      <span class="gear__ac">2026-02-07</span>
+                      <span class="gear__go">→</span>
+                    </div>
+                  </div>
+                  <div class="gear gear--link">
+                    <div class="gear__top">
+                      <span class="gear__nm">Årsmöte Sandviken</span>
+                      <span class="gear__it">Folkets Hus</span>
+                      <span class="gear__ac">2026-03-21</span>
+                      <span class="gear__go">→</span>
+                    </div>
+                  </div>
+                  <div class="gear gear--link">
+                    <div class="gear__top">
+                      <span class="gear__nm">Sommarfest Gävle</span>
+                      <span class="gear__it">Gasklockorna</span>
+                      <span class="gear__ac">2026-08-14</span>
+                      <span class="gear__go">→</span>
+                    </div>
+                  </div>
+                  <div class="gear gear--link">
+                    <div class="gear__top">
+                      <span class="gear__nm">Bruksrock</span>
+                      <span class="gear__it">Avesta</span>
+                      <span class="gear__ac">2026-09-18</span>
+                      <span class="gear__go">→</span>
+                    </div>
+                  </div>
+                  <div class="gear gear--link">
+                    <div class="gear__top">
+                      <span class="gear__nm">Höstgala Borlänge</span>
+                      <span class="gear__it">Kulturhuset</span>
+                      <span class="gear__ac">2026-10-03</span>
+                      <span class="gear__go">→</span>
+                    </div>
+                  </div>
+                  <div class="gear gear--link">
+                    <div class="gear__top">
+                      <span class="gear__nm">Skolavslutning Hofors</span>
+                      <span class="gear__it">Aulan</span>
+                      <span class="gear__ac">2026-10-24</span>
+                      <span class="gear__go">→</span>
+                    </div>
+                  </div>
+                  <div class="gear gear--link">
+                    <div class="gear__top">
+                      <span class="gear__nm">Julbord Ockelbo</span>
+                      <span class="gear__it">Bygdegården</span>
+                      <span class="gear__ac">2026-12-05</span>
+                      <span class="gear__go">→</span>
+                    </div>
+                  </div>
+                  <div class="gear gear--link">
+                    <div class="gear__top">
+                      <span class="gear__nm">Lucia</span>
+                      <span class="gear__it">Gävle Konserthus</span>
+                      <span class="gear__ac">2026-12-13</span>
+                      <span class="gear__go">→</span>
+                    </div>
+                  </div>
+                  <div class="gear gear--link">
+                    <div class="gear__top">
+                      <span class="gear__nm">Klubb Nyårsafton</span>
+                      <span class="gear__it">Kulturhuset</span>
+                      <span class="gear__ac">2026-12-31</span>
+                      <span class="gear__go">→</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="sd__ft"><b>Duplicate</b> copies every category and item · no event bindings come with the copy</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>after</b> — manage, in use. Every event that holds it, each one a link; the body scrolls, the section does not</div>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">The frame</div>
+        <div class="led__v">
+          <code>ui/Drawer</code> as it stands, <code>width="narrow"</code> — the Buses width,
+          <code>max-w-md</code>. Header <code>px-5 py-4</code> with a <code>text-lg</code>
+          title and a <code>text-xs text-zinc-500</code> subtitle, body
+          <code>px-5 py-4</code> with the <code>gap-5</code> the drawer owns, footer
+          <code>px-5 py-3 text-xs</code> saying what the contents mean. Nothing overridden.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">The interior<span class="tag tag--new">fixed</span></div>
+        <div class="led__v">
+          <code>ui/GearList</code>, which is what Rig, Buses and Universes are actually made
+          of — and what revision 2 still had wrong, having drawn navigation-tier
+          <code>h-10</code> fields and <code>text-sm</code> labels inside it. A drawer’s
+          <em>frame</em> is navigation tier; its <em>contents</em> are the work surface’s,
+          because what is declared in here is referenced from a sheet:
+          <code>DrawerSection</code> with a <code>MicroLabel</code> heading and a mono count,
+          <code>GearCard</code> at <code>px-2.5 py-2</code>, <code>GearSpecs</code> at
+          <span class="mono">10px</span> mono, <code>Button size="xs"</code>,
+          <code>Input size="sm"</code>.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Nothing is a field until Edit</div>
+        <div class="led__v">
+          <code>GearTop</code>’s rule — <em>no form control ever appears here</em>. The card
+          states the catalog; the amber-edged <code>GearForm</code> below it is where the name
+          becomes editable, in the one construction that also does <b>create</b>. The two
+          specimens above are the same component with and without a card above the form.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Used on, as a section</div>
+        <div class="led__v">
+          <code>DrawerSection label="Used on" count={9}</code> of <code>GearCard</code>s, which
+          is the Universes drawer’s <em>Models in the rig</em> section in shape as well as in
+          spirit: a list of the things that reference what you are looking at, each with its
+          one value on the right in mono. Ordered <b>chronologically, oldest first</b> — the
+          spine’s rule, because a list of shows should read the same way everywhere.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Every event, and no private scrollbar</div>
+        <div class="led__v">
+          The section lists <b>all nine</b>, and all forty when there are forty. It takes
+          <b>no <code>max-h</code> of its own</b>: the drawer body is already
+          <code>flex-1 overflow-y-auto</code>, so it scrolls when the contents outrun it. A
+          capped section inside a scrolling body is the exact failure patterns §4 records
+          against the category rail — twenty-seven categories cut off at the fold in a
+          private scrollbar, on a surface with room to spare.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">An event is a link<span class="tag tag--new">new</span></div>
+        <div class="led__v">
+          The whole card navigates to <code>/events/{id}</code>, closing the drawer behind it.
+          Hover raises it to <code>border-zinc-700 bg-zinc-800/40</code> and a
+          <code>text-zinc-600</code> <span class="mono">→</span> sits at the row’s end — the
+          chain arrow’s own colour, and the shape that says <em>this leaves the page</em>. It
+          renders as an <code>&lt;a href&gt;</code>, so it is a real URL: middle-click opens a
+          show in a new tab, which is the point when you are checking which of nine to move
+          off this catalog.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Over, not beside</div>
+        <div class="led__v">
+          It opens <b>over</b> the list, on a <code>bg-zinc-950/70</code> scrim, which is why
+          the row you were reading is still where you left it when it closes. Backdrop click
+          and <kbd>Esc</kbd> close it; nothing renders when closed.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Two entry points</div>
+        <div class="led__v">
+          The ⋯ on a row, and a <b>Manage</b> button in the catalog panel’s own bar — so the
+          rename you think of while looking at 308 items does not require going back first.
+          One component, two callers.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Delete is absent, not disabled</div>
+        <div class="led__v">
+          P7’s reasoning, generalised past roles: <em>a disabled control is a promise the
+          interface cannot keep</em>. A catalog nine events depend on cannot be deleted, so
+          there is no greyed-out button and no dialog to dismiss — there is a section listing
+          every show that holds it, each one a link you can follow and unbind. The 409 that used to deliver this news is
+          now unreachable by anything but a race.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Delete asks in place</div>
+        <div class="led__v">
+          Inside the form’s own body, full width, in the <code>notice</code> construction
+          Lighting’s address prompt established — <em>never a dialog</em> (patterns §2). The
+          confirm is <code>destructive</code>; the control that opened it sits apart from
+          <b>Save</b>, which is <code>FormActions</code>’ whole reason for existing.
+        </div>
+      </div>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app" style="padding: 0;">
+          <div class="dstack">
+            <div class="pan" style="margin: 16px;">
+              <div class="pan__bar">
+                <span class="pan__ti">Rental catalogs</span>
+                <span class="fld fld--srch fld--ph">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+                  Find a catalog…
+                </span>
+                <span class="grow"></span>
+                <span class="btn btn--h8 btn--primary">＋ New catalog</span>
+              </div>
+              <table class="nav">
+                <thead>
+                  <tr>
+                    <th>Catalog</th><th class="r">Items</th><th class="r">Categories</th>
+                    <th class="r">Used on</th><th>Source</th><th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="nm">LL prislista 2026</td><td class="n">308</td><td class="n n--q">12</td>
+                    <td class="n">9 events</td><td class="src"><b>LL price list</b> · LL-2026.xlsx</td>
+                    <td class="act"><span class="ibtn">⋯</span></td>
+                  </tr>
+                  <tr>
+                    <td class="nm">Backline &amp; PA</td><td class="n">84</td><td class="n n--q">6</td>
+                    <td class="n">2 events</td><td class="src"><b>Generic</b> · backline-2026.xlsx</td>
+                    <td class="act"><span class="ibtn">⋯</span></td>
+                  </tr>
+                  <tr>
+                    <td class="nm">LL prislista 2025</td><td class="n">291</td><td class="n n--q">12</td>
+                    <td class="none">—</td><td class="src"><b>LL price list</b> · LL-2025.xlsx</td>
+                    <td class="act"><span class="ibtn">⋯</span></td>
+                  </tr>
+                  <tr>
+                    <td class="nm">Sandbox</td><td class="n">3</td><td class="n n--q">1</td>
+                    <td class="none">—</td><td class="src">hand-built</td>
+                    <td class="act"><span class="ibtn">⋯</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="scrim"></div>
+            <div class="sd">
+              <div class="sd__hd">
+                <div>
+                  <div class="sd__ti">Sandbox</div>
+                  <div class="sd__sub">Hand-built · not used by any event</div>
+                </div>
+                <span class="sd__x">×</span>
+              </div>
+              <div class="sd__body">
+                <div class="dsec">
+                  <div class="dsec__hd">
+                    <span class="lbl">Catalog</span>
+                    <span class="grow"></span>
+                    <span class="btn btn--outline">Duplicate</span>
+                  </div>
+                  <div class="gear">
+                    <div class="gear__top">
+                      <span class="gear__nm">Sandbox</span>
+                      <span class="gear__ac">3 items</span>
+                    </div>
+                    <div class="gear__sp">
+                      <span>items <b>3</b></span>
+                      <span>categories <b>1</b></span>
+                      <span>format <b>hand-built</b></span>
+                      <span>created <b>2026-03-02</b></span>
+                    </div>
+                  </div>
+                  <div class="rowed">
+                    <div class="rowed__f rowed__f--grow">
+                      <span class="lbl">Name</span>
+                      <span class="fld">Sandbox</span>
+                    </div>
+                    <div class="rowed__acts">
+                      <span class="btn btn--primary">Save</span>
+                      <span class="btn btn--danger-ghost" style="margin-left: 14px;">Delete</span>
+                    </div>
+                    <div class="notice">
+                      <span class="grow">Delete <b style="color:#e4e4e7;font-weight:500;">Sandbox</b> and its 3 items? This can’t be undone.</span>
+                      <span class="btn btn--destr">Delete</span>
+                      <span class="btn btn--ghost">Cancel</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="dsec">
+                  <div class="dsec__hd">
+                    <span class="lbl">Used on</span>
+                    <span class="dsec__ct">0</span>
+                  </div>
+                  <p class="dnote">Not used by any event.</p>
+                </div>
+              </div>
+              <div class="sd__ft"><b>Duplicate</b> copies every category and item · no event bindings come with the copy</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>after</b> — unused. Delete sits apart in <code>FormActions</code> and asks in the form’s own <code>notice</code>, never in a dialog</div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       06 · STATES
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">06 · states</span>
+      <h2>Empty, filtered, single, loading</h2>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div class="pan">
+            <div class="pan__bar">
+              <span class="pan__ti">Rental catalogs</span>
+              <span class="grow"></span>
+              <span class="btn btn--h8 btn--primary">＋ New catalog</span>
+            </div>
+            <div class="empty">
+              <p>
+                You have no catalogs yet. Create one, then import a price list into it — or
+                start the list by hand.
+              </p>
+              <div style="display: flex; gap: 8px;">
+                <span class="btn btn--md btn--primary">＋ New catalog</span>
+                <span class="btn btn--md btn--outline">Download the template</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>after</b> — empty and actionable: one sentence saying what to do, and the controls that do it</div>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">Empty</div>
+        <div class="led__v">
+          The blank-template download appears <b>here only</b>, where it answers the question
+          the empty account is actually asking. It is already served from
+          <code>/inventory-template.xlsx</code> and is not inventory-scoped, precisely
+          because you need it before you have anything to import into.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Empty, and the search</div>
+        <div class="led__v">
+          The field is <b>absent on an empty account</b>, which is the rule Events already
+          follows for its year track: a control for narrowing nothing is a claim that there
+          is something to narrow.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">No match</div>
+        <div class="led__v">
+          <code>No catalog matches “sandbox”.</code> in <code>text-sm text-zinc-400</code>,
+          in place of the rows, with the strip below reading
+          <span class="mono">0</span> of <span class="mono">5</span> catalogs. The search
+          field stays where it is and keeps what you typed — the way out is to clear it, and
+          you can see what you typed to clear.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">One catalog</div>
+        <div class="led__v">
+          No special case. One row, and the strip reads <span class="mono">1</span> catalog ·
+          <span class="mono">308</span> items · <span class="mono">9</span> events run on it.
+          A table of one is still the right shape, and it is where the second one will land.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Loading</div>
+        <div class="led__v"><code>Loading catalogs…</code> in <code>text-sm text-zinc-400</code>, in place of the rows. No spinner, no skeleton (patterns §5).</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Error</div>
+        <div class="led__v">The inline red block, above the rows, unchanged. It is already correct.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Deep link</div>
+        <div class="led__v">
+          <code>/inventories/{id}</code> for a catalog that is not yours still says so and
+          offers the way back. Unchanged, and now the way back lands on a panel.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       07 · THE PHONE
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">07 · the phone</span>
+      <h2>The same facts, stacked</h2>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app app--tight">
+          <div class="ph">
+            <div class="phrow">
+              <div>
+                <div class="t">LL prislista 2026</div>
+                <div class="s">308 items · 12 categories · LL price list</div>
+              </div>
+              <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #fcd34d;">9 events</span>
+            </div>
+            <div class="phrow">
+              <div>
+                <div class="t">Backline &amp; PA</div>
+                <div class="s">84 items · 6 categories · Generic</div>
+              </div>
+              <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #fcd34d;">2 events</span>
+            </div>
+            <div class="phrow">
+              <div>
+                <div class="t">LL prislista 2025</div>
+                <div class="s">291 items · 12 categories · LL price list</div>
+              </div>
+              <span class="badge" style="background: #3f3f46; color: #a1a1aa;">unused</span>
+            </div>
+            <div class="phrow">
+              <div>
+                <div class="t">Sandbox</div>
+                <div class="s">3 items · 1 category · hand-built</div>
+              </div>
+              <span class="badge" style="background: #3f3f46; color: #a1a1aa;">unused</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>after</b> — <code>CondensedListRow</code>, <code>Badge</code> not <code>Pill</code>, full-height touch rows</div>
+    </div>
+
+    <div class="prose">
+      <p>
+        Mobile is not a third tier (patterns §7), so the phone keeps navigation sizing and
+        loses only the table geometry: the counts join the subtitle, and <em>used on</em>
+        becomes the one thing worth a chip at the row’s end. The drawer works as-is —
+        it is already full-width below the breakpoint.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       08 · WHAT IT COSTS
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">08 · what it costs</span>
+      <h2>One endpoint, four files, one document</h2>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">Backend<span class="tag tag--new">one query</span></div>
+        <div class="led__v">
+          <code>GET /inventories</code> gains three counts per row —
+          <code>itemCount</code>, <code>categoryCount</code>, <code>eventCount</code> —
+          as sub-selects in <code>ListInventoriesForOwner</code>. No migration, no new
+          route. It <b>removes</b> N requests from the page it serves.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Why not derive it</div>
+        <div class="led__v">
+          Wave 4 refused an endpoint for Overview’s numbers because the browser already
+          computed them; Wave 5 accepted one for the <em>In use</em> column because a
+          <code>COUNT</code> over other people’s tables is something only the database can
+          see. This is the second case exactly — and it is the same number
+          <code>DeleteInventory</code> reads, so the count shown and the refusal that follows
+          cannot disagree.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Frontend</div>
+        <div class="led__v">
+          <code>pages/Inventories.tsx</code> — <code>InventoryList</code> and
+          <code>InventoryRow</code> replaced; a new
+          <code>components/inventory/InventoryDrawer.tsx</code> built from
+          <code>ui/Drawer</code> + <code>ui/GearList</code>; one line in the catalog panel’s
+          bar for <b>Manage</b>; <code>types/index.ts</code> for the three counts. Nothing in
+          <code>components/ui/</code> changes — every primitive the drawer needs already
+          exists, which is the test of whether this is one language or several.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Search costs nothing</div>
+        <div class="led__v">
+          Client-side, over a list already in memory: <code>matchesSearch</code> and a
+          <code>useState</code>. No parameter, no request, no debounce. The same reason
+          every other search in the app is client-side — the rows are all here.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Renaming the tabs</div>
+        <div class="led__v">
+          Two strings in <code>pages/Inventories.tsx</code>. The sidebar item, the header
+          title and the route keep saying <em>Inventories</em>, because the page is the
+          thing that holds both catalogs.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Gone</div>
+        <div class="led__v">
+          The last <code>Dialog</code> on desktop, both <code>window.*</code> dialogs, nine
+          ghost buttons, three <code>bg-zinc-850</code> cards, and the per-row
+          <code>listItems</code> query.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">design/</div>
+        <div class="led__v">
+          Same commit. <code>audit.md</code> records that the last card list is gone and that
+          P1’s exception now has <b>no instances</b> — the rule stays, its worked example
+          becomes a closed case. <code>patterns.md</code> §4c gains a sibling note: a panel
+          may hold navigation-tier rows when the objects are few, which Events established
+          and this confirms.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       READY
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">ready</span>
+      <h2>Nothing open</h2>
+    </div>
+
+    <div class="ask">
+      <h3>What the spec will say</h3>
+      <p>
+        One <code>PatchPanel</code> with a search field and five navigation-tier rows;
+        <b>Used on</b> as the column this page has never had; <code>ui/Drawer</code>
+        <code>narrow</code> for create, rename, duplicate and delete, opened from the row’s ⋯
+        and from the catalog panel’s bar; three counts added to
+        <code>GET /inventories</code>; both <code>window.*</code> dialogs and the page’s last
+        <code>Dialog</code> deleted; the tabs renamed <b>Rental catalogs</b> and
+        <b>Owned gear</b>.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>Deliberately not in it</h3>
+      <p>
+        <b>No sorting and no column headers you can click</b> — five rows in name order do
+        not need it, and the day they do, that is the same day the search field earns its
+        place twice over. <b>No archive state</b>: a catalog is used or it is not, and
+        <em>used on</em> already says which, so a third status would be a flag to keep in
+        sync with a fact. <b>No default catalog</b> for new events — the create form already
+        picks the only one when there is only one, and choosing among several is a decision
+        per show, not a setting.
+      </p>
+    </div>
+  </section>
+
+</div>
