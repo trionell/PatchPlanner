@@ -14,6 +14,7 @@ import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { PanelCols, PanelMain, PanelRail, PanelRailRow } from '../components/ui/PanelRail'
+import { MobilePanel } from '../components/ui/MobilePanel'
 import { PatchPanel } from '../components/ui/PatchPanel'
 import { Sheet } from '../components/ui/Sheet'
 import { Pill, SheetHead, SheetHeadCell } from '../components/ui/SheetTable'
@@ -339,32 +340,35 @@ function MobileInventoryList({
 }) {
   const hasAny = summary.total > 0
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-zinc-100">Rental catalogs</h2>
-        <Button size="sm" onClick={onCreate}>
-          <Plus className="mr-1.5 h-4 w-4" />
-          New
-        </Button>
-      </div>
-
-      {error && <div className="rounded-md border border-red-800 bg-red-950/50 px-3 py-2 text-sm text-red-300">{error}</div>}
-
-      {hasAny && (
-        <Input placeholder="Name or price list…" value={search} onChange={(event) => onSearch(event.target.value)} />
-      )}
-
-      {loading && <p className="text-sm text-zinc-400">Loading catalogs…</p>}
-      {!loading && !hasAny && (
-        <p className="text-sm text-zinc-400">
-          You have no catalogs yet. Create one, then import a price list into it.
-        </p>
-      )}
-      {!loading && hasAny && summary.visible.length === 0 && (
-        <p className="text-sm text-zinc-400">No catalog matches “{search.trim()}”.</p>
-      )}
-
-      <div className="space-y-1">
+    <>
+      {error && <div className="mb-3 flex-none rounded-md border border-red-800 bg-red-950/50 px-3 py-2 text-sm text-red-300">{error}</div>}
+      <MobilePanel
+        title="Rental catalogs"
+        /* A search box that filters nothing is absent (patterns.md §7b) — so it
+           appears only once there is a catalog to find. */
+        search={hasAny ? search : undefined}
+        onSearch={hasAny ? onSearch : undefined}
+        searchPlaceholder="Name or price list…"
+        primaryAction={
+          <button
+            aria-label="New catalog"
+            className="flex h-11 w-11 items-center justify-center rounded-md bg-amber-500 text-zinc-950"
+            onClick={onCreate}
+            type="button"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        }
+      >
+        {loading && <p className="px-3 py-3 text-sm text-zinc-400">Loading catalogs…</p>}
+        {!loading && !hasAny && (
+          <p className="px-3 py-3 text-sm text-zinc-400">
+            You have no catalogs yet. Create one, then import a price list into it.
+          </p>
+        )}
+        {!loading && hasAny && summary.visible.length === 0 && (
+          <p className="px-3 py-3 text-sm text-zinc-400">No catalog matches “{search.trim()}”.</p>
+        )}
         {summary.visible.map((inventory) => {
           const events = inventory.eventCount ?? 0
           return (
@@ -383,10 +387,10 @@ function MobileInventoryList({
             />
           )
         })}
-      </div>
+      </MobilePanel>
 
       {drawers}
-    </div>
+    </>
   )
 }
 
@@ -604,8 +608,8 @@ function MobileInventoryDetail({
   onSelectCategory: (id: number | undefined) => void
 }) {
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-3">
+    <>
+      <div className="mb-3 flex flex-none items-center gap-3">
         <Button size="sm" variant="ghost" onClick={onBack}>
           <ArrowLeft className="mr-2 h-4 w-4" />Back
         </Button>
@@ -614,17 +618,6 @@ function MobileInventoryDetail({
           Manage
         </Button>
       </div>
-      <button
-        type="button"
-        onClick={() => onFilterOpenChange(true)}
-        className="flex w-full items-center justify-between gap-2 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-200"
-      >
-        <span className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-zinc-400" />
-          {selectedCategory?.name ?? 'All categories'}
-        </span>
-        <Badge>{items.length}</Badge>
-      </button>
       {/* A list of destinations, not a column of inputs: these rows used to
           carry `border border-zinc-800 bg-zinc-900`, which is the Control role
           (tokens.md §1). */}
@@ -663,7 +656,23 @@ function MobileInventoryDetail({
           )
         })}
       </Sheet>
-      <div className="space-y-1">
+      <MobilePanel
+        title={selectedCategory?.name ?? 'Items'}
+        /* The category filter is this surface's own control, so it arrives through
+           `actions` rather than as a prop the panel would carry for one caller
+           (research.md R1, R8). */
+        actions={
+          <button
+            aria-label="Filter by category"
+            className="flex h-11 items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-900 px-2.5 text-zinc-400"
+            onClick={() => onFilterOpenChange(true)}
+            type="button"
+          >
+            <Filter className="h-4 w-4" />
+            <Badge>{items.length}</Badge>
+          </button>
+        }
+      >
         {items.map((item) => (
           <CondensedListRow
             key={item.id}
@@ -671,8 +680,8 @@ function MobileInventoryDetail({
             subtitle={`${item.category_name ?? ''} · Qty ${item.quantity_available} · ${item.price_ex_vat.toFixed(2)} kr`}
           />
         ))}
-        {items.length === 0 && <p className="px-1 py-2 text-sm text-zinc-500">No items in this category yet.</p>}
-      </div>
-    </div>
+        {items.length === 0 && <p className="px-3 py-3 text-sm text-zinc-500">No items in this category yet.</p>}
+      </MobilePanel>
+    </>
   )
 }

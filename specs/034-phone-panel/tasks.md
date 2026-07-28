@@ -65,13 +65,13 @@ gaps; on a complete patch the strip draws no chevron and does not respond.
 **Independent test**: all nine phone lists render inside one bordered frame; none draws a
 free-standing row card.
 
-- [ ] T025 [US4] `EquipmentTab.tsx` phone branch → `MobilePanel` with `title="Equipment"`, search, `EquipmentStatusRail` as `strip` and its filter state. `!isMobile` untouched (`M4` is 6c).
-- [ ] T026 [US4] `RentalTab.tsx` phone branch → `MobilePanel` with `title="Rental order"`, search, `RentalStatusRail` as `strip`. **Delete the hand-built total row.**
-- [ ] T027 [P] [US4] `pages/Events.tsx` `MobileEvents` → `MobilePanel` with `title="Your events"`, the existing search as the panel's, `New event` as `primaryAction`, and the month headings and today rule as headings inside the frame.
-- [ ] T028 [P] [US4] `pages/Dashboard.tsx` phone branch → `MobilePanel` with `title="Your events"` and `New event` as `primaryAction`. No search — it is a short list.
-- [ ] T029 [P] [US4] `pages/Inventories.tsx` catalog list → `MobilePanel` with `title="Rental catalogs"`, search and `New`.
-- [ ] T030 [US4] `pages/Inventories.tsx` item list → `MobilePanel` with `title="Items"`, search, and the category filter target in `actions` (research R8).
-- [ ] T031 Gates.
+- [X] T025 [US4] `EquipmentTab.tsx` phone branch → `MobilePanel` with `title="Equipment"`, search, `EquipmentStatusRail` as `strip` and its filter state. `!isMobile` untouched (`M4` is 6c).
+- [X] T026 [US4] `RentalTab.tsx` phone branch → `MobilePanel` with `title="Rental order"`, search, `RentalStatusRail` as `strip`. **Delete the hand-built total row.**
+- [X] T027 [P] [US4] `pages/Events.tsx` `MobileEvents` → `MobilePanel` with `title="Your events"`, the existing search as the panel's, `New event` as `primaryAction`, and the month headings and today rule as headings inside the frame.
+- [X] T028 [P] [US4] `pages/Dashboard.tsx` phone branch → `MobilePanel` with `title="Your events"` and `New event` as `primaryAction`. No search — it is a short list.
+- [X] T029 [P] [US4] `pages/Inventories.tsx` catalog list → `MobilePanel` with `title="Rental catalogs"`, search and `New`.
+- [X] T030 [US4] `pages/Inventories.tsx` item list → `MobilePanel` with `title="Items"`, search, and the category filter target in `actions` (research R8).
+- [X] T031 Gates.
 
 ---
 

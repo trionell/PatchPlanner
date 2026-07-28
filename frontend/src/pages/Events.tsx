@@ -12,6 +12,7 @@ import { Badge } from '../components/ui/Badge'
 import { Pill } from '../components/ui/SheetTable'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
+import { MobilePanel } from '../components/ui/MobilePanel'
 import { MicroLabel } from '../components/ui/Label'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { formatEventDates, isoDay } from '../lib/dashboard'
@@ -435,21 +436,23 @@ function MobileEvents({
   )
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <MicroLabel>Your events</MicroLabel>
-        <Button size="sm" onClick={onCreate}>
-          <Plus className="mr-1.5 h-4 w-4" />
-          New event
-        </Button>
-      </div>
-
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-        <Input className="pl-9" placeholder="Find an event…" value={search} onChange={(e) => onSearch(e.target.value)} />
-      </div>
-
-      <div className="space-y-1">
+    <>
+      <MobilePanel
+        title="Your events"
+        search={search}
+        onSearch={onSearch}
+        searchPlaceholder="Find an event…"
+        primaryAction={
+          <button
+            aria-label="New event"
+            className="flex h-11 w-11 items-center justify-center rounded-md bg-amber-500 text-zinc-950"
+            onClick={onCreate}
+            type="button"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        }
+      >
         {timeline.items.map((item, index) => {
           if (item.kind === 'event') {
             const formatted = formatEventDates(item.event)
@@ -471,7 +474,7 @@ function MobileEvents({
           }
           if (item.kind === 'today') {
             return (
-              <div key="today" className="flex items-center gap-2 py-1">
+              <div key="today" className="flex items-center gap-2 bg-zinc-950/30 px-3 pb-1 pt-2.5">
                 <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-amber-500">Today</span>
                 <span className="h-px flex-1 bg-amber-500/45" />
               </div>
@@ -479,7 +482,7 @@ function MobileEvents({
           }
           if (item.kind === 'year') return null
           return (
-            <div key={`${item.anchor}-${index}`} className="flex items-center gap-2 pt-2">
+            <div key={`${item.anchor}-${index}`} className="flex items-center gap-2 bg-zinc-950/30 px-3 pb-1 pt-2.5">
               <MicroLabel>
                 {item.kind === 'month' ? `${item.label} ${item.anchor.slice(2, 6)}` : item.label}
               </MicroLabel>
@@ -487,10 +490,10 @@ function MobileEvents({
             </div>
           )
         })}
-        {timeline.counts.total === 0 && <p className="px-1 py-2 text-sm text-zinc-500">No events yet.</p>}
-      </div>
+        {timeline.counts.total === 0 && <p className="px-3 py-3 text-sm text-zinc-500">No events yet.</p>}
+      </MobilePanel>
 
       {createDrawer}
-    </div>
+    </>
   )
 }

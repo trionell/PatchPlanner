@@ -11,6 +11,7 @@ import { getRentalSummary } from '../api/rentals'
 import { listStagePlots } from '../api/stagePlots'
 import { EventFormDrawer } from '../components/EventFormDrawer'
 import { CondensedListRow } from '../components/mobile/CondensedListRow'
+import { MobilePanel } from '../components/ui/MobilePanel'
 import { RigRibbon, type RibbonNode } from '../components/event/OverviewBands'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
@@ -67,15 +68,22 @@ export function DashboardPage() {
 
   if (isMobile) {
     return (
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <MicroLabel>Your events</MicroLabel>
-          <Button size="sm" onClick={() => setOpen(true)}>
-            <Plus className="mr-1.5 h-4 w-4" />
-            New event
-          </Button>
-        </div>
-        <div className="space-y-1">
+      <>
+        {/* No search: this is the short list, and a search box that has nothing to
+            filter is absent (patterns.md §7b). */}
+        <MobilePanel
+          title="Your events"
+          primaryAction={
+            <button
+              aria-label="New event"
+              className="flex h-11 w-11 items-center justify-center rounded-md bg-amber-500 text-zinc-950"
+              onClick={() => setOpen(true)}
+              type="button"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
+          }
+        >
           {[next, ...upcoming, ...past].filter(Boolean).map((event) => (
             <CondensedListRow
               key={event!.id}
@@ -84,8 +92,8 @@ export function DashboardPage() {
               subtitle={`${event!.venue || 'Venue TBD'} · ${event!.startDate || 'Date not set'}`}
             />
           ))}
-          {totalEvents === 0 && <p className="px-1 py-2 text-sm text-zinc-500">No events yet.</p>}
-        </div>
+          {totalEvents === 0 && <p className="px-3 py-3 text-sm text-zinc-500">No events yet.</p>}
+        </MobilePanel>
         <EventFormDrawer
           open={open}
           onClose={() => setOpen(false)}
@@ -94,7 +102,7 @@ export function DashboardPage() {
           submitting={createMutation.isPending}
           onSubmit={async (values) => createMutation.mutateAsync(values)}
         />
-      </div>
+      </>
     )
   }
 
