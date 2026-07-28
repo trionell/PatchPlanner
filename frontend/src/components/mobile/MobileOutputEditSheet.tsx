@@ -6,10 +6,10 @@ import { toOptionalNumber } from '../../lib/utils'
 import type { AudioPatchOutput, OutputCable, Stagebox } from '../../types'
 import { ColorSelect } from '../event/ColorSelect'
 import { Button } from '../ui/Button'
-import { Dialog } from '../ui/Dialog'
+import { FieldStack } from '../ui/GearList'
 import { Input } from '../ui/Input'
-import { FieldLabel } from '../ui/Label'
 import { Select } from '../ui/Select'
+import { Sheet } from '../ui/Sheet'
 
 /** Output-side mirror of MobileChannelEditSheet — same fields, routing is a single mixer→stagebox hop (research.md R3/mobileOutputList.ts). */
 export function MobileOutputEditSheet({
@@ -93,53 +93,52 @@ export function MobileOutputEditSheet({
   }
 
   return (
-    <Dialog open onClose={onClose} title={output ? `Edit output ${output.output_number}` : 'Add output'}>
-      <div className="space-y-4">
-        {error && <div className="rounded-md border border-red-800 bg-red-950/50 px-3 py-2 text-sm text-red-300">{error}</div>}
-        <div>
-          <FieldLabel>Output name</FieldLabel>
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Monitor 2" autoFocus />
-        </div>
-        <div>
-          <FieldLabel>Channel color</FieldLabel>
-          <ColorSelect eventId={eventId} value={color} onChange={setColor} />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <FieldLabel>Stagebox</FieldLabel>
-            <Select
-              value={stageboxId ?? ''}
-              onChange={(e) => {
-                setStageboxId(toOptionalNumber(e.target.value))
-                setPort(undefined)
-              }}
-            >
-              <option value="">— none —</option>
-              {stageboxes.map((sb) => (
-                <option key={sb.id} value={sb.id}>{sb.name}</option>
+    <Sheet
+      open
+      onClose={onClose}
+      title={output ? `Output ${output.output_number}` : 'Add output'}
+      footer={
+        <Button className="w-full" onClick={handleSave} disabled={saving || !name.trim()}>
+          {saving ? 'Saving…' : 'Save output'}
+        </Button>
+      }
+    >
+      {error && <div className="rounded-md border border-red-800 bg-red-950/50 px-3 py-2 text-sm text-red-300">{error}</div>}
+      <FieldStack label="Output" width="full">
+        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Monitor 2" autoFocus />
+      </FieldStack>
+      <FieldStack label="Tape" width="full">
+        <ColorSelect eventId={eventId} value={color} onChange={setColor} />
+      </FieldStack>
+      {/* One idea, two controls: the box and the socket on it. */}
+      <div className="flex gap-2.5">
+        <FieldStack label="Stagebox" width="grow">
+          <Select
+            value={stageboxId ?? ''}
+            onChange={(e) => {
+              setStageboxId(toOptionalNumber(e.target.value))
+              setPort(undefined)
+            }}
+          >
+            <option value="">— none —</option>
+            {stageboxes.map((sb) => (
+              <option key={sb.id} value={sb.id}>{sb.name}</option>
+            ))}
+          </Select>
+        </FieldStack>
+        <FieldStack label="Out" width="short">
+          <Select value={port ?? ''} onChange={(e) => setPort(toOptionalNumber(e.target.value))} disabled={!selectedStagebox}>
+            <option value="">—</option>
+            {selectedStagebox &&
+              Array.from({ length: selectedStagebox.output_count }, (_, i) => (
+                <option key={i} value={i}>Out {i + 1}</option>
               ))}
-            </Select>
-          </div>
-          <div>
-            <FieldLabel>Output #</FieldLabel>
-            <Select value={port ?? ''} onChange={(e) => setPort(toOptionalNumber(e.target.value))} disabled={!selectedStagebox}>
-              <option value="">—</option>
-              {selectedStagebox &&
-                Array.from({ length: selectedStagebox.output_count }, (_, i) => (
-                  <option key={i} value={i}>Out {i + 1}</option>
-                ))}
-            </Select>
-          </div>
-        </div>
-        <div>
-          <FieldLabel>Notes</FieldLabel>
-          <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
-        </div>
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving || !name.trim()}>{saving ? 'Saving…' : 'Save changes'}</Button>
-        </div>
+          </Select>
+        </FieldStack>
       </div>
-    </Dialog>
+      <FieldStack label="Notes" width="full">
+        <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
+      </FieldStack>
+    </Sheet>
   )
 }

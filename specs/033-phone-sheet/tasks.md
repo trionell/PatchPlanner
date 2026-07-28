@@ -119,20 +119,20 @@ regression in one must not be hidden by the other two.
 
 ### The channel sheet
 
-- [ ] T021 [US1] Replace `Dialog` with `Sheet` in `frontend/src/components/mobile/MobileChannelEditSheet.tsx`, keeping the same `title` expression and passing the confirm as `footer`
-- [ ] T022 [US1] Convert all six fields from `FieldLabel` + control to `FieldStack width="full"` (or `width="grow"` inside the one two-up row), with `Input`/`Select` at `size="md"`. Stagebox and input number stay side by side — they are one idea; everything else stacks (FR-042)
-- [ ] T023 [US1] Move the actions: the footer holds one `Button size="md"` spanning full width, labelled **Save channel** and rendering `Saving…` in place. **Delete the Cancel button** — the close control, the scrim and the back gesture are three ways out already (FR-020–FR-022)
-- [ ] T024 [US1] Keep the inline error block above the fields, and confirm a failed save still leaves every value intact — already true, and the one behaviour the conversion must not lose (FR-006's scenario)
+- [X] T021 [US1] Replace `Dialog` with `Sheet` in `frontend/src/components/mobile/MobileChannelEditSheet.tsx`, keeping the same `title` expression and passing the confirm as `footer`
+- [X] T022 [US1] Convert all six fields from `FieldLabel` + control to `FieldStack width="full"` (or `width="grow"` inside the one two-up row), with `Input`/`Select` at `size="md"`. Stagebox and input number stay side by side — they are one idea; everything else stacks (FR-042)
+- [X] T023 [US1] Move the actions: the footer holds one `Button size="md"` spanning full width, labelled **Save channel** and rendering `Saving…` in place. **Delete the Cancel button** — the close control, the scrim and the back gesture are three ways out already (FR-020–FR-022)
+- [X] T024 [US1] Keep the inline error block above the fields, and confirm a failed save still leaves every value intact — already true, and the one behaviour the conversion must not lose (FR-006's scenario)
 
 ### The output sheet
 
-- [ ] T025 [P] [US1] Apply T021–T024 to `frontend/src/components/mobile/MobileOutputEditSheet.tsx`, with the confirm labelled **Save output**
+- [X] T025 [P] [US1] Apply T021–T024 to `frontend/src/components/mobile/MobileOutputEditSheet.tsx`, with the confirm labelled **Save output**
 
 ### The fixture sheet
 
-- [ ] T026 [P] [US1] Apply T021–T024 to `frontend/src/components/mobile/MobileFixtureEditSheet.tsx`, with the confirm labelled **Save fixture**. Universe and address are the one two-up pair here
-- [ ] T027 [US1] Where any of the three can delete its row, place the delete at the **foot of the body**: `Button variant="ghost" size="md"` tinted `text-red-400`, `self-start`, never in the footer (FR-023). Where a sheet has no delete today, none is added
-- [ ] T028 [US1] Confirm `grep -rho "FieldLabel" frontend/src/components/mobile/` returns nothing, run the gates, then **commit 3**
+- [X] T026 [P] [US1] Apply T021–T024 to `frontend/src/components/mobile/MobileFixtureEditSheet.tsx`, with the confirm labelled **Save fixture**. Universe and address are the one two-up pair here
+- [X] T027 [US1] Where any of the three can delete its row, place the delete at the **foot of the body**: `Button variant="ghost" size="md"` tinted `text-red-400`, `self-start`, never in the footer (FR-023). Where a sheet has no delete today, none is added
+- [X] T028 [US1] Confirm `grep -rho "FieldLabel" frontend/src/components/mobile/` returns nothing, run the gates, then **commit 3**
 
 ---
 
