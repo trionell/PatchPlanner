@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { Plus, Search } from 'lucide-react'
 import { createEvent, listEvents } from '../api/events'
 import { EventFormDialog } from '../components/EventFormDialog'
+import { EventUnfold } from '../components/events/EventUnfold'
 import { TimelineRow } from '../components/events/TimelineRow'
 import { CondensedListRow } from '../components/mobile/CondensedListRow'
 import { Badge } from '../components/ui/Badge'
@@ -42,6 +43,8 @@ export function EventsPage() {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [tense, setTense] = useState<TimelineTense>('all')
+  // One row open at a time (patterns §2). Local UI state, not server state.
+  const [openRow, setOpenRow] = useState<number | null>(null)
   const eventsQuery = useQuery({ queryKey: ['events'], queryFn: listEvents })
 
   const today = isoDay(new Date())
@@ -146,7 +149,8 @@ export function EventsPage() {
           timeline={timeline}
           today={today}
           collisions={collisions}
-          onOpen={(id) => navigate(`/events/${id}`)}
+          openRow={openRow}
+          onToggleRow={(id) => setOpenRow((current) => (current === id ? null : id))}
         />
       )}
 
@@ -168,12 +172,14 @@ function Spine({
   timeline,
   today,
   collisions,
-  onOpen,
+  openRow,
+  onToggleRow,
 }: {
   timeline: ReturnType<typeof buildTimeline>
   today: string
   collisions: CollisionMap
-  onOpen: (id: number) => void
+  openRow: number | null
+  onToggleRow: (id: number) => void
 }) {
   const todayRef = useRef<HTMLDivElement>(null)
   const anchored = useRef(false)
@@ -200,13 +206,15 @@ function Spine({
           const bracedBelow =
             next?.kind === 'event' && collisions.byEventId.get(next.event.id)?.groupId === collision?.groupId
 
+          const isOpen = openRow === item.event.id
           return (
+            <div key={`e-${item.event.id}`}>
             <TimelineRow
-              key={`e-${item.event.id}`}
               event={item.event}
               phase={item.phase}
               isNext={item.isNext}
               today={today}
+              open={isOpen}
               brace={collision ? { above: bracedAbove, below: bracedBelow } : undefined}
               collision={
                 collision && (
@@ -215,8 +223,26 @@ function Spine({
                   </Pill>
                 )
               }
-              onToggle={() => onOpen(item.event.id)}
+              onToggle={() => onToggleRow(item.event.id)}
             />
+            {/* grid-template-rows 0fr -> 1fr is the only technique that
+                animates to a content-determined height without measuring it,
+                and it degrades to an instant open under reduced motion for
+                free — which is the required behaviour (research.md R6).
+                `motion-safe:` is Tailwind's own name for that media query.
+
+                Opening animates; closing is immediate, because the summary
+                unmounts in the same commit and takes its four queries with it.
+                Keeping it mounted to animate the collapse would leave those
+                queries active on every row you had ever looked at, which is a
+                worse trade than an asymmetric 150 ms. */}
+            <div
+              className="grid motion-safe:transition-[grid-template-rows] motion-safe:duration-150"
+              style={{ gridTemplateRows: isOpen ? '1fr' : '0fr' }}
+            >
+              <div className="overflow-hidden">{isOpen && <EventUnfold event={item.event} />}</div>
+            </div>
+            </div>
           )
         }
         if (item.kind === 'today') {

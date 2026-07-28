@@ -151,11 +151,11 @@ that neither was blocked at save.
 **Independent test**: Open a row, confirm the summary matches the event's own tabs, open
 another and confirm the first closes.
 
-- [ ] T041 [US3] Create `frontend/src/components/events/EventUnfold.tsx` — the four existing queries (`audio-patch`, `lighting-rig`, `rental-summary`, `stage-plots`) for one event under their existing cache keys, `enabled` only when open; `eventSummary()` over the results; `RigRibbon` with `pulse` off; the numbers band at 19 px with the span as its first figure; the readiness verdicts; the notes on one line; `Open the show →`. `—` never `0` for an undeclared figure
-- [ ] T042 [US3] Wire it into `frontend/src/pages/Events.tsx` — one open row at a time (`useState<number | null>`), the row above taking `bg-amber-500/[0.04]` and losing its bottom border, the block wearing the 2 px amber left edge
-- [ ] T043 [US3] Add the open transition: a `display: grid` wrapper animating `grid-template-rows` `0fr → 1fr` over 160 ms, content in an `overflow: hidden` child, the whole rule inside `@media (prefers-reduced-motion: no-preference)` ([research.md](research.md) R6). No fade, no slide, no pulse
-- [ ] T044 [US3] Confirm by network inspection that a page of events issues exactly one request until a row is opened, and none when a previously-opened row is reopened (SC-007)
-- [ ] T045 [US3] Run the gates, then **commit 7**
+- [x] T041 [US3] Create `frontend/src/components/events/EventUnfold.tsx` — the four existing queries (`audio-patch`, `lighting-rig`, `rental-summary`, `stage-plots`) for one event under their existing cache keys, `enabled` only when open; `eventSummary()` over the results; `RigRibbon` with `pulse` off; the numbers band at 19 px with the span as its first figure; the readiness verdicts; the notes on one line; `Open the show →`. `—` never `0` for an undeclared figure
+- [x] T042 [US3] Wire it into `frontend/src/pages/Events.tsx` — one open row at a time (`useState<number | null>`), the row above taking `bg-amber-500/[0.04]` and losing its bottom border, the block wearing the 2 px amber left edge
+- [x] T043 [US3] Add the open transition: a `display: grid` wrapper animating `grid-template-rows` `0fr → 1fr` over 160 ms, content in an `overflow: hidden` child, the whole rule inside `@media (prefers-reduced-motion: no-preference)` ([research.md](research.md) R6). No fade, no slide, no pulse
+- [x] T044 [US3] Confirm by network inspection that a page of events issues exactly one request until a row is opened, and none when a previously-opened row is reopened (SC-007)
+- [x] T045 [US3] Run the gates, then **commit 7**
 
 **Checkpoint**: The page answers *which of my next four shows needs work*.
 
