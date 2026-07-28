@@ -3,6 +3,8 @@ import type { Event } from '../../types'
 import { Button } from '../ui/Button'
 import { Drawer } from '../ui/Drawer'
 import { Input } from '../ui/Input'
+import { EventDates } from './EventDates'
+import { dateOrderError } from '../../lib/eventTimeline'
 import { FieldLabel } from '../ui/Label'
 import { Textarea } from '../ui/Textarea'
 
@@ -20,14 +22,23 @@ import { Textarea } from '../ui/Textarea'
  *
  * **Navigation-tier fields inside a work-tier drawer's chrome**, and that is not
  * an inconsistency. The Rig, Buses and Universes drawers hold lists of many
- * things and are dense for it; this one holds four fields. P2 decides density by
- * asking about the surface's job, *not per component*.
+ * things and are dense for it; this one holds a handful of fields. P2 decides
+ * density by asking about the surface's job, *not per component*.
+ *
+ * It was `narrow` until Slice 30 gave an event four dates. A narrow drawer
+ * leaves about 93 px per date field, which will not show `2026-09-17`; folding
+ * the four into two rows would fit and would break the one thing the row is
+ * for, which is that read left to right it reads like the event. The width
+ * follows the content.
  */
 
 export interface EventDraft {
   name: string
   venue: string
-  date: string
+  loadInDate: string
+  startDate: string
+  endDate: string
+  loadOutDate: string
   notes: string
 }
 
@@ -62,19 +73,22 @@ function EventDetailsForm({
   const [draft, setDraft] = useState<EventDraft>({
     name: event.name,
     venue: event.venue ?? '',
-    date: event.date ?? '',
+    loadInDate: event.loadInDate ?? '',
+    startDate: event.startDate ?? '',
+    endDate: event.endDate ?? '',
+    loadOutDate: event.loadOutDate ?? '',
     notes: event.notes ?? '',
   })
 
-  const ready = draft.name.trim().length > 0
+  const dateError = dateOrderError(draft)
+  const ready = draft.name.trim().length > 0 && !dateError
 
   return (
     <Drawer
       open
       onClose={onClose}
       title="Event details"
-      subtitle="Name, venue, date and notes"
-      width="narrow"
+      subtitle="Name, venue, dates and notes"
       footer={<>Renaming an event never changes its patch, its rig or its rental order.</>}
     >
       <div className="flex flex-col gap-3.5">
@@ -86,10 +100,10 @@ function EventDetailsForm({
           <FieldLabel>Venue</FieldLabel>
           <Input value={draft.venue} onChange={(e) => setDraft((prev) => ({ ...prev, venue: e.target.value }))} />
         </div>
-        <div>
-          <FieldLabel>Date</FieldLabel>
-          <Input type="date" value={draft.date} onChange={(e) => setDraft((prev) => ({ ...prev, date: e.target.value }))} />
-        </div>
+        <EventDates
+          values={draft}
+          onChange={(next) => setDraft((prev) => ({ ...prev, ...next }))}
+        />
         <div>
           <FieldLabel>Notes</FieldLabel>
           <Textarea value={draft.notes} onChange={(e) => setDraft((prev) => ({ ...prev, notes: e.target.value }))} />

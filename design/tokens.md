@@ -161,6 +161,15 @@ the edge of vision rather than only on reading:
 Selected row / open editor: `bg-amber-500/[0.04]`. Selected rail row:
 `bg-amber-500/10`. Inline error block: `border-red-800 bg-red-950/50 text-red-300`.
 
+**A collision between two events is amber and a word, never red.** Two shows
+sharing days is a *fact about a plan, not an error in it* — you may be sending a
+colleague, or be a viewer on someone else's file — so it gets the accent's "look
+here" and never the reserved hue. Red stays for destructive actions, over
+capacity, a broken link in a chain and 48 V. The carrier is the word
+(`overlaps` / `on-site clash`) plus a 2 px brace joining the rows; amber is the
+emphasis on top of it, in that order (P4). Nothing about a collision blocks a
+save, warns on one, or asks for confirmation.
+
 ## 6 · Radius, shadow, motion
 
 | Element | Radius |
@@ -186,9 +195,23 @@ out to be about a layout habit rather than a radius.
 
 **Motion.** There is almost none, deliberately: a planning tool that animates while
 a technician is counting channels is in the way. The permitted set is
-`transition-colors` on hover and focus, and the one signal-flow pulse, which is
-always wrapped in `@media (prefers-reduced-motion: no-preference)`. Any new
-animation gets the same wrapper.
+`transition-colors` on hover and focus, the one signal-flow pulse, and the
+timeline's unfold — each always wrapped in
+`@media (prefers-reduced-motion: no-preference)`. Any new animation gets the
+same wrapper.
+
+**The unfold** (Slice 30) grows a row's summary from the row it belongs to:
+`display: grid` transitioning `grid-template-rows` from `0fr` to `1fr` over
+150 ms, content in an `overflow: hidden` child, written with Tailwind's
+`motion-safe:` variant — which *is* that media query. It is the only technique
+that animates to a content-determined height without measuring it in JavaScript,
+and under a reduced-motion preference it degrades to an instant open for free.
+Opening animates and closing does not, because the summary unmounts in the same
+commit and takes its queries with it.
+
+The pulse stays off the Events page. One show pulsing is a hero; twenty-eight
+rows with a light running through each is a Christmas tree, on the one page
+whose whole job is scanning for a date.
 
 The pulse has two implementations and one claim — *a signal travelling a run*:
 

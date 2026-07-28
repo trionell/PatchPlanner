@@ -11,6 +11,7 @@ import { getLightingRig } from '../../api/lighting'
 import { getRentalSummary } from '../../api/rentals'
 import { listPlotTrusses, listStagePlots } from '../../api/stagePlots'
 import { useEventTab } from '../../hooks/useEventTab'
+import { formatEventDates } from '../../lib/dashboard'
 import { eventSummary } from '../../lib/eventSummary'
 import { listEventOwnedEquipment } from '../../api/owned'
 import { Button } from '../ui/Button'
@@ -18,7 +19,7 @@ import { Card } from '../ui/Card'
 import { Dialog } from '../ui/Dialog'
 import { MicroLabel } from '../ui/Label'
 import { EventInventoryBrowser } from './EventInventoryBrowser'
-import { EventDetailsDrawer } from './EventDetailsDrawer'
+import { type EventDraft, EventDetailsDrawer } from './EventDetailsDrawer'
 import { DmxMeter, NumbersBand, ReadinessRow, RigRibbon } from './OverviewBands'
 
 /**
@@ -81,7 +82,7 @@ export function OverviewTab({ eventId, readOnly = false }: { eventId: number; re
   )
 
   const saveEvent = useMutation({
-    mutationFn: (payload: { name: string; venue: string; date: string; notes: string }) => updateEvent(eventId, payload),
+    mutationFn: (payload: EventDraft) => updateEvent(eventId, payload),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['event', eventId] })
       setEditing(false)
@@ -98,7 +99,7 @@ export function OverviewTab({ eventId, readOnly = false }: { eventId: number; re
           <div className="min-w-0">
             <h2 className="text-lg font-semibold text-zinc-100">{event?.name ?? 'Event'}</h2>
             <p className="mt-0.5 text-sm text-zinc-400">
-              {[event?.venue || 'Venue TBD', formatEventDate(event?.date)].filter(Boolean).join(' · ')}
+              {[event?.venue || 'Venue TBD', formatEventDates(event).long ?? 'Date TBD'].filter(Boolean).join(' · ')}
               {summary.dayLabel && <span className="ml-2 text-zinc-500">({summary.dayLabel})</span>}
             </p>
           </div>
@@ -203,10 +204,3 @@ export function OverviewTab({ eventId, readOnly = false }: { eventId: number; re
   )
 }
 
-/** `Saturday 14 August 2026`, or the stored value if it will not parse. */
-function formatEventDate(date?: string): string {
-  if (!date) return 'Date TBD'
-  const parsed = new Date(`${date.slice(0, 10)}T00:00:00`)
-  if (Number.isNaN(parsed.getTime())) return date
-  return parsed.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-}

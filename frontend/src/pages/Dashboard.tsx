@@ -9,7 +9,7 @@ import { getLightingRig } from '../api/lighting'
 import { listOwnedItems } from '../api/owned'
 import { getRentalSummary } from '../api/rentals'
 import { listStagePlots } from '../api/stagePlots'
-import { EventFormDialog } from '../components/EventFormDialog'
+import { EventFormDrawer } from '../components/EventFormDrawer'
 import { CondensedListRow } from '../components/mobile/CondensedListRow'
 import { RigRibbon, type RibbonNode } from '../components/event/OverviewBands'
 import { Badge } from '../components/ui/Badge'
@@ -17,7 +17,7 @@ import { Button } from '../components/ui/Button'
 import { MicroLabel } from '../components/ui/Label'
 import { Pill } from '../components/ui/SheetTable'
 import { useIsMobile } from '../hooks/useIsMobile'
-import { partitionEvents, longDate, shortDate } from '../lib/dashboard'
+import { formatEventDates, partitionEvents, shortDate } from '../lib/dashboard'
 import { eventSummary, type EventSummary, type ReadinessVerdict } from '../lib/eventSummary'
 import type { Event } from '../types'
 
@@ -57,9 +57,13 @@ export function DashboardPage() {
     },
   })
 
-  const { next, upcoming, past } = useMemo(() => partitionEvents(eventsQuery.data), [eventsQuery.data])
+  const { running, next, upcoming, past } = useMemo(() => partitionEvents(eventsQuery.data), [eventsQuery.data])
+  // A show you are standing in outranks one you are counting down to. Before
+  // Slice 30 a multi-day event fell out of every bucket on its second morning
+  // and the page silently moved on to the next one.
+  const hero = running[0] ?? next
   const totalEvents = eventsQuery.data?.length ?? 0
-  const upcomingCount = (next ? 1 : 0) + upcoming.filter((event) => event.date).length
+  const upcomingCount = (next ? 1 : 0) + upcoming.filter((event) => event.startDate).length
 
   if (isMobile) {
     return (
@@ -77,12 +81,12 @@ export function DashboardPage() {
               key={event!.id}
               onClick={() => navigate(`/events/${event!.id}`)}
               title={event!.name}
-              subtitle={`${event!.venue || 'Venue TBD'} · ${event!.date || 'Date not set'}`}
+              subtitle={`${event!.venue || 'Venue TBD'} · ${event!.startDate || 'Date not set'}`}
             />
           ))}
           {totalEvents === 0 && <p className="px-1 py-2 text-sm text-zinc-500">No events yet.</p>}
         </div>
-        <EventFormDialog
+        <EventFormDrawer
           open={open}
           onClose={() => setOpen(false)}
           title="Create event"
@@ -97,15 +101,15 @@ export function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
-        <MicroLabel>{next ? 'Next show' : 'Your events'}</MicroLabel>
+        <MicroLabel>{running.length > 0 ? 'On now' : next ? 'Next show' : 'Your events'}</MicroLabel>
         <Button onClick={() => setOpen(true)}>
           <Plus className="mr-1.5 h-4 w-4" />
           New event
         </Button>
       </div>
 
-      {next ? (
-        <NextShow event={next} />
+      {hero ? (
+        <NextShow event={hero} />
       ) : (
         <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-5 py-8 text-center">
           <p className="text-sm text-zinc-400">
@@ -128,7 +132,7 @@ export function DashboardPage() {
         <span className="font-mono tabular-nums text-zinc-500">{ownedQuery.data?.length ?? 0} owned items</span>
       </div>
 
-      <EventFormDialog
+      <EventFormDrawer
         open={open}
         onClose={() => setOpen(false)}
         title="Create event"
@@ -189,14 +193,21 @@ function NextShow({ event }: { event: Event }) {
             {event.name}
           </Link>
           <p className="mt-0.5 text-sm text-zinc-400">
-            {[event.venue || 'Venue TBD', longDate(event.date)].filter(Boolean).join(' · ')}
+            {[event.venue || 'Venue TBD', formatEventDates(event).long].filter(Boolean).join(' · ')}
           </p>
         </div>
         <div className="shrink-0 text-right">
           <div className="font-mono text-3xl font-semibold leading-none tabular-nums text-amber-500">
-            {summary.daysToLoadIn != null ? Math.abs(summary.daysToLoadIn) : '—'}
+            {summary.runningDay ?? (summary.daysToLoadIn != null ? Math.abs(summary.daysToLoadIn) : '—')}
           </div>
-          <MicroLabel className="mt-1 block">days to load-in</MicroLabel>
+          {/* The figure counts to load-in until the run starts, and then counts
+              through it. The label follows the figure rather than the figure
+              being explained away. */}
+          <MicroLabel className="mt-1 block">
+            {summary.runningDay != null && summary.showDays != null && summary.showDays > 1
+              ? `day of ${summary.showDays}`
+              : 'days to load-in'}
+          </MicroLabel>
         </div>
       </div>
 
@@ -283,7 +294,7 @@ function EventRows({ label, events, past }: { label: string; events: Event[]; pa
           <span
             className={`w-[4.5rem] shrink-0 font-mono text-xs tabular-nums ${past ? 'text-zinc-600' : 'text-zinc-400'}`}
           >
-            {shortDate(event.date) ?? <span className="text-zinc-600">no date</span>}
+            {shortDate(event.startDate) ?? <span className="text-zinc-600">no date</span>}
           </span>
           <span className={`w-60 shrink-0 truncate ${past ? 'text-zinc-400' : 'font-medium text-zinc-100'}`}>
             {event.name}

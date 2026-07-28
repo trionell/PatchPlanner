@@ -1,0 +1,1941 @@
+<!--
+  PatchPlanner — Slice 30: the Events page. Redesign mockup.
+
+  For approval before the spec is written. Events is the last surface still
+  drawn as a grid of cards. Wave 5 looked at it, invoked P1's exception for a
+  list of genuinely independent objects, gave it a search field and moved on —
+  and that was the right call about the *frame* and the wrong call about the
+  *page*, because it never asked what the page is for.
+
+  The file is an HTML *fragment*: the Artifact publisher wraps it in
+  doctype/head/body, so there are deliberately no <html>, <head> or <body> tags.
+
+  Specimen CSS is shared with specs/029-pages-and-residue/mockup.html, which
+  shares it with specs/028-event-tabs/mockup.html, which lifted it from
+  design/design-language.html. Everything below the WAVE 5 block is new here.
+-->
+
+<title>Slice 30 — the Events page</title>
+
+<style>
+  /* ==================================================================
+     DOCUMENT CHROME — theme-aware, tokens only.
+     ================================================================== */
+  :root {
+    --ground: #f2f2f4;
+    --raised: #ffffff;
+    --sunken: #e8e8ec;
+    --rule: #d7d7de;
+    --rule-soft: #e4e4ea;
+    --ink: #16171b;
+    --ink-2: #43444d;
+    --muted: #6c6d78;
+    --faint: #90919c;
+    --amber: #b45309;
+    --keep: #0e7490;
+    --drop: #9f1239;
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --measure: 68ch;
+    --wrap: 1180px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0a0b0d;
+      --raised: #14151a;
+      --sunken: #101014;
+      --rule: #26272e;
+      --rule-soft: #1d1e24;
+      --ink: #f2f2f4;
+      --ink-2: #b6b7c0;
+      --muted: #8b8c96;
+      --faint: #62636d;
+      --amber: #f59e0b;
+      --keep: #22d3ee;
+      --drop: #fb7185;
+    }
+  }
+
+  :root[data-theme="light"] {
+    --ground: #f2f2f4; --raised: #ffffff; --sunken: #e8e8ec;
+    --rule: #d7d7de; --rule-soft: #e4e4ea;
+    --ink: #16171b; --ink-2: #43444d; --muted: #6c6d78; --faint: #90919c;
+    --amber: #b45309; --keep: #0e7490; --drop: #9f1239;
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0a0b0d; --raised: #14151a; --sunken: #101014;
+    --rule: #26272e; --rule-soft: #1d1e24;
+    --ink: #f2f2f4; --ink-2: #b6b7c0; --muted: #8b8c96; --faint: #62636d;
+    --amber: #f59e0b; --keep: #22d3ee; --drop: #fb7185;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px 110px; }
+
+  h1, h2, h3 { margin: 0; font-family: var(--mono); font-weight: 500; }
+  h1 {
+    font-size: clamp(28px, 4.4vw, 46px);
+    line-height: 1.04; letter-spacing: -0.035em; text-wrap: balance;
+  }
+  h2 {
+    font-size: clamp(19px, 2.3vw, 25px);
+    letter-spacing: -0.02em; text-wrap: balance;
+  }
+  h3 { font-size: 14px; letter-spacing: 0.02em; color: var(--ink-2); }
+
+  p { margin: 0; max-width: var(--measure); }
+  a { color: inherit; }
+
+  .head {
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 68px 0 30px; border-bottom: 1px solid var(--rule);
+  }
+  .head__eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--amber);
+  }
+  .head__lede { font-size: 18px; color: var(--ink-2); line-height: 1.5; }
+
+  section { display: flex; flex-direction: column; gap: 22px; padding: 56px 0 0; }
+  .sec__no {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  .sec__hd { display: flex; flex-direction: column; gap: 8px; }
+  .prose { display: flex; flex-direction: column; gap: 13px; color: var(--ink-2); font-size: 15.5px; }
+  .prose strong { color: var(--ink); font-weight: 600; }
+  .prose code {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  .spec { display: flex; flex-direction: column; gap: 9px; }
+  .spec__frame {
+    overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px;
+    background: #09090b; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  }
+  .spec__cap {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-left: 2px;
+  }
+  .spec__cap b { color: var(--ink-2); font-weight: 500; }
+
+  .led { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .led__row {
+    display: grid; grid-template-columns: 132px minmax(0, 1fr);
+    gap: 18px; padding: 15px 2px; border-bottom: 1px solid var(--rule-soft);
+    align-items: start;
+  }
+  .led__k {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-top: 3px;
+  }
+  .led__v { font-size: 15px; color: var(--ink-2); line-height: 1.5; }
+  .led__v b { color: var(--ink); font-weight: 600; }
+  .led__v em { font-style: normal; color: var(--faint); }
+  .led__v code {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  .tag {
+    display: inline-block; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase; padding: 1px 6px;
+    border-radius: 4px; vertical-align: 2px; margin-left: 7px;
+  }
+  .tag--keep { color: var(--keep); border: 1px solid currentColor; }
+  .tag--drop { color: var(--drop); border: 1px solid currentColor; }
+  .tag--new { color: var(--amber); border: 1px solid currentColor; }
+
+  .ask {
+    border: 1px solid var(--rule); border-left: 3px solid var(--amber);
+    border-radius: 0 8px 8px 0; padding: 16px 18px; background: var(--raised);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .ask h3 { color: var(--ink); }
+  .ask p { font-size: 15px; color: var(--ink-2); max-width: none; }
+
+  @media (max-width: 720px) {
+    .led__row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  }
+
+  /* ==================================================================
+     SPECIMENS
+     ================================================================== */
+  .app {
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 14px; line-height: 1.45;
+    color: #f4f4f5; background: #09090b;
+    padding: 16px; min-width: 1040px;
+  }
+  .app--tight { padding: 16px; min-width: 0; }
+  .app *, .app *::before, .app *::after { box-sizing: border-box; }
+
+  .pan { border: 1px solid #3f3f46; border-radius: 12px; background: rgba(9, 9, 11, 0.4); overflow: hidden; }
+  .pan__bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    border-bottom: 1px solid #27272a; padding: 10px 12px;
+  }
+  .pan__ti { font-size: 14px; font-weight: 600; color: #f4f4f5; margin-right: 4px; }
+  .grow { flex: 1; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 28px; padding: 0 10px; border: 1px solid transparent; border-radius: 6px;
+    font-size: 12px; font-weight: 500; white-space: nowrap; font-family: inherit;
+  }
+  .btn--primary { background: #f59e0b; border-color: #f59e0b; color: #09090b; }
+  .btn--outline { background: #18181b; border-color: #3f3f46; color: #f4f4f5; }
+  .btn--ghost { background: transparent; color: #f4f4f5; }
+  .btn--sm { height: 24px; padding: 0 8px; font-size: 11px; }
+  .btn--md { height: 40px; padding: 0 16px; font-size: 14px; }
+  .btn--danger-ghost { background: transparent; color: #f87171; }
+
+  .fld {
+    height: 32px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b;
+    display: inline-flex; align-items: center; padding: 0 8px;
+    font-size: 12px; color: #e4e4e7; min-width: 0;
+  }
+  .fld--ph { color: #71717a; }
+  .fld--sel::after { content: "▾"; margin-left: auto; padding-left: 8px; color: #71717a; font-size: 10px; }
+  .fld--srch { position: relative; padding-left: 26px; min-width: 190px; max-width: 260px; flex: 1; }
+  .fld--srch svg { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); }
+  .fld--foc { border-color: #f59e0b; }
+
+  .lbl {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #71717a; font-weight: 500;
+  }
+
+  .pill {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 1px 6px; font-size: 10px; font-weight: 500; white-space: nowrap;
+  }
+  .t-ok   { background: rgba(52, 211, 153, 0.15); color: #6ee7b7; }
+  .t-warn { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
+  .t-err  { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+  .t-def  { background: #3f3f46; color: #f4f4f5; }
+
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  .sheet { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .sheet th {
+    text-align: left; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.14em; text-transform: uppercase; color: #71717a; font-weight: 500;
+    padding: 6px 8px; background: rgba(9, 9, 11, 0.6);
+    border-bottom: 1px solid #27272a; white-space: nowrap;
+  }
+  .sheet td { padding: 4px 8px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); vertical-align: middle; color: #e4e4e7; }
+  .sheet tr.alt td { background: rgba(255, 255, 255, 0.014); }
+  .sheet td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #a1a1aa; }
+  .sheet tr.open td { background: rgba(245, 158, 11, 0.04); border-bottom-color: transparent; }
+  .sheet tr.eds td { background: rgba(245, 158, 11, 0.04); padding: 0 8px 10px; }
+  .sheet .nm { color: #fafafa; white-space: nowrap; }
+  .sheet .qt { color: #71717a; }
+  .sheet .none { color: #52525b; }
+  .sheet .desc { color: #71717a; max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .shr {
+    font-family: var(--mono); font-size: 10px; color: #a1a1aa; background: #27272a;
+    border-radius: 3px; padding: 0 4px; margin-left: 5px;
+  }
+
+  .rowed {
+    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px;
+    border-left: 2px solid #f59e0b; border-radius: 0 6px 6px 0;
+    background: rgba(245, 158, 11, 0.05); padding: 10px 12px;
+  }
+  .rowed__f { display: flex; flex-direction: column; gap: 4px; }
+  .rowed__f .fld { width: 160px; }
+  .rowed__f--count .fld { width: 80px; }
+  .rowed__f--short .fld { width: 112px; }
+  .rowed__f--grow { flex: 1; min-width: 170px; }
+  .rowed__f--grow .fld { width: 100%; }
+  .rowed__acts { display: flex; align-items: flex-end; gap: 8px; margin-left: auto; }
+  .rowed__keys { font-size: 11px; color: #71717a; padding: 6px 12px 0; }
+  .rowed__keys kbd {
+    font-family: var(--mono); font-size: 10px; border: 1px solid #3f3f46;
+    border-radius: 4px; padding: 0 4px; color: #a1a1aa;
+  }
+  .notice {
+    width: 100%; border: 1px solid #27272a; background: rgba(9, 9, 11, 0.6);
+    border-radius: 5px; padding: 8px 10px; margin-top: 2px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    font-size: 12px; color: #a1a1aa;
+  }
+
+  .strip {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
+    padding: 8px 12px; border-top: 1px solid #27272a;
+    background: rgba(9, 9, 11, 0.6); font-size: 11px; color: #a1a1aa;
+  }
+  .strip .mono { color: #e4e4e7; }
+  .strip .q { color: #71717a; }
+
+  /* -- before reproductions -- */
+  .old { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .old th {
+    text-align: left; font-size: 14px; font-weight: 500; color: #a1a1aa;
+    padding: 12px; border-bottom: 1px solid #27272a; white-space: nowrap;
+  }
+  .old td { padding: 12px; vertical-align: top; color: #e4e4e7; border-bottom: 1px solid #27272a; }
+  .old tr.odd td { background: #18181b; }
+  .old tr.even td { background: #1f2028; }
+  .old .nm { font-weight: 500; color: #fafafa; white-space: nowrap; }
+
+  .ncard { border: 1px solid #3f3f46; border-radius: 12px; background: #18181b; overflow: hidden; }
+  .ncard__hd {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 16px 20px; border-bottom: 1px solid #27272a;
+  }
+  .ncard__hd h4 { margin: 0; font-size: 18px; font-weight: 600; color: #fafafa; font-family: inherit; }
+  .ncard__hd p { margin: 4px 0 0; font-size: 14px; color: #a1a1aa; max-width: none; }
+  .ncard__bd { padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+
+  .nfld {
+    height: 40px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b;
+    display: flex; align-items: center; padding: 0 12px; font-size: 14px; color: #e4e4e7;
+  }
+  .nfld--ph { color: #71717a; }
+  .nlbl { display: block; font-size: 12px; color: #d4d4d8; margin-bottom: 6px; }
+
+  .badge {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 2px 10px; font-size: 12px; font-weight: 500; white-space: nowrap;
+  }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+
+  /* ==================================================================
+     ADDITIONS FOR WAVE 5 — the rail column, the stats row, the
+     navigation-tier list row.
+     ================================================================== */
+  .cols { display: flex; align-items: stretch; }
+  .rail { width: 232px; flex: none; border-right: 1px solid #27272a; padding: 8px 6px; display: flex; flex-direction: column; gap: 1px; }
+  .rail__row {
+    display: flex; align-items: center; gap: 8px; border-radius: 6px;
+    padding: 4px 8px; font-size: 12px; color: #d4d4d8; cursor: default;
+  }
+  .rail__row--on { background: rgba(245, 158, 11, 0.1); color: #fcd34d; }
+  .rail__row .ty { color: #52525b; font-size: 11px; }
+  .rail__row .ct { margin-left: auto; font-family: var(--mono); font-size: 10px; color: #71717a; }
+  .colmain { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+  .stats { display: flex; border: 1px solid #3f3f46; border-radius: 12px; background: #1f2028; overflow: hidden; }
+  .stats > div { flex: 1; padding: 14px 20px; border-left: 1px solid #27272a; }
+  .stats > div:first-child { border-left: 0; }
+  .stats .l { font-size: 14px; color: #a1a1aa; }
+  .stats .v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 24px; font-weight: 600; color: #fafafa; margin-top: 2px; }
+
+  .lrow {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    border: 1px solid #27272a; border-radius: 6px; background: #1f2028; padding: 10px 16px;
+  }
+  .lrow .t { font-weight: 500; color: #f4f4f5; }
+  .lrow .s { font-size: 14px; color: #a1a1aa; }
+
+  .oldtile { border: 1px solid #27272a; border-radius: 8px; background: #1f2028; padding: 18px 20px; }
+  .oldtile .l { font-size: 14px; color: #a1a1aa; }
+  .oldtile .v { font-size: 30px; font-weight: 600; color: #fafafa; }
+
+  .q { color: #52525b; }
+
+  /* -- the dashboard hero: the next show, bordered the way the desk is -- */
+  .hero { border: 1px solid rgba(245, 158, 11, 0.55); border-radius: 12px; background: rgba(9, 9, 11, 0.4); overflow: hidden; }
+  .hero__hd { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 16px 20px 0; }
+  .hero__ti { font-size: 20px; font-weight: 600; color: #fafafa; }
+  .hero__sub { font-size: 14px; color: #a1a1aa; margin-top: 2px; }
+  .hero__cd { text-align: right; flex: none; }
+  .hero__cd .v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 30px; font-weight: 600; color: #f59e0b; line-height: 1; }
+  .hero__cd .l { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #71717a; margin-top: 4px; }
+  .hero__ft {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
+    padding: 10px 20px; border-top: 1px solid #27272a; background: rgba(9, 9, 11, 0.6);
+  }
+
+  .nums { display: flex; flex-wrap: wrap; }
+  .nums > div { flex: 1; min-width: 118px; padding: 4px 20px; border-left: 1px solid #27272a; }
+  .nums > div:first-child { border-left: 0; padding-left: 0; }
+  .nums .v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 22px; font-weight: 600; color: #fafafa; line-height: 1.1; }
+  .nums .v small { font-size: 13px; font-weight: 500; color: #71717a; margin-left: 2px; }
+  .nums .l { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #71717a; margin-top: 5px; }
+
+  /* the rig in one line — the flow canvas's own encoding, one row high */
+  .rib { display: flex; align-items: center; gap: 8px; }
+  .node {
+    border: 1px solid #3f3f46; border-radius: 7px; background: #1f2028;
+    padding: 3px 9px; display: inline-flex; flex-direction: column;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+  .node--desk { border-color: rgba(245, 158, 11, 0.55); }
+  .node .n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #fafafa; font-size: 12px; line-height: 1.3; }
+  .node .k { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: #71717a; }
+  .run { position: relative; flex: 1; min-width: 26px; height: 2px; border-radius: 2px; background: #3f3f46; }
+
+  /* the one sanctioned animation, in the wrapper tokens.md requires */
+  @keyframes pp-travel-x {
+    0% { left: 0; opacity: 0; }
+    12% { opacity: 1; }
+    88% { opacity: 1; }
+    100% { left: 100%; opacity: 0; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .run::after {
+      content: ""; position: absolute; top: -2px; margin-left: -3px;
+      width: 6px; height: 6px; border-radius: 999px; background: #f59e0b;
+      filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.9));
+      animation: pp-travel-x 3.6s ease-in-out infinite;
+      animation-delay: var(--d, 0s);
+    }
+  }
+
+  .ready { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+  .ready span.a { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #71717a; }
+  .ready span.a b {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #52525b; font-weight: 500;
+  }
+
+  /* the dated lists: a labelled rule instead of a card header */
+  .tlhd { display: flex; align-items: center; gap: 12px; padding: 0 0 6px; }
+  .tlhd .rule { flex: 1; height: 1px; background: #27272a; }
+  .tlhd .ct { font-family: var(--mono); font-size: 10px; color: #52525b; }
+  .tlrow {
+    display: flex; align-items: center; gap: 16px; padding: 9px 12px;
+    border-bottom: 1px solid rgba(39, 39, 42, 0.6); font-size: 14px;
+  }
+  .tlrow--on { background: #18181b; }
+  .tlrow .d { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: #a1a1aa; width: 76px; flex: none; }
+  .tlrow .n { color: #f4f4f5; font-weight: 500; width: 240px; flex: none; }
+  .tlrow .v { color: #71717a; flex: 1; }
+  .tlrow--past .n { color: #a1a1aa; font-weight: 400; }
+  .tlrow--past .d { color: #52525b; }
+
+  .tally {
+    display: flex; flex-wrap: wrap; gap: 8px 20px; font-family: var(--mono);
+    font-size: 11px; color: var(--faint); padding-left: 2px;
+  }
+  .tally b { color: var(--ink-2); font-weight: 500; }
+
+  .radius { width: 100%; border-collapse: collapse; font-size: 15px; }
+  .radius th {
+    text-align: left; font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); font-weight: 500;
+    padding: 8px 12px 8px 2px; border-bottom: 1px solid var(--rule);
+  }
+  .radius td { padding: 10px 12px 10px 2px; border-bottom: 1px solid var(--rule-soft); color: var(--ink-2); vertical-align: top; }
+  .radius code {
+    font-family: var(--mono); font-size: 0.85em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+  .radius .w { color: var(--drop); }
+  .radius .r { color: var(--keep); }
+
+  /* ==================================================================
+     ADDITIONS FOR SLICE 30 — the year track, the spine, spans and
+     clashes, the unfold, and the card grid being replaced.
+     ================================================================== */
+
+  /* -- before: the card grid, reproduced at its real values -- */
+  .ogrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .ocard {
+    border: 1px solid #3f3f46; border-radius: 12px; background: #1f2028;
+    padding: 20px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .ocard__hd { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+  .ocard h4 { margin: 0; font-family: inherit; font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .ocard .ven { font-size: 14px; color: #a1a1aa; margin-top: 2px; }
+  .ocard .dt { font-size: 14px; color: #d4d4d8; }
+  .ocard .nt { font-size: 14px; color: #71717a; }
+
+  /* -- the year track: every event drawn, positioned by date, sized by span -- */
+  .yt {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 8px 12px; border-bottom: 1px solid #27272a; background: rgba(9, 9, 11, 0.6);
+  }
+  .yt__nav { display: flex; align-items: center; gap: 7px; flex: none; }
+  .yt__nav .yr {
+    font-family: var(--mono); font-variant-numeric: tabular-nums;
+    font-size: 12px; color: #e4e4e7; letter-spacing: 0.04em;
+  }
+  .yt__nav .arw { font-family: var(--mono); font-size: 12px; color: #3f3f46; width: 12px; text-align: center; }
+  .yt__nav .arw--on { color: #a1a1aa; }
+
+  .yt__tk { flex: 1; min-width: 420px; }
+  .yt__ln { position: relative; height: 15px; }
+  .yt__gr { position: absolute; inset: 0; display: flex; }
+  .yt__gr i { flex: 1; border-left: 1px solid #1a1a1f; }
+  .yt__gr i:first-child { border-left: 0; }
+  .yt__e {
+    position: absolute; height: 5px; min-width: 3px;
+    border-radius: 2px; background: #52525b;
+  }
+  .yt__e--l1 { top: 1px; }
+  .yt__e--l2 { top: 9px; }
+  .yt__e--past { background: #3f3f46; }
+  .yt__e--now { background: #f59e0b; }
+  .yt__now { position: absolute; top: -2px; bottom: -2px; width: 1px; background: rgba(245, 158, 11, 0.6); }
+  .yt__ms { display: flex; margin-top: 4px; }
+  .yt__ms span {
+    flex: 1; text-align: center; font-family: var(--mono); font-size: 9px;
+    letter-spacing: 0.08em; text-transform: uppercase; color: #52525b;
+  }
+  .yt__ms span.on { color: #fcd34d; }
+  .yt__ct { flex: none; font-family: var(--mono); font-size: 10px; color: #52525b; }
+
+  /* -- the spine: a date gutter with a rule down it -- */
+  .tlm { display: flex; align-items: center; gap: 10px; padding: 9px 12px 3px; }
+  .tlm__k {
+    width: 84px; flex: none; text-align: right; padding-right: 12px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #71717a;
+  }
+  .tlm__r { flex: 1; height: 1px; background: #27272a; }
+  .tlm__c { font-family: var(--mono); font-size: 10px; color: #52525b; }
+
+  .tly { display: flex; align-items: center; gap: 10px; padding: 15px 12px 2px; }
+  .tly__n {
+    width: 84px; flex: none; text-align: right; padding-right: 10px;
+    font-family: var(--mono); font-variant-numeric: tabular-nums;
+    font-size: 26px; font-weight: 600; line-height: 1; color: #27272a;
+  }
+
+  .er { display: flex; align-items: stretch; }
+  .er__g {
+    width: 84px; flex: none; text-align: right; padding: 8px 12px 8px 0;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
+  }
+  .er__d {
+    font-family: var(--mono); font-variant-numeric: tabular-nums;
+    font-size: 15px; line-height: 1.1; color: #d4d4d8;
+  }
+  .er__w { font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: #52525b; }
+  .er__b {
+    position: relative; flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px;
+    border-left: 1px solid #27272a; border-bottom: 1px solid rgba(39, 39, 42, 0.6);
+    padding: 10px 12px 10px 20px;
+  }
+  /* one day: a dot on the spine */
+  .er__dot {
+    position: absolute; left: -3.5px; top: 50%; margin-top: -3.5px;
+    width: 7px; height: 7px; border-radius: 999px;
+    background: #09090b; border: 1px solid #52525b;
+  }
+  /* several days: a capsule. Shape carries the span, not colour (P5). */
+  .er__dot--span { height: 24px; margin-top: -12px; border-radius: 4px; }
+  /* the capsule is the on-site span; the fill inside it is the show days */
+  .er__dot--span i { position: absolute; left: 0; right: 0; background: #52525b; border-radius: 2px; }
+  .osite {
+    font-family: var(--mono); font-size: 10px; color: #a1a1aa;
+    background: #27272a; border-radius: 3px; padding: 1px 5px; white-space: nowrap;
+  }
+  .er__n { font-size: 14px; font-weight: 500; color: #fafafa; min-width: 0; }
+  .er__v { font-size: 14px; color: #71717a; flex: 1; min-width: 0; }
+  .er__c {
+    font-family: var(--mono); font-variant-numeric: tabular-nums;
+    font-size: 11px; color: #71717a; flex: none;
+  }
+  .er__x { font-size: 11px; color: #3f3f46; flex: none; width: 8px; }
+
+  .er--hov .er__b { background: #18181b; }
+  .er--next .er__dot { background: #f59e0b; border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15); }
+  .er--next .er__c { color: #fcd34d; }
+  .er--run .er__dot { background: #f59e0b; border-color: #f59e0b; }
+  .er--past .er__n { font-weight: 400; color: #a1a1aa; }
+  .er--past .er__d { color: #71717a; }
+  .er--past .er__w, .er--past .er__v, .er--past .er__c { color: #52525b; }
+  .er--past .er__dot { border-color: #3f3f46; }
+  .er--open .er__b { background: rgba(245, 158, 11, 0.04); border-bottom-color: transparent; }
+  .er--open .er__dot { background: #f59e0b; border-color: #f59e0b; }
+  .er--none .er__d { color: #52525b; font-size: 12px; }
+  /* a filled capsule would hide the show/on-site distinction — fill the inner bar instead */
+  .er--run .er__dot--span, .er--next .er__dot--span, .er--open .er__dot--span {
+    background: #09090b; border-color: #f59e0b;
+  }
+  .er--run .er__dot--span i, .er--next .er__dot--span i, .er--open .er__dot--span i { background: #f59e0b; }
+  .er--past .er__dot--span i { background: #3f3f46; }
+
+  /* two events sharing days: a brace in the gutter, and the word */
+  .clash { position: relative; }
+  .clash::before {
+    content: ""; position: absolute; left: 68px; top: 9px; bottom: 9px;
+    width: 2px; border-radius: 2px; background: rgba(245, 158, 11, 0.45);
+  }
+
+  /* today, cutting the spine */
+  .now { display: flex; align-items: center; }
+  .now__k {
+    width: 84px; flex: none; text-align: right; padding-right: 12px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #f59e0b;
+  }
+  .now__b { flex: 1; height: 1px; background: rgba(245, 158, 11, 0.45); }
+
+  /* -- the unfold: the show opens into its own picture -- */
+  .unf { display: flex; align-items: stretch; }
+  .unf__g { width: 84px; flex: none; }
+  .unf__b {
+    flex: 1; min-width: 0; border-left: 2px solid #f59e0b;
+    background: rgba(245, 158, 11, 0.04);
+    border-bottom: 1px solid rgba(39, 39, 42, 0.6);
+  }
+  .unf__rib { padding: 12px 16px 14px; }
+  .unf__ft {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
+    padding: 8px 16px 10px;
+  }
+  .unf .nums { border-top: 1px solid #27272a; border-bottom: 1px solid #27272a; background: rgba(9, 9, 11, 0.5); }
+  .unf .nums > div { padding: 8px 16px; }
+  .unf .nums > div:first-child { padding-left: 16px; }
+  .unf .nums .v { font-size: 19px; }
+
+  /* the shared CSS animates every .run; the unfold’s ribbon is explicitly not the hero */
+  .unf .run::after { content: none; }
+
+  .lnk { font-size: 12px; color: #a1a1aa; }
+
+  /* -- the empty state -- */
+  .empty {
+    border: 1px dashed #3f3f46; border-radius: 12px; margin: 16px 12px;
+    padding: 26px; text-align: center; display: flex; flex-direction: column;
+    align-items: center; gap: 12px;
+  }
+  .empty p { font-size: 14px; color: #a1a1aa; max-width: none; }
+
+  .trough { display: inline-flex; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; padding: 2px; gap: 2px; }
+
+  /* -- the four dates, drawn as one object -- */
+  .frm { padding: 16px; }
+  .dgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .dgrid .nfld { font-size: 13px; padding: 0 10px; }
+  .dgrid .nlbl { margin-bottom: 5px; }
+  .dgrid .nfld--ph { color: #52525b; font-size: 12px; }
+  .dspan { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 6px; }
+  .brk { position: relative; height: 15px; }
+  .brk::before {
+    content: ""; position: absolute; left: 6px; right: 6px; top: 7px;
+    border-top: 1px solid #3f3f46;
+  }
+  .brk::after {
+    content: ""; position: absolute; left: 6px; right: 6px; top: 3px; height: 5px;
+    border-left: 1px solid #3f3f46; border-right: 1px solid #3f3f46;
+  }
+  .brk b {
+    position: relative; display: block; width: fit-content; margin: 0 auto;
+    background: #18181b; padding: 0 8px; font-family: var(--mono); font-size: 10px;
+    font-weight: 500; letter-spacing: 0.06em; color: #a1a1aa;
+  }
+  .frm__hint { margin-top: 12px; font-size: 12px; color: #71717a; }
+
+  @media (max-width: 720px) {
+    .ogrid { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="head">
+    <span class="head__eyebrow">Slice 30 · mockup for approval · revision 3</span>
+    <h1>Your events are a season, not a shelf</h1>
+    <p class="head__lede">
+      Events is the last surface still drawn as a grid of cards, and Wave 5 left it that
+      way on purpose: P1 exempts a list of genuinely independent objects, so the grid was
+      not a violation. That settled the frame and never asked what the page is
+      <em>for</em>. It is for finding one show among a hundred — the one in three weeks
+      you have not patched yet, or last August’s file for the festival that just booked
+      you again. A grid of identical boxes in creation order answers neither. A dated
+      spine answers both.
+    </p>
+    <p class="head__lede">
+      Drawing that spine turned up something the application has quietly assumed since its
+      first migration: <strong>an event is one day</strong>. It has one <code>date</code>
+      column, the dashboard counts down to a load-in it has no record of, and a festival
+      that runs Friday to Sunday with a Thursday rig has to be entered as Friday and
+      remembered as four. This revision fixes that — a timeline is exactly the surface
+      where the assumption stops being survivable. And once events have length, two of them
+      can collide on days no calendar entry mentions, so this page has to say when they do.
+    </p>
+  </header>
+
+  <!-- ==================================================================
+       00 · WHAT CHANGED
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">00 · revision 3</span>
+      <h2>What changed</h2>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">Settled</div>
+        <div class="led__v">
+          <b>All</b> is the default view, with the toggle as drawn. <b>The unfold stays.</b>
+          <b>The season strip stays</b> — and is rebuilt, below.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">The cap is gone<span class="tag tag--new">changed</span></div>
+        <div class="led__v">
+          Revision 1 drew one bar per month, height stepped by count, capped at four. The
+          strip is now a <b>year track</b>: every event drawn individually, positioned by
+          its date, sized by its span. Nothing is aggregated, so nothing is capped.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Events have length<span class="tag tag--new">new</span></div>
+        <div class="led__v">
+          <b>Three new nullable columns</b> — <code>load_in_date</code>,
+          <code>end_date</code>, <code>load_out_date</code> — around the
+          <code>date</code> that has been there since migration 001. Every null derives
+          from its neighbour, so a row with only a <code>date</code> is a one-day event
+          you arrive at and leave on the day. That is every event that exists today.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Load-in is a date<span class="tag tag--new">new</span></div>
+        <div class="led__v">
+          Revision 2 asked whether a range was enough and proposed renaming <em>days to
+          load-in</em> to something truthful. The answer was that load-in genuinely falls
+          on another day, so the label stays and <b>the data catches up to it</b>. This
+          also turns out to be the thing that makes clash detection correct — see §05.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Events can collide<span class="tag tag--new">new</span></div>
+        <div class="led__v">
+          Two events sharing a day are <b>braced together in the gutter</b> and each carries
+          the word. Amber, as decided. Derived from the <em>on-site</em> span, never stored,
+          and never blocked.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Time runs downward<span class="tag tag--new">changed</span></div>
+        <div class="led__v">
+          Revision 1 put the future above the today rule ascending and the past below it
+          descending, so the two nearest events sat at opposite ends of the page. The
+          spine is now <b>strictly chronological, oldest at the top</b>. Reading down is
+          moving forward. It is also what makes an event that is <em>running right now</em>
+          land exactly on the rule instead of needing a special case.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Backend<span class="tag tag--drop">no longer nil</span></div>
+        <div class="led__v">
+          Revision 1 promised no backend change. Dates cost one migration, three fields
+          and one ordering rule. Everything else on this page is still derived in the
+          browser.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       01 · THE JOB
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">01 · the job</span>
+      <h2>Two pages that both say “your events”</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Wave 5 rebuilt the dashboard into <strong>one show and a spine of dates</strong>.
+        It was the right shape, and it left Events with no answer to the obvious question:
+        if the dashboard already lists my events, what is this page? Today the honest
+        answer is “the same list, in boxes, without the good bits”.
+      </p>
+      <p>
+        The division is a division of <em>tense</em>, and it is legible from the first
+        screenful of each page:
+      </p>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">Dashboard</div>
+        <div class="led__v">
+          <b>The next show, at full size.</b> One event, its rig drawn, its countdown, its
+          verdicts, the pulse. Then a short tail of what else is coming. You land here
+          every working morning and the question is <em>what am I doing next</em>.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Events<span class="tag tag--new">rebuilt</span></div>
+        <div class="led__v">
+          <b>Every show you have, on a timeline.</b> Past and future on one spine with
+          today cutting across it, a year track that shows a whole season at a glance,
+          search over name, venue and notes, and any row unfolding into its own rig without
+          leaving the page. The question is <em>where is that show</em> — and the answer is
+          usually a date you half-remember.
+        </div>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>
+        <strong>Multi-day reaches the dashboard too, and it has to.</strong> Today
+        <code>partitionEvents</code> calls an event past when its date is before today, so
+        a three-day festival disappears from the dashboard on its second morning — while
+        you are standing in the venue. With an end date the partition gains a third
+        bucket, <b>running</b>, and the hero draws the running event before the next one,
+        counting <span class="mono">day 2 of 3</span> instead of counting down to
+        something that already started. That is one function and one label, and it is not
+        optional: it is the bug the new column exposes.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       02 · NOW
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">02 · now</span>
+      <h2>Nine boxes, no order, one day each</h2>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app app--tight">
+          <div style="display:flex; gap:8px; align-items:center; margin-bottom:16px;">
+            <div class="fld fld--srch fld--ph" style="height:40px; font-size:14px; padding-left:32px; max-width:340px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              Find an event…
+            </div>
+            <div class="grow"></div>
+            <div class="btn btn--primary btn--md">New Event</div>
+          </div>
+          <div class="ogrid">
+            <div class="ocard">
+              <div class="ocard__hd">
+                <div><h4>Bruksrock</h4><div class="ven">Avesta Folkets Park</div></div>
+              </div>
+              <div class="dt">2026-09-18</div>
+              <div class="nt">Two stages, shared FOH. Runs Fri–Sun — check the generator.</div>
+            </div>
+            <div class="ocard">
+              <div class="ocard__hd">
+                <div><h4>Sommarfest Gävle</h4><div class="ven">Gasklockorna</div></div>
+              </div>
+              <div class="dt">2026-08-14</div>
+              <div class="nt">No notes yet.</div>
+            </div>
+            <div class="ocard">
+              <div class="ocard__hd">
+                <div><h4>Sommarfest Gävle 2025</h4><div class="ven">Gasklockorna</div></div>
+                <span class="badge t-def">contributor</span>
+              </div>
+              <div class="dt">2025-08-16</div>
+              <div class="nt">Last year’s file. Same rig, same stage, copy the patch.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>before</b> · pages/Events.tsx — creation order, three columns, 232 px per event</div>
+    </div>
+
+    <div class="prose">
+      <p>
+        <strong>There is no order.</strong> The grid renders whatever
+        <code>listEvents</code> returned, which is creation order. The two Gävle files are
+        adjacent by luck. Nothing tells you which show is next, and the only date on the
+        card is <span class="mono">2026-09-18</span> — the stored string, unparsed, so it
+        does not even say Friday.
+      </p>
+      <p>
+        <strong>The span lives in the notes.</strong> Look at the first card:
+        <em>“Runs Fri–Sun”</em> is prose, in a free-text field, because there is nowhere
+        else to put it. Nothing derives from it. The countdown counts to Friday and then
+        the event is gone; the rental order has no idea it is a three-day hire.
+      </p>
+      <p>
+        <strong>Notes are given the most room and earn the least.</strong> Three lines of
+        <code>line-clamp-3</code> per card, and when there are none the card says
+        <em>“No notes yet.”</em> — a sentence whose only content is that there is no
+        content. Meanwhile the role badge, which changes what you are allowed to do, is a
+        chip in the corner.
+      </p>
+      <p>
+        <strong>Nine events fill a 900 px screen</strong>, and every card is a dead end:
+        the only thing you can do is open the show and come back. The information that
+        would tell you whether you need to — channels patched, fixtures addressed, whether
+        the rental order balances — exists, is derived, and is not offered.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       03 · THE SPINE
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">03 · the page</span>
+      <h2>The spine</h2>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div class="pan">
+
+            <!-- bar -->
+            <div class="pan__bar">
+              <span class="pan__ti">Events</span>
+              <div class="trough">
+                <div class="btn btn--ghost btn--sm" style="color:#a1a1aa;">Upcoming</div>
+                <div class="btn btn--ghost btn--sm" style="color:#a1a1aa;">Past</div>
+                <div class="btn btn--primary btn--sm">All</div>
+              </div>
+              <div class="fld fld--srch fld--ph">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                Name, venue or notes…
+              </div>
+              <div class="grow"></div>
+              <div class="btn btn--primary">＋ New event</div>
+            </div>
+
+            <!-- the year track -->
+            <div class="yt">
+              <div class="yt__nav">
+                <span class="arw arw--on">‹</span>
+                <span class="yr">2026</span>
+                <span class="arw">›</span>
+              </div>
+              <div class="yt__tk">
+                <div class="yt__ln">
+                  <div class="yt__gr"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                  <div class="yt__e yt__e--l1 yt__e--past" style="left:21.92%; width:3px"    title="21 Mar · Vinterfinal"></div>
+                  <div class="yt__e yt__e--l1 yt__e--past" style="left:35.34%; width:3px"    title="09 May · Vårkonsert"></div>
+                  <div class="yt__e yt__e--l1 yt__e--past" style="left:43.01%; width:3px"    title="06 Jun · Dalakören 40 år"></div>
+                  <div class="yt__e yt__e--l1 yt__e--past" style="left:46.58%; width:3px"    title="19 Jun · Midsommar på Bruket"></div>
+                  <div class="yt__e yt__e--l1 yt__e--past" style="left:52.60%; width:3px"    title="11 Jul · Rock i Parken"></div>
+                  <div class="yt__e yt__e--l1 yt__e--now"  style="left:56.71%; width:1.10%"  title="27–29 Jul · Sommarscen Borlänge · on site from 26 Jul · running"></div>
+                  <div class="yt__e yt__e--l1"             style="left:61.92%; width:3px"    title="14 Aug · Sommarfest Gävle"></div>
+                  <div class="yt__e yt__e--l1"             style="left:64.11%; width:3px"    title="22 Aug · Karin & Erik — vigsel"></div>
+                  <div class="yt__e yt__e--l1"             style="left:67.40%; width:1.10%"  title="04–06 Sep · Kulturnatt Falun · on site from 03 Sep"></div>
+                  <div class="yt__e yt__e--l2"             style="left:67.95%; width:3px"    title="05 Sep · Höstsalongen · overlaps Kulturnatt Falun"></div>
+                  <div class="yt__e yt__e--l1"             style="left:71.23%; width:3px"    title="17 Sep · Företagsfest Ludvika"></div>
+                  <div class="yt__e yt__e--l2"             style="left:71.23%; width:1.37%"  title="18–20 Sep · Bruksrock · on site 17–21 Sep · clashes with Företagsfest Ludvika"></div>
+                  <div class="yt__e yt__e--l1"             style="left:79.45%; width:3px"    title="17 Oct · Höstfest Säter"></div>
+                  <div class="yt__e yt__e--l1"             style="left:87.12%; width:3px"    title="14 Nov · Vinternatt"></div>
+                  <div class="yt__e yt__e--l1"             style="left:90.96%; width:3px"    title="28 Nov · Skivsläpp — Hedströms"></div>
+                  <div class="yt__now" style="left:57.26%"></div>
+                </div>
+                <div class="yt__ms">
+                  <span>J</span><span>F</span><span>M</span><span>A</span><span>M</span><span>J</span>
+                  <span class="on">J</span><span>A</span><span>S</span><span>O</span><span>N</span><span>D</span>
+                </div>
+              </div>
+              <span class="yt__ct">15 in 2026 · 10 still to run</span>
+            </div>
+
+            <!-- 2025 -->
+            <div class="tly"><span class="tly__n">2025</span></div>
+
+            <div class="tlm"><span class="tlm__k">Aug</span><span class="tlm__r"></span><span class="tlm__c">1</span></div>
+
+            <div class="er er--past">
+              <div class="er__g"><span class="er__d">16</span><span class="er__w">Sat</span></div>
+              <div class="er__b">
+                <span class="er__dot"></span>
+                <span class="er__n">Sommarfest Gävle 2025</span>
+                <span class="er__v">Gasklockorna</span>
+                <span class="badge t-def">contributor</span>
+                <span class="er__c">11 mo ago</span>
+                <span class="er__x">›</span>
+              </div>
+            </div>
+
+            <!-- 2026 -->
+            <div class="tly"><span class="tly__n">2026</span></div>
+
+            <div class="tlm"><span class="tlm__k">Jun</span><span class="tlm__r"></span><span class="tlm__c">2</span></div>
+
+            <div class="er er--past">
+              <div class="er__g"><span class="er__d">06</span><span class="er__w">Sat</span></div>
+              <div class="er__b">
+                <span class="er__dot"></span>
+                <span class="er__n">Dalakören 40 år</span>
+                <span class="er__v">Stora Tuna kyrka</span>
+                <span class="er__c">7 wk ago</span>
+                <span class="er__x">›</span>
+              </div>
+            </div>
+
+            <div class="er er--past">
+              <div class="er__g"><span class="er__d">19</span><span class="er__w">Fri</span></div>
+              <div class="er__b">
+                <span class="er__dot"></span>
+                <span class="er__n">Midsommar på Bruket</span>
+                <span class="er__v">Grängesberg</span>
+                <span class="badge t-def">contributor</span>
+                <span class="er__c">5 wk ago</span>
+                <span class="er__x">›</span>
+              </div>
+            </div>
+
+            <div class="tlm"><span class="tlm__k">Jul</span><span class="tlm__r"></span><span class="tlm__c">2</span></div>
+
+            <div class="er er--past">
+              <div class="er__g"><span class="er__d">11</span><span class="er__w">Sat</span></div>
+              <div class="er__b">
+                <span class="er__dot"></span>
+                <span class="er__n">Rock i Parken</span>
+                <span class="er__v">Folkets Park Borlänge</span>
+                <span class="er__c">17 d ago</span>
+                <span class="er__x">›</span>
+              </div>
+            </div>
+
+            <div class="er er--run">
+              <div class="er__g"><span class="er__d">27–29</span><span class="er__w">Mon–Wed</span></div>
+              <div class="er__b">
+                <span class="er__dot er__dot--span"><i style="top:25%; height:75%"></i></span>
+                <span class="er__n">Sommarscen Borlänge</span>
+                <span class="er__v">Sveatorget</span>
+                <span class="osite">on site 26–29</span>
+                <span class="pill t-warn">day 2 of 3</span>
+                <span class="er__c">on now</span>
+                <span class="er__x">›</span>
+              </div>
+            </div>
+
+            <!-- today -->
+            <div class="now">
+              <span class="now__k">Today</span>
+              <span class="now__b"></span>
+            </div>
+
+            <div class="tlm"><span class="tlm__k">Aug</span><span class="tlm__r"></span><span class="tlm__c">2</span></div>
+
+            <div class="er er--next">
+              <div class="er__g"><span class="er__d">14</span><span class="er__w">Fri</span></div>
+              <div class="er__b">
+                <span class="er__dot"></span>
+                <span class="er__n">Sommarfest Gävle</span>
+                <span class="er__v">Gasklockorna</span>
+                <span class="er__c">in 17 d</span>
+                <span class="er__x">›</span>
+              </div>
+            </div>
+
+            <div class="er">
+              <div class="er__g"><span class="er__d">22</span><span class="er__w">Sat</span></div>
+              <div class="er__b">
+                <span class="er__dot"></span>
+                <span class="er__n">Karin &amp; Erik — vigsel</span>
+                <span class="er__v">Hedemora Herrgård</span>
+                <span class="er__c">in 25 d</span>
+                <span class="er__x">›</span>
+              </div>
+            </div>
+
+            <div class="tlm"><span class="tlm__k">Sep</span><span class="tlm__r"></span><span class="tlm__c">4</span></div>
+
+            <div class="clash">
+              <div class="er">
+                <div class="er__g"><span class="er__d">04–06</span><span class="er__w">Fri–Sun</span></div>
+                <div class="er__b">
+                  <span class="er__dot er__dot--span"><i style="top:25%; height:75%"></i></span>
+                  <span class="er__n">Kulturnatt Falun</span>
+                  <span class="er__v">Stora torget — three stages</span>
+                  <span class="osite">on site 03–06</span>
+                  <span class="pill t-warn">overlaps</span>
+                  <span class="er__c">in 5 wk</span>
+                  <span class="er__x">›</span>
+                </div>
+              </div>
+              <div class="er er--hov">
+                <div class="er__g"><span class="er__d">05</span><span class="er__w">Sat</span></div>
+                <div class="er__b">
+                  <span class="er__dot"></span>
+                  <span class="er__n">Höstsalongen</span>
+                  <span class="er__v">Konserthuset Falun</span>
+                  <span class="pill t-warn">overlaps</span>
+                  <span class="badge t-def">viewer</span>
+                  <span class="er__c">in 5 wk</span>
+                  <span class="er__x">›</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="clash">
+              <div class="er">
+                <div class="er__g"><span class="er__d">17</span><span class="er__w">Thu</span></div>
+                <div class="er__b">
+                  <span class="er__dot"></span>
+                  <span class="er__n">Företagsfest Ludvika</span>
+                  <span class="er__v">Folkets Hus, lilla salen</span>
+                  <span class="pill t-warn">on-site clash</span>
+                  <span class="er__c">in 7 wk</span>
+                  <span class="er__x">›</span>
+                </div>
+              </div>
+              <div class="er">
+                <div class="er__g"><span class="er__d">18–20</span><span class="er__w">Fri–Sun</span></div>
+                <div class="er__b">
+                  <span class="er__dot er__dot--span"><i style="top:20%; height:60%"></i></span>
+                  <span class="er__n">Bruksrock</span>
+                  <span class="er__v">Avesta Folkets Park</span>
+                  <span class="osite">on site 17–21</span>
+                  <span class="pill t-warn">on-site clash</span>
+                  <span class="er__c">in 7 wk</span>
+                  <span class="er__x">›</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="tlm"><span class="tlm__k">Oct</span><span class="tlm__r"></span><span class="tlm__c">1</span></div>
+
+            <div class="er">
+              <div class="er__g"><span class="er__d">17</span><span class="er__w">Sat</span></div>
+              <div class="er__b">
+                <span class="er__dot"></span>
+                <span class="er__n">Höstfest Säter</span>
+                <span class="er__v">Folkets Hus</span>
+                <span class="er__c">in 3 mo</span>
+                <span class="er__x">›</span>
+              </div>
+            </div>
+
+            <div class="tlm"><span class="tlm__k">Nov</span><span class="tlm__r"></span><span class="tlm__c">2</span></div>
+
+            <div class="er">
+              <div class="er__g"><span class="er__d">14</span><span class="er__w">Sat</span></div>
+              <div class="er__b">
+                <span class="er__dot"></span>
+                <span class="er__n">Vinternatt</span>
+                <span class="er__v">Magasinet Borlänge</span>
+                <span class="er__c">in 4 mo</span>
+                <span class="er__x">›</span>
+              </div>
+            </div>
+
+            <div class="er">
+              <div class="er__g"><span class="er__d">28</span><span class="er__w">Sat</span></div>
+              <div class="er__b">
+                <span class="er__dot"></span>
+                <span class="er__n">Skivsläpp — Hedströms</span>
+                <span class="er__v">Peace &amp; Love-scenen</span>
+                <span class="er__c">in 4 mo</span>
+                <span class="er__x">›</span>
+              </div>
+            </div>
+
+            <!-- undated, at the end: not yet placed in time -->
+            <div class="tlm"><span class="tlm__k">No date</span><span class="tlm__r"></span><span class="tlm__c">1</span></div>
+
+            <div class="er er--none">
+              <div class="er__g"><span class="er__d">—</span></div>
+              <div class="er__b">
+                <span class="er__dot"></span>
+                <span class="er__n">Turné 2027 — skiss</span>
+                <span class="er__v">Venue TBD</span>
+                <span class="er__x">›</span>
+              </div>
+            </div>
+
+            <!-- strip -->
+            <div class="strip">
+              <span class="mono">29 events</span>
+              <span class="q">·</span>
+              <span class="mono">1 running</span>
+              <span class="q">·</span>
+              <span class="mono">9 to come</span>
+              <span class="q">·</span>
+              <span class="mono">18 done</span>
+              <span class="q">·</span>
+              <span class="mono">1 undated</span>
+              <span class="grow"></span>
+              <span class="mono" style="color:#fcd34d">2 clashes</span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>after</b> · one panel · navigation tier · the date gutter is the structure · reading down is moving forward</div>
+    </div>
+
+    <div class="prose">
+      <p>
+        <strong>The gutter carries every time label; the column carries content.</strong>
+        Day number and weekday in the 84 px gutter, month headings in the same column, the
+        year as a 26 px numeral in <code>zinc-800</code> — big enough to land as you scroll
+        past, dark enough that you never read it on purpose. It is the inverse of
+        Overview’s numbers band, which is also big mono and is meant to be the answer.
+        Here the big number is the ruler.
+      </p>
+      <p>
+        <strong>The spine is one hairline</strong> — the <code>border-l</code> of the
+        content column, <code>border-zinc-800</code>, with a mark per event sitting on it.
+        Not a new decoration: a dot on a line is the flow canvas’s own grammar, and P5’s
+        reservation of circles for patchable ports is a rule about the canvas, where a dot
+        beside a cable could be mistaken for one. There are no ports on this page.
+      </p>
+      <p>
+        <strong>Today cuts the spine in amber</strong> and is the page’s scroll anchor: All
+        opens with today just under the year track, so the future is on screen and the past
+        is one flick up. Amber is not the only carrier — the word
+        <span class="mono">TODAY</span> is in the gutter beside it (P4).
+      </p>
+      <p>
+        <strong>The next show gets the filled dot</strong>, ringed the way a selected node
+        is, and its countdown goes amber. It is the same event the dashboard draws at full
+        size — one derivation, <code>partitionEvents()</code>, already written and already
+        tested.
+      </p>
+      <p>
+        <strong>Past rows dim rather than disappear</strong>, and keep their marks. Wave 5
+        found the reason: last year’s file for the same festival is how this year’s patch
+        gets built, and today that is unreachable without scrolling a grid of identical
+        boxes. On a spine it is a place — <em>August, one year up</em>.
+      </p>
+      <p>
+        <strong>Notes leave the row.</strong> They were three of the card’s five lines and
+        the least scannable thing on it. They stay searchable, they show in the unfold, and
+        a row with nothing to say now takes up no room saying it.
+      </p>
+      <p>
+        <strong>Undated events go last.</strong> Revision 1 put them first, on the theory
+        that an undated event is a fresh draft. On a chronological spine that is a claim
+        that they happened before 2025. They are events not yet placed in time, so they sit
+        after time, under their own heading, with <span class="mono">—</span> in the gutter.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       04 · FOUR DATES
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">04 · four dates</span>
+      <h2>An event has a length, and you are there before it starts</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        The application has assumed since migration 001 that an event is one day: one
+        <code>date</code> column, one countdown, one row on a list. A festival that runs
+        Friday to Sunday and that you rig on Thursday has to be entered as Friday and
+        remembered as four — and the remembering happens in the notes field, where nothing
+        derives from it.
+      </p>
+      <p>
+        The model is <strong>four dates and one rule</strong>: each is optional, and each
+        empty one takes its neighbour's value.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app app--tight">
+          <div class="ncard" style="max-width:640px">
+            <div class="ncard__hd"><div><h4>Bruksrock — details</h4></div></div>
+            <div class="frm">
+              <div class="dgrid">
+                <div>
+                  <span class="nlbl">Load-in</span>
+                  <div class="nfld mono">2026-09-17</div>
+                </div>
+                <div>
+                  <span class="nlbl">First day</span>
+                  <div class="nfld mono">2026-09-18</div>
+                </div>
+                <div>
+                  <span class="nlbl">Last day</span>
+                  <div class="nfld mono">2026-09-20</div>
+                </div>
+                <div>
+                  <span class="nlbl">Load-out</span>
+                  <div class="nfld mono">2026-09-21</div>
+                </div>
+              </div>
+              <div class="dspan">
+                <div class="brk" style="grid-column: 1 / 5"><b>5 days on site</b></div>
+              </div>
+              <div class="dspan">
+                <div class="brk" style="grid-column: 2 / 4"><b>3 show days</b></div>
+              </div>
+              <p class="frm__hint">
+                Only <b>First day</b> is ever required. Leave the others empty and they
+                follow it.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>after</b> · EventFormDialog and EventDetailsDrawer — four fields drawn as one object, with what they derive stated underneath</div>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app app--tight">
+          <div class="ncard" style="max-width:640px">
+            <div class="ncard__hd"><div><h4>Karin &amp; Erik — vigsel</h4></div></div>
+            <div class="frm">
+              <div class="dgrid">
+                <div>
+                  <span class="nlbl">Load-in</span>
+                  <div class="nfld nfld--ph">same as first day</div>
+                </div>
+                <div>
+                  <span class="nlbl">First day</span>
+                  <div class="nfld mono">2026-08-22</div>
+                </div>
+                <div>
+                  <span class="nlbl">Last day</span>
+                  <div class="nfld nfld--ph">same day</div>
+                </div>
+                <div>
+                  <span class="nlbl">Load-out</span>
+                  <div class="nfld nfld--ph">same as last day</div>
+                </div>
+              </div>
+              <div class="dspan">
+                <div class="brk" style="grid-column: 2 / 3"><b>1 day</b></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>after</b> · the ordinary case — three placeholders that say what empty means, and one bracket that collapses to a day</div>
+    </div>
+
+    <div class="prose">
+      <p>
+        <strong>No “is this multi-day?” toggle.</strong> A field you leave empty is the
+        same statement with one fewer control, and it cannot get out of step with the value
+        it is supposed to describe. Each placeholder names its own default, so the form
+        never has an empty box whose meaning you have to guess.
+      </p>
+      <p>
+        <strong>The brackets are the derivation, drawn.</strong> They are not decoration:
+        <span class="mono">5 days on site</span> and <span class="mono">3 show days</span>
+        are the two numbers everything downstream reads, and the fastest way to check you
+        typed the dates right is to see them bracket the fields you typed. A one-day event
+        draws one bracket, one column wide.
+      </p>
+      <p>
+        <strong>The mark on the spine changes shape, not colour.</strong> One day is a 7 px
+        dot; several days is a 7 × 24 px capsule at the same x. That is P5 applied
+        literally — the phantom-power bar exists because a red dot would have read as a
+        port, and the same reasoning says a span must not be a differently-tinted dot. It
+        survives greyscale, and you can see at a glance which rows on the page are evenings
+        and which are festivals.
+      </p>
+      <p>
+        <strong>The capsule is the on-site span; the fill inside it is the show days.</strong>
+        Bruksrock draws a capsule four days tall with the middle 60 % filled — you arrive a
+        day early and leave a day late, and the row says so before you read anything. Where
+        load-in and load-out are not separate, the capsule is filled end to end.
+      </p>
+      <p>
+        <strong>The gutter states the show dates and drops what it must.</strong>
+        <span class="mono">18–20</span> over <span class="mono">FRI–SUN</span>. When a
+        range crosses a month, the weekday line gives way to the months —
+        <span class="mono">31–02</span> over <span class="mono">JUL–AUG</span> — because at
+        that point which months it spans matters more than which weekdays, and 84 px holds
+        one of them, not both. The row files under its <em>first show day</em>: that is the
+        date the event is known by, and load-in is a fact about it rather than a second
+        identity for it.
+      </p>
+      <p>
+        <strong>On-site gets a chip, and only when it differs.</strong>
+        <span class="mono">on site 17–21</span>, quiet mono, next to the venue. A row whose
+        load-in is its first day says nothing, because there is nothing to say.
+      </p>
+      <p>
+        <strong>Running now is a state, not a date.</strong> An event whose show span
+        contains today gets the filled capsule and a <span class="mono">day 2 of 3</span>
+        pill, and its countdown reads <span class="mono">on now</span>. Rigging is its own
+        answer: on the 26th, Sommarscen Borlänge reads
+        <span class="mono">load-in today</span>. The pill is the carrier and amber is the
+        emphasis, in that order (P4).
+      </p>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">days to load-in</div>
+        <div class="led__v">
+          <b>Becomes true.</b> The dashboard's biggest number and Overview's first figure
+          have counted to <code>event.date</code> since Wave 4 while calling it load-in.
+          They now count to <code>loadInDate ?? date</code> and the label needs no change —
+          <em>the value moves to meet the word instead of the word being walked back.</em>
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">partitionEvents</div>
+        <div class="led__v">
+          Gains <code>running</code>. Past becomes
+          <code>(loadOutDate ?? endDate ?? date) &lt; today</code>, not
+          <code>date &lt; today</code> — <b>which is the actual bug fix</b>: a festival
+          currently vanishes from the dashboard on its second morning, while you are
+          standing in the venue.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">eventSummary</div>
+        <div class="led__v">
+          <code>dayLabel</code> gains <code>load-in</code> and <code>running</code>. The
+          numbers band reads <span class="mono">2</span> under
+          <span class="mono">DAY OF 3</span> while a show is running.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Dashboard hero</div>
+        <div class="led__v">
+          Draws <code>running[0] ?? next</code>, where running now includes the load-in day.
+          Standing in the venue rigging, the page you land on is about the show you are
+          rigging.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Print, Overview, header</div>
+        <div class="led__v">
+          One shared <code>formatEventDates(event)</code> — <em>“Fri 18 – Sun 20 September
+          2026”</em> long, <em>“18–20 Sep”</em> short, with the on-site span available
+          separately for the paperwork that needs it. Four call sites format the date today
+          and all four would otherwise need the range logic separately.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Rental order<span class="tag tag--drop">out of scope</span></div>
+        <div class="led__v">
+          A five-day hire costs more than a one-day hire, and the order does not know it.
+          Once the app knows the duration the gap becomes visible, which is an argument for
+          doing it soon and not an argument for doing it here — it is a pricing model, not
+          a date field. <b>Named so it is a decision rather than an oversight</b>, and put
+          to you as ask 2.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       05 · CLASHES
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">05 · clashes</span>
+      <h2>Two shows, one Thursday</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Once events have length they can share days, and on a single-day model the app
+        could not have told you. It should — but carefully, because <strong>a clash is a
+        fact, not an error.</strong> You might be sending a colleague to one of them. You
+        might be a <em>viewer</em> on one, watching someone else's file. Two of your events
+        touching is information you want on the way past, and never something the interface
+        refuses, warns about in red, or blocks on save.
+      </p>
+      <p>
+        <strong>The comparison is the on-site span, not the show span</strong>, and that is
+        the whole reason load-in earns a column. Look at September on the spine: Företagsfest
+        Ludvika is a one-evening job on the 17th and Bruksrock's first band plays on the
+        18th. On show dates they do not touch. On the ground you are in Avesta rigging a
+        festival on the 17th, which is exactly the collision a date range alone cannot see —
+        and exactly the kind you find out about by turning up.
+      </p>
+      <p>
+        So there are two words, because they are two different facts:
+      </p>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">overlaps</div>
+        <div class="led__v">The <b>show spans</b> intersect. Kulturnatt Falun runs 4–6 September and Höstsalongen is on the 5th; both are shows, on the same day.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">on-site clash</div>
+        <div class="led__v">The show spans do not intersect but the <b>on-site spans</b> do. Nothing is double-booked on paper; you are in two places anyway. <em>This is the one the current model cannot represent at all.</em></div>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>
+        The treatment is the quietest thing that survives peripheral vision: a
+        <strong>2 px amber brace in the gutter</strong> joining the rows that share days,
+        and the word on each of them. Amber as decided — it is the app's “look here”; the
+        word, because P4 forbids amber being the only carrier; the brace, because it says
+        <em>which</em> rows without anyone reading anything. Red is not available for this —
+        <code>tokens.md</code> reserves it for destructive actions, over capacity, a broken
+        link and 48 V, and a clash is none of those.
+      </p>
+      <p>
+        <strong>It is derived, never stored</strong> (P6). One pass over the events sorted
+        by first on-site day, grouping any whose span intersects the running maximum — the
+        same sweep that assigns the year track its lanes, so the two cannot disagree about
+        what collides. Which of the two words applies is then a second, cheaper test on the
+        show spans of an already-grouped pair.
+      </p>
+      <p>
+        <strong>The strip counts them</strong>, in amber, at the end of the line:
+        <span class="mono">2 clashes</span> — pairs, not rows, because two events touching
+        is one thing to look into. That is the number worth knowing before you accept the
+        next booking, and it is the only place on the page where a count is also a warning.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>What this deliberately does not do</h3>
+      <p>
+        It does not check whether <em>you personally</em> can be in two places at once,
+        because the app has no model of who is working which show — only of who can edit
+        the file. A shared event where you are a viewer braces exactly like one you own,
+        with the role chip sitting next to the word so the reading is available at a glance.
+        Inferring more than that would mean inventing a crew model in a slice about date
+        columns.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       06 · THE YEAR TRACK
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">06 · the year track</span>
+      <h2>A year, at true scale</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Revision 1 drew twelve bars, one per month, height stepped by count and capped at
+        four. Capping was the wrong instinct: it made the strip an approximation of the
+        list, and an approximation invites the question <em>of what?</em>
+      </p>
+      <p>
+        The track answers instead by <strong>drawing every event</strong>. One mark each,
+        positioned at <code>dayOfYear / 365</code> along the track and sized by its span, so
+        a three-day festival is visibly three times a wedding and a busy fortnight looks
+        like a busy fortnight. Nothing is summed, so nothing is capped and nothing is lost.
+        The month letters below are the scale; the faint verticals are the month boundaries.
+      </p>
+      <p>
+        <strong>Overlaps stack into lanes.</strong> The same sweep that braces the rows
+        packs the marks: an event that intersects one already placed goes to the lane below.
+        A collision is therefore visible on the track as two marks at the same x — the year
+        at a glance shows you not just how busy September is, but that two things in it are
+        on top of each other. The band grows a lane at a time and is 15 px at two.
+      </p>
+      <p>
+        <strong>Today is a 1 px amber vertical</strong> through all lanes, and the current
+        month’s letter is amber too, so the mark is never carrying the meaning alone.
+      </p>
+      <p>
+        <strong>It responds to the search.</strong> Type <em>gävle</em> and the track redraws
+        to the matches: it becomes a picture of when you have worked for that client. That
+        is why it sits above the list rather than in the bar — it is a readout of what is
+        below it, not a control acting on the page. It is also a jump control: click a mark
+        and the spine scrolls to that event.
+      </p>
+      <p>
+        <strong>A minimum mark of 3 px</strong>, so a one-day event in a 700 px year is
+        still clickable — the one place the track is not to scale, and the smallest lie
+        available. Its <code>title</code> gives the exact dates and name.
+      </p>
+      <p>
+        The year arrows step between years you have events in.
+        <span class="mono">‹</span> is live and <span class="mono">›</span> is not, because
+        2027 holds only the undated draft — an arrow into an empty year is a promise the
+        interface cannot keep (P7’s reasoning, applied to a stepper).
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       07 · THE UNFOLD
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">07 · the unfold</span>
+      <h2>A row opens into the show</h2>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div class="pan">
+            <div class="er">
+              <div class="er__g"><span class="er__d">22</span><span class="er__w">Sat</span></div>
+              <div class="er__b">
+                <span class="er__dot"></span>
+                <span class="er__n">Karin &amp; Erik — vigsel</span>
+                <span class="er__v">Hedemora Herrgård</span>
+                <span class="er__c">in 25 d</span>
+                <span class="er__x">›</span>
+              </div>
+            </div>
+
+            <div class="er er--open">
+              <div class="er__g"><span class="er__d">18–20</span><span class="er__w">Fri–Sun</span></div>
+              <div class="er__b">
+                <span class="er__dot er__dot--span"><i style="top:20%; height:60%"></i></span>
+                <span class="er__n">Bruksrock</span>
+                <span class="er__v">Avesta Folkets Park</span>
+                <span class="osite">on site 17–21</span>
+                <span class="er__c">in 7 wk</span>
+                <span class="er__x">⌄</span>
+              </div>
+            </div>
+
+            <div class="unf">
+              <div class="unf__g"></div>
+              <div class="unf__b">
+                <div class="unf__rib">
+                  <div class="rib">
+                    <div class="node"><div class="n">12</div><div class="k">sources</div></div>
+                    <div class="run"></div>
+                    <div class="node"><div class="n">2</div><div class="k">stageboxes</div></div>
+                    <div class="run"></div>
+                    <div class="node node--desk"><div class="n">SD10</div><div class="k">console</div></div>
+                    <div class="run"></div>
+                    <div class="node"><div class="n">3</div><div class="k">devices</div></div>
+                    <div class="run"></div>
+                    <div class="node"><div class="n">16</div><div class="k">outputs</div></div>
+                    <div class="run"></div>
+                    <div class="node"><div class="n">64</div><div class="k">fixtures</div></div>
+                  </div>
+                </div>
+
+                <div class="nums">
+                  <div><div class="v">3 <small>/ 5</small></div><div class="l">show days / on site</div></div>
+                  <div><div class="v">32 <small>/ 16</small></div><div class="l">channels in / out</div></div>
+                  <div><div class="v">64</div><div class="l">fixtures</div></div>
+                  <div><div class="v">128</div><div class="l">cables picked</div></div>
+                  <div><div class="v">24 190 <small>kr</small></div><div class="l">rental, ex vat</div></div>
+                </div>
+
+                <div class="unf__ft">
+                  <div class="ready">
+                    <span class="a"><b>audio</b><span class="pill t-ok">routed</span></span>
+                    <span class="a"><b>lighting</b><span class="pill t-warn">2 unaddressed</span></span>
+                    <span class="a"><b>rental</b><span class="pill t-err">1 over</span></span>
+                  </div>
+                  <div class="grow"></div>
+                  <span class="lnk">Two stages, shared FOH. Generator confirmed.</span>
+                  <div class="btn btn--outline btn--sm">Open the show →</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="er">
+              <div class="er__g"><span class="er__d">17</span><span class="er__w">Sat</span></div>
+              <div class="er__b">
+                <span class="er__dot"></span>
+                <span class="er__n">Höstfest Säter</span>
+                <span class="er__v">Folkets Hus</span>
+                <span class="er__c">in 3 mo</span>
+                <span class="er__x">›</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>after</b> · sheet-and-editor (patterns §2), at navigation tier, over a summary instead of a form</div>
+    </div>
+
+    <div class="prose">
+      <p>
+        <strong>This is the sheet-and-editor pattern with the editor replaced by a
+        summary.</strong> The row above takes <code>bg-amber-500/[0.04]</code> and loses its
+        bottom border; the block beneath spans the content column and wears the same 2 px
+        amber left edge a <code>RowEditor</code> wears; one row is open at a time. Patterns
+        §2 already says a sheet whose every value is derived <em>has no editor, and says so
+        by offering a destination instead</em>. Every value here is derived and the
+        destination is <span class="mono">Open the show →</span>.
+      </p>
+      <p>
+        <strong>The span is the first figure.</strong> <span class="mono">3 days</span> over
+        <span class="mono">18–20 SEP</span>, ahead of the channel count — because on a
+        multi-day show it is the number that changes what the other four mean. A one-day
+        event draws <span class="mono">1 day</span> rather than hiding the figure: an
+        absent figure would read as undeclared (patterns §5), and one day is declared.
+      </p>
+      <p>
+        <strong>The ribbon is <code>RigRibbon</code>, unchanged.</strong> Same component the
+        dashboard hero and Overview draw, with <code>pulse</code> off. A node whose count is
+        zero is omitted, so a show with no lighting has no
+        <span class="mono">fixtures</span> box rather than an empty one — which means the
+        ribbon’s <em>shape</em> tells you what kind of show it is before you read a number.
+      </p>
+      <p>
+        <strong>The numbers are Overview’s band at 19 px instead of 26.</strong> Overview is
+        the page; this is an item in a list, and the figure has to sit under the row’s own
+        14 px name without outshouting it. An undefined figure is
+        <span class="mono">—</span>, never <span class="mono">0</span> (patterns §5,
+        Undeclared) — an unpatched show has not got zero channels.
+      </p>
+      <p>
+        <strong>The verdicts are the same words every tab’s strip uses</strong>, from
+        <code>eventSummary()</code>. This is not a second opinion about the plan, and it is
+        the part that makes the page worth opening: <em>two of my next four shows are not
+        addressed yet</em> is currently a question you answer by opening four events.
+      </p>
+      <p>
+        <strong>The notes come back here</strong>, one line, quiet, at the end of the footer
+        — where they are context for a decision rather than three lines of card.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>What the unfold costs, and why it is affordable</h3>
+      <p>
+        Four queries — patch, rig, rental summary, plots — for <em>one</em> event, under the
+        cache keys Overview and the dashboard already use, fired only when a row is opened.
+        That is the same load the dashboard hero takes on every visit, and it is why the
+        ribbon is not drawn on every row: twenty-eight events would be 112 requests to
+        render a list. Wave 4 refused a <code>GET /events/{id}/summary</code> endpoint for
+        the reason that still holds — a Go copy of these derivations could disagree with the
+        tab it links to.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       08 · MOTION
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">08 · motion</span>
+      <h2>Where the fun is, and where it stops</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <code>tokens.md</code> §6 draws the line in one sentence: <em>a page you arrive at
+        may move, a page you work in may not</em>. Events is a page you arrive at, so it is
+        allowed motion — and it gets exactly two things, both in the
+        <code>prefers-reduced-motion: no-preference</code> wrapper §6 requires of anything
+        new.
+      </p>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">The unfold<span class="tag tag--new">new</span></div>
+        <div class="led__v">
+          <b>160 ms, grid-template-rows <code>0fr → 1fr</code>.</b> The block grows from the
+          row it belongs to, which is the whole claim the pattern makes — that these two are
+          one thing. No fade, no slide, no easing curve with a name.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Hover</div>
+        <div class="led__v">
+          <b><code>transition-colors</code> to <code>bg-zinc-900</code>.</b> Already the only
+          hover in the language. The mark does not grow and the row does not lift.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">The pulse<span class="tag tag--drop">no</span></div>
+        <div class="led__v">
+          <b>Stays the dashboard hero’s alone.</b> One show pulsing is a hero; twenty-eight
+          rows with a light running through each is a Christmas tree, and it would make the
+          one page whose job is <em>scan for a date</em> the busiest surface in the app.
+          <em>This is the deliberate limit on “make it fun”.</em>
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Year track</div>
+        <div class="led__v">
+          <b>No animated marks.</b> The track redraws when the search changes, and it
+          redraws instantly. A readout that animates is one you cannot read while typing.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       09 · STATES
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">09 · states</span>
+      <h2>Empty, filtered, restricted, phone</h2>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app app--tight">
+          <div class="pan">
+            <div class="pan__bar">
+              <span class="pan__ti">Events</span>
+              <div class="trough">
+                <div class="btn btn--ghost btn--sm" style="color:#a1a1aa;">Upcoming</div>
+                <div class="btn btn--ghost btn--sm" style="color:#a1a1aa;">Past</div>
+                <div class="btn btn--primary btn--sm">All</div>
+              </div>
+              <div class="fld fld--srch fld--foc">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                gasklockan
+              </div>
+              <div class="grow"></div>
+              <div class="btn btn--primary">＋ New event</div>
+            </div>
+            <div class="empty">
+              <p>No event matches <span class="mono" style="color:#e4e4e7">gasklockan</span>.</p>
+              <p style="color:#71717a; font-size:13px;">Search covers name, venue and notes.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>state</b> · no match — the panel keeps its bar, so the search you typed is still there to correct. The track goes with the rows; an empty track is a claim you have no shows.</div>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app app--tight">
+          <div class="pan">
+            <div class="pan__bar">
+              <span class="pan__ti">Events</span>
+              <div class="grow"></div>
+              <div class="btn btn--primary">＋ New event</div>
+            </div>
+            <div class="empty">
+              <p>No events yet.</p>
+              <p style="color:#71717a; font-size:13px; max-width:44ch;">
+                Create your first show file and the patch, the rig and the rental order
+                follow from it.
+              </p>
+              <div class="btn btn--primary btn--md">＋ New event</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>state</b> · nothing at all — no track, no toggle, no search, because there is nothing to filter</div>
+    </div>
+
+    <div class="prose">
+      <p>
+        <strong>Restricted roles.</strong> Every event you can see is on this page, whatever
+        your role in it — reading is never restricted (P7). The role chip appears only when
+        it is not <em>owner</em>, as today. Nothing is disabled for anyone; a user who
+        cannot create events is passed no handler and sees no
+        <span class="mono">＋ New event</span>.
+      </p>
+      <p>
+        <strong>Loading.</strong> <em>“Loading events…”</em> in
+        <code>text-sm text-zinc-400</code> where the rows go, per patterns §5. The bar and
+        the strip render immediately; the year track does not.
+      </p>
+      <p>
+        <strong>The phone keeps its own branch.</strong> <code>CondensedListRow</code> stays,
+        and gains the month headings, the today rule and the date range in its subtitle —
+        those are structure, not density, and they are worth more on a small screen than a
+        large one. A running event gets its <span class="mono">day 2 of 3</span> pill; an
+        overlap gets the word without the brace, since the gutter is not there to hold it.
+        The track, the gutter and the unfold are desktop only: a 3 px mark is not a touch
+        target and the ribbon does not fit.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       10 · COST
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">10 · what it costs</span>
+      <h2>One column, one page, two lib files</h2>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">Migration 045<span class="tag tag--new">new</span></div>
+        <div class="led__v">Three nullable <code>TEXT</code> columns on <code>events</code> — <code>load_in_date</code>, <code>end_date</code>, <code>load_out_date</code> — with the matching <code>.down.sql</code>. No data migration: null already means what it needs to mean, so every existing row is correct the moment the column exists.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">domain / api / dbstore</div>
+        <div class="led__v">Three <code>omitempty</code> fields; select, insert and update carry them; create and patch reject any ordering violation of <code>loadIn ≤ first ≤ last ≤ loadOut</code> with a 400 naming the pair that is wrong. Handler tests for each boundary — equal dates, each pair inverted, an end without a start, a load-out without a load-in.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">lib/eventTimeline.ts<span class="tag tag--new">new</span></div>
+        <div class="led__v">Groups events into year → month → rows, places the today rule, formats a range for the gutter, packs the year track into lanes and finds the overlaps in the same sweep. Pure, and tested the way <code>lib/dashboard.ts</code> is — the page’s whole structure is this file, so it is testable without rendering anything.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">lib/dashboard.ts</div>
+        <div class="led__v"><b>Extended, not copied.</b> <code>partitionEvents</code> gains <code>running</code> and fixes the past test; <code>formatEventDates</code> replaces <code>shortDate</code>/<code>longDate</code> at all four call sites. Its existing tests grow the multi-day cases.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">lib/eventSummary.ts</div>
+        <div class="led__v"><code>dayLabel</code> gains <code>running</code>. Twenty-three tests already assert this file agrees with the tabs; the new label is asserted the same way.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">pages/Events.tsx</div>
+        <div class="led__v">Rewritten. Loses <code>Card</code> and <code>CardContent</code>; keeps <code>matchesSearch</code>, <code>EventFormDialog</code> and the mobile branch.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Four date call sites</div>
+        <div class="led__v"><code>Dashboard</code> (hero + rows), <code>EventDetail</code>’s heading, <code>OverviewTab</code> and <code>print/PrintSheet</code> — all move onto <code>formatEventDates</code>. <code>EventFormDialog</code> and <code>EventDetailsDrawer</code> gain the second field.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">components/ui/</div>
+        <div class="led__v"><b>No new component.</b> The track and the spine are page-local until something else needs them; <code>RigRibbon</code>, <code>Pill</code>, <code>Badge</code>, <code>MicroLabel</code>, <code>Button</code> and <code>Input</code> are imported as they are.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">design/</div>
+        <div class="led__v">Same commit: <code>patterns.md</code> gains <b>§4c · the spine</b> beside §4b’s summary surface; <code>tokens.md</code> §6 records the unfold as the second sanctioned motion with its wrapper, and §5 records that an overlap is amber-plus-a-word and never red; <code>audit.md</code> records that P1’s exception for Events was invoked correctly and outlived its usefulness.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       THE ASK
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">the ask</span>
+      <h2>Two decisions left</h2>
+    </div>
+
+    <div class="ask">
+      <h3>1 · Does <code>date</code> get renamed to <code>start_date</code>?</h3>
+      <p>
+        With <code>load_in_date</code>, <code>end_date</code> and
+        <code>load_out_date</code> beside it, the column called <code>date</code> is the odd
+        one out, and a reader of the schema has to be told which of the four it is. Against
+        renaming: it is a column rename plus a JSON field rename, touching every handler,
+        every stored payload shape and eight call sites, to fix a cosmetic asymmetry in a
+        slice that otherwise only adds. Recommendation: <b>keep <code>date</code></b>, and
+        let the four labels in the form carry the naming — <em>Load-in, First day, Last day,
+        Load-out</em> — since that is where anyone actually meets them. Happy to do the
+        rename if you would rather the schema read cleanly, but it should be its own commit.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>2 · Does the rental order learn about days in this slice, or the next?</h3>
+      <p>
+        Once the app knows Bruksrock is five days on site, an order that quotes it as a
+        one-day hire is visibly wrong rather than merely unknowing — and the unfold puts
+        <span class="mono">5</span> and <span class="mono">24 190 kr</span> on the same
+        line, which is where you will notice. Doing it here means a per-day rate on
+        inventory items, a duration multiplier through the aggregation, and every export
+        format following: real work, in the one area of the app with a standing invariant
+        about staying in sync. Recommendation: <b>next slice</b>, specified immediately
+        after this one so the gap is short. Say the word if you would rather it landed
+        together.
+      </p>
+    </div>
+  </section>
+
+</div>

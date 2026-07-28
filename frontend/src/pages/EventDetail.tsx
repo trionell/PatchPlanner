@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { UserPlus } from 'lucide-react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { getEvent } from '../api/events'
+import { formatEventDates } from '../lib/dashboard'
 import { AudioInputsTab } from '../components/event/AudioInputsTab'
 import { AudioOutputsTab } from '../components/event/AudioOutputsTab'
 import { EquipmentTab } from '../components/event/EquipmentTab'
@@ -84,7 +85,7 @@ export function EventDetailPage() {
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h2 className="truncate text-lg font-semibold">{eventQuery.data.name}</h2>
-            <p className="truncate text-xs text-zinc-400">{eventQuery.data.venue || 'Venue TBD'} · {eventQuery.data.date || 'Date TBD'}</p>
+            <p className="truncate text-xs text-zinc-400">{eventQuery.data.venue || 'Venue TBD'} · {formatEventDates(eventQuery.data).long ?? 'Date TBD'}</p>
           </div>
           <Link className="shrink-0 text-xs text-amber-400" to="/events">← Events</Link>
         </div>
@@ -100,7 +101,7 @@ export function EventDetailPage() {
       <div className="flex items-center justify-between gap-4 print:hidden">
         <div>
           <h2 className="text-lg font-semibold">{eventQuery.data.name}</h2>
-          <p className="text-sm text-zinc-400">{eventQuery.data.venue || 'Venue TBD'} · {eventQuery.data.date || 'Date TBD'}</p>
+          <p className="text-sm text-zinc-400">{eventQuery.data.venue || 'Venue TBD'} · {formatEventDates(eventQuery.data).long ?? 'Date TBD'}</p>
         </div>
         <div className="flex items-center gap-4">
           {canManageMembers && (

@@ -1,7 +1,18 @@
 export interface Event {
   id: number
   name: string
-  date?: string
+  /**
+   * The four dates, chronologically. Only `startDate` has no fallback: each of
+   * the others means "derives from its neighbour" when absent, which is why
+   * absence is represented by absence and not by an empty string. An event
+   * carrying only a `startDate` is one day long — what every event created
+   * before Slice 30 means. Resolve them with `resolveDates` in
+   * `lib/eventTimeline.ts`; never read one directly to decide a span.
+   */
+  loadInDate?: string
+  startDate?: string
+  endDate?: string
+  loadOutDate?: string
   venue?: string
   notes?: string
   created_at: string

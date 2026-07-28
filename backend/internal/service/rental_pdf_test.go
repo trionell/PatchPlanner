@@ -23,7 +23,7 @@ func seedPDFEvent(t *testing.T, database *sql.DB, name, date, venue string, item
 	if err != nil {
 		t.Fatalf("create inventory: %v", err)
 	}
-	event, err := db.CreateEvent(database, domain.Event{Name: name, Date: date, Venue: venue}, owner.ID, inventory.ID)
+	event, err := db.CreateEvent(database, domain.Event{Name: name, StartDate: date, Venue: venue}, owner.ID, inventory.ID)
 	if err != nil {
 		t.Fatalf("create event: %v", err)
 	}

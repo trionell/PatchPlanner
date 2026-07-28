@@ -83,6 +83,10 @@ func (h EventsHandler) create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "inventoryId is required")
 		return
 	}
+	if err := validateEventDates(event); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	inventory, err := dbstore.GetInventory(h.DB, event.InventoryID)
 	if err != nil || inventory.OwnerUserID != user.ID {
 		writeError(w, http.StatusBadRequest, "inventoryId must be an inventory you own")
@@ -109,6 +113,10 @@ func (h EventsHandler) update(w http.ResponseWriter, r *http.Request) {
 	}
 	if event.Name == "" {
 		writeError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	if err := validateEventDates(event); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	updated, err := dbstore.UpdateEvent(h.DB, eventID, event)

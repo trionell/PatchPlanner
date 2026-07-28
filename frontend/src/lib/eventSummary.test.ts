@@ -158,31 +158,95 @@ describe('eventSummary — nothing loaded', () => {
 
 describe('eventSummary — the day arithmetic', () => {
   it('is undefined when the event has no date', () => {
-    const summary = eventSummary({ today: TODAY, event: event({ date: undefined }) })
+    const summary = eventSummary({ today: TODAY, event: event({ startDate: undefined }) })
     expect(summary.daysToLoadIn).toBeUndefined()
     expect(summary.dayLabel).toBeUndefined()
   })
 
   it('counts whole days regardless of the time of day', () => {
-    const summary = eventSummary({ today: new Date(2026, 6, 28, 23, 55), event: event({ date: '2026-08-14' }) })
+    const summary = eventSummary({ today: new Date(2026, 6, 28, 23, 55), event: event({ startDate: '2026-08-14' }) })
     expect(summary.daysToLoadIn).toBe(17)
     expect(summary.dayLabel).toBe('in 17 days')
   })
 
   it('says today, tomorrow and yesterday rather than a number', () => {
-    expect(eventSummary({ today: TODAY, event: event({ date: '2026-07-28' }) }).dayLabel).toBe('today')
-    expect(eventSummary({ today: TODAY, event: event({ date: '2026-07-29' }) }).dayLabel).toBe('tomorrow')
-    expect(eventSummary({ today: TODAY, event: event({ date: '2026-07-27' }) }).dayLabel).toBe('yesterday')
+    expect(eventSummary({ today: TODAY, event: event({ startDate: '2026-07-28' }) }).dayLabel).toBe('today')
+    expect(eventSummary({ today: TODAY, event: event({ startDate: '2026-07-29' }) }).dayLabel).toBe('tomorrow')
+    expect(eventSummary({ today: TODAY, event: event({ startDate: '2026-07-27' }) }).dayLabel).toBe('yesterday')
   })
 
   it('says a past date in the past tense, never as a negative', () => {
-    const summary = eventSummary({ today: TODAY, event: event({ date: '2026-07-18' }) })
+    const summary = eventSummary({ today: TODAY, event: event({ startDate: '2026-07-18' }) })
     expect(summary.daysToLoadIn).toBe(-10)
     expect(summary.dayLabel).toBe('10 days ago')
   })
 
   it('ignores a timestamp suffix on the stored date', () => {
-    expect(eventSummary({ today: TODAY, event: event({ date: '2026-08-14T00:00:00Z' }) }).daysToLoadIn).toBe(17)
+    expect(eventSummary({ today: TODAY, event: event({ startDate: '2026-08-14T00:00:00Z' }) }).daysToLoadIn).toBe(17)
+  })
+})
+
+describe('eventSummary — the day arithmetic, with length (Slice 30)', () => {
+  it('counts to load-in, not to the first show day', () => {
+    // The label has said "days to load-in" since Wave 4 while the value counted
+    // to the event's only date. Now the value means what the label says.
+    const summary = eventSummary({
+      today: TODAY,
+      event: event({ loadInDate: '2026-08-13', startDate: '2026-08-14' }),
+    })
+    expect(summary.daysToLoadIn).toBe(16)
+    expect(summary.dayLabel).toBe('in 16 days')
+  })
+
+  it('says load-in today on the rig day', () => {
+    const summary = eventSummary({
+      today: TODAY,
+      event: event({ loadInDate: '2026-07-28', startDate: '2026-07-29', endDate: '2026-07-31' }),
+    })
+    expect(summary.dayLabel).toBe('load-in today')
+    expect(summary.daysToLoadIn).toBe(0)
+  })
+
+  it('says which day of the run it is once the run has started', () => {
+    const summary = eventSummary({
+      today: TODAY,
+      event: event({ startDate: '2026-07-27', endDate: '2026-07-29' }),
+    })
+    expect(summary.dayLabel).toBe('day 2 of 3')
+    expect(summary.runningDay).toBe(2)
+    expect(summary.showDays).toBe(3)
+  })
+
+  it('is on the first day of the run when today is the first show day', () => {
+    const summary = eventSummary({
+      today: TODAY,
+      event: event({ loadInDate: '2026-07-27', startDate: '2026-07-28', endDate: '2026-07-30' }),
+    })
+    expect(summary.dayLabel).toBe('day 1 of 3')
+  })
+
+  it('still says today for a one-day event, rather than day 1 of 1', () => {
+    expect(eventSummary({ today: TODAY, event: event({ startDate: '2026-07-28' }) }).dayLabel).toBe('today')
+  })
+
+  it('reports both spans whenever the event has a date', () => {
+    const summary = eventSummary({
+      today: TODAY,
+      event: event({
+        loadInDate: '2026-09-17',
+        startDate: '2026-09-18',
+        endDate: '2026-09-20',
+        loadOutDate: '2026-09-21',
+      }),
+    })
+    expect(summary.showDays).toBe(3)
+    expect(summary.onSiteDays).toBe(5)
+  })
+
+  it('leaves both spans undefined for an undated event', () => {
+    const summary = eventSummary({ today: TODAY, event: event({ startDate: undefined }) })
+    expect(summary.showDays).toBeUndefined()
+    expect(summary.onSiteDays).toBeUndefined()
   })
 })
 

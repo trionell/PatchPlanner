@@ -235,3 +235,93 @@ func TestCreateEventCopiesTemplateAsOneTimeSnapshot(t *testing.T) {
 func testEvent(name string) domain.Event {
 	return domain.Event{Name: name}
 }
+
+// The three dates added in migration 046 round-trip, and NULL round-trips as
+// NULL rather than as an empty string that has been stored on purpose.
+func TestEventSpansRoundTrip(t *testing.T) {
+	database := openTestDB(t)
+	owner, err := UpsertUserByGoogleSub(database, "spans-sub", "spans@example.com", "Spans", "")
+	if err != nil {
+		t.Fatalf("seed owner: %v", err)
+	}
+	inventory, err := CreateInventory(database, owner.ID, "Spans Inventory")
+	if err != nil {
+		t.Fatalf("create inventory: %v", err)
+	}
+
+	full := domain.Event{
+		Name:        "Bruksrock",
+		LoadInDate:  "2026-09-17",
+		StartDate:   "2026-09-18",
+		EndDate:     "2026-09-20",
+		LoadOutDate: "2026-09-21",
+	}
+	created, err := CreateEvent(database, full, owner.ID, inventory.ID)
+	if err != nil {
+		t.Fatalf("create four-date event: %v", err)
+	}
+	if created.LoadInDate != full.LoadInDate || created.StartDate != full.StartDate ||
+		created.EndDate != full.EndDate || created.LoadOutDate != full.LoadOutDate {
+		t.Errorf("four dates did not round-trip: %+v", created)
+	}
+
+	// The one-day case: three columns stay NULL, and read back as "".
+	oneDay, err := CreateEvent(database, domain.Event{Name: "Vigsel", StartDate: "2026-08-22"}, owner.ID, inventory.ID)
+	if err != nil {
+		t.Fatalf("create one-day event: %v", err)
+	}
+	if oneDay.LoadInDate != "" || oneDay.EndDate != "" || oneDay.LoadOutDate != "" {
+		t.Errorf("a one-day event should carry no spans, got %+v", oneDay)
+	}
+	var nulls int
+	if err := database.QueryRow(
+		`SELECT (load_in_date IS NULL) + (end_date IS NULL) + (load_out_date IS NULL) FROM events WHERE id = ?`,
+		oneDay.ID).Scan(&nulls); err != nil {
+		t.Fatalf("inspect stored nulls: %v", err)
+	}
+	if nulls != 3 {
+		t.Errorf("empty dates should store as NULL, got %d of 3 null", nulls)
+	}
+
+	// Clearing a span on update returns it to NULL rather than "".
+	cleared, err := UpdateEvent(database, created.ID, domain.Event{Name: "Bruksrock", StartDate: "2026-09-18"})
+	if err != nil {
+		t.Fatalf("clear spans: %v", err)
+	}
+	if cleared.LoadInDate != "" || cleared.EndDate != "" || cleared.LoadOutDate != "" {
+		t.Errorf("spans were not cleared: %+v", cleared)
+	}
+}
+
+// A row written before migration 046 — every new column NULL — reads back as a
+// valid one-day event rather than erroring on the scan.
+func TestEventRowFromBeforeSpansReadsBack(t *testing.T) {
+	database := openTestDB(t)
+	owner, err := UpsertUserByGoogleSub(database, "legacy-sub", "legacy@example.com", "Legacy", "")
+	if err != nil {
+		t.Fatalf("seed owner: %v", err)
+	}
+	inventory, err := CreateInventory(database, owner.ID, "Legacy Inventory")
+	if err != nil {
+		t.Fatalf("create inventory: %v", err)
+	}
+	result, err := database.Exec(
+		`INSERT INTO events (name, start_date, owner_user_id, inventory_id) VALUES ('Pre-046', '2025-08-16', ?, ?)`,
+		owner.ID, inventory.ID)
+	if err != nil {
+		t.Fatalf("insert legacy row: %v", err)
+	}
+	id, _ := result.LastInsertId()
+
+	event, err := GetEvent(database, id)
+	if err != nil {
+		t.Fatalf("read legacy row: %v", err)
+	}
+	if event.StartDate != "2025-08-16" {
+		t.Errorf("start date = %q, want 2025-08-16", event.StartDate)
+	}
+	dates := event.Resolve()
+	if dates.LoadIn != "2025-08-16" || dates.Last != "2025-08-16" || dates.LoadOut != "2025-08-16" {
+		t.Errorf("a legacy row must resolve to one day, got %+v", dates)
+	}
+}
