@@ -12,6 +12,7 @@ import { formatDMXRange } from '../../lib/utils'
 import type { AddressChange } from '../../types'
 import { MobileEntityList } from '../mobile/MobileEntityList'
 import { MobileFixtureEditSheet } from '../mobile/MobileFixtureEditSheet'
+import { type LightingFilter, LightingStatusRail } from './LightingStatusRail'
 import { LightingRigSheet } from '../print/LightingRigSheet'
 import { PrintButton } from '../print/PrintButton'
 import { Button } from '../ui/Button'
@@ -50,6 +51,8 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
   const [editingFixtureId, setEditingFixtureId] = useState<number | 'new' | null>(null)
   const [adding, setAdding] = useState(false)
   const [universesOpen, setUniversesOpen] = useState(false)
+  // The phone's strip filter — the desktop's lives in `LightingSheet` (data-model.md §3).
+  const [mobileFilter, setMobileFilter] = useState<LightingFilter>(null)
 
   const rigId = lightingQuery.data?.rig.id
   const fixtures = useMemo(() => lightingQuery.data?.fixtures ?? [], [lightingQuery.data])
@@ -101,17 +104,38 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
   }
 
   if (isMobile) {
-    const items = fixtures.map((fixture) => ({
-      id: fixture.id,
-      number: fixture.fixture_number ?? `#${fixture.id}`,
-      name: fixture.inventory_item_name || fixture.custom_name || 'Unnamed fixture',
-      subtitle: `Univ ${fixture.dmx_universe} · Addr ${formatDMXRange(fixture.dmx_start_address, fixture.dmx_channel_count)} · ${fixture.dmx_channel_mode ?? 'Basic'}`,
-    }))
+    /* The strip reports either errors or unaddressed fixtures, and the filter shows
+       exactly the ones it named — the same sets `LightingStatusRail` counts. */
+    const reported = new Set(
+      mobileFilter === 'errors'
+        ? map.problems.flatMap((problem) =>
+            problem.kind === 'out-of-bounds' ? problem.group.fixtureIds : [...problem.a.fixtureIds, ...problem.b.fixtureIds],
+          )
+        : mobileFilter === 'unaddressed'
+          ? map.unaddressed
+          : [],
+    )
+    const items = fixtures
+      .filter((fixture) => mobileFilter == null || reported.has(fixture.id))
+      .map((fixture) => ({
+        id: fixture.id,
+        number: fixture.fixture_number ?? `#${fixture.id}`,
+        name: fixture.inventory_item_name || fixture.custom_name || 'Unnamed fixture',
+        subtitle: `Univ ${fixture.dmx_universe} · Addr ${formatDMXRange(fixture.dmx_start_address, fixture.dmx_channel_count)} · ${fixture.dmx_channel_mode ?? 'Basic'}`,
+      }))
     const editingFixture = typeof editingFixtureId === 'number' ? fixtures.find((f) => f.id === editingFixtureId) : undefined
     return (
       <div className="flex min-h-0 flex-1 flex-col print:hidden">
         <MobileEntityList
           title="Lighting"
+          strip={
+            <LightingStatusRail
+              map={map}
+              fixtures={fixtures}
+              filter={mobileFilter}
+              onFilterChange={readOnly ? undefined : setMobileFilter}
+            />
+          }
           items={items}
           onSelect={setEditingFixtureId}
           onAdd={() => rigId != null && setEditingFixtureId('new')}

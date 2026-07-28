@@ -4,7 +4,7 @@ import { deleteAudioOutput, deleteOutputCable, updateAudioOutput, updateOutputCa
 import { useReferenceData } from '../../hooks/useReferenceData'
 import { useRowEditor } from '../../hooks/useRowEditor'
 import { isCablelessToKind } from '../../lib/outputGraph'
-import { boxUsage, cablesPicked, consoleCapacity, type PatchStatus } from '../../lib/patchCapacity'
+import { outputPatchStatus, type PatchStatus } from '../../lib/patchCapacity'
 import { matchesSearch } from '../../lib/patchSearch'
 import { vocabularyTint } from '../../lib/vocabularyTint'
 import { outputChainSegments, type ChainCellModel, type SegmentNode } from '../../lib/patchSheet'
@@ -131,22 +131,14 @@ export function OutputSheet({
     persist: (output, draft) => saveOutput.mutate({ id: output.id, payload: { ...output, ...draft } }),
   })
 
-  const capacity = consoleCapacity(
+  const status: PatchStatus = outputPatchStatus({
+    outputs,
+    gaps: rows.filter((row) => row.chain.hasGap).map((row) => row.output),
     consoles,
-    (desk) => outputs.filter((output) => output.console_id === desk.id).length,
-    (desk) => desk.output_count,
-    'output',
-  )
-  const status: PatchStatus = {
-    rowCount: outputs.length,
-    consoleLabels: capacity.labels,
-    boxes: boxUsage(stageboxes, stageMultis, cables),
-    cablesPicked: cablesPicked(cables),
-    gaps: rows
-      .filter((row) => row.chain.hasGap)
-      .map((row) => `Out ${row.output.output_number} ${row.output.output_name || ''} is not patched`.replace('  ', ' ')),
-    overCapacity: capacity.overCapacity,
-  }
+    stageboxes,
+    stageMultis,
+    cables,
+  })
 
   const chainText = (chain: ChainCellModel) => chain.lines.flatMap((line) => line.segments.map((segment) => segment.label)).join(' ')
   const visible = rows.filter(

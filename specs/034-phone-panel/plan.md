@@ -153,7 +153,22 @@ than a surprise (research R10).
    `lib/patchCapacity.ts`. A refactor with no rendered difference; its test is that the
    sheets' existing tests still pass.
 2. **The four status rails gain a phone branch.** Their desktop return must be
-   byte-identical, verified through `twMerge` rather than read.
+   byte-identical, verified by rendering every state before and after the change and
+   diffing the markup — which is stronger than the `twMerge` comparison 6a used, because
+   it catches element order and not only class strings. **Verified: all eleven states
+   identical.**
+3. **The phone shell becomes a fixed-height column.** *Added during Phase 1, and
+   recorded here rather than absorbed.* A panel can only fill the body if something
+   above it has a height; without it the strip sits below the fold, which defeats the
+   finding this slice exists to close. `Layout`'s phone branch is `h-[100svh]` with
+   `main` as the scroller, and the chain from there down — `EventDetail`'s phone return,
+   its section wrapper, each tab's phone wrapper — is explicit. **Blast radius**: every
+   phone surface, including the four that 6c owns; they scroll inside `main` instead of
+   on the page. **Not verifiable here**: whether a handset's address bar still collapses,
+   which is quickstart.md's row 10.
+4. **`useIsMobile` is guarded for a missing `window`.** One condition. Without it, every
+   component that branches on reach is unrenderable by this project's own test method —
+   which is why `ui/Drawer` has never had a test.
 
 Nothing else on the desktop changes. `git diff --stat -- backend/ frontend/src/api/`
 must be empty.

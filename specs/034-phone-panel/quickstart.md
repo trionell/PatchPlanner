@@ -51,6 +51,7 @@ narrowed to 375 px; **rows 7–9 need a phone**, and are the reason this list ex
 | 7 | **On a device**: open a surface with a strip | The strip clears the home indicator. The bottom nav is not overlapping it. |
 | 8 | **On a device**: tap the bar's controls and the strip with a thumb, one-handed | Nothing mis-fires. The strip is the easiest target on the screen. |
 | 9 | **On a device**: open a 56-channel patch | The strip wraps to two lines with the verdict on the first. The list still shows its rows. |
+| 10 | **On a device**: scroll a long list up and down | The address bar behaves acceptably. The shell is a fixed-height column now (plan.md, declared delta 3), so the page itself no longer scrolls — this is the one behaviour change this slice cannot check without a handset. |
 
 ### Per-surface sweep
 

@@ -43,18 +43,18 @@ Closes `M3`.
 **Independent test**: on a patch with gaps, tapping the strip filters the rows to the
 gaps; on a complete patch the strip draws no chevron and does not respond.
 
-- [ ] T013 Extract `inputPatchStatus` and `outputPatchStatus` into `frontend/src/lib/patchCapacity.ts` from the inline construction in `InputSheet.tsx` and `OutputSheet.tsx` (research R6, declared delta 1).
-- [ ] T014 Update `InputSheet.tsx` and `OutputSheet.tsx` to call them. No rendered difference.
-- [ ] T015 [P] Extend `frontend/src/lib/patchCapacity.test.ts` to cover both extracted functions.
-- [ ] T016 `PatchStatusRail.tsx` — phone branch: `text-xs`, no `h-6` control, root becomes a `<button>` at `min-h-[44px]` when a filter handler is present, `only gaps ›` / `show all ›` at the trailing edge, `Open Rig` absent.
-- [ ] T017 [P] `LightingStatusRail.tsx` — same shape, its own filter.
-- [ ] T018 [P] `EquipmentStatusRail.tsx` — same shape.
-- [ ] T019 [P] `RentalStatusRail.tsx` — same shape.
-- [ ] T020 Write `frontend/src/components/event/StatusRailMobile.test.tsx` pinning P4 and P5 — `<button>` on a phone with a handler, `<div>` on a desktop, `<div>` with no chevron in a clean state at either width, and the desktop markup unchanged.
-- [ ] T021 [US3] `AudioInputsTab.tsx` — phone branch gains `gapsOnly` state, filters the list by `hasGap`, and passes `PatchStatusRail` as `strip`.
-- [ ] T022 [P] [US3] `AudioOutputsTab.tsx` — same.
-- [ ] T023 [P] [US3] `LightingTab.tsx` — phone branch gains `LightingFilter` state, calls `dmxMap(fixtures)`, passes `LightingStatusRail` as `strip`.
-- [ ] T024 Gates, plus the `twMerge` comparison of every desktop class string on the four rails (research R10).
+- [X] T013 Extract `inputPatchStatus` and `outputPatchStatus` into `frontend/src/lib/patchCapacity.ts` from the inline construction in `InputSheet.tsx` and `OutputSheet.tsx` (research R6, declared delta 1).
+- [X] T014 Update `InputSheet.tsx` and `OutputSheet.tsx` to call them. No rendered difference.
+- [X] T015 [P] Extend `frontend/src/lib/patchCapacity.test.ts` to cover both extracted functions.
+- [X] T016 `PatchStatusRail.tsx` — phone branch: `text-xs`, no `h-6` control, root becomes a `<button>` at `min-h-[44px]` when a filter handler is present, `only gaps ›` / `show all ›` at the trailing edge, `Open Rig` absent.
+- [X] T017 [P] `LightingStatusRail.tsx` — same shape, its own filter.
+- [X] T018 [P] `EquipmentStatusRail.tsx` — same shape.
+- [X] T019 [P] `RentalStatusRail.tsx` — same shape.
+- [X] T020 Write `frontend/src/components/event/StatusRailMobile.test.tsx` pinning P4 and P5 — `<button>` on a phone with a handler, `<div>` on a desktop, `<div>` with no chevron in a clean state at either width, and the desktop markup unchanged.
+- [X] T021 [US3] `AudioInputsTab.tsx` — phone branch gains `gapsOnly` state, filters the list by `hasGap`, and passes `PatchStatusRail` as `strip`.
+- [X] T022 [P] [US3] `AudioOutputsTab.tsx` — same.
+- [X] T023 [P] [US3] `LightingTab.tsx` — phone branch gains `LightingFilter` state, calls `dmxMap(fixtures)`, passes `LightingStatusRail` as `strip`.
+- [X] T024 Gates, plus the `twMerge` comparison of every desktop class string on the four rails (research R10).
 
 ---
 

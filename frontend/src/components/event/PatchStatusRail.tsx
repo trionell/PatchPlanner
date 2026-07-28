@@ -1,6 +1,7 @@
 import { patchStatusState, type PatchStatus } from '../../lib/patchCapacity'
 import { Button } from '../ui/Button'
 import { Pill } from '../ui/SheetTable'
+import { StatusStrip } from './StatusStrip'
 
 interface PatchStatusRailProps {
   status: PatchStatus
@@ -40,7 +41,20 @@ export function PatchStatusRail({ status, noun, onShowGaps, gapsOnly, onOpenRig 
   const state = patchStatusState(status)
 
   return (
-    <div className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t px-3 py-2 text-[11px] text-zinc-400 ${STRIP_TINT[state]}`}>
+    <StatusStrip
+      tint={STRIP_TINT[state]}
+      filter={state === 'gaps' && onShowGaps ? { label: gapsOnly ? 'Show all' : 'Show only gaps', onClick: onShowGaps } : undefined}
+      /* `Open Rig` does not travel: the drawer is not mounted in any phone branch
+         until audit.md M5 closes, and a control that opens nothing is worse than one
+         that is absent (P7). */
+      desktopExtras={
+        state === 'over' && onOpenRig ? (
+          <Button size="xs" variant="outline" className="h-6 px-2 text-[11px]" onClick={onOpenRig}>
+            Open Rig
+          </Button>
+        ) : undefined
+      }
+    >
       {state === 'complete' && <Pill className="bg-emerald-500/15 text-emerald-300">complete</Pill>}
       {state === 'gaps' && (
         <Pill className="bg-amber-500/15 text-amber-300">
@@ -66,29 +80,17 @@ export function PatchStatusRail({ status, noun, onShowGaps, gapsOnly, onOpenRig 
       {state === 'over' && <span className="text-red-300">{status.overCapacity[0]}</span>}
 
       {/*
-        The strip's two controls are a size below `xs`, and deliberately not a
-        fifth `Button` size: a control that sits *inside* a strip has to match the
-        strip's own `text-[11px]` and must not set the height of the bar it closes
-        the panel with. Two co-located overrides in one component are not the
-        scattered-copies problem `xs` was added to end (design/audit.md A2).
+        The controls are `StatusStrip`'s now, because the phone's answer to them is a
+        decision the four rails must not each take. On a desktop they are still a size
+        below `xs` for the reason they always were: a control inside a strip must not
+        set the height of the bar closing the panel (design/audit.md A2).
       */}
       {state === 'gaps' && (
         <>
           <span className="text-amber-300">{status.gaps[0]}</span>
           {status.gaps.length > 1 && <span className="text-zinc-500">+{status.gaps.length - 1} more</span>}
-          {onShowGaps && (
-            <Button size="xs" variant="ghost" className="h-6 px-2 text-[11px]" onClick={onShowGaps}>
-              {gapsOnly ? 'Show all' : 'Show only gaps'}
-            </Button>
-          )}
         </>
       )}
-
-      {state === 'over' && onOpenRig && (
-        <Button size="xs" variant="outline" className="h-6 px-2 text-[11px]" onClick={onOpenRig}>
-          Open Rig
-        </Button>
-      )}
-    </div>
+    </StatusStrip>
   )
 }

@@ -100,3 +100,67 @@ export function consoleCapacity(
   }
   return { labels, overCapacity }
 }
+
+/**
+ * The two patches' status, assembled once.
+ *
+ * These lived inline in `InputSheet` and `OutputSheet` — about fifteen lines each,
+ * identical in shape and differing only in a noun and a count. Wave 6b gave them a
+ * second caller: the phone's status strip is rendered by the *tab*, which cannot reach
+ * inside the sheet, and duplicating the assembly there would put one of the two copies
+ * on the surface nobody looks at on a desk.
+ *
+ * Extraction at the second caller, not before (Principle V). What stays with the caller
+ * is the gap predicate, because the sheet has chain models and the phone has list items
+ * and both already know which of their rows is missing a link — what moves here is the
+ * assembly and the wording, which is the part that drifts.
+ */
+export function inputPatchStatus(input: {
+  channels: { console_id?: number }[]
+  /** The channels the chain says have no source, in row order. */
+  gaps: { channel_number: number; channel_name?: string }[]
+  consoles: Console[]
+  stageboxes: Stagebox[]
+  stageMultis: StageMulti[]
+  cables: InputCable[]
+}): PatchStatus {
+  const capacity = consoleCapacity(
+    input.consoles,
+    (desk) => input.channels.filter((channel) => channel.console_id === desk.id).length,
+    (desk) => desk.input_count,
+    'channel',
+  )
+  return {
+    rowCount: input.channels.length,
+    consoleLabels: capacity.labels,
+    boxes: boxUsage(input.stageboxes, input.stageMultis, input.cables),
+    cablesPicked: cablesPicked(input.cables),
+    gaps: input.gaps.map((channel) => `Ch ${channel.channel_number} ${channel.channel_name || ''} has no source`.replace('  ', ' ')),
+    overCapacity: capacity.overCapacity,
+  }
+}
+
+export function outputPatchStatus(input: {
+  outputs: { console_id?: number }[]
+  /** The outputs the chain says are not patched, in row order. */
+  gaps: { output_number: number; output_name?: string }[]
+  consoles: Console[]
+  stageboxes: Stagebox[]
+  stageMultis: StageMulti[]
+  cables: OutputCable[]
+}): PatchStatus {
+  const capacity = consoleCapacity(
+    input.consoles,
+    (desk) => input.outputs.filter((output) => output.console_id === desk.id).length,
+    (desk) => desk.output_count,
+    'output',
+  )
+  return {
+    rowCount: input.outputs.length,
+    consoleLabels: capacity.labels,
+    boxes: boxUsage(input.stageboxes, input.stageMultis, input.cables),
+    cablesPicked: cablesPicked(input.cables),
+    gaps: input.gaps.map((output) => `Out ${output.output_number} ${output.output_name || ''} is not patched`.replace('  ', ' ')),
+    overCapacity: capacity.overCapacity,
+  }
+}

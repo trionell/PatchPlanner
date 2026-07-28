@@ -1,6 +1,6 @@
 import { type EquipmentRow, overOwnedCount } from '../../lib/equipmentRows'
-import { Button } from '../ui/Button'
 import { Pill } from '../ui/SheetTable'
+import { StatusStrip } from './StatusStrip'
 
 /**
  * The strip that closes the Equipment panel (Slice 28 US2).
@@ -26,10 +26,13 @@ export function EquipmentStatusRail({ rows, filter, onFilterChange }: EquipmentS
   const problems = overOwnedCount(rows)
 
   return (
-    <div
-      className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t px-3 py-2 text-[11px] text-zinc-400 ${
-        problems > 0 ? 'border-red-400/40 bg-red-500/[0.05]' : 'border-zinc-800 bg-zinc-950/60'
-      }`}
+    <StatusStrip
+      tint={problems > 0 ? 'border-red-400/40 bg-red-500/[0.05]' : 'border-zinc-800 bg-zinc-950/60'}
+      filter={
+        onFilterChange && problems > 0
+          ? { label: filter ? 'Show all' : 'Show only problems', onClick: () => onFilterChange(filter ? null : 'problems') }
+          : undefined
+      }
     >
       {problems > 0 ? (
         <Pill className="bg-red-500/15 text-red-300">{problems} over owned</Pill>
@@ -52,16 +55,6 @@ export function EquipmentStatusRail({ rows, filter, onFilterChange }: EquipmentS
         </>
       )}
 
-      {onFilterChange && problems > 0 && (
-        <Button
-          size="xs"
-          variant="ghost"
-          className="h-6 px-2 text-[11px]"
-          onClick={() => onFilterChange(filter ? null : 'problems')}
-        >
-          {filter ? 'Show all' : 'Show only problems'}
-        </Button>
-      )}
-    </div>
+    </StatusStrip>
   )
 }

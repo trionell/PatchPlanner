@@ -6,6 +6,7 @@ import { listOwnedItems } from '../../api/owned'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { usePatchView } from '../../hooks/usePatchView'
 import { buildMobileChannelList } from '../../lib/mobileChannelList'
+import { inputPatchStatus } from '../../lib/patchCapacity'
 import { itemLabel } from '../../lib/utils'
 import type { SegmentNode } from '../../lib/patchSheet'
 import type { InputChannel, InventoryItem, OwnedItem } from '../../types'
@@ -20,6 +21,7 @@ import { ConsoleSection } from './ConsoleSection'
 import { InputDeviceSection } from './InputDeviceSection'
 import { InputGraphCanvas } from './InputGraphCanvas'
 import { InputSheet } from './InputSheet'
+import { PatchStatusRail } from './PatchStatusRail'
 import { RigDrawer } from './RigDrawer'
 
 export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number; readOnly?: boolean }) {
@@ -52,6 +54,9 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
   // (Slice 25 FR-020); the canvas reads it for geometry.
   const [zoom, setZoom] = useState(1)
   const [drawer, setDrawer] = useState<'rig' | 'buses' | null>(null)
+  // The phone's strip filter. The desktop's lives in `InputSheet`; the phone's
+  // branch returns before that, so it holds its own (data-model.md §3).
+  const [gapsOnly, setGapsOnly] = useState(false)
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['audio-patch', eventId] })
@@ -84,18 +89,39 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
   )
 
   if (isMobile) {
-    const items = buildMobileChannelList(channels, { sources, devices, stageboxes, stageMultis, cables, itemLabelById }).map((item) => ({
-      id: item.id,
-      number: item.channelNumber,
-      name: item.name,
-      subtitle: `${item.sourceLabel} · ${item.routingLabel}`,
-      color: item.color,
-    }))
+    const listed = buildMobileChannelList(channels, { sources, devices, stageboxes, stageMultis, cables, itemLabelById })
+    const gapNumbers = new Set(listed.filter((item) => item.hasGap).map((item) => item.channelNumber))
+    const items = listed
+      .filter((item) => !gapsOnly || item.hasGap)
+      .map((item) => ({
+        id: item.id,
+        number: item.channelNumber,
+        name: item.name,
+        subtitle: `${item.sourceLabel} · ${item.routingLabel}`,
+        color: item.color,
+      }))
+    // The same verdict the desk states, from the same assembly (research.md R6).
+    const status = inputPatchStatus({
+      channels,
+      gaps: channels.filter((channel) => gapNumbers.has(channel.channel_number)),
+      consoles,
+      stageboxes,
+      stageMultis,
+      cables,
+    })
     const editingChannel = typeof editingChannelId === 'number' ? channels.find((c) => c.id === editingChannelId) : undefined
     return (
       <div className="flex min-h-0 flex-1 flex-col print:hidden">
         <MobileEntityList
           title="Audio Inputs"
+          strip={
+            <PatchStatusRail
+              status={status}
+              noun="channel"
+              gapsOnly={gapsOnly}
+              onShowGaps={status.gaps.length > 0 ? () => setGapsOnly((only) => !only) : undefined}
+            />
+          }
           items={items}
           onSelect={setEditingChannelId}
           onAdd={() => setEditingChannelId('new')}
