@@ -157,7 +157,7 @@ export function FieldStack({
   children,
 }: {
   label: string
-  width?: 'default' | 'grow' | 'count' | 'short'
+  width?: 'default' | 'grow' | 'count' | 'short' | 'full'
   children: ReactNode
 }) {
   const widths = {
@@ -165,6 +165,10 @@ export function FieldStack({
     grow: 'min-w-40 flex-1',
     count: 'w-20',
     short: 'w-28',
+    // The phone's. `grow` could not be reused: its `flex-1` grows the *height*
+    // inside the `flex-col` a bottom sheet stacks its fields in, and its
+    // `min-w-40` is a floor a 375px screen does not want (research.md R4).
+    full: 'w-full',
   }
   return (
     <label className={cn('flex flex-col gap-1', widths[width])}>
