@@ -33,6 +33,16 @@ export interface Inventory {
    */
   sourceFormat?: 'll' | 'generic'
   createdAt: string
+  /**
+   * The three counts the list view is made of (Slice 32). Present on the
+   * list payload only — an endpoint returning a single inventory leaves
+   * them absent rather than reporting zeroes it never measured — and
+   * omitted by the server when they are zero, so absent and 0 mean the
+   * same thing at every call site.
+   */
+  itemCount?: number
+  categoryCount?: number
+  eventCount?: number
 }
 
 export interface CurrentUser {

@@ -80,10 +80,10 @@ differently. Blocks US1, US2 and US3. Nothing in this phase is visible.
 **Purpose**: the page's only derived structure, testable without rendering.
 Blocks US1's strip and US4 entirely.
 
-- [ ] T010 Add `itemCount?`, `categoryCount?`, `eventCount?` to `Inventory` in `frontend/src/types/index.ts`, documented as list-payload-only
-- [ ] T011 Create `frontend/src/lib/inventoryList.ts` exporting `summariseInventories(inventories, search)` → `{ visible, total, items, events, unused }`, matching name and `sourceFilename` through the existing `matchesSearch`, per [research.md](research.md) R6
-- [ ] T012 Create `frontend/src/lib/inventoryList.test.ts` — totals over five catalogs; `unused` counts only `eventCount ?? 0 === 0`; an empty search returns everything; a term matching a **source filename** narrows the list; a term matching nothing returns `visible: []` with `total` unchanged, which is what makes the strip say `0 of 5`
-- [ ] T013 Run the gates, then **commit 2**
+- [X] T010 Add `itemCount?`, `categoryCount?`, `eventCount?` to `Inventory` in `frontend/src/types/index.ts`, documented as list-payload-only
+- [X] T011 Create `frontend/src/lib/inventoryList.ts` exporting `summariseInventories(inventories, search)` → `{ visible, total, items, events, unused }`, matching name and `sourceFilename` through the existing `matchesSearch`, per [research.md](research.md) R6
+- [X] T012 Create `frontend/src/lib/inventoryList.test.ts` — totals over five catalogs; `unused` counts only `eventCount ?? 0 === 0`; an empty search returns everything; a term matching a **source filename** narrows the list; a term matching nothing returns `visible: []` with `total` unchanged, which is what makes the strip say `0 of 5`
+- [X] T013 Run the gates, then **commit 2**
 
 ## Phase 3: US1 + US2 + US3 — the page
 
