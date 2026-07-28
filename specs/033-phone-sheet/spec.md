@@ -368,10 +368,16 @@ the sheet does not announce itself as modal.
   honoured by Chromium and ignored by WebKit, so the sheet MUST NOT depend on
   it: the body scrolls and the focused field can be brought into view
   regardless.
-- **FR-072**: `Layout`'s phone body padding MUST derive from the bottom nav's
-  stated height plus the inset, rather than from the literal `pb-20`
-  ([audit.md](../../design/audit.md) M10, the half of it that this phase's
-  change makes visible).
+- **FR-072**: The bottom navigation bar MUST **state** its height as `h-14`
+  ([tokens.md](../../design/tokens.md) §7), rather than emerging from a padding,
+  an icon and a font size.
+- **FR-073**: `Layout`'s phone body padding MUST derive from that stated height
+  plus the inset, rather than from the literal `pb-20`.
+- **FR-074**: The phone header MUST state its height as `h-14`, the desktop
+  header's own number ([patterns.md](../../design/patterns.md) §7a). Together
+  with FR-072 and FR-073 this closes M10 whole rather than in half — see
+  [research.md](research.md) R7 for why the half that FR-073 alone would have
+  left is the expensive one.
 
 ### Boundaries
 
@@ -427,7 +433,9 @@ the sheet does not announce itself as modal.
   sheet, it wants it as part of its own surface's phase.
 - **`!isMobile` in permission expressions** (M4), **the two tabs with no phone
   branch** (M9), **print from a phone** (M11), **the off-ladder values in
-  `components/mobile/`** (M2). All are about surfaces.
+  `components/mobile/`** (M2). All are about surfaces. M10 is the one finding
+  outside the six files that this phase does close, and only because R6 turns it
+  from a dormant guess into a live one.
 - **An entrance animation, drag-to-dismiss, or snap points.**
 - **Converting the nineteen `window.confirm` call sites.** Unchanged from Slice
   32's boundary.
@@ -447,7 +455,8 @@ the sheet does not announce itself as modal.
 - **SC-005**: Exactly **one** control sits in a converted sheet's footer, down
   from three, and none of them is destructive.
 - **SC-006**: `env(safe-area-inset-bottom)` evaluates to a real value on a
-  device that has one, for the first time since Slice 21.
+  device that has one, for the first time since Slice 21 — and no bottom-anchored
+  surface's clearance is a literal any more.
 - **SC-007**: The application renders **zero** capability badges, and `sky`
   appears only as the legend's sample stroke.
 - **SC-008**: The desktop's rendering is unchanged apart from the single delta

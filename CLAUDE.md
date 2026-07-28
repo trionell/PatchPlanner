@@ -1,7 +1,7 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/032-inventories-list/plan.md`
+`specs/033-phone-sheet/plan.md`
 
 The overall implementation roadmap (all feature slices, their order, and
 dependencies) is in `ROADMAP.md` at the repository root.
