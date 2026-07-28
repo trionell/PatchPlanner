@@ -4,14 +4,33 @@ import { useEffect } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 import { listMyInventories } from '../api/inventories'
+import { dateOrderError } from '../lib/eventTimeline'
 import type { Event } from '../types'
 import { EventDates, type EventDateValues } from './event/EventDates'
-import { dateOrderError } from '../lib/eventTimeline'
 import { Button } from './ui/Button'
-import { Dialog } from './ui/Dialog'
+import { Drawer } from './ui/Drawer'
 import { Input } from './ui/Input'
 import { FieldLabel } from './ui/Label'
+import { Select } from './ui/Select'
+import { Textarea } from './ui/Textarea'
 
+/**
+ * Creating an event, in a drawer.
+ *
+ * It was a `Dialog`, and it was the only form in the application that still
+ * was. `EventDetailsDrawer` edits the same fields in a drawer, and patterns
+ * §4b is explicit that editing an event is a drawer — so the create form was
+ * asserting, by being a different kind of overlay, that making an event and
+ * changing one are different kinds of act. They are not: it is the same seven
+ * fields.
+ *
+ * **`wide`, and the four dates are what set it.** A narrow drawer is 448 px,
+ * which leaves about 93 px per date field once the padding and gaps are taken
+ * out — too narrow for a date input to show `2026-09-17`. Stacking them two by
+ * two would fit, and would break the one thing the row is for: read left to
+ * right, it reads like the event. So the width follows the content rather than
+ * the content being folded to fit the width.
+ */
 const eventSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   loadInDate: z.string().optional(),
@@ -34,7 +53,7 @@ type EventFormValues = {
   inventoryId: number
 }
 
-interface EventFormDialogProps {
+interface EventFormDrawerProps {
   open: boolean
   onClose: () => void
   onSubmit: (values: EventFormValues) => Promise<unknown>
@@ -44,7 +63,7 @@ interface EventFormDialogProps {
   submitting?: boolean
 }
 
-export function EventFormDialog({
+export function EventFormDrawer({
   open,
   onClose,
   onSubmit,
@@ -52,7 +71,7 @@ export function EventFormDialog({
   submitLabel,
   initialValues,
   submitting,
-}: EventFormDialogProps) {
+}: EventFormDrawerProps) {
   const inventoriesQuery = useQuery({ queryKey: ['inventories'], queryFn: listMyInventories, enabled: open })
 
   const form = useForm<EventFormValues>({
@@ -81,6 +100,7 @@ export function EventFormDialog({
     endDate: watched[2] ?? '',
     loadOutDate: watched[3] ?? '',
   }
+  const dateError = dateOrderError(dates)
 
   useEffect(() => {
     form.reset({
@@ -104,9 +124,15 @@ export function EventFormDialog({
   }, [form, initialValues, inventoriesQuery.data])
 
   return (
-    <Dialog open={open} onClose={onClose} title={title}>
+    <Drawer
+      open={open}
+      onClose={onClose}
+      title={title}
+      subtitle="Name, venue, dates, notes and the inventory it draws from"
+      footer={<>An event&rsquo;s inventory is chosen once, at creation, and never changes afterwards.</>}
+    >
       <form
-        className="space-y-4"
+        className="flex flex-col gap-3.5"
         onSubmit={form.handleSubmit(async (values) => {
           if (dateOrderError(values)) return
           await onSubmit(values)
@@ -116,12 +142,16 @@ export function EventFormDialog({
         <div>
           <FieldLabel>Event name</FieldLabel>
           <Input {...form.register('name')} />
-          {form.formState.errors.name && <p className="mt-1 text-sm text-red-400">{form.formState.errors.name.message}</p>}
+          {form.formState.errors.name && (
+            <p className="mt-1 text-sm text-red-400">{form.formState.errors.name.message}</p>
+          )}
         </div>
+
         <div>
           <FieldLabel>Venue</FieldLabel>
           <Input {...form.register('venue')} />
         </div>
+
         <EventDates
           values={dates}
           onChange={(next) => {
@@ -130,41 +160,38 @@ export function EventFormDialog({
             }
           }}
         />
+
         <div>
           <FieldLabel>Notes</FieldLabel>
-          <textarea
-            className="min-h-28 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-500"
-            {...form.register('notes')}
-          />
+          <Textarea {...form.register('notes')} />
         </div>
+
         <div>
           <FieldLabel>Inventory</FieldLabel>
-          <select
-            className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-500"
-            {...form.register('inventoryId', { valueAsNumber: true })}
-          >
+          <Select {...form.register('inventoryId', { valueAsNumber: true })}>
             <option value={0} disabled>
-              Select an inventory...
+              Select an inventory…
             </option>
             {(inventoriesQuery.data ?? []).map((inventory) => (
               <option key={inventory.id} value={inventory.id}>
                 {inventory.name}
               </option>
             ))}
-          </select>
+          </Select>
           {form.formState.errors.inventoryId && (
             <p className="mt-1 text-sm text-red-400">{form.formState.errors.inventoryId.message}</p>
           )}
         </div>
-        <div className="flex justify-end gap-3">
+
+        <div className="flex justify-end gap-2 pt-1">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={submitting}>
-            {submitting ? 'Saving...' : submitLabel}
+          <Button type="submit" disabled={submitting || Boolean(dateError)}>
+            {submitting ? 'Saving…' : submitLabel}
           </Button>
         </div>
       </form>
-    </Dialog>
+    </Drawer>
   )
 }

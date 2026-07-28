@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Search } from 'lucide-react'
 import { createEvent, listEvents } from '../api/events'
-import { EventFormDialog } from '../components/EventFormDialog'
+import { EventFormDrawer } from '../components/EventFormDrawer'
 import { EventUnfold } from '../components/events/EventUnfold'
 import { TimelineRow } from '../components/events/TimelineRow'
 import { YearTrack } from '../components/events/YearTrack'
@@ -98,8 +98,8 @@ export function EventsPage() {
 
   const hasAnyEvents = (eventsQuery.data?.length ?? 0) > 0
 
-  const dialog = (
-    <EventFormDialog
+  const createDrawer = (
+    <EventFormDrawer
       open={open}
       onClose={() => setOpen(false)}
       title="Create event"
@@ -118,7 +118,7 @@ export function EventsPage() {
         onSearch={setSearch}
         onOpen={(id) => navigate(`/events/${id}`)}
         onCreate={() => setOpen(true)}
-        dialog={dialog}
+        createDrawer={createDrawer}
       />
     )
   }
@@ -196,7 +196,7 @@ export function EventsPage() {
 
       {timeline.counts.total > 0 && <Strip counts={timeline.counts} clashes={collisions.groups} />}
 
-      {dialog}
+      {createDrawer}
     </div>
   )
 }
@@ -415,7 +415,7 @@ function MobileEvents({
   onSearch,
   onOpen,
   onCreate,
-  dialog,
+  createDrawer,
 }: {
   events?: Event[]
   today: string
@@ -423,7 +423,7 @@ function MobileEvents({
   onSearch: (value: string) => void
   onOpen: (id: number) => void
   onCreate: () => void
-  dialog: React.ReactNode
+  createDrawer: React.ReactNode
 }) {
   const timeline = useMemo(
     () =>
@@ -490,7 +490,7 @@ function MobileEvents({
         {timeline.counts.total === 0 && <p className="px-1 py-2 text-sm text-zinc-500">No events yet.</p>}
       </div>
 
-      {dialog}
+      {createDrawer}
     </div>
   )
 }

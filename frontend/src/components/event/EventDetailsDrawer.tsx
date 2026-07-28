@@ -24,6 +24,12 @@ import { Textarea } from '../ui/Textarea'
  * an inconsistency. The Rig, Buses and Universes drawers hold lists of many
  * things and are dense for it; this one holds a handful of fields. P2 decides
  * density by asking about the surface's job, *not per component*.
+ *
+ * It was `narrow` until Slice 30 gave an event four dates. A narrow drawer
+ * leaves about 93 px per date field, which will not show `2026-09-17`; folding
+ * the four into two rows would fit and would break the one thing the row is
+ * for, which is that read left to right it reads like the event. The width
+ * follows the content.
  */
 
 export interface EventDraft {
@@ -83,7 +89,6 @@ function EventDetailsForm({
       onClose={onClose}
       title="Event details"
       subtitle="Name, venue, dates and notes"
-      width="narrow"
       footer={<>Renaming an event never changes its patch, its rig or its rental order.</>}
     >
       <div className="flex flex-col gap-3.5">

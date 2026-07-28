@@ -9,7 +9,7 @@ import { getLightingRig } from '../api/lighting'
 import { listOwnedItems } from '../api/owned'
 import { getRentalSummary } from '../api/rentals'
 import { listStagePlots } from '../api/stagePlots'
-import { EventFormDialog } from '../components/EventFormDialog'
+import { EventFormDrawer } from '../components/EventFormDrawer'
 import { CondensedListRow } from '../components/mobile/CondensedListRow'
 import { RigRibbon, type RibbonNode } from '../components/event/OverviewBands'
 import { Badge } from '../components/ui/Badge'
@@ -86,7 +86,7 @@ export function DashboardPage() {
           ))}
           {totalEvents === 0 && <p className="px-1 py-2 text-sm text-zinc-500">No events yet.</p>}
         </div>
-        <EventFormDialog
+        <EventFormDrawer
           open={open}
           onClose={() => setOpen(false)}
           title="Create event"
@@ -132,7 +132,7 @@ export function DashboardPage() {
         <span className="font-mono tabular-nums text-zinc-500">{ownedQuery.data?.length ?? 0} owned items</span>
       </div>
 
-      <EventFormDialog
+      <EventFormDrawer
         open={open}
         onClose={() => setOpen(false)}
         title="Create event"
