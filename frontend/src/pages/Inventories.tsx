@@ -12,12 +12,13 @@ import { summariseInventories } from '../lib/inventoryList'
 import { CondensedListRow } from '../components/mobile/CondensedListRow'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
-import { Dialog } from '../components/ui/Dialog'
 import { Input } from '../components/ui/Input'
 import { PanelCols, PanelMain, PanelRail, PanelRailRow } from '../components/ui/PanelRail'
 import { PatchPanel } from '../components/ui/PatchPanel'
+import { Sheet } from '../components/ui/Sheet'
 import { Pill, SheetHead, SheetHeadCell } from '../components/ui/SheetTable'
 import { Tab, TabList, TabPanel, Tabs } from '../components/ui/Tabs'
+import { cn } from '../lib/utils'
 import type { Inventory, InventoryCategory } from '../types'
 
 export function InventoriesPage() {
@@ -624,19 +625,26 @@ function MobileInventoryDetail({
         </span>
         <Badge>{items.length}</Badge>
       </button>
-      <Dialog open={filterOpen} onClose={() => onFilterOpenChange(false)} title="Filter by category">
-        <div className="space-y-1">
-          <button
-            type="button"
-            onClick={() => {
-              onSelectCategory(undefined)
-              onFilterOpenChange(false)
-            }}
-            className="flex w-full items-center justify-between rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-200"
-          >
-            All categories
-          </button>
-          {categories.map((category) => (
+      {/* A list of destinations, not a column of inputs: these rows used to
+          carry `border border-zinc-800 bg-zinc-900`, which is the Control role
+          (tokens.md §1). */}
+      <Sheet flush open={filterOpen} onClose={() => onFilterOpenChange(false)} title="Filter by category">
+        <button
+          type="button"
+          onClick={() => {
+            onSelectCategory(undefined)
+            onFilterOpenChange(false)
+          }}
+          className={cn(
+            'flex min-h-[52px] w-full items-center justify-between gap-3 border-b border-zinc-800/60 border-l-2 px-4 text-left text-sm',
+            selectedCategory ? 'border-l-transparent text-zinc-300' : 'border-l-amber-500 bg-amber-500/[0.06] font-semibold text-amber-300',
+          )}
+        >
+          All categories
+        </button>
+        {categories.map((category) => {
+          const active = category.id === selectedCategory?.id
+          return (
             <button
               key={category.id}
               type="button"
@@ -644,14 +652,17 @@ function MobileInventoryDetail({
                 onSelectCategory(category.id)
                 onFilterOpenChange(false)
               }}
-              className="flex w-full items-center justify-between rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-200"
+              className={cn(
+                'flex min-h-[52px] w-full items-center justify-between gap-3 border-b border-zinc-800/60 border-l-2 px-4 text-left text-sm',
+                active ? 'border-l-amber-500 bg-amber-500/[0.06] font-semibold text-amber-300' : 'border-l-transparent text-zinc-300',
+              )}
             >
-              <span>{category.name}</span>
-              <Badge>{category.item_count ?? 0}</Badge>
+              <span className="min-w-0 truncate">{category.name}</span>
+              <span className="shrink-0 font-mono text-xs tabular-nums text-zinc-500">{category.item_count ?? 0}</span>
             </button>
-          ))}
-        </div>
-      </Dialog>
+          )
+        })}
+      </Sheet>
       <div className="space-y-1">
         {items.map((item) => (
           <CondensedListRow

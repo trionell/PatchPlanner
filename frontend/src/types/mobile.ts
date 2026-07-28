@@ -1,24 +1,33 @@
-/** Mobile capability of one event section — informational only; never overrides a user's actual role-based permission (FR-015). */
-export type MobileCapability = 'editable' | 'read-only' | 'viewer'
-
 export interface MobileSectionCapability {
   section: 'overview' | 'audio-inputs' | 'audio-outputs' | 'lighting-rig' | 'stage-plots' | 'signal-flow' | 'equipment' | 'rentals' | 'settings'
   label: string
-  capability: MobileCapability
 }
 
 /**
- * Fixed mapping of every event tab to its mobile treatment (spec.md
- * FR-004–FR-013). Not user-configurable — see contracts/mobile-ui-contract.md.
+ * Every event section, in tab order, for the phone's section switcher.
+ *
+ * It used to carry a `capability` per entry — `editable` / `read-only` /
+ * `viewer` — which the switcher rendered as a badge. That was a vocabulary the
+ * application does not otherwise use, describing the state of the *build*
+ * rather than the state of the *show*, from a fixed table that could not know a
+ * user's role: it told a viewer that Audio Inputs was "Editable". Slice 33
+ * deleted it (design/audit.md M7).
+ *
+ * What a user may do is a role question (P7), and what a surface has built a
+ * phone form for yet is a sentence in the panel naming the reason
+ * (patterns.md §7g). Neither is a fixed grade on a list of destinations.
+ *
+ * The constant keeps its name: a rename in the same commit as a deletion makes
+ * the deletion harder to read.
  */
 export const MOBILE_SECTION_CAPABILITIES: MobileSectionCapability[] = [
-  { section: 'overview', label: 'Overview', capability: 'editable' },
-  { section: 'audio-inputs', label: 'Audio Inputs', capability: 'editable' },
-  { section: 'audio-outputs', label: 'Audio Outputs', capability: 'editable' },
-  { section: 'lighting-rig', label: 'Lighting Rig', capability: 'editable' },
-  { section: 'stage-plots', label: 'Stage Plots', capability: 'viewer' },
-  { section: 'signal-flow', label: 'Signal Flow', capability: 'viewer' },
-  { section: 'equipment', label: 'Equipment', capability: 'read-only' },
-  { section: 'rentals', label: 'Rental Order', capability: 'read-only' },
-  { section: 'settings', label: 'Settings', capability: 'editable' },
+  { section: 'overview', label: 'Overview' },
+  { section: 'audio-inputs', label: 'Audio Inputs' },
+  { section: 'audio-outputs', label: 'Audio Outputs' },
+  { section: 'lighting-rig', label: 'Lighting Rig' },
+  { section: 'stage-plots', label: 'Stage Plots' },
+  { section: 'signal-flow', label: 'Signal Flow' },
+  { section: 'equipment', label: 'Equipment' },
+  { section: 'rentals', label: 'Rental Order' },
+  { section: 'settings', label: 'Settings' },
 ]

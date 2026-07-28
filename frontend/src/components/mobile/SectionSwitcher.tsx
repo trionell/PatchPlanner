@@ -1,33 +1,25 @@
 import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { MOBILE_SECTION_CAPABILITIES, type MobileCapability, type MobileSectionCapability } from '../../types/mobile'
+import { MOBILE_SECTION_CAPABILITIES, type MobileSectionCapability } from '../../types/mobile'
 import { cn } from '../../lib/utils'
-import { Dialog } from '../ui/Dialog'
-
-const CAPABILITY_LABEL: Record<MobileCapability, string> = {
-  editable: 'Editable',
-  'read-only': 'View only',
-  viewer: 'Viewer',
-}
-const CAPABILITY_CLASS: Record<MobileCapability, string> = {
-  editable: 'bg-amber-500/15 text-amber-400',
-  'read-only': 'bg-sky-500/15 text-sky-400',
-  viewer: 'bg-sky-500/15 text-sky-400',
-}
-
-function CapabilityBadge({ capability }: { capability: MobileCapability }) {
-  return (
-    <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', CAPABILITY_CLASS[capability])}>
-      {CAPABILITY_LABEL[capability]}
-    </span>
-  )
-}
+import { Sheet } from '../ui/Sheet'
 
 /**
- * Replaces the desktop `TabList`/`Tab` strip on phone-width viewports
- * (FR-003): a single pill showing the current section, which opens a
- * sheet listing all 9 sections labeled by mobile capability before the
- * user taps into one (contracts/mobile-ui-contract.md).
+ * Replaces the desktop `TabList`/`Tab` strip on phone-width viewports: one
+ * control naming the current section, opening the list of nine.
+ *
+ * It is `ui/Tabs`'s job in a different shape — *what you are looking at* — so it
+ * takes no trough, and the accent marks the current section **in the open list**
+ * rather than on the closed control: a control that is amber whether or not
+ * anything is selected has spent the accent on furniture (P4).
+ *
+ * It lists sections and nothing else. It used to grade all nine
+ * `editable` / `read-only` / `viewer` from a fixed table — three words the
+ * application does not otherwise use, describing the state of the *build*
+ * rather than the state of the *show*, in a hue tokens.md §5 reserves for the
+ * legend's sample stroke, telling a viewer-role user that Audio Inputs was
+ * "Editable". Its own type comment admitted the badge could not be believed.
+ * audit.md M7; deleted in Slice 33.
  */
 export function SectionSwitcher({
   current,
@@ -44,18 +36,16 @@ export function SectionSwitcher({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-full items-center justify-between gap-2 rounded-md border border-amber-500/60 bg-zinc-900 px-3 py-2.5"
+        className="flex h-11 w-full items-center justify-between gap-2 rounded-md border border-zinc-700 bg-zinc-900 px-3"
       >
-        <span className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
-          {currentEntry.label}
-          <CapabilityBadge capability={currentEntry.capability} />
-        </span>
+        <span className="text-sm font-semibold text-zinc-100">{currentEntry.label}</span>
         <ChevronDown className="h-4 w-4 text-zinc-400" />
       </button>
 
-      <Dialog open={open} onClose={() => setOpen(false)} title="Jump to section">
-        <div className="space-y-1">
-          {MOBILE_SECTION_CAPABILITIES.map((entry) => (
+      <Sheet flush open={open} onClose={() => setOpen(false)} title="Sections">
+        {MOBILE_SECTION_CAPABILITIES.map((entry, index) => {
+          const active = entry.section === current
+          return (
             <button
               key={entry.section}
               type="button"
@@ -64,16 +54,28 @@ export function SectionSwitcher({
                 setOpen(false)
               }}
               className={cn(
-                'flex w-full items-center justify-between gap-2 rounded-md px-3 py-2.5 text-left text-sm',
-                entry.section === current ? 'bg-amber-500/10 text-amber-300' : 'text-zinc-200 hover:bg-zinc-850',
+                // The sidebar's own marker: a 2px left edge, not a filled pill.
+                // It is the quietest mark that survives peripheral vision, and
+                // it is the one thing the desktop and the phone can share here.
+                'flex min-h-[52px] w-full items-center gap-3 border-b border-zinc-800/60 border-l-2 px-3 text-left',
+                active ? 'border-l-amber-500 bg-amber-500/[0.06]' : 'border-l-transparent',
               )}
             >
-              {entry.label}
-              <CapabilityBadge capability={entry.capability} />
+              <span
+                className={cn(
+                  'w-4 shrink-0 font-mono text-[10px] tabular-nums tracking-[0.14em]',
+                  active ? 'text-amber-500' : 'text-zinc-600',
+                )}
+              >
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              <span className={cn('text-sm', active ? 'font-semibold text-amber-300' : 'text-zinc-300')}>
+                {entry.label}
+              </span>
             </button>
-          ))}
-        </div>
-      </Dialog>
+          )
+        })}
+      </Sheet>
     </>
   )
 }
