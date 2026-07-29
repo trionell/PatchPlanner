@@ -51,7 +51,17 @@ interface StatusStripProps {
  */
 export function StatusStrip({ tint, filter, desktopExtras, children }: StatusStripProps) {
   const isMobile = useIsMobile()
-  const base = 'flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t px-3 py-2'
+  /*
+    `print:hidden` is in the base as of Wave 6c, and it belongs there: a strip is chrome,
+    and chrome does not print (§8).
+
+    Four of the five rails never needed to say so, because their surfaces are inside a
+    `print:hidden` wrapper already — so this is a no-op for them, and the only visible
+    consequence is that the fifth stops carrying its own copy. `SignalFlowStatusRail` is
+    the exception because Signal Flow's whole panel is *inside* `PrintSheet`, so its
+    strip really was on the printed page until it said otherwise.
+  */
+  const base = 'flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t px-3 py-2 print:hidden'
 
   if (isMobile) {
     const content = (

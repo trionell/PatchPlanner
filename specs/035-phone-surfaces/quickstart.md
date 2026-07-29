@@ -47,10 +47,31 @@ grep -rn "MOBILE_SECTION_CAPABILITIES" frontend/src | wc -l                     
 every state before and after, diff the markup — which is stronger than comparing class
 strings, because it catches element order too.
 
-| Component | States |
-|---|---|
-| `SignalFlowStatusRail` | `gaps = 0` · `gaps = 1` · `gaps > 1`, each with and without `firstGap`, each with and without a filter handler |
-| `StagePlotInspector` | each `element.kind` (`shape`, `resource`, `truss`, `fixture`), locked and unlocked, read-only and not, with and without links — all with `spatial` defaulted |
+| Component | States | Result |
+|---|---|---|
+| `StagePlotInspector` | each `element.kind` (`shape`, `resource`, `truss`, `fixture`), locked and unlocked, read-only and not, with and without links — all with `spatial` defaulted | **byte-identical** |
+| `SignalFlowStatusRail` | `gaps = 0` · `gaps = 1` · `gaps > 1`, each with and without `firstGap`, each with and without a filter handler | **two stated deltas** |
+
+**The rail's two deltas, read and accepted rather than waved through.** A check that is
+allowed to fail silently is not a check, so both are written down here and neither is a
+surprise:
+
+1. **Class order inside the `class` attribute.** `print:hidden` moves ahead of
+   `text-[11px] text-zinc-400`, because it is part of `StatusStrip`'s base now rather
+   than appended by this one caller. Rendering-identical — distinct utilities, no
+   specificity interaction. Normalising the attribute's word order makes the diff
+   disappear, which is the check for it.
+2. **`gaps === 0` with the filter *on* gains its `Show all` control.** This is a
+   **fix**, and it is 6b's own rule arriving late: *a filter has to outlive the condition
+   it filtered on.* The hand-built rail hid the control the moment the last gap was
+   fixed, which left the list filtered to nothing with no way back — the exact latent
+   trap 6b found and closed on the other four rails. Joining the shell closes it here.
+
+Everything else — all six states, both tints, every sentence — is identical.
+
+`StatusStrip`'s base gains `print:hidden` in the same change. For the other four rails
+that is a **no-op**: their surfaces sit inside a `print:hidden` wrapper already. It is
+load-bearing only for the fifth, whose panel is *inside* `PrintSheet`.
 
 ---
 
