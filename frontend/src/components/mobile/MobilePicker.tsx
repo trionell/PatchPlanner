@@ -34,6 +34,7 @@ export function MobilePicker({
   value,
   onChange,
   title,
+  variant = 'field',
 }: {
   /** Fallback when nothing is selected yet. */
   label: string
@@ -42,6 +43,17 @@ export function MobilePicker({
   onChange: (id: string | number) => void
   /** The sheet's heading — what this is a list of. */
   title: string
+  /**
+   * `field` — a bordered control among the bar's other targets, capped and truncating.
+   * Right where the panel has a name of its own to show beside it.
+   *
+   * `title` — the picker **is** the panel's name. Correct where the surface genuinely is
+   * one of N at a time rather than a list with a selection in it: the vocabularies have
+   * a rail on the desktop and none on a phone, so calling the panel *Vocabularies* and
+   * hiding *which one* behind a 112 px truncation names the wrong thing. It takes the
+   * title's own width, so the name is readable.
+   */
+  variant?: 'field' | 'title'
 }) {
   const [open, setOpen] = useState(false)
   const current = options.find((option) => option.id === value)
@@ -50,9 +62,15 @@ export function MobilePicker({
     <>
       <button
         aria-label={title}
-        /* Capped and truncating. The bar has 317px, and after a title and two 44px
-           targets this is what is left (contracts/phone-surfaces.md §1). */
-        className="flex h-11 max-w-[7rem] flex-none items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-900 px-2.5 text-sm text-zinc-100"
+        className={
+          variant === 'title'
+            ? /* The title's own slot: no border, no cap — it is the name of the surface,
+                 and a name is only useful if it can be read. */
+              'flex h-11 min-w-0 items-center gap-1.5 text-sm font-semibold text-zinc-100'
+            : /* Capped and truncating. The bar has 317px, and after a title and two 44px
+                 targets this is what is left (contracts/phone-surfaces.md §1). */
+              'flex h-11 max-w-[7rem] flex-none items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-900 px-2.5 text-sm text-zinc-100'
+        }
         onClick={() => setOpen(true)}
         type="button"
       >

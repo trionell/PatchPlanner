@@ -262,15 +262,17 @@ set of values.
 | `CondensedListRow` | One row in a `MobilePanel`: leading tape edge, title, subtitle, trailing slot. Its `accentColor` draws the derived colour as a 3 px edge and a tint at `1a` — the sheet's tape bar in the geometry a phone row has. **`min-h-[44px]` with `leading-tight` is the stated value and the padding derives from it** ([tokens.md](tokens.md) §7); both lines truncate; no border, radius or ground of its own. |
 | `MobileChannelEditSheet` · `MobileOutputEditSheet` · `MobileFixtureEditSheet` · `MobileEquipmentEditSheet` · `MobileRentalEditSheet` | The phone's row editor, one per entity, deliberately not one configurable form — the same reasoning as `GearList`. Add and edit are **one** construction in each (§2). A failed save keeps the sheet open with every value intact. Each takes `readOnly`: a role that may not edit still opens the sheet, because a phone row is a truncation and the values are the point of opening it ([audit.md](audit.md) M4). |
 | `MobileOverviewPanel` | Overview's phone composition — a two-column figure grid with the countdown spanning, both rig ribbons as horizontally panning drawings, and the five readiness verdicts as 44 px rows that state *and* route. One caller, deliberately: a 120-line phone composition inside a desktop tab is how a phone value gets copied onto a desk. It derives nothing — `lib/eventSummary` computes both halves of every row for the desktop already. |
-| `MobilePicker` | *Choose one of N*, on a phone: a bar control naming the current choice, opening a sheet of 52 px rows with the sidebar's 2 px amber left edge. Every desktop *choose one of N* — a rail, a tab strip, a list down the left — becomes this, because a column is the one thing a 375 px screen has not got. It goes in `MobilePanel`'s **`actions`**, never its overflow. Extracted at its second caller (the plot picker and the vocabulary rail), the rule `ui/PanelRail` was made to follow. |
+| `MobilePicker` | *Choose one of N*, on a phone: a control naming the current choice, opening a sheet of 52 px rows with the sidebar's 2 px amber left edge. Every desktop *choose one of N* — a rail, a tab strip, a list down the left — becomes this, because a column is the one thing a 375 px screen has not got. Never in the overflow: choosing changes *what you are looking at*. Two variants, and which one is a question about the surface. **`field`** sits among the bar's targets, capped, where the panel has a name of its own — the plot picker beside *Stage Plots*. **`title`** *is* the panel's name, where the surface genuinely is one of N at a time: the vocabularies have a rail on the desktop and none on a phone, so naming the panel *Vocabularies* and truncating *which one* to 112 px named the wrong thing and hid the useful half. Extracted at its second caller, the rule `ui/PanelRail` was made to follow. |
 
 **`ui/MobilePanel`.** The phone's frame — bar, rows, strip — and P1 at 375 px.
 Built in Wave 6b, where it replaced nine `space-y-*` stacks of free-standing
 bordered cards, which is what made a phone list read as a column of inputs and left
 nowhere for a status strip to close ([audit.md](audit.md) M1, M3).
 
-Props: `title`, `search` + `onSearch`, `actions`, **`overflow`**, `primaryAction`,
-`strip`, `children`. **It decides nothing about its rows** — the same refusal that makes
+Props: `title` (a node — see `MobilePicker` below), `titleAdornment`, `search` +
+`onSearch`, `actions`, **`overflow`**, `primaryAction`, `strip`, `children`.
+`titleAdornment` holds one thing belonging to the *name* rather than to the bar — today
+an `InfoToggle`, which rides inside the title's own line and so costs no row. **It decides nothing about its rows** — the same refusal that makes
 `ui/Sheet` a component rather than a `className`.
 
 **`actions` and `overflow` are the two halves of one rule**, and the split is stated in

@@ -129,23 +129,6 @@ export function VocabularyPanel({
     return (
       <>
         <MobilePanel
-          actions={
-            <MobilePicker
-              label="Vocabulary"
-              onChange={(name) => {
-                setSelected(String(name))
-                setAdding(false)
-                setEditingId(null)
-              }}
-              options={names.map((name) => ({
-                id: name,
-                label: vocabularyTitles[name],
-                hint: String(data?.[name]?.length ?? 0),
-              }))}
-              title="Vocabularies"
-              value={selected}
-            />
-          }
           onSearch={setSearch}
           primaryAction={
             /* Hidden, not disabled, for a role that cannot act (P7). */
@@ -171,7 +154,35 @@ export function VocabularyPanel({
               <span className="min-w-0 flex-1 truncate">{note}</span>
             </StatusStrip>
           }
-          title={title}
+          /*
+            The picker **is** the title here (Slice 35 field test).
+
+            It was a `field` beside the word *Vocabularies*, which left it 112 px — every
+            option truncated, so the one thing the control existed to tell you was the
+            one thing you could not read. On the desktop the panel is called
+            *Vocabularies* because the rail beside it shows which one is open; a phone has
+            no rail, so this surface genuinely **is** one vocabulary at a time and saying
+            so is more use than repeating a category name. The strip still counts them,
+            and `SectionSwitcher` above still says where you are.
+          */
+          title={
+            <MobilePicker
+              label="Vocabulary"
+              onChange={(name) => {
+                setSelected(String(name))
+                setAdding(false)
+                setEditingId(null)
+              }}
+              options={names.map((name) => ({
+                id: name,
+                label: vocabularyTitles[name],
+                hint: String(data?.[name]?.length ?? 0),
+              }))}
+              title={title}
+              value={selected}
+              variant="title"
+            />
+          }
         >
           {error && <p className="border-b border-zinc-800 px-3 py-2 text-xs text-red-400">{error}</p>}
 

@@ -48,14 +48,18 @@ function render(over: { showUsage?: boolean; readOnly?: boolean } = {}): string 
 }
 
 describe('VocabularyPanel · the phone', () => {
-  it('the rail becomes a bar control naming the current vocabulary', () => {
+  it('the rail becomes the panel’s title, and the title is readable', () => {
     setWidth(true)
     const markup = render()
     expect(markup).toContain('aria-label="Vocabularies"')
-    // Capped and truncating: the bar has 317px and this is what is left after a
-    // title and two 44px targets (contracts/phone-surfaces.md §1).
-    expect(markup).toContain('max-w-[7rem]')
-    expect(markup).toContain('truncate')
+    // It names the open vocabulary, not the category of them.
+    expect(markup).toContain('Signal types')
+    /*
+      And it is **not** capped at 112px. That is what it was first, beside the word
+      *Vocabularies*, and every option truncated — so the one thing the control existed
+      to tell you was the one thing you could not read (Slice 35 field test).
+    */
+    expect(markup).not.toContain('max-w-[7rem]')
   })
 
   it('a value carries its label, its stored value and how many rows use it', () => {

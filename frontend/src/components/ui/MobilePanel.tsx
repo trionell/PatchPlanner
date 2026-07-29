@@ -46,8 +46,15 @@ export function PanelActionRow({ action, onDone }: { action: PanelAction; onDone
 }
 
 interface MobilePanelProps {
-  /** The surface's name. Repeats the section above it, deliberately (patterns.md §1). */
-  title: string
+  /**
+   * The surface's name. Repeats the section above it, deliberately (patterns.md §1).
+   *
+   * A node, because on a surface that is genuinely *one of N at a time* the name is a
+   * control: the vocabularies have a rail on the desktop and none on a phone, so their
+   * panel is named by a `MobilePicker` rather than by the word *Vocabularies* with the
+   * useful half truncated beside it.
+   */
+  title: ReactNode
   /**
    * One thing that belongs *to the title* rather than to the bar — today an
    * `InfoToggle`, and only that.
