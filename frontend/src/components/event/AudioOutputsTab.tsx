@@ -19,6 +19,7 @@ import { useDraftState } from '../../hooks/useDraftState'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { usePatchView } from '../../hooks/usePatchView'
 import { buildMobileOutputList } from '../../lib/mobileOutputList'
+import { outputPatchStatus } from '../../lib/patchCapacity'
 import { matchesSearch } from '../../lib/patchSearch'
 import type { SegmentNode } from '../../lib/patchSheet'
 import { MobileEntityList } from '../mobile/MobileEntityList'
@@ -50,6 +51,7 @@ import { PortRow as SharedPortRow, SplitPortRow, type PortWiring } from './graph
 import { ZoomControl } from './graph/ZoomControl'
 import { ConsoleSection } from './ConsoleSection'
 import { OutputSheet } from './OutputSheet'
+import { PatchStatusRail } from './PatchStatusRail'
 import { ProcessingDeviceSection } from './ProcessingDeviceSection'
 import { RigDrawer } from './RigDrawer'
 import { TrueOutputDeviceSection } from './TrueOutputDeviceSection'
@@ -88,6 +90,8 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
   const [search, setSearch] = useState('')
   const [rigOpen, setRigOpen] = useState(false)
   const [zoom, setZoom] = useState(1)
+  // The phone's strip filter — the desktop's lives in `OutputSheet` (data-model.md §3).
+  const [gapsOnly, setGapsOnly] = useState(false)
   // What the graph has selected, and so what its inspector is open on. Held here
   // rather than in the canvas so it survives the view toggle and so the sheet can
   // set it (Slice 25 FR-001/FR-002). Since Slice 26 a selection can be a single
@@ -147,18 +151,40 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
   }
 
   if (isMobile) {
-    const items = buildMobileOutputList(outputs, { stageboxes, stageMultis, devices: outputDevices, cables: outputCables, itemLabelById }).map((item) => ({
-      id: item.id,
-      number: item.outputNumber,
-      name: item.name,
-      subtitle: item.routingLabel,
-      color: item.color,
-    }))
+    const listed = buildMobileOutputList(outputs, { stageboxes, stageMultis, devices: outputDevices, cables: outputCables, itemLabelById })
+    const gapNumbers = new Set(listed.filter((item) => item.hasGap).map((item) => item.outputNumber))
+    const items = listed
+      .filter((item) => !gapsOnly || item.hasGap)
+      .map((item) => ({
+        id: item.id,
+        number: item.outputNumber,
+        name: item.name,
+        subtitle: item.routingLabel,
+        color: item.color,
+      }))
+    const status = outputPatchStatus({
+      outputs,
+      gaps: outputs.filter((output) => gapNumbers.has(output.output_number)),
+      consoles,
+      stageboxes,
+      stageMultis,
+      cables: outputCables,
+    })
     const editingOutput = typeof editingOutputId === 'number' ? outputs.find((o) => o.id === editingOutputId) : undefined
     return (
       <div className="print:hidden">
         <MobileEntityList
+          title="Audio Outputs"
+          strip={
+            <PatchStatusRail
+              status={status}
+              noun="output"
+              gapsOnly={gapsOnly}
+              onShowGaps={status.gaps.length > 0 || gapsOnly ? () => setGapsOnly((only) => !only) : undefined}
+            />
+          }
           items={items}
+          filtered={gapsOnly}
           onSelect={setEditingOutputId}
           onAdd={() => setEditingOutputId('new')}
           readOnly={readOnly}

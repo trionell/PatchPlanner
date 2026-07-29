@@ -1,7 +1,7 @@
 import { rentalStatusState } from '../../lib/rentalOrder'
 import type { EventRental, RentalSummary } from '../../types'
-import { Button } from '../ui/Button'
 import { Pill } from '../ui/SheetTable'
+import { StatusStrip } from './StatusStrip'
 
 /**
  * The strip that closes the Rental panel, stating whether the order can be sent
@@ -46,8 +46,13 @@ export function RentalStatusRail({ summary, items, manualCount, filter, onFilter
       : `${item.inventory_item_name} is no longer in the price list`
 
   return (
-    <div
-      className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t px-3 py-2 text-[11px] text-zinc-400 ${STRIP_TINT[state]}`}
+    <StatusStrip
+      tint={STRIP_TINT[state]}
+      filter={
+        onFilterChange && (state !== 'clean' || filter)
+          ? { label: filter ? 'Show all' : 'Show only problems', onClick: () => onFilterChange(filter ? null : 'problems') }
+          : undefined
+      }
     >
       {state === 'clean' && <Pill className="bg-emerald-500/15 text-emerald-300">in stock</Pill>}
       {state === 'discontinued' && (
@@ -81,19 +86,6 @@ export function RentalStatusRail({ summary, items, manualCount, filter, onFilter
         </>
       )}
 
-      {/* A size below `xs`, as `PatchStatusRail`'s controls are: a control inside
-          the strip matches the strip's own type and must not set the height of
-          the bar closing the panel (design/components.md §4). */}
-      {onFilterChange && state !== 'clean' && (
-        <Button
-          size="xs"
-          variant="ghost"
-          className="h-6 px-2 text-[11px]"
-          onClick={() => onFilterChange(filter ? null : 'problems')}
-        >
-          {filter ? 'Show all' : 'Show only problems'}
-        </Button>
-      )}
-    </div>
+    </StatusStrip>
   )
 }

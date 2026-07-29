@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { InputCable, OutputCable } from '../types'
-import { computeRoutingSave, resolveChannelRouting } from './mobileChannelList'
-import { computeOutputRoutingSave, resolveOutputRouting } from './mobileOutputList'
+import type { InputCable, InputChannel, InputSource, OutputCable } from '../types'
+import { buildMobileChannelList, computeRoutingSave, resolveChannelRouting } from './mobileChannelList'
+import { buildMobileOutputList, computeOutputRoutingSave, resolveOutputRouting } from './mobileOutputList'
 
 function inputCable(overrides: Partial<InputCable>): InputCable {
   return { id: 1, event_id: 1, from_kind: 'source', from_id: 1, from_port: 0, to_kind: 'channel', to_id: 1, to_port: 0, ...overrides }
@@ -74,5 +74,54 @@ describe('resolveOutputRouting / computeOutputRoutingSave', () => {
     const ops = computeOutputRoutingSave(3, cables, { stageboxId: 5, port: 4 })
     expect(ops.cablesToDelete).toEqual([1])
     expect(ops.cablesToCreate).toEqual([{ from_kind: 'mixer', from_id: 3, from_port: 0, to_kind: 'stagebox', to_id: 5, to_port: 4 }])
+  })
+})
+
+/**
+ * `hasGap` is what the phone's strip filters to, and it is a derived flag rather than a
+ * `sourceLabel === '—'` test at the call site: a filter that depends on a display value
+ * breaks the next time someone writes "no source" instead of an em dash (research.md R7).
+ */
+function channel(overrides: Partial<InputChannel>): InputChannel {
+  return { id: 1, event_id: 1, channel_number: 1, width: 'mono', mixer_behavior: 'stereo_channel', ...overrides }
+}
+
+const emptyContext = {
+  sources: [],
+  devices: [],
+  stageboxes: [],
+  stageMultis: [],
+  cables: [] as InputCable[],
+  itemLabelById: new Map<number, string>(),
+}
+
+describe('buildMobileChannelList · hasGap', () => {
+  it('is true for a channel with nothing connected to it', () => {
+    const [row] = buildMobileChannelList([channel({ channel_name: 'Playback L' })], emptyContext)
+    expect(row.hasGap).toBe(true)
+    expect(row.sourceLabel).toBe('—')
+  })
+
+  it('is false once a source reaches the channel', () => {
+    const cables = [inputCable({ from_kind: 'source', from_id: 9, from_port: 0, to_kind: 'channel', to_id: 1, to_port: 0 })]
+    const sources: InputSource[] = [
+      { id: 9, event_id: 1, name: 'SM58', kind: 'mic', phantom_power: false, connector_type: 'xlr', width: 'mono', position_x: 0, position_y: 0 },
+    ]
+    const [row] = buildMobileChannelList([channel({ channel_name: 'Lead Vox' })], { ...emptyContext, cables, sources })
+    expect(row.hasGap).toBe(false)
+    expect(row.sourceLabel).toBe('SM58')
+  })
+})
+
+describe('buildMobileOutputList · hasGap', () => {
+  it('is true for an output that goes nowhere', () => {
+    const [row] = buildMobileOutputList(
+      [{ id: 1, event_id: 1, output_number: 1, output_name: 'FOH L', output_type: 'foh', width: 'mono' }],
+      { stageboxes: [], stageMultis: [], devices: [], cables: [], itemLabelById: new Map() },
+    )
+    // Not asserted via `routingLabel`: an unpatched output's first hop is the
+    // chain's own "Direct to output", which is exactly why the flag exists rather
+    // than a display-string test (research.md R7).
+    expect(row.hasGap).toBe(true)
   })
 })

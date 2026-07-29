@@ -1,4 +1,5 @@
 import { buildOutputChannelFlows } from './signalFlow'
+import { outputChainSegments } from './patchSheet'
 import type { AudioPatchOutput, Console, OutputCable, OutputDevice, StageMulti, Stagebox } from '../types'
 
 /** One row in the mobile Audio Outputs list — mirrors mobileChannelList.ts's input-side shape. */
@@ -9,6 +10,12 @@ export interface MobileOutputListItem {
   color?: string
   /** Nearest downstream hop (e.g. "Stagebox A — Out 3"), or "—" for a gap. */
   routingLabel: string
+  /**
+   * True when this output is one of the ones the status strip is counting. Read from
+   * the sheet's own chain model so the phone's filtered view and the strip's count
+   * cannot disagree (research.md R7, mobileChannelList.ts).
+   */
+  hasGap: boolean
 }
 
 interface ListContext {
@@ -35,6 +42,7 @@ export function buildMobileOutputList(outputs: AudioPatchOutput[], context: List
         name: output.output_name || `Out ${output.output_number}`,
         color: output.color,
         routingLabel: hop?.label ?? '—',
+        hasGap: outputChainSegments(output, context).hasGap,
       }
     })
 }

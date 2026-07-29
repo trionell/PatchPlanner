@@ -15,6 +15,9 @@ import type { UnplacedLine } from '../../types'
 import { CondensedListRow } from '../mobile/CondensedListRow'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
+import { hasManualPart } from '../../lib/rentalOrder'
+import { type RentalFilter, RentalStatusRail } from './RentalStatusRail'
+import { MobilePanel } from '../ui/MobilePanel'
 import { PatchPanel } from '../ui/PatchPanel'
 import { RentalSheet } from './RentalSheet'
 
@@ -50,6 +53,8 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
   const [adding, setAdding] = useState(false)
   const [unplacedLines, setUnplacedLines] = useState<UnplacedLine[]>([])
   const [exportError, setExportError] = useState('')
+  // The phone's strip filter — the desktop's lives in `RentalSheet` (data-model.md §3).
+  const [mobileFilter, setMobileFilter] = useState<RentalFilter>(null)
 
   const exportMutation = useMutation({
     mutationFn: () => getRentalExportReport(eventId),
@@ -66,9 +71,36 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
   })
 
   if (isMobile) {
+    const items = rentalQuery.data?.items ?? []
+    const q = search.trim().toLowerCase()
+    const visible = items.filter(
+      (item) =>
+        (mobileFilter !== 'problems' || item.is_over_stock || item.is_discontinued) &&
+        (!q || item.inventory_item_name.toLowerCase().includes(q)),
+    )
     return (
-      <div className="space-y-1">
-        {(rentalQuery.data?.items ?? []).map((item) => (
+      /*
+        The hand-built total row is gone. It was a strip in intent — a sum in a
+        `bg-zinc-900` card at the foot of the list — in the Control role's colour,
+        outside the component that already does this four times (audit.md M3).
+        `RentalStatusRail` states the same number *and* whether the order can be sent.
+      */
+      <MobilePanel
+        title="Rental order"
+        search={search}
+        onSearch={setSearch}
+        searchPlaceholder="Find a line…"
+        strip={
+          <RentalStatusRail
+            summary={rentalQuery.data}
+            items={items}
+            manualCount={items.filter(hasManualPart).length}
+            filter={mobileFilter}
+            onFilterChange={readOnly ? undefined : setMobileFilter}
+          />
+        }
+      >
+        {visible.map((item) => (
           <CondensedListRow
             key={item.inventory_item_id}
             title={
@@ -83,12 +115,10 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
             trailing={item.is_over_stock ? <span className="text-[10px] font-bold text-red-400">Over stock</span> : undefined}
           />
         ))}
-        {(rentalQuery.data?.items ?? []).length === 0 && <p className="px-1 py-2 text-sm text-zinc-500">No rental items yet.</p>}
-        <div className="flex items-center justify-between rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-sm font-semibold text-zinc-100">
-          <span>Total</span>
-          <span>{(rentalQuery.data?.total_ex_vat ?? 0).toFixed(2)} kr</span>
-        </div>
-      </div>
+        {visible.length === 0 && (
+          <p className="px-3 py-3 text-sm text-zinc-500">{items.length === 0 ? 'No rental items yet.' : 'No matches.'}</p>
+        )}
+      </MobilePanel>
     )
   }
 

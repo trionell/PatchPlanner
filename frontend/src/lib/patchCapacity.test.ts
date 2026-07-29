@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { InputCable, StageMulti, Stagebox } from '../types'
-import { boxUsage, cablesPicked, overCapacityLine, patchStatusState, type PatchStatus } from './patchCapacity'
+import type { Console, InputCable, StageMulti, Stagebox } from '../types'
+import { boxUsage, cablesPicked, inputPatchStatus, outputPatchStatus, overCapacityLine, patchStatusState, type PatchStatus } from './patchCapacity'
 
 const stagebox: Stagebox = { id: 1, event_id: 1, name: 'SB1', model: '', input_count: 32, output_count: 16, connection_type: 'dante', position_x: 0, position_y: 0, input_position_x: 0, input_position_y: 0 }
 const multi: StageMulti = { id: 5, event_id: 1, name: 'Multi A', length_m: 30, channels: 16, connector_type: 'harting', position_x: 0, position_y: 0, input_position_x: 0, input_position_y: 0 }
@@ -77,5 +77,68 @@ describe('patchStatusState', () => {
 
   it('lets over-capacity outrank gaps, since the fix is in a different place', () => {
     expect(patchStatusState(status({ gaps: ['Ch 16 has no source'], overCapacity: ['CL5 takes 32 — 8 channels have nowhere to land'] }))).toBe('over')
+  })
+})
+
+/**
+ * The two assemblies extracted from `InputSheet` and `OutputSheet` at their second
+ * caller (research.md R6). The wording is what moved, so the wording is what is pinned:
+ * a phone strip and a desktop strip stating the same patch differently is the drift the
+ * extraction exists to prevent.
+ */
+describe('inputPatchStatus / outputPatchStatus', () => {
+  const desk = { id: 1, event_id: 1, name: 'SD10', input_count: 96, output_count: 48 } as unknown as Console
+
+  it('words an input gap the way the strip has always worded it', () => {
+    const status = inputPatchStatus({
+      channels: [{ console_id: 1 }, { console_id: 1 }],
+      gaps: [{ channel_number: 16, channel_name: 'Playback L/R' }],
+      consoles: [desk],
+      stageboxes: [],
+      stageMultis: [],
+      cables: [],
+    })
+    expect(status.gaps).toEqual(['Ch 16 Playback L/R has no source'])
+    expect(status.rowCount).toBe(2)
+    expect(status.consoleLabels).toEqual(['SD10 2/96 ch'])
+  })
+
+  it('collapses the double space an unnamed channel used to leave', () => {
+    const status = inputPatchStatus({
+      channels: [{}],
+      gaps: [{ channel_number: 4 }],
+      consoles: [],
+      stageboxes: [],
+      stageMultis: [],
+      cables: [],
+    })
+    expect(status.gaps).toEqual(['Ch 4 has no source'])
+  })
+
+  it('words an output gap with its own noun', () => {
+    const status = outputPatchStatus({
+      outputs: [{ console_id: 1 }],
+      gaps: [{ output_number: 3, output_name: 'Wedge 2' }],
+      consoles: [desk],
+      stageboxes: [],
+      stageMultis: [],
+      cables: [],
+    })
+    expect(status.gaps).toEqual(['Out 3 Wedge 2 is not patched'])
+    expect(status.consoleLabels).toEqual(['SD10 1/48 ou'])
+  })
+
+  it('reports a desk the patch has outgrown', () => {
+    const small = { ...desk, input_count: 1 }
+    const status = inputPatchStatus({
+      channels: [{ console_id: 1 }, { console_id: 1 }],
+      gaps: [],
+      consoles: [small],
+      stageboxes: [],
+      stageMultis: [],
+      cables: [],
+    })
+    expect(status.overCapacity).toHaveLength(1)
+    expect(patchStatusState(status)).toBe('over')
   })
 })

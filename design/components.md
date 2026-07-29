@@ -1,7 +1,8 @@
 # 03 · Components
 
-What to reach for. Every component below exists today; nothing here is proposed
-except the one marked **gap**, in §5. It was two until Wave 6a built `ui/Sheet`.
+What to reach for. **Every component below exists today, and nothing here is
+proposed.** There were two gaps when the phone entered this document; Wave 6a built
+`ui/Sheet` and Wave 6b built `ui/MobilePanel`.
 
 The rule that decides between the two columns is P2's question, applied to the
 surface — never to the component in isolation. A `Badge` inside a work panel is
@@ -257,18 +258,40 @@ set of values.
 |---|---|
 | `MobileNav` | The bottom bar that replaces the sidebar: three destinations and a **More** overflow, which is a `Sheet`. `h-14`, **stated**, because `Layout`'s body padding derives from it. Active is `text-amber-400` with no fill — the sidebar's restraint, which has no left edge to use here. Carries the safe-area inset. |
 | `SectionSwitcher` | The phone's tab strip: one control naming the current section, opening a `Sheet` listing the nine. It is the phone's form of `ui/Tabs`, so it says *what you are looking at* and takes no trough (§4, `ui/Tabs`). The current section is marked in the **open list** by the sidebar's own 2 px amber left edge, never on the closed control. It lists sections and nothing else — the capability badge it used to render was deleted in Wave 6a ([audit.md](audit.md) M7). |
-| `MobileEntityList` | Search, rows, and the add control, over `MobileEntityRow` — one component for channels, outputs and fixtures, because all three differ only in what `number`, `subtitle` and `color` mean. Correct as a decision; the shape it renders is the **gap** below. |
-| `CondensedListRow` | One row: leading tape edge, title, subtitle, trailing slot. Its `accentColor` draws the derived colour as a `border-l-[3px]` and a tint at `1a` — the sheet's tape bar in the geometry a phone row has. |
+| `MobileEntityList` | A `MobilePanel` over `MobileEntityRow` — one component for channels, outputs and fixtures, because all three differ only in what `number`, `subtitle` and `color` mean. It takes the surface's `title` and its `strip`, and derives no verdict and applies no filter: the caller owns both, exactly as its desktop sheet does. |
+| `CondensedListRow` | One row in a `MobilePanel`: leading tape edge, title, subtitle, trailing slot. Its `accentColor` draws the derived colour as a 3 px edge and a tint at `1a` — the sheet's tape bar in the geometry a phone row has. **`min-h-[44px]` with `leading-tight` is the stated value and the padding derives from it** ([tokens.md](tokens.md) §7); both lines truncate; no border, radius or ground of its own. |
 | `MobileChannelEditSheet` · `MobileOutputEditSheet` · `MobileFixtureEditSheet` | The phone's row editor, one per entity, deliberately not one configurable form — the same reasoning as `GearList`. A failed save keeps the sheet open with every value intact. |
 
-**`MobilePanel` — gap.** The phone has no frame. `MobileEntityList` renders a bar
-of sorts, then rows as free-standing bordered cards on the page ground, and no
-strip at all — so a phone is the one place in the application where a surface
-never states whether the plan holds. The component is P1 at 375 px: a
-`PatchPanel`-shaped frame whose bar wraps to two rows, whose rows are rows rather
-than cards, and whose foot is the surface's existing status rail. The strips
-already exist (`PatchStatusRail`, `LightingStatusRail`, `RentalStatusRail`,
-`EquipmentStatusRail`) and take the phone's `text-xs`.
+**`ui/MobilePanel`.** The phone's frame — bar, rows, strip — and P1 at 375 px.
+Built in Wave 6b, where it replaced nine `space-y-*` stacks of free-standing
+bordered cards, which is what made a phone list read as a column of inputs and left
+nowhere for a status strip to close ([audit.md](audit.md) M1, M3).
+
+Five props: `title`, `search` + `onSearch`, `actions`, `primaryAction`, `strip`,
+`children`. **It decides nothing about its rows** — the same refusal that makes
+`ui/Sheet` a component rather than a `className`.
+
+The two things every phone bar has are props, because at 375 px there is room for a
+title and three targets, and that scarcity is what would otherwise tempt nine call
+sites into nine compromises. Everything only some surfaces have — Print, the rental
+exports, the Inventories category filter, and 6d's `Sheet | Flow` toggle — arrives
+through **`actions`**, so the component never grows a prop per surface. That is
+`PatchPanel`'s shape with the universal parts carved out, and it is the split that
+keeps nine bars in one order while still admitting the six things only one surface
+needs.
+
+It **fills the body and scrolls only its rows**, so the bar and the strip are on
+screen at every scroll position. The rows region owns no padding and no gap: rows are
+separated by a hairline, not by air.
+
+**The four status rails have a phone form, inside themselves.** `PatchStatusRail`,
+`LightingStatusRail`, `RentalStatusRail` and `EquipmentStatusRail` each branch on
+`useIsMobile()` through the shared `event/StatusStrip` shell — the `ui/Drawer`
+precedent, so five surfaces acquired a phone strip without one of them being edited
+for it. What a rail says, how it derives it and which of its states tint are
+identical at both widths (P9). What changes is `text-xs` instead of `text-[11px]`,
+and that **the strip itself becomes the filter control** — see
+[patterns.md](patterns.md) §7b.
 
 **`ui/Sheet`.** The bottom sheet, and the phone's sibling of `ui/Drawer`:
 anchored to the bottom edge, `rounded-t-xl`, `max-h-[85svh]` with the body

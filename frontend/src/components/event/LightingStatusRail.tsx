@@ -1,7 +1,7 @@
 import { type DmxMap, type DmxProblem, UNIVERSE_SIZE, dmxStatusState, formatSpan } from '../../lib/dmxMap'
 import type { LightingFixture } from '../../types'
-import { Button } from '../ui/Button'
 import { Pill } from '../ui/SheetTable'
+import { StatusStrip } from './StatusStrip'
 
 /**
  * The strip that closes the Lighting panel, stating whether the rig's addressing
@@ -57,7 +57,17 @@ export function LightingStatusRail({ map, fixtures, filter, onFilterChange }: Li
   const noun = map.fixtureCount === 1 ? 'fixture' : 'fixtures'
 
   return (
-    <div className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t px-3 py-2 text-[11px] text-zinc-400 ${STRIP_TINT[state]}`}>
+    <StatusStrip
+      tint={STRIP_TINT[state]}
+      filter={
+        onFilterChange && (state !== 'clean' || filter)
+          ? {
+              label: filter ? 'Show all' : `Show only ${state === 'errors' ? 'errors' : 'unaddressed'}`,
+              onClick: () => onFilterChange(filter || state === 'clean' ? null : state),
+            }
+          : undefined
+      }
+    >
       {state === 'clean' && <Pill className="bg-emerald-500/15 text-emerald-300">addressed</Pill>}
       {state === 'unaddressed' && (
         <Pill className="bg-amber-500/15 text-amber-300">
@@ -113,22 +123,6 @@ export function LightingStatusRail({ map, fixtures, filter, onFilterChange }: Li
         </>
       )}
 
-      {/*
-        The strip's control is a size below `xs`, as PatchStatusRail's are and for
-        the same reason: a control inside a strip has to match the strip's own
-        text and must not set the height of the bar closing the panel
-        (design/components.md §4).
-      */}
-      {onFilterChange && state !== 'clean' && (
-        <Button
-          size="xs"
-          variant="ghost"
-          className="h-6 px-2 text-[11px]"
-          onClick={() => onFilterChange(filter ? null : state)}
-        >
-          {filter ? 'Show all' : `Show only ${state === 'errors' ? 'errors' : 'unaddressed'}`}
-        </Button>
-      )}
-    </div>
+    </StatusStrip>
   )
 }

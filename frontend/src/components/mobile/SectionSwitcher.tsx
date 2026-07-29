@@ -36,7 +36,7 @@ export function SectionSwitcher({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex h-11 w-full items-center justify-between gap-2 rounded-md border border-zinc-700 bg-zinc-900 px-3"
+        className="flex h-11 w-full shrink-0 items-center justify-between gap-2 rounded-md border border-zinc-700 bg-zinc-900 px-3"
       >
         <span className="text-sm font-semibold text-zinc-100">{currentEntry.label}</span>
         <ChevronDown className="h-4 w-4 text-zinc-400" />

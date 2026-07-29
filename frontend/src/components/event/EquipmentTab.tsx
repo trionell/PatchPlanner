@@ -10,6 +10,8 @@ import { equipmentRows, quantitySplit, rowKey } from '../../lib/equipmentRows'
 import { CondensedListRow } from '../mobile/CondensedListRow'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
+import { type EquipmentFilter, EquipmentStatusRail } from './EquipmentStatusRail'
+import { MobilePanel } from '../ui/MobilePanel'
 import { PatchPanel } from '../ui/PatchPanel'
 import { EquipmentSheet } from './EquipmentSheet'
 
@@ -37,12 +39,26 @@ export function EquipmentTab({ eventId, readOnly = false }: { eventId: number; r
 
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
+  // The phone's strip filter — the desktop's lives in `EquipmentSheet` (data-model.md §3).
+  const [mobileFilter, setMobileFilter] = useState<EquipmentFilter>(null)
 
   if (isMobile) {
     const rows = equipmentRows(ownedLinesQuery.data, rentalQuery.data?.items)
+    const q = search.trim().toLowerCase()
+    const visible = rows.filter(
+      (row) =>
+        (mobileFilter !== 'problems' || (row.source === 'owned' && row.over)) &&
+        (!q || row.name.toLowerCase().includes(q) || row.type.toLowerCase().includes(q)),
+    )
     return (
-      <div className="space-y-1">
-        {rows.map((row) => {
+      <MobilePanel
+        title="Equipment"
+        search={search}
+        onSearch={setSearch}
+        searchPlaceholder="Find a line…"
+        strip={<EquipmentStatusRail rows={rows} filter={mobileFilter} onFilterChange={readOnly ? undefined : setMobileFilter} />}
+      >
+        {visible.map((row) => {
           const split = row.source === 'rented' ? quantitySplit(row) : undefined
           return (
             <CondensedListRow
@@ -60,8 +76,12 @@ export function EquipmentTab({ eventId, readOnly = false }: { eventId: number; r
             />
           )
         })}
-        {rows.length === 0 && <p className="px-1 py-2 text-sm text-zinc-500">Nothing beyond the patch and the rig yet.</p>}
-      </div>
+        {visible.length === 0 && (
+          <p className="px-3 py-3 text-sm text-zinc-500">
+            {rows.length === 0 ? 'Nothing beyond the patch and the rig yet.' : 'No matches.'}
+          </p>
+        )}
+      </MobilePanel>
     )
   }
 

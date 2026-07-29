@@ -1,7 +1,6 @@
-import { useMemo, useState } from 'react'
-import { Pencil, Plus, Search } from 'lucide-react'
-import { Button } from '../ui/Button'
-import { Input } from '../ui/Input'
+import { useMemo, useState, type ReactNode } from 'react'
+import { Pencil, Plus } from 'lucide-react'
+import { MobilePanel } from '../ui/MobilePanel'
 import { CondensedListRow } from './CondensedListRow'
 
 export interface MobileEntityRow {
@@ -14,13 +13,23 @@ export interface MobileEntityRow {
 }
 
 /**
- * Shared searchable, condensed, tap-to-edit list backing the mobile Audio
- * Inputs, Audio Outputs, and Lighting Rig sections (contracts/mobile-ui-
- * contract.md's `MobileChannelList`/`MobileFixtureList` — one component,
- * since all three are the same shape: rows differ only in what `number`,
- * `subtitle`, and `color` mean for that entity).
+ * Search, rows and the add control for the phone's Audio Inputs, Audio Outputs and
+ * Lighting Rig — one component, since all three are the same shape and differ only in
+ * what `number`, `subtitle` and `color` mean.
+ *
+ * **It is a `MobilePanel`** (Wave 6b). It used to be a `space-y-1.5` stack: an `h-9`
+ * search field beside an `h-9 w-9` add button, then rows as free-standing cards on the
+ * page ground, and nothing at the foot — so the surface a technician opens while
+ * standing in the room could not say whether the patch was finished (audit.md M1, M2,
+ * M3). The frame, the 44px targets and the search behaviour are all the panel's; what
+ * stays here is the one thing this component knows, which is what a row means.
+ *
+ * `strip` is the surface's own status rail, passed through untouched. This component
+ * does not derive a verdict and does not filter — the caller owns both, exactly as its
+ * desktop sheet does (data-model.md §3).
  */
 export function MobileEntityList({
+  title,
   items,
   onSelect,
   onAdd,
@@ -28,7 +37,11 @@ export function MobileEntityList({
   searchPlaceholder,
   addLabel,
   emptyLabel,
+  strip,
+  filtered = false,
 }: {
+  /** The surface's name, repeated in the bar (patterns.md §1). */
+  title: string
   items: MobileEntityRow[]
   onSelect: (id: number) => void
   onAdd?: () => void
@@ -36,9 +49,17 @@ export function MobileEntityList({
   searchPlaceholder: string
   addLabel: string
   emptyLabel: string
+  /** The surface's status rail. */
+  strip?: ReactNode
+  /**
+   * Whether the caller has already narrowed `items` with the strip's filter. Without
+   * it an emptied filter reads as an empty surface — *"No input channels yet."* on an
+   * event with sixteen channels — because this component only ever sees what survived.
+   */
+  filtered?: boolean
 }) {
   const [query, setQuery] = useState('')
-  const filtered = useMemo(() => {
+  const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return items
     return items.filter(
@@ -47,39 +68,49 @@ export function MobileEntityList({
   }, [items, query])
 
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
-          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={searchPlaceholder} className="h-9 pl-8 text-sm" />
-        </div>
-        {/* Hidden, not disabled, for a viewer-role user (FR-015) — there is nothing to tap into that does nothing. */}
-        {!readOnly && onAdd && (
-          <Button size="sm" onClick={onAdd} title={addLabel} className="h-9 w-9 p-0">
-            <Plus className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
-      <div className="space-y-1">
-        {filtered.map((item) => (
-          <CondensedListRow
-            key={item.id}
-            title={
-              <>
-                <span className="mr-1.5 font-mono text-[11px] text-amber-400">{item.number}</span>
-                {item.name}
-              </>
-            }
-            subtitle={item.subtitle}
-            accentColor={item.color}
-            onClick={readOnly ? undefined : () => onSelect(item.id)}
-            trailing={!readOnly && <Pencil className="h-3.5 w-3.5 text-zinc-500" />}
-          />
-        ))}
-        {filtered.length === 0 && (
-          <p className="px-1 py-2 text-sm text-zinc-500">{items.length === 0 ? emptyLabel : 'No matches.'}</p>
-        )}
-      </div>
-    </div>
+    <MobilePanel
+      title={title}
+      search={query}
+      onSearch={setQuery}
+      searchPlaceholder={searchPlaceholder}
+      /* Hidden, not disabled, for a viewer-role user (FR-015) — there is nothing to tap
+         into that does nothing. */
+      primaryAction={
+        !readOnly && onAdd ? (
+          <button
+            aria-label={addLabel}
+            className="flex h-11 w-11 items-center justify-center rounded-md bg-amber-500 text-zinc-950"
+            onClick={onAdd}
+            type="button"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        ) : undefined
+      }
+      strip={strip}
+    >
+      {visible.map((item) => (
+        <CondensedListRow
+          key={item.id}
+          title={
+            <>
+              <span className="mr-1.5 font-mono text-xs tabular-nums text-amber-400">{item.number}</span>
+              {item.name}
+            </>
+          }
+          subtitle={item.subtitle}
+          accentColor={item.color}
+          onClick={readOnly ? undefined : () => onSelect(item.id)}
+          /* Drawn, not pressed — the row is the target. Two targets 8px apart inside a
+             44px row is how a list starts mis-firing (patterns.md §7c). */
+          trailing={!readOnly && <Pencil className="h-4 w-4 text-zinc-500" />}
+        />
+      ))}
+      {visible.length === 0 && (
+        <p className="px-3 py-3 text-sm text-zinc-500">
+          {items.length > 0 ? 'No matches.' : filtered ? 'Nothing left to fix — tap the strip to show everything.' : emptyLabel}
+        </p>
+      )}
+    </MobilePanel>
   )
 }

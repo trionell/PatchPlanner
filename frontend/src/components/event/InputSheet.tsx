@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { deleteInputCable, deleteInputChannel, updateInputCable, updateInputChannel } from '../../api/audioPatch'
 import { useRowEditor } from '../../hooks/useRowEditor'
 import { isCablelessEdge } from '../../lib/inputGraph'
-import { boxUsage, cablesPicked, consoleCapacity, type PatchStatus } from '../../lib/patchCapacity'
+import { inputPatchStatus, type PatchStatus } from '../../lib/patchCapacity'
 import { matchesSearch } from '../../lib/patchSearch'
 import { chainSourceNode, inputChainSegments, type ChainCellModel, type SegmentNode } from '../../lib/patchSheet'
 import type { InputFlowContext } from '../../lib/inputSignalFlow'
@@ -148,22 +148,14 @@ export function InputSheet({
       }),
   })
 
-  const capacity = consoleCapacity(
+  const status: PatchStatus = inputPatchStatus({
+    channels,
+    gaps: rows.filter((row) => row.chain.hasGap).map((row) => row.channel),
     consoles,
-    (desk) => channels.filter((channel) => channel.console_id === desk.id).length,
-    (desk) => desk.input_count,
-    'channel',
-  )
-  const status: PatchStatus = {
-    rowCount: channels.length,
-    consoleLabels: capacity.labels,
-    boxes: boxUsage(stageboxes, stageMultis, cables),
-    cablesPicked: cablesPicked(cables),
-    gaps: rows
-      .filter((row) => row.chain.hasGap)
-      .map((row) => `Ch ${row.channel.channel_number} ${row.channel.channel_name || ''} has no source`.replace('  ', ' ')),
-    overCapacity: capacity.overCapacity,
-  }
+    stageboxes,
+    stageMultis,
+    cables,
+  })
 
   const chainText = (chain: ChainCellModel) => chain.lines.flatMap((line) => line.segments.map((segment) => segment.label)).join(' ')
   const visible = rows.filter(
@@ -327,7 +319,7 @@ export function InputSheet({
       <PatchStatusRail
         status={status}
         noun="channel"
-        onShowGaps={status.gaps.length > 0 ? () => setGapsOnly((only) => !only) : undefined}
+        onShowGaps={status.gaps.length > 0 || gapsOnly ? () => setGapsOnly((only) => !only) : undefined}
         gapsOnly={gapsOnly}
         onOpenRig={onOpenRig}
       />

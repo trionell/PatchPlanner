@@ -16,15 +16,18 @@ findings still open will move as the waves land.
 **Every finding the desktop opened is closed** — see Part 1b, and the wave that
 closed each. Part 2's five waves are done.
 
-**Four of the phone's twelve are closed** — M7, M8, M10 and M12, by Wave 6a
-(Slice 33); they are in Part 1b with the rest. **Eight remain**, below. They are
-one finding wearing eight names, and the name is a date: `components/mobile/`
-was built in **Slice 21**, two slices before the language existed. Waves 0–5 then converged nine tabs and
-five pages around it without touching it — Wave 4 says so in writing (*"the phone
-branches, the print sheets and the whole backend are untouched"*), and that was
-the right call at the time, because a wave that mixes a refactor with a redesign
-makes a regression unattributable. What it means now is that the phone is the last
-surface in the application still speaking the language the app was born with.
+**Seven of the phone's twelve are closed** — M7, M8, M10 and M12 by Wave 6a
+(Slice 33), and M1, M2 and M3 by Wave 6b (Slice 34); they are in Part 1b with the
+rest. **Five remain**, below, and they have a different character from the seven: the
+seven were the phone speaking a language of its own, and the five are surfaces that
+have not been built yet.
+
+The wave's shape was one finding wearing twelve names, and the name is a date:
+`components/mobile/` was built in **Slice 21**, two slices before the language
+existed. Waves 0–5 then converged nine tabs and five pages around it without touching
+it — Wave 4 says so in writing (*"the phone branches, the print sheets and the whole
+backend are untouched"*), and that was the right call at the time, because a wave that
+mixes a refactor with a redesign makes a regression unattributable.
 
 M-counts are from `frontend/src` at `bfb62a2`, and reproduce the same way the
 A-counts do. There are 13 phone branches in the tree:
@@ -33,60 +36,6 @@ A-counts do. There are 13 phone branches in the tree:
 grep -rn "if (isMobile)\|isMobile ?" --include='*.tsx' frontend/src | wc -l
 #  13
 ```
-
-### M1 · The phone has no frame · P1
-
-```
-grep -rn "PatchPanel\|PanelRail\|StatusRail" frontend/src/components/mobile/ | wc -l
-#  0
-```
-
-Every phone surface is a bare `space-y-*` stack: a heading row, a search input,
-then rows as free-standing `rounded-md border border-zinc-800 bg-zinc-900` cards
-on the page ground. That is P1's named violation — *a stack of rounded cards
-separated by gaps* — and it is the exact shape Waves 3–5 spent five slices
-removing from the desktop. It also puts the row on `bg-zinc-900`, which is the
-**Control** role ([tokens.md](tokens.md) §1): the list reads as a column of
-inputs.
-
-The fix is [patterns.md](patterns.md) §7b and the `MobilePanel` gap in
-[components.md](components.md) §5 — now the only gap in that document, since
-Wave 6a built the other one.
-
-### M2 · The row is off both ladders, and the document said otherwise · P2 · P3
-
-```
-grep -rno "text-\[13px\]\|h-9 \|w-9\|py-1\.5" frontend/src/components/mobile/ | wc -l
-#  9        (and text-[13px] has 8 uses in the tree, all of them on a phone)
-```
-
-`CondensedListRow` is `px-2.5 py-1.5` with a `text-[13px]` title over a
-`text-[11px]` subtitle; `MobileEntityList`'s search is `h-9` beside an `h-9 w-9`
-add button. None of `13px`, `9`, `py-1.5` is in either tier. They sit between two
-values that already mean something, which is how a third ladder starts.
-
-**The document was the bigger problem.** §7 stated that mobile "uses
-navigation-surface sizing throughout" and that anything mouse-sized "does not
-appear on mobile at all" — while the code shipped a `h-3.5` pencil on every row
-and a `MicroLabel` on three phone surfaces. A rule nothing obeys is not a rule,
-and this one had been quoted. [tokens.md](tokens.md) §7 now states the ladder and
-names these five values as off it, and the micro-label half of the rule is
-**corrected rather than enforced** — see M12 in Part 1b, which is the same
-mistake read from the other end, and which Wave 6a closed. The five values named
-here are still open: they live in `CondensedListRow` and `MobileEntityList`,
-which are 6b's.
-
-### M3 · No phone surface states whether the plan holds · P1 · P9
-
-```
-grep -rl "StatusRail" frontend/src/components/event/ | wc -l
-#  4 rails: Patch, Lighting, Rental, Equipment — rendered on the phone: 0
-```
-
-The strip is the sentence that says *3 gaps* or *over capacity*, and the phone is
-where someone is standing in the room the plan describes. The rental tab has a
-hand-built total row at `bg-zinc-900` — a strip in intent, in the control colour,
-outside the component that already does this four times.
 
 ### M4 · `!isMobile` is used as a permission · P7 · P9
 
@@ -174,6 +123,109 @@ chrome — it belongs to the tab at every width.
 ---
 
 ## Part 1b — Closed
+
+### M1 · The phone has no frame · Wave 6b
+
+```
+grep -rn "PatchPanel\|PanelRail\|StatusRail" frontend/src/components/mobile/ | wc -l
+#  0
+```
+
+Every phone surface is a bare `space-y-*` stack: a heading row, a search input,
+then rows as free-standing `rounded-md border border-zinc-800 bg-zinc-900` cards
+on the page ground. That is P1's named violation — *a stack of rounded cards
+separated by gaps* — and it is the exact shape Waves 3–5 spent five slices
+removing from the desktop. It also puts the row on `bg-zinc-900`, which is the
+**Control** role ([tokens.md](tokens.md) §1): the list reads as a column of
+inputs.
+
+The fix is [patterns.md](patterns.md) §7b and the `MobilePanel` gap in
+[components.md](components.md) §5 — now the only gap in that document, since
+Wave 6a built the other one.
+
+### M2 · The row was off both ladders, and the document was worse than the code · Wave 6b
+
+```
+grep -rno "text-\[13px\]\|h-9 \|w-9\|py-1\.5" frontend/src/components/mobile/ | wc -l
+#  9        (and text-[13px] has 8 uses in the tree, all of them on a phone)
+```
+
+`CondensedListRow` is `px-2.5 py-1.5` with a `text-[13px]` title over a
+`text-[11px]` subtitle; `MobileEntityList`'s search is `h-9` beside an `h-9 w-9`
+add button. None of `13px`, `9`, `py-1.5` is in either tier. They sit between two
+values that already mean something, which is how a third ladder starts.
+
+**The document was the bigger problem.** §7 stated that mobile "uses
+navigation-surface sizing throughout" and that anything mouse-sized "does not
+appear on mobile at all" — while the code shipped a `h-3.5` pencil on every row
+and a `MicroLabel` on three phone surfaces. A rule nothing obeys is not a rule,
+and this one had been quoted. [tokens.md](tokens.md) §7 now states the ladder and
+names these five values as off it, and the micro-label half of the rule is
+**corrected rather than enforced** — see M12 in Part 1b, which is the same
+mistake read from the other end, and which Wave 6a closed. The five values named
+here are still open: they live in `CondensedListRow` and `MobileEntityList`,
+which are 6b's.
+
+### M3 · No phone surface stated whether the plan holds · Wave 6b
+
+```
+grep -rl "StatusRail" frontend/src/components/event/ | wc -l
+#  4 rails: Patch, Lighting, Rental, Equipment — rendered on the phone: 0
+```
+
+The strip is the sentence that says *3 gaps* or *over capacity*, and the phone is
+where someone is standing in the room the plan describes. The rental tab has a
+hand-built total row at `bg-zinc-900` — a strip in intent, in the control colour,
+outside the component that already does this four times.
+
+**Closed by Slice 34.** `ui/MobilePanel` is the frame; `CondensedListRow` is a row
+rather than a card; the four status rails branch inside themselves and render on the
+phone. **All nine phone lists** are in a panel — the three audio/lighting surfaces,
+Equipment, the rental order, the events timeline, the dashboard's events, and both
+Inventories lists. The rental tab's hand-built total row is deleted: it was a strip in
+intent, in the Control role's colour, outside the component that already did this four
+times.
+
+**M2's list is one shorter than it was, and the withdrawal is the finding.** Settling
+the bar's target size meant multiplying out a row for the first time, and it did not
+add up. [tokens.md](tokens.md) §7 stated `px-3 py-2.5`, `text-sm` over `text-xs`, and
+"44 px tall" in one table row; at the framework's default line boxes that padding makes
+a **56 px** row, which at 375 × 667 costs **two rows of data**. Nothing had ever built
+it — the drawn specimen and the shipped code independently reached 44 px, and both
+disagreed with the table for five waves.
+
+So `py-1.5` comes **off** the off-ladder list. It was never the defect: it is what makes
+44 px with two lines of `leading-tight`, and it is what the corrected rule arrives back
+at. The defect was the two type sizes it was holding. The row's line now states a
+**height** and lets the padding derive, which is what §7's fixed geometry already does
+for the header, the nav and the body's bottom padding — and `CondensedListRow.test.tsx`
+asserts it, so the next edit reaching for `py-2.5` trips over a test rather than
+shipping.
+
+**And the strip is the control.** The rails' desktop filter buttons are a size below
+`xs` for a good reason and a 24 px target for a bad one; on a phone the strip's root
+becomes the button, full width at 44 px, filtering to exactly what it just reported.
+A strip with nothing to filter to draws no chevron and is not a control — **unless its own
+filter is on**, or fixing the last gap would leave the list filtered to nothing with the
+control gone. A filter has to outlive the condition it filtered on, and the desktop had
+the same latent trap. The desktop
+return of all four rails was verified byte-identical by rendering every state before and
+after and diffing the markup.
+
+**And one thing the phase tried, reverted, and handed to 6c.** A panel that *fills the
+body* — scrolling only its rows, so the bar and the strip stay on screen — is what a
+strip is for, and it needs the shell to be a fixed-height column. 6b built that and took
+it out again in the same slice: a column makes every child a flex item, and **a flex item
+whose root is a scroll container has an automatic minimum size of zero**, so the three
+phone surfaces that are not panels yet — `OverviewTab`'s `Card`, and `PatchPanel` as
+reached by event Settings and by `/my-defaults`, which is in the bottom nav — were
+compressed below their content and clipped, with no scrollbar anywhere. It is 6c's,
+because 6c is what makes those three panels. Until then the page scrolls and the strip is
+reached by scrolling to it.
+
+**One thing changed that no finding had named:** `useIsMobile` guards a missing `window`.
+Without it, every component that branches on reach is unrenderable by this project's own
+test method, which is why `ui/Drawer` has never had a test.
 
 ### M8 · The phone's sheet was a centred dialog · Wave 6a
 
@@ -662,7 +714,7 @@ disagree — asserted directly by a Go test over every seeded value.
 (import is the bulk path, which is how 308 items arrive), no rail on the phone,
 and the start page is exempt (below).
 
-### Wave 6 · The phone — **6a done, 6b–6d not started**
+### Wave 6 · The phone — **6a and 6b done, 6c–6d not started**
 
 M1–M12, and the one surface Waves 0–5 deliberately did not touch. It is ordered
 last for the reason it was skipped: every wave before it was changing the thing
@@ -675,17 +727,24 @@ is worth doing twice:
 | Phase | What | Why it is first |
 |---|---|---|
 | 6a | `ui/Sheet`, and `Drawer`'s phone anchoring — **done**, Slice 33 | M8, and **M12, M7 and M10 with it**. Five call sites were waiting on it, and the correct implementation already existed inline in `MobileNav`. |
-| 6b | `MobilePanel` — bar, rows, strip | M1, M2, M3. The frame has to exist before a surface can be put in it, and the strips it ends with already exist. |
-| 6c | The nine surfaces | M4, M5, M9, M11 — each tab's phone branch onto 6a/6b, plus the two that have no branch at all. |
+| 6b | `ui/MobilePanel` — bar, rows, strip — **done**, Slice 34 | M1, M2, M3. The frame had to exist before a surface could be put in it, and the strips it ends with already existed. Nine lists in six files, because the row is shared. |
+| 6c | The nine surfaces | M4, M5, M9, M11 — each tab's phone branch onto 6a/6b, plus the two that have no branch at all. **The nine event sections**; the pages were 6b's, see below. |
 | 6d | The canvases | M6. Ordered last because it is the only phase that is a new capability rather than a conversion, and because 6c settles what a phone bar and a phone sheet are before a canvas has to use both. |
 
-**The wave table above under-assigned the wave**, and 6a is where that showed.
-M8 was the only finding it named for the phase; M7, M10 and M12 were listed in
-Part 1 and assigned to nothing. All three live *inside the six files 6a rewrites*
-— which means the phase either took them or opened those files a second time for
-the other half of one appearance. It took them, and the correction is recorded
-here rather than in the phase's own spec, because the mistake was this
-document's: **a finding with no phase is a finding nobody has agreed to close.**
+**The wave table above under-assigned the wave**, and it has now done so twice.
+
+In 6a, M8 was the only finding it named; M7, M10 and M12 were listed in Part 1 and
+assigned to nothing, while all three lived *inside the six files 6a rewrites*. In 6b
+the same shape appeared from the other direction: 6c reads *"the nine surfaces"*, and
+those are the nine event **sections** — so the phone lists on **Dashboard, Events and
+Inventories** belonged to no phase at all, while holding **four of the seven call
+sites of the row 6b rewrote**. Leaving them would have meant a slice that ships two
+kinds of row, and the second one is what every new list copies. 6b took them.
+
+Both corrections are recorded here rather than in either phase's spec, because the
+mistake was this document's, and it is the same mistake: **a finding with no phase is
+a finding nobody has agreed to close** — and neither is a surface that no finding
+happens to name.
 
 **What this wave must not do** is take the desktop with it. Every M finding is
 inside `components/mobile/`, a phone branch, or `Layout`'s phone return — with two

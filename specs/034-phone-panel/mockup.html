@@ -1,0 +1,1650 @@
+<!--
+  PatchPlanner — Wave 6b: `MobilePanel`, and the row that stops being a card.
+  Redesign mockup, revision 1. For approval before the spec is written.
+
+  6b is the second of Wave 6's four phases and the first that changes what a
+  phone *looks* like. 6a built the overlay and touched no surface; 6b builds the
+  frame every surface sits in — bar, rows, strip — and closes audit findings
+  M1, M2 and M3.
+
+  Most of it is settled already, in writing: patterns.md §7b draws the panel in
+  ASCII, §7c tables the row, tokens.md §7 states every value, and
+  design/design-language.html §8 draws the whole thing at a true 375 px. This
+  document exists for the places where that is *not* true.
+
+  REVISION 2 — the three questions of revision 1 are answered, and answering
+  the first one surfaced a fourth thing, which is the most consequential
+  finding in the document:
+
+    tokens.md §7 states the phone row as `px-3 py-2.5` AND as "44 px tall", in
+    the same row of the same table. At Tailwind's default leadings that padding
+    makes a **56 px** row. Built literally it would have cost two rows of data
+    on a 667 px handset — which is exactly the regression the review flagged
+    from using the app, before anyone had multiplied it out. The drawn specimen
+    has been right the whole time; the padding line is wrong. §04, F3.
+
+  Settled in revision 2: the bar's targets are 44 px; search is a target that
+  opens the bar's second row; the strip is its own target. The row's stated
+  value becomes a HEIGHT, not a padding.
+
+  The file is an HTML *fragment*: the Artifact publisher wraps it in
+  doctype/head/body, so there are deliberately no <html>, <head> or <body> tags.
+
+  Specimen CSS is shared with specs/033-phone-sheet/mockup.html, which shares it
+  with 032/030/029/028, which lifted it from design/design-language.html. The
+  phone specimens (.m-*) are that file's §8 verbatim — that is the language
+  drawn for review, and a second set of values is how two of them drift.
+  Everything below the ADDITIONS block is new here.
+-->
+
+<title>Wave 6b · the phone's panel</title>
+
+<style>
+  /* ==================================================================
+     DOCUMENT CHROME — theme-aware, tokens only.
+     ================================================================== */
+  :root {
+    --ground: #f2f2f4;
+    --raised: #ffffff;
+    --sunken: #e8e8ec;
+    --rule: #d7d7de;
+    --rule-soft: #e4e4ea;
+    --ink: #16171b;
+    --ink-2: #43444d;
+    --muted: #6c6d78;
+    --faint: #90919c;
+    --amber: #b45309;
+    --keep: #0e7490;
+    --drop: #9f1239;
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --measure: 68ch;
+    --wrap: 1180px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0a0b0d; --raised: #14151a; --sunken: #101014;
+      --rule: #26272e; --rule-soft: #1d1e24;
+      --ink: #f2f2f4; --ink-2: #b6b7c0; --muted: #8b8c96; --faint: #62636d;
+      --amber: #f59e0b; --keep: #22d3ee; --drop: #fb7185;
+    }
+  }
+
+  :root[data-theme="light"] {
+    --ground: #f2f2f4; --raised: #ffffff; --sunken: #e8e8ec;
+    --rule: #d7d7de; --rule-soft: #e4e4ea;
+    --ink: #16171b; --ink-2: #43444d; --muted: #6c6d78; --faint: #90919c;
+    --amber: #b45309; --keep: #0e7490; --drop: #9f1239;
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0a0b0d; --raised: #14151a; --sunken: #101014;
+    --rule: #26272e; --rule-soft: #1d1e24;
+    --ink: #f2f2f4; --ink-2: #b6b7c0; --muted: #8b8c96; --faint: #62636d;
+    --amber: #f59e0b; --keep: #22d3ee; --drop: #fb7185;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px 110px; }
+
+  h1, h2, h3 { margin: 0; font-family: var(--mono); font-weight: 500; }
+  h1 {
+    font-size: clamp(28px, 4.4vw, 46px);
+    line-height: 1.04; letter-spacing: -0.035em; text-wrap: balance;
+  }
+  h2 { font-size: clamp(19px, 2.3vw, 25px); letter-spacing: -0.02em; text-wrap: balance; }
+  h3 { font-size: 14px; letter-spacing: 0.02em; color: var(--ink-2); }
+
+  p { margin: 0; max-width: var(--measure); }
+  a { color: inherit; }
+
+  .head {
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 68px 0 30px; border-bottom: 1px solid var(--rule);
+  }
+  .head__eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--amber);
+  }
+  .head__lede { font-size: 18px; color: var(--ink-2); line-height: 1.5; }
+
+  section { display: flex; flex-direction: column; gap: 22px; padding: 56px 0 0; }
+  .sec__no {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  .sec__hd { display: flex; flex-direction: column; gap: 8px; }
+  .prose { display: flex; flex-direction: column; gap: 13px; color: var(--ink-2); font-size: 15.5px; }
+  .prose strong { color: var(--ink); font-weight: 600; }
+  .prose code, .k {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  .spec { display: flex; flex-direction: column; gap: 9px; }
+  .spec__frame {
+    overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px;
+    background: #09090b; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  }
+  .spec__cap {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-left: 2px;
+  }
+  .spec__cap b { color: var(--ink-2); font-weight: 500; }
+
+  .led { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .led__row {
+    display: grid; grid-template-columns: 148px minmax(0, 1fr);
+    gap: 18px; padding: 15px 2px; border-bottom: 1px solid var(--rule-soft);
+    align-items: start;
+  }
+  .led__k {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-top: 3px;
+  }
+  .led__v { font-size: 15px; color: var(--ink-2); line-height: 1.5; }
+  .led__v b { color: var(--ink); font-weight: 600; }
+  .led__v em { font-style: normal; color: var(--faint); }
+  .led__v code, .led__v .k {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  .tag {
+    display: inline-block; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase; padding: 1px 6px;
+    border-radius: 4px; vertical-align: 2px; margin-left: 7px;
+  }
+  .tag--keep { color: var(--keep); border: 1px solid currentColor; }
+  .tag--drop { color: var(--drop); border: 1px solid currentColor; }
+  .tag--new { color: var(--amber); border: 1px solid currentColor; }
+
+  .ask {
+    border: 1px solid var(--rule); border-left: 3px solid var(--amber);
+    border-radius: 0 8px 8px 0; padding: 16px 18px; background: var(--raised);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .ask h3 { color: var(--ink); }
+  .ask p { font-size: 15px; color: var(--ink-2); max-width: none; }
+
+  .tbl { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  .tbl th {
+    text-align: left; font-family: var(--mono); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint);
+    padding: 8px 12px 8px 2px; border-bottom: 1px solid var(--rule);
+  }
+  .tbl td {
+    padding: 11px 12px 11px 2px; border-bottom: 1px solid var(--rule-soft);
+    color: var(--ink-2); vertical-align: top;
+  }
+  .tbl td b { color: var(--ink); font-weight: 600; }
+  .tbl td .k { white-space: nowrap; }
+  .tbl td em { font-style: normal; color: var(--faint); }
+
+  @media (max-width: 720px) {
+    .led__row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  }
+
+  /* ==================================================================
+     SPECIMENS — the app's own faces and values.
+     ================================================================== */
+  .app {
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px; line-height: 1.45;
+    color: #f4f4f5; background: #09090b;
+    padding: 16px; min-width: 1040px;
+  }
+  .app--tight { padding: 16px; min-width: 0; }
+  .app *, .app *::before, .app *::after { box-sizing: border-box; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 28px; padding: 0 10px; border: 1px solid transparent; border-radius: 6px;
+    font-size: 12px; font-weight: 500; white-space: nowrap; font-family: inherit;
+  }
+  .btn--primary { background: #f59e0b; border-color: #f59e0b; color: #09090b; }
+  .btn--outline { background: #18181b; border-color: #3f3f46; color: #f4f4f5; }
+  .btn--ghost { background: transparent; color: #f4f4f5; }
+  .btn--sm { height: 24px; padding: 0 8px; font-size: 11px; }
+  .btn--md { height: 40px; padding: 0 16px; font-size: 14px; }
+  .btn--danger-ghost { background: transparent; color: #f87171; }
+  .seg { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; }
+
+  .fld {
+    height: 32px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b;
+    display: inline-flex; align-items: center; padding: 0 8px;
+    font-size: 12px; color: #e4e4e7; min-width: 0;
+  }
+  .fld--md { height: 40px; font-size: 14px; padding: 0 12px; }
+  .fld--ph { color: #71717a; }
+  .fld--sel::after { content: "▾"; margin-left: auto; padding-left: 8px; color: #71717a; font-size: 10px; }
+  .fld--foc { border-color: #f59e0b; }
+
+  .lbl {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #71717a; font-weight: 500;
+  }
+  .lbl--nav { font-family: inherit; font-size: 14px; letter-spacing: 0; text-transform: none; color: #d4d4d8; font-weight: 400; }
+
+  .pill {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 1px 6px; font-size: 10px; font-weight: 500; white-space: nowrap;
+  }
+  .t-drum { background: rgba(56, 189, 248, 0.15); color: #7dd3fc; }
+  .t-ok   { background: rgba(52, 211, 153, 0.15); color: #6ee7b7; }
+  .t-warn { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
+  .t-err  { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+  .t-def  { background: #3f3f46; color: #f4f4f5; }
+  .t-sky  { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .p48 { display: inline-block; width: 8px; height: 3px; border-radius: 2px; background: #ef4444; box-shadow: 0 0 5px rgba(239, 68, 68, 0.65); vertical-align: 2px; }
+  .tape { display: inline-block; width: 3px; height: 14px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+
+  .badge {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 2px 10px; font-size: 12px; font-weight: 500; white-space: nowrap;
+  }
+
+  /* the desktop drawer, for the side-by-side in §05 */
+  .dstack { position: relative; min-height: 400px; overflow: hidden; }
+  .scrim { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.7); }
+  .sd {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 420px;
+    background: #18181b; border-left: 1px solid #3f3f46;
+    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.5);
+    display: flex; flex-direction: column;
+  }
+  .sd__hd { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 14px 20px; border-bottom: 1px solid #27272a; }
+  .sd__ti { font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .sd__sub { font-size: 12px; color: #71717a; margin-top: 2px; }
+  .sd__x { color: #a1a1aa; font-size: 15px; line-height: 1.2; }
+  .sd__body { padding: 16px 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+  .sd__ft { margin-top: auto; padding: 12px 20px; border-top: 1px solid #27272a; font-size: 12px; color: #71717a; }
+  .sd__ft b { color: #a1a1aa; font-weight: 500; }
+  .dsec { display: flex; flex-direction: column; gap: 6px; }
+  .dsec__hd { display: flex; align-items: center; gap: 8px; }
+  .dsec__ct { font-family: var(--mono); font-size: 10px; color: #52525b; }
+  .gear {
+    border: 1px solid #27272a; border-radius: 6px; background: #18181b;
+    padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .gear__top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+  .gear__nm { font-size: 14px; font-weight: 500; color: #f4f4f5; }
+  .gear__ac { margin-left: auto; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; color: #a1a1aa; }
+  .gear__sp { display: flex; flex-wrap: wrap; gap: 2px 12px; font-family: var(--mono); font-size: 10px; color: #71717a; }
+  .gear__sp b { color: #d4d4d8; font-weight: 400; }
+  .insp__box { border: 1px solid #27272a; border-radius: 5px; background: rgba(9, 9, 11, 0.6); padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+  .insp__lg { display: flex; align-items: center; gap: 8px; font-size: 10px; color: #a1a1aa; }
+
+  /* ==================================================================
+     THE PHONE — lifted verbatim from design/design-language.html §8.
+     True 375 px width, 14 px base, 44 px targets.
+     ================================================================== */
+  .phones { display: flex; flex-wrap: wrap; gap: 22px; }
+  .phone { display: flex; flex-direction: column; gap: 9px; width: 375px; }
+  .phone__frame {
+    width: 375px; height: 690px; flex: none;
+    border: 1px solid #3f3f46; border-radius: 22px; background: #09090b;
+    overflow: hidden; position: relative;
+    display: flex; flex-direction: column;
+    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    font-size: 14px; line-height: 1.45; color: #f4f4f5;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  }
+  .phone__frame * { box-sizing: border-box; }
+  .phone__cap { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .phone__cap b { color: var(--ink-2); font-weight: 500; }
+  .phone__cap--bad b { color: var(--drop); }
+
+  .m-hd { display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 56px; padding: 0 16px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-hd__ti { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; min-width: 0; }
+  .m-hd__ic { width: 26px; height: 26px; border-radius: 6px; background: rgba(245, 158, 11, 0.15); color: #fbbf24; display: grid; place-items: center; flex: none; font-size: 13px; }
+  .m-hd__av { width: 28px; height: 28px; border-radius: 999px; background: #27272a; flex: none; }
+  .m-bd { flex: 1; overflow: hidden; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .m-nav { display: flex; height: 56px; border-top: 1px solid #27272a; background: #09090b; flex: none; }
+  .m-nav__i { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; color: #a1a1aa; }
+  .m-nav__i.on { color: #fbbf24; }
+  .m-nav__g { font-size: 18px; line-height: 1; }
+
+  .m-pan { border: 1px solid #3f3f46; border-radius: 12px; background: rgba(9, 9, 11, 0.4); overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+  .m-pan--fill { flex: 1; }
+  .m-pan__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-pan__ti { font-size: 14px; font-weight: 600; color: #f4f4f5; margin-right: auto; }
+  .m-pan__ic { width: 36px; height: 36px; border-radius: 6px; border: 1px solid #3f3f46; background: #18181b; display: grid; place-items: center; color: #a1a1aa; font-size: 14px; flex: none; }
+  .m-pan__ic--pri { background: #f59e0b; border-color: #f59e0b; color: #09090b; font-size: 17px; }
+  .m-pan__rows { flex: 1; min-height: 0; overflow: hidden; }
+
+  .m-row { display: flex; align-items: stretch; min-height: 44px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-row__e { width: 3px; flex: none; }
+  .m-row__c { flex: 1; min-width: 0; padding: 5px 12px; display: flex; flex-direction: column; justify-content: center; }
+  .m-row__t { font-size: 14px; font-weight: 500; line-height: 1.3; color: #f4f4f5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-row__s { font-size: 12px; line-height: 1.3; color: #a1a1aa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-row__n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #fbbf24; margin-right: 7px; }
+
+  .m-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 12px; padding: 10px 12px; border-top: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); font-size: 12px; color: #a1a1aa; flex: none; }
+  .m-strip .mono { color: #e4e4e7; }
+
+  .m-sw { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 44px; padding: 0 12px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; flex: none; }
+  .m-sw__t { font-size: 14px; font-weight: 600; }
+  .m-sw--old { border-color: rgba(245, 158, 11, 0.6); }
+
+  /* -- ui/Sheet, the phone's sibling of the drawer -- */
+  .m-sheet { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.8); display: flex; align-items: flex-end; }
+  .m-sheet--noscrim { background: transparent; pointer-events: none; }
+  .m-sheet__p { width: 100%; max-height: 85%; overflow: hidden; border-top: 1px solid #3f3f46; border-radius: 12px 12px 0 0; background: #18181b; display: flex; flex-direction: column; }
+  .m-sheet__hd { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-sheet__ti { font-size: 18px; font-weight: 600; }
+  .m-sheet__sub { font-size: 12px; color: #71717a; margin-top: 2px; }
+  .m-sheet__x { margin-left: auto; width: 44px; height: 44px; margin-right: -10px; display: grid; place-items: center; color: #a1a1aa; font-size: 18px; flex: none; }
+  .m-sheet__bd { padding: 16px; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+  .m-sheet__ft { display: flex; align-items: center; gap: 10px; padding: 12px 16px 20px; border-top: 1px solid #27272a; flex: none; }
+  .m-fld { display: flex; flex-direction: column; gap: 5px; }
+  .m-insp { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; align-items: center; }
+
+  .m-jump { display: flex; flex-direction: column; }
+  .m-jump__i { display: flex; align-items: center; gap: 11px; min-height: 52px; padding: 0 14px 0 12px; border-left: 2px solid transparent; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-jump__i.on { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.06); }
+  .m-jump__n { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; letter-spacing: 0.14em; color: #52525b; width: 16px; flex: none; }
+  .m-jump__i.on .m-jump__n { color: #f59e0b; }
+  .m-jump__l { font-size: 14px; color: #d4d4d8; flex: 1; min-width: 0; }
+  .m-jump__i.on .m-jump__l { color: #fcd34d; font-weight: 600; }
+  .m-jump__c { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 11px; color: #71717a; flex: none; }
+
+  .m-cvs { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #09090b; }
+  .cvs__band { position: absolute; top: 0; bottom: 0; }
+  .node { position: absolute; border: 1px solid #3f3f46; border-radius: 7px; background: #1f2028; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); overflow: hidden; }
+  .node__hd { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-bottom: 1px solid #27272a; font-size: 11px; font-weight: 600; color: #fafafa; }
+  .node__bdg { margin-left: auto; font-family: var(--mono); font-size: 9px; background: #27272a; border-radius: 3px; padding: 0 3px; color: #a1a1aa; }
+  .node__body { padding: 3px 0; }
+  .node__ft { padding: 3px 6px; border-top: 1px solid #27272a; font-family: var(--mono); font-size: 9px; color: #71717a; }
+  .prow { display: flex; align-items: center; gap: 6px; height: 18px; padding: 0 6px; font-size: 11px; color: #d4d4d8; }
+  .port { width: 7px; height: 7px; border-radius: 50%; border: 1px solid #71717a; background: #27272a; flex: none; }
+  .port--c { border-color: var(--c); background: color-mix(in srgb, var(--c) 75%, transparent); }
+  .srail { position: absolute; border: 1px solid #3f3f46; border-radius: 7px; background: #1f2028; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); overflow: hidden; }
+  .srail__hd { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 6px; border-bottom: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); }
+  .srail__hd b { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; font-weight: 500; }
+  .srail__hd span { font-family: var(--mono); font-size: 10px; color: #52525b; margin-left: auto; }
+  .srow { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 6px 0 0; border-bottom: 1px solid rgba(39, 39, 42, 0.6); font-size: 11px; color: #d4d4d8; }
+  .srow--sel { background: rgba(245, 158, 11, 0.1); }
+  .srow__tape { width: 3px; align-self: stretch; flex: none; }
+  .srow__nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 4px; }
+  .srow__md { font-family: var(--mono); font-size: 10px; color: #71717a; flex: none; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6a — the centred dialog as it stands today, the
+     virtual keyboard, the anatomy diagram, the safe area.
+     ================================================================== */
+
+  /* the centred dialog, at ui/Dialog's real values, inside a 375 px frame */
+  .m-dlg { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.8); display: flex; align-items: center; justify-content: center; padding: 0 16px; }
+  .m-dlg__p { width: 100%; border: 1px solid #3f3f46; border-radius: 12px; background: #18181b; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6); }
+  .m-dlg__hd { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #27272a; }
+  .m-dlg__ti { font-size: 18px; font-weight: 600; }
+  .m-dlg__x { color: #a1a1aa; font-size: 16px; }
+  .m-dlg__bd { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+  /* the two things that make it not a sheet: it is centred, and it does not
+     scroll — so anything past the frame is simply gone. */
+  .m-dlg--clip { overflow: hidden; }
+  .m-cut { position: absolute; left: 0; right: 0; height: 1px; background: repeating-linear-gradient(90deg, #f87171 0 6px, transparent 6px 12px); }
+  .m-cut__l {
+    position: absolute; right: 6px; transform: translateY(-100%);
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: #f87171; padding-bottom: 2px;
+  }
+
+  /* the virtual keyboard, drawn because it is half the finding */
+  .m-kbd { position: absolute; inset-inline: 0; bottom: 0; height: 268px; background: #1c1c1e; border-top: 1px solid #3f3f46; padding: 8px 4px 26px; display: flex; flex-direction: column; gap: 8px; }
+  .m-kbd__r { display: flex; gap: 5px; justify-content: center; flex: 1; }
+  .m-kbd__k { flex: 1; max-width: 32px; border-radius: 5px; background: #48484a; box-shadow: 0 1px 0 rgba(0,0,0,0.4); }
+  .m-kbd__k--w { max-width: 120px; }
+  .m-kbd__k--sp { max-width: 170px; }
+  .m-kbd__home { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 134px; height: 5px; border-radius: 3px; background: #f4f4f5; opacity: 0.85; }
+
+  /* the anatomy diagram — labelled parts down the right of a real sheet */
+  .anat { display: grid; grid-template-columns: 375px minmax(0, 1fr); gap: 26px; align-items: start; }
+  @media (max-width: 860px) { .anat { grid-template-columns: minmax(0, 1fr); } }
+  .anat__parts { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .anat__p { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--rule-soft); align-items: start; }
+  .anat__n { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); padding-top: 3px; }
+  .anat__v { font-size: 14.5px; color: var(--ink-2); line-height: 1.5; }
+  .anat__v b { color: var(--ink); font-weight: 600; }
+  .anat__v .k { font-size: 0.85em; }
+  .anat__v .cls { display: block; font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-top: 4px; word-break: break-word; }
+
+  /* the marker that pins a specimen part to its row in the anatomy list */
+  .mk {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; border-radius: 999px; flex: none;
+    background: #f59e0b; color: #09090b;
+    font-family: var(--mono); font-size: 9px; font-weight: 700;
+  }
+  .mk--doc { background: var(--amber); color: var(--ground); }
+  .mk--abs { position: absolute; z-index: 5; }
+
+  /* safe area, drawn */
+  .safe { position: absolute; inset-inline: 0; bottom: 0; height: 22px; background: repeating-linear-gradient(45deg, rgba(245,158,11,0.16) 0 5px, transparent 5px 10px); border-top: 1px dashed rgba(245,158,11,0.45); }
+  .safe__l { position: absolute; right: 8px; top: 3px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: #fbbf24; }
+
+  /* two-up comparison of one decision */
+  .vs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  @media (max-width: 860px) { .vs { grid-template-columns: minmax(0, 1fr); } }
+  .vs__c { display: flex; flex-direction: column; gap: 9px; }
+  .vs__hd { display: flex; align-items: baseline; gap: 9px; }
+  .vs__hd b { font-size: 15px; color: var(--ink); }
+  .vs__hd span { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+  .vs__note { font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+  .vs__note b { color: var(--ink-2); font-weight: 600; }
+
+  /* the thumb, drawn where the argument is about reach */
+  .thumb { position: absolute; border-radius: 999px; border: 1px dashed rgba(248, 113, 113, 0.55); background: rgba(248, 113, 113, 0.07); pointer-events: none; }
+  .thumb__l { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: #f87171; white-space: nowrap; }
+
+  .files { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .file { display: grid; grid-template-columns: 22px minmax(0, 260px) minmax(0, 1fr); gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--rule-soft); align-items: baseline; }
+  .file__s { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  .file__s--new { color: var(--amber); }
+  .file__s--del { color: var(--drop); }
+  .file__n { font-family: var(--mono); font-size: 13px; color: var(--ink); word-break: break-word; }
+  .file__w { font-size: 14px; color: var(--ink-2); line-height: 1.5; }
+  .file__w b { color: var(--ink); font-weight: 600; }
+
+  .code {
+    border: 1px solid var(--rule); border-radius: 8px; background: var(--sunken);
+    padding: 14px 16px; overflow-x: auto;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.65; color: var(--ink-2);
+    white-space: pre;
+  }
+  .code b { color: var(--ink); font-weight: 600; }
+  .code i { font-style: normal; color: var(--faint); }
+  .code u { text-decoration: none; color: var(--amber); }
+
+  .empty { padding: 34px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6b — the list as it ships today, the target
+     overlay, the bar's second row, the strip as its own control.
+     ================================================================== */
+
+  /* today: the row as a free-standing card on the page ground, at the real
+     values — px-2.5 py-1.5, 13px over 11px, its own border and bg-zinc-900 */
+  .m-card {
+    display: flex; align-items: center; gap: 8px;
+    border: 1px solid #27272a; border-radius: 6px; background: #18181b;
+    padding: 6px 10px;
+  }
+  .m-card + .m-card { margin-top: 4px; }
+  .m-card__c { flex: 1; min-width: 0; }
+  .m-card__t { font-size: 13px; font-weight: 500; line-height: 1.25; color: #f4f4f5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-card__s { font-size: 11px; line-height: 1.25; color: #a1a1aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-card__x { flex: none; color: #52525b; font-size: 12px; }
+  /* the h-9 search field and the h-9 w-9 add button, drawn at their real size */
+  .m-srch { display: flex; align-items: center; gap: 8px; flex: none; }
+  .m-srch__f { flex: 1; height: 36px; display: flex; align-items: center; gap: 7px; padding: 0 10px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; font-size: 14px; color: #71717a; }
+  .m-srch__b { width: 36px; height: 36px; border-radius: 6px; background: #f59e0b; color: #09090b; display: grid; place-items: center; font-size: 16px; flex: none; }
+
+  /* a control drawn with its true target bounds called out */
+  .tgt { position: relative; }
+  .tgt::after {
+    content: ""; position: absolute; inset: 50% auto auto 50%;
+    width: var(--tw); height: var(--th); transform: translate(-50%, -50%);
+    border: 1px dashed var(--tc); border-radius: 7px; pointer-events: none;
+  }
+  .tgt--bad { --tc: rgba(248, 113, 113, 0.75); }
+  .tgt--ok { --tc: rgba(52, 211, 153, 0.7); }
+  .szl { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .szl--bad { color: #f87171; }
+  .szl--ok { color: #34d399; }
+
+  /* the bar's second row, when search is open */
+  .m-pan__ic--44 { width: 44px; height: 44px; font-size: 16px; }
+  .m-pan__ic--44.m-pan__ic--pri { font-size: 20px; }
+  .m-pan__sr { display: flex; align-items: center; gap: 8px; padding: 0 12px 8px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-pan__sr .fld { flex: 1; }
+
+  /* a heading over a run of rows, inside the frame */
+  .m-hdr { display: flex; align-items: center; gap: 9px; padding: 9px 12px 5px; background: rgba(9, 9, 11, 0.35); }
+  .m-hdr b { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; }
+  .m-hdr i { font-style: normal; flex: 1; height: 1px; background: #27272a; }
+  .m-hdr--today b { color: #f59e0b; }
+  .m-hdr--today i { background: rgba(245, 158, 11, 0.45); }
+
+  /* the strip when it is the control that filters what it reports */
+  .m-strip__go { margin-left: auto; display: flex; align-items: center; gap: 5px; flex: none; color: #fcd34d; font-size: 12px; }
+  .m-strip--on { border-top-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.09); }
+
+  /* the row arithmetic, drawn as a stacked bar */
+  .stack { display: flex; flex-direction: column; width: 190px; flex: none; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em; }
+  .stack__b { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 7px; color: var(--muted); border-bottom: 1px solid var(--rule-soft); background: var(--sunken); }
+  .stack__b--rows { background: rgba(245, 158, 11, 0.12); color: var(--amber); }
+  .stack__b--chrome { background: transparent; }
+  .stacks { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+  .stacks__c { display: flex; flex-direction: column; gap: 8px; }
+  .stacks__t { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .stacks__t b { color: var(--ink-2); font-weight: 500; }
+
+  .empty { padding: 34px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+</style>
+
+<div class="wrap">
+
+  <header class="head">
+    <span class="head__eyebrow">wave 6b · the panel · revision 2</span>
+    <h1>P1 has no width condition</h1>
+    <p class="head__lede">
+      6a built the overlay and deliberately touched no surface. <strong>6b builds the frame every
+      phone surface sits in</strong> — a bar, rows inside it, and the strip that says whether the
+      plan holds — and it is the phase where the phone stops being a stack of cards on a page
+      ground and becomes the same application the desktop is.
+    </p>
+    <p class="head__lede">
+      Almost all of it is already written down. <code>patterns.md</code> §7b draws the panel in
+      ASCII, §7c tables the row, <code>tokens.md</code> §7 states every value, and
+      <code>design-language.html</code> §8 draws the whole thing at a true 375 px.
+      <strong>This document is only about the places where that is not true</strong>: where the
+      drawing and the prose disagree about how big a target is, where the shipped code and the
+      drawing disagree about search, where four status strips carry controls too small to press,
+      and where a shared row component quietly makes this phase twice the size the wave table
+      thinks it is.
+    </p>
+    <p class="head__lede">
+      <strong>Revision 2 answers those three and adds the one that matters most.</strong> Settling
+      the target question meant multiplying out the row, and the row does not add up:
+      <code>tokens.md</code> §7 states <span class="k">px-3 py-2.5</span> and
+      <em>“44 px tall”</em> in the same row of the same table, and at the type sizes stated beside
+      them that padding makes a <strong>56 px</strong> row. Built to the letter, this phase would
+      have taken <strong>two rows of data off a 667 px handset</strong> — which is what the review
+      flagged from using the application, before anyone had done the arithmetic. §04.
+    </p>
+  </header>
+
+  <!-- ==================================================================
+       00 · THE JOB
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">00 · the job</span>
+      <h2>One component, three findings, nine lists</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <code>M1</code>, <code>M2</code> and <code>M3</code> are one sentence read three ways.
+        Every phone surface is a bare <code>space-y-*</code> stack: a heading, a search input,
+        then rows as free-standing <code>rounded-md border border-zinc-800 bg-zinc-900</code>
+        cards on the page ground. That is <strong>P1's named violation</strong> — <em>a stack of
+        rounded cards separated by gaps</em> — it puts the row on the <strong>Control</strong>
+        role's ground so a list reads as a column of inputs (<code>M1</code>), it does it at five
+        values that are in neither density tier (<code>M2</code>), and because there is no frame
+        there is no foot for the strip, so <strong>no phone surface states whether the plan
+        holds</strong> (<code>M3</code>).
+      </p>
+      <p>
+        The fix is one component. <code>components.md</code> §5 has carried
+        <strong><code>MobilePanel</code> — gap</strong> since the phone entered this document, and
+        since 6a it is the only gap left in it.
+      </p>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <span class="led__k">M1</span>
+        <span class="led__v"><b>The phone has no frame.</b> <span class="k">grep -rn "PatchPanel\|PanelRail\|StatusRail" frontend/src/components/mobile/</span> returns <b>0</b>. P1.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">M2</span>
+        <span class="led__v"><b>The row is off both ladders.</b> <span class="k">text-[13px]</span>, <span class="k">text-[11px]</span> as a subtitle, <span class="k">h-9</span>, <span class="k">w-9</span>, <span class="k">py-1.5</span> — nine occurrences, all of them on a phone, every one sitting between two values that already mean something. P2 · P3.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">M3</span>
+        <span class="led__v"><b>No phone surface says whether the plan holds.</b> Four status rails exist; rendered on a phone: <b>0</b>. The rental tab has a hand-built total row at <span class="k">bg-zinc-900</span> — a strip in intent, in the control colour, outside the component that already does this four times. P1 · P9.</span>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>
+        The phase is not large in components — it is <strong>one new file and one rewritten
+        one</strong>. It is large in call sites, and §06 is the reason: the row is shared, and
+        changing what a row <em>is</em> changes every list that uses one.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       01 · TODAY
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">01 · today</span>
+      <h2>A column of inputs, and nothing that says how it is going</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Left is what ships today, drawn at its real values inside a real 375 px frame. Right is
+        the same sixteen channels in the panel. Nothing about the data changed — the derivation,
+        the tape colour, the subtitle's two facts and the words are all the same, because
+        <strong>P9 says they are width-independent</strong>. What changed is that the rows are now
+        inside something, and that the something has a foot.
+      </p>
+    </div>
+
+    <div class="phones">
+
+      <!-- 1 · today -->
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__av"></div>
+          </div>
+          <div class="m-bd">
+            <div class="m-sw"><span class="m-sw__t">Audio Inputs</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-srch">
+              <span class="m-srch__f tgt tgt--bad" style="--tw: calc(100% + 2px); --th: 38px;">🔍 Find a channel…</span>
+              <span class="m-srch__b tgt tgt--bad" style="--tw: 38px; --th: 38px;">+</span>
+            </div>
+            <div style="overflow: hidden; display: flex; flex-direction: column; min-height: 0;">
+              <div class="m-card" style="border-left: 3px solid #38bdf8; background: rgba(56,189,248,0.1);"><div class="m-card__c"><div class="m-card__t"><span class="m-row__n" style="font-size: 11px;">1</span>Kick In</div><div class="m-card__s">Beta 91A · SB1 in 1</div></div><span class="m-card__x">✎</span></div>
+              <div class="m-card" style="border-left: 3px solid #38bdf8; background: rgba(56,189,248,0.1);"><div class="m-card__c"><div class="m-card__t"><span class="m-row__n" style="font-size: 11px;">2</span>Kick Out</div><div class="m-card__s">e902 · SB1 in 2</div></div><span class="m-card__x">✎</span></div>
+              <div class="m-card" style="border-left: 3px solid #38bdf8; background: rgba(56,189,248,0.1);"><div class="m-card__c"><div class="m-card__t"><span class="m-row__n" style="font-size: 11px;">3</span>Snare Top</div><div class="m-card__s">e906 · SB1 in 3</div></div><span class="m-card__x">✎</span></div>
+              <div class="m-card" style="border-left: 3px solid #38bdf8; background: rgba(56,189,248,0.1);"><div class="m-card__c"><div class="m-card__t"><span class="m-row__n" style="font-size: 11px;">6</span>OH L/R</div><div class="m-card__s">KM184 · SB1 in 6–7 · stereo</div></div><span class="m-card__x">✎</span></div>
+              <div class="m-card" style="border-left: 3px solid #a78bfa; background: rgba(167,139,250,0.1);"><div class="m-card__c"><div class="m-card__t"><span class="m-row__n" style="font-size: 11px;">8</span>Bass DI</div><div class="m-card__s">Radial J48 · SB1 in 8</div></div><span class="m-card__x">✎</span></div>
+              <div class="m-card" style="border-left: 3px solid #a78bfa; background: rgba(167,139,250,0.1);"><div class="m-card__c"><div class="m-card__t"><span class="m-row__n" style="font-size: 11px;">11</span>Keys L/R</div><div class="m-card__s">DI · SB2 in 3–4 · stereo</div></div><span class="m-card__x">✎</span></div>
+              <div class="m-card" style="border-left: 3px solid #34d399; background: rgba(52,211,153,0.1);"><div class="m-card__c"><div class="m-card__t"><span class="m-row__n" style="font-size: 11px;">13</span>Lead Vox</div><div class="m-card__s">SM58 · SB2 in 5</div></div><span class="m-card__x">✎</span></div>
+              <div class="m-card"><div class="m-card__c"><div class="m-card__t"><span class="m-row__n" style="font-size: 11px;">16</span>Playback L/R</div><div class="m-card__s">—</div></div><span class="m-card__x">✎</span></div>
+              <div class="m-card"><div class="m-card__c"><div class="m-card__t"><span class="m-row__n" style="font-size: 11px;">17</span>Talkback</div><div class="m-card__s">—</div></div><span class="m-card__x">✎</span></div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Dashboard</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▦</span>Events</div>
+            <div class="m-nav__i"><span class="m-nav__g">▥</span>Inventories</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+        </div>
+        <p class="phone__cap phone__cap--bad"><b>Today</b> · cards on the page ground, no frame, no strip · two 36 px targets and a 13 px title</p>
+      </div>
+
+      <!-- 2 · the panel -->
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__av"></div>
+          </div>
+          <div class="m-bd">
+            <div class="m-sw"><span class="m-sw__t">Audio Inputs</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar">
+                <span class="m-pan__ti">Audio Inputs</span>
+                <span class="m-pan__ic m-pan__ic--44">🔍</span>
+                <span class="m-pan__ic m-pan__ic--44 m-pan__ic--pri">+</span>
+              </div>
+              <div class="m-pan__rows">
+                <div class="m-row"><span class="m-row__e" style="background: #38bdf8;"></span><div class="m-row__c" style="background: rgba(56,189,248,0.06);"><span class="m-row__t"><span class="m-row__n">1</span>Kick In</span><span class="m-row__s">Beta 91A · SB1 in 1</span></div><span class="m-row__x">✎</span></div>
+                <div class="m-row"><span class="m-row__e" style="background: #38bdf8;"></span><div class="m-row__c" style="background: rgba(56,189,248,0.06);"><span class="m-row__t"><span class="m-row__n">2</span>Kick Out</span><span class="m-row__s">e902 · SB1 in 2</span></div><span class="m-row__x">✎</span></div>
+                <div class="m-row"><span class="m-row__e" style="background: #38bdf8;"></span><div class="m-row__c" style="background: rgba(56,189,248,0.06);"><span class="m-row__t"><span class="m-row__n">3</span>Snare Top</span><span class="m-row__s">e906 · SB1 in 3</span></div><span class="m-row__x">✎</span></div>
+                <div class="m-row"><span class="m-row__e" style="background: #38bdf8;"></span><div class="m-row__c" style="background: rgba(56,189,248,0.06);"><span class="m-row__t"><span class="m-row__n">6</span>OH L/R</span><span class="m-row__s">KM184 · SB1 in 6–7 · stereo</span></div><span class="m-row__x">✎</span></div>
+                <div class="m-row"><span class="m-row__e" style="background: #a78bfa;"></span><div class="m-row__c" style="background: rgba(167,139,250,0.06);"><span class="m-row__t"><span class="m-row__n">8</span>Bass DI</span><span class="m-row__s">Radial J48 · SB1 in 8</span></div><span class="m-row__x">✎</span></div>
+                <div class="m-row"><span class="m-row__e" style="background: #a78bfa;"></span><div class="m-row__c" style="background: rgba(167,139,250,0.06);"><span class="m-row__t"><span class="m-row__n">11</span>Keys L/R</span><span class="m-row__s">DI · SB2 in 3–4 · stereo</span></div><span class="m-row__x">✎</span></div>
+                <div class="m-row"><span class="m-row__e" style="background: #34d399;"></span><div class="m-row__c" style="background: rgba(52,211,153,0.06);"><span class="m-row__t"><span class="m-row__n">13</span>Lead Vox</span><span class="m-row__s">SM58 · SB2 in 5</span></div><span class="m-row__x">✎</span></div>
+                <div class="m-row m-row--miss"><span class="m-row__e"></span><div class="m-row__c"><span class="m-row__t"><span class="m-row__n">16</span>Playback L/R</span><span class="m-row__s">no source connected</span></div><span class="m-row__x">✎</span></div>
+              </div>
+              <div class="m-strip m-strip--warn">
+                <span style="color: #fcd34d;">●</span>
+                <span class="mono">3 gaps</span>
+                <span class="mono">16 channels</span>
+                <span class="mono">SD10</span>
+                <span class="m-strip__go">only gaps ›</span>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Dashboard</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▦</span>Events</div>
+            <div class="m-nav__i"><span class="m-nav__g">▥</span>Inventories</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+        </div>
+        <p class="phone__cap"><b>6b</b> · the same rows in a frame, under a sentence that says <b>3 gaps</b> · bigger type, shorter pitch</p>
+      </div>
+
+    </div>
+
+    <div class="prose">
+      <p>
+        <strong>The frame, the bar and the strip cost nothing on a small handset.</strong> Eight
+        rows today, eight rows in the panel at 375 × 667 — because a card carries 2 px of its own
+        border and 4 px of gap to the next one, and a row in a frame carries a 1 px hairline. Six
+        pixels a row, eight rows, is a bar and most of a strip. On a taller phone it costs one row.
+        §09 does both.
+      </p>
+      <p>
+        <strong>And the type goes up a step while that happens</strong> — 13 px over 11 px becomes
+        14 over 12, which is the navigation tier the phone is supposed to be taking. That is only
+        true at the row's real height, and §04 is where the stated value and the real height turn
+        out not to be the same thing.
+      </p>
+      <p>
+        Look at the <span style="color: #f87171;">dashed outlines</span> on the left: the search
+        field and the add button are <span class="k">h-9</span> — 36 px, in a tier that has no
+        such value, under a rule that says 44 px is the floor. That is the first of the three
+        questions, and it is §03.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       02 · THE COMPONENT
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">02 · the component</span>
+      <h2><code>ui/MobilePanel</code>, part by part</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        The desktop's frame is <code>ui/PatchPanel</code>: a bar node, then content, and the strip
+        arrives inside the content because it belongs to the sheet rather than to the panel.
+        <strong>The phone's frame is the same three parts with the strip promoted</strong>, because
+        on a phone there is no second view for it not to belong to — §7b says it plainly:
+        <em>“the strip is not optional here.”</em>
+      </p>
+    </div>
+
+    <div class="anat">
+      <div class="phone" style="width: 375px;">
+        <div class="phone__frame" style="height: 470px;">
+          <div class="m-bd" style="padding: 12px;">
+            <div class="m-pan m-pan--fill" style="position: relative;">
+              <span class="mk mk--abs" style="top: 12px; left: -7px;">1</span>
+              <div class="m-pan__bar">
+                <span class="m-pan__ti">Audio Inputs</span>
+                <span class="m-pan__ic m-pan__ic--44">🔍</span>
+                <span class="m-pan__ic m-pan__ic--44 m-pan__ic--pri">+</span>
+              </div>
+              <span class="mk mk--abs" style="top: 66px; left: -7px;">2</span>
+              <div class="m-pan__rows">
+                <div class="m-row" style="position: relative;">
+                  <span class="m-row__e" style="background: #38bdf8;"></span>
+                  <div class="m-row__c" style="background: rgba(56,189,248,0.06);"><span class="m-row__t"><span class="m-row__n">1</span>Kick In</span><span class="m-row__s">Beta 91A · SB1 in 1</span></div>
+                  <span class="m-row__x">✎</span>
+                  <span class="mk mk--abs" style="top: 14px; right: -7px;">3</span>
+                </div>
+                <div class="m-row"><span class="m-row__e" style="background: #38bdf8;"></span><div class="m-row__c" style="background: rgba(56,189,248,0.06);"><span class="m-row__t"><span class="m-row__n">2</span>Kick Out</span><span class="m-row__s">e902 · SB1 in 2</span></div><span class="m-row__x">✎</span></div>
+                <div class="m-row m-row--miss"><span class="m-row__e"></span><div class="m-row__c"><span class="m-row__t"><span class="m-row__n">16</span>Playback L/R</span><span class="m-row__s">no source connected</span></div><span class="m-row__x">✎</span></div>
+              </div>
+              <span class="mk mk--abs" style="bottom: 12px; left: -7px;">4</span>
+              <div class="m-strip m-strip--warn">
+                <span style="color: #fcd34d;">●</span>
+                <span class="mono">3 gaps</span>
+                <span class="mono">16 channels</span>
+                <span class="mono">SD10</span>
+                <span class="m-strip__go">only gaps ›</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="phone__cap"><b>The panel</b> · one bordered thing, drawn at 375 px</p>
+      </div>
+
+      <div class="anat__parts">
+        <div class="anat__p">
+          <span class="anat__n"><span class="mk">1</span> bar</span>
+          <span class="anat__v">
+            Title first — it <b>repeats the section above it</b>, the same deliberate repetition
+            §1 makes on the desktop, because it is what anchors a panel with a top edge of its own.
+            Then <span class="k">flex-1</span>, then the icon targets, primary last and the only
+            filled control on the surface. Wraps to a second row before it scrolls.
+            <span class="cls">flex flex-wrap items-center gap-2 border-b border-zinc-800 px-3 py-2</span>
+          </span>
+        </div>
+        <div class="anat__p">
+          <span class="anat__n"><span class="mk">2</span> rows</span>
+          <span class="anat__v">
+            The only scrolling region. It owns no padding and no gap: rows are separated by a
+            hairline, not by air, which is what makes eight of them read as one list rather than
+            eight objects.
+            <span class="cls">flex-1 overflow-y-auto overscroll-contain</span>
+          </span>
+        </div>
+        <div class="anat__p">
+          <span class="anat__n"><span class="mk">3</span> row</span>
+          <span class="anat__v">
+            <b>44 px minimum, two lines, no card.</b> Leading edge carries the derived colour at
+            3 px with a <span class="k">1a</span> tint; the title is the number in mono amber then
+            the name; the subtitle is the next two facts joined by <span class="k">·</span>; the
+            trailing slot holds <b>one state or one affordance, never both</b>.
+            <span class="cls">flex min-h-[44px] items-stretch border-b border-zinc-800/60</span>
+          </span>
+        </div>
+        <div class="anat__p">
+          <span class="anat__n"><span class="mk">4</span> strip</span>
+          <span class="anat__v">
+            The surface's own status rail, unchanged in what it says and in how it derives it.
+            Top border only, ground <em>and</em> rule tinted, so the state reads from the edge of
+            vision. Absent only where the desktop surface has none.
+            <span class="cls">border-t px-3 py-2 text-xs · tint by state</span>
+          </span>
+        </div>
+        <div class="anat__p">
+          <span class="anat__n">frame</span>
+          <span class="anat__v">
+            <span class="k">rounded-xl border border-zinc-700 bg-zinc-950/40</span> — the desktop
+            panel's own values, not a phone variant of them. A frame is not a target and a phone
+            does not re-decide it (tokens §7).
+          </span>
+        </div>
+        <div class="anat__p">
+          <span class="anat__n">height</span>
+          <span class="anat__v">
+            The panel <b>fills the body</b> and the rows scroll inside it, so the bar and the strip
+            are both always on screen. A panel that scrolls with the page takes its strip below the
+            fold, and a strip you have to scroll to is a strip nobody reads.
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="ask">
+      <h3>Settled here, not asked</h3>
+      <p>
+        <b><code>MobilePanel</code> takes a bar, not a bar's contents.</b> <code>title</code>,
+        <code>search</code> / <code>onSearch</code>, <code>actions</code>, <code>strip</code>,
+        <code>children</code>. The panel owns the shape — the order, the wrap, the 44 px target,
+        the fact that primary is last — and <code>actions</code> is a node so that 6c can push the
+        Rig button, Print and the rental exports in without the component growing a prop per
+        surface. That is <code>PatchPanel</code>'s shape with the two things every phone bar has
+        carved out, and it is the split that keeps nine bars from drifting while still admitting
+        the six things only one surface needs.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       03 · THE BAR
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">03 · the bar</span>
+      <h2>Two targets, and where the search field lives</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <span class="tag tag--keep">settled · 44 px</span>
+        <strong>36 px drawn, 44 px stated.</strong>
+        <code>design-language.html</code> §8 draws the bar's icon controls at
+        <span class="k">36 × 36</span>. <code>tokens.md</code> §7 amendment 1 says
+        <em>“minimum tap target 44 px — below it, a control is a suggestion.”</em> This is 6a's
+        footer argument again, in a different corner: the drawing and the prose disagree, and the
+        phase that builds the thing is the phase that has to settle it.
+      </p>
+    </div>
+
+    <div class="vs">
+      <div class="vs__c">
+        <div class="vs__hd"><b>A · as drawn</b> <span>36 px</span></div>
+        <div class="app app--tight">
+          <div class="m-pan">
+            <div class="m-pan__bar">
+              <span class="m-pan__ti">Audio Inputs</span>
+              <span class="m-pan__ic tgt tgt--bad" style="--tw: 38px; --th: 38px;">🔍</span>
+              <span class="m-pan__ic m-pan__ic--pri tgt tgt--bad" style="--tw: 38px; --th: 38px;">+</span>
+            </div>
+            <div class="m-row"><span class="m-row__e" style="background: #38bdf8;"></span><div class="m-row__c"><span class="m-row__t"><span class="m-row__n">1</span>Kick In</span><span class="m-row__s">Beta 91A · SB1 in 1</span></div></div>
+            <div class="m-row"><span class="m-row__e" style="background: #38bdf8;"></span><div class="m-row__c"><span class="m-row__t"><span class="m-row__n">2</span>Kick Out</span><span class="m-row__s">e902 · SB1 in 2</span></div></div>
+          </div>
+        </div>
+        <p class="vs__note">
+          Bar is <b>52 px</b>. Two <span class="szl szl--bad">36 px</span> targets — the same size
+          the code already ships and the same size <code>M2</code> files as off the ladder. The
+          drawing is not wrong by accident: 36 px looks right, which is exactly why the rule is
+          written down as a number.
+        </p>
+      </div>
+      <div class="vs__c">
+        <div class="vs__hd"><b>B · as stated</b> <span>44 px · recommended</span></div>
+        <div class="app app--tight">
+          <div class="m-pan">
+            <div class="m-pan__bar">
+              <span class="m-pan__ti">Audio Inputs</span>
+              <span class="m-pan__ic m-pan__ic--44 tgt tgt--ok" style="--tw: 46px; --th: 46px;">🔍</span>
+              <span class="m-pan__ic m-pan__ic--44 m-pan__ic--pri tgt tgt--ok" style="--tw: 46px; --th: 46px;">+</span>
+            </div>
+            <div class="m-row"><span class="m-row__e" style="background: #38bdf8;"></span><div class="m-row__c"><span class="m-row__t"><span class="m-row__n">1</span>Kick In</span><span class="m-row__s">Beta 91A · SB1 in 1</span></div></div>
+            <div class="m-row"><span class="m-row__e" style="background: #38bdf8;"></span><div class="m-row__c"><span class="m-row__t"><span class="m-row__n">2</span>Kick Out</span><span class="m-row__s">e902 · SB1 in 2</span></div></div>
+          </div>
+        </div>
+        <p class="vs__note">
+          Bar is <b>60 px</b> — eight pixels, a fifth of a row. Same <span class="k">h-11 w-11</span>
+          the sheet's close control took in 6a, so the phone has <b>one</b> icon-target size rather
+          than two. <span class="szl szl--ok">44 px</span>
+        </p>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>
+        <strong>44 px, and the specimen is redrawn.</strong> Eight pixels is the entire cost, it is
+        paid once in the bar rather than once per row, and it leaves the phone with a single
+        icon-target size — the one 6a already gave the sheet's close control.
+      </p>
+      <p>
+        <strong>The important part is what settling it turned up.</strong> The reasonable objection
+        to 44 px is not the bar, it is <em>“does this make the rows taller too?”</em> — and
+        answering that meant multiplying out a row for the first time in this document. It does not
+        add up, and §04 is the correction. <b>Nothing about the row grows.</b> The 44 px minimum
+        applies to what a finger presses, and a row is already 44 px; it is the bar's two controls
+        that were not.
+      </p>
+      <p>
+        <span class="tag tag--keep">settled · a target</span>
+        <strong>Search is a field, or search is a target.</strong> Today it is a
+        permanently open <span class="k">h-9</span> field occupying most of the bar, which is why
+        the bar has room for nothing else. §7b's ASCII draws
+        <span class="k">[🔍] [＋]</span> and says the bar <em>“wraps to two rows before it
+        scrolls.”</em> Those are the same sentence: search opens the second row.
+      </p>
+    </div>
+
+    <div class="phones">
+      <div class="phone" style="width: 375px;">
+        <div class="phone__frame" style="height: 300px;">
+          <div class="m-bd" style="padding: 12px;">
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar" style="border-bottom: none; padding-bottom: 4px;">
+                <span class="m-pan__ti">Audio Inputs</span>
+                <span class="m-pan__ic m-pan__ic--44" style="border-color: #f59e0b; color: #fbbf24;">🔍</span>
+                <span class="m-pan__ic m-pan__ic--44 m-pan__ic--pri">+</span>
+              </div>
+              <div class="m-pan__sr">
+                <span class="fld fld--md fld--foc" style="flex: 1;">snare<span style="color: #fbbf24;">|</span></span>
+                <span style="color: #a1a1aa; font-size: 13px; padding-right: 2px;">✕</span>
+              </div>
+              <div class="m-pan__rows">
+                <div class="m-row"><span class="m-row__e" style="background: #38bdf8;"></span><div class="m-row__c" style="background: rgba(56,189,248,0.06);"><span class="m-row__t"><span class="m-row__n">3</span>Snare Top</span><span class="m-row__s">e906 · SB1 in 3</span></div><span class="m-row__x">✎</span></div>
+                <div class="m-row"><span class="m-row__e" style="background: #38bdf8;"></span><div class="m-row__c" style="background: rgba(56,189,248,0.06);"><span class="m-row__t"><span class="m-row__n">4</span>Snare Btm</span><span class="m-row__s">e604 · SB1 in 4</span></div><span class="m-row__x">✎</span></div>
+              </div>
+              <div class="m-strip">
+                <span class="mono">2 of 16 channels</span>
+                <span class="m-strip__go" style="color: #a1a1aa;">show all ›</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="phone__cap"><b>Search, open</b> · the bar's second row, <b>only</b> while searching</p>
+      </div>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <span class="led__k">why</span>
+        <span class="led__v">A field that is always open costs <b>44 px on every screen</b> to serve a thing done on some of them. An icon costs 44 px in a row that already exists, and one tap.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">and</span>
+        <span class="led__v">It is what makes the bar's stated order survive 6c. The audio bar has to hold a <b>Sheet | Flow</b> toggle, a Rig button and Print before this wave ends. With a field in it, none of those fit at 375 px; with a target, they queue.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">but</span>
+        <span class="led__v">Search behind a tap is search you might not know is there. The counter is that <b>the icon is in the bar at all times</b> — it is not in an overflow — and the phone's search does what the desktop's does: it filters, and §7b already says a search box that filters nothing is absent.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">state</span>
+        <span class="led__v">Opening focuses the field; <span class="k">Escape</span>, the ✕, or clearing the text closes the row. A non-empty query <b>keeps the row open</b> — the filter never applies invisibly.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       04 · THE ROW
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">04 · the row</span>
+      <h2>What the row gives up, and the five values it stops inventing</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        The row's own border, radius and <span class="k">bg-zinc-900</span> go. They are what makes
+        a list read as a column of controls, and they are only needed at all because there was
+        nothing to be inside. Once the frame exists the row is a <em>row</em>: a hairline under it,
+        the panel's ground behind it, the tape colour still on its leading edge.
+      </p>
+    </div>
+
+    <div class="vs">
+      <div class="vs__c">
+        <div class="vs__hd"><b>Today</b> <span>a card</span></div>
+        <div class="app app--tight">
+          <div class="m-card" style="border-left: 3px solid #38bdf8; background: rgba(56,189,248,0.1);"><div class="m-card__c"><div class="m-card__t"><span class="m-row__n" style="font-size: 11px;">3</span>Snare Top</div><div class="m-card__s">e906 · SB1 in 3</div></div><span class="m-card__x">✎</span></div>
+          <div class="m-card" style="border-left: 3px solid #a78bfa; background: rgba(167,139,250,0.1);"><div class="m-card__c"><div class="m-card__t"><span class="m-row__n" style="font-size: 11px;">8</span>Bass DI</div><div class="m-card__s">Radial J48 · SB1 in 8</div></div><span class="m-card__x">✎</span></div>
+          <div class="m-card"><div class="m-card__c"><div class="m-card__t"><span class="m-row__n" style="font-size: 11px;">16</span>Playback L/R</div><div class="m-card__s">—</div></div><span class="m-card__x">✎</span></div>
+        </div>
+        <p class="vs__note">
+          <span class="k">rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-1.5</span>,
+          title <span class="k">text-[13px]</span> over <span class="k">text-[11px]</span>,
+          pencil <span class="k">h-3.5</span>, separated by <span class="k">space-y-1</span>.
+          Three objects. <b>42 px tall.</b>
+        </p>
+      </div>
+      <div class="vs__c">
+        <div class="vs__hd"><b>6b</b> <span>a row</span></div>
+        <div class="app app--tight" style="padding: 0;">
+          <div class="m-pan" style="border-radius: 0; border: none;">
+            <div class="m-row"><span class="m-row__e" style="background: #38bdf8;"></span><div class="m-row__c" style="background: rgba(56,189,248,0.06);"><span class="m-row__t"><span class="m-row__n">3</span>Snare Top</span><span class="m-row__s">e906 · SB1 in 3</span></div><span class="m-row__x">✎</span></div>
+            <div class="m-row"><span class="m-row__e" style="background: #a78bfa;"></span><div class="m-row__c" style="background: rgba(167,139,250,0.06);"><span class="m-row__t"><span class="m-row__n">8</span>Bass DI</span><span class="m-row__s">Radial J48 · SB1 in 8</span></div><span class="m-row__x">✎</span></div>
+            <div class="m-row m-row--miss"><span class="m-row__e"></span><div class="m-row__c"><span class="m-row__t"><span class="m-row__n">16</span>Playback L/R</span><span class="m-row__s">no source connected</span></div><span class="m-row__x">✎</span></div>
+          </div>
+        </div>
+        <p class="vs__note">
+          <span class="k">min-h-[44px] px-3 py-1.5 border-b border-zinc-800/60</span>, title
+          <span class="k">text-sm leading-tight</span> over <span class="k">text-xs
+          leading-tight</span>, pencil <span class="k">h-4</span>. One list.
+          <b>44 px tall, 45 px of pitch</b> — three less than the card it replaces, with a
+          <b>step up in type on both lines</b>.
+        </p>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>
+        <span class="tag tag--new">F3 · new</span>
+        <strong>The stated padding cannot produce the stated height.</strong>
+        <code>tokens.md</code> §7's phone table has one row for the row:
+      </p>
+    </div>
+
+    <div class="code">| Row | <b>px-3 py-2.5</b>, two lines | title <b>text-sm</b>, subtitle <b>text-xs</b> — <b>44 px tall</b> |</div>
+
+    <div class="prose">
+      <p>
+        Those three claims are not compatible. Tailwind's <span class="k">text-sm</span> carries a
+        20 px line box and <span class="k">text-xs</span> a 16 px one; <span class="k">py-2.5</span>
+        is 20 px more. <strong>20 + 20 + 16 = 56.</strong> A row built to the letter of that line
+        is a quarter taller than the one shipping today, and on a 667 px handset it takes
+        <strong>two rows of data off the screen</strong> — 8 becomes 6.
+      </p>
+      <p>
+        The drawn specimen has never done this. §8's <span class="k">.m-row</span> is
+        <span class="k">min-height: 44px</span> with 5 px of padding and a 1.3 line box, and the
+        code shipping today reaches the same 44 px from the other direction, with
+        <span class="k">py-1.5</span> and <span class="k">leading-tight</span> under smaller type.
+        <strong>Two independent implementations agree with each other and disagree with the
+        table.</strong> The table is what is wrong.
+      </p>
+      <p>
+        <strong>The correction: the row states a height, not a padding.</strong>
+        <span class="k">min-h-[44px]</span> with <span class="k">leading-tight</span> on both
+        lines, and <span class="k">py-1.5</span> as what falls out of it — 12 + 17.5 + 15 = 44.5.
+        This is the same move <code>tokens.md</code> already makes for the nav and the header,
+        where <em>the height is stated and everything else derives</em>, and for the same reason:
+        a padding is an input, a row height is the thing anyone actually cares about, and stating
+        both invites them to disagree — which, for five waves, they have.
+      </p>
+      <p>
+        <strong>So <code>M2</code>'s list loses one entry.</strong> <span class="k">py-1.5</span>
+        was never the defect: it is what makes 44 px with two tight lines, and it is the value the
+        corrected rule arrives back at. The defect was always the two type sizes it was holding —
+        <span class="k">text-[13px]</span> and <span class="k">text-[11px]</span>, which are in
+        neither tier. The row's type goes up; its box does not.
+      </p>
+      <p>
+        The rest of <code>M2</code> stands, and is replaced from the navigation column of
+        <code>tokens.md</code> §3, which the phone already takes:
+      </p>
+    </div>
+
+    <table class="tbl">
+      <thead>
+        <tr><th>Off the ladder</th><th>Where</th><th>Becomes</th><th>Because</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><span class="k">text-[13px]</span></td><td>row title</td><td><span class="k">text-sm</span></td><td>the navigation tier's row title, at every width</td></tr>
+        <tr><td><span class="k">text-[11px]</span></td><td>row subtitle</td><td><span class="k">text-xs</span></td><td>same. 11 px survives elsewhere as a <em>spec line</em>, which is read, not as a subtitle</td></tr>
+        <tr><td><em>withdrawn</em> <span class="k">py-1.5</span></td><td>row padding</td><td><b>stays</b> — <span class="k">min-h-[44px]</span> is the stated value, <span class="k">py-1.5</span> is what falls out</td><td><b>F3.</b> It is what makes 44 px with two tight lines. <span class="k">py-2.5</span> as written makes 56</td></tr>
+        <tr><td><span class="k">h-9</span></td><td>search field</td><td><span class="k">h-10</span> (<span class="k">size="md"</span>)</td><td>tokens §7: <em>never <span class="k">sm</span> — <span class="k">h-8</span> is a mouse's height</em>, and <span class="k">h-9</span> is neither</td></tr>
+        <tr><td><span class="k">w-9</span></td><td>add button</td><td><span class="k">h-11 w-11</span></td><td>amendment 1, and the same target 6a gave the sheet's close</td></tr>
+        <tr><td><em>and</em> <span class="k">h-3.5</span></td><td>row pencil</td><td><span class="k">h-4</span></td><td>drawn, not pressed — the <b>row</b> is the target — but it is an icon in text, and that is <span class="k">h-4</span></td></tr>
+      </tbody>
+    </table>
+
+    <table class="tbl">
+      <thead>
+        <tr><th>The row, multiplied out</th><th>Box</th><th>Pitch</th><th>At 375 × 667</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Today · <span class="k">py-1.5</span> · 13 / 11 px tight · own border · <span class="k">space-y-1</span></td><td>44 px</td><td><b>48 px</b></td><td>8 rows</td></tr>
+        <tr><td><b>6b</b> · <span class="k">py-1.5</span> · 14 / 12 px tight · hairline</td><td>44.5 px</td><td><b>45.5 px</b></td><td><b>8 rows</b></td></tr>
+        <tr><td><em>tokens §7 as written</em> · <span class="k">py-2.5</span> · 14 / 12 px default</td><td>56 px</td><td><b>57 px</b></td><td><span style="color: var(--drop);">6 rows</span></td></tr>
+      </tbody>
+    </table>
+
+    <div class="ask">
+      <h3>The trailing slot, and the one thing it must not become</h3>
+      <p>
+        §7c: <b>one state or one affordance, never both.</b> A channel row shows the pencil; an
+        event row shows its role badge; a rental line shows <em>over stock</em>. Today the pencil
+        is rendered <span class="k">!readOnly &amp;&amp; …</span>, which is right — it marks what
+        the tap does, and for a viewer the tap still opens the row to read. <b>The pencil is not
+        its own target</b>, and 6b does not make it one: two targets 8 px apart inside a 44 px row
+        is how a list starts mis-firing.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       05 · THE STRIP
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">05 · the strip</span>
+      <h2>Four rails, one phone form — and their controls do not fit</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <code>M3</code> is the finding this wave exists for. The strip is the sentence that says
+        <em>3 gaps</em> or <em>over capacity</em> or <em>4 over owned</em>, and the phone is where
+        someone is standing in the room the plan describes. Four of them are already built and
+        already correct — <code>PatchStatusRail</code>, <code>LightingStatusRail</code>,
+        <code>RentalStatusRail</code>, <code>EquipmentStatusRail</code> — and <strong>6b writes no
+        fifth one</strong>. The derivation, the tints, the three states and the words are the
+        desktop's, unchanged, because P9 says a verdict does not change with a viewport.
+      </p>
+      <p>
+        Two things do change, and one of them is a question.
+      </p>
+      <p>
+        <strong>The size is settled</strong> — <code>components.md</code> §5 already states the
+        rails take the phone's <span class="k">text-xs</span>, and the mechanism follows 6a's
+        precedent exactly: <strong>the rail branches inside itself</strong> on
+        <code>useIsMobile()</code>, the way <code>ui/Drawer</code> does, so all four acquire a phone
+        form without any of the five tabs that render them being touched for it.
+      </p>
+      <p>
+        <span class="tag tag--keep">settled · the strip is the target</span>
+        <strong>The controls are the open part.</strong> Every rail carries at least one — <em>Show
+        only gaps</em>, <em>Show all</em>, <em>Open Rig</em>, <em>Show only problems</em> — drawn
+        at <span class="k">h-6 px-2 text-[11px]</span>. That is a <b>24 px</b> target. It is
+        deliberate and correct on the desktop, where the rail explicitly refuses to let a control
+        set the height of the bar closing the panel. On a phone it is amendment 1 broken by the one
+        control on the surface that acts on the problem the surface just reported.
+      </p>
+    </div>
+
+    <div class="vs">
+      <div class="vs__c">
+        <div class="vs__hd"><b>A · the strip states, and the whole strip acts</b> <span>recommended</span></div>
+        <div class="app app--tight" style="padding: 0;">
+          <div class="m-pan" style="border-radius: 0; border: none;">
+            <div class="m-row m-row--miss"><span class="m-row__e"></span><div class="m-row__c"><span class="m-row__t"><span class="m-row__n">16</span>Playback L/R</span><span class="m-row__s">no source connected</span></div><span class="m-row__x">✎</span></div>
+            <div class="m-strip m-strip--warn tgt tgt--ok" style="--tw: calc(100% - 2px); --th: 44px; min-height: 44px;">
+              <span style="color: #fcd34d;">●</span>
+              <span class="mono">3 gaps</span>
+              <span class="mono">16 channels</span>
+              <span class="m-strip__go">only gaps ›</span>
+            </div>
+          </div>
+        </div>
+        <p class="vs__note">
+          The strip <b>is</b> the target — <span class="szl szl--ok">375 × 44</span>, the largest
+          one on the surface, at the bottom edge where the thumb already is. Tapping it filters the
+          rows to exactly what it is reporting; tapped again, <em>show all</em>. The sentence and
+          the control are the same object, which is the only arrangement that costs no height.
+        </p>
+      </div>
+      <div class="vs__c">
+        <div class="vs__hd"><b>B · the strip states, and nothing acts</b> <span>rejected</span></div>
+        <div class="app app--tight" style="padding: 0;">
+          <div class="m-pan" style="border-radius: 0; border: none;">
+            <div class="m-row m-row--miss"><span class="m-row__e"></span><div class="m-row__c"><span class="m-row__t"><span class="m-row__n">16</span>Playback L/R</span><span class="m-row__s">no source connected</span></div><span class="m-row__x">✎</span></div>
+            <div class="m-strip m-strip--warn">
+              <span style="color: #fcd34d;">●</span>
+              <span class="mono">3 gaps</span>
+              <span class="mono">16 channels</span>
+              <span class="mono">SD10</span>
+              <span class="mono">SB1 8/32</span>
+            </div>
+          </div>
+        </div>
+        <p class="vs__note">
+          Honest and cheap, and it makes the phone a place you read a problem you cannot then look
+          at. On a 16-channel patch that is survivable; on a 56-channel one, <em>3 gaps</em> with no
+          way to see which three is a strip that has told you to start scrolling.
+        </p>
+      </div>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <span class="led__k">risk</span>
+        <span class="led__v">A strip that is sometimes a button and sometimes not. The mitigation is that the <b>only</b> thing that makes it one is having something to filter to, and in that case it says so: <span class="k">only gaps ›</span> at the trailing edge, in the state's own hue. A <em>complete</em> patch's strip has no chevron and is not a control.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">and</span>
+        <span class="led__v"><b>Open Rig</b> does not travel. The rig drawer is not mounted on a phone at all until <code>M5</code> is closed, which is 6c's. Until then that control is absent — not disabled, not shrunk (P7).</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">role</span>
+        <span class="led__v">The desktop rails already omit their control for a read-only role. The phone inherits that unchanged: <b>no handler, no chevron, and the strip is a paragraph.</b></span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">wrap</span>
+        <span class="led__v">A busy strip is two lines at 375 px — a 56-channel patch has a pill, a count, two consoles and three stagebox capacities. That costs one row when it happens, and it is not worth a phone-only edit of what the rail says: <b>the rails already order most-urgent-first</b>, so the verdict is always on the first line and only the tail wraps. If a strip ever needs three lines, that is a finding about the sentence, not about the phone.</span>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>
+        And one strip already exists in the wrong place. The rental tab's phone branch ends with a
+        hand-built total row — <span class="k">rounded-md border border-zinc-800 bg-zinc-900</span>,
+        <em>Total</em> on the left and a sum on the right. It is a strip, in the Control colour,
+        outside the component that does this four times. 6b deletes it and renders
+        <code>RentalStatusRail</code>, which states the same number <em>and</em> whether the order
+        can be sent.
+      </p>
+    </div>
+
+    <div class="phones">
+      <div class="phone" style="width: 375px;">
+        <div class="phone__frame" style="height: 330px;">
+          <div class="m-bd" style="padding: 12px;">
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar">
+                <span class="m-pan__ti">Rental order</span>
+                <span class="m-pan__ic m-pan__ic--44">🔍</span>
+                <span class="m-pan__ic m-pan__ic--44">⇩</span>
+              </div>
+              <div class="m-pan__rows">
+                <div class="m-row"><div class="m-row__c"><span class="m-row__t">Shure SM58</span><span class="m-row__s">Audio 12 · Lighting 0 · 1 440 kr</span></div></div>
+                <div class="m-row"><div class="m-row__c"><span class="m-row__t">DiGiCo SD10</span><span class="m-row__s">Audio 1 · Lighting 0 · 9 800 kr</span></div></div>
+                <div class="m-row"><div class="m-row__c"><span class="m-row__t">Martin MAC Aura <span class="pill t-warn" style="margin-left: 4px;">discontinued</span></span><span class="m-row__s">Audio 0 · Lighting 24 · 12 950 kr</span></div><span class="m-row__x" style="color: #fca5a5; font-size: 11px;">over stock</span></div>
+              </div>
+              <div class="m-strip m-strip--warn tgt tgt--ok" style="--tw: calc(100% - 2px); --th: 44px; min-height: 44px;">
+                <span class="pill t-warn">1 over stock</span>
+                <span class="mono">24 lines</span>
+                <span class="mono">24 190 kr</span>
+                <span class="m-strip__go">only problems ›</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="phone__cap"><b>Rental</b> · the hand-built total row, replaced by the strip that was already written</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       06 · NINE LISTS
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">06 · scope</span>
+      <h2>Nine lists in six files, because the row is shared</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        This is the part the wave table under-counts. <code>CondensedListRow</code> is one
+        component with <strong>seven call sites outside <code>components/mobile/</code></strong>,
+        and <code>MobileEntityList</code> wraps it for three more. The moment the row stops being a
+        card, <em>every</em> list that uses one needs something to be inside — so the choice is not
+        <em>which surfaces get a frame in 6b</em>, it is <em>whether the phone spends a slice with
+        two kinds of row in it</em>.
+      </p>
+      <p>
+        It should not. Two row components differing only in whether they draw their own border is
+        <code>A1</code>'s synonym failure with a fresh coat, and the second one would be the one
+        every new list copies.
+      </p>
+    </div>
+
+    <table class="tbl">
+      <thead>
+        <tr><th>Surface</th><th>List</th><th>Bar becomes</th><th>Strip</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><b>Audio Inputs</b></td><td><span class="k">MobileEntityList</span> · channels</td><td>Audio Inputs · 🔍 · <b>+</b></td><td><span class="k">PatchStatusRail</span></td></tr>
+        <tr><td><b>Audio Outputs</b></td><td><span class="k">MobileEntityList</span> · outputs</td><td>Audio Outputs · 🔍 · <b>+</b></td><td><span class="k">PatchStatusRail</span></td></tr>
+        <tr><td><b>Lighting Rig</b></td><td><span class="k">MobileEntityList</span> · fixtures</td><td>Lighting · 🔍 · <b>+</b></td><td><span class="k">LightingStatusRail</span></td></tr>
+        <tr><td><b>Equipment</b></td><td><span class="k">CondensedListRow</span> · lines</td><td>Equipment · 🔍</td><td><span class="k">EquipmentStatusRail</span></td></tr>
+        <tr><td><b>Rental Order</b></td><td><span class="k">CondensedListRow</span> · lines</td><td>Rental order · 🔍 · exports</td><td><span class="k">RentalStatusRail</span> <em>— replaces the hand-built total</em></td></tr>
+        <tr><td><b>Events</b> <span class="tag tag--new">page</span></td><td><span class="k">CondensedListRow</span> · the timeline</td><td>Your events · 🔍 · <b>+</b></td><td><em>none — the desktop has none</em></td></tr>
+        <tr><td><b>Dashboard</b> <span class="tag tag--new">page</span></td><td><span class="k">CondensedListRow</span> · your events</td><td>Your events · <b>+</b></td><td><em>none</em></td></tr>
+        <tr><td><b>Inventories</b> <span class="tag tag--new">page</span></td><td><span class="k">CondensedListRow</span> · catalogs</td><td>Rental catalogs · 🔍 · <b>+</b></td><td><em>none</em></td></tr>
+        <tr><td><b>Inventories</b> <span class="tag tag--new">page</span></td><td><span class="k">CondensedListRow</span> · items</td><td>Items · 🔍 · category filter</td><td><em>none</em></td></tr>
+      </tbody>
+    </table>
+
+    <div class="prose">
+      <p>
+        <strong>The strip is optional; the frame is not.</strong> Four lists have no status rail
+        because the desktop surface they belong to has none, and §7b's rule is conditional in
+        exactly that way — <em>“a surface that has a strip on the desk has one in the hand.”</em>
+        A panel with no strip closes on its last row, the way <code>PatchPanel</code> does in Flow
+        view.
+      </p>
+      <p>
+        The Events timeline is the one that gains something. Its month headings and its
+        <em>today</em> rule are already correct — <code>MicroLabel</code> over a rule, which is
+        <strong>the app's one label voice at every width</strong> — and they were floating between
+        cards. Inside a frame they become what they are on the desktop: a heading over a run of
+        rows.
+      </p>
+    </div>
+
+    <div class="phones">
+      <div class="phone" style="width: 375px;">
+        <div class="phone__frame" style="height: 400px;">
+          <div class="m-bd" style="padding: 12px;">
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar">
+                <span class="m-pan__ti">Your events</span>
+                <span class="m-pan__ic m-pan__ic--44">🔍</span>
+                <span class="m-pan__ic m-pan__ic--44 m-pan__ic--pri">+</span>
+              </div>
+              <div class="m-pan__rows">
+                <div class="m-hdr"><b>March 2026</b><i></i></div>
+                <div class="m-row"><div class="m-row__c"><span class="m-row__t">Vårfest</span><span class="m-row__s">Kulturhuset · 14 Mar</span></div></div>
+                <div class="m-hdr m-hdr--today"><b>Today</b><i></i></div>
+                <div class="m-row"><div class="m-row__c"><span class="m-row__t">Nordic Jazz Nights</span><span class="m-row__s">Konserthuset · 2–4 Apr</span></div><span class="m-row__x"><span class="pill t-warn">viewer</span></span></div>
+                <div class="m-hdr"><b>April 2026</b><i></i></div>
+                <div class="m-row"><div class="m-row__c"><span class="m-row__t">Spring Gala</span><span class="m-row__s">Stadsteatern · 18 Apr</span></div></div>
+                <div class="m-row"><div class="m-row__c"><span class="m-row__t">Corporate AGM</span><span class="m-row__s">Venue TBD · 27 Apr</span></div><span class="m-row__x"><span class="pill t-def">contributor</span></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="phone__cap"><b>Events</b> · headings over runs of rows, inside the frame · no strip, because the desk has none</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       07 · WHAT 6b DOES NOT TOUCH
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">07 · the edges</span>
+      <h2>What this phase deliberately leaves alone</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        6b builds the frame and puts every existing list in it. It does not make any surface do
+        something it does not already do — that is 6c, and keeping the line sharp is what makes a
+        regression attributable.
+      </p>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <span class="led__k">M4</span>
+        <span class="led__v"><b><span class="k">!isMobile</span> as a permission</b> stays in Equipment, Rental and Stage Plots. Those three lines are a sentence in the panel naming the reason (§7g), and writing that sentence means deciding what each surface can and cannot do on a phone. <b>6c.</b></span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">M5</span>
+        <span class="led__v"><b>The rig cannot be declared from a phone.</b> The three audio/lighting tabs return before their drawers render. 6a gave every drawer a phone form; mounting them is a change to the tab, not to the panel. <b>6c.</b></span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">M9</span>
+        <span class="led__v"><b>Overview and Settings have no phone branch.</b> Neither is a list, so neither is waiting on <code>MobilePanel</code>. <b>6c.</b></span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">M11</span>
+        <span class="led__v"><b>A print from a phone is a blank page.</b> The Print control belongs in the bar 6b is building, but the fix is rendering the print sheet in the phone branch. <b>6c.</b></span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">M6</span>
+        <span class="led__v"><b>The canvases.</b> A canvas is not rows: it goes in the panel's content slot with no strip, exactly as it does on the desktop. <b>6d</b>, on <code>Sheet</code>'s un-scrimmed form, which 6a built and left unwired.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">toggle</span>
+        <span class="led__v">The <b>Sheet | Flow</b> segmented control is drawn in <code>design-language.html</code> §8's bar. It is 6d's, because until a canvas mounts there is nothing to toggle to. <code>actions</code> takes it when it arrives.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       08 · TWO THINGS THE AUDIT HAD NOT FILED
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">08 · unfiled</span>
+      <h2>Two things found while drawing this</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <strong>F1 · The specimen gives every section a count; §7e says it lists sections and
+        nothing else.</strong> <code>design-language.html</code> §8's switcher draws
+        <em>16 ch · 3 gaps</em>, <em>64 fixtures</em>, <em>24 190 kr</em> down the right of all
+        nine, captioned <em>“each carrying its own count.”</em> That is not the capability badge
+        6a deleted — a count is real data the desktop has — but §7e's closing sentence forbids it
+        all the same, and the shipped switcher renders no trailing at all.
+      </p>
+      <p>
+        <strong>The prose wins, and the specimen loses its counts.</strong> Two reasons, and the
+        second is the real one. A count on a destination is <em>the strip's sentence, moved into a
+        menu</em>, and 6b is the phase that gives the strip its home; the same fact stated in two
+        places drifts in exactly one direction. And the phone already has a surface whose job is
+        all nine at once — Overview's numbers band, §4b, which <code>M9</code> says needs a phone
+        form. The switcher is navigation; the verdict lives where the work is.
+      </p>
+      <p>
+        <strong>F2 · Four of the nine phone lists are on pages the wave table never assigned to a
+        phase.</strong> 6c is <em>“the nine surfaces”</em> — the nine event sections. Dashboard,
+        Events and Inventories are pages, and their phone lists appear in no phase at all, while
+        holding four of the seven call sites of the row 6b rewrites.
+      </p>
+      <p>
+        This is 6a's finding repeating: <em>a finding with no phase is a finding nobody has agreed
+        to close.</em> The resolution is the same one — <strong>6b takes them</strong>, because they
+        live inside the component this phase is already rewriting, and the correction is recorded
+        in <code>audit.md</code> rather than in this slice's spec, because the mistake is the
+        document's.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       09 · WHAT IT COSTS
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">09 · the arithmetic</span>
+      <h2>One row, on both ends of the handset range</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        A frame with a bar and a strip is chrome, and chrome on a phone is measured in rows you can
+        no longer see. Here is the whole budget, on the smallest screen the app is drawn for and on
+        a current one, with the 44 px bar of §03 and a one-line strip.
+      </p>
+    </div>
+
+    <div class="stacks">
+      <div class="stacks__c">
+        <p class="stacks__t"><b>375 × 667</b> · iPhone SE · today</p>
+        <div class="stack">
+          <div class="stack__b stack__b--chrome" style="height: 22px;"><span>header</span><span>56</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 20px;"><span>padding · gaps</span><span>50</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 18px;"><span>switcher</span><span>44</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 14px;"><span>search field</span><span>36</span></div>
+          <div class="stack__b stack__b--rows" style="height: 152px;"><span>8 rows @ 48</span><span>380</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 18px;"><span>unused</span><span>45</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 22px;"><span>nav</span><span>56</span></div>
+        </div>
+      </div>
+      <div class="stacks__c">
+        <p class="stacks__t"><b>375 × 667</b> · <b>6b</b></p>
+        <div class="stack">
+          <div class="stack__b stack__b--chrome" style="height: 22px;"><span>header</span><span>56</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 18px;"><span>padding · gaps</span><span>46</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 18px;"><span>switcher</span><span>44</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 24px;"><span>bar</span><span>61</span></div>
+          <div class="stack__b stack__b--rows" style="height: 146px;"><span>8 rows @ 45.5</span><span>364</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 3px;"><span>—</span><span>7</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 13px;"><span>strip</span><span>33</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 22px;"><span>nav</span><span>56</span></div>
+        </div>
+      </div>
+      <div class="stacks__c">
+        <p class="stacks__t"><b>393 × 852</b> · iPhone 15 · today</p>
+        <div class="stack">
+          <div class="stack__b stack__b--chrome" style="height: 22px;"><span>header</span><span>56</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 20px;"><span>padding · gaps</span><span>50</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 18px;"><span>switcher</span><span>44</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 14px;"><span>search field</span><span>36</span></div>
+          <div class="stack__b stack__b--rows" style="height: 229px;"><span>12 rows @ 48</span><span>572</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 22px;"><span>nav</span><span>56</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 14px;"><span>home inset</span><span>34</span></div>
+        </div>
+      </div>
+      <div class="stacks__c">
+        <p class="stacks__t"><b>393 × 852</b> · <b>6b</b></p>
+        <div class="stack">
+          <div class="stack__b stack__b--chrome" style="height: 22px;"><span>header</span><span>56</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 18px;"><span>padding · gaps</span><span>46</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 18px;"><span>switcher</span><span>44</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 24px;"><span>bar</span><span>61</span></div>
+          <div class="stack__b stack__b--rows" style="height: 200px;"><span>11 rows @ 45.5</span><span>500</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 9px;"><span>unused</span><span>22</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 13px;"><span>strip</span><span>33</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 22px;"><span>nav</span><span>56</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 14px;"><span>home inset</span><span>34</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>
+        <strong>Eight rows stay eight on the small handset; twelve become eleven on the tall
+        one.</strong> The frame is close to free, and the reason is in the second bar of each
+        stack: today's layout <em>wastes 45 px</em> at 375 × 667, because eight cards at a 48 px
+        pitch do not divide the space and a ninth does not fit. The panel spends that slack on a
+        strip and hands back a row of pitch, and comes out level.
+      </p>
+      <p>
+        The tall phone is where a row is genuinely paid, and it is paid to the <b>strip</b> — 33 px
+        that says <em>3 gaps</em>. That is the trade this wave exists to make: one row of channels,
+        for the only sentence on the phone that tells you the patch is unfinished while you are
+        standing in front of the stage.
+      </p>
+      <p>
+        And this is the arithmetic that makes <b>F3</b> matter rather than being a pedantic note
+        about a table. At <span class="k">py-2.5</span> with default leading, the same two stacks
+        read <b>6 rows</b> and <b>9 rows</b> — a fifth of the list gone, on both devices, to a
+        padding nothing in the tree has ever used. Searching costs one more row while the field is
+        open, which is the one moment nobody is scanning the list.
+      </p>
+    </div>
+
+    <div class="files">
+      <div class="file"><span class="file__s file__s--new">+</span><span class="file__n">components/ui/MobilePanel.tsx</span><span class="file__w">The frame. <b>Bar, rows, strip</b> — five props, and it decides nothing about what is in the rows.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">components/mobile/CondensedListRow.tsx</span><span class="file__w">Loses its border, radius and ground; keeps its padding; the two type sizes go up one step each. <b>The one change that reaches all nine lists</b> — and the one place F3 could have cost a fifth of every list.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">components/mobile/MobileEntityList.tsx</span><span class="file__w">Becomes a <code>MobilePanel</code> with a search target and an add target. Takes <span class="k">title</span> and <span class="k">strip</span>.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">components/event/*StatusRail.tsx</span><span class="file__w">Four files, two lines each: <span class="k">useIsMobile()</span>, <span class="k">text-xs</span>, and the control becomes the strip.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">AudioInputsTab · AudioOutputsTab · LightingTab</span><span class="file__w">Pass a title and their existing rail into the list they already render. No other change.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">EquipmentTab · RentalTab</span><span class="file__w">Phone branch gains a panel and its rail. Rental <b>loses its hand-built total row</b>. <span class="k">!isMobile</span> untouched — 6c.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">pages/Events · Dashboard · Inventories</span><span class="file__w">Four lists into four panels. Events' month headings move inside the frame.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">design/ · patterns §7b · tokens §7 · components §5 · audit M1–M3 · §8 specimen</span><span class="file__w">The gap closes; the bar's target is stated at 44; <b>the row's line states a height and drops its padding (F3)</b>, and M2 withdraws <span class="k">py-1.5</span>; the specimen is redrawn twice — the bar, and the switcher's counts (F1).</span></div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       OPEN
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">settled</span>
+      <h2>Three answered, and the one they turned up</h2>
+    </div>
+
+    <div class="ask">
+      <h3>1 · The bar's targets — <span class="tag tag--keep">44 px</span></h3>
+      <p>
+        Either size was acceptable; 44 px wins on the tie-break, because it leaves the phone with
+        <b>one</b> icon-target size rather than two — the same <span class="k">h-11 w-11</span> 6a
+        gave the sheet's close control. The bar grows 52 → 60, once, and no row is affected: the
+        44 px minimum governs what a finger presses, and a row was already 44. §03.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>2 · Search — <span class="tag tag--keep">a target that opens the bar's second row</span></h3>
+      <p>
+        The field's 36 px comes back to the list on every screen where nobody is searching, the
+        bar's stated order survives into 6c and 6d with the toggle, the drawers and Print still
+        fitting at 375 px, and it is what §7b's ASCII has drawn all along. A non-empty query keeps
+        the row open, so the filter never applies invisibly. §03.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>3 · The strip's controls — <span class="tag tag--keep">the strip is the target</span></h3>
+      <p>
+        375 × 44 at the bottom edge, filtering to exactly what it just reported, with
+        <span class="k">only gaps ›</span> in the state's own hue saying so. A strip with nothing
+        to filter to — <em>complete</em>, <em>addressed</em>, <em>all covered</em> — draws no
+        chevron and is not a control. <b>Open Rig</b> does not travel; the drawer is not mounted on
+        a phone until 6c. §05.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>F3 · The row states a height, not a padding <span class="tag tag--new">found by asking 1</span></h3>
+      <p>
+        <code>tokens.md</code> §7 states <span class="k">px-3 py-2.5</span>, <span class="k">text-sm</span>
+        over <span class="k">text-xs</span>, and <em>“44 px tall”</em> in one table row.
+        <b>20 + 20 + 16 = 56</b>, and a 56 px row takes two rows of data off a 667 px handset —
+        8 becomes 6. The drawn specimen and the shipped code independently reach 44 px and
+        independently disagree with the table.
+      </p>
+      <p>
+        The line becomes <span class="k">min-h-[44px]</span> with <span class="k">leading-tight</span>,
+        and the padding derives — the same move <code>tokens.md</code> already makes for the nav
+        and the header. <b><code>M2</code> withdraws <span class="k">py-1.5</span></b>: it was never
+        the defect, it is what makes 44 px with two tight lines. The defect was the two type sizes
+        it held. <b>The row's type goes up a step; its box does not move.</b> §04.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>Recorded, not asked</h3>
+      <p>
+        <b>F1</b> — the §8 specimen's per-section counts contradict §7e and lose; the verdict lives
+        in the strip and, for all nine at once, on Overview. <b>F2</b> — Dashboard, Events and
+        Inventories hold four phone lists and belong to no wave phase; 6b takes them, and
+        <code>audit.md</code> records the correction. §08.
+      </p>
+      <p>
+        <b>Three findings in one wave, all of them documents rather than code.</b> That is what a
+        design language earns once it is complete enough to be multiplied out — and all three were
+        reachable only by drawing the thing at its real size and doing the arithmetic on a real
+        screen.
+      </p>
+    </div>
+  </section>
+
+</div>

@@ -42,6 +42,16 @@ export function Layout() {
 
       The header takes the desktop header's `h-14` for the same reason, before
       anything positions against it rather than after (patterns.md §7a).
+
+      **The page scrolls, not the surface.** Wave 6b made this a fixed-height
+      `h-[100svh]` column so a panel could fill the body and keep its status
+      strip on screen, and reverted it in the same slice: a flex column makes
+      every child a flex item, and a flex item whose root is a scroll container
+      has an automatic minimum size of *zero* — so `OverviewTab`'s Card, and
+      `PatchPanel` as reached by event Settings and by `/my-defaults`, were
+      compressed below their content and clipped, with no scrollbar anywhere.
+      Those three surfaces are Wave 6c's, and the shell can become a column
+      once they are panels too. See audit.md M3.
     */
     return (
       <div className="min-h-screen bg-zinc-950 pb-[calc(3.5rem+env(safe-area-inset-bottom))] text-zinc-100">

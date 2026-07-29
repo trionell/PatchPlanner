@@ -590,8 +590,10 @@
   .m-pan--fill { flex: 1; }
   .m-pan__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #27272a; flex: none; }
   .m-pan__ti { font-size: 14px; font-weight: 600; color: #f4f4f5; margin-right: auto; }
-  .m-pan__ic { width: 36px; height: 36px; border-radius: 6px; border: 1px solid #3f3f46; background: #18181b; display: grid; place-items: center; color: #a1a1aa; font-size: 14px; flex: none; }
-  .m-pan__ic--pri { background: #f59e0b; border-color: #f59e0b; color: #09090b; font-size: 17px; }
+  /* 44px, not the 36 this specimen drew until Wave 6b: tokens §7 amendment 1 is a
+     number the whole application is checked against, and a bar control is pressed. */
+  .m-pan__ic { width: 44px; height: 44px; border-radius: 6px; border: 1px solid #3f3f46; background: #18181b; display: grid; place-items: center; color: #a1a1aa; font-size: 16px; flex: none; }
+  .m-pan__ic--pri { background: #f59e0b; border-color: #f59e0b; color: #09090b; font-size: 20px; }
   .m-pan__rows { flex: 1; min-height: 0; overflow: hidden; }
 
   /* the row — two lines, 44 px, the derived colour as its leading edge */
@@ -636,10 +638,6 @@
   .m-jump__i.on .m-jump__n { color: #f59e0b; }
   .m-jump__l { font-size: 14px; color: #d4d4d8; flex: 1; min-width: 0; }
   .m-jump__i.on .m-jump__l { color: #fcd34d; font-weight: 600; }
-  .m-jump__c { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 11px; color: #71717a; flex: none; }
-  .m-jump__c b { color: #a1a1aa; font-weight: 400; }
-  .m-jump__c--warn { color: #fcd34d; }
-  .m-jump__c--none { color: #3f3f46; }
 
   /* a canvas in the hand — drawn at desktop geometry, tapped at node scale */
   .m-cvs { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #09090b; }
@@ -1695,21 +1693,21 @@
               </div>
               <div class="m-sheet__bd" style="gap: 0; padding: 0;">
                 <div class="m-jump">
-                  <div class="m-jump__i"><span class="m-jump__n">01</span><span class="m-jump__l">Overview</span><span class="m-jump__c"><b>18</b> days</span></div>
-                  <div class="m-jump__i on"><span class="m-jump__n">02</span><span class="m-jump__l">Audio Inputs</span><span class="m-jump__c m-jump__c--warn"><b>16</b> ch · 3 gaps</span></div>
-                  <div class="m-jump__i"><span class="m-jump__n">03</span><span class="m-jump__l">Audio Outputs</span><span class="m-jump__c"><b>12</b> out</span></div>
-                  <div class="m-jump__i"><span class="m-jump__n">04</span><span class="m-jump__l">Lighting Rig</span><span class="m-jump__c"><b>64</b> fixtures</span></div>
-                  <div class="m-jump__i"><span class="m-jump__n">05</span><span class="m-jump__l">Stage Plots</span><span class="m-jump__c"><b>3</b> plots</span></div>
-                  <div class="m-jump__i"><span class="m-jump__n">06</span><span class="m-jump__l">Signal Flow</span><span class="m-jump__c"><b>28</b> runs</span></div>
-                  <div class="m-jump__i"><span class="m-jump__n">07</span><span class="m-jump__l">Equipment</span><span class="m-jump__c"><b>41</b> lines</span></div>
-                  <div class="m-jump__i"><span class="m-jump__n">08</span><span class="m-jump__l">Rental Order</span><span class="m-jump__c"><b>24 190</b> kr</span></div>
-                  <div class="m-jump__i"><span class="m-jump__n">09</span><span class="m-jump__l">Settings</span><span class="m-jump__c m-jump__c--none">—</span></div>
+                  <div class="m-jump__i"><span class="m-jump__n">01</span><span class="m-jump__l">Overview</span></div>
+                  <div class="m-jump__i on"><span class="m-jump__n">02</span><span class="m-jump__l">Audio Inputs</span></div>
+                  <div class="m-jump__i"><span class="m-jump__n">03</span><span class="m-jump__l">Audio Outputs</span></div>
+                  <div class="m-jump__i"><span class="m-jump__n">04</span><span class="m-jump__l">Lighting Rig</span></div>
+                  <div class="m-jump__i"><span class="m-jump__n">05</span><span class="m-jump__l">Stage Plots</span></div>
+                  <div class="m-jump__i"><span class="m-jump__n">06</span><span class="m-jump__l">Signal Flow</span></div>
+                  <div class="m-jump__i"><span class="m-jump__n">07</span><span class="m-jump__l">Equipment</span></div>
+                  <div class="m-jump__i"><span class="m-jump__n">08</span><span class="m-jump__l">Rental Order</span></div>
+                  <div class="m-jump__i"><span class="m-jump__n">09</span><span class="m-jump__l">Settings</span></div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-        <p class="phone__cap"><b>The section switcher</b> · nine tabs that do not fit, each carrying its own count</p>
+        <p class="phone__cap"><b>The section switcher</b> · nine tabs that do not fit · it lists sections and nothing else</p>
       </div>
 
       <!-- 4 · a canvas in the hand -->
@@ -1926,7 +1924,7 @@
     <div class="patchbay" style="--lit: 95%;"><div class="patchbay__strip"></div><div class="patchbay__lit"></div></div>
     <header class="sec__head">
       <p class="sec__num">Nine · where it stands <span class="sec__src">audit.md</span></p>
-      <h2>Twelve closed, twelve open</h2>
+      <h2>Twelve closed, and seven of the phone’s twelve</h2>
       <p class="body">
         Counted from <span class="k">frontend/src</span> — the A-findings at the merge of Slices
         23–26, the M-findings at <span class="k">bfb62a2</span>. Every number below is reproducible
@@ -1956,17 +1954,17 @@
     </header>
 
     <div>
-      <div class="find">
-        <div class="find__hd"><span class="find__id">M1</span><span class="find__ti">The phone has no frame</span><span class="find__todo">Wave 6b</span><span class="find__p">P1</span></div>
-        <p class="find__b"><span class="k">grep -rn "PatchPanel\|StatusRail" components/mobile/</span> → <span class="find__n">0</span>. Every phone surface is a heading, a search box, then rows as free-standing bordered cards on the page ground — P1's named violation, and the exact shape Waves 3–5 spent five slices removing from the desktop. The row sits on <span class="k">bg-zinc-900</span>, which is the <em>control</em> role: the list reads as a column of inputs.</p>
+      <div class="find find--done">
+        <div class="find__hd"><span class="find__id">M1</span><span class="find__ti">The phone has no frame</span><span class="find__done">Wave 6b</span><span class="find__p">P1</span></div>
+        <p class="find__b"><span class="k">grep -rn "PatchPanel\|StatusRail" components/mobile/</span> → <span class="find__n">0</span>. Every phone surface was a heading, a search box, then rows as free-standing bordered cards on the page ground — P1's named violation, and the exact shape Waves 3–5 spent five slices removing from the desktop. The row sat on <span class="k">bg-zinc-900</span>, which is the <em>control</em> role: the list read as a column of inputs. → <span class="k">ui/MobilePanel</span>, and <strong>all nine phone lists in one</strong> — including the four on Dashboard, Events and Inventories, which belonged to no phase because 6c is <em>the nine event sections</em>. They held four of the seven call sites of the row this phase rewrote, and a slice that ships two kinds of row ships the wrong one to every list written afterwards.</p>
       </div>
-      <div class="find">
-        <div class="find__hd"><span class="find__id">M2</span><span class="find__ti">The row is off both ladders — and the document said otherwise</span><span class="find__todo">Wave 6b</span><span class="find__p">P2 · P3</span></div>
-        <p class="find__b"><span class="k">text-[13px]</span> over <span class="k">text-[11px]</span> at <span class="k">py-1.5</span>, beside an <span class="k">h-9</span> search and an <span class="k">h-9 w-9</span> add button. <span class="find__n">9</span> uses, none of them a value in either tier. <strong>The document was the bigger problem:</strong> §7 claimed mobile used navigation sizing throughout and that nothing mouse-sized appeared at all, while the code shipped a <span class="k">h-3.5</span> pencil on every row and a micro-label on three phone surfaces. A rule nothing obeys is not a rule, and this one had been quoted.</p>
+      <div class="find find--done">
+        <div class="find__hd"><span class="find__id">M2</span><span class="find__ti">The row was off both ladders — and the document was worse than the code</span><span class="find__done">Wave 6b</span><span class="find__p">P2 · P3</span></div>
+        <p class="find__b"><span class="k">text-[13px]</span> over <span class="k">text-[11px]</span> at <span class="k">py-1.5</span>, beside an <span class="k">h-9</span> search and an <span class="k">h-9 w-9</span> add button. <span class="find__n">9</span> uses, none of them a value in either tier. <strong>The document was the bigger problem:</strong> §7 claimed mobile used navigation sizing throughout and that nothing mouse-sized appeared at all, while the code shipped a <span class="k">h-3.5</span> pencil on every row and a micro-label on three phone surfaces. A rule nothing obeys is not a rule, and this one had been quoted. → The row is a row now, at the navigation tier's 14/12, and the pitch <em>fell</em> from 48 px to 45.5 — the card's own border and the gap to the next one are what paid for the bigger type. <strong>And one value came off this list.</strong> tokens §7 stated <span class="k">px-3 py-2.5</span> and “44 px tall” in one table row, which at the default line boxes is <span class="find__n">56</span> px and would have cost two rows of data on a 667 px handset. Nothing had ever built it — the specimen above and the shipped code both reached 44 px from the other side. So <span class="k">py-1.5</span> is <strong>withdrawn</strong>: it was never the defect, it is what makes 44 px with two tight lines. The row's line now states a <strong>height</strong> and lets the padding derive.</p>
       </div>
-      <div class="find">
-        <div class="find__hd"><span class="find__id">M3</span><span class="find__ti">No phone surface says whether the plan holds</span><span class="find__todo">Wave 6b</span><span class="find__p">P1 · P9</span></div>
-        <p class="find__b"><span class="find__n">4</span> status rails exist — Patch, Lighting, Rental, Equipment. <span class="find__n">0</span> render on a phone, which is where someone is standing in the room the plan describes. The rental tab has a hand-built total row in the control colour, a strip in intent, outside the component that already does this four times.</p>
+      <div class="find find--done">
+        <div class="find__hd"><span class="find__id">M3</span><span class="find__ti">No phone surface said whether the plan holds</span><span class="find__done">Wave 6b</span><span class="find__p">P1 · P9</span></div>
+        <p class="find__b"><span class="find__n">4</span> status rails exist — Patch, Lighting, Rental, Equipment. <span class="find__n">0</span> render on a phone, which is where someone is standing in the room the plan describes. The rental tab has a hand-built total row in the control colour, a strip in intent, outside the component that already does this four times. → All four rails branch inside themselves, so five surfaces gained a strip without one of them being edited for it, and <strong>on a phone the strip is the control</strong>: the desktop's filter button is a size below <span class="k">xs</span> for a good reason and a 24 px target for a bad one, so the strip's root becomes the button — full width, 44 px, at the edge the thumb is on, filtering to exactly what it just reported. A state with nothing to filter to draws no chevron and is not a control.</p>
       </div>
       <div class="find">
         <div class="find__hd"><span class="find__id">M4</span><span class="find__ti">A viewport is <span class="k">&amp;&amp;</span>-ed into a permission</span><span class="find__todo">Wave 6c</span><span class="find__p">P7 · P9</span></div>

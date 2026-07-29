@@ -1158,6 +1158,44 @@ in one component, without one of their own files being touched.
   nine surfaces (6c), and the canvases (6d) — where the sheet's un-scrimmed,
   non-modal form was built for and left unwired.
 
+## Slice 34 — The panel, and the row that stops being a card (spec: `phone-panel`)
+
+**Design wave 6b.** `ui/MobilePanel` — the phone's frame: a bar that wraps, a rows
+region that scrolls, and the status strip that closes it. Closes audit findings
+**M1, M2 and M3**, and leaves five of the phone's twelve open, all of them surfaces
+that have not been built yet rather than surfaces speaking a language of their own.
+
+- **All nine phone lists are one bordered frame**, not nine `space-y-*` stacks of
+  free-standing cards. Four of the nine live on pages — Dashboard, Events and
+  Inventories — which belonged to no wave phase, because 6c is *the nine event
+  sections*. They held four of the seven call sites of the shared row, so leaving
+  them would have shipped a phone with two kinds of row in it.
+- **The row is not taller.** It loses its own border, radius and ground and gains the
+  navigation tier's 14/12 type; the pitch falls from 48 px to 45.5, because a card's
+  border and the gap to the next one are what paid for it.
+- **F3, and it is the finding of the slice.** `tokens.md` §7 stated `px-3 py-2.5`
+  *and* "44 px tall" for the same row. At the framework's default line boxes that is
+  56 px, and building it as written would have taken two rows of data off a 667 px
+  handset. Two implementations — the drawn specimen and the shipped code — had
+  independently reached 44 px and independently disagreed with the table for five
+  waves. The row's line now states a **height** and the padding derives, and `M2`
+  **withdraws `py-1.5`**: it was never the defect, it is what makes 44 px with two
+  tight lines.
+- **On a phone the strip is the control.** The rails' desktop filter buttons are a
+  size below `xs` for a good reason and a 24 px target for a bad one, so the strip's
+  root becomes the button — full width, 44 px, filtering to exactly what it just
+  reported. All four rails branch inside themselves, the `ui/Drawer` precedent, so
+  five surfaces gained a strip without one of them being edited for it.
+- **The phone shell is a fixed-height column** now, because a panel cannot fill a body
+  that has no height and a strip below the fold states nothing. Declared, not absorbed:
+  it changes how every phone surface scrolls, including the four 6c owns.
+- Frontend only, asserted rather than assumed. The four rails' desktop return was
+  verified byte-identical by rendering all eleven states before and after and diffing
+  the markup — stronger than 6a's `twMerge` comparison, because it catches element
+  order too.
+- **Still a phase of its own:** the nine surfaces (6c — M4, M5, M9, M11) and the
+  canvases (6d — M6).
+
 ## Dependency graph
 
 ```
@@ -1171,6 +1209,6 @@ Slice 7 (lighting rig) + Slice 12 ──→ Slice 13 (stage plots; supersedes Sl
 Slice 7 (lighting rig) + Slice 25 (visual language) ──→ Slice 27 (Lighting becomes a sheet; design wave 3) ──→ Slice 28 (the remaining event tabs; design wave 4) ──→ Slice 29 (pages and residue; design wave 5 — convergence complete) ──→ Slice 30 (the Events timeline, and events that have length) ──→ Slice 31 (rental pricing by duration)
 
 Slice 16 (inventory ownership) + Slice 29 (pages and residue) + Slice 30 (the spine) ──→ Slice 32 (the inventory list — the last card list)
-Slice 21 (mobile redesign) + Slice 29 (the language it converges onto) ──→ Slice 33 (the phone's bottom sheet; design wave 6a) ──→ 6b MobilePanel ──→ 6c the nine surfaces ──→ 6d the canvases
+Slice 21 (mobile redesign) + Slice 29 (the language it converges onto) ──→ Slice 33 (the phone's bottom sheet; design wave 6a) ──→ Slice 34 (the phone's panel; design wave 6b) ──→ 6c the nine surfaces ──→ 6d the canvases
 Slice 14 (auth) ──→ Slice 15 (event ownership & sharing) ──→ Slice 16 (inventory ownership) ──→ Slice 17 (event settings) ──→ Slice 18 (deployment) ✅
 ```
