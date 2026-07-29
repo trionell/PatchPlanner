@@ -1,5 +1,7 @@
 import { Cable, CalendarRange, LayoutDashboard, LogOut, Package2, Settings } from 'lucide-react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { NavLink, Outlet, useLocation, useMatch } from 'react-router-dom'
+import { getEvent } from '../api/events'
 import { logout } from '../api/auth'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useIsMobile } from '../hooks/useIsMobile'
@@ -21,9 +23,37 @@ function getPageTitle(pathname: string) {
 
 export function Layout() {
   const location = useLocation()
-  const title = getPageTitle(location.pathname)
   const { user } = useCurrentUser()
   const isMobile = useIsMobile()
+
+  /*
+    Which event am I holding? (Wave 6c.)
+
+    The name was already on the phone — as an `h2` at the top of `EventDetail`'s body —
+    but it was in the part of the page that scrolls, so on any list longer than a screen
+    the answer scrolled off the top. The header is the one thing on this device that is
+    on screen in all nine sections and never scrolls, and it was spending its title slot
+    on the literal string `'Event Detail'`, which names the route rather than the thing.
+
+    `['event', id]` is the key and the fetcher `EventDetail` already uses, so this shares
+    one cache entry and one request — no context, no prop drilling, nothing new in the
+    API layer. The fallback covers pending *and* error, so a slow connection shows the
+    page title rather than a flash of `Event Detail` followed by a name.
+
+    **Phone only**, and the query is gated on reach for the same reason. The desktop
+    header already sits above an `h2` carrying the event's name, and it has a sidebar in
+    the slot besides — putting the name in both would be this slice changing a desktop
+    composition, which it may not do.
+  */
+  const eventMatch = useMatch('/events/:id')
+  const eventId = Number(eventMatch?.params.id)
+  const eventQuery = useQuery({
+    queryKey: ['event', eventId],
+    queryFn: () => getEvent(eventId),
+    enabled: isMobile && Number.isFinite(eventId),
+  })
+  const pageTitle = getPageTitle(location.pathname)
+  const title = isMobile ? (eventQuery.data?.name ?? pageTitle) : pageTitle
 
   async function handleLogout() {
     await logout()
@@ -60,7 +90,9 @@ export function Layout() {
             <div className="rounded-md bg-amber-500/15 p-1.5 text-amber-400">
               <Cable className="h-4 w-4" />
             </div>
-            <span className="text-sm font-semibold text-zinc-100">{title}</span>
+            {/* Truncating: a long event name loses its tail, which is the half you
+                already know, and neither the brand mark nor the avatar moves. */}
+            <span className="min-w-0 truncate text-sm font-semibold text-zinc-100">{title}</span>
           </div>
           {user?.pictureUrl && (
             <img src={user.pictureUrl} alt="" referrerPolicy="no-referrer" className="h-7 w-7 rounded-full" />

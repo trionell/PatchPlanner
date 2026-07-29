@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { UserPlus } from 'lucide-react'
+import { ArrowLeft, UserPlus } from 'lucide-react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { getEvent } from '../api/events'
 import { formatEventDates } from '../lib/dashboard'
@@ -82,15 +82,29 @@ export function EventDetailPage() {
   if (isMobile) {
     return (
       <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="truncate text-lg font-semibold">{eventQuery.data.name}</h2>
-            <p className="truncate text-xs text-zinc-400">{eventQuery.data.venue || 'Venue TBD'} · {formatEventDates(eventQuery.data).long ?? 'Date TBD'}</p>
-          </div>
-          <Link className="shrink-0 text-xs text-amber-400" to="/events">← Events</Link>
-        </div>
         {eventQuery.data.yourRole === 'viewer' && <ReadOnlyBanner />}
-        <SectionSwitcher current={currentSection} onSelect={selectSection} />
+        {/*
+          The name and the back link used to be a block above this row: an `h2` repeating
+          what the shell's header now carries at every scroll position (Wave 6c), and a
+          text link at 12px. Both are gone — the name is in the header, and `← Events` is
+          a 44px target beside the switcher, which is where a back control belongs on a
+          device with no browser chrome to put it in.
+
+          That returns roughly 48px to all nine sections, on the screen where the panel
+          has about 490px to work with.
+        */}
+        <div className="flex items-center gap-2">
+          <Link
+            aria-label="Back to events"
+            className="flex h-11 w-11 flex-none items-center justify-center rounded-md border border-zinc-700 bg-zinc-900 text-zinc-400"
+            to="/events"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <div className="min-w-0 flex-1">
+            <SectionSwitcher current={currentSection} onSelect={selectSection} />
+          </div>
+        </div>
         <div>{renderSection(currentSection, eventId, readOnly)}</div>
       </div>
     )
