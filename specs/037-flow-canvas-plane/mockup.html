@@ -710,8 +710,25 @@
 <div class="wrap">
 
   <header class="head">
-    <span class="head__eyebrow">slice 37 · the flow canvas as a plane · revision 1 · for approval</span>
+    <span class="head__eyebrow">slice 37 · the flow canvas as a plane · revision 2 · approved</span>
     <h1>A position that means one place</h1>
+
+    <div class="verdict" style="margin:0 0 26px;padding:16px 18px;border:1px solid var(--rule);border-radius:8px;background:var(--raised)">
+      <div class="verdict__k">q1 · bands</div>
+      <div class="verdict__v"><b>Dropped.</b> No <em>Stage / Rig / Console</em> tinting, and no labels.</div>
+
+      <div class="verdict__k">q2 · the tidy</div>
+      <div class="verdict__v"><b>x = 1400</b> for the previously-pinned right-hand group, 24 for the left. One SQL migration, no schema change and no Go.</div>
+
+      <div class="verdict__k">q3 · placement</div>
+      <div class="verdict__v"><b>Shared</b>, as it is today — a node’s coordinates are event data and stay in the database.</div>
+
+      <div class="verdict__k">q4 · negative space</div>
+      <div class="verdict__v"><b>Allowed</b>, in both axes. <u>A floor at 0,0.</u> The plane’s origin is derived from the content’s bounding box rather than fixed, so a node dragged left of the sources simply extends the plane — no arbitrary limit, and native scroll’s momentum is kept.</div>
+
+      <div class="verdict__k">the view</div>
+      <div class="verdict__v"><b>Device-local, per event and per surface</b>, reversing §04. <u>Six columns on <span class="mono">events</span>, migration, Go handler.</u> Zoom and pan are one person’s view of one screen, exactly like the Sheet/Flow choice that <span class="mono">usePatchView</span> already keeps in <span class="mono">localStorage</span> for these same two tabs — and putting them in the database would let a phone move where a desk opens, for everyone sharing the event.</div>
+    </div>
     <p class="head__lede">
       The report was that the rig lane is tighter on a phone, so the nodes bunch together and
       overlap. It is not tighter by a little. <b>It is 92 pixels wide, for nodes that are 200 pixels
@@ -892,7 +909,7 @@
       <div class="verdict__v"><b>Ordinary nodes at their own coordinates, dragged like any other.</b> <u>Pinned to the canvas’s left and right edges.</u> They stay <em>consolidated</em> — one Sources node holding every source, not a card each; 32 sources as cards is 1,700 px of lane and that reasoning still holds. What goes is the pinning, not the rail.</div>
 
       <div class="verdict__k">the clamp</div>
-      <div class="verdict__v"><b>Deleted.</b> <u><span class="mono">clampProcessingX</span>, on every node, every render.</u> A node goes where it is put. The only bound is x&nbsp;≥&nbsp;0 and y&nbsp;≥&nbsp;0, because a scroll container has no negative side.</div>
+      <div class="verdict__v"><b>Deleted, with no bound at all.</b> <u><span class="mono">clampProcessingX</span>, on every node, every render.</u> <u>A floor at x&nbsp;≥&nbsp;0.</u> Revision 2: the plane’s origin is the content’s own bounding box, so negative coordinates extend it rather than being refused. A scroll container has no negative side, but the origin it counts from is ours to choose.</div>
 
       <div class="verdict__k">panning</div>
       <div class="verdict__v"><b>The platform’s own scrolling, on both reaches.</b> <u>A pointer-drag handler like the stage plot’s.</u> The stage plot drags because it is one SVG with a <span class="mono">viewBox</span>; the flow canvas is real DOM with scrollable rails inside it, so native scroll is both easier and better — momentum on the phone, and it is what Wave 6d already built.</div>
@@ -927,14 +944,18 @@
         narrower than a fingertip, with no legible text in it. So the canvas opens where it was last
         left, per event and per surface, exactly as a stage plot does.
       </p>
-      <p class="code">events += input_flow_zoom, input_flow_pan_x, input_flow_pan_y,<br>
-      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;output_flow_zoom, output_flow_pan_x, output_flow_pan_y</p>
+      <p class="code">localStorage["patchplanner.flowView.{eventId}.{inputs|outputs}"]<br>
+      &nbsp;&nbsp;= { zoom, panX, panY }</p>
       <p>
-        Saved on an 800 ms debounce and gated on role, both copied from
-        <span class="mono">StagePlotTab</span> — a viewer pans and zooms freely and writes nothing
-        back. Pan is stored in <em>logical</em> units rather than scroll pixels, so it survives a
-        zoom change and a different screen. <b>This is what makes it a backend slice</b>: migration
-        047, six columns, and the event handler.
+        <b>Revision 2 replaced the six <span class="mono">events</span> columns this section
+        originally proposed.</b> Zoom and pan are one person’s view of one screen — the same class of
+        state as the Sheet/Flow choice that <span class="mono">usePatchView</span> already keeps in
+        <span class="mono">localStorage</span> for these two tabs, for the reason written at
+        <span class="mono">usePatchView.ts:19</span>: <em>“one user’s viewing preference with no
+        meaning to anyone else sharing the event.”</em> In the database it would let a phone decide
+        where a desk opens, for everyone with access. Pan is stored in <em>logical</em> units rather
+        than scroll pixels, so it survives a zoom change and a resize. The cost is that a new device
+        or a cleared cache opens at <em>fit</em>.
       </p>
 
       <h3>Fit becomes a button, and starts telling the truth</h3>
