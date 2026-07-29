@@ -92,12 +92,18 @@ export function usePlaneView({ eventId, tab, wrapperRef, zoom, zoomProp, origin,
     el.scrollLeft = offset.x
     el.scrollTop = offset.y
     /*
-      Latch only if the write **took**. A scroll container silently clamps an offset
-      beyond its range, so a plane that is still growing would swallow the restore and
-      report success; the next measurement gets another attempt instead. Rounded because
-      a fractional scale gives back a fractional offset.
+      Latched even if the browser clamped the offset, and that is deliberate.
+
+      A clamp used to mean *the plane is not built yet*, which is the bug `ready` now
+      prevents — the data has arrived, the layout is final, and `content` was measured from
+      it. What a clamp can still mean is that the graph genuinely shrank since the last
+      visit, and then clamping is the right answer rather than a failed attempt.
+
+      Retrying instead would be worse than doing nothing: this effect only re-runs when one
+      of its dependencies changes, so a restore that can never succeed would never latch,
+      and `onScroll` would then refuse to save anything for the life of the mount. A view
+      that silently stops being remembered is harder to notice than one that opens clamped.
     */
-    if (Math.abs(el.scrollLeft - offset.x) > 1 || Math.abs(el.scrollTop - offset.y) > 1) return
     restored.current = true
     // The scroll events this restore just caused arrive after it. Recording them is
     // harmless when the offset is right and destructive when it is not, so drop them.
