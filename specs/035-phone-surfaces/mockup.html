@@ -16,7 +16,7 @@
        Overview is Wave 4's best desktop surface and the composition it uses
        (five 26 px figures side by side, a ribbon read across a desk) is the
        one composition a phone cannot have. That is the design work of this
-       slice and §01 is most of this document.
+       slice and §02 is most of this document.
 
     2. THREE THINGS THIS DOCUMENT FOUND that no finding had named:
 
@@ -35,6 +35,22 @@
 
   And it collects the one thing 6b built and reverted and handed here by name:
   the fixed-height shell, which is what makes the strip permanently visible.
+
+  REVISION 2 — all four questions in §11 answered yes at review: Equipment and
+  Rental gain editing on the phone, the countdown spans, a flow row may wrap,
+  Print is added. Sections renumbered by one to make room for a NEW §01, which
+  came out of the review rather than out of the findings:
+
+    THE EVENT'S NAME. It is on the phone today, as an h2 in EventDetail's
+    scrolling body, so on any list longer than a screen it scrolls away. It
+    moves to the shell's h-14 header — the one thing on the phone that is on
+    screen in all nine sections and never scrolls, and which currently spends
+    its title slot on the literal string 'Event Detail'. The block it replaces
+    hands ~48 px back to every section.
+
+  Also in revision 2: Overview's venue-and-dates line comes back (§02), because
+  the argument for dropping it was that EventDetail printed it one row up, and
+  after §01 it does not.
 
   The file is an HTML *fragment*: the Artifact publisher wraps it in
   doctype/head/body, so there are deliberately no <html>, <head> or <body> tags.
@@ -266,7 +282,7 @@
     padding: 2px 10px; font-size: 12px; font-weight: 500; white-space: nowrap;
   }
 
-  /* the desktop drawer, for the side-by-side in §05 */
+  /* the desktop drawer, for the side-by-side in §06 */
   .dstack { position: relative; min-height: 400px; overflow: hidden; }
   .scrim { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.7); }
   .sd {
@@ -591,6 +607,21 @@
   /* a quiet last row: the desktop card's meta footer */
   .m-meta { display: flex; flex-wrap: wrap; gap: 3px 14px; padding: 9px 12px 10px; font-size: 12px; color: #71717a; }
 
+  /* the event's name, in the shell's own header — the one place on the phone
+     that is on screen in all nine sections and never scrolls */
+  .m-hd__nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+  /* the switcher row: the back target and the section switcher, one 44 px row,
+     because the block they replace was 48 px of a 490 px panel */
+  .m-swr { display: flex; align-items: center; gap: 8px; flex: none; }
+  .m-swr .m-sw { flex: 1; min-width: 0; }
+  .m-back { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; color: #a1a1aa; font-size: 16px; }
+
+  /* the event, stated once at the top of its own section */
+  .m-sub { padding: 9px 12px 10px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); font-size: 12px; color: #a1a1aa; }
+  .m-sub b { color: #d4d4d8; font-weight: 500; }
+  .m-sub s { text-decoration: none; color: #71717a; }
+
   /* a bar control that names a selection and opens a sheet — the rail, and the
      plot picker, collapsed to a target. It stays in the bar because it changes
      WHAT YOU ARE LOOKING AT. */
@@ -658,7 +689,7 @@
 <div class="wrap">
 
   <header class="head">
-    <span class="head__eyebrow">wave 6c · the nine surfaces · revision 1</span>
+    <span class="head__eyebrow">wave 6c · the nine surfaces · revision 2 · approved</span>
     <h1>“Nobody built it” is not “you may not”</h1>
     <p class="head__lede">
       6a built the overlay and touched no surface. 6b built the frame — bar, rows, strip — and
@@ -677,12 +708,20 @@
       <b>This document is for the two places where it is not.</b> Overview is Wave 4's best
       desktop surface and its composition — five 26 px figures side by side, a rig drawn as
       one row of a canvas — is the exact composition a 375 px screen cannot hold. That is
-      §01, and it is most of what follows.
+      §02, and it is most of what follows.
     </p>
     <p class="head__lede">
       And three things turned up that no finding had named. There is a <b>fifth status
       rail</b>; the bar's <b>overflow</b> was specified in 6b and never built, and 6c is the
       phase that needs it; and a constant is still named after something 6a deleted.
+    </p>
+    <p class="head__lede">
+      <b>Revision 2 · approved.</b> All four questions in §11 are answered <span class="tag tag--keep">yes</span>:
+      Equipment and Rental <b>gain editing</b> on the phone, the countdown <b>spans</b>, a flow
+      row <b>wraps</b>, and <b>Print</b> is added. And the review added one thing the findings had
+      not: <i>“I want the event name displayed on mobile — something I can glance at to know which
+      event I have open.”</i> That is <b>§01</b>, it is new in this revision, and it hands back a
+      row on all nine sections rather than costing one.
     </p>
   </header>
 
@@ -770,7 +809,7 @@
           the same way the nav's fourth slot works; it does not silently vanish.”</i> Nothing
           implements it, because in 6b nothing overflowed. In 6c five surfaces acquire
           controls — Rig, Buses, Universes, Print, three rental exports — and Audio Inputs'
-          bar would carry <b>five 44 px targets and a title in 349 px</b>. §03.</span>
+          bar would carry <b>five 44 px targets and a title in 349 px</b>. §04.</span>
       </div>
       <div class="led__row">
         <span class="led__k">F3</span>
@@ -792,17 +831,150 @@
         and a flex item whose root is a scroll container has an automatic minimum size of
         <b>zero</b>, so the three phone surfaces that were not panels yet were compressed
         below their content and clipped. Those three surfaces are
-        <b>Overview, event Settings and <span class="k">/my-defaults</span></b> — and §01 and
-        §02 are what make them panels. §07 collects the shell.
+        <b>Overview, event Settings and <span class="k">/my-defaults</span></b> — and §02 and
+        §03 are what make them panels. §08 collects the shell.
       </p>
     </div>
   </section>
   <!-- ================================================================
-       01 · OVERVIEW
+       01 · THE NAME  (revision 2)
        ================================================================ -->
   <section>
     <div class="sec__hd">
-      <span class="sec__no">01 · overview</span>
+      <span class="sec__no">01 · the name</span>
+      <h2>Which event is this?</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        The event's name <i>is</i> on the phone today — as an <span class="k">h2</span> at the
+        top of <span class="k">EventDetail</span>'s body, above the section switcher. The problem
+        is not that it is missing; it is <b>where it is</b>. It sits in the part of the page that
+        scrolls, so on any list longer than a screen the answer to <i>which show am I holding</i>
+        scrolls off the top and is recovered by flicking back up.
+      </p>
+      <p>
+        The phone already has exactly one thing that is on screen in all nine sections and never
+        scrolls: <b>the shell's own header</b>. It is <span class="k">h-14</span>, it is
+        <span class="k">sticky</span> today and <span class="k">flex-none</span> after §08, and it
+        currently spends its title slot on the literal string
+        <span class="k">'Event Detail'</span> — which names the route, not the thing. Nobody has
+        ever needed to be told they are looking at an event detail page.
+      </p>
+    </div>
+
+    <div class="vs">
+      <div class="vs__c">
+        <div class="vs__hd"><b>Today</b><span>the route, in the header</span></div>
+        <div class="m-hd" style="border: 1px solid #3f3f46; border-radius: 10px; background: #09090b; height: 56px;">
+          <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+          <div class="m-hd__av"></div>
+        </div>
+        <p class="vs__note">
+          <span class="k">getPageTitle</span> maps <span class="k">/events/:id</span> to a
+          constant. The name is 40 px below it, in the scrolling body, at
+          <span class="k">text-lg</span>.
+        </p>
+      </div>
+      <div class="vs__c">
+        <div class="vs__hd"><b>Proposed</b><span>the event, in the header</span></div>
+        <div class="m-hd" style="border: 1px solid #3f3f46; border-radius: 10px; background: #09090b; height: 56px;">
+          <div class="m-hd__ti"><span class="m-hd__ic">⌁</span><span class="m-hd__nm">Nordic Sound Festival</span></div>
+          <div class="m-hd__av"></div>
+        </div>
+        <p class="vs__note">
+          <b>Every section, at every scroll position.</b> Same slot, same
+          <span class="k">text-sm font-semibold</span>, truncating — a long name loses its tail,
+          which is the half you already know.
+        </p>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>
+        <b>Where the name comes from costs nothing.</b> <span class="k">Layout</span> reads
+        <span class="k">['event', id]</span> — the query key <span class="k">EventDetail</span>
+        already populates from the same cache — so there is no new endpoint, no context and no
+        second request. Off an event route the header keeps the page title it has today.
+      </p>
+      <p>
+        <b>And the block it replaces buys back a row.</b> With the name in the header,
+        <span class="k">EventDetail</span>'s phone header block is a heading nobody needs twice
+        and a <span class="k">← Events</span> link — so the link becomes a 44 px target beside the
+        section switcher and the block goes. <b>That is about 48 px returned to every one of the
+        nine sections</b>, on the device where the panel has 490 px to work with, and it arrives
+        in the same slice that makes the panel fill the body.
+      </p>
+    </div>
+
+    <div class="phones">
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span><span class="m-hd__nm">Nordic Sound Festival</span></div>
+            <div class="m-hd__av"></div>
+          </div>
+          <div class="m-bd">
+            <div class="m-swr">
+              <span class="m-back">←</span>
+              <div class="m-sw"><span class="m-sw__t">Audio Inputs</span><span style="color: #a1a1aa;">▾</span></div>
+            </div>
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar">
+                <span class="m-pan__ti">Audio Inputs</span>
+                <span class="m-pan__ic m-pan__ic--44">🔍</span>
+                <span class="m-pan__ic m-pan__ic--44">⋯</span>
+                <span class="m-pan__ic m-pan__ic--44 m-pan__ic--pri">＋</span>
+              </div>
+              <div class="m-pan__rows">
+                <div class="m-row" style="border-left: 3px solid #38bdf8; background: rgba(56,189,248,0.06);"><div class="m-row__c"><div class="m-row__t"><span class="m-row__n" style="font-size:12px;">1</span>Kick In</div><div class="m-row__s">Beta 91A · SB1 in 1</div></div></div>
+                <div class="m-row" style="border-left: 3px solid #38bdf8; background: rgba(56,189,248,0.06);"><div class="m-row__c"><div class="m-row__t"><span class="m-row__n" style="font-size:12px;">2</span>Kick Out</div><div class="m-row__s">e902 · SB1 in 2</div></div></div>
+                <div class="m-row" style="border-left: 3px solid #38bdf8; background: rgba(56,189,248,0.06);"><div class="m-row__c"><div class="m-row__t"><span class="m-row__n" style="font-size:12px;">3</span>Snare Top</div><div class="m-row__s">e906 · SB1 in 3</div></div></div>
+                <div class="m-row" style="border-left: 3px solid #38bdf8; background: rgba(56,189,248,0.06);"><div class="m-row__c"><div class="m-row__t"><span class="m-row__n" style="font-size:12px;">6</span>OH L/R</div><div class="m-row__s">KM184 · SB1 in 6–7 · stereo</div></div></div>
+                <div class="m-row" style="border-left: 3px solid #a78bfa; background: rgba(167,139,250,0.06);"><div class="m-row__c"><div class="m-row__t"><span class="m-row__n" style="font-size:12px;">8</span>Bass DI</div><div class="m-row__s">Radial J48 · SB1 in 8</div></div></div>
+                <div class="m-row" style="border-left: 3px solid #a78bfa; background: rgba(167,139,250,0.06);"><div class="m-row__c"><div class="m-row__t"><span class="m-row__n" style="font-size:12px;">11</span>Keys L/R</div><div class="m-row__s">DI · SB2 in 3–4 · stereo</div></div></div>
+                <div class="m-row" style="border-left: 3px solid #34d399; background: rgba(52,211,153,0.06);"><div class="m-row__c"><div class="m-row__t"><span class="m-row__n" style="font-size:12px;">13</span>Lead Vox</div><div class="m-row__s">SM58 · SB2 in 5</div></div></div>
+                <div class="m-row"><div class="m-row__c"><div class="m-row__t"><span class="m-row__n" style="font-size:12px;">16</span>Playback L/R</div><div class="m-row__s">—</div></div></div>
+                <div class="m-row"><div class="m-row__c"><div class="m-row__t"><span class="m-row__n" style="font-size:12px;">17</span>Talkback</div><div class="m-row__s">—</div></div></div>
+                <div class="m-row"><div class="m-row__c"><div class="m-row__t"><span class="m-row__n" style="font-size:12px;">18</span>Spare</div><div class="m-row__s">—</div></div></div>
+              </div>
+              <div class="m-strip m-strip--on">
+                <span class="pill t-warn">3 gaps</span>
+                <span class="mono">16 ch</span>
+                <span class="mono" style="color:#a1a1aa;">SD10</span>
+                <span class="m-strip__go">Show 3 ›</span>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Dashboard</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▦</span>Events</div>
+            <div class="m-nav__i"><span class="m-nav__g">▣</span>Inventories</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+        </div>
+        <div class="phone__cap">the whole shell after this slice · name in the header, back beside the switcher, and <b>ten rows</b> where today's page shows eight and puts the strip six screens down.</div>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>
+        <b>The venue and the dates go back onto Overview</b>, where §02 had taken them out on the
+        grounds that <span class="k">EventDetail</span> printed them one row up. It no longer
+        does — the header carries the name and only the name, because a 375 px header slot beside
+        a brand mark and an avatar has room for one fact and the name is the one asked for. The
+        venue and the dates are what Overview is <i>for</i>, so they open its rows region as one
+        quiet line.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       02 · OVERVIEW
+       ================================================================ -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">02 · overview</span>
       <h2>The best desktop surface in the app, and the one composition a phone cannot have</h2>
     </div>
 
@@ -825,11 +997,11 @@
       <div class="phone">
         <div class="phone__frame">
           <div class="m-hd">
-            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span><span class="m-hd__nm">Nordic Sound Festival</span></div>
             <div class="m-hd__av"></div>
           </div>
           <div class="m-bd">
-            <div class="m-sw"><span class="m-sw__t">Overview</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-swr"><span class="m-back">←</span><div class="m-sw"><span class="m-sw__t">Overview</span><span style="color: #a1a1aa;">▾</span></div></div>
             <!-- today: the desktop Card, at 375 px -->
             <div style="border: 1px solid #27272a; border-radius: 8px; background: #18181b; overflow: hidden; flex: 1; min-height: 0;">
               <div style="padding: 16px 20px;">
@@ -868,11 +1040,11 @@
       <div class="phone">
         <div class="phone__frame">
           <div class="m-hd">
-            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span><span class="m-hd__nm">Nordic Sound Festival</span></div>
             <div class="m-hd__av"></div>
           </div>
           <div class="m-bd">
-            <div class="m-sw"><span class="m-sw__t">Overview</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-swr"><span class="m-back">←</span><div class="m-sw"><span class="m-sw__t">Overview</span><span style="color: #a1a1aa;">▾</span></div></div>
             <div class="m-pan m-pan--fill">
               <div class="m-pan__bar">
                 <span class="m-pan__ti">Overview</span>
@@ -880,6 +1052,7 @@
                 <span class="m-pan__ic m-pan__ic--44 m-pan__ic--pri">✎</span>
               </div>
               <div class="m-pan__rows">
+                <div class="m-sub"><b>Kulturhuset</b> · 12–14 Aug 2026 <s>(day 1 of 3)</s></div>
                 <div class="m-figs">
                   <div class="m-fig m-fig--span">
                     <div class="m-fig__v">12<i>days</i></div>
@@ -1027,13 +1200,15 @@
 
       <h3>Two smaller decisions</h3>
       <p>
-        <b>The event's name, venue and dates do not appear in the panel.</b> On the desktop the
-        Card's header carries them because the page has nowhere else to put them; on a phone
-        <span class="k">EventDetail</span>'s own header already prints them above the section
-        switcher, one row up. Repeating them would cost 48 px of a 490 px panel to say something
-        still on screen. The <b>Edit details</b> pencil stays, as the panel's
-        <span class="k">primaryAction</span>, because the action has to live somewhere and the
-        thing it edits is this section's subject.
+        <b>The name does not appear in the panel; the venue and the dates do, as one line.</b>
+        The name is in the shell's header on every section now (§01), so printing it again at the
+        top of one of them would cost 48 px of a 490 px panel to repeat something that cannot
+        scroll away. The venue and the dates are a different case — they are not on any other
+        section, and <i>where</i> and <i>when</i> are half of what Overview exists to state — so
+        they open the rows region at <span class="k">text-xs</span>, above the figures the
+        countdown is derived from. The <b>Edit details</b> pencil stays as the panel's
+        <span class="k">primaryAction</span>, because the thing it edits is this section's
+        subject.
       </p>
       <p>
         <b>Overview's strip is a sentence, not a control</b> — and it is the first one that is.
@@ -1052,11 +1227,11 @@
   </section>
 
   <!-- ================================================================
-       02 · SETTINGS
+       03 · SETTINGS
        ================================================================ -->
   <section>
     <div class="sec__hd">
-      <span class="sec__no">02 · settings</span>
+      <span class="sec__no">03 · settings</span>
       <h2>A rail is a column, and a column is the one thing a phone does not have</h2>
     </div>
 
@@ -1081,11 +1256,11 @@
       <div class="phone">
         <div class="phone__frame">
           <div class="m-hd">
-            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span><span class="m-hd__nm">Nordic Sound Festival</span></div>
             <div class="m-hd__av"></div>
           </div>
           <div class="m-bd">
-            <div class="m-sw"><span class="m-sw__t">Settings</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-swr"><span class="m-back">←</span><div class="m-sw"><span class="m-sw__t">Settings</span><span style="color: #a1a1aa;">▾</span></div></div>
             <div class="m-pan m-pan--fill">
               <div class="m-pan__bar">
                 <span class="m-pan__ti">Vocabularies</span>
@@ -1121,11 +1296,11 @@
       <div class="phone">
         <div class="phone__frame">
           <div class="m-hd">
-            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span><span class="m-hd__nm">Nordic Sound Festival</span></div>
             <div class="m-hd__av"></div>
           </div>
           <div class="m-bd" style="filter: brightness(0.75);">
-            <div class="m-sw"><span class="m-sw__t">Settings</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-swr"><span class="m-back">←</span><div class="m-sw"><span class="m-sw__t">Settings</span><span style="color: #a1a1aa;">▾</span></div></div>
             <div class="m-pan m-pan--fill">
               <div class="m-pan__bar">
                 <span class="m-pan__ti">Vocabularies</span>
@@ -1166,7 +1341,7 @@
 
     <div class="prose">
       <p>
-        <b>The picker stays in the bar rather than going in the overflow</b>, and §03 states the
+        <b>The picker stays in the bar rather than going in the overflow</b>, and §04 states the
         rule it follows: a control that changes <i>what you are looking at</i> is visible, and a
         control that does a thing and is finished is not. The vocabulary picker is the first, in
         the same way the section switcher above it is.
@@ -1176,10 +1351,10 @@
         the two together — a title that is itself the picker — buys about 90 px and costs the one
         thing nine panels have in common, which is that the first thing in the bar is the name of
         the surface (<code>patterns.md</code> §1). It fits, but only just, and the arithmetic is
-        §03's: 92 px of title, two 44 px targets and four gaps leave the picker
+        §04's: 92 px of title, two 44 px targets and four gaps leave the picker
         <b>113 px of the bar's 317</b>. So the picker caps at 112 px and <b>truncates</b> —
         <i>Signal cable ty…</i> — which is what §7c already says every other label on this
-        device does. It is the last surface that would fit, and the reason §03 exists.
+        device does. It is the last surface that would fit, and the reason §04 exists.
       </p>
       <p>
         <b>In use survives the trip.</b> It is Wave 5's point — the server has refused to delete
@@ -1191,11 +1366,11 @@
     </div>
   </section>
   <!-- ================================================================
-       03 · THE BAR
+       04 · THE BAR
        ================================================================ -->
   <section>
     <div class="sec__hd">
-      <span class="sec__no">03 · the bar</span>
+      <span class="sec__no">04 · the bar</span>
       <h2>The overflow that was specified in 6b and never built</h2>
     </div>
 
@@ -1270,14 +1445,14 @@
       <div class="split__c">
         <div class="split__h">stays in the bar · <span class="k">actions</span></div>
         <div class="split__i"><b>Category</b><em>— Inventories, today</em></div>
-        <div class="split__i"><b>Vocabulary</b><em>— Settings, §02</em></div>
-        <div class="split__i"><b>Plot</b> and <b>Top · Front · Side</b><em>— Stage Plots, §05</em></div>
+        <div class="split__i"><b>Vocabulary</b><em>— Settings, §03</em></div>
+        <div class="split__i"><b>Plot</b> and <b>Top · Front · Side</b><em>— Stage Plots, §06</em></div>
         <div class="split__i"><b>Sheet | Flow</b><em>— 6d, unbuilt</em></div>
       </div>
       <div class="split__c">
         <div class="split__h">goes in the overflow · <span class="k">overflow</span></div>
-        <div class="split__i"><b>Open Rig</b> · <b>Buses</b> · <b>Universes</b><em>— §04</em></div>
-        <div class="split__i"><b>Print</b><em>— M11, §07</em></div>
+        <div class="split__i"><b>Open Rig</b> · <b>Buses</b> · <b>Universes</b><em>— §05</em></div>
+        <div class="split__i"><b>Print</b><em>— M11, §08</em></div>
         <div class="split__i"><b>Export .xlsx</b> · <b>PDF</b> · <b>price list</b><em>— Rental</em></div>
       </div>
     </div>
@@ -1303,11 +1478,11 @@
       <div class="phone">
         <div class="phone__frame">
           <div class="m-hd">
-            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span><span class="m-hd__nm">Nordic Sound Festival</span></div>
             <div class="m-hd__av"></div>
           </div>
           <div class="m-bd" style="filter: brightness(0.75);">
-            <div class="m-sw"><span class="m-sw__t">Rental Order</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-swr"><span class="m-back">←</span><div class="m-sw"><span class="m-sw__t">Rental Order</span><span style="color: #a1a1aa;">▾</span></div></div>
             <div class="m-pan m-pan--fill">
               <div class="m-pan__bar">
                 <span class="m-pan__ti">Rental order</span>
@@ -1344,11 +1519,11 @@
       <div class="phone">
         <div class="phone__frame">
           <div class="m-hd">
-            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span><span class="m-hd__nm">Nordic Sound Festival</span></div>
             <div class="m-hd__av"></div>
           </div>
           <div class="m-bd" style="filter: brightness(0.75);">
-            <div class="m-sw"><span class="m-sw__t">Audio Inputs</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-swr"><span class="m-back">←</span><div class="m-sw"><span class="m-sw__t">Audio Inputs</span><span style="color: #a1a1aa;">▾</span></div></div>
             <div class="m-pan m-pan--fill">
               <div class="m-pan__bar">
                 <span class="m-pan__ti">Audio Inputs</span>
@@ -1385,11 +1560,11 @@
   </section>
 
   <!-- ================================================================
-       04 · THE DRAWERS
+       05 · THE DRAWERS
        ================================================================ -->
   <section>
     <div class="sec__hd">
-      <span class="sec__no">04 · the drawers</span>
+      <span class="sec__no">05 · the drawers</span>
       <h2>A stagebox that arrives on site is declared on site</h2>
     </div>
 
@@ -1416,11 +1591,11 @@
       <div class="phone">
         <div class="phone__frame">
           <div class="m-hd">
-            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span><span class="m-hd__nm">Nordic Sound Festival</span></div>
             <div class="m-hd__av"></div>
           </div>
           <div class="m-bd" style="filter: brightness(0.7);">
-            <div class="m-sw"><span class="m-sw__t">Audio Inputs</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-swr"><span class="m-back">←</span><div class="m-sw"><span class="m-sw__t">Audio Inputs</span><span style="color: #a1a1aa;">▾</span></div></div>
             <div class="m-pan m-pan--fill">
               <div class="m-pan__bar">
                 <span class="m-pan__ti">Audio Inputs</span>
@@ -1491,11 +1666,11 @@
     </div>
   </section>
   <!-- ================================================================
-       05 · A VIEWPORT IS NOT A PERMISSION
+       06 · A VIEWPORT IS NOT A PERMISSION
        ================================================================ -->
   <section>
     <div class="sec__hd">
-      <span class="sec__no">05 · m4</span>
+      <span class="sec__no">06 · m4</span>
       <h2>A viewport is not a permission</h2>
     </div>
 
@@ -1566,11 +1741,11 @@ frontend/src/components/mobile/MobileEntityList.tsx:75
       <div class="phone">
         <div class="phone__frame">
           <div class="m-hd">
-            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span><span class="m-hd__nm">Nordic Sound Festival</span></div>
             <div class="m-hd__av"></div>
           </div>
           <div class="m-bd" style="filter: brightness(0.75);">
-            <div class="m-sw"><span class="m-sw__t">Equipment</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-swr"><span class="m-back">←</span><div class="m-sw"><span class="m-sw__t">Equipment</span><span style="color: #a1a1aa;">▾</span></div></div>
             <div class="m-pan m-pan--fill">
               <div class="m-pan__bar">
                 <span class="m-pan__ti">Equipment</span>
@@ -1616,11 +1791,11 @@ frontend/src/components/mobile/MobileEntityList.tsx:75
       <div class="phone">
         <div class="phone__frame">
           <div class="m-hd">
-            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span><span class="m-hd__nm">Nordic Sound Festival</span></div>
             <div class="m-hd__av"></div>
           </div>
           <div class="m-bd" style="filter: brightness(0.75);">
-            <div class="m-sw"><span class="m-sw__t">Rental Order</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-swr"><span class="m-back">←</span><div class="m-sw"><span class="m-sw__t">Rental Order</span><span style="color: #a1a1aa;">▾</span></div></div>
             <div class="m-pan m-pan--fill">
               <div class="m-pan__bar">
                 <span class="m-pan__ti">Rental order</span>
@@ -1697,11 +1872,11 @@ frontend/src/components/mobile/MobileEntityList.tsx:75
       <div class="phone">
         <div class="phone__frame">
           <div class="m-hd">
-            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span><span class="m-hd__nm">Nordic Sound Festival</span></div>
             <div class="m-hd__av"></div>
           </div>
           <div class="m-bd">
-            <div class="m-sw"><span class="m-sw__t">Stage Plots</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-swr"><span class="m-back">←</span><div class="m-sw"><span class="m-sw__t">Stage Plots</span><span style="color: #a1a1aa;">▾</span></div></div>
             <div class="m-pan m-pan--fill">
               <div class="m-pan__bar">
                 <span class="m-pan__ti">Stage Plots</span>
@@ -1747,11 +1922,11 @@ frontend/src/components/mobile/MobileEntityList.tsx:75
       <div class="phone">
         <div class="phone__frame">
           <div class="m-hd">
-            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span><span class="m-hd__nm">Nordic Sound Festival</span></div>
             <div class="m-hd__av"></div>
           </div>
           <div class="m-bd" style="filter: brightness(0.75);">
-            <div class="m-sw"><span class="m-sw__t">Stage Plots</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-swr"><span class="m-back">←</span><div class="m-sw"><span class="m-sw__t">Stage Plots</span><span style="color: #a1a1aa;">▾</span></div></div>
             <div class="m-pan m-pan--fill">
               <div class="m-pan__bar">
                 <span class="m-pan__ti">Stage Plots</span>
@@ -1795,11 +1970,11 @@ frontend/src/components/mobile/MobileEntityList.tsx:75
   </section>
 
   <!-- ================================================================
-       06 · SIGNAL FLOW
+       07 · SIGNAL FLOW
        ================================================================ -->
   <section>
     <div class="sec__hd">
-      <span class="sec__no">06 · signal flow</span>
+      <span class="sec__no">07 · signal flow</span>
       <h2>The fifth status rail, and the tenth list</h2>
     </div>
 
@@ -1850,11 +2025,11 @@ frontend/src/components/mobile/MobileEntityList.tsx:75
       <div class="phone">
         <div class="phone__frame">
           <div class="m-hd">
-            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span><span class="m-hd__nm">Nordic Sound Festival</span></div>
             <div class="m-hd__av"></div>
           </div>
           <div class="m-bd">
-            <div class="m-sw"><span class="m-sw__t">Signal Flow</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-swr"><span class="m-back">←</span><div class="m-sw"><span class="m-sw__t">Signal Flow</span><span style="color: #a1a1aa;">▾</span></div></div>
             <div class="m-pan m-pan--fill">
               <div class="m-pan__bar">
                 <span class="m-pan__ti">Signal flow</span>
@@ -1921,11 +2096,11 @@ frontend/src/components/mobile/MobileEntityList.tsx:75
     </div>
   </section>
   <!-- ================================================================
-       07 · THE SHELL, AND PRINT
+       08 · THE SHELL, AND PRINT
        ================================================================ -->
   <section>
     <div class="sec__hd">
-      <span class="sec__no">07 · the shell</span>
+      <span class="sec__no">08 · the shell</span>
       <h2>The column 6b built and took out again</h2>
     </div>
 
@@ -1940,8 +2115,8 @@ frontend/src/components/mobile/MobileEntityList.tsx:75
         content and clipped, with no scrollbar anywhere.
       </p>
       <p>
-        Those three surfaces are <b>Overview</b> (§01), <b>event Settings</b> and
-        <b><span class="k">/my-defaults</span></b> (§02, one component, two surfaces). After this
+        Those three surfaces are <b>Overview</b> (§02), <b>event Settings</b> and
+        <b><span class="k">/my-defaults</span></b> (§03, one component, two surfaces). After this
         slice, <b>every signed-in phone surface is a panel or a canvas</b> — Dashboard, Events,
         the two Inventories surfaces and the nine sections — so the shell can become the column
         it wanted to be, with <span class="k">min-h-0</span> on the one child that scrolls.
@@ -2008,11 +2183,11 @@ frontend/src/components/mobile/MobileEntityList.tsx:75
   </section>
 
   <!-- ================================================================
-       08 · WHAT CHANGES
+       09 · WHAT CHANGES
        ================================================================ -->
   <section>
     <div class="sec__hd">
-      <span class="sec__no">08 · what changes</span>
+      <span class="sec__no">09 · what changes</span>
       <h2>Frontend only, and no desktop composition is edited</h2>
     </div>
 
@@ -2033,7 +2208,9 @@ frontend/src/components/mobile/MobileEntityList.tsx:75
       <div class="file"><span class="file__s">~</span><span class="file__n">components/event/StagePlotTab.tsx</span><span class="file__w"><b>M4</b> — the sentence replaces <span class="k">Viewer only</span>; tap opens the inspector sheet; placement stays off by gesture, not by role.</span></div>
       <div class="file"><span class="file__s">~</span><span class="file__n">components/event/StagePlotInspector.tsx</span><span class="file__w">Its contents renderable without the rail frame — the split Wave 2 already made once for this component.</span></div>
       <div class="file"><span class="file__s">~</span><span class="file__n">components/mobile/MobileEntityList.tsx</span><span class="file__w"><b>M4</b> — the row is tappable for every role. A viewer gets a read-only sheet, not a dead row.</span></div>
-      <div class="file"><span class="file__s">~</span><span class="file__n">components/Layout.tsx · pages/EventDetail.tsx · components/mobile/MobileNav.tsx</span><span class="file__w">The fixed-height column. The nav stops being <span class="k">fixed</span> and the body's derived bottom padding goes away.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">components/Layout.tsx</span><span class="file__w">The fixed-height column, and <b>the event's name in the header</b> (§01) — read from the <span class="k">['event', id]</span> cache <span class="k">EventDetail</span> already fills.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">pages/EventDetail.tsx</span><span class="file__w">The phone header block goes; <span class="k">← Events</span> becomes a 44 px target beside the section switcher. ~48 px back on all nine sections.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">components/mobile/MobileNav.tsx</span><span class="file__w">Stops being <span class="k">fixed</span> — a sibling in the column. It keeps the safe-area inset, which is the reason its <span class="k">h-14</span> is stated.</span></div>
       <div class="file"><span class="file__s">~</span><span class="file__n">types/mobile.ts</span><span class="file__w"><b>F3</b> — <span class="k">MOBILE_SECTION_CAPABILITIES</span> → <span class="k">MOBILE_SECTIONS</span>.</span></div>
       <div class="file"><span class="file__s">~</span><span class="file__n">design/audit.md · patterns.md · components.md · tokens.md</span><span class="file__w">M4, M5, M9, M11 struck; <i>four rails</i> → <i>five</i>; §7b's overflow gains the rule; §7b's <i>“the page scrolls, not the panel”</i> is finally not true any more.</span></div>
     </div>
@@ -2055,11 +2232,11 @@ frontend/src/components/mobile/MobileEntityList.tsx:75
   </section>
 
   <!-- ================================================================
-       09 · NOT IN THIS SLICE
+       10 · NOT IN THIS SLICE
        ================================================================ -->
   <section>
     <div class="sec__hd">
-      <span class="sec__no">09 · not this slice</span>
+      <span class="sec__no">10 · not this slice</span>
       <h2>What 6c deliberately does not do</h2>
     </div>
 
@@ -2069,7 +2246,7 @@ frontend/src/components/mobile/MobileEntityList.tsx:75
           <b>The Flow canvas stays desktop-only.</b> That is <span class="k">M6</span> and it is
           6d, the last phase and the only one that is a new capability rather than a conversion.
           6c is what settles the two things it needs first: what a phone bar is when it has more
-          controls than room (§03), and what an inspector-in-a-sheet is (§05, on the plot).
+          controls than room (§04), and what an inspector-in-a-sheet is (§06, on the plot).
         </li>
         <li>
           <b>Adding a plot element from a phone.</b> Placement is the one desk job, and creating
@@ -2089,29 +2266,35 @@ frontend/src/components/mobile/MobileEntityList.tsx:75
   </section>
 
   <!-- ================================================================
-       10 · QUESTIONS
+       11 · QUESTIONS
        ================================================================ -->
   <section>
     <div class="sec__hd">
-      <span class="sec__no">10 · questions</span>
-      <h2>Four things to settle before the spec is written</h2>
+      <span class="sec__no">11 · questions</span>
+      <h2>Four things settled at the revision-1 review</h2>
     </div>
 
     <div class="prose">
+      <p style="border-left: 3px solid var(--keep); padding-left: 14px;">
+        <b>All four answered yes.</b> Equipment and Rental gain editing on the phone (Q1);
+        the countdown spans two columns (Q2); a flow row may wrap (Q3); Print is added (Q4).
+        The questions are kept below as written, because <i>why</i> a decision was available is
+        what the next reader needs and it stops being recoverable the moment it is deleted.
+      </p>
       <p>
         <b>Q1 · Do Equipment and Rental gain editing on the phone?</b> This is the one place two
         requirements conflict. Slice 21 FR-012 says both are <i>“a read-only lookup on mobile for
         every role”</i>, and both files still carry that sentence.
         <code>patterns.md</code> §7g says the opposite in a list that names them —
         <i>“equipment lines, rental quantities”</i> — and names exactly one desk job, which is
-        neither of them. §05 draws the editing form on the assumption that §7g wins, because it
+        neither of them. §06 draws the editing form on the assumption that §7g wins, because it
         is the newer decision and the more specific one. <b>The alternative</b> is to keep both
         read-only, close M4 with the §7g sentence alone (<i>“Editing the order is a desk job”</i>),
         and lose nothing else in this slice — the drawn sheets are the only work that would come
         out.
       </p>
       <p>
-        <b>Q2 · Overview's countdown, spanning two columns.</b> §01 makes <i>days to load-in</i>
+        <b>Q2 · Overview's countdown, spanning two columns.</b> §02 makes <i>days to load-in</i>
         a full-width tile at 34 px, and the other four a 2×2 grid at 26 px. The alternative is
         five equal tiles with one empty cell, which is quieter and says nothing about which
         figure matters. This is the one place the composition takes a position rather than
@@ -2120,14 +2303,14 @@ frontend/src/components/mobile/MobileEntityList.tsx:75
       <p>
         <b>Q3 · A flow row wraps.</b> §7c says both lines of a phone row truncate, and it gives
         the reason: a row that grows to fit its content breaks the pitch the list is read at.
-        §06 asks for one exception — the signal chain, which is the content rather than a
+        §07 asks for one exception — the signal chain, which is the content rather than a
         summary of it, and which would be worthless truncated to
         <i>“Beta 91A → SB1 in 1 → Mu…”</i>. If the exception is not wanted, the fallback is the
         chain on one line with the middle hops elided (<i>“Beta 91A → … → SD10 ch 1”</i>), which
         keeps the pitch and loses the routing.
       </p>
       <p>
-        <b>Q4 · Print in the overflow.</b> §07 adds a Print action to four surfaces. M11 strictly
+        <b>Q4 · Print in the overflow.</b> §08 adds a Print action to four surfaces. M11 strictly
         only requires that the print <i>sheet</i> render in the phone branch — a phone can reach
         it through the browser's own share menu. The action is one row in a sheet and it matches
         the desktop bar, but it is the one control in this slice that no finding asked for.
