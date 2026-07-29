@@ -27,7 +27,7 @@ export function BusesDrawer({ open, onClose, eventId, groups, dcas, channels, re
       title="Buses"
       subtitle="Mix groups and DCAs for this event"
       width="narrow"
-      footer={<>A bus colour tints its chip everywhere it appears — the sheet, the print sheets and the stage plot.</>}
+      info={<>A bus colour tints its chip everywhere it appears — the sheet, the print sheets and the stage plot.</>}
     >
       <BusSection eventId={eventId} groups={groups} dcas={dcas} channels={channels} readOnly={readOnly} />
     </Drawer>

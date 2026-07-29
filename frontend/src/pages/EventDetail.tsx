@@ -71,10 +71,13 @@ export function EventDetailPage() {
   const currentSection = (SECTION_IDS as string[]).includes(sectionParam ?? '')
     ? (sectionParam as MobileSection['section'])
     : 'overview'
+  // Both, for the reason `useEventTab.openTab` sets both: the two params carry the same
+  // nine strings, and one of them going stale is how a hand-off stops working.
   const selectSection = (section: MobileSection['section']) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev)
       next.set('section', section)
+      next.set('tab', section)
       return next
     })
   }

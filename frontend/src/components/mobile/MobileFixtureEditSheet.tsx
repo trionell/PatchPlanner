@@ -55,10 +55,21 @@ export function MobileFixtureEditSheet({
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
+  /*
+    `retry: false`, because a 404 here is an answer and not a hiccup.
+
+    The endpoint 404s when the item is not in *this* inventory — a fixture whose catalog
+    item predates a re-import, or came from another catalog — and the sheet already
+    handles that correctly by falling back to a free-text mode below. What it did not
+    handle was React Query's default three retries, which turned one dead lookup into
+    four console errors. The desktop `LightingSheet` has the same query and the same
+    behaviour; this is the copy Slice 35 owns.
+  */
   const modesQuery = useQuery({
     queryKey: ['fixture-modes', itemId],
     queryFn: () => listFixtureModes(inventoryId!, itemId!),
     enabled: !!itemId && inventoryId !== undefined,
+    retry: false,
   })
   const modes = modesQuery.data ?? []
 

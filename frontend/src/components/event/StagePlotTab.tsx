@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Info, Maximize2, Minimize2, Minus, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Check, Maximize2, Minimize2, Minus, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { getLightingRig } from '../../api/lighting'
 import {
   attachPlotTrussFixture,
@@ -38,6 +38,7 @@ import { ZoomControl } from './graph/ZoomControl'
 import { StagePlotCanvas, type PlotViewState } from './StagePlotCanvas'
 import { StagePlotInspector, StagePlotLayersPanel } from './StagePlotInspector'
 import { StagePlotPalette } from './StagePlotPalette'
+import { InfoNote } from '../ui/InfoNote'
 import { MobilePanel } from '../ui/MobilePanel'
 import { MobilePicker } from '../mobile/MobilePicker'
 import { Sheet } from '../ui/Sheet'
@@ -438,13 +439,10 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
           complete for everyone, and the second sentence has to be true, which is what
           the inspector sheet below is for.
         */}
-        <div className="flex gap-2 border-b border-zinc-800/60 bg-zinc-950/35 px-3 py-2.5">
-          <Info className="mt-0.5 h-4 w-4 flex-none text-zinc-500" />
-          <p className="text-xs leading-relaxed text-zinc-400">
-            <span className="font-medium text-zinc-300">Placing elements is a desk job</span> — open this plot on a
-            computer. Tap anything on it to read or edit what it is.
-          </p>
-        </div>
+        <InfoNote className="border-b border-zinc-800/60 bg-zinc-950/35 px-3 py-2.5" defaultOpen id="plot-desk-job">
+          <span className="font-medium text-zinc-300">Placing elements is a desk job</span> — open this plot on a
+          computer. Tap anything on it to read or edit what it is.
+        </InfoNote>
 
         {activePlotId == null ? (
           <p className="px-3 py-6 text-center text-sm text-zinc-500">No stage plots yet.</p>

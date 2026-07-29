@@ -311,6 +311,14 @@ identical at both widths (P9). What changes is `text-xs` instead of `text-[11px]
 and that **the strip itself becomes the filter control** — see
 [patterns.md](patterns.md) §7b.
 
+**`ui/InfoNote`.** An explanation you can put away — one `i` target closed, the sentence
+it always was open, and the choice remembered per note. It exists because two kinds of
+prose had accumulated: what a drawer's own actions do (Universes, Buses), and why a
+surface withholds a gesture ([patterns.md](patterns.md) §7g). Both are read once and then
+cost their space on every visit — on a phone, a fifth of the screen. **Not a tooltip**: a
+tooltip has no target on a touch screen, and §7g requires the reason to be readable.
+`ui/Drawer` takes it as `info`, beside the title; a panel places it itself.
+
 **`ui/Sheet`.** The bottom sheet, and the phone's sibling of `ui/Drawer`:
 anchored to the bottom edge, `rounded-t-xl`, `max-h-[85svh]` with the body
 scrolling inside it, `Escape` and backdrop to close, `env(safe-area-inset-bottom)`

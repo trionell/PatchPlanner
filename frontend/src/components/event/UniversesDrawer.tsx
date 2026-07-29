@@ -53,11 +53,11 @@ export function UniversesDrawer({ open, onClose, map, fixtures, onAutoAssign, on
       title="Universes"
       subtitle="DMX allocation across the rig"
       width="narrow"
-      footer={
+      info={
         <>
-          <b className="font-medium text-zinc-400">Auto-assign</b> repacks each universe from address 1 in rig order ·{' '}
-          <b className="font-medium text-zinc-400">Optimise</b> keeps the order you set and closes the gaps · both keep
-          every fixture in its own universe, and fixtures that share an address stay sharing
+          <b className="font-medium text-zinc-300">Auto-assign</b> repacks each universe from address 1 in rig order.{' '}
+          <b className="font-medium text-zinc-300">Optimise</b> keeps the order you set and closes the gaps. Both keep
+          every fixture in its own universe, and fixtures that share an address stay sharing.
         </>
       }
     >

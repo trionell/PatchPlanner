@@ -664,6 +664,14 @@ That sentence is the whole of the treatment. It is not a banner, not a dialog, a
 not a disabled control (P7); it sits where the editor would be, and the read view
 above it is complete for everyone.
 
+**And it can be put away.** Read once, it is a paragraph in the way — so it is a
+`ui/InfoNote`: open by default, closing to a single `i` that reopens it, and the choice
+remembered. That is not a weakening of the rule. The requirement is that the reason be
+**readable**, not that it be unavoidable; a tooltip would fail it, because a tooltip has
+no target on a touch screen. The same component is what the drawers use for *what this
+action does*, which is the other kind of thing that has to be said once and then never
+again to the person who has read it.
+
 **`!isMobile` never appears in a permission expression.** A capability is a role
 question. Whether a surface has built its phone editor yet is a fact about the
 surface, and it belongs in the sentence above — where the user can read it.

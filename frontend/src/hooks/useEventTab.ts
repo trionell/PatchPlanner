@@ -34,6 +34,17 @@ export type EventTab = (typeof EVENT_TABS)[number]
 
 export const DEFAULT_EVENT_TAB: EventTab = 'overview'
 
+/**
+ * The selection, written into a URL. Pure, so the invariant above is testable without a
+ * browser navigation — which is the one thing this project's test method cannot perform.
+ */
+export function withSelection(prev: URLSearchParams, next: string): URLSearchParams {
+  const params = new URLSearchParams(prev)
+  params.set('tab', next)
+  params.set('section', next)
+  return params
+}
+
 export function useEventTab() {
   const [searchParams, setSearchParams] = useSearchParams()
   const param = searchParams.get('tab')
@@ -41,13 +52,24 @@ export function useEventTab() {
     ? (param as EventTab)
     : DEFAULT_EVENT_TAB
 
+  /*
+    Writes **both** params, and that is the fix for a hand-off that did nothing on a
+    phone (Slice 35 field test).
+
+    The desktop selection is `?tab=`; the phone's is `?section=`, and it predates it.
+    They carry the same vocabulary — `EVENT_TABS` and `MOBILE_SECTIONS` are the same nine
+    strings — but nothing kept them in step, so every hand-off built since Wave 3 changed
+    the URL and left the phone on the section it was already showing: *See on rental
+    order*, Overview's readiness rows, `onOpenPlot`, `onOpenEquipment`. The URL moved and
+    the screen did not, which is the worst kind of broken link because it looks like
+    nothing happened.
+
+    Setting both is what makes a hand-off a *link* at either width — the property this
+    hook exists for — and it keeps the two in step when a URL is pasted across devices.
+  */
   const openTab = useCallback(
     (next: string) => {
-      setSearchParams((prev) => {
-        const params = new URLSearchParams(prev)
-        params.set('tab', next)
-        return params
-      })
+      setSearchParams((prev) => withSelection(prev, next))
     },
     [setSearchParams],
   )
