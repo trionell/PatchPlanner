@@ -160,7 +160,7 @@ commit*. These are listed separately only because they are separate files.
 - [x] T043 Run every gate in [quickstart.md](quickstart.md), including all six scope assertions
 - [x] T044 Run the three byte-identical checks and record the result — a delta that is accepted is written down, never waved through
 - [ ] T045 The **handset pass**, A–G. Section A is a judgement, not a check: *is the whole graph at fit worth having, or is it just small?*
-- [ ] T046 `reviewer` sub-agent against the spec, the acceptance criteria and the diff
+- [x] T046 `reviewer` sub-agent against the spec, the acceptance criteria and the diff — **NEEDS_CHANGES → PASS over two rounds**. Seven findings, two of them functional on the phone (the outputs canvas's root missed the flex classes, so it never filled the panel; and every node header was a `touch-none` dead zone, because the drag was withheld *inside* the handler rather than by omitting the prop). Its list also led to two more: `ui/Sheet` applied the safe-area inset only in the footer branch, and the search focus re-aimed on every frame of a desktop drag. Fixed in `98df252` and `cad8638`.
 
 ---
 
