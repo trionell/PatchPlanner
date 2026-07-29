@@ -66,13 +66,26 @@ const AREA_LABEL: Record<string, string> = {
  * below use. Five bordered tiles inside a frame is `M1` all over again, applied to
  * something that is not a row.
  */
-function Figure({ label, value, unit, span }: { label: string; value?: ReactNode; unit?: string; span?: boolean }) {
+function Figure({
+  label,
+  value,
+  unit,
+  span,
+  leftColumn,
+}: {
+  label: string
+  value?: ReactNode
+  unit?: string
+  span?: boolean
+  /** No divider on the left column — it would draw a line down the panel's own edge. */
+  leftColumn?: boolean
+}) {
   return (
     <div
       className={
         span
           ? 'col-span-2 px-3 pb-3 pt-3'
-          : 'border-l border-t border-zinc-800/60 px-3 pb-2.5 pt-2.5 [&:nth-child(odd)]:border-l-0'
+          : `border-t border-zinc-800/60 px-3 pb-2.5 pt-2.5 ${leftColumn ? '' : 'border-l'}`
       }
     >
       <div className={`font-mono tabular-nums leading-none text-zinc-100 ${span ? 'text-[34px]' : 'text-[26px]'}`}>
@@ -197,11 +210,12 @@ export function MobileOverviewPanel({
         />
         <Figure
           label="channels in / out"
+          leftColumn
           unit={summary.outputChannels != null ? `/ ${summary.outputChannels}` : undefined}
           value={summary.inputChannels}
         />
         <Figure label="fixtures" value={summary.fixtures} />
-        <Figure label="cables picked" value={summary.cablesPicked} />
+        <Figure label="cables picked" leftColumn value={summary.cablesPicked} />
         <Figure
           label="rental, ex vat"
           unit="kr"

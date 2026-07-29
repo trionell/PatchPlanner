@@ -64,6 +64,15 @@ describe('MobileOverviewPanel', () => {
     expect(markup.match(/text-\[26px\]/g)).toHaveLength(4)
   })
 
+  it('the column divider is on the right column only', () => {
+    // The countdown spans, so the left column is the *even* child — inferring it from
+    // `nth-child(odd)` draws the divider down the panel's own edge instead.
+    const markup = render(summaryOf({ inputChannels: 16, fixtures: 24, cablesPicked: 38 }))
+    // Four quantity tiles, two of them in the right column — so exactly two dividers.
+    expect(markup.match(/pb-2\.5 pt-2\.5 border-l/g)).toHaveLength(2)
+    expect(markup.match(/pb-2\.5 pt-2\.5(?! border-l)/g)).toHaveLength(2)
+  })
+
   it('undeclared is a dash, never a zero', () => {
     // Nothing loaded: no patch, no rig, no order.
     const markup = render(summaryOf())
