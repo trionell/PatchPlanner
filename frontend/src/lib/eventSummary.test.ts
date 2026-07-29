@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { dmxMap, dmxStatusState } from './dmxMap'
 import { buildInputChannelFlows } from './inputSignalFlow'
-import { eventSummary } from './eventSummary'
+import { eventSummary, readinessLines } from './eventSummary'
 import { buildOutputChannelFlows } from './signalFlow'
 import type {
   AudioPatchResponse,
@@ -423,5 +423,50 @@ describe('SC-008 — the summary agrees with the tabs it links to', () => {
     expect(summary.rentalPieces).toBe(order.total_quantity)
     expect(summary.rentalTotalExVAT).toBe(order.total_ex_vat)
     expect(summary.rentalOverStock).toBe(order.items.filter((item) => item.is_over_stock).length)
+  })
+})
+
+/**
+ * `readinessLines` — the phone's index of the show (Wave 6c).
+ *
+ * The point of these is that they add no derivation. So what is asserted is that they
+ * *agree* with the summary they came from, and the one place a translation from a figure
+ * to a row could lose something: **undeclared is not zero.**
+ */
+describe('readinessLines', () => {
+  it('is the readiness row, in order, with nothing added or dropped', () => {
+    const summary = eventSummary({ today: TODAY })
+    const lines = readinessLines(summary)
+    expect(lines).toHaveLength(summary.readiness.length)
+    expect(lines.map((line) => line.area)).toEqual(summary.readiness.map((verdict) => verdict.area))
+    lines.forEach((line, index) => {
+      expect(line.label).toBe(summary.readiness[index].label)
+      expect(line.tone).toBe(summary.readiness[index].tone)
+      expect(line.tab).toBe(summary.readiness[index].tab)
+    })
+  })
+
+  it('an area with no plan gets no figure — a dash, never a zero', () => {
+    // Nothing loaded: an event has not got zero channels, it has no patch.
+    const lines = readinessLines(eventSummary({ today: TODAY }))
+    expect(lines.every((line) => line.figure === undefined)).toBe(true)
+  })
+
+  it('states the same numbers the desktop band states', () => {
+    const summary = eventSummary({
+      today: TODAY,
+      patch: emptyPatch({ input_channels: [channel(1), channel(2)] }),
+      rig: rig([fixture(1, 1)]),
+      rental: rental([rentalItem()]),
+      equipment: [
+        { owned_item_id: 1, owned_item_name: 'MacBook Pro', category_type: 'control', quantity: 1, quantity_owned: 1, is_over_owned: false },
+      ] satisfies EventOwnedEquipment[],
+    })
+    const byArea = new Map(readinessLines(summary).map((line) => [line.area, line.figure]))
+    expect(byArea.get('audio')).toBe(`${summary.inputChannels} in · ${summary.outputChannels} out`)
+    expect(byArea.get('lighting')).toContain(String(summary.fixtures))
+    expect(byArea.get('equipment')).toContain(String(summary.equipmentLines))
+    // The plots verdict already is the count, so a figure would say it twice.
+    expect(byArea.get('plots')).toBeUndefined()
   })
 })
