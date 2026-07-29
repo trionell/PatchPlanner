@@ -25,9 +25,6 @@
  */
 export { MICRO_LABEL } from '../../ui/Label'
 
-/** The same, at the wider tracking the canvas's lane names use. */
-export const LANE_LABEL = 'font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-600'
-
 /** Node chrome. The radius and shadow are the mockup's own values. */
 export const NODE_CHROME = 'rounded-[7px] border bg-zinc-850 shadow-[0_2px_8px_rgba(0,0,0,0.4)]'
 export const NODE_BORDER = 'border-zinc-700'
@@ -67,9 +64,12 @@ export const SOURCE_ROW_HEIGHT = 20
 export const PHANTOM_BAR = 'inline-block h-[3px] w-2 shrink-0 rounded-sm bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.65)]'
 export const PHANTOM_BAR_OFF = 'inline-block h-[3px] w-2 shrink-0 rounded-sm bg-zinc-700'
 
-/** The lane bands. Alphas are the mockup's — the outer lanes read slightly warmer. */
-export const LANE_BAND_OUTER = 'bg-white/[0.022]'
-export const LANE_BAND_MIDDLE = 'bg-white/[0.012]'
+/*
+  The lane bands and their label voice were here until Slice 37, which deleted them
+  along with `LaneBands`. They were three tinted regions computed from the canvas
+  width; on a plane there is no canvas width, and a band saying *Rig* is a claim about
+  where nodes are that nothing constrains any more.
+*/
 
 /** A tape with no derived colour still reads as a tape, just an unassigned one. */
 export const TAPE_NEUTRAL = '#3f3f46'

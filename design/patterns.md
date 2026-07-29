@@ -595,7 +595,7 @@ the picture of where the signal goes.
 | | Phone |
 |---|---|
 | Pan | one finger, both axes, unbounded — **the platform's own scrolling**, not a handler |
-| Zoom | pinch, and the bar's `ZoomControl` at a 44 px target. Opens at *fit*, resets to *fit*, steps ×1.4 |
+| Zoom | pinch, and the bar's `ZoomControl` at a 44 px target. Opens **where you left it**, resets to *fit*, steps ×1.4 |
 | Select | tap a node or a rail row — the label, never the 7 px dot. A press that moves 3 px was a pan |
 | Inspect **and edit** | the rail's contents in a bottom sheet (`components.md` §5) |
 | Search | dims the rest, and **moves the window to the first match** |
@@ -606,10 +606,15 @@ would compete for the same finger is what leaves one-finger scrolling free, with
 momentum and rubber-banding and everything else a hand-written pan gives up. **The
 withholding is not a restriction the phone accepts; it is what makes the pan good.**
 
-Everything drawn stays exactly as it is drawn: 7 px ports, 18 px port rows, lane
-bands, derived cable colours, the dashed network hop. Nothing is re-sized for the
-phone, because nothing on the canvas is a target except the node (P9, *drawing is
-not targeting*). Ports are never truncated, here least of all.
+Everything drawn stays exactly as it is drawn: 7 px ports, 18 px port rows, derived
+cable colours, the dashed network hop. Nothing is re-sized for the phone, because
+nothing on the canvas is a target except the node (P9, *drawing is not targeting*).
+Ports are never truncated, here least of all.
+
+The **lane bands are gone**, at both reaches. They were three tinted regions named
+*Stage / Rig / Console*, computed from the canvas width — and a band saying *Rig* is
+a claim about where nodes are. Once nothing constrains where a node may sit, the
+claim is decoration that can be false. The cables already carry direction.
 
 **The canvas is a viewport, and nothing is pinned to its edges.** The graph has one
 local coordinate system; pan and zoom move the window onto it and move nothing
@@ -619,9 +624,12 @@ leaves the screen, which is the point: a 375 px window over a 20-node graph is
 useful exactly because it can be pointed somewhere.
 
 This is why the desktop's two columns split differently here. The **sources rail is
-already in canvas space** on the desktop — it is drawn among the nodes, not beside
-them — so it pans and zooms with everything else and needs no phone decision at
-all. The **inspector rail is a real column** (`w-60 shrink-0 border-l`), and a
+in canvas space** — it is drawn among the nodes, not beside them — so it pans and
+zooms with everything else and needs no phone decision at all. Since Slice 37 it is
+also placed at the coordinates it holds rather than at the canvas's edge, and it does
+not scroll inside itself: a capped, internally-scrolling rail on a plane is a second
+viewport nested in the first, where the finger that meant to pan scrolls the rail
+instead. The **inspector rail is a real column** (`w-60 shrink-0 border-l`), and a
 column is the one thing a phone does not have (§7), so it becomes the sheet.
 
 A canvas whose edges carry fixed furniture is a canvas with less canvas, on the
@@ -629,39 +637,52 @@ device that has least of it. A viewport that keeps a rail pinned while the graph
 slides under it also breaks the one thing the canvas is *for*: everything on it is
 in one coordinate system, and its position means something.
 
-**And this is what makes zoom mean two different things.** Wave 6d found the
-sentence above already contradicted by the code, in a line neither document had
-looked at: both flow canvases compute their logical space as
-`panelWidth / zoom`, so zooming **out** on a desk *grows the coordinate space* —
-the processing lane gets more logical room inside the same panel, which is exactly
-what a canvas being composed wants.
+**Zoom means the same thing at both reaches, and this section spent four waves
+saying so while the code did the opposite.** Both canvases used to compute their
+logical space as `panelWidth / zoom` and pin two rails to its edges. Wave 6d found
+the first half and fixed it for the phone only, by pinning the phone's space at
+`820 × 640`; Slice 37 found what that left behind. A middle lane defined as *what is
+left between two pinned rails* came out **92 px wide on a phone**, for nodes that are
+200 px wide, so every node in it was clamped onto one pixel — and the same pinning
+had been writing browser-window widths into the position columns for as long as the
+canvases had existed.
 
 | | Desk | Hand |
 |---|---|---|
-| Logical space | `max(820, panelWidth) / zoom × 640 / zoom` | **fixed at `820 × 640`** |
-| Zoom is | a **layout** change | a **viewport** change |
-| Node positions | the stored ones | **the same stored ones** |
+| The space | **one plane, as large as the graph placed on it** | the same plane |
+| Its origin | **derived from the content**, so a node may sit at a negative coordinate | the same |
+| Zoom is | a **viewport** change | a **viewport** change |
+| A stored position | one place | **the same place** |
 
-In a hand the desktop rule is not merely unhelpful, it is backwards: the panel is
-341 px, so at the scale where the whole graph fits, the space would become ~1950
-and the desk lane would slide out past `x = 1730`. **Zooming out to see the whole
-graph would push the graph away as fast as you zoomed.** Both behaviours are right
-for their surface, and the phone's is the one this section already described.
+There is no row in that table where the two differ, which is the whole point. A
+coordinate is not a fraction of a window.
 
-**The graph opens at *fit*, and *fit* is what the readout resets to.** The two
-horns usually offered — open at 100 %, or fit the width — are both wrong, and the
-arithmetic says so: 100 % opens onto the Stage lane with nothing on screen saying a
-desk exists, and fitting the *width* alone needs a scale below the shared control's
-floor. The second dimension settles it. The graph is 640 logical px tall and the
-canvas region is about 300, so at ~42 % it fits **both axes, whole, once** — every
-box and every run, unreadable as text and complete as a drawing, which is what *the
-picture of where the signal goes* asked for. Then a thumb goes on the part you came
-for.
+**Nothing is pinned, so nothing is bounded.** A node dragged left of the sources or
+above the top extends the plane rather than being refused: a floor at zero is an
+arbitrary limit, and the stage plot has never had one. Panning is native scrolling and
+a scroll container has no negative side, so the *origin* is derived from the content
+instead of being fixed at `0,0`. That is an implementation detail with one visible
+consequence to get right — the origin moves when a node is dragged past the edge, and
+the scroll offset has to be compensated in the same frame or the graph lurches under
+the finger holding it.
 
-So the one control whose *meaning* changes is the zoom readout: on a desk tapping it
-returns to 100 %, because at a desk 100 % is where you can read; in a hand 100 % is
-where you are lost, and **fit is the way back**. A reset target that is not obvious
-has to say what it is, which is why the phone's readout carries the word.
+**A surface opens where it was last left, per event and per surface, on that device.**
+Not at *fit*: for a real graph *fit* lands near 20 % on a phone, where a 200 px node
+draws 42 px wide and no label in it is legible. Slice 36 reasoned to the opposite
+conclusion from a nominal `820 × 640` rectangle, which the plane replaced with the
+graph's own extent.
+
+So *fit* is a **control**, and it is what the readout resets to at both reaches —
+measured from the content's bounding box, so it frames the graph that exists rather
+than a rectangle somebody guessed. It is how you get your bearings after panning into
+empty space, and it is the opening state only for a device that has never opened the
+surface before. A reset target that is not obvious has to say what it is, which is why
+the phone's readout carries the word.
+
+The remembered view is **device-local** (`useFlowView`), not a column. Zoom and pan
+are one person's view of one screen — the same class of state as the Sheet/Flow choice
+`usePatchView` already keeps in `localStorage` for these two tabs. In the database it
+would let a phone decide where a desk opens, for everyone sharing the event.
 
 **And on a phone, search aims the window.** Both canvases already dim every
 non-matching node rather than hiding it — removing a node removes edges that exist,

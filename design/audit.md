@@ -13,20 +13,26 @@ findings still open will move as the waves land.
 
 ## Part 1 — Findings
 
-**Every finding is closed** — the desktop's twelve and the phone's twelve, each in
-Part 1b with the wave that closed it. **Part 1 is empty**, and this is the first time
-that has been true since the document was written.
+**Every finding is closed** — the desktop's twelve, the phone's twelve, and M13, each
+in Part 1b with the wave or slice that closed it. **Part 1 is empty.**
 
 The phone's twelve went in four phases: M7, M8, M10 and M12 by Wave 6a (Slice 33);
 M1, M2 and M3 by Wave 6b (Slice 34); M4, M5, M9 and M11 by Wave 6c (Slice 35); and
 **M6 by Wave 6d (Slice 36)**, which is the only phase that built a capability rather
-than converting one.
+than converting one. **M13 came out of using 6d** and was closed by Slice 37.
 
 A finding closing is not the same as a surface being finished, and the honest note is
 this: what these documents now describe is what the tree contains. What they cannot
 describe is what a hand finds. Every phase of Wave 6 has ended with a field test, and
 three of the four found something the document had asserted and nobody had checked —
 a sum that was never built, an inset that had always been zero, a rail nobody counted.
+
+**M13 is the fourth, and it is the largest.** It was not found by a field test at all;
+it was found by *using the application*, one report of nodes bunching together. What it
+turned out to be had been true since the canvases were built, was invisible to every
+gate, and had been quietly corrupting stored data the whole time. No document had looked
+at the line, and the wave that touched the same line one slice earlier looked at exactly
+half of it.
 
 The wave's shape was one finding wearing twelve names, and the name is a date:
 `components/mobile/` was built in **Slice 21**, two slices before the language
@@ -80,7 +86,48 @@ prints the lines, and the rule is that every line it prints has an answer.
 
 ## Part 1b — Closed
 
+### M13 · A stored position meant a different place on every screen · Slice 37
+
+Reported from use: *"on desktop I place the nodes where I want them but on mobile the rig
+(middle) section is tighter and the nodes bunch together and overlap."* Not tighter by a
+little. **92 px wide, for nodes that are 200 px wide.**
+
+Both canvases defined the middle lane as what was left between two rails pinned to the
+coordinate space's *edges* — `{ min: 264, max: canvasWidth − 464 }` — and `canvasWidth`
+was the measured panel over the zoom, pinned to 820 on a phone by Wave 6d. So the lane was
+`264 → 356` on every handset ever made, and `clampProcessingX` folded every node in it
+onto one x. A desk's equivalent lane is ~1144 px. **The two surfaces disagreed by a factor
+of twelve**, and neither was wrong about its own arithmetic.
+
+**The part that had been doing damage was the pinning, not the clamp.** A pinned node's x
+was not clamped, it was *overwritten*: the layout computed `canvasWidth − 224`, drew the
+node there, and the next drag saved that number back. So four position columns in one real
+event held four different browser-window widths — 1310, 1520, 1562, 2202 — recorded as
+coordinates. Opening an event on a narrower window and dragging one node rewrote that
+node's placement permanently, on the desk, and had done since Slice 23.
+
+The fix is the model the stage plot has always used and that the reporter named:
+coordinates are absolute, the view moves over them, and **nothing is pinned to anything**.
+Every `canvasWidth` term, `clampProcessingX`, the outputs canvas's `'y-only'` drag mode,
+the `y ≥ 8` floor, `LaneBands` and the Sources rail's internal scroll are all deleted;
+migration 047 normalises the columns that were never placements. §7f is rewritten.
+
+**What to carry forward.** Wave 6d found the *same line* and fixed half of it — it made the
+phone's space fixed instead of window-derived, which is why M6 reads as a finding about
+zoom. It did not ask what the space was **measured against**, and the pinned rails are the
+answer. Half a coordinate system is not a smaller version of the bug; it is a second one.
+Also: a defect that has been writing wrong data for fourteen slices can be invisible to a
+type checker, a linter, 520 tests and a review, because every one of them agrees that
+`canvasWidth − 224` is a number.
+
 ### M6 · The Flow canvas is in the hand · Wave 6d
+
+> **Superseded in part by M13 (Slice 37).** The conclusion below — that the phone's
+> logical space is fixed at `820 × 640` and that *fit* is the opening state — was reasoned
+> correctly from a rectangle that turned out to be nominal. There is one plane now, as
+> large as the graph placed on it, identical at both reaches; *fit* is measured from the
+> content and is a control, not the opening state. What survives unchanged is the
+> withholding in §7g, and the finding that §7f and the code had disagreed for four waves.
 
 The rule this document and [patterns.md](patterns.md) §7 both carried — *"a patch graph
 on a phone is unreadable at any density"* — is **reversed**, on the report that the

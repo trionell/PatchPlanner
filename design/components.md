@@ -87,15 +87,23 @@ to read than the sections it replaced.
 
 | Export | Notes |
 |---|---|
-| `tokens.ts` | `LANE_LABEL`, `NODE_*`, `PORT_ROW*`, `PHANTOM_BAR*`, `LANE_BAND_*`, `TAPE_NEUTRAL`, `SOURCE_ROW*`, and `MICRO_LABEL` re-exported from `ui/Label`. The one import for canvas values. |
+| `tokens.ts` | `NODE_*`, `PORT_ROW*`, `PHANTOM_BAR*`, `TAPE_NEUTRAL`, `SOURCE_ROW*`, and `MICRO_LABEL` re-exported from `ui/Label`. The one import for canvas values. `LANE_LABEL` and `LANE_BAND_*` went with the bands in Slice 37. |
 | `NodeShell` | Absolutely positioned; `title`, `badge`, `footer`, `footerAlarm`, `dimmed`, `selected`, `desk`, drag/select/delete handlers. Border: `zinc-700` → `amber-500/55` if desk → `amber-500 + ring-2 ring-amber-500/30` if selected. |
 | `PortDot` | 7 px paint inside a larger transparent button. Hollow → patched (`amber-500`) → coloured (the derived colour at 75 %) → selected (solid + `ring-2 ring-amber-500/40`). |
 | `PortRow` / `SplitPortRow` | Fixed `18px`. `align="right"` reverses. A pass-through box is **one row per jack** with its two ports on opposite edges — never two independent columns that line up by luck. Optional `selected`/`onSelect` makes the label selectable while the dot still cables. |
 | `PortWiring` | The seam that keeps these primitives domain-free: `isConnected`, `isPending`, `colorOf`, `keyOf`, and the handlers. Nothing in `graph/` knows what audio is. |
-| `LaneBands` | Three tinted bands with their labels inside them. No dashed borders — a band is the marking. |
-| `ZoomControl` | Two `h-7 w-7` ghost buttons around a mono percentage that resets on click — and **three `h-11` targets in a hand**, from a branch inside the component. Lives **in the panel's bar**, never in a strip between bar and canvas. Owns the look; the caller may own the stepping via `onZoomIn`/`onZoomOut`/`onReset` — three canvases draw it and only two agree on what a step is. `resetLabel` names what tapping the percentage does, **phone only**, because the flow canvases reset to *fit* and a desk's 100 % needs no caption. Wave 6c hand-built a second cluster inside `StagePlotTab` for want of a 44 px form; 6d put the branch here and deleted it. |
+| `ZoomControl` | Two `h-7 w-7` ghost buttons around a mono percentage that resets on click — and **three `h-11` targets in a hand**, from a branch inside the component. Lives **in the panel's bar**, never in a strip between bar and canvas. Owns the look; the caller may own the stepping via `onZoomIn`/`onZoomOut`/`onReset` — three canvases draw it and only two agree on what a step is. `resetLabel` names what tapping the percentage does, **phone only** — the desktop return has no caption slot, so passing it there is inert. Since Slice 37 the flow canvases reset to *fit* at **both** reaches, because a plane can be wider than a desk's window too. Wave 6c hand-built a second cluster inside `StagePlotTab` for want of a 44 px form; 6d put the branch here and deleted it. |
 | `InspectorFrame` | The rail on a desk, `ui/Sheet` with `scrim={false}` in a hand — see §3. |
+| `lib/canvasPlane` | The plane's arithmetic: `planeOrigin`, `originShift`, `panToScroll`, `scrollToPan`. Pure, because both canvases share it and the origin compensation is the one thing in Slice 37 that is easy to get wrong and invisible in a render test. |
+| `usePlaneView` | Opens a canvas where it was last left and remembers where that is, device-local per event and per surface. One hook, not one per canvas: restoring takes three renders — ask the tab for the scale, wait for the plane to have a size, then set the offset — and each has to check the previous happened. |
 | `InspectorRail` | See §3. |
+
+**A rail does not scroll inside itself.** The Sources rail was capped at
+`max-h-[420px] overflow-y-auto`, with a counter bumped on scroll to re-attach the
+cables landing on it. On a plane that is a second viewport nested inside the first —
+the finger that meant to pan scrolls the rail instead — so Slice 37 removed the cap
+and the counter with it. The rail stays *consolidated* (one node listing every source,
+not a card each: 32 cards is ~1,700 px of lane); what went is the cap, not the rail.
 
 **Ports are never truncated.** The mockup ends a long list with `⋯ N more`; the
 reporter overruled it. A planner has to see every jack, so boxes grow and the
