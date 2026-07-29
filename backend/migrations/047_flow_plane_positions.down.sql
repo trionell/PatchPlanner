@@ -1,0 +1,12 @@
+-- Deliberately a no-op, and this file exists to say why rather than to be run.
+--
+-- The up migration overwrote values that were never placements: each one was the
+-- width of whichever browser window last dragged the node, written back by a layout
+-- that had just computed it. There is nothing to restore them to. Restoring the
+-- literal previous numbers would put a rail at 1978 and its neighbour at 1086 —
+-- two different windows, and a graph nobody arranged.
+--
+-- Rolling back the code without rolling back this file is safe: the pinned layout
+-- ignored these columns and recomputed x on every render, which is the whole reason
+-- they were meaningless. It would simply overwrite them again.
+SELECT 1;
