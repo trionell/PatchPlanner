@@ -126,7 +126,9 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
     const editingFixture = typeof editingFixtureId === 'number' ? fixtures.find((f) => f.id === editingFixtureId) : undefined
     return (
       <>
-      <div className="print:hidden">
+      {/* A column, because it is a flex item of the shell's column and the panel
+          inside it fills what this gives it (Wave 6c). */}
+      <div className="flex min-h-0 flex-1 flex-col print:hidden">
         <MobileEntityList
           title="Lighting"
           /* Universes, in the hand (audit.md M5), and the sheet the phone could not

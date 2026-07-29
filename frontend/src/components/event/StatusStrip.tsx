@@ -77,7 +77,10 @@ export function StatusStrip({ tint, filter, desktopExtras, children }: StatusStr
     )
     // `text-xs` rather than the desktop's `text-[11px]`: the phone takes the navigation
     // column, and 11px is a spec line, not a sentence (design/tokens.md §7).
-    const phone = cn(base, 'min-h-[44px] text-left text-xs text-zinc-400', tint)
+    /* `flex-none` because on a phone this is a child of the panel's column and must not
+       be squeezed by it — the strip is what stays on screen while the rows scroll (Wave
+       6c). The desktop return does not need it: `PatchPanel` is a block. */
+    const phone = cn(base, 'min-h-[44px] flex-none text-left text-xs text-zinc-400', tint)
     if (!filter) return <div className={phone}>{content}</div>
     return (
       <button className={cn(phone, 'w-full')} onClick={filter.onClick} type="button">

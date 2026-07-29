@@ -113,14 +113,18 @@ interface MobilePanelProps {
  * at 375 — 375 less the body's `px-4` twice, less this component's two borders, less the
  * bar's own `px-3` — and Audio Inputs' five targets need 350 of it.
  *
- * **The page scrolls, not the panel.** This slice tried it the other way — a
- * fixed-height shell, so the bar and the strip stayed on screen at every scroll
- * position — and reverted it in the same slice. A flex column makes every child a flex
- * item, and a flex item whose root is a scroll container has an automatic minimum size
- * of *zero*: the three phone surfaces that are not panels yet (`OverviewTab`'s Card,
- * and `PatchPanel` as reached by event Settings and by `/my-defaults`) were compressed
- * below their content and clipped, with no scrollbar anywhere. Those three are Wave
- * 6c's, and the shell can become a column once they are panels too.
+ * **The panel scrolls, not the page** (Wave 6c). It fills the body and only its rows
+ * region moves, so the bar and the strip are on screen at every scroll position — which
+ * is what a strip is *for*, on the device where someone is standing in the room the plan
+ * describes.
+ *
+ * 6b built this and reverted it in the same slice, having got one half of the flex rule.
+ * The three phone surfaces that were not panels then — `OverviewTab`'s `Card`, and
+ * `PatchPanel` as reached by event Settings and by `/my-defaults` — both carry
+ * `overflow-hidden`, which gives a flex item an automatic minimum size of *zero*, so
+ * they were free to collapse below their content and clipped with no scrollbar anywhere.
+ * All three are panels as of this slice. See `Layout`'s phone return for both halves of
+ * the rule.
  */
 export function MobilePanel({
   title,
@@ -165,7 +169,14 @@ export function MobilePanel({
   }
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-xl border border-zinc-700 bg-zinc-950/40">
+    /*
+      `min-h-0 flex-1`: the panel fills the body the shell gives it and may shrink inside
+      it (Wave 6c). A flex item rather than `h-full`, so a sibling — an error banner, a
+      dropped-lines block — takes the height it needs instead of pushing a 100%-height
+      panel past the viewport. Every container that holds one is a flex column; see
+      `Layout`'s phone return for both halves of the minimum-size rule.
+    */
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-zinc-700 bg-zinc-950/40">
       <div className="flex flex-none flex-wrap items-center gap-2 border-b border-zinc-800 px-3 py-2">
         <span className="text-sm font-semibold text-zinc-100">{title}</span>
         <span className="flex-1" />
@@ -236,10 +247,17 @@ export function MobilePanel({
         </div>
       )}
 
-      {/* The rows own no padding and no gap: they are separated by a hairline, not by
-          air, which is what makes eight of them read as one list rather than eight
-          objects. */}
-      <div>{children}</div>
+      {/*
+        The rows own no padding and no gap: they are separated by a hairline, not by air,
+        which is what makes eight of them read as one list rather than eight objects.
+
+        **And this is the one element on a phone surface that scrolls** (Wave 6c). Both
+        classes are load-bearing and 6b had only the first: `min-h-0` so it may shrink
+        below its content, `overflow-y-auto` — never `hidden` — so what does not fit is
+        reachable. The bar above it and the strip below it are `flex-none`, which is what
+        keeps the verdict on screen at every scroll position.
+      */}
+      <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
 
       {/* A sibling of the rows, never inside them — the same invariant `ui/Sheet`'s
           footer has, one edge over. It is what closes the panel, so it cannot be part

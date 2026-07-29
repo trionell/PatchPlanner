@@ -81,8 +81,14 @@ export function EventDetailPage() {
 
   if (isMobile) {
     return (
-      <div className="space-y-3">
-        {eventQuery.data.yourRole === 'viewer' && <ReadOnlyBanner />}
+      /* A column inside the shell's column: the switcher row is `flex-none` and the
+         section takes the rest, so the panel inside it can fill the body (Wave 6c). */
+      <div className="flex h-full flex-col gap-3">
+        {eventQuery.data.yourRole === 'viewer' && (
+          <div className="flex-none">
+            <ReadOnlyBanner />
+          </div>
+        )}
         {/*
           The name and the back link used to be a block above this row: an `h2` repeating
           what the shell's header now carries at every scroll position (Wave 6c), and a
@@ -93,7 +99,7 @@ export function EventDetailPage() {
           That returns roughly 48px to all nine sections, on the screen where the panel
           has about 490px to work with.
         */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-none items-center gap-2">
           <Link
             aria-label="Back to events"
             className="flex h-11 w-11 flex-none items-center justify-center rounded-md border border-zinc-700 bg-zinc-900 text-zinc-400"
@@ -105,7 +111,7 @@ export function EventDetailPage() {
             <SectionSwitcher current={currentSection} onSelect={selectSection} />
           </div>
         </div>
-        <div>{renderSection(currentSection, eventId, readOnly)}</div>
+        <div className="flex min-h-0 flex-1 flex-col">{renderSection(currentSection, eventId, readOnly)}</div>
       </div>
     )
   }

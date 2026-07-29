@@ -23,13 +23,18 @@ export function MobileNav() {
   return (
     <>
       {/*
-        `h-14` is *stated*, not emergent — the desktop header's own number, and
-        the one `Layout`'s body padding derives from. It used to be the sum of a
-        py-2.5, an h-5 icon and an 11px label, which is `top-[73px]` (audit.md
-        A5) waiting to happen on the opposite edge of the screen. The inset is
+        `h-14` is *stated*, not emergent — the desktop header's own number. It used to be
+        the sum of a py-2.5, an h-5 icon and an 11px label, which is `top-[73px]`
+        (audit.md A5) waiting to happen on the opposite edge of the screen. The inset is
         added to the height rather than absorbed by it (tokens.md §7).
+
+        **A sibling in the column, not an overlay** (Wave 6c). It was `fixed`, and
+        `Layout`'s body reserved its height as bottom padding; the shell is a
+        fixed-height column now, so it simply takes its own row and the reserved padding
+        is gone. The inset stays: a control the home indicator sits on is a control that
+        misses.
       */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 flex h-14 border-t border-zinc-800 bg-zinc-950 pb-[env(safe-area-inset-bottom)]">
+      <nav className="flex h-14 flex-none border-t border-zinc-800 bg-zinc-950 pb-[env(safe-area-inset-bottom)] print:hidden">
         {primaryItems.map((item) => {
           const Icon = item.icon
           return (

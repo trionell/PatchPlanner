@@ -281,7 +281,11 @@ keeps nine bars in one order while still admitting the six things only one surfa
 needs.
 
 It **fills the body and scrolls only its rows**, so the bar and the strip are on
-screen at every scroll position. The rows region owns no padding and no gap: rows are
+screen at every scroll position — true as of Wave 6c, which is also when every phone
+surface became a panel or a canvas, the condition that makes it safe. The panel is a
+`flex-1 min-h-0` item of its container; its rows region is `flex-1 min-h-0
+overflow-y-auto` and everything else in it is `flex-none`
+([patterns.md](patterns.md) §7b). The rows region owns no padding and no gap: rows are
 separated by a hairline, not by air.
 
 **The four status rails have a phone form, inside themselves.** `PatchStatusRail`,

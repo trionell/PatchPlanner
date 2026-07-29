@@ -111,7 +111,13 @@ export function SignalFlowTab({ eventId }: { eventId: number }) {
       : undefined
 
   return (
-    <PrintSheet eventId={eventId} title="Signal Flow" empty={flows.length === 0 && outputFlows.length === 0} visibleOnScreen>
+    <PrintSheet
+      className={isMobile ? 'flex min-h-0 flex-1 flex-col print:block' : undefined}
+      empty={flows.length === 0 && outputFlows.length === 0}
+      eventId={eventId}
+      title="Signal Flow"
+      visibleOnScreen
+    >
       {isMobile ? (
         /*
           One bordered panel, two runs, a strip (Wave 6c).

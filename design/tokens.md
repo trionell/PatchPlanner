@@ -366,7 +366,8 @@ already mean something, and every one is gone as of Wave 6b. See
 | Header | `h-14` — the desktop's own | One number for the app's top edge. A second one earns nothing and goes stale separately. |
 | Bottom nav | `h-14`, plus `env(safe-area-inset-bottom)` | Four `44px` targets need `h-14` to breathe; the inset is added, not absorbed. |
 | Page padding | `px-4 py-4` | |
-| Body's bottom padding | the nav's height **plus** the inset, derived | `pb-20` is a guess at a number the nav owns. This is `top-[73px]` again ([audit.md](audit.md) A5), on the other edge of the screen. |
+| Shell height | `h-[100svh]`, a flex column | `svh` and not `dvh` for the sheet's own reason below: `dvh` is live, so the column would resize under the thumb as browser chrome collapses. |
+| Body's bottom padding | **none** | The nav is a sibling in the column as of Wave 6c, so there is nothing to reserve for. It used to be the nav's height plus the inset — itself a correction of `pb-20`, which was `top-[73px]` ([audit.md](audit.md) A5) on the other edge of the screen. |
 | Bottom sheet | `rounded-t-xl`, bottom corners square | It is anchored to an edge, so it has two corners. |
 | Sheet height | `max-h-[85svh]`, no minimum | `svh` and not `dvh`: `dvh` is live, so the sheet would resize under the thumb as browser chrome collapses while a long form is being read. Not `vh` either — that is the *largest* viewport, so with the address bar showing the confirm can start below the fold. |
 | Sheet close target | `h-11 w-11` around an `h-5 w-5` icon | 44 px. A bare `×` glyph is a 14 px target, which is amendment 1 broken by the control that gets pressed when a form is abandoned. |

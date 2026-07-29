@@ -62,31 +62,42 @@ export function Layout() {
 
   if (isMobile) {
     /*
-      Both edges of the phone are stated numbers now, and neither is a sum.
+      **The panel scrolls, not the page** (Wave 6c). Every edge of the phone is a stated
+      number and none of them is a sum.
 
-      The body's bottom padding is `MobileNav`'s own `h-14` plus the inset that
-      bar carries. `pb-20` was 80px, guessed at the height of a padding plus an
-      icon plus a font size, plus an inset that varies by device — which is
-      `top-[73px]` (audit.md A5) on the opposite edge of the screen. A height a
-      sibling positions against has to be a value someone chose.
+      Wave 6b built this column so a panel could fill the body and keep its status strip
+      on screen — which is what a strip is *for*, on the device where someone is standing
+      in the room the plan describes — and reverted it in the same slice. The reason has
+      two halves that pull in opposite directions, which is why one rule does not fix it:
 
-      The header takes the desktop header's `h-14` for the same reason, before
-      anything positions against it rather than after (patterns.md §7a).
+        · A flex item whose own overflow is `visible` has an automatic minimum size of
+          its **content**, so it refuses to shrink and pushes the column past the
+          viewport — and the strip goes off screen again.
+        · A flex item whose own overflow is `hidden`, `auto` or `scroll` has an automatic
+          minimum size of **zero**, so it may collapse below its content — and with
+          `hidden` there is no scrollbar to reveal what was lost.
 
-      **The page scrolls, not the surface.** Wave 6b made this a fixed-height
-      `h-[100svh]` column so a panel could fill the body and keep its status
-      strip on screen, and reverted it in the same slice: a flex column makes
-      every child a flex item, and a flex item whose root is a scroll container
-      has an automatic minimum size of *zero* — so `OverviewTab`'s Card, and
-      `PatchPanel` as reached by event Settings and by `/my-defaults`, were
-      compressed below their content and clipped, with no scrollbar anywhere.
-      Those three surfaces are Wave 6c's, and the shell can become a column
-      once they are panels too. See audit.md M3.
+      6b hit the second: `OverviewTab`'s `Card` and `PatchPanel` both carry
+      `overflow-hidden`, so as flex items they were free to collapse, silently. Those
+      three surfaces — Overview, event Settings and `/my-defaults` — are panels as of
+      this slice, so the split is now by role rather than by element:
+
+        · everything that is **not** the rows region is `flex-none`
+        · the rows region is `flex-1 min-h-0 overflow-y-auto` — `min-h-0` so it may
+          shrink, `overflow-y-auto` and **not** `hidden` so what does not fit is
+          reachable. That pairing is what 6b was missing: it had the shrinking without
+          the scrolling.
+
+      `svh` and not `dvh`, for the reason tokens.md §7 already gives about the sheet:
+      `dvh` is live, so the whole column would resize under the thumb as browser chrome
+      collapses. The body's derived bottom padding is gone — `MobileNav` is a sibling in
+      the column now, so there is nothing to reserve for, and the safe-area inset stays
+      on the nav where it was.
     */
     return (
-      <div className="min-h-screen bg-zinc-950 pb-[calc(3.5rem+env(safe-area-inset-bottom))] text-zinc-100">
-        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-zinc-800 bg-zinc-950/95 px-4 backdrop-blur print:hidden">
-          <div className="flex items-center gap-2">
+      <div className="flex h-[100svh] flex-col overflow-hidden bg-zinc-950 text-zinc-100 print:h-auto print:overflow-visible">
+        <header className="flex h-14 flex-none items-center justify-between border-b border-zinc-800 bg-zinc-950/95 px-4 backdrop-blur print:hidden">
+          <div className="flex min-w-0 items-center gap-2">
             <div className="rounded-md bg-amber-500/15 p-1.5 text-amber-400">
               <Cable className="h-4 w-4" />
             </div>
@@ -95,10 +106,10 @@ export function Layout() {
             <span className="min-w-0 truncate text-sm font-semibold text-zinc-100">{title}</span>
           </div>
           {user?.pictureUrl && (
-            <img src={user.pictureUrl} alt="" referrerPolicy="no-referrer" className="h-7 w-7 rounded-full" />
+            <img src={user.pictureUrl} alt="" referrerPolicy="no-referrer" className="h-7 w-7 shrink-0 rounded-full" />
           )}
         </header>
-        <main className="px-4 py-4 print:p-0">
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-4 print:block print:overflow-visible print:p-0">
           <Outlet />
         </main>
         <MobileNav />

@@ -36,19 +36,27 @@ export function PrintSheet({
   title,
   empty = false,
   visibleOnScreen = false,
+  className,
   children,
 }: {
   eventId: number
   title: string
   empty?: boolean
   visibleOnScreen?: boolean
+  /**
+   * On-screen layout, from the caller. Only `visibleOnScreen` sheets have any, and
+   * only the phone passes one: there the sheet is a flex item of the shell's column
+   * holding a panel that fills it (Wave 6c). The desktop passes nothing and is
+   * unchanged.
+   */
+  className?: string
   children?: ReactNode
 }) {
   const eventQuery = useQuery({ queryKey: ['event', eventId], queryFn: () => getEvent(eventId) })
   const event = eventQuery.data
 
   return (
-    <section className={cn('print-sheet', !visibleOnScreen && 'hidden print:block')}>
+    <section className={cn('print-sheet', !visibleOnScreen && 'hidden print:block', className)}>
       <header className="mb-3 hidden print:block">
         <h2 className="text-lg font-semibold">{title}</h2>
         {event && (

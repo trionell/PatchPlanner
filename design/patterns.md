@@ -379,10 +379,10 @@ is a desk job.
 
 | Part | Value |
 |---|---|
-| header | `sticky top-0 z-20 h-14 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur px-4` |
+| header | `h-14 flex-none border-b border-zinc-800 bg-zinc-950/95 backdrop-blur px-4`. Not `sticky`: it is a row of a fixed-height column, so it cannot scroll |
 | header content | brand mark, page title `text-sm font-semibold`, avatar at `h-7 w-7` |
-| body | `px-4 py-4`, bottom padding derived from the nav's height. **The page scrolls**, not the surface — see §7b |
-| bottom nav | `fixed inset-x-0 bottom-0 h-14 border-t border-zinc-800 bg-zinc-950`, plus the safe inset |
+| body | `px-4 py-4`, `flex-1 min-h-0`. **The panel scrolls**, not the page — see §7b |
+| bottom nav | `h-14 flex-none border-t border-zinc-800 bg-zinc-950`, plus the safe inset. A **sibling in the column**, not an overlay, so the body reserves nothing for it |
 
 The sidebar has no phone form and needs none: it is four destinations, and four
 destinations are a bottom bar. What it keeps is P8 — the nav is on the **same
@@ -439,17 +439,31 @@ P1 does not have a width condition. A phone surface is one bordered thing:
   *addressed*, *all covered* — draws no chevron and is not a control; neither is one
   whose caller passed no handler, which is how a read-only role already sees every one
   of them.
-- **The page scrolls, not the panel** — and this is the one thing on the phone that is
-  *not* yet what it should be. A panel that filled the body, scrolling only its rows,
-  would keep the bar and the strip on screen at every position, which is what a strip is
-  for. Wave 6b built that and reverted it in the same slice: it requires the shell to be
-  a fixed-height column, a column makes every child a flex item, and **a flex item whose
-  root is a scroll container has an automatic minimum size of zero** — so the three phone
-  surfaces that are not panels yet (Overview's card, and the panel behind event Settings
-  and *My Defaults*) were compressed below their content and clipped, with no scrollbar
-  anywhere. The shell becomes a column in **6c**, when those three are panels too, and
-  the strip becomes permanently visible then. Until then it sits after the rows and is
-  reached by scrolling.
+- **The panel scrolls, not the page.** The shell is one fixed-height column (`100svh`,
+  `svh` and not `dvh`), the panel fills the body, and **only its rows region moves** — so
+  the bar and the strip are on screen at every scroll position, which is what a strip is
+  for on the device where someone is standing in the room the plan describes.
+
+  Wave 6b built this and reverted it in the same slice, having got one half of the rule.
+  It has two, and they pull in opposite directions:
+
+  | The flex item's own `overflow` | Automatic minimum size | What goes wrong |
+  |---|---|---|
+  | `visible` | its **content** | refuses to shrink, pushes the column past the viewport |
+  | `hidden` · `auto` · `scroll` | **`0`** | may collapse below its content — and with `hidden`, no scrollbar reveals it |
+
+  6b hit the second: `Card` and `PatchPanel` both carry `overflow-hidden`, so the three
+  surfaces that were not panels — Overview, event Settings and *My Defaults* — collapsed
+  silently. So the split is by **role**, not by element:
+
+  - everything that is not the rows region is **`flex-none`** — header, switcher, bar,
+    strip, nav;
+  - the rows region is **`flex-1 min-h-0 overflow-y-auto`**: `min-h-0` so it may shrink,
+    `overflow-y-auto` and never `hidden` so what does not fit stays reachable. That
+    pairing is what was missing.
+
+  **Every signed-in phone surface is a panel or a canvas**, which is what makes this
+  safe; a surface that is neither is a surface that will collapse.
 
 ### 7c · The row
 

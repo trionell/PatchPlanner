@@ -27,9 +27,29 @@ describe('MobilePanel', () => {
   it('P1 · draws one bordered frame, and the rows get no padding or gap of their own', () => {
     const markup = render(<MobilePanel title="Audio Inputs">{rows}</MobilePanel>)
     expect(markup.match(/rounded-xl border border-zinc-700/g)).toHaveLength(1)
-    // The rows container is a bare `<div>`: no class at all, so it cannot be adding
-    // padding, a gap, or a second scroll region inside the page's.
-    expect(markup).toContain('<div><div id="rows">')
+    // The rows container carries scroll classes and nothing else — no padding and no
+    // gap, so rows are separated by a hairline rather than by air.
+    expect(markup).toContain('<div class="min-h-0 flex-1 overflow-y-auto"><div id="rows">')
+  })
+
+  /**
+   * The shell's invariant, from the panel's side (Wave 6c).
+   *
+   * 6b built this column and reverted it, having got one half of the flex rule: it
+   * could shrink but it could not scroll, so three surfaces collapsed below their
+   * content and clipped with no scrollbar anywhere. Both classes are load-bearing and
+   * neither is visible in a screenshot until the content is tall.
+   */
+  it('exactly one element scrolls, and it can shrink to let it', () => {
+    const markup = render(
+      <MobilePanel title="Audio Inputs" strip={strip}>
+        {rows}
+      </MobilePanel>,
+    )
+    expect(markup.match(/overflow-y-auto/g)).toHaveLength(1)
+    expect(markup).toContain('min-h-0 flex-1 overflow-y-auto')
+    // …and the bar and the strip must not be allowed to absorb or yield space.
+    expect(markup).toContain('flex-none')
   })
 
   it('P2 · the strip is a sibling of the rows, never inside them', () => {
@@ -40,7 +60,7 @@ describe('MobilePanel', () => {
     )
     // It is what closes the panel, so it cannot be part of what the panel contains:
     // the rows container must have closed before the strip appears.
-    expect(markup).toContain('<div><div id="rows">eight rows</div></div><div id="strip">')
+    expect(markup).toContain('<div id="rows">eight rows</div></div><div id="strip">')
   })
 
   it('P6 · a role that cannot act gets no primary element at all, not a disabled one', () => {

@@ -113,7 +113,9 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
     const editingChannel = typeof editingChannelId === 'number' ? channels.find((c) => c.id === editingChannelId) : undefined
     return (
       <>
-      <div className="print:hidden">
+      {/* A column, because it is a flex item of the shell's column and the panel
+          inside it fills what this gives it (Wave 6c). */}
+      <div className="flex min-h-0 flex-1 flex-col print:hidden">
         <MobileEntityList
           title="Audio Inputs"
           /*
