@@ -54,3 +54,50 @@ describe('MobileEntityList · a viewer can read the patch', () => {
     expect(render(true)).not.toContain('aria-label="Add channel"')
   })
 })
+
+describe('MobileEntityList · two views, one frame', () => {
+  const frame = (extra: Record<string, unknown>) =>
+    renderToStaticMarkup(
+      <MobileEntityList
+        addLabel="Add channel"
+        emptyLabel="No input channels yet."
+        items={items}
+        onSelect={() => {}}
+        readOnly={false}
+        searchPlaceholder="Find a channel…"
+        title="Audio Inputs"
+        {...extra}
+      />,
+    )
+
+  it('lists the rows when nothing is drawn instead', () => {
+    const markup = frame({})
+    expect(markup).toContain('Kick In')
+    expect(markup.match(/<button type="button" class="flex min-h-\[44px\]/g)).toHaveLength(2)
+  })
+
+  it('draws instead of listing when given children — and it is the same panel', () => {
+    const markup = frame({ children: <div id="canvas">the graph</div> })
+    // The rows are gone and the frame is not: one `MobilePanel`, so toggling the view
+    // cannot remount the bar and close the search row under the user (Slice 36 R10).
+    expect(markup).toContain('id="canvas"')
+    expect(markup).not.toContain('Kick In')
+    expect(markup.match(/rounded-xl border border-zinc-700/g)).toHaveLength(1)
+    expect(markup).toContain('Audio Inputs')
+  })
+
+  it('takes the surface’s own query when it is given one', () => {
+    // Both audio tabs already held a query for their desktop branch while this component
+    // held a second, so one surface had two queries for one search — and the canvas has
+    // to read the term the bar is showing.
+    const markup = frame({ search: 'snare', onSearch: () => {} })
+    expect(markup).toContain('value="snare"')
+    // A non-empty query opens the row, whoever owns it: a closed row and a live filter
+    // must not coexist (Wave 6c).
+    expect(markup).toContain('aria-label="Close search"')
+  })
+
+  it('keeps its own query when it is not given one', () => {
+    expect(frame({})).toContain('aria-label="Search"')
+  })
+})

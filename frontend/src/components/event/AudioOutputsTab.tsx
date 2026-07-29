@@ -26,6 +26,7 @@ import { outputPatchStatus } from '../../lib/patchCapacity'
 import { matchesSearch } from '../../lib/patchSearch'
 import type { SegmentNode } from '../../lib/patchSheet'
 import { MobileEntityList } from '../mobile/MobileEntityList'
+import { MobileSegmented } from '../mobile/MobileSegmented'
 import { MobileOutputEditSheet } from '../mobile/MobileOutputEditSheet'
 import {
   cableAtPort,
@@ -57,6 +58,8 @@ import { OutputSheet } from './OutputSheet'
 import { PatchStatusRail } from './PatchStatusRail'
 import { ProcessingDeviceSection } from './ProcessingDeviceSection'
 import { RigDrawer } from './RigDrawer'
+import { useInfoNote } from '../../hooks/useInfoNote'
+import { InfoPanel, InfoToggle } from '../ui/InfoNote'
 import { TrueOutputDeviceSection } from './TrueOutputDeviceSection'
 import { OutputPatchSheet } from '../print/OutputPatchSheet'
 import { Button } from '../ui/Button'
@@ -92,7 +95,23 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
   const [view, setView] = usePatchView(eventId, 'outputs')
   const [search, setSearch] = useState('')
   const [rigOpen, setRigOpen] = useState(false)
-  const [zoom, setZoom] = useState(1)
+  /*
+    The canvas zoom (Slice 25 FR-020). `null` means *fit* — the scale at which the whole
+    graph fits its window, which only the canvas can measure (Slice 36 R3). A desk's
+    `fit` is 1, so `null` reads as 100 % there and nothing about the desktop changes.
+  */
+  const [zoom, setZoom] = useState<number | null>(null)
+  const [fit, setFit] = useState(1)
+  const zoomLevel = zoom ?? fit
+  /* A re-measurement clamps a chosen zoom into the new range rather than resetting it —
+     turning the phone is what someone does to see more of the graph. */
+  const adoptFit = useCallback((next: number) => {
+    setFit(next)
+    setZoom((current) => (current == null ? null : Math.min(1, Math.max(next, current))))
+  }, [])
+  const stepZoom = (factor: number) => setZoom((current) => Math.min(1, Math.max(fit, (current ?? fit) * factor)))
+  // Open the first time, and then only for as long as it has not been read.
+  const patchingIsADeskJob = useInfoNote({ id: 'flow-desk-job', defaultOpen: true })
   // The phone's strip filter — the desktop's lives in `OutputSheet` (data-model.md §3).
   const [gapsOnly, setGapsOnly] = useState(false)
   // What the graph has selected, and so what its inspector is open on. Held here
@@ -196,23 +215,86 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
                 ]),
             { label: 'Print patch sheet', icon: <Printer className="h-4 w-4" />, onClick: () => window.print() },
           ]}
+          /* Two views, one frame — identical to Audio Inputs by decision, not by
+             coincidence: a phone branch built at one call site and copied to the second
+             is how the two canvases drifted the first time (Slice 36 R10). */
+          actions={
+            <>
+              <MobileSegmented
+                label="View"
+                onChange={setView}
+                options={[
+                  { value: 'sheet', label: 'Sheet' },
+                  { value: 'flow', label: 'Flow' },
+                ]}
+                value={view}
+              />
+              {view === 'flow' && (
+                <ZoomControl
+                  onReset={() => setZoom(null)}
+                  onZoomIn={() => stepZoom(1.4)}
+                  onZoomOut={() => stepZoom(1 / 1.4)}
+                  resetLabel="fit"
+                  zoom={zoomLevel}
+                />
+              )}
+            </>
+          }
           strip={
             <PatchStatusRail
               status={status}
               noun="output"
               gapsOnly={gapsOnly}
-              onShowGaps={status.gaps.length > 0 || gapsOnly ? () => setGapsOnly((only) => !only) : undefined}
+              /* Not a control in Flow: the canvas does not filter (patterns.md §7b). */
+              onShowGaps={
+                view === 'sheet' && (status.gaps.length > 0 || gapsOnly) ? () => setGapsOnly((only) => !only) : undefined
+              }
             />
           }
           items={items}
           filtered={gapsOnly}
           onSelect={setEditingOutputId}
-          onAdd={() => setEditingOutputId('new')}
+          /* No primary action in Flow (FR-022) — see Audio Inputs for the argument. */
+          onAdd={view === 'sheet' ? () => setEditingOutputId('new') : undefined}
           readOnly={readOnly}
-          searchPlaceholder="Find an output…"
+          search={search}
+          onSearch={setSearch}
+          searchPlaceholder={view === 'flow' ? 'Find a box or an output…' : 'Find an output…'}
           addLabel="Add output"
           emptyLabel="No output channels yet."
-        />
+          titleAdornment={view === 'flow' ? <InfoToggle note={patchingIsADeskJob} /> : undefined}
+        >
+          {view === 'flow' ? (
+            <div className="flex h-full min-h-0 flex-col">
+              {/* The one desk job, named where the editor would be (patterns.md §7g).
+                  The same sentence Audio Inputs shows, and the same note id: it is one
+                  fact about one canvas, so reading it on one tab reads it on both. */}
+              <InfoPanel className="flex-none border-b border-zinc-800/60 bg-zinc-950/35 px-3 py-2.5" note={patchingIsADeskJob}>
+                <span className="font-medium text-zinc-300">Patching is a desk job</span> — open this event on a
+                computer. Tap any box to read or edit what it is.
+              </InfoPanel>
+              <OutputGraphCanvas
+                cableItems={cableItems}
+                cables={outputCables}
+                consoles={consoles}
+                devices={outputDevices}
+                eventId={eventId}
+                itemLabelById={itemLabelById}
+                onChanged={invalidate}
+                onFitChange={adoptFit}
+                onSelectionChange={setSelection}
+                onZoomChange={setZoom}
+                outputs={outputs}
+                readOnly={readOnly}
+                search={search}
+                selection={selection}
+                stageMultis={stageMultis}
+                stageboxes={stageboxes}
+                zoom={zoom}
+              />
+            </div>
+          ) : undefined}
+        </MobileEntityList>
         {editingOutputId != null && (
           <MobileOutputEditSheet
             eventId={eventId}
@@ -282,7 +364,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
         onSearchChange={setSearch}
         onOpenRig={readOnly ? undefined : () => setRigOpen(true)}
         onAdd={readOnly ? undefined : addOutputRow}
-        toolbarExtras={view === 'flow' ? <ZoomControl zoom={zoom} onZoomChange={setZoom} /> : undefined}
+        toolbarExtras={view === 'flow' ? <ZoomControl zoom={zoomLevel} onZoomChange={setZoom} /> : undefined}
         drawers={
           <RigDrawer
             open={rigOpen}
@@ -346,6 +428,8 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
             selection={selection}
             onSelectionChange={setSelection}
             zoom={zoom}
+            onFitChange={adoptFit}
+            onZoomChange={setZoom}
             onChanged={invalidate}
             readOnly={readOnly}
           />

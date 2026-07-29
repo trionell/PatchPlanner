@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createInputChannel, getAudioPatch } from '../../api/audioPatch'
 import { listEventInventoryItems } from '../../api/inventory'
@@ -13,6 +13,7 @@ import type { InputChannel, InventoryItem, OwnedItem } from '../../types'
 import { MobileChannelEditSheet } from '../mobile/MobileChannelEditSheet'
 import { Boxes, Layers, Printer } from 'lucide-react'
 import { MobileEntityList } from '../mobile/MobileEntityList'
+import { MobileSegmented } from '../mobile/MobileSegmented'
 import { InputPatchSheet } from '../print/InputPatchSheet'
 import { AudioPatchShell } from './AudioPatchShell'
 import { ZoomControl } from './graph/ZoomControl'
@@ -24,6 +25,8 @@ import { InputGraphCanvas } from './InputGraphCanvas'
 import { InputSheet } from './InputSheet'
 import { PatchStatusRail } from './PatchStatusRail'
 import { RigDrawer } from './RigDrawer'
+import { useInfoNote } from '../../hooks/useInfoNote'
+import { InfoPanel, InfoToggle } from '../ui/InfoNote'
 
 export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number; readOnly?: boolean }) {
   const queryClient = useQueryClient()
@@ -51,9 +54,29 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
   // can set it (Slice 25 FR-001/FR-002). Deliberately not persisted: it is where
   // the planner is looking, not part of the plan.
   const [selection, setSelection] = useState<InputFlowSelection | null>(null)
-  // The canvas zoom. Held here because its control lives in the panel's toolbar
-  // (Slice 25 FR-020); the canvas reads it for geometry.
-  const [zoom, setZoom] = useState(1)
+  /*
+    The canvas zoom, held here because its control lives in the panel's toolbar (Slice 25
+    FR-020). `null` means *fit* — the scale at which the whole graph fits its window,
+    which only the canvas can measure, so the tab holds the intent and the canvas reports
+    the number (Slice 36 R3). A desk's `fit` is 1, so `null` reads as 100 % there and
+    nothing about the desktop changes.
+  */
+  const [zoom, setZoom] = useState<number | null>(null)
+  const [fit, setFit] = useState(1)
+  const zoomLevel = zoom ?? fit
+  /*
+    A re-measurement — a rotation, the bar wrapping to a second row — moves `fit`. A
+    chosen zoom is **clamped into the new range, not reset**: turning the phone is what
+    someone does to see more of the graph, and throwing their zoom away for it is the
+    opposite of helping.
+  */
+  const adoptFit = useCallback((next: number) => {
+    setFit(next)
+    setZoom((current) => (current == null ? null : Math.min(1, Math.max(next, current))))
+  }, [])
+  const stepZoom = (factor: number) => setZoom((current) => Math.min(1, Math.max(fit, (current ?? fit) * factor)))
+  // Open the first time, and then only for as long as it has not been read.
+  const patchingIsADeskJob = useInfoNote({ id: 'flow-desk-job', defaultOpen: true })
   const [drawer, setDrawer] = useState<'rig' | 'buses' | null>(null)
   // The phone's strip filter. The desktop's lives in `InputSheet`; the phone's
   // branch returns before that, so it holds its own (data-model.md §3).
@@ -147,23 +170,105 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
                 ]),
             { label: 'Print patch sheet', icon: <Printer className="h-4 w-4" />, onClick: () => window.print() },
           ]}
+          /*
+            Two views, one frame (patterns.md §7b, Slice 36 R10). Both controls change
+            *what you are looking at*, so both stay visible rather than going behind the
+            `⋯`; the bar wraps to a second row for the zoom, which §7b says it does
+            before it scrolls.
+          */
+          actions={
+            <>
+              <MobileSegmented
+                label="View"
+                onChange={setView}
+                options={[
+                  { value: 'sheet', label: 'Sheet' },
+                  { value: 'flow', label: 'Flow' },
+                ]}
+                value={view}
+              />
+              {view === 'flow' && (
+                /* Fit is the opening state and the reset target — at 100 % on a 341 px
+                   window you are somewhere in a two-and-a-half-screen drawing with no
+                   landmark, and fit is the way back (Slice 36 §01). */
+                <ZoomControl
+                  onReset={() => setZoom(null)}
+                  onZoomIn={() => stepZoom(1.4)}
+                  onZoomOut={() => stepZoom(1 / 1.4)}
+                  resetLabel="fit"
+                  zoom={zoomLevel}
+                />
+              )}
+            </>
+          }
           strip={
             <PatchStatusRail
               status={status}
               noun="channel"
               gapsOnly={gapsOnly}
-              onShowGaps={status.gaps.length > 0 || gapsOnly ? () => setGapsOnly((only) => !only) : undefined}
+              /* Not a control in Flow: the canvas does not filter, and §7b already says
+                 a strip with nothing to filter to is a sentence rather than a button. */
+              onShowGaps={
+                view === 'sheet' && (status.gaps.length > 0 || gapsOnly) ? () => setGapsOnly((only) => !only) : undefined
+              }
             />
           }
           items={items}
           filtered={gapsOnly}
           onSelect={setEditingChannelId}
-          onAdd={() => setEditingChannelId('new')}
+          /* No primary action in Flow (Slice 36 FR-022): `＋` adds a **row**, Flow has no
+             rows, and a channel added where it cannot be cabled reaches nothing until
+             someone is at a desk. The Sheet view is one tap away and has the control. */
+          onAdd={view === 'sheet' ? () => setEditingChannelId('new') : undefined}
           readOnly={readOnly}
-          searchPlaceholder="Find a channel…"
+          search={search}
+          onSearch={setSearch}
+          searchPlaceholder={view === 'flow' ? 'Find a box or a channel…' : 'Find a channel…'}
           addLabel="Add channel"
           emptyLabel="No input channels yet."
-        />
+          /* The `i` rides in the title's own line, so a read-and-closed sentence costs
+             the panel no row (Wave 6c's construction, unchanged). */
+          titleAdornment={view === 'flow' ? <InfoToggle note={patchingIsADeskJob} /> : undefined}
+        >
+          {view === 'flow' ? (
+            <div className="flex h-full min-h-0 flex-col">
+              {/*
+                The one desk job, named where the editor would be (patterns.md §7g). Not
+                a banner, not a dialog, not a disabled control, and it does not vary with
+                role — it is about the surface. Two words differ from the stage plot's
+                and both are load-bearing: *this event*, because the graph belongs to the
+                event and both audio tabs share the rig; and *any box*, because the ports
+                are drawn rather than tapped.
+              */}
+              <InfoPanel className="flex-none border-b border-zinc-800/60 bg-zinc-950/35 px-3 py-2.5" note={patchingIsADeskJob}>
+                <span className="font-medium text-zinc-300">Patching is a desk job</span> — open this event on a
+                computer. Tap any box to read or edit what it is.
+              </InfoPanel>
+              <InputGraphCanvas
+                cableItems={cableItems}
+                cables={cables}
+                channels={channels}
+                consoles={consoles}
+                devices={devices}
+                eventId={eventId}
+                itemLabelById={itemLabelById}
+                micItems={micItems}
+                onChanged={invalidate}
+                onFitChange={adoptFit}
+                onSelectionChange={setSelection}
+                onZoomChange={setZoom}
+                readOnly={readOnly}
+                search={search}
+                selection={selection}
+                sources={sources}
+                stageMultis={stageMultis}
+                stageboxes={stageboxes}
+                standItems={standItems}
+                zoom={zoom}
+              />
+            </div>
+          ) : undefined}
+        </MobileEntityList>
         {editingChannelId != null && (
           <MobileChannelEditSheet
             eventId={eventId}
@@ -286,7 +391,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
         onOpenRig={readOnly ? undefined : () => setDrawer('rig')}
         onOpenBuses={readOnly ? undefined : () => setDrawer('buses')}
         onAdd={readOnly ? undefined : addChannel}
-        toolbarExtras={view === 'flow' ? <ZoomControl zoom={zoom} onZoomChange={setZoom} /> : undefined}
+        toolbarExtras={view === 'flow' ? <ZoomControl zoom={zoomLevel} onZoomChange={setZoom} /> : undefined}
         drawers={
           <>
             <RigDrawer
@@ -363,6 +468,8 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
             selection={selection}
             onSelectionChange={setSelection}
             zoom={zoom}
+            onFitChange={adoptFit}
+            onZoomChange={setZoom}
             onChanged={invalidate}
             readOnly={readOnly}
           />

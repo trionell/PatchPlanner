@@ -40,6 +40,11 @@ export function MobileEntityList({
   strip,
   overflow,
   filtered = false,
+  actions,
+  titleAdornment,
+  search,
+  onSearch,
+  children,
 }: {
   /** The surface's name, repeated in the bar (patterns.md §1). */
   title: string
@@ -64,8 +69,36 @@ export function MobileEntityList({
    * event with sixteen channels — because this component only ever sees what survived.
    */
   filtered?: boolean
+  /**
+   * Bar controls that change **what you are looking at**, passed straight through: the
+   * audio tabs' `Sheet │ Flow` toggle, and the zoom while Flow is showing.
+   */
+  actions?: ReactNode
+  /** One thing belonging to the *title* — Flow's withheld-gesture `i`. */
+  titleAdornment?: ReactNode
+  /**
+   * The search query, when the surface owns it.
+   *
+   * Both audio tabs already held one for their desktop branch while this component held
+   * a second, so one surface had two queries for one search — and the canvas has to read
+   * the term the bar is showing. Omit both and the component keeps its own, which is
+   * what Lighting does (Slice 36 R10).
+   */
+  search?: string
+  onSearch?: (value: string) => void
+  /**
+   * Drawn instead of listed: when present, this **replaces the rows**.
+   *
+   * It is the same set of things either way — the Flow canvas is another view of the
+   * channels this component otherwise lists — so it is one `MobilePanel` and not two.
+   * Two would remount the bar on every toggle, closing the search row and losing the
+   * overflow sheet's state, on a control whose whole job is *what you are looking at*.
+   */
+  children?: ReactNode
 }) {
-  const [query, setQuery] = useState('')
+  const [ownQuery, setOwnQuery] = useState('')
+  const query = search ?? ownQuery
+  const setQuery = onSearch ?? setOwnQuery
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return items
@@ -77,9 +110,11 @@ export function MobileEntityList({
   return (
     <MobilePanel
       title={title}
+      titleAdornment={titleAdornment}
       search={query}
       onSearch={setQuery}
       searchPlaceholder={searchPlaceholder}
+      actions={actions}
       /* Hidden, not disabled, for a viewer-role user (FR-015) — there is nothing to tap
          into that does nothing. */
       primaryAction={
@@ -97,6 +132,8 @@ export function MobileEntityList({
       strip={strip}
       overflow={overflow}
     >
+      {children ?? (
+        <>
       {visible.map((item) => (
         <CondensedListRow
           key={item.id}
@@ -131,6 +168,8 @@ export function MobileEntityList({
         <p className="px-3 py-3 text-sm text-zinc-500">
           {items.length > 0 ? 'No matches.' : filtered ? 'Nothing left to fix — tap the strip to show everything.' : emptyLabel}
         </p>
+      )}
+        </>
       )}
     </MobilePanel>
   )

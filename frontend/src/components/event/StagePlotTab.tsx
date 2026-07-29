@@ -42,6 +42,7 @@ import { useInfoNote } from '../../hooks/useInfoNote'
 import { InfoPanel, InfoToggle } from '../ui/InfoNote'
 import { MobilePanel } from '../ui/MobilePanel'
 import { MobilePicker } from '../mobile/MobilePicker'
+import { MobileSegmented } from '../mobile/MobileSegmented'
 import { Sheet } from '../ui/Sheet'
 import { StatusStrip } from './StatusStrip'
 import { Pill } from '../ui/SheetTable'
@@ -383,22 +384,16 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
               title="Plots"
               value={activePlotId}
             />
-            <div className="flex h-11 flex-none items-center rounded-md border border-zinc-700 bg-zinc-900">
-              {(['top', 'front', 'side'] as const).map((viewOption) => (
-                <button
-                  className={
-                    mobileView === viewOption
-                      ? 'flex h-11 min-w-[3rem] items-center justify-center rounded-md bg-amber-500 px-2 text-sm font-medium text-zinc-950'
-                      : 'flex h-11 min-w-[3rem] items-center justify-center px-2 text-sm text-zinc-400'
-                  }
-                  key={viewOption}
-                  onClick={() => setMobileView(viewOption)}
-                  type="button"
-                >
-                  {viewOption === 'top' ? 'Top' : viewOption === 'front' ? 'Front' : 'Side'}
-                </button>
-              ))}
-            </div>
+            <MobileSegmented
+              label="Plot view"
+              onChange={setMobileView}
+              options={[
+                { value: 'top', label: 'Top' },
+                { value: 'front', label: 'Front' },
+                { value: 'side', label: 'Side' },
+              ] as const}
+              value={mobileView}
+            />
             {/* The shared control, which has had a phone form since Slice 36. This was
                 three hand-built targets — right in 6c, when this was the only phone
                 canvas, and the `NodeShell` mistake the moment there were three. It
