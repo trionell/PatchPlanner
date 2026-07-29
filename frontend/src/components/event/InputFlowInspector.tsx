@@ -11,7 +11,9 @@ import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { Pill } from '../ui/SheetTable'
 import { Select } from '../ui/Select'
-import { Field, InspectorHeader, InspectorRail, Legend, Note, type LegendRow } from './graph/InspectorRail'
+import { Field, Legend, Note, type LegendRow } from './graph/InspectorRail'
+import { useInspectorControlSize } from './graph/inspectorTier'
+import { InspectorFrame } from './graph/InspectorFrame'
 import { PHANTOM_BAR } from './graph/tokens'
 
 /** What the canvas has selected — a node, not a port. */
@@ -74,6 +76,11 @@ export function FlowInspector({
 }: FlowInspectorProps) {
   const queryClient = useQueryClient()
   const { options } = useReferenceData(eventId)
+  // The rail's controls are `sm` on a desk and `md` in a hand — the one surface in the
+  // application where a phone's geometry is not already the default, because a 240 px
+  // column cannot afford 40 px rows (tokens.md §7 amendment 2; research R9).
+  const ctl = useInspectorControlSize()
+  const dense = ctl === 'sm'
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['rental-summary', eventId] })
     await onChanged()
@@ -120,18 +127,16 @@ export function FlowInspector({
   const { heading, title } = describe(selection, { sources, stageboxes, stageMultis, devices, consoles })
 
   return (
-    <InspectorRail>
-      <InspectorHeader
-        label={heading}
-        onClose={onClose}
-        pill={source && <Pill className={vocabularyTint(source.kind)}>{source.kind}</Pill>}
-      />
-
+    <InspectorFrame
+      heading={heading}
+      onClose={onClose}
+      pill={source && <Pill className={vocabularyTint(source.kind)}>{source.kind}</Pill>}
+    >
       {source ? (
         <>
           <Input
-            size="sm"
-            className="h-7 font-semibold"
+            size={ctl}
+            className={dense ? 'h-7 font-semibold' : 'font-semibold'}
             defaultValue={source.name}
             disabled={readOnly}
             key={`${source.id}-name`}
@@ -142,7 +147,7 @@ export function FlowInspector({
           />
 
           <Field label="Kind">
-            <Select size="sm" value={source.kind} disabled={readOnly} onChange={(event) => saveSource({ kind: event.target.value as InputSource['kind'] })}>
+            <Select size={ctl} value={source.kind} disabled={readOnly} onChange={(event) => saveSource({ kind: event.target.value as InputSource['kind'] })}>
               <option value="mic">Mic</option>
               <option value="line">Line</option>
             </Select>
@@ -150,7 +155,7 @@ export function FlowInspector({
           {source.kind === 'mic' && (
             <>
               <Field label="Mic">
-                <Select size="sm" value={source.mic_item_id ?? ''} disabled={readOnly} onChange={(event) => saveSource({ mic_item_id: toOptionalNumber(event.target.value) })}>
+                <Select size={ctl} value={source.mic_item_id ?? ''} disabled={readOnly} onChange={(event) => saveSource({ mic_item_id: toOptionalNumber(event.target.value) })}>
                   <option value="">—</option>
                   {micItems.map((item) => (
                     <option key={item.id} value={item.id}>
@@ -160,7 +165,7 @@ export function FlowInspector({
                 </Select>
               </Field>
               <Field label="Stand">
-                <Select size="sm" value={source.stand_item_id ?? ''} disabled={readOnly} onChange={(event) => saveSource({ stand_item_id: toOptionalNumber(event.target.value) })}>
+                <Select size={ctl} value={source.stand_item_id ?? ''} disabled={readOnly} onChange={(event) => saveSource({ stand_item_id: toOptionalNumber(event.target.value) })}>
                   <option value="">—</option>
                   {standItems.map((item) => (
                     <option key={item.id} value={item.id}>
@@ -185,7 +190,7 @@ export function FlowInspector({
             </>
           )}
           <Field label="Conn">
-            <Select size="sm" value={source.connector_type} disabled={readOnly} onChange={(event) => saveSource({ connector_type: event.target.value })}>
+            <Select size={ctl} value={source.connector_type} disabled={readOnly} onChange={(event) => saveSource({ connector_type: event.target.value })}>
               <option value="">—</option>
               {options('preamp_connectors', source.connector_type).map((value) => (
                 <option key={value.value} value={value.value}>
@@ -195,7 +200,7 @@ export function FlowInspector({
             </Select>
           </Field>
           <Field label="Width">
-            <Select size="sm" value={source.width} disabled={readOnly} onChange={(event) => saveSource({ width: event.target.value as InputSource['width'] })}>
+            <Select size={ctl} value={source.width} disabled={readOnly} onChange={(event) => saveSource({ width: event.target.value as InputSource['width'] })}>
               <option value="mono">Mono</option>
               <option value="stereo">Stereo</option>
             </Select>
@@ -207,9 +212,9 @@ export function FlowInspector({
           {!readOnly && (
             <div className="mt-auto flex gap-2">
               <Button
-                size="sm"
+                size={dense ? 'sm' : 'md'}
                 variant="outline"
-                className="h-7 px-2.5 text-xs"
+                className={dense ? 'h-7 px-2.5 text-xs' : undefined}
                 onClick={() =>
                   create.mutate({
                     name: `${source.name} copy`,
@@ -227,9 +232,9 @@ export function FlowInspector({
                 <Copy className="mr-1.5 h-3.5 w-3.5" />Duplicate
               </Button>
               <Button
-                size="sm"
+                size={dense ? 'sm' : 'md'}
                 variant="ghost"
-                className="h-7 px-2.5 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                className={dense ? 'h-7 px-2.5 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-300' : 'text-red-400 hover:bg-red-500/10 hover:text-red-300'}
                 onClick={() => {
                   if (window.confirm(`Delete source “${source.name}”? Any cable connected to it is removed with it.`)) {
                     remove.mutate(source.id)
@@ -257,7 +262,7 @@ export function FlowInspector({
       {(update.error ?? create.error ?? remove.error) && (
         <p className="text-[11px] text-red-400">{(update.error ?? create.error ?? remove.error)?.message}</p>
       )}
-    </InspectorRail>
+    </InspectorFrame>
   )
 }
 
