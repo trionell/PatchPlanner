@@ -1,0 +1,2141 @@
+<!--
+  PatchPlanner — Wave 6c: the nine surfaces.
+  Redesign mockup, revision 1. For approval before the spec is written.
+
+  6c is the third of Wave 6's four phases and the last conversion phase. 6a
+  built the overlay and touched no surface. 6b built the frame — bar, rows,
+  strip — and put nine lists in it. 6c puts the nine *event sections* in it,
+  and closes audit findings M4, M5, M9 and M11.
+
+  Most of the language is settled in writing: patterns.md §7b draws the panel,
+  §7d the sheet's three jobs, §7f the canvas, §7g what stays a desk job, §7h
+  printing. tokens.md §7 states every value. This document exists for the
+  places where that is NOT true, and there are two kinds of those:
+
+    1. TWO SURFACES HAVE NO PHONE FORM AT ALL — Overview and Settings (M9).
+       Overview is Wave 4's best desktop surface and the composition it uses
+       (five 26 px figures side by side, a ribbon read across a desk) is the
+       one composition a phone cannot have. That is the design work of this
+       slice and §01 is most of this document.
+
+    2. THREE THINGS THIS DOCUMENT FOUND that no finding had named:
+
+       F1 · There is a FIFTH status rail. 6b converted four and said so;
+            `SignalFlowStatusRail` hand-builds the same tinted div outside the
+            shell the other four share, because Signal Flow's phone branch was
+            not one of 6b's nine lists.
+
+       F2 · The bar's overflow was specified in patterns.md §7b — "what does
+            not fit goes into the overflow" — and never built. 6c is the phase
+            that needs it: five surfaces acquire controls this slice, and
+            Audio Inputs' bar would carry five 44 px targets in 349 px.
+
+       F3 · `MOBILE_SECTION_CAPABILITIES` still carries `capability` in its
+            NAME after 6a deleted the thing. Cosmetic, listed for completeness.
+
+  And it collects the one thing 6b built and reverted and handed here by name:
+  the fixed-height shell, which is what makes the strip permanently visible.
+
+  The file is an HTML *fragment*: the Artifact publisher wraps it in
+  doctype/head/body, so there are deliberately no <html>, <head> or <body> tags.
+
+  Specimen CSS is shared with specs/034-phone-panel/mockup.html, which shares it
+  with 033/032/030/029/028, which lifted it from design/design-language.html.
+  The phone specimens (.m-*) are that file's §8 verbatim. Everything below the
+  ADDITIONS FOR WAVE 6c block is new here.
+-->
+
+<title>Wave 6c · the nine surfaces</title>
+<style>
+  /* ==================================================================
+     DOCUMENT CHROME — theme-aware, tokens only.
+     ================================================================== */
+  :root {
+    --ground: #f2f2f4;
+    --raised: #ffffff;
+    --sunken: #e8e8ec;
+    --rule: #d7d7de;
+    --rule-soft: #e4e4ea;
+    --ink: #16171b;
+    --ink-2: #43444d;
+    --muted: #6c6d78;
+    --faint: #90919c;
+    --amber: #b45309;
+    --keep: #0e7490;
+    --drop: #9f1239;
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --measure: 68ch;
+    --wrap: 1180px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0a0b0d; --raised: #14151a; --sunken: #101014;
+      --rule: #26272e; --rule-soft: #1d1e24;
+      --ink: #f2f2f4; --ink-2: #b6b7c0; --muted: #8b8c96; --faint: #62636d;
+      --amber: #f59e0b; --keep: #22d3ee; --drop: #fb7185;
+    }
+  }
+
+  :root[data-theme="light"] {
+    --ground: #f2f2f4; --raised: #ffffff; --sunken: #e8e8ec;
+    --rule: #d7d7de; --rule-soft: #e4e4ea;
+    --ink: #16171b; --ink-2: #43444d; --muted: #6c6d78; --faint: #90919c;
+    --amber: #b45309; --keep: #0e7490; --drop: #9f1239;
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0a0b0d; --raised: #14151a; --sunken: #101014;
+    --rule: #26272e; --rule-soft: #1d1e24;
+    --ink: #f2f2f4; --ink-2: #b6b7c0; --muted: #8b8c96; --faint: #62636d;
+    --amber: #f59e0b; --keep: #22d3ee; --drop: #fb7185;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px 110px; }
+
+  h1, h2, h3 { margin: 0; font-family: var(--mono); font-weight: 500; }
+  h1 {
+    font-size: clamp(28px, 4.4vw, 46px);
+    line-height: 1.04; letter-spacing: -0.035em; text-wrap: balance;
+  }
+  h2 { font-size: clamp(19px, 2.3vw, 25px); letter-spacing: -0.02em; text-wrap: balance; }
+  h3 { font-size: 14px; letter-spacing: 0.02em; color: var(--ink-2); }
+
+  p { margin: 0; max-width: var(--measure); }
+  a { color: inherit; }
+
+  .head {
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 68px 0 30px; border-bottom: 1px solid var(--rule);
+  }
+  .head__eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--amber);
+  }
+  .head__lede { font-size: 18px; color: var(--ink-2); line-height: 1.5; }
+
+  section { display: flex; flex-direction: column; gap: 22px; padding: 56px 0 0; }
+  .sec__no {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  .sec__hd { display: flex; flex-direction: column; gap: 8px; }
+  .prose { display: flex; flex-direction: column; gap: 13px; color: var(--ink-2); font-size: 15.5px; }
+  .prose strong { color: var(--ink); font-weight: 600; }
+  .prose code, .k {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  .spec { display: flex; flex-direction: column; gap: 9px; }
+  .spec__frame {
+    overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px;
+    background: #09090b; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  }
+  .spec__cap {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-left: 2px;
+  }
+  .spec__cap b { color: var(--ink-2); font-weight: 500; }
+
+  .led { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .led__row {
+    display: grid; grid-template-columns: 148px minmax(0, 1fr);
+    gap: 18px; padding: 15px 2px; border-bottom: 1px solid var(--rule-soft);
+    align-items: start;
+  }
+  .led__k {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-top: 3px;
+  }
+  .led__v { font-size: 15px; color: var(--ink-2); line-height: 1.5; }
+  .led__v b { color: var(--ink); font-weight: 600; }
+  .led__v em { font-style: normal; color: var(--faint); }
+  .led__v code, .led__v .k {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  .tag {
+    display: inline-block; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase; padding: 1px 6px;
+    border-radius: 4px; vertical-align: 2px; margin-left: 7px;
+  }
+  .tag--keep { color: var(--keep); border: 1px solid currentColor; }
+  .tag--drop { color: var(--drop); border: 1px solid currentColor; }
+  .tag--new { color: var(--amber); border: 1px solid currentColor; }
+
+  .ask {
+    border: 1px solid var(--rule); border-left: 3px solid var(--amber);
+    border-radius: 0 8px 8px 0; padding: 16px 18px; background: var(--raised);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .ask h3 { color: var(--ink); }
+  .ask p { font-size: 15px; color: var(--ink-2); max-width: none; }
+
+  .tbl { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  .tbl th {
+    text-align: left; font-family: var(--mono); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint);
+    padding: 8px 12px 8px 2px; border-bottom: 1px solid var(--rule);
+  }
+  .tbl td {
+    padding: 11px 12px 11px 2px; border-bottom: 1px solid var(--rule-soft);
+    color: var(--ink-2); vertical-align: top;
+  }
+  .tbl td b { color: var(--ink); font-weight: 600; }
+  .tbl td .k { white-space: nowrap; }
+  .tbl td em { font-style: normal; color: var(--faint); }
+
+  @media (max-width: 720px) {
+    .led__row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  }
+
+  /* ==================================================================
+     SPECIMENS — the app's own faces and values.
+     ================================================================== */
+  .app {
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px; line-height: 1.45;
+    color: #f4f4f5; background: #09090b;
+    padding: 16px; min-width: 1040px;
+  }
+  .app--tight { padding: 16px; min-width: 0; }
+  .app *, .app *::before, .app *::after { box-sizing: border-box; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 28px; padding: 0 10px; border: 1px solid transparent; border-radius: 6px;
+    font-size: 12px; font-weight: 500; white-space: nowrap; font-family: inherit;
+  }
+  .btn--primary { background: #f59e0b; border-color: #f59e0b; color: #09090b; }
+  .btn--outline { background: #18181b; border-color: #3f3f46; color: #f4f4f5; }
+  .btn--ghost { background: transparent; color: #f4f4f5; }
+  .btn--sm { height: 24px; padding: 0 8px; font-size: 11px; }
+  .btn--md { height: 40px; padding: 0 16px; font-size: 14px; }
+  .btn--danger-ghost { background: transparent; color: #f87171; }
+  .seg { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; }
+
+  .fld {
+    height: 32px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b;
+    display: inline-flex; align-items: center; padding: 0 8px;
+    font-size: 12px; color: #e4e4e7; min-width: 0;
+  }
+  .fld--md { height: 40px; font-size: 14px; padding: 0 12px; }
+  .fld--ph { color: #71717a; }
+  .fld--sel::after { content: "▾"; margin-left: auto; padding-left: 8px; color: #71717a; font-size: 10px; }
+  .fld--foc { border-color: #f59e0b; }
+
+  .lbl {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #71717a; font-weight: 500;
+  }
+  .lbl--nav { font-family: inherit; font-size: 14px; letter-spacing: 0; text-transform: none; color: #d4d4d8; font-weight: 400; }
+
+  .pill {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 1px 6px; font-size: 10px; font-weight: 500; white-space: nowrap;
+  }
+  .t-drum { background: rgba(56, 189, 248, 0.15); color: #7dd3fc; }
+  .t-ok   { background: rgba(52, 211, 153, 0.15); color: #6ee7b7; }
+  .t-warn { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
+  .t-err  { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+  .t-def  { background: #3f3f46; color: #f4f4f5; }
+  .t-sky  { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .p48 { display: inline-block; width: 8px; height: 3px; border-radius: 2px; background: #ef4444; box-shadow: 0 0 5px rgba(239, 68, 68, 0.65); vertical-align: 2px; }
+  .tape { display: inline-block; width: 3px; height: 14px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+
+  .badge {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 2px 10px; font-size: 12px; font-weight: 500; white-space: nowrap;
+  }
+
+  /* the desktop drawer, for the side-by-side in §05 */
+  .dstack { position: relative; min-height: 400px; overflow: hidden; }
+  .scrim { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.7); }
+  .sd {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 420px;
+    background: #18181b; border-left: 1px solid #3f3f46;
+    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.5);
+    display: flex; flex-direction: column;
+  }
+  .sd__hd { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 14px 20px; border-bottom: 1px solid #27272a; }
+  .sd__ti { font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .sd__sub { font-size: 12px; color: #71717a; margin-top: 2px; }
+  .sd__x { color: #a1a1aa; font-size: 15px; line-height: 1.2; }
+  .sd__body { padding: 16px 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+  .sd__ft { margin-top: auto; padding: 12px 20px; border-top: 1px solid #27272a; font-size: 12px; color: #71717a; }
+  .sd__ft b { color: #a1a1aa; font-weight: 500; }
+  .dsec { display: flex; flex-direction: column; gap: 6px; }
+  .dsec__hd { display: flex; align-items: center; gap: 8px; }
+  .dsec__ct { font-family: var(--mono); font-size: 10px; color: #52525b; }
+  .gear {
+    border: 1px solid #27272a; border-radius: 6px; background: #18181b;
+    padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .gear__top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+  .gear__nm { font-size: 14px; font-weight: 500; color: #f4f4f5; }
+  .gear__ac { margin-left: auto; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; color: #a1a1aa; }
+  .gear__sp { display: flex; flex-wrap: wrap; gap: 2px 12px; font-family: var(--mono); font-size: 10px; color: #71717a; }
+  .gear__sp b { color: #d4d4d8; font-weight: 400; }
+  .insp__box { border: 1px solid #27272a; border-radius: 5px; background: rgba(9, 9, 11, 0.6); padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+  .insp__lg { display: flex; align-items: center; gap: 8px; font-size: 10px; color: #a1a1aa; }
+
+  /* ==================================================================
+     THE PHONE — lifted verbatim from design/design-language.html §8.
+     True 375 px width, 14 px base, 44 px targets.
+     ================================================================== */
+  .phones { display: flex; flex-wrap: wrap; gap: 22px; }
+  .phone { display: flex; flex-direction: column; gap: 9px; width: 375px; }
+  .phone__frame {
+    width: 375px; height: 690px; flex: none;
+    border: 1px solid #3f3f46; border-radius: 22px; background: #09090b;
+    overflow: hidden; position: relative;
+    display: flex; flex-direction: column;
+    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    font-size: 14px; line-height: 1.45; color: #f4f4f5;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  }
+  .phone__frame * { box-sizing: border-box; }
+  .phone__cap { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .phone__cap b { color: var(--ink-2); font-weight: 500; }
+  .phone__cap--bad b { color: var(--drop); }
+
+  .m-hd { display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 56px; padding: 0 16px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-hd__ti { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; min-width: 0; }
+  .m-hd__ic { width: 26px; height: 26px; border-radius: 6px; background: rgba(245, 158, 11, 0.15); color: #fbbf24; display: grid; place-items: center; flex: none; font-size: 13px; }
+  .m-hd__av { width: 28px; height: 28px; border-radius: 999px; background: #27272a; flex: none; }
+  .m-bd { flex: 1; overflow: hidden; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .m-nav { display: flex; height: 56px; border-top: 1px solid #27272a; background: #09090b; flex: none; }
+  .m-nav__i { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; color: #a1a1aa; }
+  .m-nav__i.on { color: #fbbf24; }
+  .m-nav__g { font-size: 18px; line-height: 1; }
+
+  .m-pan { border: 1px solid #3f3f46; border-radius: 12px; background: rgba(9, 9, 11, 0.4); overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+  .m-pan--fill { flex: 1; }
+  .m-pan__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-pan__ti { font-size: 14px; font-weight: 600; color: #f4f4f5; margin-right: auto; }
+  .m-pan__ic { width: 36px; height: 36px; border-radius: 6px; border: 1px solid #3f3f46; background: #18181b; display: grid; place-items: center; color: #a1a1aa; font-size: 14px; flex: none; }
+  .m-pan__ic--pri { background: #f59e0b; border-color: #f59e0b; color: #09090b; font-size: 17px; }
+  .m-pan__rows { flex: 1; min-height: 0; overflow: hidden; }
+
+  .m-row { display: flex; align-items: stretch; min-height: 44px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-row__e { width: 3px; flex: none; }
+  .m-row__c { flex: 1; min-width: 0; padding: 5px 12px; display: flex; flex-direction: column; justify-content: center; }
+  .m-row__t { font-size: 14px; font-weight: 500; line-height: 1.3; color: #f4f4f5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-row__s { font-size: 12px; line-height: 1.3; color: #a1a1aa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-row__n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #fbbf24; margin-right: 7px; }
+
+  .m-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 12px; padding: 10px 12px; border-top: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); font-size: 12px; color: #a1a1aa; flex: none; }
+  .m-strip .mono { color: #e4e4e7; }
+
+  .m-sw { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 44px; padding: 0 12px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; flex: none; }
+  .m-sw__t { font-size: 14px; font-weight: 600; }
+  .m-sw--old { border-color: rgba(245, 158, 11, 0.6); }
+
+  /* -- ui/Sheet, the phone's sibling of the drawer -- */
+  .m-sheet { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.8); display: flex; align-items: flex-end; }
+  .m-sheet--noscrim { background: transparent; pointer-events: none; }
+  .m-sheet__p { width: 100%; max-height: 85%; overflow: hidden; border-top: 1px solid #3f3f46; border-radius: 12px 12px 0 0; background: #18181b; display: flex; flex-direction: column; }
+  .m-sheet__hd { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-sheet__ti { font-size: 18px; font-weight: 600; }
+  .m-sheet__sub { font-size: 12px; color: #71717a; margin-top: 2px; }
+  .m-sheet__x { margin-left: auto; width: 44px; height: 44px; margin-right: -10px; display: grid; place-items: center; color: #a1a1aa; font-size: 18px; flex: none; }
+  .m-sheet__bd { padding: 16px; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+  .m-sheet__ft { display: flex; align-items: center; gap: 10px; padding: 12px 16px 20px; border-top: 1px solid #27272a; flex: none; }
+  .m-fld { display: flex; flex-direction: column; gap: 5px; }
+  .m-insp { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; align-items: center; }
+
+  .m-jump { display: flex; flex-direction: column; }
+  .m-jump__i { display: flex; align-items: center; gap: 11px; min-height: 52px; padding: 0 14px 0 12px; border-left: 2px solid transparent; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-jump__i.on { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.06); }
+  .m-jump__n { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; letter-spacing: 0.14em; color: #52525b; width: 16px; flex: none; }
+  .m-jump__i.on .m-jump__n { color: #f59e0b; }
+  .m-jump__l { font-size: 14px; color: #d4d4d8; flex: 1; min-width: 0; }
+  .m-jump__i.on .m-jump__l { color: #fcd34d; font-weight: 600; }
+  .m-jump__c { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 11px; color: #71717a; flex: none; }
+
+  .m-cvs { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #09090b; }
+  .cvs__band { position: absolute; top: 0; bottom: 0; }
+  .node { position: absolute; border: 1px solid #3f3f46; border-radius: 7px; background: #1f2028; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); overflow: hidden; }
+  .node__hd { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-bottom: 1px solid #27272a; font-size: 11px; font-weight: 600; color: #fafafa; }
+  .node__bdg { margin-left: auto; font-family: var(--mono); font-size: 9px; background: #27272a; border-radius: 3px; padding: 0 3px; color: #a1a1aa; }
+  .node__body { padding: 3px 0; }
+  .node__ft { padding: 3px 6px; border-top: 1px solid #27272a; font-family: var(--mono); font-size: 9px; color: #71717a; }
+  .prow { display: flex; align-items: center; gap: 6px; height: 18px; padding: 0 6px; font-size: 11px; color: #d4d4d8; }
+  .port { width: 7px; height: 7px; border-radius: 50%; border: 1px solid #71717a; background: #27272a; flex: none; }
+  .port--c { border-color: var(--c); background: color-mix(in srgb, var(--c) 75%, transparent); }
+  .srail { position: absolute; border: 1px solid #3f3f46; border-radius: 7px; background: #1f2028; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); overflow: hidden; }
+  .srail__hd { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 6px; border-bottom: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); }
+  .srail__hd b { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; font-weight: 500; }
+  .srail__hd span { font-family: var(--mono); font-size: 10px; color: #52525b; margin-left: auto; }
+  .srow { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 6px 0 0; border-bottom: 1px solid rgba(39, 39, 42, 0.6); font-size: 11px; color: #d4d4d8; }
+  .srow--sel { background: rgba(245, 158, 11, 0.1); }
+  .srow__tape { width: 3px; align-self: stretch; flex: none; }
+  .srow__nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 4px; }
+  .srow__md { font-family: var(--mono); font-size: 10px; color: #71717a; flex: none; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6a — the centred dialog as it stands today, the
+     virtual keyboard, the anatomy diagram, the safe area.
+     ================================================================== */
+
+  /* the centred dialog, at ui/Dialog's real values, inside a 375 px frame */
+  .m-dlg { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.8); display: flex; align-items: center; justify-content: center; padding: 0 16px; }
+  .m-dlg__p { width: 100%; border: 1px solid #3f3f46; border-radius: 12px; background: #18181b; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6); }
+  .m-dlg__hd { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #27272a; }
+  .m-dlg__ti { font-size: 18px; font-weight: 600; }
+  .m-dlg__x { color: #a1a1aa; font-size: 16px; }
+  .m-dlg__bd { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+  /* the two things that make it not a sheet: it is centred, and it does not
+     scroll — so anything past the frame is simply gone. */
+  .m-dlg--clip { overflow: hidden; }
+  .m-cut { position: absolute; left: 0; right: 0; height: 1px; background: repeating-linear-gradient(90deg, #f87171 0 6px, transparent 6px 12px); }
+  .m-cut__l {
+    position: absolute; right: 6px; transform: translateY(-100%);
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: #f87171; padding-bottom: 2px;
+  }
+
+  /* the virtual keyboard, drawn because it is half the finding */
+  .m-kbd { position: absolute; inset-inline: 0; bottom: 0; height: 268px; background: #1c1c1e; border-top: 1px solid #3f3f46; padding: 8px 4px 26px; display: flex; flex-direction: column; gap: 8px; }
+  .m-kbd__r { display: flex; gap: 5px; justify-content: center; flex: 1; }
+  .m-kbd__k { flex: 1; max-width: 32px; border-radius: 5px; background: #48484a; box-shadow: 0 1px 0 rgba(0,0,0,0.4); }
+  .m-kbd__k--w { max-width: 120px; }
+  .m-kbd__k--sp { max-width: 170px; }
+  .m-kbd__home { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 134px; height: 5px; border-radius: 3px; background: #f4f4f5; opacity: 0.85; }
+
+  /* the anatomy diagram — labelled parts down the right of a real sheet */
+  .anat { display: grid; grid-template-columns: 375px minmax(0, 1fr); gap: 26px; align-items: start; }
+  @media (max-width: 860px) { .anat { grid-template-columns: minmax(0, 1fr); } }
+  .anat__parts { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .anat__p { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--rule-soft); align-items: start; }
+  .anat__n { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); padding-top: 3px; }
+  .anat__v { font-size: 14.5px; color: var(--ink-2); line-height: 1.5; }
+  .anat__v b { color: var(--ink); font-weight: 600; }
+  .anat__v .k { font-size: 0.85em; }
+  .anat__v .cls { display: block; font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-top: 4px; word-break: break-word; }
+
+  /* the marker that pins a specimen part to its row in the anatomy list */
+  .mk {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; border-radius: 999px; flex: none;
+    background: #f59e0b; color: #09090b;
+    font-family: var(--mono); font-size: 9px; font-weight: 700;
+  }
+  .mk--doc { background: var(--amber); color: var(--ground); }
+  .mk--abs { position: absolute; z-index: 5; }
+
+  /* safe area, drawn */
+  .safe { position: absolute; inset-inline: 0; bottom: 0; height: 22px; background: repeating-linear-gradient(45deg, rgba(245,158,11,0.16) 0 5px, transparent 5px 10px); border-top: 1px dashed rgba(245,158,11,0.45); }
+  .safe__l { position: absolute; right: 8px; top: 3px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: #fbbf24; }
+
+  /* two-up comparison of one decision */
+  .vs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  @media (max-width: 860px) { .vs { grid-template-columns: minmax(0, 1fr); } }
+  .vs__c { display: flex; flex-direction: column; gap: 9px; }
+  .vs__hd { display: flex; align-items: baseline; gap: 9px; }
+  .vs__hd b { font-size: 15px; color: var(--ink); }
+  .vs__hd span { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+  .vs__note { font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+  .vs__note b { color: var(--ink-2); font-weight: 600; }
+
+  /* the thumb, drawn where the argument is about reach */
+  .thumb { position: absolute; border-radius: 999px; border: 1px dashed rgba(248, 113, 113, 0.55); background: rgba(248, 113, 113, 0.07); pointer-events: none; }
+  .thumb__l { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: #f87171; white-space: nowrap; }
+
+  .files { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .file { display: grid; grid-template-columns: 22px minmax(0, 260px) minmax(0, 1fr); gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--rule-soft); align-items: baseline; }
+  .file__s { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  .file__s--new { color: var(--amber); }
+  .file__s--del { color: var(--drop); }
+  .file__n { font-family: var(--mono); font-size: 13px; color: var(--ink); word-break: break-word; }
+  .file__w { font-size: 14px; color: var(--ink-2); line-height: 1.5; }
+  .file__w b { color: var(--ink); font-weight: 600; }
+
+  .code {
+    border: 1px solid var(--rule); border-radius: 8px; background: var(--sunken);
+    padding: 14px 16px; overflow-x: auto;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.65; color: var(--ink-2);
+    white-space: pre;
+  }
+  .code b { color: var(--ink); font-weight: 600; }
+  .code i { font-style: normal; color: var(--faint); }
+  .code u { text-decoration: none; color: var(--amber); }
+
+  .empty { padding: 34px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6b — the list as it ships today, the target
+     overlay, the bar's second row, the strip as its own control.
+     ================================================================== */
+
+  /* today: the row as a free-standing card on the page ground, at the real
+     values — px-2.5 py-1.5, 13px over 11px, its own border and bg-zinc-900 */
+  .m-card {
+    display: flex; align-items: center; gap: 8px;
+    border: 1px solid #27272a; border-radius: 6px; background: #18181b;
+    padding: 6px 10px;
+  }
+  .m-card + .m-card { margin-top: 4px; }
+  .m-card__c { flex: 1; min-width: 0; }
+  .m-card__t { font-size: 13px; font-weight: 500; line-height: 1.25; color: #f4f4f5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-card__s { font-size: 11px; line-height: 1.25; color: #a1a1aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-card__x { flex: none; color: #52525b; font-size: 12px; }
+  /* the h-9 search field and the h-9 w-9 add button, drawn at their real size */
+  .m-srch { display: flex; align-items: center; gap: 8px; flex: none; }
+  .m-srch__f { flex: 1; height: 36px; display: flex; align-items: center; gap: 7px; padding: 0 10px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; font-size: 14px; color: #71717a; }
+  .m-srch__b { width: 36px; height: 36px; border-radius: 6px; background: #f59e0b; color: #09090b; display: grid; place-items: center; font-size: 16px; flex: none; }
+
+  /* a control drawn with its true target bounds called out */
+  .tgt { position: relative; }
+  .tgt::after {
+    content: ""; position: absolute; inset: 50% auto auto 50%;
+    width: var(--tw); height: var(--th); transform: translate(-50%, -50%);
+    border: 1px dashed var(--tc); border-radius: 7px; pointer-events: none;
+  }
+  .tgt--bad { --tc: rgba(248, 113, 113, 0.75); }
+  .tgt--ok { --tc: rgba(52, 211, 153, 0.7); }
+  .szl { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .szl--bad { color: #f87171; }
+  .szl--ok { color: #34d399; }
+
+  /* the bar's second row, when search is open */
+  .m-pan__ic--44 { width: 44px; height: 44px; font-size: 16px; }
+  .m-pan__ic--44.m-pan__ic--pri { font-size: 20px; }
+  .m-pan__sr { display: flex; align-items: center; gap: 8px; padding: 0 12px 8px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-pan__sr .fld { flex: 1; }
+
+  /* a heading over a run of rows, inside the frame */
+  .m-hdr { display: flex; align-items: center; gap: 9px; padding: 9px 12px 5px; background: rgba(9, 9, 11, 0.35); }
+  .m-hdr b { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; }
+  .m-hdr i { font-style: normal; flex: 1; height: 1px; background: #27272a; }
+  .m-hdr--today b { color: #f59e0b; }
+  .m-hdr--today i { background: rgba(245, 158, 11, 0.45); }
+
+  /* the strip when it is the control that filters what it reports */
+  .m-strip__go { margin-left: auto; display: flex; align-items: center; gap: 5px; flex: none; color: #fcd34d; font-size: 12px; }
+  .m-strip--on { border-top-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.09); }
+
+  /* the row arithmetic, drawn as a stacked bar */
+  .stack { display: flex; flex-direction: column; width: 190px; flex: none; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em; }
+  .stack__b { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 7px; color: var(--muted); border-bottom: 1px solid var(--rule-soft); background: var(--sunken); }
+  .stack__b--rows { background: rgba(245, 158, 11, 0.12); color: var(--amber); }
+  .stack__b--chrome { background: transparent; }
+  .stacks { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+  .stacks__c { display: flex; flex-direction: column; gap: 8px; }
+  .stacks__t { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .stacks__t b { color: var(--ink-2); font-weight: 500; }
+
+  .empty { padding: 34px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+</style>
+<style>
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6c — the figures grid, the ribbon in the hand,
+     the bar's overflow, the withheld-gesture sentence, the plot canvas.
+     ================================================================== */
+
+  /* Overview's numbers band, at 375 px. Hairlines, never cards: five tiles
+     separated the way rows are separated, so the band is part of the frame.
+     The countdown spans, because it is the one figure that is about NOW. */
+  .m-figs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-fig { padding: 10px 12px 11px; border-top: 1px solid rgba(39, 39, 42, 0.6); border-left: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-fig:nth-child(odd) { border-left: 0; }
+  .m-fig--span { grid-column: 1 / -1; border-top: 0; padding-top: 12px; padding-bottom: 13px; }
+  .m-fig__v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 26px; line-height: 1.05; color: #f4f4f5; }
+  .m-fig--span .m-fig__v { font-size: 34px; }
+  .m-fig__v i { font-style: normal; font-size: 0.5em; color: #71717a; margin-left: 3px; }
+  .m-fig__v u { text-decoration: none; color: #52525b; }
+  .m-fig__l { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; margin-top: 7px; display: block; }
+
+  /* the rig ribbon: the flow canvas one row high, and on a phone it pans.
+     Drawn clipped at the right edge, because that is what it does. */
+  .m-rib { padding: 9px 0 10px 12px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-rib__l { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; display: block; margin-bottom: 7px; }
+  .m-rib__t { display: flex; align-items: center; gap: 0; overflow: hidden; }
+  .m-rib__n { flex: none; border: 1px solid #3f3f46; border-radius: 5px; background: #1f2028; padding: 4px 8px; text-align: center; min-width: 58px; }
+  .m-rib__n b { display: block; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 400; line-height: 1.2; color: #f4f4f5; }
+  .m-rib__n s { display: block; text-decoration: none; font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: #71717a; margin-top: 2px; }
+  .m-rib__n--desk { border-color: rgba(245, 158, 11, 0.5); background: rgba(245, 158, 11, 0.08); }
+  .m-rib__w { flex: none; width: 14px; height: 1px; background: #3f3f46; }
+  .m-rib__m { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-right: 12px; }
+  .m-rib__bar { flex: 1; height: 5px; border-radius: 3px; background: #27272a; overflow: hidden; }
+  .m-rib__bar i { display: block; height: 100%; background: #34d399; }
+  .m-rib__mv { font-family: var(--mono); font-size: 10px; color: #a1a1aa; flex: none; }
+
+  /* readiness, as rows: the phone's index of the show. Trailing pill, leading
+     edge in the verdict's own tone, and the tap opens that section. */
+  .m-rd { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px 0 0; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-rd__e { width: 3px; align-self: stretch; flex: none; }
+  .m-rd__a { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #d4d4d8; padding-left: 9px; width: 88px; flex: none; }
+  .m-rd__f { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: #71717a; flex: 1; min-width: 0; }
+  .m-rd__c { flex: none; color: #52525b; font-size: 13px; }
+
+  /* a quiet last row: the desktop card's meta footer */
+  .m-meta { display: flex; flex-wrap: wrap; gap: 3px 14px; padding: 9px 12px 10px; font-size: 12px; color: #71717a; }
+
+  /* a bar control that names a selection and opens a sheet — the rail, and the
+     plot picker, collapsed to a target. It stays in the bar because it changes
+     WHAT YOU ARE LOOKING AT. */
+  .m-pick { display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 10px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; font-size: 13px; color: #f4f4f5; flex: none; max-width: 112px; }
+  .m-pick b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-pick s { text-decoration: none; color: #a1a1aa; flex: none; font-size: 11px; }
+
+  /* a segmented view toggle at a 44 px target — the plot's Top/Front/Side */
+  .m-seg { display: flex; height: 44px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; overflow: hidden; flex: none; }
+  .m-seg span { display: grid; place-items: center; min-width: 46px; padding: 0 8px; font-size: 13px; color: #a1a1aa; border-left: 1px solid #27272a; }
+  .m-seg span:first-child { border-left: 0; }
+  .m-seg span.on { background: #f59e0b; color: #09090b; font-weight: 500; }
+
+  /* the sentence that names a withheld gesture. Not a banner, not a dialog,
+     not a disabled control — it sits where the editor would be. */
+  .m-said { display: flex; gap: 9px; padding: 11px 12px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); background: rgba(9, 9, 11, 0.35); }
+  .m-said__i { flex: none; color: #71717a; font-size: 13px; line-height: 1.5; }
+  .m-said__t { font-size: 12.5px; line-height: 1.5; color: #a1a1aa; }
+  .m-said__t b { color: #d4d4d8; font-weight: 500; }
+
+  /* the stage plot canvas, in the frame */
+  .m-plot { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #09090b; }
+  .m-plot__g { position: absolute; inset: 0; background-image: linear-gradient(rgba(63,63,70,0.28) 1px, transparent 1px), linear-gradient(90deg, rgba(63,63,70,0.28) 1px, transparent 1px); background-size: 34px 34px; }
+  .m-el { position: absolute; border: 1px solid #52525b; border-radius: 4px; background: #27272a; display: grid; place-items: center; font-size: 10px; color: #d4d4d8; text-align: center; padding: 2px; }
+  .m-el--sel { border-color: #f59e0b; background: rgba(245, 158, 11, 0.16); color: #fcd34d; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25); }
+  .m-el--truss { border-color: #38bdf8; background: rgba(56, 189, 248, 0.1); color: #7dd3fc; }
+
+  /* the overflow sheet's rows — SectionSwitcher's shape, one labelled action each */
+  .m-act { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 4px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-act:last-child { border-bottom: 0; }
+  .m-act__i { width: 22px; flex: none; text-align: center; color: #a1a1aa; font-size: 14px; }
+  .m-act__l { font-size: 14px; color: #f4f4f5; flex: 1; min-width: 0; }
+  .m-act__h { font-size: 12px; color: #71717a; flex: none; }
+
+  /* the bar-width arithmetic, drawn as a ruler */
+  .rule { display: flex; align-items: stretch; width: 375px; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; font-family: var(--mono); font-size: 9px; letter-spacing: 0.04em; }
+  .rule__s { display: grid; place-items: center; min-height: 30px; border-left: 1px solid var(--rule-soft); color: var(--muted); background: var(--sunken); text-align: center; padding: 0 1px; }
+  .rule__s:first-child { border-left: 0; }
+  .rule__s--t { background: rgba(245, 158, 11, 0.14); color: var(--amber); }
+  .rule__s--o { background: rgba(159, 18, 57, 0.14); color: var(--drop); }
+  .rule__s--g { background: transparent; }
+  .rulel { display: flex; align-items: baseline; gap: 10px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+  .rulel b { color: var(--ink-2); font-weight: 500; }
+  .rulel u { text-decoration: none; color: var(--drop); }
+
+  /* a rule stated once, in a box, because it is the thing that stops nine
+     call sites making nine judgements */
+  .law { border: 1px solid var(--rule); border-left: 3px solid var(--amber); border-radius: 0 8px 8px 0; background: var(--raised); padding: 16px 18px; display: flex; flex-direction: column; gap: 9px; }
+  .law__h { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); }
+  .law__t { font-size: 16.5px; line-height: 1.45; color: var(--ink); }
+  .law__t b { font-weight: 600; }
+  .law__n { font-size: 14px; line-height: 1.55; color: var(--muted); }
+  .law__n b { color: var(--ink-2); font-weight: 600; }
+
+  /* two columns of examples under a rule */
+  .split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 26px; }
+  @media (max-width: 720px) { .split { grid-template-columns: minmax(0, 1fr); } }
+  .split__c { display: flex; flex-direction: column; gap: 7px; padding-top: 4px; }
+  .split__h { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); padding-bottom: 6px; border-bottom: 1px solid var(--rule); }
+  .split__i { display: flex; gap: 9px; font-size: 14px; color: var(--ink-2); line-height: 1.5; }
+  .split__i b { color: var(--ink); font-weight: 600; }
+  .split__i em { font-style: normal; color: var(--faint); }
+</style>
+
+<div class="wrap">
+
+  <header class="head">
+    <span class="head__eyebrow">wave 6c · the nine surfaces · revision 1</span>
+    <h1>“Nobody built it” is not “you may not”</h1>
+    <p class="head__lede">
+      6a built the overlay and touched no surface. 6b built the frame — bar, rows, strip — and
+      put nine lists in it. <b>6c is the last conversion phase</b>: the nine event sections go
+      in the frame, the three that use a viewport as a permission stop doing it, the two that
+      have no phone form at all get one, and the phone stops being a subset of the application.
+    </p>
+    <p class="head__lede">
+      Four findings close — <span class="k">M4</span>, <span class="k">M5</span>,
+      <span class="k">M9</span>, <span class="k">M11</span> — and Wave 6 is left with one
+      phase and one finding, which is the Flow canvas.
+    </p>
+    <p class="head__lede">
+      Most of this is already written down. <code>patterns.md</code> §7b draws the panel,
+      §7d gives the sheet its three jobs, §7g says what stays a desk job and in what words.
+      <b>This document is for the two places where it is not.</b> Overview is Wave 4's best
+      desktop surface and its composition — five 26 px figures side by side, a rig drawn as
+      one row of a canvas — is the exact composition a 375 px screen cannot hold. That is
+      §01, and it is most of what follows.
+    </p>
+    <p class="head__lede">
+      And three things turned up that no finding had named. There is a <b>fifth status
+      rail</b>; the bar's <b>overflow</b> was specified in 6b and never built, and 6c is the
+      phase that needs it; and a constant is still named after something 6a deleted.
+    </p>
+  </header>
+
+  <!-- ================================================================
+       00 · THE JOB
+       ================================================================ -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">00 · the job</span>
+      <h2>Nine sections, four findings, and three the document did not have</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        The nine sections are the phone's copy of the desktop tab strip:
+        <b>Overview, Audio Inputs, Audio Outputs, Lighting Rig, Stage Plots, Signal Flow,
+        Equipment, Rental Order, Settings</b>. Six of them have a phone branch today; three of
+        those six say <i>you may not</i> when the truth is <i>nobody built it</i>; two of them
+        have no phone branch at all and render desktop markup at 375 px.
+      </p>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <span class="led__k">M4</span>
+        <span class="led__v"><b>A viewport is <span class="k">&amp;&amp;</span>-ed into a role.</b>
+          <span class="k">const editable = !readOnly &amp;&amp; !isMobile</span> on Equipment and
+          Rental, <span class="k">editingAllowed</span> on Stage Plots. Downstream every check
+          reads <i>you may not</i>. The sharper half is one line in
+          <span class="k">MobileEntityList</span>: <span class="k">onClick={readOnly ? undefined : …}</span>
+          — correct on six desktop sheets, wrong here, because a phone row is a
+          <b>truncation</b> and a viewer who cannot tap cannot read the patch at all. P7 · P9.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">M5</span>
+        <span class="led__v"><b>The rig cannot be declared from a phone.</b> All three audio and
+          lighting tabs return their phone branch <i>before</i> <span class="k">RigDrawer</span>,
+          <span class="k">BusesDrawer</span> and <span class="k">UniversesDrawer</span> are
+          rendered — so a stagebox that arrives at load-in cannot be entered from the loading
+          bay. 6b saw this coming and parked it: <span class="k">StatusStrip</span> has a prop
+          called <span class="k">desktopExtras</span> whose doc comment says
+          <i>“<span class="k">Open Rig</span>, whose drawer is not mounted on a phone (M5)”</i>. P9.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">M9</span>
+        <span class="led__v"><b>Two tabs have no phone branch at all.</b>
+          <span class="k">grep -c isMobile OverviewTab.tsx</span> → <b>0</b>;
+          <span class="k">SettingsTab.tsx</span> → <b>0</b>. Both render desktop markup at
+          375 px: Overview's five-figure band wraps into a ragged stack and its rig ribbon
+          overflows the viewport; Settings renders a two-column panel-and-rail whose rail is a
+          column, which is the one thing a phone does not have. P9.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">M11</span>
+        <span class="led__v"><b>A print from a phone is a blank page.</b> Audio Inputs, Audio
+          Outputs and Lighting render their print sheet only in the desktop return; the phone
+          branch is <span class="k">&lt;div className="print:hidden"&gt;</span> and nothing
+          else. Patterns §7h.</span>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>And three this document adds, in the order they were found:</p>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <span class="led__k">F1</span>
+        <span class="led__v"><b>There is a fifth status rail.</b> 6b converted four —
+          <span class="k">PatchStatusRail</span>, <span class="k">LightingStatusRail</span>,
+          <span class="k">RentalStatusRail</span>, <span class="k">EquipmentStatusRail</span> —
+          into the shared <span class="k">StatusStrip</span> shell, and both
+          <code>audit.md</code> and <code>components.md</code> §5 say <i>four</i>.
+          <span class="k">SignalFlowStatusRail</span> hand-builds the same tinted
+          <span class="k">border-t</span> div, with its own copy of the tint expression and its
+          own <span class="k">size="xs"</span> filter button. It was missed because it is the
+          one rail whose surface was not one of 6b's nine lists — Signal Flow's phone branch is
+          a <span class="k">space-y-1.5</span> stack of cards, which is
+          <span class="k">M1</span> still standing on the one surface nobody counted.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">F2</span>
+        <span class="led__v"><b>The bar's overflow was specified and never built.</b>
+          <code>patterns.md</code> §7b: <i>“What does not fit at 375 px goes into the overflow
+          the same way the nav's fourth slot works; it does not silently vanish.”</i> Nothing
+          implements it, because in 6b nothing overflowed. In 6c five surfaces acquire
+          controls — Rig, Buses, Universes, Print, three rental exports — and Audio Inputs'
+          bar would carry <b>five 44 px targets and a title in 349 px</b>. §03.</span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">F3</span>
+        <span class="led__v"><b>A constant is named after something that was deleted.</b>
+          <span class="k">MOBILE_SECTION_CAPABILITIES</span> carries no capability since 6a
+          removed the badge (<span class="k">M7</span>); its own comment explains that the
+          name was kept deliberately, so a rename would not be mixed into a deletion. That
+          reason has expired — this slice touches the file for a different reason, and the
+          deletion is four commits old and readable on its own.</span>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>
+        <b>And one thing 6b built, reverted, and handed here by name.</b> A panel that
+        <i>fills the body</i> — scrolling only its rows, so the bar and the strip stay on
+        screen — is what a strip is for, and it needs the shell to be a fixed-height column.
+        6b took it out again in the same slice because a column makes every child a flex item
+        and a flex item whose root is a scroll container has an automatic minimum size of
+        <b>zero</b>, so the three phone surfaces that were not panels yet were compressed
+        below their content and clipped. Those three surfaces are
+        <b>Overview, event Settings and <span class="k">/my-defaults</span></b> — and §01 and
+        §02 are what make them panels. §07 collects the shell.
+      </p>
+    </div>
+  </section>
+  <!-- ================================================================
+       01 · OVERVIEW
+       ================================================================ -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">01 · overview</span>
+      <h2>The best desktop surface in the app, and the one composition a phone cannot have</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Overview is what Wave 4 built to answer <i>how is this show doing</i>: five figures set
+        in 26 px mono side by side, the rig drawn as the flow canvas one row high, and every
+        work panel's own verdict collected onto one line. Every part of that is a
+        <b>read across</b> — five things at one glance, six nodes in one chain, five verdicts
+        in one row. A 375 px screen has no across.
+      </p>
+      <p>
+        So the question is not how to shrink it. It is <b>which of the three bands is a list, which
+        is a drawing, and which is a figure</b> — because the phone has a good answer for each of
+        those and a bad answer for “all three, narrower”.
+      </p>
+    </div>
+
+    <div class="phones">
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__av"></div>
+          </div>
+          <div class="m-bd">
+            <div class="m-sw"><span class="m-sw__t">Overview</span><span style="color: #a1a1aa;">▾</span></div>
+            <!-- today: the desktop Card, at 375 px -->
+            <div style="border: 1px solid #27272a; border-radius: 8px; background: #18181b; overflow: hidden; flex: 1; min-height: 0;">
+              <div style="padding: 16px 20px;">
+                <div style="font-size: 18px; font-weight: 600;">Nordic Sound Festival</div>
+                <div style="font-size: 14px; color: #a1a1aa; margin-top: 2px;">Kulturhuset · 12–14 Aug 2026</div>
+                <div style="margin-top: 12px;"><span class="btn btn--outline btn--sm" style="font-size: 12px;">✎ Edit details</span></div>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; border-top: 1px solid #27272a; border-bottom: 1px solid #27272a; background: rgba(9,9,11,0.6);">
+                <div style="flex: 1 0 auto; padding: 12px 20px; border-right: 1px solid #27272a;"><div style="font-family: var(--mono); font-size: 26px; line-height: 1;">12</div><div style="font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; margin-top: 6px;">days to load-in</div></div>
+                <div style="flex: 1 0 auto; padding: 12px 20px; border-right: 1px solid #27272a;"><div style="font-family: var(--mono); font-size: 26px; line-height: 1;">16<span style="font-size: 13px; color: #71717a;">/ 8</span></div><div style="font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; margin-top: 6px;">channels in / out</div></div>
+                <div style="flex: 1 0 auto; padding: 12px 20px; border-right: 1px solid #27272a;"><div style="font-family: var(--mono); font-size: 26px; line-height: 1;">24</div><div style="font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; margin-top: 6px;">fixtures</div></div>
+                <div style="flex: 1 0 auto; padding: 12px 20px;"><div style="font-family: var(--mono); font-size: 26px; line-height: 1;">38</div><div style="font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; margin-top: 6px;">cables picked</div></div>
+              </div>
+              <div style="padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; position: relative;">
+                <div style="display: flex; align-items: center; gap: 10px; white-space: nowrap;">
+                  <span style="font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; width: 72px; flex: none;">Audio</span>
+                  <span class="m-rib__n"><b>9</b><s>sources</s></span><span class="m-rib__w"></span>
+                  <span class="m-rib__n"><b>2</b><s>stagebox</s></span><span class="m-rib__w"></span>
+                  <span class="m-rib__n"><b>1</b><s>multis</s></span><span class="m-rib__w"></span>
+                  <span class="m-rib__n m-rib__n--desk"><b>SD10</b><s>console</s></span>
+                </div>
+                <div class="m-cut" style="top: 0; bottom: auto; left: auto; right: -1px; width: 1px; height: 100%; background: repeating-linear-gradient(180deg, #f87171 0 6px, transparent 6px 12px);"></div>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Dashboard</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▦</span>Events</div>
+            <div class="m-nav__i"><span class="m-nav__g">▣</span>Inventories</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+        </div>
+        <div class="phone__cap phone__cap--bad">today · <b>the desktop card at 375 px</b> — the band wraps to two rows and the ribbon runs off the right edge with nothing to scroll it. Readiness, inventory and the meta footer are below the fold and below three more bands.</div>
+      </div>
+
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__av"></div>
+          </div>
+          <div class="m-bd">
+            <div class="m-sw"><span class="m-sw__t">Overview</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar">
+                <span class="m-pan__ti">Overview</span>
+                <span class="m-pan__ic m-pan__ic--44">⋯</span>
+                <span class="m-pan__ic m-pan__ic--44 m-pan__ic--pri">✎</span>
+              </div>
+              <div class="m-pan__rows">
+                <div class="m-figs">
+                  <div class="m-fig m-fig--span">
+                    <div class="m-fig__v">12<i>days</i></div>
+                    <span class="m-fig__l">to load-in</span>
+                  </div>
+                  <div class="m-fig">
+                    <div class="m-fig__v">16<i>/ 8</i></div>
+                    <span class="m-fig__l">channels in / out</span>
+                  </div>
+                  <div class="m-fig">
+                    <div class="m-fig__v">24</div>
+                    <span class="m-fig__l">fixtures</span>
+                  </div>
+                  <div class="m-fig">
+                    <div class="m-fig__v">38</div>
+                    <span class="m-fig__l">cables picked</span>
+                  </div>
+                  <div class="m-fig">
+                    <div class="m-fig__v">18 400<i>kr</i></div>
+                    <span class="m-fig__l">rental, ex vat</span>
+                  </div>
+                </div>
+                <div class="m-rib">
+                  <span class="m-rib__l">Audio</span>
+                  <div class="m-rib__t">
+                    <span class="m-rib__n"><b>9</b><s>sources</s></span><span class="m-rib__w"></span>
+                    <span class="m-rib__n"><b>2</b><s>stagebox</s></span><span class="m-rib__w"></span>
+                    <span class="m-rib__n"><b>1</b><s>multis</s></span><span class="m-rib__w"></span>
+                    <span class="m-rib__n m-rib__n--desk"><b>SD10</b><s>console</s></span><span class="m-rib__w"></span>
+                    <span class="m-rib__n"><b>4</b><s>devices</s></span>
+                  </div>
+                </div>
+                <div class="m-rib">
+                  <span class="m-rib__l">Lighting</span>
+                  <div class="m-rib__t">
+                    <span class="m-rib__n"><b>24</b><s>fixtures</s></span><span class="m-rib__w"></span>
+                    <span class="m-rib__n"><b>2</b><s>universes</s></span><span class="m-rib__w"></span>
+                    <span class="m-rib__n"><b>3</b><s>trusses</s></span>
+                  </div>
+                  <div class="m-rib__m">
+                    <span class="m-rib__mv">dmx</span>
+                    <span class="m-rib__bar"><i style="width: 43%;"></i></span>
+                    <span class="m-rib__mv">220 / 512</span>
+                  </div>
+                </div>
+                <div class="m-hdr"><b>Readiness</b><i></i></div>
+                <div class="m-rd">
+                  <span class="m-rd__e" style="background: #fbbf24;"></span>
+                  <span class="m-rd__a">Audio</span>
+                  <span class="m-rd__f">16 ch in · 8 out</span>
+                  <span class="pill t-warn">3 gaps</span>
+                  <span class="m-rd__c">›</span>
+                </div>
+                <div class="m-rd">
+                  <span class="m-rd__e" style="background: #34d399;"></span>
+                  <span class="m-rd__a">Lighting</span>
+                  <span class="m-rd__f">24 fixtures</span>
+                  <span class="pill t-ok">addressed</span>
+                  <span class="m-rd__c">›</span>
+                </div>
+                <div class="m-rd">
+                  <span class="m-rd__e" style="background: #f87171;"></span>
+                  <span class="m-rd__a">Rental</span>
+                  <span class="m-rd__f">31 lines</span>
+                  <span class="pill t-err">2 over stock</span>
+                  <span class="m-rd__c">›</span>
+                </div>
+                <div class="m-rd">
+                  <span class="m-rd__e" style="background: #34d399;"></span>
+                  <span class="m-rd__a">Equipment</span>
+                  <span class="m-rd__f">12 lines</span>
+                  <span class="pill t-ok">12 lines</span>
+                  <span class="m-rd__c">›</span>
+                </div>
+                <div class="m-rd">
+                  <span class="m-rd__e" style="background: #34d399;"></span>
+                  <span class="m-rd__a">Plots</span>
+                  <span class="m-rd__f">top · front</span>
+                  <span class="pill t-ok">2 plots</span>
+                  <span class="m-rd__c">›</span>
+                </div>
+              </div>
+              <div class="m-strip" style="border-top-color: rgba(248,113,113,0.4); background: rgba(248,113,113,0.06);">
+                <span class="pill t-err">2 need attention</span>
+                <span class="mono">audio · rental</span>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Dashboard</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▦</span>Events</div>
+            <div class="m-nav__i"><span class="m-nav__g">▣</span>Inventories</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+        </div>
+        <div class="phone__cap">proposed · <b>a figure is a figure, a ribbon is a drawing, a verdict is a row</b>. The rows region scrolls; the bar and the strip do not.</div>
+      </div>
+    </div>
+
+    <div class="prose">
+      <h3>The three bands, decided separately</h3>
+      <p>
+        <b>The figures stay figures.</b> <code>tokens.md</code> §7 is explicit — <i>density on a
+        phone comes from stacking, never from shrinking</i> — so 26 px mono stays 26 px mono and
+        the band becomes a two-column grid. The tiles carry <b>no border, no radius and no ground
+        of their own</b>, only the same hairlines the rows below them use, which is
+        <span class="k">M1</span>'s lesson applied to something that is not a row: five cards
+        inside a frame is the failure the frame was built to end.
+      </p>
+      <p>
+        <b>The countdown spans both columns</b>, and it is the one place this composition takes a
+        position rather than following a rule. Four of the five figures are quantities of things
+        in the plan; <i>days to load-in</i> is the only one about <b>now</b>, it is the only one
+        whose tab is Overview itself, and on the surface someone opens standing in the venue it
+        is the headline. Spanning is how a grid says <i>this one is a different kind of fact</i>
+        without inventing a colour or a weight to say it with. It also disposes of the arithmetic
+        problem honestly: five things do not fit a two-column grid, and the choice is between one
+        empty cell and one spanning cell.
+      </p>
+      <p>
+        <b>The ribbon stays a drawing, and it pans.</b> The rig ribbon is the flow canvas one row
+        high, and <code>patterns.md</code> §7f already settled what a drawing does on a phone:
+        nothing on it is re-sized, because nothing on it is a target. So the nodes keep their
+        geometry and the ribbon scrolls horizontally inside its own row — which is
+        <i>panning a canvas</i>, on the one canvas that is one row tall. The DMX meter comes out
+        of the ribbon's trailing slot and sits under it, because a meter beside a scrolling
+        track is a meter that scrolls away.
+      </p>
+      <p>
+        <b>And the readiness row becomes the phone's index of the show.</b> This is the part
+        worth arguing for. On the desktop, <span class="k">ReadinessRow</span> is five
+        <span class="k">area + Pill</span> pairs on one line, each one opening its tab — a
+        secondary convenience, because the tab strip is right there. On a phone the tab strip is
+        behind a tap in the section switcher, and five 44 px rows that <b>both state the verdict
+        and route to it</b> are the single most useful object on the device. The leading edge
+        takes the verdict's own tone, so a run of green with one red edge reads from the edge of
+        vision before a word of it is read.
+      </p>
+      <p>
+        The middle column is what the desktop figures already say about that area
+        (<i>16 ch in · 8 out</i>), so the row is not a pill floating beside a label. Nothing is
+        derived twice: <span class="k">lib/eventSummary</span> already computes both halves, and
+        this composition just stops drawing them in two places.
+      </p>
+
+      <h3>Two smaller decisions</h3>
+      <p>
+        <b>The event's name, venue and dates do not appear in the panel.</b> On the desktop the
+        Card's header carries them because the page has nowhere else to put them; on a phone
+        <span class="k">EventDetail</span>'s own header already prints them above the section
+        switcher, one row up. Repeating them would cost 48 px of a 490 px panel to say something
+        still on screen. The <b>Edit details</b> pencil stays, as the panel's
+        <span class="k">primaryAction</span>, because the action has to live somewhere and the
+        thing it edits is this section's subject.
+      </p>
+      <p>
+        <b>Overview's strip is a sentence, not a control</b> — and it is the first one that is.
+        <code>patterns.md</code> §7b already allows this (<i>“a strip with nothing to filter to
+        draws no chevron and is not a control”</i>) and until now every strip in the app has had
+        something to filter to, so the rule has never been visible. Here it states the collected
+        verdict and <b>names the areas</b>: filtering five rows down to two, on a list whose
+        whole job is to be complete, would hide three destinations to save 132 px.
+      </p>
+      <p>
+        The inventory row and the meta footer follow the readiness run, below the fold, as a
+        <span class="k">CondensedListRow</span> and a quiet last line — the same two things the
+        desktop card ends with, in the same order, because their order was already right.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       02 · SETTINGS
+       ================================================================ -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">02 · settings</span>
+      <h2>A rail is a column, and a column is the one thing a phone does not have</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Event Settings is <span class="k">VocabularyPanel</span>: nine planning vocabularies in a
+        <span class="k">PanelRail</span> down the left, the selected one's values as a sheet on
+        the right, with <b>Label</b>, <b>Stored value</b> and <b>In use</b>. The same component
+        is <span class="k">/my-defaults</span>, which is in the bottom nav's <b>More</b> sheet —
+        so this one branch gives <b>two</b> phone surfaces a phone form, and both of them are on
+        6b's list of three that blocked the fixed-height shell.
+      </p>
+      <p>
+        §7 answers the rail in one line: on a phone a column becomes a tap. The rail is a
+        selection among nine, which is exactly what the section switcher already is, so it takes
+        that shape — <b>a bar control naming the current vocabulary, opening a sheet listing the
+        nine with their counts</b>.
+      </p>
+    </div>
+
+    <div class="phones">
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__av"></div>
+          </div>
+          <div class="m-bd">
+            <div class="m-sw"><span class="m-sw__t">Settings</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar">
+                <span class="m-pan__ti">Vocabularies</span>
+                <span class="m-pick"><b>Mic types</b><s>▾</s></span>
+                <span class="m-pan__ic m-pan__ic--44">🔍</span>
+                <span class="m-pan__ic m-pan__ic--44 m-pan__ic--pri">＋</span>
+              </div>
+              <div class="m-pan__rows">
+                <div class="m-row"><span class="m-row__e"></span><div class="m-row__c"><div class="m-row__t">Dynamic</div><div class="m-row__s"><span class="mono" style="color:#a1a1aa;">dynamic</span> · used in 14 rows</div></div></div>
+                <div class="m-row"><span class="m-row__e"></span><div class="m-row__c"><div class="m-row__t">Condenser</div><div class="m-row__s"><span class="mono" style="color:#a1a1aa;">condenser</span> · used in 9 rows</div></div></div>
+                <div class="m-row"><span class="m-row__e"></span><div class="m-row__c"><div class="m-row__t">Ribbon</div><div class="m-row__s"><span class="mono" style="color:#a1a1aa;">ribbon</span> · <span style="color:#71717a;">not used</span></div></div></div>
+                <div class="m-row"><span class="m-row__e"></span><div class="m-row__c"><div class="m-row__t">Boundary</div><div class="m-row__s"><span class="mono" style="color:#a1a1aa;">boundary</span> · used in 2 rows</div></div></div>
+                <div class="m-row"><span class="m-row__e"></span><div class="m-row__c"><div class="m-row__t">Shotgun</div><div class="m-row__s"><span class="mono" style="color:#a1a1aa;">shotgun</span> · <span style="color:#71717a;">not used</span></div></div></div>
+                <div class="m-row"><span class="m-row__e"></span><div class="m-row__c"><div class="m-row__t">Lavalier</div><div class="m-row__s"><span class="mono" style="color:#a1a1aa;">lav</span> · used in 1 row</div></div></div>
+                <div class="m-row"><span class="m-row__e"></span><div class="m-row__c"><div class="m-row__t">Headset</div><div class="m-row__s"><span class="mono" style="color:#a1a1aa;">headset</span> · used in 4 rows</div></div></div>
+              </div>
+              <div class="m-strip">
+                <span class="mono">9 vocabularies</span>
+                <span>this event's own copy — editing it changes nothing anywhere else</span>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Dashboard</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▦</span>Events</div>
+            <div class="m-nav__i"><span class="m-nav__g">▣</span>Inventories</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+        </div>
+        <div class="phone__cap">proposed · the rail is a bar control. The strip carries the panel's <span class="k">note</span> — the second sentence-strip in the app, for the same reason as Overview's.</div>
+      </div>
+
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__av"></div>
+          </div>
+          <div class="m-bd" style="filter: brightness(0.75);">
+            <div class="m-sw"><span class="m-sw__t">Settings</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar">
+                <span class="m-pan__ti">Vocabularies</span>
+                <span class="m-pick"><b>Mic types</b><s>▾</s></span>
+                <span class="m-pan__ic m-pan__ic--44">🔍</span>
+                <span class="m-pan__ic m-pan__ic--44 m-pan__ic--pri">＋</span>
+              </div>
+              <div class="m-pan__rows"></div>
+            </div>
+          </div>
+          <div class="m-sheet">
+            <div class="m-sheet__p">
+              <div class="m-sheet__hd">
+                <div><div class="m-sheet__ti">Vocabularies</div></div>
+                <span class="m-sheet__x">✕</span>
+              </div>
+              <div class="m-jump">
+                <div class="m-jump__i"><span class="m-jump__n">01</span><span class="m-jump__l">Source kinds</span><span class="m-jump__c">6</span></div>
+                <div class="m-jump__i on"><span class="m-jump__n">02</span><span class="m-jump__l">Mic types</span><span class="m-jump__c">7</span></div>
+                <div class="m-jump__i"><span class="m-jump__n">03</span><span class="m-jump__l">Mic stands</span><span class="m-jump__c">4</span></div>
+                <div class="m-jump__i"><span class="m-jump__n">04</span><span class="m-jump__l">Signal types</span><span class="m-jump__c">3</span></div>
+                <div class="m-jump__i"><span class="m-jump__n">05</span><span class="m-jump__l">Signal cable types</span><span class="m-jump__c">5</span></div>
+                <div class="m-jump__i"><span class="m-jump__n">06</span><span class="m-jump__l">Fixture types</span><span class="m-jump__c">8</span></div>
+                <div class="m-jump__i"><span class="m-jump__n">07</span><span class="m-jump__l">Truss types</span><span class="m-jump__c">4</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Dashboard</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▦</span>Events</div>
+            <div class="m-nav__i"><span class="m-nav__g">▣</span>Inventories</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+        </div>
+        <div class="phone__cap">the rail, opened · <b>the section switcher's own sheet</b>, at its own values — 52 px rows, a 2 px amber left edge on the current one, the count where the switcher has nothing.</div>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>
+        <b>The picker stays in the bar rather than going in the overflow</b>, and §03 states the
+        rule it follows: a control that changes <i>what you are looking at</i> is visible, and a
+        control that does a thing and is finished is not. The vocabulary picker is the first, in
+        the same way the section switcher above it is.
+      </p>
+      <p>
+        <b>The title stays <i>Vocabularies</i>, and the picker names the vocabulary.</b> Folding
+        the two together — a title that is itself the picker — buys about 90 px and costs the one
+        thing nine panels have in common, which is that the first thing in the bar is the name of
+        the surface (<code>patterns.md</code> §1). It fits, but only just, and the arithmetic is
+        §03's: 92 px of title, two 44 px targets and four gaps leave the picker
+        <b>113 px of the bar's 317</b>. So the picker caps at 112 px and <b>truncates</b> —
+        <i>Signal cable ty…</i> — which is what §7c already says every other label on this
+        device does. It is the last surface that would fit, and the reason §03 exists.
+      </p>
+      <p>
+        <b>In use survives the trip.</b> It is Wave 5's point — the server has refused to delete
+        a referenced value since Slice 17, and the count is what makes a load-bearing value look
+        different from a safe one at rest — so it goes in the subtitle beside the stored value
+        rather than being dropped as the third column. A vocabulary that cannot answer still says
+        <span class="k">not stored</span> rather than showing a dash.
+      </p>
+    </div>
+  </section>
+  <!-- ================================================================
+       03 · THE BAR
+       ================================================================ -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">03 · the bar</span>
+      <h2>The overflow that was specified in 6b and never built</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        A phone panel's bar has <b>317 px</b> in it. That is 375 less the body's
+        <span class="k">px-4</span> on both sides, less the panel's two borders, less the bar's
+        own <span class="k">px-3</span>. Everything below is measured against that number.
+      </p>
+      <p>
+        In 6b nothing overflowed: every bar was a title, a search target and an add button.
+        This slice gives five surfaces controls they did not have — Rig, Buses, Universes,
+        Print, and three separate rental exports — and the busiest of them does not fit.
+      </p>
+    </div>
+
+    <div class="prose">
+      <div class="rulel"><b>Audio Inputs</b> · every control in the bar · <u>350 px in 317</u></div>
+    </div>
+    <div class="rule" style="width: 350px;">
+      <div class="rule__s" style="width: 90px;">Audio&nbsp;Inputs</div>
+      <div class="rule__s rule__s--g" style="width: 8px;"></div>
+      <div class="rule__s rule__s--t" style="width: 44px;">rig</div>
+      <div class="rule__s rule__s--g" style="width: 8px;"></div>
+      <div class="rule__s rule__s--t" style="width: 44px;">bus</div>
+      <div class="rule__s rule__s--g" style="width: 8px;"></div>
+      <div class="rule__s rule__s--t" style="width: 44px;">prn</div>
+      <div class="rule__s rule__s--g" style="width: 8px;"></div>
+      <div class="rule__s rule__s--t" style="width: 44px;">🔍</div>
+      <div class="rule__s rule__s--g" style="width: 8px;"></div>
+      <div class="rule__s rule__s--o" style="width: 44px;">＋</div>
+    </div>
+
+    <div class="prose" style="margin-top: 22px;">
+      <div class="rulel"><b>Audio Inputs</b> · with the overflow · <span style="color: var(--keep);">246 px in 317</span></div>
+    </div>
+    <div class="rule">
+      <div class="rule__s" style="width: 90px;">Audio&nbsp;Inputs</div>
+      <div class="rule__s rule__s--g" style="width: 8px;"></div>
+      <div class="rule__s rule__s--t" style="width: 44px;">🔍</div>
+      <div class="rule__s rule__s--g" style="width: 8px;"></div>
+      <div class="rule__s rule__s--t" style="width: 44px;">⋯</div>
+      <div class="rule__s rule__s--g" style="width: 8px;"></div>
+      <div class="rule__s rule__s--t" style="width: 44px;">＋</div>
+      <div class="rule__s rule__s--g" style="flex: 1;">71 px spare</div>
+    </div>
+
+    <div class="prose">
+      <p>
+        The overflow is not a new idea and it does not need a decision — §7b already says what
+        happens and where it goes. What it needs is <b>a rule that keeps nine call sites from
+        making nine judgements about which control is important enough to stay visible</b>,
+        because that judgement is exactly how a bar ends up different on every surface.
+      </p>
+    </div>
+
+    <div class="law">
+      <span class="law__h">the rule</span>
+      <p class="law__t">
+        A control that changes <b>what you are looking at</b> stays in the bar.<br>
+        A control that <b>does a thing and is finished</b> goes in the overflow.
+      </p>
+      <p class="law__n">
+        It is not a size test, so it cannot drift as titles change; and it lines up with the two
+        props that already exist. <span class="k">actions</span> keeps exactly the meaning it has
+        today — <b>its one existing caller is the Inventories category filter, which is a
+        selector</b> — and a new <span class="k">overflow</span> takes the rest.
+      </p>
+    </div>
+
+    <div class="split">
+      <div class="split__c">
+        <div class="split__h">stays in the bar · <span class="k">actions</span></div>
+        <div class="split__i"><b>Category</b><em>— Inventories, today</em></div>
+        <div class="split__i"><b>Vocabulary</b><em>— Settings, §02</em></div>
+        <div class="split__i"><b>Plot</b> and <b>Top · Front · Side</b><em>— Stage Plots, §05</em></div>
+        <div class="split__i"><b>Sheet | Flow</b><em>— 6d, unbuilt</em></div>
+      </div>
+      <div class="split__c">
+        <div class="split__h">goes in the overflow · <span class="k">overflow</span></div>
+        <div class="split__i"><b>Open Rig</b> · <b>Buses</b> · <b>Universes</b><em>— §04</em></div>
+        <div class="split__i"><b>Print</b><em>— M11, §07</em></div>
+        <div class="split__i"><b>Export .xlsx</b> · <b>PDF</b> · <b>price list</b><em>— Rental</em></div>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>
+        <span class="k">overflow</span> is a typed list rather than a node —
+        <span class="k">{ label, icon, onClick, disabled? }[]</span> — because the sheet it opens
+        is a list of labelled actions and nothing else, and letting six callers each build that
+        sheet is how two of them end up different. That is the same call
+        <span class="k">ui/GearList</span> makes, from the other side: a node where the contents
+        are a surface's own business, a list where they are always the same shape.
+      </p>
+      <p>
+        <b>One control does not earn a menu.</b> An overflow holding exactly one action renders
+        as that action's own 44 px target instead of a <span class="k">⋯</span> — so Signal Flow's
+        Print is one tap, and Audio Inputs' three are two. The rule lives inside
+        <span class="k">MobilePanel</span>, so no caller decides it.
+      </p>
+    </div>
+
+    <div class="phones">
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__av"></div>
+          </div>
+          <div class="m-bd" style="filter: brightness(0.75);">
+            <div class="m-sw"><span class="m-sw__t">Rental Order</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar">
+                <span class="m-pan__ti">Rental order</span>
+                <span class="m-pan__ic m-pan__ic--44">🔍</span>
+                <span class="m-pan__ic m-pan__ic--44">⋯</span>
+                <span class="m-pan__ic m-pan__ic--44 m-pan__ic--pri">＋</span>
+              </div>
+              <div class="m-pan__rows"></div>
+            </div>
+          </div>
+          <div class="m-sheet">
+            <div class="m-sheet__p">
+              <div class="m-sheet__hd">
+                <div><div class="m-sheet__ti">Rental order</div></div>
+                <span class="m-sheet__x">✕</span>
+              </div>
+              <div class="m-sheet__bd" style="gap: 0; padding: 4px 12px 20px;">
+                <div class="m-act"><span class="m-act__i">▤</span><span class="m-act__l">Export .xlsx</span><span class="m-act__h">download</span></div>
+                <div class="m-act"><span class="m-act__i">⇩</span><span class="m-act__l">Export PDF</span><span class="m-act__h">download</span></div>
+                <div class="m-act"><span class="m-act__i">⌁</span><span class="m-act__l">Export price list</span><span class="m-act__h">LL.xlsx</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Dashboard</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▦</span>Events</div>
+            <div class="m-nav__i"><span class="m-nav__g">▣</span>Inventories</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+        </div>
+        <div class="phone__cap">the overflow, opened · three exports that would have been three outline buttons in a 317 px bar. The third is present only for a catalog imported from a price list, exactly as on the desk.</div>
+      </div>
+
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__av"></div>
+          </div>
+          <div class="m-bd" style="filter: brightness(0.75);">
+            <div class="m-sw"><span class="m-sw__t">Audio Inputs</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar">
+                <span class="m-pan__ti">Audio Inputs</span>
+                <span class="m-pan__ic m-pan__ic--44">🔍</span>
+                <span class="m-pan__ic m-pan__ic--44">⋯</span>
+                <span class="m-pan__ic m-pan__ic--44 m-pan__ic--pri">＋</span>
+              </div>
+              <div class="m-pan__rows"></div>
+            </div>
+          </div>
+          <div class="m-sheet">
+            <div class="m-sheet__p">
+              <div class="m-sheet__hd">
+                <div><div class="m-sheet__ti">Audio Inputs</div></div>
+                <span class="m-sheet__x">✕</span>
+              </div>
+              <div class="m-sheet__bd" style="gap: 0; padding: 4px 12px 20px;">
+                <div class="m-act"><span class="m-act__i">▥</span><span class="m-act__l">Open Rig</span><span class="m-act__h">7 items</span></div>
+                <div class="m-act"><span class="m-act__i">▦</span><span class="m-act__l">Groups &amp; DCAs</span><span class="m-act__h">6</span></div>
+                <div class="m-act"><span class="m-act__i">⎙</span><span class="m-act__l">Print patch sheet</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Dashboard</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▦</span>Events</div>
+            <div class="m-nav__i"><span class="m-nav__g">▣</span>Inventories</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+        </div>
+        <div class="phone__cap">Audio Inputs' three · the counts come along, because the desktop's <span class="k">Rig</span> button carries one and a menu row has room for it.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       04 · THE DRAWERS
+       ================================================================ -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">04 · the drawers</span>
+      <h2>A stagebox that arrives on site is declared on site</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <span class="k">M5</span> is the finding with the smallest fix in the wave, and it is
+        worth saying why: <b>the three drawers already have a phone form and nobody has ever
+        seen it.</b> <span class="k">RigDrawer</span>, <span class="k">BusesDrawer</span> and
+        <span class="k">UniversesDrawer</span> are all built on <span class="k">ui/Drawer</span>,
+        and 6a put the phone branch <i>inside</i> <span class="k">ui/Drawer</span> — so all three
+        have been bottom sheets at 375 px since Slice 33. They are simply never rendered,
+        because every one of the three tabs returns its phone branch before reaching them.
+      </p>
+      <p>
+        So the whole of M5 is: <b>move the drawers above the phone return, and add an overflow
+        entry.</b> No drawer file is edited. That is the same result 6b got from putting the
+        strip's phone branch inside <span class="k">StatusStrip</span> — five surfaces gained one
+        without any of them being touched — and it is the argument for putting a phone branch in
+        the component rather than at the call site, made twice.
+      </p>
+    </div>
+
+    <div class="phones">
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__av"></div>
+          </div>
+          <div class="m-bd" style="filter: brightness(0.7);">
+            <div class="m-sw"><span class="m-sw__t">Audio Inputs</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar">
+                <span class="m-pan__ti">Audio Inputs</span>
+                <span class="m-pan__ic m-pan__ic--44">🔍</span>
+                <span class="m-pan__ic m-pan__ic--44">⋯</span>
+                <span class="m-pan__ic m-pan__ic--44 m-pan__ic--pri">＋</span>
+              </div>
+              <div class="m-pan__rows"></div>
+            </div>
+          </div>
+          <div class="m-sheet">
+            <div class="m-sheet__p">
+              <div class="m-sheet__hd">
+                <div>
+                  <div class="m-sheet__ti">Rig</div>
+                  <div class="m-sheet__sub">7 items · console, stageboxes, multis, devices</div>
+                </div>
+                <span class="m-sheet__x">✕</span>
+              </div>
+              <div class="m-sheet__bd">
+                <div class="dsec">
+                  <div class="dsec__hd"><span class="lbl">Stageboxes</span><span class="badge">2</span><span style="margin-left:auto;"><span class="btn btn--outline btn--md" style="font-size:13px;">＋ Add</span></span></div>
+                  <div class="dsec__ct">
+                    <div class="gear">
+                      <div class="gear__top"><span class="gear__nm">SB1 — DL16</span><span class="gear__ac">16 in · 8 out</span></div>
+                      <div class="gear__sp">stage left <b>·</b> cat5e to SD10 <b>·</b> 30 m</div>
+                    </div>
+                    <div class="gear">
+                      <div class="gear__top"><span class="gear__nm">SB2 — DL16</span><span class="gear__ac">16 in · 8 out</span></div>
+                      <div class="gear__sp">stage right <b>·</b> cat5e to SB1 <b>·</b> 15 m</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="dsec">
+                  <div class="dsec__hd"><span class="lbl">Stage multis</span><span class="badge">1</span></div>
+                  <div class="dsec__ct">
+                    <div class="gear">
+                      <div class="gear__top"><span class="gear__nm">Multi A — 12/4</span><span class="gear__ac">12 in · 4 ret</span></div>
+                      <div class="gear__sp">downstage centre <b>·</b> 20 m</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Dashboard</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▦</span>Events</div>
+            <div class="m-nav__i"><span class="m-nav__g">▣</span>Inventories</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+        </div>
+        <div class="phone__cap">the Rig drawer · <b>not redrawn for this document</b> — this is <span class="k">ui/Drawer</span>'s existing phone branch with <span class="k">RigDrawer</span>'s existing contents, at <span class="k">h-10</span> and 44 px. Micro-label headings, <span class="k">GearCard</span>s, 10 px mono spec lines: tokens §7 amendment 2, unchanged.</div>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>
+        The one thing that does change is <span class="k">StatusStrip</span>'s
+        <span class="k">desktopExtras</span> prop, which exists to hold <b>Open Rig</b> on the
+        desktop <i>“whose drawer is not mounted on a phone (M5)”</i>. Once it is mounted, the
+        prop's reason is gone — but it does not follow that Open Rig moves into the phone strip,
+        because on a phone <b>the strip is already the filter control</b> and cannot hold a
+        second target. Open Rig lives in the overflow, and
+        <span class="k">desktopExtras</span> keeps doing exactly what its name says with an
+        honest comment instead of a deferred one.
+      </p>
+    </div>
+  </section>
+  <!-- ================================================================
+       05 · A VIEWPORT IS NOT A PERMISSION
+       ================================================================ -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">05 · m4</span>
+      <h2>A viewport is not a permission</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Three tabs <span class="k">&amp;&amp;</span> a viewport into a role, and one shared
+        component asks a viewer to read a truncation it cannot expand:
+      </p>
+    </div>
+
+    <div class="code">frontend/src/components/event/EquipmentTab.tsx:30   <b>const editable = !readOnly &amp;&amp; !isMobile</b>
+frontend/src/components/event/RentalTab.tsx:39      <b>const editable = !readOnly &amp;&amp; !isMobile</b>
+frontend/src/components/event/StagePlotTab.tsx:51   <b>const editingAllowed = !readOnly &amp;&amp; !isMobile</b>
+
+frontend/src/components/mobile/MobileEntityList.tsx:75
+    <b>onClick={readOnly ? undefined : () =&gt; onSelect(item.id)}</b>   <i>// correct on six desktop sheets</i></div>
+
+    <div class="prose">
+      <p>
+        <code>patterns.md</code> §7g is unusually specific about how this is repaired, so most of
+        this section is applying a rule rather than choosing one:
+      </p>
+      <blockquote class="ask">
+        <b>“<span class="k">!isMobile</span> never appears in a permission expression.</b> A
+        capability is a role question. Whether a surface has built its phone editor yet is a fact
+        about the surface, and it belongs in the sentence above — where the user can read it.”
+      </blockquote>
+      <p>
+        Which means the three lines become <span class="k">!readOnly</span>, and then each surface
+        answers the real question separately: <b>does the thing it withholds have a phone form,
+        or is it a desk job?</b> §7g answers that too, and the answer is different for the three:
+      </p>
+    </div>
+
+    <div class="split">
+      <div class="split__c">
+        <div class="split__h">a form over a row · gets a phone form</div>
+        <div class="split__i"><b>Equipment lines</b><em>— a quantity and a note</em></div>
+        <div class="split__i"><b>Rental quantities</b><em>— manual audio, manual light, a note</em></div>
+        <div class="split__i"><b>What a plot element <i>is</i></b><em>— its name, its kind, its fixture</em></div>
+      </div>
+      <div class="split__c">
+        <div class="split__h">direct manipulation of a spatial artifact · a desk job</div>
+        <div class="split__i"><b>Positioning an element on a plot</b><em>— a mouse's precision over a scale drawing</em></div>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>
+        §7g names <b>exactly one</b> desk job, stated once so it stops being decided per tab:
+        <i>direct manipulation of a spatial artifact</i>. Equipment and Rental are not that.
+        Their phone branches are read-only today because Slice 21 said
+        <i>“a read-only lookup on mobile for every role”</i> — a decision made in the slice that
+        introduced the phone at all, before anything on the phone could edit — and both files
+        still carry that sentence in a comment. <b>This is the requirement conflict of the slice,
+        and it is called out as a question at the end of this document.</b>
+      </p>
+      <p>
+        The rest is direct: <span class="k">MobileEntityList</span>'s row becomes tappable for
+        every role, and the sheet that opens is the one the role earns.
+        <span class="k">MobileChannelEditSheet</span> already keeps every value on a failed save,
+        so a read-only sheet is the same sheet with its fields disabled and no confirm — not a
+        second component.
+      </p>
+    </div>
+
+    <div class="phones">
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__av"></div>
+          </div>
+          <div class="m-bd" style="filter: brightness(0.75);">
+            <div class="m-sw"><span class="m-sw__t">Equipment</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar">
+                <span class="m-pan__ti">Equipment</span>
+                <span class="m-pan__ic m-pan__ic--44">🔍</span>
+                <span class="m-pan__ic m-pan__ic--44 m-pan__ic--pri">＋</span>
+              </div>
+              <div class="m-pan__rows"></div>
+            </div>
+          </div>
+          <div class="m-sheet">
+            <div class="m-sheet__p">
+              <div class="m-sheet__hd">
+                <div>
+                  <div class="m-sheet__ti">Shure SM58</div>
+                  <div class="m-sheet__sub">owned · microphone · 14 in stock</div>
+                </div>
+                <span class="m-sheet__x">✕</span>
+              </div>
+              <div class="m-sheet__bd">
+                <div class="m-fld"><span class="lbl">Quantity</span><span class="fld fld--md" style="width: 110px;">18</span></div>
+                <div class="insp__box" style="border-color: rgba(248,113,113,0.4); background: rgba(248,113,113,0.07);">
+                  <span style="font-size: 12.5px; color: #fca5a5;">Exceeds the 14 you own by 4 — the extra go on the rental order.</span>
+                </div>
+                <div class="m-fld"><span class="lbl">Note</span><span class="fld fld--md fld--ph">spare capsules in the case</span></div>
+              </div>
+              <div class="m-sheet__ft">
+                <span class="btn btn--danger-ghost btn--md">Delete</span>
+                <span style="flex: 1;"></span>
+                <span class="btn btn--primary btn--md" style="flex: 1; justify-content: center;">Save</span>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Dashboard</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▦</span>Events</div>
+            <div class="m-nav__i"><span class="m-nav__g">▣</span>Inventories</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+        </div>
+        <div class="phone__cap">an equipment line · the desktop <span class="k">RowEditor</span>'s two fields, in a sheet. The over-owned warning is the sheet's, not a strip's, because it is about this line.</div>
+      </div>
+
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__av"></div>
+          </div>
+          <div class="m-bd" style="filter: brightness(0.75);">
+            <div class="m-sw"><span class="m-sw__t">Rental Order</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar">
+                <span class="m-pan__ti">Rental order</span>
+                <span class="m-pan__ic m-pan__ic--44">🔍</span>
+                <span class="m-pan__ic m-pan__ic--44">⋯</span>
+                <span class="m-pan__ic m-pan__ic--44 m-pan__ic--pri">＋</span>
+              </div>
+              <div class="m-pan__rows"></div>
+            </div>
+          </div>
+          <div class="m-sheet">
+            <div class="m-sheet__p">
+              <div class="m-sheet__hd">
+                <div>
+                  <div class="m-sheet__ti">Martin MAC Aura XB</div>
+                  <div class="m-sheet__sub">1 240 kr / day · 8 in the price list</div>
+                </div>
+                <span class="m-sheet__x">✕</span>
+              </div>
+              <div class="m-sheet__bd">
+                <div class="insp__box">
+                  <div class="insp__lg"><span class="lbl">From the plan</span><span style="margin-left:auto;" class="mono">audio 0 · lighting 6</span></div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                  <div class="m-fld"><span class="lbl">Manual audio</span><span class="fld fld--md">0</span></div>
+                  <div class="m-fld"><span class="lbl">Manual light</span><span class="fld fld--md">2</span></div>
+                </div>
+                <div class="m-fld"><span class="lbl">Note</span><span class="fld fld--md fld--ph">two spares for the support act</span></div>
+              </div>
+              <div class="m-sheet__ft">
+                <span class="btn btn--primary btn--md" style="flex: 1; justify-content: center;">Save</span>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Dashboard</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▦</span>Events</div>
+            <div class="m-nav__i"><span class="m-nav__g">▣</span>Inventories</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+        </div>
+        <div class="phone__cap">a rental line · the two <span class="k">width="count"</span> fields side by side, because a manual audio and a manual light count are one idea (§7d). No delete: a plan-derived line is not deletable on the desk either.</div>
+      </div>
+    </div>
+
+    <div class="prose">
+      <h3>Stage Plots — the one desk job, said in one sentence</h3>
+      <p>
+        The plot's phone branch already draws the canvas, pans and zooms it and switches
+        Top / Front / Side. What it does today is print <b><span class="k">Viewer only</span></b>
+        in the corner of its toolbar — which is the M4 lie in three words, because it tells the
+        event's owner that they are a viewer. §7g gives both the replacement and its wording:
+      </p>
+      <blockquote class="ask">
+        <i>“Placing elements is a desk job — open this plot on a computer. Tap anything on it to
+        read or edit what it is.”</i>
+      </blockquote>
+      <p>
+        It is not a banner, not a dialog and not a disabled control. It sits where the editor
+        would be — under the bar, above the canvas — and <b>the read view above it is complete
+        for everyone</b>. And the second half of the sentence has to be true, which is the work:
+        tapping an element opens <span class="k">StagePlotInspector</span>'s contents in a sheet,
+        editing per field, exactly as the rail does on a desk. Placement, drag and the palette
+        stay off.
+      </p>
+      <p>
+        A viewer sees the same canvas and the same sheet with its fields disabled. The sentence
+        does not change for them, because it is about the surface and not about the person —
+        which is the whole of P9 in one line of copy.
+      </p>
+    </div>
+
+    <div class="phones">
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__av"></div>
+          </div>
+          <div class="m-bd">
+            <div class="m-sw"><span class="m-sw__t">Stage Plots</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar">
+                <span class="m-pan__ti">Stage Plots</span>
+                <span class="m-pick" style="max-width: 96px;"><b>Main</b><s>▾</s></span>
+                <span class="m-pan__ic m-pan__ic--44">⋯</span>
+                <span class="m-seg" style="margin-top: 8px;"><span class="on">Top</span><span>Front</span><span>Side</span></span>
+                <span style="flex: 1;"></span>
+                <span class="m-pan__ic m-pan__ic--44" style="margin-top: 8px;">−</span>
+                <span class="mono" style="margin-top: 8px; font-size: 12px; color: #d4d4d8; min-width: 40px; text-align: center;">85%</span>
+                <span class="m-pan__ic m-pan__ic--44" style="margin-top: 8px;">＋</span>
+              </div>
+              <div class="m-said">
+                <span class="m-said__i">▤</span>
+                <span class="m-said__t"><b>Placing elements is a desk job</b> — open this plot on a computer. Tap anything on it to read or edit what it is.</span>
+              </div>
+              <div class="m-plot">
+                <div class="m-plot__g"></div>
+                <div class="m-el m-el--truss" style="left: 26px; top: 22px; width: 300px; height: 20px;">FOH truss</div>
+                <div class="m-el" style="left: 40px; top: 70px; width: 74px; height: 42px;">Drums</div>
+                <div class="m-el m-el--sel" style="left: 140px; top: 74px; width: 66px; height: 36px;">Riser B</div>
+                <div class="m-el" style="left: 232px; top: 70px; width: 84px; height: 42px;">Keys</div>
+                <div class="m-el" style="left: 62px; top: 138px; width: 52px; height: 30px;">Vox 1</div>
+                <div class="m-el" style="left: 168px; top: 142px; width: 52px; height: 30px;">Vox 2</div>
+                <div class="m-el" style="left: 254px; top: 138px; width: 60px; height: 30px;">Bass</div>
+              </div>
+              <div class="m-strip">
+                <span class="pill t-ok">2 plots</span>
+                <span class="mono">18 elements</span>
+                <span class="mono" style="color:#a1a1aa;">3 trusses</span>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Dashboard</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▦</span>Events</div>
+            <div class="m-nav__i"><span class="m-nav__g">▣</span>Inventories</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+        </div>
+        <div class="phone__cap">the plot · the bar <b>wraps to two rows</b>, which is what §7b says it does before it scrolls. The plot picker and the view are selectors and stay visible; zoom is 44 px per §7f.</div>
+      </div>
+
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__av"></div>
+          </div>
+          <div class="m-bd" style="filter: brightness(0.75);">
+            <div class="m-sw"><span class="m-sw__t">Stage Plots</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar">
+                <span class="m-pan__ti">Stage Plots</span>
+                <span class="m-pick" style="max-width: 96px;"><b>Main</b><s>▾</s></span>
+                <span class="m-pan__ic m-pan__ic--44">⋯</span>
+              </div>
+              <div class="m-plot"></div>
+            </div>
+          </div>
+          <div class="m-sheet">
+            <div class="m-sheet__p">
+              <div class="m-sheet__hd">
+                <div>
+                  <span class="lbl">Element</span>
+                  <div class="m-sheet__ti" style="margin-top: 2px;">Riser B</div>
+                </div>
+                <span class="m-sheet__x">✕</span>
+              </div>
+              <div class="m-sheet__bd">
+                <div class="m-insp"><span class="lbl">Name</span><span class="fld fld--md">Riser B</span></div>
+                <div class="m-insp"><span class="lbl">Kind</span><span class="fld fld--md fld--sel">Riser</span></div>
+                <div class="m-insp"><span class="lbl">Layer</span><span class="fld fld--md fld--sel">Band</span></div>
+                <div class="m-insp"><span class="lbl">Fixture</span><span class="fld fld--md fld--sel">— none —</span></div>
+                <div class="m-insp"><span class="lbl">Notes</span><span class="fld fld--md fld--ph">2 × 1 m, 40 cm</span></div>
+                <div class="insp__box">
+                  <span style="font-size: 12px; color: #71717a;">Position and size are set on a computer. Everything above saves as you change it.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Dashboard</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▦</span>Events</div>
+            <div class="m-nav__i"><span class="m-nav__g">▣</span>Inventories</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+        </div>
+        <div class="phone__cap">tap an element · <span class="k">StagePlotInspector</span>'s own fields, committing per field — so <b>no footer and no Save</b> (§7d). The sheet takes the scrim: you are reading the form instead of the plot, not against it.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       06 · SIGNAL FLOW
+       ================================================================ -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">06 · signal flow</span>
+      <h2>The fifth status rail, and the tenth list</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        6b converted four status rails into the shared <span class="k">StatusStrip</span> shell
+        and wrote <i>four</i> into both <code>audit.md</code> and <code>components.md</code> §5.
+        There are five.
+      </p>
+    </div>
+
+    <div class="code">frontend/src/components/event/SignalFlowStatusRail.tsx:37
+  &lt;div className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 <b>border-t px-3 py-2</b>
+      <b>text-[11px] text-zinc-400</b> print:hidden ${
+      gaps &gt; 0 ? '<b>border-amber-500/40 bg-amber-500/[0.05]</b>' : '<b>border-zinc-800 bg-zinc-950/60</b>'
+  }`}&gt;
+  …
+  &lt;Button <b>size="xs" variant="ghost" className="h-6 px-2 text-[11px]"</b>&gt;</div>
+
+    <div class="prose">
+      <p>
+        That is <span class="k">StatusStrip</span>'s desktop return, re-typed: the same base
+        classes, the same two tints, the same deliberately-below-<span class="k">xs</span>
+        control. It was missed for a reason worth recording — <b>it is the one rail whose surface
+        was not one of 6b's nine lists.</b> Signal Flow's phone branch is a
+        <span class="k">space-y-1.5</span> stack of <span class="k">rounded-md border
+        bg-zinc-900</span> cards, so it never came up when nine call sites were rewritten, and
+        the rail that closes it never came up either. <span class="k">M1</span> is still standing
+        on exactly one surface, and it is the surface nobody counted.
+      </p>
+      <p>
+        <b>The rows are not <span class="k">CondensedListRow</span>s</b>, and that is the
+        interesting part. A flow row's subject is the <i>chain</i> — source → stagebox → multi →
+        desk — and a chain is a drawing, not a subtitle: compressing it into two truncated lines
+        would throw away the one thing the surface exists to show.
+        <span class="k">MobilePanel</span> decides nothing about its rows, which is what makes
+        this a two-line change rather than an argument, and
+        <span class="k">ChainLine</span> already wraps.
+      </p>
+      <p>
+        Inputs and outputs stay two runs under <span class="k">MicroLabel</span> headings, which
+        is <code>tokens.md</code> §7's <i>“heading over a run of rows”</i> and the same shape the
+        desktop's two <span class="k">FlowBand</span>s have.
+      </p>
+    </div>
+
+    <div class="phones">
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">⌁</span>Event Detail</div>
+            <div class="m-hd__av"></div>
+          </div>
+          <div class="m-bd">
+            <div class="m-sw"><span class="m-sw__t">Signal Flow</span><span style="color: #a1a1aa;">▾</span></div>
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar">
+                <span class="m-pan__ti">Signal flow</span>
+                <span class="m-pan__ic m-pan__ic--44">🔍</span>
+                <span class="m-pan__ic m-pan__ic--44">⎙</span>
+              </div>
+              <div class="m-pan__rows">
+                <div class="m-hdr"><b>Inputs</b><i></i><span class="mono" style="font-size:10px;color:#71717a;">16</span></div>
+                <div class="m-row" style="align-items: flex-start;">
+                  <span class="m-row__e" style="background: #38bdf8;"></span>
+                  <div class="m-row__c" style="padding-top: 7px; padding-bottom: 7px;">
+                    <div class="m-row__t"><span class="m-row__n" style="font-size: 12px;">1</span>Kick In</div>
+                    <div class="m-row__s" style="white-space: normal; font-family: var(--mono); font-size: 11px; color: #a1a1aa;">Beta 91A → SB1 in 1 → Multi A → SD10 ch 1</div>
+                  </div>
+                </div>
+                <div class="m-row" style="align-items: flex-start;">
+                  <span class="m-row__e" style="background: #38bdf8;"></span>
+                  <div class="m-row__c" style="padding-top: 7px; padding-bottom: 7px;">
+                    <div class="m-row__t"><span class="m-row__n" style="font-size: 12px;">6</span>OH L/R</div>
+                    <div class="m-row__s" style="white-space: normal; font-family: var(--mono); font-size: 11px; color: #a1a1aa;">KM184 → SB1 in 6–7 → Multi A → SD10 ch 6–7</div>
+                  </div>
+                </div>
+                <div class="m-row" style="align-items: flex-start;">
+                  <span class="m-row__e" style="background: #a78bfa;"></span>
+                  <div class="m-row__c" style="padding-top: 7px; padding-bottom: 7px;">
+                    <div class="m-row__t"><span class="m-row__n" style="font-size: 12px;">9</span>Bass DI</div>
+                    <div class="m-row__s" style="white-space: normal; font-family: var(--mono); font-size: 11px; color: #fca5a5;">no source connected</div>
+                  </div>
+                </div>
+                <div class="m-hdr"><b>Outputs</b><i></i><span class="mono" style="font-size:10px;color:#71717a;">8</span></div>
+                <div class="m-row" style="align-items: flex-start;">
+                  <span class="m-row__e" style="background: #34d399;"></span>
+                  <div class="m-row__c" style="padding-top: 7px; padding-bottom: 7px;">
+                    <div class="m-row__t"><span class="m-row__n" style="font-size: 12px;">1</span>Main L/R</div>
+                    <div class="m-row__s" style="white-space: normal; font-family: var(--mono); font-size: 11px; color: #a1a1aa;">SD10 out 1–2 → SB1 out 1–2 → PA drive</div>
+                  </div>
+                </div>
+                <div class="m-row" style="align-items: flex-start;">
+                  <span class="m-row__e" style="background: #34d399;"></span>
+                  <div class="m-row__c" style="padding-top: 7px; padding-bottom: 7px;">
+                    <div class="m-row__t"><span class="m-row__n" style="font-size: 12px;">3</span>Mon 1</div>
+                    <div class="m-row__s" style="white-space: normal; font-family: var(--mono); font-size: 11px; color: #a1a1aa;">SD10 out 3 → SB2 out 1 → Wedge SL</div>
+                  </div>
+                </div>
+              </div>
+              <div class="m-strip m-strip--on">
+                <span class="pill t-warn">1 gap</span>
+                <span class="mono">16 in</span>
+                <span class="mono">8 out</span>
+                <span style="color: #fcd34d;">ch 9 Bass DI has no source</span>
+                <span class="m-strip__go">Show 1 ›</span>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Dashboard</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▦</span>Events</div>
+            <div class="m-nav__i"><span class="m-nav__g">▣</span>Inventories</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+        </div>
+        <div class="phone__cap">proposed · the chain keeps its own line and wraps rather than truncating — the one row in the app that does, because it <b>is</b> the content. Print is the only overflow action, so it is its own target.</div>
+      </div>
+    </div>
+  </section>
+  <!-- ================================================================
+       07 · THE SHELL, AND PRINT
+       ================================================================ -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">07 · the shell</span>
+      <h2>The column 6b built and took out again</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        6b's own documentation names this as 6c's, in three places, and gives the reason it
+        failed the first time. A panel that <b>fills the body</b> — scrolling only its rows, so
+        the bar and the strip stay on screen at every position — is what a strip is for, and it
+        needs the shell to be a fixed-height column. A column makes every child a flex item, and
+        <b>a flex item whose root is a scroll container has an automatic minimum size of
+        zero</b>: the three phone surfaces that were not panels were compressed below their
+        content and clipped, with no scrollbar anywhere.
+      </p>
+      <p>
+        Those three surfaces are <b>Overview</b> (§01), <b>event Settings</b> and
+        <b><span class="k">/my-defaults</span></b> (§02, one component, two surfaces). After this
+        slice, <b>every signed-in phone surface is a panel or a canvas</b> — Dashboard, Events,
+        the two Inventories surfaces and the nine sections — so the shell can become the column
+        it wanted to be, with <span class="k">min-h-0</span> on the one child that scrolls.
+      </p>
+    </div>
+
+    <div class="stacks">
+      <div class="stacks__c">
+        <div class="stacks__t">today · <b>the page scrolls</b></div>
+        <div class="stack" style="height: 260px;">
+          <div class="stack__b stack__b--chrome" style="height: 40px;">header <span>h-14, sticky</span></div>
+          <div class="stack__b stack__b--rows" style="flex: 1;">main · px-4 py-4 <span>grows</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 40px;">nav <span>fixed, overlaid</span></div>
+        </div>
+        <div class="rulel" style="max-width: 190px; text-transform: none; letter-spacing: 0; font-family: var(--sans); font-size: 13px; line-height: 1.5;">
+          The body reserves the nav's height as padding. The strip is at the bottom of the
+          content, so on a 40-row list it is <u>six screens down</u>.
+        </div>
+      </div>
+      <div class="stacks__c">
+        <div class="stacks__t">proposed · <b>the rows scroll</b></div>
+        <div class="stack" style="height: 260px;">
+          <div class="stack__b stack__b--chrome" style="height: 40px;">header <span>h-14, flex-none</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 34px;">switcher <span>flex-none</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 30px;">panel bar <span>flex-none</span></div>
+          <div class="stack__b stack__b--rows" style="flex: 1;">rows <span>flex-1 min-h-0</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 30px;">strip <span>flex-none</span></div>
+          <div class="stack__b stack__b--chrome" style="height: 40px;">nav <span>flex-none + inset</span></div>
+        </div>
+        <div class="rulel" style="max-width: 190px; text-transform: none; letter-spacing: 0; font-family: var(--sans); font-size: 13px; line-height: 1.5;">
+          The strip is on screen at every scroll position, which is what a strip is for. The nav
+          becomes a sibling in the column, so the body's derived bottom padding goes away and the
+          safe-area inset stays on the nav.
+        </div>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>
+        <b>The failure mode is a test, not a promise.</b> The zero-minimum-size trap is invisible
+        until a surface with tall content meets it, which is exactly how it survived a whole
+        slice. So the assertion is on the shell: every scrolling child in the column carries
+        <span class="k">min-h-0</span>, and there is a render test that puts a long list in the
+        shell and asserts the rows region is the one thing that scrolls.
+      </p>
+
+      <h3>Print — M11</h3>
+      <p>
+        The fix is one line per tab and it is not a design question:
+        <span class="k">InputPatchSheet</span>, the outputs sheet and
+        <span class="k">LightingSheet</span> render in the phone branch exactly as they do in the
+        desktop return, as siblings of the <span class="k">print:hidden</span> wrapper rather
+        than inside it. Signal Flow already prints correctly — its phone branch is inside
+        <span class="k">PrintSheet</span> — and it is the only one that does, which is a decent
+        argument that the other three were an oversight rather than a decision.
+      </p>
+      <p>
+        The <b>Print</b> action in the overflow is the second half. §7h's
+        <i>“every phone surface reaches the export it has”</i> is not satisfied by a sheet that
+        is only reachable through a browser's share menu, and the desktop has had a
+        <span class="k">PrintButton</span> in the bar since Wave 3.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       08 · WHAT CHANGES
+       ================================================================ -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">08 · what changes</span>
+      <h2>Frontend only, and no desktop composition is edited</h2>
+    </div>
+
+    <div class="files">
+      <div class="file"><span class="file__s file__s--new">+</span><span class="file__n">components/mobile/MobileOverviewPanel.tsx</span><span class="file__w">Overview's phone composition — figures, ribbons, readiness rows. Derives nothing: <span class="k">eventSummary</span> already computes both halves of every row.</span></div>
+      <div class="file"><span class="file__s file__s--new">+</span><span class="file__n">components/mobile/MobileEquipmentEditSheet.tsx</span><span class="file__w">Quantity and note for an owned line; a rented line points at the rental order, as the desktop row does.</span></div>
+      <div class="file"><span class="file__s file__s--new">+</span><span class="file__n">components/mobile/MobileRentalEditSheet.tsx</span><span class="file__w">Manual audio, manual light, note.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">components/ui/MobilePanel.tsx</span><span class="file__w"><b>+ <span class="k">overflow</span></b>, and <span class="k">flex-1 min-h-0</span> on the rows region. One action renders as its own target; two or more open a sheet.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">components/event/OverviewTab.tsx</span><span class="file__w">A phone branch. The desktop return is untouched.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">components/VocabularyPanel.tsx</span><span class="file__w">A phone branch — the rail becomes a bar selector. Serves event Settings <b>and</b> <span class="k">/my-defaults</span>.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">components/event/SignalFlowStatusRail.tsx</span><span class="file__w"><b>F1</b> — onto the <span class="k">StatusStrip</span> shell. Its desktop return must come out byte-identical.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">components/event/SignalFlowTab.tsx</span><span class="file__w">Cards → panel, two runs, the strip. <span class="k">InputFlowCard</span>/<span class="k">OutputFlowCard</span> become rows.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">components/event/AudioInputsTab.tsx</span><span class="file__w">Drawers above the branch (M5), overflow, print sheet (M11).</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">components/event/AudioOutputsTab.tsx</span><span class="file__w">Same. Rig only — it has no Buses drawer.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">components/event/LightingTab.tsx</span><span class="file__w">Same, with Universes.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">components/event/EquipmentTab.tsx</span><span class="file__w"><b>M4</b> — <span class="k">editable = !readOnly</span>, add and edit on the phone.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">components/event/RentalTab.tsx</span><span class="file__w"><b>M4</b> — same, plus the three exports in the overflow.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">components/event/StagePlotTab.tsx</span><span class="file__w"><b>M4</b> — the sentence replaces <span class="k">Viewer only</span>; tap opens the inspector sheet; placement stays off by gesture, not by role.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">components/event/StagePlotInspector.tsx</span><span class="file__w">Its contents renderable without the rail frame — the split Wave 2 already made once for this component.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">components/mobile/MobileEntityList.tsx</span><span class="file__w"><b>M4</b> — the row is tappable for every role. A viewer gets a read-only sheet, not a dead row.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">components/Layout.tsx · pages/EventDetail.tsx · components/mobile/MobileNav.tsx</span><span class="file__w">The fixed-height column. The nav stops being <span class="k">fixed</span> and the body's derived bottom padding goes away.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">types/mobile.ts</span><span class="file__w"><b>F3</b> — <span class="k">MOBILE_SECTION_CAPABILITIES</span> → <span class="k">MOBILE_SECTIONS</span>.</span></div>
+      <div class="file"><span class="file__s">~</span><span class="file__n">design/audit.md · patterns.md · components.md · tokens.md</span><span class="file__w">M4, M5, M9, M11 struck; <i>four rails</i> → <i>five</i>; §7b's overflow gains the rule; §7b's <i>“the page scrolls, not the panel”</i> is finally not true any more.</span></div>
+    </div>
+
+    <div class="prose">
+      <p>
+        <b>No desktop composition is edited.</b> Two shared components are touched —
+        <span class="k">SignalFlowStatusRail</span> and <span class="k">StagePlotInspector</span>
+        — and both are handled the way Wave 2 handled <span class="k">InspectorRail</span>: the
+        desktop return is asserted byte-identical by rendering every state before and after and
+        diffing the markup, which is the check 6b used on four rails and which caught nothing
+        only because it was done.
+      </p>
+      <p>
+        <b>Frontend only</b>, asserted rather than assumed: <span class="k">git diff --
+        backend/ frontend/src/api/</span> must be empty.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       09 · NOT IN THIS SLICE
+       ================================================================ -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">09 · not this slice</span>
+      <h2>What 6c deliberately does not do</h2>
+    </div>
+
+    <div class="prose">
+      <ul>
+        <li>
+          <b>The Flow canvas stays desktop-only.</b> That is <span class="k">M6</span> and it is
+          6d, the last phase and the only one that is a new capability rather than a conversion.
+          6c is what settles the two things it needs first: what a phone bar is when it has more
+          controls than room (§03), and what an inspector-in-a-sheet is (§05, on the plot).
+        </li>
+        <li>
+          <b>Adding a plot element from a phone.</b> Placement is the one desk job, and creating
+          an element is placing one.
+        </li>
+        <li>
+          <b>No new endpoint, no migration, no field.</b> Every number on Overview's phone form
+          is already computed by <span class="k">lib/eventSummary</span> for the desktop
+          composition.
+        </li>
+        <li>
+          <b>The signed-out start page stays exempt</b> — <code>audit.md</code> Part 2b, settled
+          in Wave 5.
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       10 · QUESTIONS
+       ================================================================ -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">10 · questions</span>
+      <h2>Four things to settle before the spec is written</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <b>Q1 · Do Equipment and Rental gain editing on the phone?</b> This is the one place two
+        requirements conflict. Slice 21 FR-012 says both are <i>“a read-only lookup on mobile for
+        every role”</i>, and both files still carry that sentence.
+        <code>patterns.md</code> §7g says the opposite in a list that names them —
+        <i>“equipment lines, rental quantities”</i> — and names exactly one desk job, which is
+        neither of them. §05 draws the editing form on the assumption that §7g wins, because it
+        is the newer decision and the more specific one. <b>The alternative</b> is to keep both
+        read-only, close M4 with the §7g sentence alone (<i>“Editing the order is a desk job”</i>),
+        and lose nothing else in this slice — the drawn sheets are the only work that would come
+        out.
+      </p>
+      <p>
+        <b>Q2 · Overview's countdown, spanning two columns.</b> §01 makes <i>days to load-in</i>
+        a full-width tile at 34 px, and the other four a 2×2 grid at 26 px. The alternative is
+        five equal tiles with one empty cell, which is quieter and says nothing about which
+        figure matters. This is the one place the composition takes a position rather than
+        following a rule, so it is worth a look before it is built.
+      </p>
+      <p>
+        <b>Q3 · A flow row wraps.</b> §7c says both lines of a phone row truncate, and it gives
+        the reason: a row that grows to fit its content breaks the pitch the list is read at.
+        §06 asks for one exception — the signal chain, which is the content rather than a
+        summary of it, and which would be worthless truncated to
+        <i>“Beta 91A → SB1 in 1 → Mu…”</i>. If the exception is not wanted, the fallback is the
+        chain on one line with the middle hops elided (<i>“Beta 91A → … → SD10 ch 1”</i>), which
+        keeps the pitch and loses the routing.
+      </p>
+      <p>
+        <b>Q4 · Print in the overflow.</b> §07 adds a Print action to four surfaces. M11 strictly
+        only requires that the print <i>sheet</i> render in the phone branch — a phone can reach
+        it through the browser's own share menu. The action is one row in a sheet and it matches
+        the desktop bar, but it is the one control in this slice that no finding asked for.
+      </p>
+    </div>
+  </section>
+
+  <footer style="margin-top: 54px; padding-top: 22px; border-top: 1px solid var(--rule); font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint);">
+    PatchPlanner · wave 6c · the nine surfaces · revision 1 · for approval
+  </footer>
+</div>
