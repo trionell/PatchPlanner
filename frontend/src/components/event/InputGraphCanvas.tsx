@@ -532,21 +532,34 @@ export function InputGraphCanvas({
     clamped away and the graph would slide out from under the fingers. That is precisely
     the failure `usePinchZoom` exists to prevent, one layer up from where it was fixed.
   */
-  const pendingAnchor = useRef<{ logicalX: number; logicalY: number; pointX: number; pointY: number } | null>(null)
+  const pendingAnchor = useRef<{ target: number; logicalX: number; logicalY: number; pointX: number; pointY: number } | null>(null)
   const onPinch = useCallback(
     (next: number, anchor: { logicalX: number; logicalY: number; pointX: number; pointY: number }) => {
-      pendingAnchor.current = anchor
+      pendingAnchor.current = { ...anchor, target: next }
       onZoomChange?.(next)
     },
     [onZoomChange],
   )
   useLayoutEffect(() => {
     const el = wrapperRef.current
-    const anchor = pendingAnchor.current
-    if (!el || !anchor) return
+    const pending = pendingAnchor.current
+    if (!el || !pending) return
+    /*
+      **The scale this anchor was computed for**, and it is checked rather than assumed.
+
+      A pinch emits on every pointer move with no equality test, so the moment it reaches
+      either end of `[fit, 1]` — which is the normal way a pinch finishes, over a range
+      this short — `setZoom` is a no-op, React bails, and this effect never runs. The
+      anchor would then sit in the ref until the *next* zoom change from any source, and
+      a tap on the bar's `+` would re-scroll the window to a midpoint from a gesture that
+      finished minutes ago.
+
+      Cleared either way: a stale anchor is dropped rather than applied late.
+    */
     pendingAnchor.current = null
-    el.scrollLeft = anchor.logicalX * zoom - anchor.pointX
-    el.scrollTop = anchor.logicalY * zoom - anchor.pointY
+    if (pending.target !== zoom) return
+    el.scrollLeft = pending.logicalX * zoom - pending.pointX
+    el.scrollTop = pending.logicalY * zoom - pending.pointY
   }, [zoom])
   usePinchZoom(wrapperRef, { enabled: isMobile, zoom, min: fit, max: 1, onZoom: onPinch })
 
@@ -875,6 +888,12 @@ export function InputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
+                    /* Gated on `spatial` alone; the role is handled inside
+                       `startNodeDrag`. The outputs canvas gates on both, in a
+                       `dragHandle` helper, because it already passed `undefined` for a
+                       read-only role at the call site — so the two express one rule in
+                       two shapes. Each preserves its own desktop markup, which is why
+                       neither was made to match the other. */
                     onDragStart={spatial ? (e) => startNodeDrag('console_local', desk.id, e) : undefined}
                     selected={selection?.kind === 'console_local' && selection.id === desk.id}
                     onSelect={onTap(() => onSelectionChange({ kind: 'console_local', id: desk.id }))}
