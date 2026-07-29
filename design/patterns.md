@@ -415,10 +415,31 @@ P1 does not have a width condition. A phone surface is one bordered thing:
 └─────────────────────────────┘
 ```
 
-- **The bar keeps §1's order** — title, `flex-1`, search, the surface's own controls,
-  primary action — and wraps rather than scrolls. What does not fit at 375 px goes into
-  the overflow the same way the nav's fourth slot works; it does not silently vanish.
-  Every control in it is 44 px ([tokens.md](tokens.md) §7).
+- **The bar keeps §1's order** — title, `flex-1`, the surface's own selector, search, the
+  overflow, primary action — and wraps rather than scrolls. Every control in it is 44 px
+  ([tokens.md](tokens.md) §7).
+
+- **The bar has 317 px**, and that number decides the rest: 375, less the body's `px-4` on
+  both sides, less the panel's two borders, less the bar's own `px-3`. A title and three
+  targets is 246 px; a title and five is 350.
+
+- **So the bar has an overflow, and what goes in it is a rule rather than a judgement.**
+  Specified here in Wave 6b, built in 6c, when five surfaces acquired controls at once:
+
+  > A control that changes **what you are looking at** stays in the bar.
+  > A control that **does a thing and is finished** goes in the overflow.
+
+  It is not a size test, so it cannot drift when a title changes, and it settles all nine
+  surfaces without any of them measuring anything. Visible: a category, a vocabulary, a
+  plot, a view, 6d's `Sheet │ Flow`. In the overflow: Open Rig, Buses, Universes, Print,
+  the three rental exports.
+
+  The overflow is a `⋯` opening a sheet of 52 px labelled rows — `SectionSwitcher`'s shape,
+  because the phone has one list-of-destinations idiom and it already had one. **One action
+  does not earn a menu**: an overflow holding exactly one control renders as that control's
+  own 44 px target, so Signal Flow's Print is one tap and Audio Inputs' three are two. The
+  panel decides that, never a caller. An action a role may not perform is **absent**, and
+  which those are is the desktop's existing answer, not a new one.
 - **Search is a target, not a field.** It opens the bar's second row, which is what
   *wraps to two rows* means. A field that is always open costs 44 px on every screen to
   serve something done on some of them, and it is what leaves a 375 px bar with room for
@@ -477,6 +498,12 @@ list rather than eight objects, and it is also what pays for the type: the card'
 2 px of border and 4 px of gap are the difference between a 48 px pitch at 13/11 and a
 45 px pitch at 14/12. **Both lines truncate** — a row that grows to fit its content
 breaks the pitch the list is read at, which is the one thing a fixed row height is for.
+
+> **One stated exception, and it is a constraint rather than a licence.** The signal
+> chain wraps, because on Signal Flow the chain **is** the content rather than a summary
+> of it, and `Beta 91A → SB1 in 1 → Mu…` has lost the answer to the only question that
+> surface is ever asked. The reason is the test: a subtitle that *summarises* a row still
+> truncates. Wave 6c, and it is the only row in the application that grows.
 
 | | Carries |
 |---|---|

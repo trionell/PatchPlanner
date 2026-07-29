@@ -1,4 +1,4 @@
-export interface MobileSectionCapability {
+export interface MobileSection {
   section: 'overview' | 'audio-inputs' | 'audio-outputs' | 'lighting-rig' | 'stage-plots' | 'signal-flow' | 'equipment' | 'rentals' | 'settings'
   label: string
 }
@@ -17,10 +17,12 @@ export interface MobileSectionCapability {
  * phone form for yet is a sentence in the panel naming the reason
  * (patterns.md §7g). Neither is a fixed grade on a list of destinations.
  *
- * The constant keeps its name: a rename in the same commit as a deletion makes
- * the deletion harder to read.
+ * Slice 33 kept the *name* deliberately, so a rename would not be mixed into a
+ * deletion and make it harder to read. That reason expired: the deletion is
+ * several commits old and legible on its own, and Wave 6c is in this file for
+ * an unrelated reason (design/audit.md F3).
  */
-export const MOBILE_SECTION_CAPABILITIES: MobileSectionCapability[] = [
+export const MOBILE_SECTIONS: MobileSection[] = [
   { section: 'overview', label: 'Overview' },
   { section: 'audio-inputs', label: 'Audio Inputs' },
   { section: 'audio-outputs', label: 'Audio Outputs' },

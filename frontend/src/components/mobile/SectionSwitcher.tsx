@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { MOBILE_SECTION_CAPABILITIES, type MobileSectionCapability } from '../../types/mobile'
+import { MOBILE_SECTIONS, type MobileSection } from '../../types/mobile'
 import { cn } from '../../lib/utils'
 import { Sheet } from '../ui/Sheet'
 
@@ -25,11 +25,11 @@ export function SectionSwitcher({
   current,
   onSelect,
 }: {
-  current: MobileSectionCapability['section']
-  onSelect: (section: MobileSectionCapability['section']) => void
+  current: MobileSection['section']
+  onSelect: (section: MobileSection['section']) => void
 }) {
   const [open, setOpen] = useState(false)
-  const currentEntry = MOBILE_SECTION_CAPABILITIES.find((s) => s.section === current) ?? MOBILE_SECTION_CAPABILITIES[0]
+  const currentEntry = MOBILE_SECTIONS.find((s) => s.section === current) ?? MOBILE_SECTIONS[0]
 
   return (
     <>
@@ -43,7 +43,7 @@ export function SectionSwitcher({
       </button>
 
       <Sheet flush open={open} onClose={() => setOpen(false)} title="Sections">
-        {MOBILE_SECTION_CAPABILITIES.map((entry, index) => {
+        {MOBILE_SECTIONS.map((entry, index) => {
           const active = entry.section === current
           return (
             <button

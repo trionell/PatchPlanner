@@ -306,6 +306,10 @@ actually cares about, and stating both invites them to disagree.
 `CondensedListRow.test.tsx` asserts the height and the leading, so the next edit that
 reaches for `py-2.5` trips over a test rather than shipping.
 
+> **And one row grows.** Signal Flow's chain line wraps — see
+> [patterns.md](patterns.md) §7c — because there the chain is the content and not a
+> summary of it. It is the only one, and the reason is what makes it the only one.
+
 **Density on a phone comes from stacking, never from shrinking.** A sheet's twelve
 columns become a title and a subtitle joined by `·`, in that order of importance;
 what will not fit is dropped rather than set smaller. Shrinking type to fit a

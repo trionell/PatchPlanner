@@ -20,11 +20,11 @@ import { SectionSwitcher } from '../components/mobile/SectionSwitcher'
 import { Button } from '../components/ui/Button'
 import { Tab, TabList, TabPanel, Tabs } from '../components/ui/Tabs'
 import { DEFAULT_EVENT_TAB, useEventTab } from '../hooks/useEventTab'
-import { MOBILE_SECTION_CAPABILITIES, type MobileSectionCapability } from '../types/mobile'
+import { MOBILE_SECTIONS, type MobileSection } from '../types/mobile'
 
-const MOBILE_SECTIONS = MOBILE_SECTION_CAPABILITIES.map((entry) => entry.section)
+const SECTION_IDS = MOBILE_SECTIONS.map((entry) => entry.section)
 
-function renderSection(section: MobileSectionCapability['section'], eventId: number, readOnly: boolean) {
+function renderSection(section: MobileSection['section'], eventId: number, readOnly: boolean) {
   switch (section) {
     case 'overview':
       return <OverviewTab eventId={eventId} readOnly={readOnly} />
@@ -68,10 +68,10 @@ export function EventDetailPage() {
   // is the same idea and lives in `useEventTab`; the two params are separate
   // because the phone's section list is shorter than the tab strip.
   const sectionParam = searchParams.get('section')
-  const currentSection = (MOBILE_SECTIONS as string[]).includes(sectionParam ?? '')
-    ? (sectionParam as MobileSectionCapability['section'])
+  const currentSection = (SECTION_IDS as string[]).includes(sectionParam ?? '')
+    ? (sectionParam as MobileSection['section'])
     : 'overview'
-  const selectSection = (section: MobileSectionCapability['section']) => {
+  const selectSection = (section: MobileSection['section']) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev)
       next.set('section', section)
