@@ -1,6 +1,49 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Search, X } from 'lucide-react'
+import { MoreHorizontal, Search, X } from 'lucide-react'
 import { Input } from './Input'
+import { Sheet } from './Sheet'
+
+/**
+ * One entry in the bar's overflow.
+ *
+ * There is no `disabled` and no `hidden`, deliberately: a role that may not perform an
+ * action gets no entry, which is P7 and is how `primaryAction` already works. A control
+ * that does nothing is a control that lies.
+ */
+export interface PanelAction {
+  /** What the row says. Sentence case, an active verb: "Open Rig", "Print patch sheet". */
+  label: string
+  /** Drawn, never a target — the row is the target. */
+  icon?: ReactNode
+  /** One value the desktop's own control already shows: a count, a file kind. */
+  hint?: string
+  onClick: () => void
+}
+
+/**
+ * One row of the overflow's sheet.
+ *
+ * Exported only so its geometry can be pinned: `ui/Sheet` renders nothing while closed,
+ * and a 52px minimum that no test can reach is exactly the kind of value this project
+ * has already lost twice (audit.md M2, and Slice 34's F3). It has one caller, below.
+ */
+export function PanelActionRow({ action, onDone }: { action: PanelAction; onDone: () => void }) {
+  return (
+    <button
+      className="flex min-h-[52px] w-full items-center gap-3 border-b border-zinc-800/60 px-3 text-left last:border-b-0"
+      onClick={() => {
+        onDone()
+        action.onClick()
+      }}
+      type="button"
+    >
+      {/* Drawn, not pressed: the row is the target. */}
+      <span className="flex w-5 flex-none justify-center text-zinc-400">{action.icon}</span>
+      <span className="min-w-0 flex-1 truncate text-sm text-zinc-100">{action.label}</span>
+      {action.hint && <span className="flex-none text-xs text-zinc-500">{action.hint}</span>}
+    </button>
+  )
+}
 
 interface MobilePanelProps {
   /** The surface's name. Repeats the section above it, deliberately (patterns.md §1). */
@@ -10,12 +53,31 @@ interface MobilePanelProps {
   onSearch?: (value: string) => void
   searchPlaceholder?: string
   /**
-   * Surface-specific bar controls, between the flexible gap and the primary action:
-   * Print, the rental exports, a category filter, and — from 6d — the Sheet | Flow
-   * toggle. A node rather than a prop each, so this component never grows one per
-   * surface (research.md R1).
+   * Bar controls that change **what you are looking at** — a category, a vocabulary, a
+   * plot, a view. Visible, between the flexible gap and the search target.
+   *
+   * A node rather than a prop each, so this component never grows one per surface
+   * (Slice 34 research R1). It stays a node because a selector's shape is the surface's
+   * own business: Inventories draws a filter icon with a count, Settings draws a
+   * truncating name, Stage Plots draws a three-way segment.
    */
   actions?: ReactNode
+  /**
+   * Bar controls that **do a thing and are finished** — Open Rig, Print, an export.
+   *
+   * The other half of the rule `actions` states, and the opposite call about typing:
+   * a **typed list**, because the sheet these open is always the same shape and six
+   * callers each building it is how two of them end up different (Slice 35 research R1).
+   *
+   * The panel renders them: nothing at all when empty, the action's own 44px target
+   * when there is exactly one, and a `⋯` opening a sheet when there are more. A single
+   * control does not earn a menu, and no caller decides which case it is in.
+   *
+   * `patterns.md` §7b specified this in Wave 6b and nothing implemented it, because in
+   * 6b nothing overflowed. The bar has 317px at 375, and Audio Inputs' five targets
+   * need 350.
+   */
+  overflow?: PanelAction[]
   /** The one filled control on the surface, last in the bar. Absent for a role that cannot act (P7). */
   primaryAction?: ReactNode
   /** The surface's status rail. Absent where the desktop surface has none. */
@@ -39,7 +101,17 @@ interface MobilePanelProps {
  *
  * Two things every phone bar has are props, because at 375 px there is room for a title
  * and three targets and that scarcity is what would otherwise tempt nine call sites into
- * nine compromises. Everything only some surfaces have arrives through `actions`.
+ * nine compromises. Everything only some surfaces have arrives through `actions` or
+ * `overflow`, and which one is a rule rather than a judgement:
+ *
+ * > **A control that changes *what you are looking at* stays in the bar (`actions`).
+ * > A control that *does a thing and is finished* goes in the overflow.**
+ *
+ * It is not a size test, so it cannot drift as a title changes, and it settles all nine
+ * surfaces without any of them measuring anything: a category, a vocabulary, a plot and
+ * a view are visible; Open Rig, Print and three exports are not. The bar has **317 px**
+ * at 375 — 375 less the body's `px-4` twice, less this component's two borders, less the
+ * bar's own `px-3` — and Audio Inputs' five targets need 350 of it.
  *
  * **The page scrolls, not the panel.** This slice tried it the other way — a
  * fixed-height shell, so the bar and the strip stayed on screen at every scroll
@@ -56,13 +128,17 @@ export function MobilePanel({
   onSearch,
   searchPlaceholder,
   actions,
+  overflow,
   primaryAction,
   strip,
   children,
 }: MobilePanelProps) {
   const searchable = onSearch != null
   const [opened, setOpened] = useState(false)
+  const [overflowOpen, setOverflowOpen] = useState(false)
   const fieldRef = useRef<HTMLInputElement>(null)
+  const actionList = overflow ?? []
+  const lone = actionList.length === 1 ? actionList[0] : undefined
 
   /*
     Derived, not stored. A closed row and a non-empty query must not coexist, or the
@@ -104,6 +180,31 @@ export function MobilePanel({
           </button>
         )}
         {actions}
+        {/*
+          One action renders as itself; two or more collapse behind `⋯`. The rule is
+          here rather than at nine call sites because it is arithmetic about a 317px
+          bar, and a caller that has to decide it will decide it differently.
+        */}
+        {lone && (
+          <button
+            aria-label={lone.label}
+            className="flex h-11 w-11 items-center justify-center rounded-md border border-zinc-700 bg-zinc-900 text-zinc-400"
+            onClick={lone.onClick}
+            type="button"
+          >
+            {lone.icon ?? <MoreHorizontal className="h-4 w-4" />}
+          </button>
+        )}
+        {actionList.length > 1 && (
+          <button
+            aria-label="More actions"
+            className="flex h-11 w-11 items-center justify-center rounded-md border border-zinc-700 bg-zinc-900 text-zinc-400"
+            onClick={() => setOverflowOpen(true)}
+            type="button"
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </button>
+        )}
         {primaryAction}
       </div>
 
@@ -144,6 +245,20 @@ export function MobilePanel({
           footer has, one edge over. It is what closes the panel, so it cannot be part
           of what the panel contains. */}
       {strip}
+
+      {/*
+        The overflow's sheet is built here and never by a caller. It is a run of
+        labelled actions and nothing else, so it takes `SectionSwitcher`'s 52px row —
+        the phone has one list-of-destinations shape and this is the second thing to
+        use it.
+      */}
+      {actionList.length > 1 && (
+        <Sheet flush onClose={() => setOverflowOpen(false)} open={overflowOpen} title={title}>
+          {actionList.map((action) => (
+            <PanelActionRow action={action} key={action.label} onDone={() => setOverflowOpen(false)} />
+          ))}
+        </Sheet>
+      )}
     </div>
   )
 }
