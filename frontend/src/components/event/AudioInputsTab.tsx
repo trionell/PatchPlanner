@@ -16,7 +16,7 @@ import { MobileEntityList } from '../mobile/MobileEntityList'
 import { MobileSegmented } from '../mobile/MobileSegmented'
 import { InputPatchSheet } from '../print/InputPatchSheet'
 import { AudioPatchShell } from './AudioPatchShell'
-import { ZoomControl } from './graph/ZoomControl'
+import { ZoomControl, ZOOM_MAX, ZOOM_STEP } from './graph/ZoomControl'
 import type { InputFlowSelection } from './InputFlowInspector'
 import { BusesDrawer } from './BusesDrawer'
 import { ConsoleSection } from './ConsoleSection'
@@ -86,10 +86,24 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
   */
   const adoptFit = useCallback((next: number) => {
     setFit(next)
-    setZoom((current) => (current == null ? null : Math.min(1, Math.max(next, current))))
+    /*
+      Raises the floor; imposes no ceiling. The `Math.min(1, …)` that used to be here was
+      right while only a phone reported a fit — the phone's range ends at 1. Since Slice 37
+      the desk reports one too, and `fit` moves on every content change, so the ceiling
+      snapped a desk's 130 % back to 100 % the moment any node was dragged.
+    */
+    setZoom((current) => (current == null ? null : Math.max(next, current)))
   }, [])
 
   const stepZoom = (factor: number) => setZoom((current) => Math.min(1, Math.max(fitFloor, (current ?? fitFloor) * factor)))
+  /*
+    The desk's stepper. `ZoomControl`'s own additive stepping is bounded by `ZOOM_MIN`,
+    which is 0.5 — and a plane's fit can be below that, in which case pressing **−** from
+    the opening state would zoom *in*. So the floor is the fit, and the ceiling stays the
+    desk's own `ZOOM_MAX`.
+  */
+  const stepDeskZoom = (delta: number) =>
+    setZoom((current) => Math.min(ZOOM_MAX, Math.max(fitFloor, Math.round(((current ?? fitFloor) + delta) * 100) / 100)))
   // Open the first time, and then only for as long as it has not been read.
   const patchingIsADeskJob = useInfoNote({ id: 'flow-desk-job', defaultOpen: true })
   const [drawer, setDrawer] = useState<'rig' | 'buses' | null>(null)
@@ -260,6 +274,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
                 computer. Tap any box to read or edit what it is.
               </InfoPanel>
               <InputGraphCanvas
+                ready={audioQuery.isSuccess}
                 cableItems={cableItems}
                 cables={cables}
                 channels={channels}
@@ -406,7 +421,17 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
         onOpenRig={readOnly ? undefined : () => setDrawer('rig')}
         onOpenBuses={readOnly ? undefined : () => setDrawer('buses')}
         onAdd={readOnly ? undefined : addChannel}
-        toolbarExtras={view === 'flow' ? <ZoomControl zoom={zoomLevel} onZoomChange={setZoom} onReset={() => setZoom(null)} /> : undefined}
+        toolbarExtras={
+          view === 'flow' ? (
+            <ZoomControl
+              zoom={zoomLevel}
+              onZoomChange={setZoom}
+              onZoomIn={() => stepDeskZoom(ZOOM_STEP)}
+              onZoomOut={() => stepDeskZoom(-ZOOM_STEP)}
+              onReset={() => setZoom(null)}
+            />
+          ) : undefined
+        }
         drawers={
           <>
             <RigDrawer
@@ -467,6 +492,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
           />
         ) : (
           <InputGraphCanvas
+                ready={audioQuery.isSuccess}
             eventId={eventId}
             sources={sources}
             channels={channels}

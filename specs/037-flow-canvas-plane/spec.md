@@ -84,13 +84,19 @@ A planner arranges the rig on a desk, then opens the same event on a phone at th
   helpers `zoneChannelsX`, `zoneDestinationsX` and `zoneProcessingBounds` are removed from both
   canvases, and `canvasWidth` ceases to exist as a layout input.
 - **FR-003** `clampProcessingX` is removed. A node is rendered at the coordinates it holds.
-- **FR-004** Both rails are ordinary nodes rendered at their stored coordinates, draggable and
-  persisted like any other node, in both canvases. They remain *consolidated* — one node listing
-  every source / channel / bus, not a card each.
+- **FR-004** Every rail that **has** stored coordinates is rendered at them, draggable, and
+  persisted like any other node: the channel rail (inputs) and the bus rail (outputs). They remain
+  *consolidated* — one node listing every source / channel / bus, not a card each. The Sources rail
+  is the exception, and A1 says why.
 - **FR-005** Negative coordinates MUST be supported in both axes. A node may be placed above or to
   the left of every other node.
-- **FR-006** The plane's extent MUST be the bounding box of the nodes that exist, expanded by a
-  fixed margin, in all four directions.
+- **FR-006** The plane's extent MUST be the bounding box of the nodes that exist, expanded by
+  `PLANE_MARGIN` in all four directions — the origin supplies it on the left and top, the measured
+  extent on the right and bottom.
+- **FR-006a** The extent MUST be measured from an element containing **only the nodes**. Measuring
+  anything sized from the previous answer — the cable `<svg>`, or a block element inheriting the
+  scrolled box's width — makes the extent monotonically non-decreasing, so a node dragged back from
+  the far right leaves the space behind and *fit* keeps the smaller scale.
 - **FR-007** When the plane's origin changes, the scroll offset MUST be compensated in the same
   frame so that the content under the viewport does not appear to move.
 
@@ -105,6 +111,13 @@ A planner arranges the rig on a desk, then opens the same event on a phone at th
 - **FR-011** *Fit* MUST be computed from the content's bounding box. It remains a control, not the
   opening state, whenever a remembered view exists.
 - **FR-012** A surface with no remembered view opens at *fit*.
+- **FR-012a** A remembered view MUST NOT be restored, or overwritten, before the graph's own data
+  has arrived. The constant pseudo-nodes give the plane a real but tiny extent while a query is in
+  flight, so a restore against it is clamped and the debounced save then writes the clamped offset
+  back — decaying the remembered view toward the top-left on every cold load.
+- **FR-012b** A newly created desk MUST be given real rail coordinates. The schema defaults both
+  pairs to `0, 0`, which was invisible while the rails were pinned and puts the channel rail on top
+  of the Sources rail now that it is not.
 
 ### Functional — what is removed
 
@@ -138,14 +151,18 @@ A planner arranges the rig on a desk, then opens the same event on a phone at th
 - **SC-004** Opening an event on a 1200 px window and dragging one node leaves every other node's
   stored position untouched.
 - **SC-005** Returning to a surface on the same device restores the view within a pixel.
-- **SC-006** Grepping either canvas for `canvasWidth` returns nothing.
+- **SC-006** Grepping either canvas for `canvasWidth` returns only comment lines recording what the
+  term used to be, and no code.
+- **SC-007** Dragging the rightmost node left, or deleting it, shrinks the plane and raises *fit*.
 
 ## Assumptions
 
 - **A1** The `Sources` rail (inputs) and the two orphan pseudo-nodes (`channel:0`, `mixer:0`) have
-  no column to store an x in, so they keep a constant default of 24, 24 and are not persisted. Every
-  node that *has* storage becomes freely placeable. Giving them storage is a migration and a Go
-  change, which the approved scope excludes; recorded as a follow-up rather than done quietly.
+  no column to store an x in. The Sources rail therefore keeps a constant `24, 24` and **is not
+  draggable at all** — it is handed no `onDragStart`, rather than being given one that cannot be
+  saved. The two orphan nodes move for the session only, as they did before. Every node that *has*
+  storage becomes freely placeable. Giving these three storage is a migration and a Go change beyond
+  the approved scope; recorded as a follow-up rather than done quietly.
 - **A2** Device-local view storage means a new device opens at *fit*. Accepted at approval.
 - **A3** The migration's `down` cannot restore the overwritten values, because they were never
   meaningful. It is a documented no-op.

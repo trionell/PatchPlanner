@@ -96,6 +96,39 @@ func TestConsoleCRUD(t *testing.T) {
 		t.Errorf("desk's own node moved to %v/%v while dragging the jack panel, want 88/44", moved.PositionY, moved.InputPositionY)
 	}
 
+	// Slice 37: the two rails are placed, not pinned, so each stores an x — and the
+	// input canvas's channel rail must not move the output canvas's bus rail. The pair
+	// was write-only until now (both canvases computed the x from the browser window and
+	// drew there regardless), which is why this had never been asserted.
+	if created.PositionX != 24 || created.InputPositionX != 1400 {
+		t.Errorf("new desk's rails at x %v and %v, want 24 and 1400 — a rail at 0 lands on the node beside it",
+			created.PositionX, created.InputPositionX)
+	}
+	status, raw = doJSON(t, http.MethodPatch, consoleURL, map[string]any{"input_position_x": 980, "input_position_y": 120})
+	if status != http.StatusOK {
+		t.Fatalf("PATCH channel rail: status %d body %s", status, raw)
+	}
+	rails := decodeJSON[domain.Console](t, raw)
+	if rails.InputPositionX != 980 || rails.InputPositionY != 120 {
+		t.Errorf("channel rail at %v/%v, want 980/120", rails.InputPositionX, rails.InputPositionY)
+	}
+	if rails.PositionX != 24 {
+		t.Errorf("bus rail moved to x %v while dragging the channel rail, want 24", rails.PositionX)
+	}
+	status, raw = doJSON(t, http.MethodPatch, consoleURL, map[string]any{"position_x": -60, "position_y": 200})
+	if status != http.StatusOK {
+		t.Fatalf("PATCH bus rail: status %d body %s", status, raw)
+	}
+	rails = decodeJSON[domain.Console](t, raw)
+	// Negative is legal since Slice 37 — the plane's origin follows its content, and a
+	// floor at zero is the arbitrary limit that model exists to remove.
+	if rails.PositionX != -60 || rails.PositionY != 200 {
+		t.Errorf("bus rail at %v/%v, want -60/200", rails.PositionX, rails.PositionY)
+	}
+	if rails.InputPositionX != 980 {
+		t.Errorf("channel rail moved to x %v while dragging the bus rail, want 980", rails.InputPositionX)
+	}
+
 	// A console of another event is a 404, not someone else's row to edit.
 	otherEvent := seedEvent(t, server.URL)
 	status, raw = doJSON(t, http.MethodPatch, fmt.Sprintf("%s/events/%d/consoles/%d", server.URL, otherEvent, console.ID), map[string]any{"name": "stolen"})

@@ -21,7 +21,7 @@ import { usePlaneView } from '../../hooks/usePlaneView'
 import { usePinchZoom } from '../../hooks/usePinchZoom'
 import { fitScale } from '../../lib/canvasFit'
 import { firstMatch, focusOffset } from '../../lib/canvasFocus'
-import { originShift, planeOrigin } from '../../lib/canvasPlane'
+import { originShift, PLANE_MARGIN, planeOrigin } from '../../lib/canvasPlane'
 import { usePatchView } from '../../hooks/usePatchView'
 import { buildMobileOutputList } from '../../lib/mobileOutputList'
 import { outputPatchStatus } from '../../lib/patchCapacity'
@@ -53,7 +53,7 @@ import { AudioPatchShell } from './AudioPatchShell'
 import { OutputFlowInspector, type OutputFlowSelection } from './OutputFlowInspector'
 import { NodeShell as SharedNodeShell } from './graph/NodeShell'
 import { PortRow as SharedPortRow, SplitPortRow, type PortWiring } from './graph/PortRow'
-import { ZoomControl } from './graph/ZoomControl'
+import { ZoomControl, ZOOM_MAX, ZOOM_STEP } from './graph/ZoomControl'
 import { ConsoleSection } from './ConsoleSection'
 import { OutputSheet } from './OutputSheet'
 import { PatchStatusRail } from './PatchStatusRail'
@@ -122,10 +122,24 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
      turning the phone is what someone does to see more of the graph. */
   const adoptFit = useCallback((next: number) => {
     setFit(next)
-    setZoom((current) => (current == null ? null : Math.min(1, Math.max(next, current))))
+    /*
+      Raises the floor; imposes no ceiling. The `Math.min(1, …)` that used to be here was
+      right while only a phone reported a fit — the phone's range ends at 1. Since Slice 37
+      the desk reports one too, and `fit` moves on every content change, so the ceiling
+      snapped a desk's 130 % back to 100 % the moment any node was dragged.
+    */
+    setZoom((current) => (current == null ? null : Math.max(next, current)))
   }, [])
 
   const stepZoom = (factor: number) => setZoom((current) => Math.min(1, Math.max(fitFloor, (current ?? fitFloor) * factor)))
+  /*
+    The desk's stepper. `ZoomControl`'s own additive stepping is bounded by `ZOOM_MIN`,
+    which is 0.5 — and a plane's fit can be below that, in which case pressing **−** from
+    the opening state would zoom *in*. So the floor is the fit, and the ceiling stays the
+    desk's own `ZOOM_MAX`.
+  */
+  const stepDeskZoom = (delta: number) =>
+    setZoom((current) => Math.min(ZOOM_MAX, Math.max(fitFloor, Math.round(((current ?? fitFloor) + delta) * 100) / 100)))
   // Open the first time, and then only for as long as it has not been read.
   const patchingIsADeskJob = useInfoNote({ id: 'flow-desk-job', defaultOpen: true })
   // The phone's strip filter — the desktop's lives in `OutputSheet` (data-model.md §3).
@@ -290,6 +304,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
                 computer. Tap any box to read or edit what it is.
               </InfoPanel>
               <OutputGraphCanvas
+                ready={audioQuery.isSuccess}
                 cableItems={cableItems}
                 cables={outputCables}
                 consoles={consoles}
@@ -380,7 +395,17 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
         onSearchChange={setSearch}
         onOpenRig={readOnly ? undefined : () => setRigOpen(true)}
         onAdd={readOnly ? undefined : addOutputRow}
-        toolbarExtras={view === 'flow' ? <ZoomControl zoom={zoomLevel} onZoomChange={setZoom} onReset={() => setZoom(null)} /> : undefined}
+        toolbarExtras={
+          view === 'flow' ? (
+            <ZoomControl
+              zoom={zoomLevel}
+              onZoomChange={setZoom}
+              onZoomIn={() => stepDeskZoom(ZOOM_STEP)}
+              onZoomOut={() => stepDeskZoom(-ZOOM_STEP)}
+              onReset={() => setZoom(null)}
+            />
+          ) : undefined
+        }
         drawers={
           <RigDrawer
             open={rigOpen}
@@ -431,6 +456,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
           />
         ) : (
           <OutputGraphCanvas
+                ready={audioQuery.isSuccess}
             eventId={eventId}
             outputs={outputs}
             stageboxes={stageboxes}
@@ -523,6 +549,7 @@ function OutputGraphCanvas({
   onZoomChange,
   onChanged,
   readOnly = false,
+  ready = false,
 }: {
   eventId: number
   outputs: AudioPatchOutput[]
@@ -556,6 +583,8 @@ function OutputGraphCanvas({
   onZoomChange?: (zoom: number) => void
   onChanged: () => Promise<void>
   readOnly?: boolean
+  /** Whether the graph's own data has arrived — see `usePlaneView`. */
+  ready?: boolean
 }) {
   const isMobile = useIsMobile()
   /*
@@ -566,6 +595,8 @@ function OutputGraphCanvas({
   const spatial = !isMobile
   const wrapperRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
+  /** Holds only the nodes, so the plane's extent cannot be measured from its own answer. */
+  const nodesRef = useRef<HTMLDivElement>(null)
   const portEls = useRef(new Map<string, HTMLElement>())
   const [paths, setPaths] = useState<{ id: number; d: string; hasItem: boolean; network: boolean; color: string | undefined }[]>([])
   const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(new Map())
@@ -586,13 +617,22 @@ function OutputGraphCanvas({
     ancestor's scroll area, so this is exact without re-deriving how tall a node is.
   */
   const [content, setContent] = useState({ width: 0, height: 0 })
+  /*
+    The plane: the content plus the same margin the origin already puts on the other two
+    sides (FR-006). Without it a node against the right edge is against the edge of the
+    scrollable area too, with nowhere to drop the one beside it.
+  */
+  const plane = useMemo(
+    () => ({ width: content.width + PLANE_MARGIN, height: content.height + PLANE_MARGIN }),
+    [content],
+  )
 
   /*
     The scale at which the whole graph fits its window (patterns.md §7f), measured on both
     axes of both boxes since Slice 37 — the window, and the plane's real extent rather than
     a nominal rectangle. A control, not the opening state (research.md R6).
   */
-  const fit = useMemo(() => fitScale(viewport.width, viewport.height, content.width, content.height), [viewport, content])
+  const fit = useMemo(() => fitScale(viewport.width, viewport.height, plane.width, plane.height), [viewport, plane])
   const zoom = zoomProp ?? fit
 
   useLayoutEffect(() => {
@@ -770,22 +810,28 @@ function OutputGraphCanvas({
     zoomProp,
     origin,
     content,
+    ready,
     onZoom: onZoomChange,
   })
 
   /* The plane's extent, read off the DOM — see the input canvas's note. */
   useLayoutEffect(() => {
-    const el = canvasRef.current
+    const el = nodesRef.current
     if (!el) return
     const width = el.scrollWidth
     const height = el.scrollHeight
     setContent((current) => (current.width === width && current.height === height ? current : { width, height }))
   }, [layout, outputs, consoles, stageboxes, stageMultis, devices])
 
+
   /*
     Keeping the view still while the plane grows under it (R4). The origin is derived from
     the content, so dragging one node past an edge moves every other node's DOM offset by
     the same delta — and without this the graph lurches under the finger holding it.
+
+    `lastOrigin` is seeded with the first origin and updated on every run including the
+    early return, so this can never compose with `usePlaneView`'s absolute restore in one
+    commit: by the time a restore happens the ref already agrees with the current origin.
   */
   const lastOrigin = useRef(origin)
   useLayoutEffect(() => {
@@ -899,8 +945,8 @@ function OutputGraphCanvas({
       scrollLeft: el.scrollLeft,
       scrollTop: el.scrollTop,
       nodeW: NODE_WIDTH,
-      contentW: content.width * zoom,
-      contentH: content.height * zoom,
+      contentW: plane.width * zoom,
+      contentH: plane.height * zoom,
     })
     el.scrollTo({ left, top, behavior: 'smooth' })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -929,8 +975,8 @@ function OutputGraphCanvas({
       scrollTop: el.scrollTop,
       nodeW: NODE_WIDTH,
       clearBottom: el.clientHeight / 2,
-      contentW: content.width * zoom,
-      contentH: content.height * zoom,
+      contentW: plane.width * zoom,
+      contentH: plane.height * zoom,
     })
     el.scrollTo({ left, top, behavior: 'smooth' })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1261,9 +1307,9 @@ function OutputGraphCanvas({
           No lane bands: a band saying *Rig* is a claim about where nodes are, and nothing
           constrains that now (FR-013, research.md R7).
         */}
-        <div style={{ width: content.width * zoom, height: content.height * zoom }}>
+        <div style={{ width: plane.width * zoom, height: plane.height * zoom }}>
           <div ref={canvasRef} className="relative" style={{ transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
-            <svg className="pointer-events-none absolute left-0 top-0" width={content.width} height={content.height}>
+            <svg className="pointer-events-none absolute left-0 top-0" width={plane.width} height={plane.height}>
               {/* Same two encodings as the input graph (Slice 23): hue is the
                   output this run carries, dash pattern is what kind of link it
                   is. Keeping them independent is what lets a network hop wear
@@ -1280,6 +1326,20 @@ function OutputGraphCanvas({
               ))}
               {ghostPath && <path d={ghostPath} fill="none" stroke="#f59e0b" strokeWidth={2 / zoom} strokeDasharray={`${5 / zoom} ${4 / zoom}`} opacity={0.85} />}
             </svg>
+            {/*
+              The measured element, and it holds **only the nodes** (Slice 37, review).
+
+              Two things would otherwise feed the measurement its own previous answer. The
+              `<svg>` above is sized to the plane, and a positioned child contributes its
+              own edge to `scrollWidth` — so the extent could grow and never shrink, and a
+              node dragged back from the far right would leave the space behind. And a
+              *block* element inherits its parent's width, so its `scrollWidth` has a floor
+              of the outer box's `plane.width * zoom`, which above 100 % inflates on every
+              remeasure. Absolutely positioned with no width, this element shrink-to-fits
+              over nothing — abs-positioned children do not contribute — so its scroll area
+              is exactly the nodes, and nothing derived from the previous answer.
+            */}
+            <div ref={nodesRef} className="absolute left-0 top-0">
             {layout.map((node) => {
               if (node.kind === 'console_local') {
                 const desk = consoles.find((c) => c.id === node.id)
@@ -1411,6 +1471,7 @@ function OutputGraphCanvas({
                 />
               )
             })}
+            </div>
           </div>
         </div>
       </div>

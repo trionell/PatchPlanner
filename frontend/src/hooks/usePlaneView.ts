@@ -22,6 +22,19 @@ export interface PlaneViewOptions {
   origin: PlaneOrigin
   /** The plane's measured extent. Zero means it has not been laid out yet. */
   content: { width: number; height: number }
+  /**
+   * Whether the graph's own data has arrived.
+   *
+   * **Not the same as the plane having a size**, which is the trap this exists for.
+   * Neither tab gates its canvas on the query — they render with `?? []` — and a user with
+   * a remembered view is exactly the user whose canvas mounts in Flow on a cold load. With
+   * no data the layout still contains the constant pseudo-nodes (the Sources rail, and the
+   * orphan node that exists because `consoles.length === 0`), so the plane measures a real
+   * but tiny box, the restore is clamped into it, and the debounced save then writes that
+   * clamped offset back over the remembered one. Every cold load would decay the view
+   * toward the top-left.
+   */
+  ready: boolean
   /** Asks the owner of the zoom to adopt the remembered scale. */
   onZoom?: (zoom: number) => void
 }
@@ -41,10 +54,12 @@ export interface PlaneViewOptions {
  * this one is in `localStorage` and belongs to the person holding the device. Withholding
  * it from a read-only role would take something away from them and give it to nobody.
  */
-export function usePlaneView({ eventId, tab, wrapperRef, zoom, zoomProp, origin, content, onZoom }: PlaneViewOptions): { onScroll: () => void } {
+export function usePlaneView({ eventId, tab, wrapperRef, zoom, zoomProp, origin, content, ready, onZoom }: PlaneViewOptions): { onScroll: () => void } {
   const [stored, setStored] = useFlowView(eventId, tab)
   const restored = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** When the restore last wrote a scroll offset, so its own echo is not saved back. */
+  const settled = useRef(0)
   // Read inside the debounced write rather than captured, so a save that fires after a
   // zoom or a node move records what is true then, not what was true 800 ms ago.
   const latest = useRef({ zoom, origin })
@@ -60,6 +75,8 @@ export function usePlaneView({ eventId, tab, wrapperRef, zoom, zoomProp, origin,
       restored.current = true
       return
     }
+    // Step zero: the graph's own data. See the note on `ready`.
+    if (!ready) return
     // Step one: ask for the scale. Until the tab adopts it, the plane is laid out at fit
     // and any offset computed here would be against the wrong zoom.
     if (zoomProp == null) {
@@ -71,16 +88,27 @@ export function usePlaneView({ eventId, tab, wrapperRef, zoom, zoomProp, origin,
     if (!content.width || !content.height) return
     const el = wrapperRef.current
     if (!el) return
-    restored.current = true
     const offset = panToScroll({ x: stored.panX, y: stored.panY }, origin, zoom)
     el.scrollLeft = offset.x
     el.scrollTop = offset.y
-  }, [stored, zoomProp, content, zoom, origin, onZoom, wrapperRef])
+    /*
+      Latch only if the write **took**. A scroll container silently clamps an offset
+      beyond its range, so a plane that is still growing would swallow the restore and
+      report success; the next measurement gets another attempt instead. Rounded because
+      a fractional scale gives back a fractional offset.
+    */
+    if (Math.abs(el.scrollLeft - offset.x) > 1 || Math.abs(el.scrollTop - offset.y) > 1) return
+    restored.current = true
+    // The scroll events this restore just caused arrive after it. Recording them is
+    // harmless when the offset is right and destructive when it is not, so drop them.
+    settled.current = Date.now()
+  }, [stored, zoomProp, content, zoom, origin, ready, onZoom, wrapperRef])
 
   // A pan writes on the frame it happens; without settling that is a write per frame.
   const onScroll = useCallback(() => {
     const el = wrapperRef.current
     if (!el || !restored.current) return
+    if (Date.now() - settled.current < 250) return
     if (timer.current) clearTimeout(timer.current)
     const left = el.scrollLeft
     const top = el.scrollTop
@@ -99,8 +127,11 @@ export function usePlaneView({ eventId, tab, wrapperRef, zoom, zoomProp, origin,
     if (!el || !restored.current || zoomProp == null) return
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(() => {
-      const pan = scrollToPan({ x: el.scrollLeft, y: el.scrollTop }, origin, zoom)
-      setStored({ zoom, panX: pan.x, panY: pan.y })
+      // `latest.current`, for the reason the pan path gives: a node dragged left inside
+      // the settling window moves the origin, and a captured one would be off by the delta.
+      const { zoom: z, origin: o } = latest.current
+      const pan = scrollToPan({ x: el.scrollLeft, y: el.scrollTop }, o, z)
+      setStored({ zoom: z, panX: pan.x, panY: pan.y })
     }, SETTLE_MS)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoomProp])

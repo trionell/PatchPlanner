@@ -29,7 +29,7 @@ import { usePlaneView } from '../../hooks/usePlaneView'
 import { usePinchZoom } from '../../hooks/usePinchZoom'
 import { fitScale } from '../../lib/canvasFit'
 import { firstMatch, focusOffset } from '../../lib/canvasFocus'
-import { originShift, planeOrigin } from '../../lib/canvasPlane'
+import { originShift, PLANE_MARGIN, planeOrigin } from '../../lib/canvasPlane'
 import { stageboxPorts, stageMultiPorts } from '../../lib/outputGraph'
 import { matchesSearch } from '../../lib/patchSearch'
 import { itemLabel } from '../../lib/utils'
@@ -119,6 +119,7 @@ export function InputGraphCanvas({
   onZoomChange,
   onChanged,
   readOnly = false,
+  ready = false,
 }: {
   eventId: number
   sources: InputSource[]
@@ -168,6 +169,8 @@ export function InputGraphCanvas({
   onZoomChange?: (zoom: number) => void
   onChanged: () => Promise<void>
   readOnly?: boolean
+  /** Whether the graph's own data has arrived — see `usePlaneView`. */
+  ready?: boolean
 }) {
   const isMobile = useIsMobile()
   /*
@@ -186,6 +189,8 @@ export function InputGraphCanvas({
   const spatial = !isMobile
   const wrapperRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
+  /** Holds only the nodes, so the plane's extent cannot be measured from its own answer. */
+  const nodesRef = useRef<HTMLDivElement>(null)
   const portEls = useRef(new Map<string, HTMLElement>())
   const [paths, setPaths] = useState<{ id: number; d: string; hasItem: boolean; network: boolean; color: string | undefined }[]>([])
   const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(new Map())
@@ -206,6 +211,15 @@ export function InputGraphCanvas({
     nothing inside the plane depends on the plane's size.
   */
   const [content, setContent] = useState({ width: 0, height: 0 })
+  /*
+    The plane: the content plus the same margin the origin already puts on the other two
+    sides (FR-006). Without it a node against the right edge is against the edge of the
+    scrollable area too, with nowhere to drop the one beside it.
+  */
+  const plane = useMemo(
+    () => ({ width: content.width + PLANE_MARGIN, height: content.height + PLANE_MARGIN }),
+    [content],
+  )
 
   /*
     The scale at which the whole graph fits its window (patterns.md §7f).
@@ -216,7 +230,7 @@ export function InputGraphCanvas({
     lands near 20 % on a phone, where a 200 px node draws 42 px wide and no label in it
     is legible (research.md R6).
   */
-  const fit = useMemo(() => fitScale(viewport.width, viewport.height, content.width, content.height), [viewport, content])
+  const fit = useMemo(() => fitScale(viewport.width, viewport.height, plane.width, plane.height), [viewport, plane])
   const zoom = zoomProp ?? fit
 
   useLayoutEffect(() => {
@@ -398,6 +412,7 @@ export function InputGraphCanvas({
     zoomProp,
     origin,
     content,
+    ready,
     onZoom: onZoomChange,
   })
 
@@ -409,12 +424,13 @@ export function InputGraphCanvas({
     counts, rail lengths and all — without a second implementation of how tall a node is.
   */
   useLayoutEffect(() => {
-    const el = canvasRef.current
+    const el = nodesRef.current
     if (!el) return
     const width = el.scrollWidth
     const height = el.scrollHeight
     setContent((current) => (current.width === width && current.height === height ? current : { width, height }))
   }, [layout, sources, channels, consoles, stageboxes, stageMultis, devices])
+
 
   /*
     Keeping the view still while the plane grows under it (R4).
@@ -426,6 +442,10 @@ export function InputGraphCanvas({
 
     Read from the ref rather than a dependency so the effect sees the previous origin, and
     `+=` rather than `=` so it composes with momentum still running from the last flick.
+
+    `lastOrigin` is seeded with the first origin and updated on every run including the
+    early return, so this can never compose with `usePlaneView`'s absolute restore in one
+    commit: by the time a restore happens the ref already agrees with the current origin.
   */
   const lastOrigin = useRef(origin)
   useLayoutEffect(() => {
@@ -539,8 +559,8 @@ export function InputGraphCanvas({
       scrollLeft: el.scrollLeft,
       scrollTop: el.scrollTop,
       nodeW: NODE_WIDTH,
-      contentW: content.width * zoom,
-      contentH: content.height * zoom,
+      contentW: plane.width * zoom,
+      contentH: plane.height * zoom,
     })
     el.scrollTo({ left, top, behavior: 'smooth' })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -565,8 +585,8 @@ export function InputGraphCanvas({
       scrollTop: el.scrollTop,
       nodeW: NODE_WIDTH,
       clearBottom: el.clientHeight / 2,
-      contentW: content.width * zoom,
-      contentH: content.height * zoom,
+      contentW: plane.width * zoom,
+      contentH: plane.height * zoom,
     })
     el.scrollTo({ left, top, behavior: 'smooth' })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -892,9 +912,9 @@ export function InputGraphCanvas({
           constants is that a band saying *Rig* is a claim about where nodes are, and
           nothing constrains that now (Slice 37 FR-013, research.md R7).
         */}
-        <div style={{ width: content.width * zoom, height: content.height * zoom }}>
+        <div style={{ width: plane.width * zoom, height: plane.height * zoom }}>
           <div ref={canvasRef} className="relative" style={{ transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
-            <svg className="pointer-events-none absolute left-0 top-0" width={content.width} height={content.height}>
+            <svg className="pointer-events-none absolute left-0 top-0" width={plane.width} height={plane.height}>
               {/* Two independent encodings (Slice 23): hue says which channel this
                   run reaches, dash pattern says what kind of link it is — so a
                   network hop can wear its channel's colour and still read as a
@@ -911,6 +931,20 @@ export function InputGraphCanvas({
               ))}
               {ghostPath && <path d={ghostPath} fill="none" stroke="#f59e0b" strokeWidth={2 / zoom} strokeDasharray={`${5 / zoom} ${4 / zoom}`} opacity={0.85} />}
             </svg>
+            {/*
+              The measured element, and it holds **only the nodes** (Slice 37, review).
+
+              Two things would otherwise feed the measurement its own previous answer. The
+              `<svg>` above is sized to the plane, and a positioned child contributes its
+              own edge to `scrollWidth` — so the extent could grow and never shrink, and a
+              node dragged back from the far right would leave the space behind. And a
+              *block* element inherits its parent's width, so its `scrollWidth` has a floor
+              of the outer box's `plane.width * zoom`, which above 100 % inflates on every
+              remeasure. Absolutely positioned with no width, this element shrink-to-fits
+              over nothing — abs-positioned children do not contribute — so its scroll area
+              is exactly the nodes, and nothing derived from the previous answer.
+            */}
+            <div ref={nodesRef} className="absolute left-0 top-0">
             {layout.map((node) => {
               if (node.kind === 'source') {
                 return (
@@ -1066,6 +1100,7 @@ export function InputGraphCanvas({
                 />
               )
             })}
+            </div>
           </div>
         </div>
       </div>
@@ -1363,18 +1398,20 @@ function SourceRow({ source, wiring, colorContext, dimmed, selected, modelLabel,
   const ports = sourcePorts(source)
   const tape = derivedSourceColor(source, colorContext)
   const stereo = ports.length > 1
-  const rowRef = useRef<HTMLDivElement>(null)
+  /*
+    No `scrollIntoView` here since Slice 37.
 
-  // A selection arriving from the sheet may point at a row well below the fold of a
-  // 32-source rail, and a selection you cannot see is not a selection (Slice 25
-  // FR-004). `nearest` is what keeps an already-visible row still.
-  useEffect(() => {
-    if (selected) rowRef.current?.scrollIntoView({ block: 'nearest' })
-  }, [selected])
+    It was written for a rail with `max-h-[420px] overflow-y-auto` — "a selection arriving
+    from the sheet may point at a row below the fold" — and FR-014 removed that cap. With
+    no scroll container of its own, the nearest scrollable ancestor is the plane's viewport,
+    so selecting a source would pan the whole graph *instantly*, and on a phone it would do
+    it in the same commit as, and just before, the sheet-clearance `scrollTo({behavior:
+    'smooth'})` that is supposed to own that scroll. The rail is now as tall as its
+    contents, so there is no fold for a row to be below.
+  */
 
   return (
     <div
-      ref={rowRef}
       // The height is set here rather than in the token, one slot per port, so a
       // stereo source is genuinely twice as tall and its two dots cannot overlap.
       style={{ height: ports.length * SOURCE_ROW_HEIGHT }}
