@@ -93,7 +93,8 @@ to read than the sections it replaced.
 | `PortRow` / `SplitPortRow` | Fixed `18px`. `align="right"` reverses. A pass-through box is **one row per jack** with its two ports on opposite edges — never two independent columns that line up by luck. Optional `selected`/`onSelect` makes the label selectable while the dot still cables. |
 | `PortWiring` | The seam that keeps these primitives domain-free: `isConnected`, `isPending`, `colorOf`, `keyOf`, and the handlers. Nothing in `graph/` knows what audio is. |
 | `LaneBands` | Three tinted bands with their labels inside them. No dashed borders — a band is the marking. |
-| `ZoomControl` | Two `h-7 w-7` ghost buttons around a mono percentage that resets on click. Lives **in the panel's bar**, never in a strip between bar and canvas. Owns the look; the caller may own the stepping via `onZoomIn`/`onZoomOut`/`onReset` — three canvases draw it and only two agree on what a step is. |
+| `ZoomControl` | Two `h-7 w-7` ghost buttons around a mono percentage that resets on click — and **three `h-11` targets in a hand**, from a branch inside the component. Lives **in the panel's bar**, never in a strip between bar and canvas. Owns the look; the caller may own the stepping via `onZoomIn`/`onZoomOut`/`onReset` — three canvases draw it and only two agree on what a step is. `resetLabel` names what tapping the percentage does, **phone only**, because the flow canvases reset to *fit* and a desk's 100 % needs no caption. Wave 6c hand-built a second cluster inside `StagePlotTab` for want of a 44 px form; 6d put the branch here and deleted it. |
+| `InspectorFrame` | The rail on a desk, `ui/Sheet` with `scrim={false}` in a hand — see §3. |
 | `InspectorRail` | See §3. |
 
 **Ports are never truncated.** The mockup ends a long list with `⋯ N more`; the
@@ -136,6 +137,8 @@ worse than saying nothing.
 | `Field` | `<label>` · `grid grid-cols-[44px_minmax(0,1fr)] items-center gap-2` — label **beside** the control |
 | `Note` | `flex flex-col gap-1 rounded-[5px] border border-zinc-800 bg-zinc-950/60 p-1.5`, for things read rather than edited |
 | `Legend` | A `Note` whose rows are a `22×4` SVG stroke sample plus the caller's wording |
+| `InspectorFrame` | What *holds* the rail: `InspectorRail` + `InspectorHeader` on a desk, `ui/Sheet` with `scrim={false}` in a hand. Takes `heading`, `pill` and `onClose` — the three things the sheet's own header carries |
+| `useInspectorControlSize` | `'sm'` on a desk, `'md'` in a hand, in `graph/inspectorTier.ts`. The rail is the **one** surface where a phone's control geometry is not already the default: `Input`, `Select` and `Button` all default to `h-10` and the rail overrides them down, because a 240 px column cannot afford 40 px rows. A phone has no column |
 
 `pill` is a slot rather than a string because each side puts something different in
 it — a source's kind, an output's type — both tinted by vocabulary the rail knows
@@ -147,7 +150,19 @@ bar. See P4's worked example in [principles.md](principles.md).
 
 **The rail holds no draft.** The sheet's inline editor does; the rail commits per
 field. That is not an inconsistency to fix later — a rail with a draft is a second
-source of truth for a row the sheet may also be editing.
+source of truth for a row the sheet may also be editing. **It is also why the phone's
+inspector has no footer and no Save**: a confirm would imply a draft that does not
+exist.
+
+**`InspectorFrame` renders the rail rather than reimplementing it**, so the desktop
+return is identical *by construction* — the same two components in the same order.
+That is why the phone form is a new component and not a branch inside `InspectorRail`:
+the rail has a third caller, `StagePlotTab`, which passes a `className` and supplies no
+header at all, and making the header part of the rail would have made it optional there
+and turned one component into two shapes. The header moves from a child to a prop
+because on a phone those three things — what the rail is showing, its vocabulary chip,
+the way out — are exactly what `ui/Sheet`'s own header carries, which this document
+said before the frame existed.
 
 ## 4 · Shared components
 
@@ -258,7 +273,8 @@ set of values.
 |---|---|
 | `MobileNav` | The bottom bar that replaces the sidebar: three destinations and a **More** overflow, which is a `Sheet`. `h-14`, **stated**, because `Layout`'s body padding derives from it. Active is `text-amber-400` with no fill — the sidebar's restraint, which has no left edge to use here. Carries the safe-area inset. |
 | `SectionSwitcher` | The phone's tab strip: one control naming the current section, opening a `Sheet` listing the nine. It is the phone's form of `ui/Tabs`, so it says *what you are looking at* and takes no trough (§4, `ui/Tabs`). The current section is marked in the **open list** by the sidebar's own 2 px amber left edge, never on the closed control. It lists sections and nothing else — the capability badge it used to render was deleted in Wave 6a ([audit.md](audit.md) M7). |
-| `MobileEntityList` | A `MobilePanel` over `MobileEntityRow` — one component for channels, outputs and fixtures, because all three differ only in what `number`, `subtitle` and `color` mean. It takes the surface's `title` and its `strip`, and derives no verdict and applies no filter: the caller owns both, exactly as its desktop sheet does. |
+| `MobileEntityList` | A `MobilePanel` over `MobileEntityRow` — one component for channels, outputs and fixtures, because all three differ only in what `number`, `subtitle` and `color` mean. It takes the surface's `title` and its `strip`, and derives no verdict and applies no filter: the caller owns both, exactly as its desktop sheet does. **`children` replace the rows**, which is how the audio tabs' Flow view is drawn instead of listed: it is the same set of things either way, so it is one panel and not two — two would remount the bar on every toggle, closing the search row and losing the overflow sheet's state. Its search is **controlled where the surface owns a query** and its own otherwise; both audio tabs already held one for their desktop branch, so lifting it removed a second query for one search rather than adding a prop. |
+| `MobileSegmented` | *Which of these two or three am I looking at*, when they all fit: the stage plot's **Top · Front · Side**, the audio tabs' **Sheet │ Flow**. `MobilePicker`'s sibling for the case with few enough answers to show at once, and like it a §7b *changes what you are looking at* — so it stays visible in the bar. Extracted at its second caller, the rule `ui/PanelRail` was made to follow. The selection is amber-filled, which is the second place the accent marks **position** rather than action, legible for `MobileNav`'s reason: two or three slots and nothing else nearby is amber. |
 | `CondensedListRow` | One row in a `MobilePanel`: leading tape edge, title, subtitle, trailing slot. Its `accentColor` draws the derived colour as a 3 px edge and a tint at `1a` — the sheet's tape bar in the geometry a phone row has. **`min-h-[44px]` with `leading-tight` is the stated value and the padding derives from it** ([tokens.md](tokens.md) §7); both lines truncate; no border, radius or ground of its own. |
 | `MobileChannelEditSheet` · `MobileOutputEditSheet` · `MobileFixtureEditSheet` · `MobileEquipmentEditSheet` · `MobileRentalEditSheet` | The phone's row editor, one per entity, deliberately not one configurable form — the same reasoning as `GearList`. Add and edit are **one** construction in each (§2). A failed save keeps the sheet open with every value intact. Each takes `readOnly`: a role that may not edit still opens the sheet, because a phone row is a truncation and the values are the point of opening it ([audit.md](audit.md) M4). |
 | `MobileOverviewPanel` | Overview's phone composition — a two-column figure grid with the countdown spanning, both rig ribbons as horizontally panning drawings, and the five readiness verdicts as 44 px rows that state *and* route. One caller, deliberately: a 120-line phone composition inside a desktop tab is how a phone value gets copied onto a desk. It derives nothing — `lib/eventSummary` computes both halves of every row for the desktop already. |
@@ -370,6 +386,11 @@ under whatever the last row is.
 the inspector is read against would be frozen. It follows that such a sheet is
 genuinely not modal — `aria-modal` follows `scrim`, focus is not trapped, and
 there is no tap-outside-to-close because there is nothing outside to tap.
+
+**And it has a caller now.** `scrim={false}` was built in Wave 6a for the canvas
+inspector and had none until Wave 6d, which is a long time for a branch to go
+unexercised. What it buys is the thing the sentence promises: with the inspector open
+the canvas behind it still pans, because there is no layer to swallow the touch.
 
 **`ui/Drawer` is `Sheet` on a phone.** The branch is in the component, so all
 six drawers — Rig, Buses, Universes, Categories, Import, the catalog's manage

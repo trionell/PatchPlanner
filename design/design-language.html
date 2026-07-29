@@ -640,6 +640,15 @@
   .m-jump__i.on .m-jump__l { color: #fcd34d; font-weight: 600; }
 
   /* a canvas in the hand — drawn at desktop geometry, tapped at node scale */
+  .m-pan__bar2 { display: flex; align-items: center; gap: 8px; padding: 0 12px 8px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-seg { display: flex; height: 44px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; overflow: hidden; flex: none; }
+  .m-seg span { display: grid; place-items: center; min-width: 48px; padding: 0 8px; font-size: 14px; color: #a1a1aa; }
+  .m-seg span.on { background: #f59e0b; color: #09090b; font-weight: 500; border-radius: 6px; }
+  .m-zoom { display: flex; align-items: center; gap: 2px; flex: none; }
+  .m-zoom__b { width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; color: #a1a1aa; font-size: 17px; }
+  .m-zoom__v { width: 56px; height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: var(--mono); font-size: 12px; color: #d4d4d8; line-height: 1.25; }
+  .m-zoom__v s { text-decoration: none; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #52525b; }
+  .m-info { width: 20px; height: 20px; border-radius: 999px; border: 1px solid #3f3f46; background: #18181b; color: #a1a1aa; font-family: var(--mono); font-size: 10px; display: inline-grid; place-items: center; vertical-align: 2px; }
   .m-cvs { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #09090b; }
   .m-cvs__wires { position: absolute; inset: 0; overflow: visible; }
   .m-cvs__wires path { fill: none; stroke-width: 1.4; opacity: 0.92; }
@@ -1796,10 +1805,24 @@
           <div class="m-bd">
             <div class="m-sw"><span class="m-sw__t">Audio Inputs</span><span style="color: #a1a1aa;">▾</span></div>
             <div class="m-pan m-pan--fill">
+              <!--
+                The bar wraps to two rows before it scrolls (§7b). Row 1 is title + the view
+                toggle + search + the overflow, which lands on 308 of the 317 px a 375 px
+                screen leaves it; the zoom takes row 2. There is NO primary action in Flow:
+                the `+` adds a row and Flow has no rows.
+              -->
               <div class="m-pan__bar">
-                <span class="m-pan__ti">Audio Inputs</span>
-                <span class="seg" style="padding: 3px;"><span class="btn btn--ghost" style="height: 32px; font-size: 13px;">Sheet</span><span class="btn btn--primary" style="height: 32px; font-size: 13px;">Flow</span></span>
-                <span class="mono" style="font-size: 12px; color: #a1a1aa;">120%</span>
+                <span class="m-pan__ti">Audio Inputs <span class="m-info">i</span></span>
+                <span class="m-seg"><span>Sheet</span><span class="on">Flow</span></span>
+                <span class="m-pan__ic">⌕</span>
+                <span class="m-pan__ic">⋯</span>
+              </div>
+              <div class="m-pan__bar2">
+                <span class="m-zoom">
+                  <span class="m-zoom__b">−</span>
+                  <span class="m-zoom__v"><b>100%</b><s>fit</s></span>
+                  <span class="m-zoom__b">+</span>
+                </span>
               </div>
               <!--
                 A viewport, not a layout. One local coordinate system; pan and zoom move the
@@ -1847,6 +1870,12 @@
                   <div class="node__hd">SD1</div>
                 </div>
               </div>
+              <!-- the strip is present in Flow and is NOT a control there: the canvas
+                   does not filter, so it is a sentence (§7b) -->
+              <div class="m-strip">
+                <span style="color: #fbbf24;">●</span><span>3 gaps</span>
+                <span class="mono">16 ch</span><span class="mono" style="color: #71717a;">SD10 · 1 SB</span>
+              </div>
             </div>
           </div>
           <div class="m-nav">
@@ -1875,7 +1904,7 @@
             </div>
           </div>
         </div>
-        <p class="phone__cap"><b>A canvas in the hand</b> · panned to the sources — and the stand is editable here</p>
+        <p class="phone__cap"><b>A canvas in the hand</b> · the working state, panned to the sources. it <em style="text-transform: none;">opens</em> at fit, where the whole graph fits both axes at once — and the stand is editable here</p>
       </div>
 
       <!-- 5 · what stays a desk job -->
@@ -2051,8 +2080,8 @@
         <p class="find__b">All three tabs return their phone branch <em>before</em> the Rig, Buses and Universes drawers render. So the edit sheet's <em>Stagebox</em> select can only offer what a desktop session declared earlier, and a stagebox that arrives at load-in cannot be entered from the loading bay.</p>
       </div>
       <div class="find">
-        <div class="find__hd"><span class="find__id">M6</span><span class="find__ti">The Flow canvas never mounts on a phone</span><span class="find__todo">Wave 6d</span><span class="find__p">P9</span></div>
-        <p class="find__b">The rule both documents carried — <em>“a patch graph on a phone is unreadable at any density”</em> — is <strong>reversed</strong>, on the report that the picture of where the signal goes is exactly what is wanted on site. The canvas is drawn as it is drawn and only the editing gesture is withheld. Stage Plots already does the viewable half and is the working precedent.</p>
+        <div class="find__hd"><span class="find__id">M6</span><span class="find__ti">The Flow canvas is in the hand</span><span class="find__done">Wave 6d</span><span class="find__p">P9</span></div>
+        <p class="find__b">The rule both documents carried — <em>“a patch graph on a phone is unreadable at any density”</em> — is <strong>reversed</strong>, on the report that the picture of where the signal goes is exactly what is wanted on site. Both canvases mount; only the editing gesture is withheld. → The finding underneath it was a line neither document had looked at: the logical space is <span class="k">panelWidth / zoom</span>, so zooming <em>out</em> on a desk <strong>grows the coordinate space</strong> — right for a canvas being composed, and backwards in a hand, where the desk lane would slide out past <span class="k">x = 1730</span> as fast as you zoomed out. Patterns §7f had described the phone's behaviour correctly for four waves without anyone noticing the code said the opposite. <strong>On a phone the space is fixed and the window moves.</strong> The graph opens at the scale where it fits <em>both axes, whole, once</em>, and the readout resets there rather than to 100 %. And search stopped being a highlight: on a 341 px window over an 820 px graph, the first match is brought into view — at every width, because a 60-channel graph scrolls on a desk too.</p>
       </div>
       <div class="find find--done">
         <div class="find__hd"><span class="find__id">M7</span><span class="find__ti">A phone-only vocabulary, in a reserved hue</span><span class="find__done">Wave 6a</span><span class="find__p">P3 · P4 · P9</span></div>
@@ -2139,7 +2168,7 @@
         <div class="wave wave--done"><span class="wave__n">Wave 3 ✓</span><span class="wave__t">Lighting</span><span class="wave__d">A8, and A6–A7 on this surface. The restyle was the smaller half: the rig had no DMX map at all, so nothing had ever noticed two fixtures sharing addresses. Sharing turned out to be <em>legitimate</em> — twenty pars on one address is how a room wash is rigged — which the audit had not considered, and which restructured the whole finding. Only <span class="k">RowEditor</span> changed in <span class="k">ui/</span>-adjacent code, by addition; the backend ended <em>smaller</em>.</span></div>
         <div class="wave wave--done"><span class="wave__n">Wave 4 ✓</span><span class="wave__t">The remaining event tabs</span><span class="wave__d">Rental, Equipment and Signal Flow were the conversion the audit predicted. <strong>Overview was not.</strong> Filed as “a form that needs the navigation tier applied consistently”, it became the screen that says what the whole event amounts to — five figures at 26 px, the rig drawn as the flow canvas one row high, and every panel's own verdict in one line. It also found that <span class="k">RowEditor</span>'s hand-off had never rendered: the desktop tab strip was uncontrolled, so no tab could open another.</span></div>
         <div class="wave wave--done"><span class="wave__n">Wave 5 ✓</span><span class="wave__t">Pages and residue</span><span class="wave__d">The audit's second miss: the 308-item inventory catalog, filed under pages. Categories became a filter column doing one job — they used to show four of twenty-seven, because each tile also carried a rename, a delete and a picker-role select. The dashboard was rebuilt rather than trimmed and lost cards entirely. The signed-out start page is <em>exempt</em>, in writing, rather than half-converted.</span></div>
-        <div class="wave wave--part"><span class="wave__n">Wave 6 · 6a–6c done</span><span class="wave__t">The phone</span><span class="wave__d">M1–M12, ordered last for the reason it was skipped: every wave before it was changing the thing the phone would have had to converge <em>onto</em>, and converging twice is how a value gets three definitions. Two primitives first — <span class="k">ui/Sheet</span> (6a) and <span class="k">MobilePanel</span> (6b) — then the nine surfaces (6c), then the canvases (6d), which are last because they are the only phase that adds a capability rather than converting one. <strong>6a</strong> (Slice 33) built <span class="k">ui/Sheet</span> and let <span class="k">Drawer</span> anchor itself, so six drawers got a phone form from one branch. <strong>6b</strong> (Slice 34) built <span class="k">MobilePanel</span> and the row that stops being a card. <strong>6c</strong> (Slice 35) put the nine sections in it and closed M4, M5, M9 and M11 — and found a <em>fifth</em> status rail outside the shared shell, on the one surface 6b's nine lists did not count. <span class="k">InspectorRail</span>'s contents must still render without its <span class="k">w-60 border-l</span> frame — a seam Wave 2 already split once — which is <strong>6d's</strong>, along with the Flow canvas, the last finding in the wave.</span></div>
+        <div class="wave wave--part"><span class="wave__n">Wave 6 · done</span><span class="wave__t">The phone</span><span class="wave__d">M1–M12, ordered last for the reason it was skipped: every wave before it was changing the thing the phone would have had to converge <em>onto</em>, and converging twice is how a value gets three definitions. Two primitives first — <span class="k">ui/Sheet</span> (6a) and <span class="k">MobilePanel</span> (6b) — then the nine surfaces (6c), then the canvases (6d), which are last because they are the only phase that adds a capability rather than converting one. <strong>6a</strong> (Slice 33) built <span class="k">ui/Sheet</span> and let <span class="k">Drawer</span> anchor itself, so six drawers got a phone form from one branch. <strong>6b</strong> (Slice 34) built <span class="k">MobilePanel</span> and the row that stops being a card. <strong>6c</strong> (Slice 35) put the nine sections in it and closed M4, M5, M9 and M11 — and found a <em>fifth</em> status rail outside the shared shell, on the one surface 6b's nine lists did not count. <strong>6d</strong> (Slice 36) mounted both Flow canvases and closed M6, the last finding in the wave — and took <span class="k">InspectorRail</span>'s contents into the un-scrimmed sheet through a <em>frame that renders the rail</em> rather than reimplementing it, so the desktop return is identical by construction. It also deleted <strong>two</strong> controls 6c had hand-built for want of a 44 px form the shared component now has, which is the fifth and sixth time in this wave that a branch inside a shared component gave several surfaces a phone form at once.</span></div>
       </div>
     </div>
   </section>
@@ -2162,11 +2191,16 @@
       now travelling the dashboard's ribbon.
     </p>
     <p class="body small">
-      On the phone, one question is open and it is a <em>field</em> question rather than a document
-      one: whether a canvas in the hand wants the desktop's pan-and-zoom, or a fit-to-width default
-      with zoom as the exception. Nobody has held a 60-channel patch graph on a phone yet. §8 draws
-      the pan-and-zoom answer because it is the one the desktop already has — which is a reason to
-      start there, not a reason to be right.
+      The phone's last open question is closed, and it was not the kind of question it was filed
+      as. <em>Pan-and-zoom, or fit-to-width?</em> was deferred to a field test for four phases; it
+      turned out to be arithmetic, and both options were wrong. The graph is 820 × 640 logical px
+      and the phone's panel is 341 wide, so 100 % opens onto the Stage lane with no sign a desk
+      exists, and fitting the <em>width</em> alone needs a scale below the shared control's floor.
+      The axis the question never mentioned settles it: the canvas region is about 300 px tall, so
+      at ~42 % the graph fits <strong>both axes, whole, once</strong>. <strong>Fit is the opening
+      state, pan-and-zoom is the working state, and the reset target is fit.</strong> What still
+      needs a hand is smaller and sharper than what was deferred — whether the whole graph at 42 %
+      is worth having, or merely small.
     </p>
   </footer>
 

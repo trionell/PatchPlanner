@@ -594,11 +594,17 @@ the picture of where the signal goes.
 
 | | Phone |
 |---|---|
-| Pan | one finger, both axes, unbounded |
-| Zoom | pinch, and the bar's `ZoomControl` at a 44 px target |
-| Select | tap a node or a rail row — the label, never the 7 px dot |
+| Pan | one finger, both axes, unbounded — **the platform's own scrolling**, not a handler |
+| Zoom | pinch, and the bar's `ZoomControl` at a 44 px target. Opens at *fit*, resets to *fit*, steps ×1.4 |
+| Select | tap a node or a rail row — the label, never the 7 px dot. A press that moves 3 px was a pan |
 | Inspect **and edit** | the rail's contents in a bottom sheet (`components.md` §5) |
+| Search | dims the rest, and **moves the window to the first match** |
 | Place · patch · drag | **absent** — see 7g |
+
+The pan is the platform's *because* of that last row: withholding the gestures that
+would compete for the same finger is what leaves one-finger scrolling free, with
+momentum and rubber-banding and everything else a hand-written pan gives up. **The
+withholding is not a restriction the phone accepts; it is what makes the pan good.**
 
 Everything drawn stays exactly as it is drawn: 7 px ports, 18 px port rows, lane
 bands, derived cable colours, the dashed network hop. Nothing is re-sized for the
@@ -622,6 +628,49 @@ A canvas whose edges carry fixed furniture is a canvas with less canvas, on the
 device that has least of it. A viewport that keeps a rail pinned while the graph
 slides under it also breaks the one thing the canvas is *for*: everything on it is
 in one coordinate system, and its position means something.
+
+**And this is what makes zoom mean two different things.** Wave 6d found the
+sentence above already contradicted by the code, in a line neither document had
+looked at: both flow canvases compute their logical space as
+`panelWidth / zoom`, so zooming **out** on a desk *grows the coordinate space* —
+the processing lane gets more logical room inside the same panel, which is exactly
+what a canvas being composed wants.
+
+| | Desk | Hand |
+|---|---|---|
+| Logical space | `max(820, panelWidth) / zoom × 640 / zoom` | **fixed at `820 × 640`** |
+| Zoom is | a **layout** change | a **viewport** change |
+| Node positions | the stored ones | **the same stored ones** |
+
+In a hand the desktop rule is not merely unhelpful, it is backwards: the panel is
+341 px, so at the scale where the whole graph fits, the space would become ~1950
+and the desk lane would slide out past `x = 1730`. **Zooming out to see the whole
+graph would push the graph away as fast as you zoomed.** Both behaviours are right
+for their surface, and the phone's is the one this section already described.
+
+**The graph opens at *fit*, and *fit* is what the readout resets to.** The two
+horns usually offered — open at 100 %, or fit the width — are both wrong, and the
+arithmetic says so: 100 % opens onto the Stage lane with nothing on screen saying a
+desk exists, and fitting the *width* alone needs a scale below the shared control's
+floor. The second dimension settles it. The graph is 640 logical px tall and the
+canvas region is about 300, so at ~42 % it fits **both axes, whole, once** — every
+box and every run, unreadable as text and complete as a drawing, which is what *the
+picture of where the signal goes* asked for. Then a thumb goes on the part you came
+for.
+
+So the one control whose *meaning* changes is the zoom readout: on a desk tapping it
+returns to 100 %, because at a desk 100 % is where you can read; in a hand 100 % is
+where you are lost, and **fit is the way back**. A reset target that is not obvious
+has to say what it is, which is why the phone's readout carries the word.
+
+**And on a phone, search aims the window.** Both canvases already dim every
+non-matching node rather than hiding it — removing a node removes edges that exist,
+so a partly-filtered patch reads as an unpatched one. On a 1180 px desk that is a
+highlight. In a 341 px window over an 820 px graph the match may be dimmed-in
+somewhere you cannot see, so **the first match is brought into view**. The rule is
+not about reach and is not guarded on it: a 60-channel graph scrolls on a desk too.
+One predicate both dims and aims, because a second one is how the dimmed set and the
+window's target come to disagree.
 
 **The inspector sheet edits.** It is `InputFlowInspector` and `OutputFlowInspector`
 unchanged — kind, mic, **stand**, 48 V, connector, width — committing per field as

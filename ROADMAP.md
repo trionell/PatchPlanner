@@ -1237,6 +1237,55 @@ one finding left, which is the Flow canvas.
   down rather than waved through.
 - **Left for 6d:** the Flow canvas (`M6`).
 
+## Slice 36 — The canvases (spec: `phone-canvas`)
+
+**Design wave 6d**, the last phase of Wave 6 and the only one that is a **new capability**
+rather than a conversion. Both audio Flow canvases mount on a phone, closing `M6` — and
+with it every finding in `design/audit.md`, desktop and phone.
+
+- **`M6` — the canvas is a viewport, and the finding was one line.** Both canvases compute
+  their logical space as `panelWidth / zoom`, so zooming *out* on a desk **grows the
+  coordinate space** — right for a canvas being composed, and backwards in a hand: at the
+  scale where the whole graph fits, the space would become ~1950 px and the desk lane
+  would slide out past `x = 1730`. **Zooming out to see the whole graph would push the
+  graph away as fast as you zoomed.** `patterns.md` §7f had described the phone's
+  behaviour correctly for four waves without anyone noticing the code said the opposite.
+- **The question the audit deferred here by name is arithmetic, not preference.** *Pan-and-
+  zoom or fit-to-width?* — both wrong. 100 % opens onto the Stage lane with no sign a desk
+  exists; fitting the *width* needs a scale below the shared control's floor. The axis the
+  question never mentioned settles it: the graph is 640 tall and the canvas region ~300, so
+  at ~42 % it fits **both axes, whole, once**. Fit is the opening state, pan-and-zoom the
+  working state, and the readout resets to fit rather than to 100 %.
+- **The design work came out of that rather than into it.** On a 341 px window over an
+  820 px graph the hard thing is finding a box, not reading one. Both canvases already
+  dimmed non-matching nodes; one `scrollIntoView`-shaped call turns a highlight into a
+  direction. **Unconditional**, not guarded on reach — a 60-channel graph scrolls on a desk
+  too — and **one** predicate both dims and aims, because a second is how the dimmed set
+  and the window's target come to disagree.
+- **The withholding is what makes the pan good.** The canvas is handed no gesture handler
+  at all, so one finger is left to the platform's own scrolling, with momentum and both
+  axes; only pinch is written by hand. §7g reads as a restriction and is also an enabling
+  condition.
+- **Two duplications 6c created are deleted.** `ZoomControl`'s targets are 28 px, which
+  `tokens.md` §7 amendment 1 forbids in the hand, so 6c hand-built a second cluster inside
+  `StagePlotTab` — and a segmented view control with it. Both are shared components now.
+  Fifth and sixth time in this wave that a branch inside a shared component gave several
+  surfaces a phone form at once, and the rule has stopped being a surprise: **the phase
+  that needs a thing twice is the phase that should own it.**
+- **The inspector is the rail's own contents in the un-scrimmed sheet 6a built for it and
+  left unwired for four phases.** `InspectorFrame` *renders* `InspectorRail` and
+  `InspectorHeader` rather than reimplementing them, so the desktop return is identical
+  **by construction**; it is a new component rather than a branch inside the rail because
+  the rail has a third caller that supplies no header at all.
+- **And one of the audit's own greps stopped working.** `grep "!isMobile"` was the check
+  for *a reach check is never a permission*; this slice makes it return four hits, none of
+  them a permission. The rule is intact and the proxy is not — recorded in `audit.md`
+  rather than quietly replaced, and the check that means what the rule means is whether a
+  reach term ever shares an expression with `readOnly`.
+- Frontend only, asserted. Three desktop surfaces were captured before the change and
+  diffed after: `ZoomControl` and both flow inspectors, byte-identical in every state.
+- **Wave 6 is complete**, and `design/audit.md` Part 1 is empty for the first time.
+
 ## Known defects — found, reproduced, not yet scheduled
 
 Each of these has been traced to a specific line and is waiting for a slice to
@@ -1301,6 +1350,25 @@ Regression test to write with the fix: a user who owns an inventory logs in
 while an ownerless one exists, and the ownerless one is adopted rather than
 skipped.
 
+
+### D2 — The flow inspector's delete is a browser dialog
+
+**Found:** 2026-07-29, during Slice 36. `InputFlowInspector` and `OutputFlowInspector`
+both confirm a delete with `window.confirm`, at every width.
+
+Slice 32 removed the application's only `window.prompt` on the argument that a browser
+primitive is not this language; the same argument applies here and applies harder on a
+phone, where the sheet it interrupts is the surface the user is reading. It was left
+alone in 6d deliberately: it is a **desktop-visible change to a destructive path**, and
+6d was a phone phase, so mixing it in would have made a regression unattributable — the
+rule every wave in the convergence has followed.
+
+**What a fix has to cover.** The replacement is `ui/Dialog` — *"an overlay that is a
+sentence and two buttons is a `Dialog`"* (`patterns.md` §7d), which is what this is at
+both widths. Both inspectors, together, for the reason everything in these two files is
+done together. The sentence should keep naming the consequence, which the current one
+already does: *any cable connected to it is removed with it.*
+
 ## Dependency graph
 
 ```
@@ -1314,6 +1382,6 @@ Slice 7 (lighting rig) + Slice 12 ──→ Slice 13 (stage plots; supersedes Sl
 Slice 7 (lighting rig) + Slice 25 (visual language) ──→ Slice 27 (Lighting becomes a sheet; design wave 3) ──→ Slice 28 (the remaining event tabs; design wave 4) ──→ Slice 29 (pages and residue; design wave 5 — convergence complete) ──→ Slice 30 (the Events timeline, and events that have length) ──→ Slice 31 (rental pricing by duration)
 
 Slice 16 (inventory ownership) + Slice 29 (pages and residue) + Slice 30 (the spine) ──→ Slice 32 (the inventory list — the last card list)
-Slice 21 (mobile redesign) + Slice 29 (the language it converges onto) ──→ Slice 33 (the phone's bottom sheet; design wave 6a) ──→ Slice 34 (the phone's panel; design wave 6b) ──→ Slice 35 (the nine surfaces; design wave 6c) ──→ 6d the canvases
+Slice 21 (mobile redesign) + Slice 29 (the language it converges onto) ──→ Slice 33 (the phone's bottom sheet; design wave 6a) ──→ Slice 34 (the phone's panel; design wave 6b) ──→ Slice 35 (the nine surfaces; design wave 6c) ──→ Slice 36 (the canvases; design wave 6d — convergence complete) ✅
 Slice 14 (auth) ──→ Slice 15 (event ownership & sharing) ──→ Slice 16 (inventory ownership) ──→ Slice 17 (event settings) ──→ Slice 18 (deployment) ✅
 ```

@@ -41,11 +41,18 @@ git diff --stat -- frontend/src/components/event/graph/NodeShell.tsx \
 git diff -- frontend/src/components/event/graph/InspectorRail.tsx   # additions only
 
 # FR-026 and the wave's standing rule — a reach check is never a permission.
-grep -rn "!isMobile" --include='*.tsx' --include='*.ts' frontend/src    # nothing
+#
+# NOT `grep "!isMobile"`, which is what previous phases used and what this slice
+# breaks: `const spatial = !isMobile` names a withheld GESTURE, and two more say
+# "only on a phone, scroll the selection clear of the sheet". None is a permission.
+# The check that means what the rule means is whether a reach term ever shares an
+# expression with a role term (audit.md Part 1, and A12's lesson a third time).
+grep -rn "isMobile" --include='*.tsx' --include='*.ts' frontend/src | grep -c "readOnly"   # 0
 
-# FR-013a — one zoom control, not two.
-grep -rn "Zoom out" --include='*.tsx' frontend/src | wc -l             # 1  (ZoomControl)
-grep -rn "h-11 w-11" frontend/src/components/event/StagePlotTab.tsx    # nothing
+# FR-013a — one zoom control, not two. Both hits are the two reaches of the same
+# component, in the same file; the point is that no caller draws its own.
+grep -rln "Zoom out" --include='*.tsx' frontend/src | grep -v test      # 1 file: ZoomControl.tsx
+grep -rn "h-11 w-11" frontend/src/components/event/StagePlotTab.tsx     # nothing
 
 # The canvases branch inside themselves, once each, and it is not a permission.
 grep -c "useIsMobile" frontend/src/components/event/InputGraphCanvas.tsx   # 1
