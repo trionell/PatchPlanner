@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Unplug } from 'lucide-react'
+import { Boxes, Printer, Unplug } from 'lucide-react'
 import {
   createAudioOutput,
   createOutputCable,
@@ -172,9 +172,25 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
     })
     const editingOutput = typeof editingOutputId === 'number' ? outputs.find((o) => o.id === editingOutputId) : undefined
     return (
+      <>
       <div className="print:hidden">
         <MobileEntityList
           title="Audio Outputs"
+          /* The rig, in the hand (audit.md M5) — `ui/Drawer` has had a phone form since
+             6a and this branch simply returned before reaching it. Print is M11. */
+          overflow={[
+            ...(readOnly
+              ? []
+              : [
+                  {
+                    label: 'Open Rig',
+                    hint: String(consoles.length + stageboxes.length + stageMultis.length + outputDevices.length),
+                    icon: <Boxes className="h-4 w-4" />,
+                    onClick: () => setRigOpen(true),
+                  },
+                ]),
+            { label: 'Print patch sheet', icon: <Printer className="h-4 w-4" />, onClick: () => window.print() },
+          ]}
           strip={
             <PatchStatusRail
               status={status}
@@ -204,7 +220,50 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
             onSaved={invalidate}
           />
         )}
+
+        {/* The same tree the desk renders, at phone geometry. No drawer file edited. */}
+        <RigDrawer
+          audioItems={allAudioItems}
+          cables={[...outputCables, ...(audioQuery.data?.input_cables ?? [])]}
+          consoleSection={
+            <ConsoleSection
+              audioItems={allAudioItems}
+              channels={audioQuery.data?.input_channels ?? []}
+              consoles={consoles}
+              eventId={eventId}
+              outputs={outputs}
+              ownedItems={ownedItems}
+              readOnly={readOnly}
+            />
+          }
+          deviceSections={
+            <>
+              <ProcessingDeviceSection audioItems={allAudioItems} devices={outputDevices} eventId={eventId} ownedItems={ownedItems} readOnly={readOnly} />
+              <TrueOutputDeviceSection audioItems={allAudioItems} devices={outputDevices} eventId={eventId} ownedItems={ownedItems} readOnly={readOnly} />
+            </>
+          }
+          eventId={eventId}
+          itemCount={consoles.length + stageboxes.length + stageMultis.length + outputDevices.length}
+          onClose={() => setRigOpen(false)}
+          open={rigOpen}
+          readOnly={readOnly}
+          stageMultis={stageMultis}
+          stageboxes={stageboxes}
+        />
       </div>
+
+      {/* A sibling of the wrapper, not inside it — the desktop return's shape (M11). */}
+      <OutputPatchSheet
+        eventId={eventId}
+        outputs={outputs}
+        stageboxes={stageboxes}
+        stageMultis={stageMultis}
+        outputDevices={outputDevices}
+        outputCables={outputCables}
+        consoles={consoles}
+        itemLabelById={itemLabelById}
+      />
+      </>
     )
   }
 

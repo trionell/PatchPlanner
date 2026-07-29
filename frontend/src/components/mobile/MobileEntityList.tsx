@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Pencil, Plus } from 'lucide-react'
-import { MobilePanel } from '../ui/MobilePanel'
+import { MobilePanel, type PanelAction } from '../ui/MobilePanel'
 import { CondensedListRow } from './CondensedListRow'
 
 export interface MobileEntityRow {
@@ -38,6 +38,7 @@ export function MobileEntityList({
   addLabel,
   emptyLabel,
   strip,
+  overflow,
   filtered = false,
 }: {
   /** The surface's name, repeated in the bar (patterns.md §1). */
@@ -51,6 +52,12 @@ export function MobileEntityList({
   emptyLabel: string
   /** The surface's status rail. */
   strip?: ReactNode
+  /**
+   * The bar's overflow, passed straight through: Open Rig, Buses, Universes, Print.
+   * This component decides nothing about them, exactly as it decides nothing about the
+   * strip — three surfaces share it and each has a different set.
+   */
+  overflow?: PanelAction[]
   /**
    * Whether the caller has already narrowed `items` with the strip's filter. Without
    * it an emptied filter reads as an empty surface — *"No input channels yet."* on an
@@ -88,6 +95,7 @@ export function MobileEntityList({
         ) : undefined
       }
       strip={strip}
+      overflow={overflow}
     >
       {visible.map((item) => (
         <CondensedListRow

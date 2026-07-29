@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search } from 'lucide-react'
+import { Layers, Plus, Printer, Search } from 'lucide-react'
 import { getEvent } from '../../api/events'
 import { listEventInventoryItems } from '../../api/inventory'
 import { getLightingRig, updateFixtureAddresses } from '../../api/lighting'
@@ -125,9 +125,25 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
       }))
     const editingFixture = typeof editingFixtureId === 'number' ? fixtures.find((f) => f.id === editingFixtureId) : undefined
     return (
+      <>
       <div className="print:hidden">
         <MobileEntityList
           title="Lighting"
+          /* Universes, in the hand (audit.md M5), and the sheet the phone could not
+             print (M11). `UniversesDrawer` is `ui/Drawer`, so it needed no edit. */
+          overflow={[
+            ...(readOnly
+              ? []
+              : [
+                  {
+                    label: 'Universes',
+                    hint: String(map.universes.length),
+                    icon: <Layers className="h-4 w-4" />,
+                    onClick: () => setUniversesOpen(true),
+                  },
+                ]),
+            { label: 'Print rig sheet', icon: <Printer className="h-4 w-4" />, onClick: () => window.print() },
+          ]}
           strip={
             <LightingStatusRail
               map={map}
@@ -157,7 +173,32 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
             onSaved={invalidate}
           />
         )}
+
+        <UniversesDrawer
+          busy={applyAddresses.isPending}
+          fixtures={fixtures}
+          map={map}
+          onAutoAssign={
+            readOnly
+              ? undefined
+              : () =>
+                  run(
+                    planAutoAssign(fixtures),
+                    'Re-address',
+                    'Every fixture is already packed from address 1 in rig order.',
+                  )
+          }
+          onClose={() => setUniversesOpen(false)}
+          onOptimise={
+            readOnly ? undefined : () => run(planOptimise(fixtures), 'Close the gaps around', 'There are no gaps to close.')
+          }
+          open={universesOpen}
+        />
       </div>
+
+      {/* A sibling of the wrapper, not inside it — the desktop return's shape (M11). */}
+      <LightingRigSheet eventId={eventId} fixtures={fixtures} />
+      </>
     )
   }
 

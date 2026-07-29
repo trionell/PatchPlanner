@@ -13,7 +13,15 @@ interface StatusStripProps {
    * is a sentence rather than a control at either width.
    */
   filter?: { label: string; onClick: () => void }
-  /** Desktop-only controls that do not travel — `Open Rig`, whose drawer is not mounted on a phone (audit.md M5). */
+  /**
+   * Desktop-only controls that do not travel — today, `Open Rig`.
+   *
+   * The reason changed in Wave 6c and the prop did not. It used to be *"whose drawer is
+   * not mounted on a phone (M5)"*, which was a deferral; the drawer is mounted now, and
+   * Open Rig still does not come here, because **on a phone this strip is already the
+   * filter control** and cannot hold a second target. It lives in the panel's overflow
+   * instead (contracts/phone-surfaces.md §1).
+   */
   desktopExtras?: ReactNode
   children: ReactNode
 }

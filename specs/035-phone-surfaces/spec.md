@@ -148,8 +148,9 @@ then confirm it is selectable when editing a channel and present on the desktop.
    phone geometry, with no drawer file edited.
 4. **Given** a stagebox added from the phone, **When** a channel is edited,
    **Then** the new stagebox is offered by the *Stagebox* select.
-5. **Given** a viewer, **Then** the drawers open and every control inside them is absent
-   or inert, exactly as on the desktop.
+5. **Given** a viewer, **Then** the drawer entries are absent from the overflow, exactly
+   as the desktop withholds the drawer buttons — the phone matches the role answer the
+   desktop already gives rather than inventing its own.
 
 ---
 
@@ -323,9 +324,11 @@ and compare the output with the same print at desktop width.
   than a `⋯` that opens a sheet with one row in it. Signal Flow's Print is the case.
 - **A bar with no overflow actions.** No `⋯` target at all — the same rule that already
   hides a search control that filters nothing.
-- **A viewer and the overflow.** Actions a viewer cannot perform are absent, not disabled.
-  A viewer's overflow on Audio Inputs holds Rig, Buses and Print, because all three are
-  readable; their contents are what withholds editing.
+- **A viewer and the overflow.** Actions a viewer cannot perform are absent, not disabled
+  — and *which* those are is the desktop's existing answer, not a new one. The desktop
+  passes no `onOpenRig` for a viewer, so a viewer's overflow on Audio Inputs holds
+  **Print alone**. The phone does not re-open a role question (P9); it only stops
+  answering a reach question as if it were one.
 - **The third rental export.** *Export price list* is offered only for a catalog imported
   from a price list, exactly as on the desktop.
 - **An event that fails to load.** The header shows the page title it shows today rather
