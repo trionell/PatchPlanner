@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Maximize2, Minimize2, Minus, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Check, Maximize2, Minimize2, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { getLightingRig } from '../../api/lighting'
 import {
   attachPlotTrussFixture,
@@ -399,27 +399,16 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
                 </button>
               ))}
             </div>
-            <span className="flex flex-none items-center gap-0.5">
-              <button
-                aria-label="Zoom out"
-                className="flex h-11 w-11 items-center justify-center rounded-md border border-zinc-700 bg-zinc-900 text-zinc-400"
-                onClick={() => zoomBy(1 / 1.25)}
-                type="button"
-              >
-                <Minus className="h-4 w-4" />
-              </button>
-              <span className="w-11 text-center font-mono text-xs tabular-nums text-zinc-300">
-                {Math.round(viewState.zoom * 100)}%
-              </span>
-              <button
-                aria-label="Zoom in"
-                className="flex h-11 w-11 items-center justify-center rounded-md border border-zinc-700 bg-zinc-900 text-zinc-400"
-                onClick={() => zoomBy(1.25)}
-                type="button"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-            </span>
+            {/* The shared control, which has had a phone form since Slice 36. This was
+                three hand-built targets — right in 6c, when this was the only phone
+                canvas, and the `NodeShell` mistake the moment there were three. It
+                resets to 100 % and so names no reset target. */}
+            <ZoomControl
+              zoom={viewState.zoom}
+              onZoomIn={() => zoomBy(1.25)}
+              onZoomOut={() => zoomBy(1 / 1.25)}
+              onReset={() => zoomBy(1 / viewState.zoom)}
+            />
           </>
         }
         strip={
