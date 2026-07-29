@@ -79,7 +79,15 @@ function renderGrid(gridSizeCm: number, zoom: number, panX: number, panY: number
 
 type DragMode =
   | { kind: 'none' }
-  | { kind: 'maybe-pan'; startClientX: number; startClientY: number; startPanX: number; startPanY: number; moved: boolean }
+  /**
+   * A press that has not decided what it is yet.
+   *
+   * Past the 3 px threshold it is a pan; released inside it, it is a tap, and `selectId`
+   * says what the tap selects — the element it started on, or nothing when it started on
+   * the background. Elements that cannot be *dragged* (a viewer, a phone, a locked
+   * layer) enter this state too, which is what lets a pan begin on top of one.
+   */
+  | { kind: 'maybe-pan'; startClientX: number; startClientY: number; startPanX: number; startPanY: number; moved: boolean; selectId?: number }
   | { kind: 'move'; elementId: number; startU: number; startV: number; origin: StagePlotElement; moved: boolean }
   | { kind: 'resize'; elementId: number; origin: StagePlotElement }
   | { kind: 'rotate'; elementId: number; origin: StagePlotElement }
@@ -216,12 +224,35 @@ export function StagePlotCanvas({
   const handleElementPointerDown = (event: ReactPointerEvent, element: StagePlotElement) => {
     if (event.button !== 0) return
     const layer = layerById.get(element.layer_id)
-    if (layer?.locked) return
+    const locked = layer?.locked ?? false
     event.stopPropagation()
     svgRef.current?.setPointerCapture(event.pointerId)
+
+    /*
+      An element that cannot be dragged still has to let the canvas pan under it
+      (Slice 35 field test). This used to select on pointer-*down* and then return, so
+      on a phone — where the canvas is always `readOnly` — putting a thumb on a riser to
+      pan opened the riser's sheet instead, and the plot could only be panned by finding
+      empty floor. A press is not a tap until it is released without travelling.
+
+      So it enters `maybe-pan` like the background does, carrying what a clean tap should
+      select. A locked element carries nothing: it pans, and selects no more than it did
+      before.
+    */
+    if (readOnly || locked) {
+      setDrag({
+        kind: 'maybe-pan',
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startPanX: panX,
+        startPanY: panY,
+        moved: false,
+        selectId: locked ? undefined : element.id,
+      })
+      return
+    }
+
     onSelectElement(element.id)
-    // A viewer may select/inspect an element but never drag it.
-    if (readOnly) return
     const point = clientToCm(event.clientX, event.clientY)
     setDrag({ kind: 'move', elementId: element.id, startU: point.u, startV: point.v, origin: element, moved: false })
   }
@@ -400,7 +431,9 @@ export function StagePlotCanvas({
 
   const handlePointerUp = () => {
     if (drag.kind === 'maybe-pan') {
-      if (!drag.moved) onSelectElement(null)
+      // Released without travelling: a tap. On the background that clears the
+      // selection; on an element it opens it.
+      if (!drag.moved) onSelectElement(drag.selectId ?? null)
     } else if (drag.kind === 'truss-fixture') {
       if (fixtureDrag && onAttachFixture) {
         onAttachFixture({ trussId: drag.trussId, fixtureId: drag.fixtureId, offsetCm: fixtureDrag.offset, side: fixtureDrag.side })

@@ -13,7 +13,15 @@ interface StatusStripProps {
    * is a sentence rather than a control at either width.
    */
   filter?: { label: string; onClick: () => void }
-  /** Desktop-only controls that do not travel — `Open Rig`, whose drawer is not mounted on a phone (audit.md M5). */
+  /**
+   * Desktop-only controls that do not travel — today, `Open Rig`.
+   *
+   * The reason changed in Wave 6c and the prop did not. It used to be *"whose drawer is
+   * not mounted on a phone (M5)"*, which was a deferral; the drawer is mounted now, and
+   * Open Rig still does not come here, because **on a phone this strip is already the
+   * filter control** and cannot hold a second target. It lives in the panel's overflow
+   * instead (contracts/phone-surfaces.md §1).
+   */
   desktopExtras?: ReactNode
   children: ReactNode
 }
@@ -43,7 +51,17 @@ interface StatusStripProps {
  */
 export function StatusStrip({ tint, filter, desktopExtras, children }: StatusStripProps) {
   const isMobile = useIsMobile()
-  const base = 'flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t px-3 py-2'
+  /*
+    `print:hidden` is in the base as of Wave 6c, and it belongs there: a strip is chrome,
+    and chrome does not print (§8).
+
+    Four of the five rails never needed to say so, because their surfaces are inside a
+    `print:hidden` wrapper already — so this is a no-op for them, and the only visible
+    consequence is that the fifth stops carrying its own copy. `SignalFlowStatusRail` is
+    the exception because Signal Flow's whole panel is *inside* `PrintSheet`, so its
+    strip really was on the printed page until it said otherwise.
+  */
+  const base = 'flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t px-3 py-2 print:hidden'
 
   if (isMobile) {
     const content = (
@@ -59,7 +77,10 @@ export function StatusStrip({ tint, filter, desktopExtras, children }: StatusStr
     )
     // `text-xs` rather than the desktop's `text-[11px]`: the phone takes the navigation
     // column, and 11px is a spec line, not a sentence (design/tokens.md §7).
-    const phone = cn(base, 'min-h-[44px] text-left text-xs text-zinc-400', tint)
+    /* `flex-none` because on a phone this is a child of the panel's column and must not
+       be squeezed by it — the strip is what stays on screen while the rows scroll (Wave
+       6c). The desktop return does not need it: `PatchPanel` is a block. */
+    const phone = cn(base, 'min-h-[44px] flex-none text-left text-xs text-zinc-400', tint)
     if (!filter) return <div className={phone}>{content}</div>
     return (
       <button className={cn(phone, 'w-full')} onClick={filter.onClick} type="button">

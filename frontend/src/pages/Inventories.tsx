@@ -23,16 +23,27 @@ import { cn } from '../lib/utils'
 import type { Inventory, InventoryCategory } from '../types'
 
 export function InventoriesPage() {
+  const isMobile = useIsMobile()
+  /*
+    On a phone the panel below fills the body and scrolls its own rows, which needs an
+    unbroken column of flex items from `Layout`'s `main` down to it (Slice 35). These two
+    wrappers were the break: `Tabs` and `TabPanel` are blocks, so the panel had no
+    definite height to fill, grew to its content, and was clipped by the shell with no
+    scrollbar anywhere — the exact failure the shell's own rule is written to prevent.
+
+    The desktop passes nothing and keeps `space-y-4`.
+  */
+  const column = isMobile ? 'flex min-h-0 flex-1 flex-col gap-3 space-y-0' : undefined
   return (
-    <Tabs defaultValue="inventories">
-      <TabList>
+    <Tabs className={column} defaultValue="inventories">
+      <TabList className="flex-none">
         {/* Named by what separates them: one is priced gear you hire in, the
             other is gear you already own. "My Inventories" said neither. */}
         <Tab value="inventories">Rental catalogs</Tab>
         <Tab value="owned">Owned gear</Tab>
       </TabList>
-      <TabPanel value="inventories"><MyInventories /></TabPanel>
-      <TabPanel value="owned"><OwnedGearManager /></TabPanel>
+      <TabPanel className={column} value="inventories"><MyInventories /></TabPanel>
+      <TabPanel className={column} value="owned"><OwnedGearManager /></TabPanel>
     </Tabs>
   )
 }

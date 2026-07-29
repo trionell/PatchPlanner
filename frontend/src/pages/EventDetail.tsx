@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { UserPlus } from 'lucide-react'
+import { ArrowLeft, UserPlus } from 'lucide-react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { getEvent } from '../api/events'
 import { formatEventDates } from '../lib/dashboard'
@@ -20,11 +20,11 @@ import { SectionSwitcher } from '../components/mobile/SectionSwitcher'
 import { Button } from '../components/ui/Button'
 import { Tab, TabList, TabPanel, Tabs } from '../components/ui/Tabs'
 import { DEFAULT_EVENT_TAB, useEventTab } from '../hooks/useEventTab'
-import { MOBILE_SECTION_CAPABILITIES, type MobileSectionCapability } from '../types/mobile'
+import { MOBILE_SECTIONS, type MobileSection } from '../types/mobile'
 
-const MOBILE_SECTIONS = MOBILE_SECTION_CAPABILITIES.map((entry) => entry.section)
+const SECTION_IDS = MOBILE_SECTIONS.map((entry) => entry.section)
 
-function renderSection(section: MobileSectionCapability['section'], eventId: number, readOnly: boolean) {
+function renderSection(section: MobileSection['section'], eventId: number, readOnly: boolean) {
   switch (section) {
     case 'overview':
       return <OverviewTab eventId={eventId} readOnly={readOnly} />
@@ -68,30 +68,53 @@ export function EventDetailPage() {
   // is the same idea and lives in `useEventTab`; the two params are separate
   // because the phone's section list is shorter than the tab strip.
   const sectionParam = searchParams.get('section')
-  const currentSection = (MOBILE_SECTIONS as string[]).includes(sectionParam ?? '')
-    ? (sectionParam as MobileSectionCapability['section'])
+  const currentSection = (SECTION_IDS as string[]).includes(sectionParam ?? '')
+    ? (sectionParam as MobileSection['section'])
     : 'overview'
-  const selectSection = (section: MobileSectionCapability['section']) => {
+  // Both, for the reason `useEventTab.openTab` sets both: the two params carry the same
+  // nine strings, and one of them going stale is how a hand-off stops working.
+  const selectSection = (section: MobileSection['section']) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev)
       next.set('section', section)
+      next.set('tab', section)
       return next
     })
   }
 
   if (isMobile) {
     return (
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="truncate text-lg font-semibold">{eventQuery.data.name}</h2>
-            <p className="truncate text-xs text-zinc-400">{eventQuery.data.venue || 'Venue TBD'} · {formatEventDates(eventQuery.data).long ?? 'Date TBD'}</p>
+      /* A column inside the shell's column: the switcher row is `flex-none` and the
+         section takes the rest, so the panel inside it can fill the body (Wave 6c). */
+      <div className="flex h-full flex-col gap-3">
+        {eventQuery.data.yourRole === 'viewer' && (
+          <div className="flex-none">
+            <ReadOnlyBanner />
           </div>
-          <Link className="shrink-0 text-xs text-amber-400" to="/events">← Events</Link>
+        )}
+        {/*
+          The name and the back link used to be a block above this row: an `h2` repeating
+          what the shell's header now carries at every scroll position (Wave 6c), and a
+          text link at 12px. Both are gone — the name is in the header, and `← Events` is
+          a 44px target beside the switcher, which is where a back control belongs on a
+          device with no browser chrome to put it in.
+
+          That returns roughly 48px to all nine sections, on the screen where the panel
+          has about 490px to work with.
+        */}
+        <div className="flex flex-none items-center gap-2">
+          <Link
+            aria-label="Back to events"
+            className="flex h-11 w-11 flex-none items-center justify-center rounded-md border border-zinc-700 bg-zinc-900 text-zinc-400"
+            to="/events"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <div className="min-w-0 flex-1">
+            <SectionSwitcher current={currentSection} onSelect={selectSection} />
+          </div>
         </div>
-        {eventQuery.data.yourRole === 'viewer' && <ReadOnlyBanner />}
-        <SectionSwitcher current={currentSection} onSelect={selectSection} />
-        <div>{renderSection(currentSection, eventId, readOnly)}</div>
+        <div className="flex min-h-0 flex-1 flex-col">{renderSection(currentSection, eventId, readOnly)}</div>
       </div>
     )
   }

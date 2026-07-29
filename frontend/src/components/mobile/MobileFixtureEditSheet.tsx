@@ -27,6 +27,7 @@ export function MobileFixtureEditSheet({
   fixtures,
   onClose,
   onSaved,
+  readOnly = false,
 }: {
   eventId: number
   rigId: number
@@ -35,6 +36,12 @@ export function MobileFixtureEditSheet({
   fixtures: LightingFixture[]
   onClose: () => void
   onSaved: () => Promise<void>
+  /**
+   * A viewer taps a row to *read* it (Wave 6c, audit.md M4). A phone row is a
+   * truncation, so a role that cannot edit still has to be able to open one — it
+   * gets this sheet with its fields inert and no confirm, never a dead row.
+   */
+  readOnly?: boolean
 }) {
   const queryClient = useQueryClient()
   const itemId = fixture?.inventory_item_id
@@ -48,10 +55,21 @@ export function MobileFixtureEditSheet({
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
+  /*
+    `retry: false`, because a 404 here is an answer and not a hiccup.
+
+    The endpoint 404s when the item is not in *this* inventory — a fixture whose catalog
+    item predates a re-import, or came from another catalog — and the sheet already
+    handles that correctly by falling back to a free-text mode below. What it did not
+    handle was React Query's default three retries, which turned one dead lookup into
+    four console errors. The desktop `LightingSheet` has the same query and the same
+    behaviour; this is the copy Slice 35 owns.
+  */
   const modesQuery = useQuery({
     queryKey: ['fixture-modes', itemId],
     queryFn: () => listFixtureModes(inventoryId!, itemId!),
     enabled: !!itemId && inventoryId !== undefined,
+    retry: false,
   })
   const modes = modesQuery.data ?? []
 
@@ -101,12 +119,16 @@ export function MobileFixtureEditSheet({
       onClose={onClose}
       title={fixture ? `Fixture ${fixture.fixture_number ?? fixture.id}` : 'Add fixture'}
       footer={
-        <Button className="w-full" onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving…' : 'Save fixture'}
-        </Button>
+        readOnly ? undefined : (
+          <Button className="w-full" onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving…' : 'Save fixture'}
+          </Button>
+        )
       }
     >
       {error && <div className="rounded-md border border-red-800 bg-red-950/50 px-3 py-2 text-sm text-red-300">{error}</div>}
+      {/* Inert rather than absent: the values are the point of opening it. */}
+      <fieldset className="flex min-w-0 flex-col gap-3.5" disabled={readOnly}>
       <div className="flex gap-2.5">
         <FieldStack label="FID" width="short">
           <Input type="number" min={1} value={fixtureNumber} onChange={(e) => setFixtureNumber(e.target.value)} placeholder="GrandMA" autoFocus />
@@ -153,6 +175,7 @@ export function MobileFixtureEditSheet({
           </FieldStack>
         </div>
       )}
+      </fieldset>
     </Sheet>
   )
 }

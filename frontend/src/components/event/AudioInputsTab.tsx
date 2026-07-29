@@ -11,6 +11,7 @@ import { itemLabel } from '../../lib/utils'
 import type { SegmentNode } from '../../lib/patchSheet'
 import type { InputChannel, InventoryItem, OwnedItem } from '../../types'
 import { MobileChannelEditSheet } from '../mobile/MobileChannelEditSheet'
+import { Boxes, Layers, Printer } from 'lucide-react'
 import { MobileEntityList } from '../mobile/MobileEntityList'
 import { InputPatchSheet } from '../print/InputPatchSheet'
 import { AudioPatchShell } from './AudioPatchShell'
@@ -111,9 +112,41 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
     })
     const editingChannel = typeof editingChannelId === 'number' ? channels.find((c) => c.id === editingChannelId) : undefined
     return (
-      <div className="print:hidden">
+      <>
+      {/* A column, because it is a flex item of the shell's column and the panel
+          inside it fills what this gives it (Wave 6c). */}
+      <div className="flex min-h-0 flex-1 flex-col print:hidden">
         <MobileEntityList
           title="Audio Inputs"
+          /*
+            The rig, in the hand (audit.md M5). Every one of these opens something that
+            has had a phone form since Wave 6a — `ui/Drawer` branches internally — and
+            was simply never rendered, because this branch returned before reaching the
+            drawers. A stagebox that arrives at load-in is declared at load-in.
+
+            They are the overflow rather than the bar because each does a thing and is
+            finished (contracts/phone-surfaces.md §1), and because a title plus five 44px
+            targets is 350px of a 317px bar.
+          */
+          overflow={[
+            ...(readOnly
+              ? []
+              : [
+                  {
+                    label: 'Open Rig',
+                    hint: String(consoles.length + stageboxes.length + stageMultis.length + devices.length),
+                    icon: <Boxes className="h-4 w-4" />,
+                    onClick: () => setDrawer('rig'),
+                  },
+                  {
+                    label: 'Groups & DCAs',
+                    hint: String(groups.length + dcas.length),
+                    icon: <Layers className="h-4 w-4" />,
+                    onClick: () => setDrawer('buses'),
+                  },
+                ]),
+            { label: 'Print patch sheet', icon: <Printer className="h-4 w-4" />, onClick: () => window.print() },
+          ]}
           strip={
             <PatchStatusRail
               status={status}
@@ -134,6 +167,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
         {editingChannelId != null && (
           <MobileChannelEditSheet
             eventId={eventId}
+            readOnly={readOnly}
             channel={editingChannel}
             channels={channels}
             sources={sources}
@@ -143,7 +177,67 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
             onSaved={invalidate}
           />
         )}
+
+        {/* Not redrawn for the phone: `ui/Drawer` is `ui/Sheet` below 768px, so these
+            are the same component trees the desk renders, at `h-10` and 44px. No drawer
+            file was edited to get here (audit.md M5). */}
+        <RigDrawer
+          audioItems={allAudioItems}
+          cables={[...cables, ...(audioQuery.data?.output_cables ?? [])]}
+          consoleSection={
+            <ConsoleSection
+              audioItems={allAudioItems}
+              channels={channels}
+              consoles={consoles}
+              eventId={eventId}
+              outputs={audioQuery.data?.outputs ?? []}
+              ownedItems={ownedItems}
+              readOnly={readOnly}
+            />
+          }
+          deviceSections={
+            <InputDeviceSection audioItems={allAudioItems} devices={devices} eventId={eventId} ownedItems={ownedItems} readOnly={readOnly} />
+          }
+          eventId={eventId}
+          itemCount={consoles.length + stageboxes.length + stageMultis.length + devices.length}
+          onClose={() => setDrawer(null)}
+          open={drawer === 'rig'}
+          readOnly={readOnly}
+          stageMultis={stageMultis}
+          stageboxes={stageboxes}
+        />
+        <BusesDrawer
+          channels={channels}
+          dcas={dcas}
+          eventId={eventId}
+          groups={groups}
+          onClose={() => setDrawer(null)}
+          open={drawer === 'buses'}
+          readOnly={readOnly}
+        />
       </div>
+
+      {/*
+        A sibling of the `print:hidden` wrapper, not inside it (audit.md M11).
+
+        The wrapper is doing its job — a panel must not print — and the bug was that it
+        was the *only* thing in this branch, so printing from a phone produced a blank
+        page. This is exactly the desktop return's shape (patterns.md §7h).
+      */}
+      <InputPatchSheet
+        cables={cables}
+        channels={channels}
+        consoles={consoles}
+        dcas={dcas}
+        devices={devices}
+        eventId={eventId}
+        groups={groups}
+        itemLabelById={itemLabelById}
+        sources={sources}
+        stageMultis={stageMultis}
+        stageboxes={stageboxes}
+      />
+      </>
     )
   }
 

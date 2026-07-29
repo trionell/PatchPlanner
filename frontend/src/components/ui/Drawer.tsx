@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 import { useEscapeToClose } from '../../hooks/useEscapeToClose'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { cn } from '../../lib/utils'
+import { useInfoNote } from '../../hooks/useInfoNote'
+import { InfoPanel, InfoToggle } from './InfoNote'
 import { Sheet } from './Sheet'
 
 interface DrawerProps {
@@ -14,6 +16,14 @@ interface DrawerProps {
   width?: 'wide' | 'narrow'
   children: ReactNode
   footer?: ReactNode
+  /**
+   * What the drawer's own actions do, said once and then put away (`ui/InfoNote`).
+   *
+   * These used to be `footer` prose — a paragraph at the foot of Universes, Buses and
+   * Groups & DCAs, correct and unread after the first time, and on a phone a fifth of the
+   * screen. It sits beside the title now, closed, behind one `i`.
+   */
+  info?: ReactNode
 }
 
 /**
@@ -32,9 +42,11 @@ interface DrawerProps {
  * six drawers acquire a phone form at once; six call sites each answering the
  * same question is how `NodeShell` ended up with two copies.
  */
-export function Drawer({ open, onClose, title, subtitle, width = 'wide', children, footer }: DrawerProps) {
+export function Drawer({ open, onClose, title, subtitle, width = 'wide', children, footer, info }: DrawerProps) {
   useEscapeToClose(open, onClose)
   const isMobile = useIsMobile()
+  // The `i` rides in the title's row, so a closed note costs the drawer no space.
+  const note = useInfoNote({ id: `drawer:${title}` })
 
   if (!open) return null
 
@@ -43,7 +55,19 @@ export function Drawer({ open, onClose, title, subtitle, width = 'wide', childre
   // reasoning, applied to an anchor rather than to a tier).
   if (isMobile) {
     return (
-      <Sheet open onClose={onClose} title={title} subtitle={subtitle} footer={footer}>
+      <Sheet
+        open
+        onClose={onClose}
+        title={
+          <>
+            {title}
+            {info && <InfoToggle note={note} />}
+          </>
+        }
+        subtitle={subtitle}
+        footer={footer}
+      >
+        {info && <InfoPanel note={note}>{info}</InfoPanel>}
         {children}
       </Sheet>
     )
@@ -59,11 +83,15 @@ export function Drawer({ open, onClose, title, subtitle, width = 'wide', childre
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between border-b border-zinc-800 px-5 py-4">
-          <div>
-            <h3 className="text-lg font-semibold text-zinc-100">{title}</h3>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-zinc-100">{title}</h3>
+              {info && <InfoToggle note={note} />}
+            </div>
             {subtitle && <p className="mt-0.5 text-xs text-zinc-500">{subtitle}</p>}
+            {info && <InfoPanel className="mt-2" note={note}>{info}</InfoPanel>}
           </div>
-          <button aria-label="Close" className="text-zinc-400 hover:text-zinc-100" onClick={onClose} type="button">
+          <button aria-label="Close" className="ml-3 flex-none text-zinc-400 hover:text-zinc-100" onClick={onClose} type="button">
             ×
           </button>
         </div>

@@ -1186,15 +1186,56 @@ that have not been built yet rather than surfaces speaking a language of their o
   root becomes the button — full width, 44 px, filtering to exactly what it just
   reported. All four rails branch inside themselves, the `ui/Drawer` precedent, so
   five surfaces gained a strip without one of them being edited for it.
-- **The phone shell is a fixed-height column** now, because a panel cannot fill a body
-  that has no height and a strip below the fold states nothing. Declared, not absorbed:
-  it changes how every phone surface scrolls, including the four 6c owns.
+- **The phone shell was going to be a fixed-height column and is not** — built and
+  reverted inside the slice, and this entry claimed otherwise until Slice 35 corrected it.
+  A column makes every child a flex item, and the three phone surfaces that were not
+  panels yet collapsed below their content. Handed to 6c by name, and done there.
 - Frontend only, asserted rather than assumed. The four rails' desktop return was
   verified byte-identical by rendering all eleven states before and after and diffing
   the markup — stronger than 6a's `twMerge` comparison, because it catches element
   order too.
 - **Still a phase of its own:** the nine surfaces (6c — M4, M5, M9, M11) and the
   canvases (6d — M6).
+
+## Slice 35 — The nine surfaces (spec: `phone-surfaces`)
+
+**Design wave 6c**, and the last conversion phase. The nine event sections go in 6b's
+frame; after it the phone is not a subset of the application, and Wave 6 has one phase and
+one finding left, which is the Flow canvas.
+
+- **`M4` — a viewport is not a permission.** Three tabs `&&`-ed the viewport into the role,
+  so every downstream check read *you may not* when the truth was *nobody built it*. The
+  expressions are role-only now and the phone forms that makes necessary exist. **Slice 21
+  FR-012 is superseded**, on the record. The sharper half was one line: `MobileEntityList`'s
+  `onClick={readOnly ? undefined : …}` is correct on six desktop sheets and wrong here,
+  because a phone row is a **truncation** — a viewer could not read the patch at all.
+- **`M5` — the cheapest finding in the wave.** All three drawers have had a phone form
+  since 6a; `ui/Drawer` branches internally and the tabs simply returned before reaching
+  them. **No drawer file was edited.** Third time this wave a branch inside a shared
+  component gave several surfaces a phone form for free.
+- **`M9` — Overview is the design work.** Its composition is five 26 px figures side by
+  side and a rig drawn as a canvas one row high; every part of it is a *read across*, which
+  a phone has not got. So the bands were decided separately: a figure stays a figure, a
+  ribbon stays a drawing and **pans**, and a verdict becomes a **row** — five 44 px rows
+  that state where the plan stands and open the section that fixes it. Settings was one
+  branch inside `VocabularyPanel` for two surfaces.
+- **`M11`** — the print sheet is a sibling of the `print:hidden` wrapper rather than its
+  only content.
+- **Three findings the slice added.** There is a **fifth status rail**: `SignalFlowStatusRail`
+  hand-built the shell's markup and was missed because its surface was not among 6b's nine
+  lists — so `M1` was still standing on exactly the surface nobody counted, and joining the
+  shell closed a latent filter bug with it. The bar's **overflow** was specified in 6b and
+  never built. And a constant was still named after the badge 6a deleted.
+- **The shell is the column 6b reverted**, with both halves of the flex rule stated this
+  time: a visible-overflow item refuses to shrink, a hidden-overflow item may collapse
+  silently, and 6b had the shrinking without the scrolling.
+- **And one thing from the review rather than the findings:** the event's **name** is in the
+  shell's header now — the one thing visible in all nine sections that never scrolls. The
+  block it replaces hands ~48 px back to every section.
+- Frontend only, asserted. The two shared components' desktop markup was diffed state by
+  state: `StagePlotInspector` byte-identical, and the rail's two deltas read and written
+  down rather than waved through.
+- **Left for 6d:** the Flow canvas (`M6`).
 
 ## Dependency graph
 
@@ -1209,6 +1250,6 @@ Slice 7 (lighting rig) + Slice 12 ──→ Slice 13 (stage plots; supersedes Sl
 Slice 7 (lighting rig) + Slice 25 (visual language) ──→ Slice 27 (Lighting becomes a sheet; design wave 3) ──→ Slice 28 (the remaining event tabs; design wave 4) ──→ Slice 29 (pages and residue; design wave 5 — convergence complete) ──→ Slice 30 (the Events timeline, and events that have length) ──→ Slice 31 (rental pricing by duration)
 
 Slice 16 (inventory ownership) + Slice 29 (pages and residue) + Slice 30 (the spine) ──→ Slice 32 (the inventory list — the last card list)
-Slice 21 (mobile redesign) + Slice 29 (the language it converges onto) ──→ Slice 33 (the phone's bottom sheet; design wave 6a) ──→ Slice 34 (the phone's panel; design wave 6b) ──→ 6c the nine surfaces ──→ 6d the canvases
+Slice 21 (mobile redesign) + Slice 29 (the language it converges onto) ──→ Slice 33 (the phone's bottom sheet; design wave 6a) ──→ Slice 34 (the phone's panel; design wave 6b) ──→ Slice 35 (the nine surfaces; design wave 6c) ──→ 6d the canvases
 Slice 14 (auth) ──→ Slice 15 (event ownership & sharing) ──→ Slice 16 (inventory ownership) ──→ Slice 17 (event settings) ──→ Slice 18 (deployment) ✅
 ```

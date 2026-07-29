@@ -106,6 +106,59 @@ export interface ReadinessVerdict {
   tone: ReadinessTone
 }
 
+/**
+ * One row of Overview's phone form (Wave 6c): a verdict, and the figure that goes with
+ * it, on one line.
+ *
+ * The desktop draws these in **two** bands — five 26px figures across the top, five
+ * `area + Pill` verdicts across the bottom — because a desk has room to read across. A
+ * 375px screen does not, so the phone puts each area's number and each area's verdict on
+ * the same 44px row and the run becomes the index of the show: five things that both
+ * state where the plan stands and open the section that fixes it.
+ *
+ * It derives **nothing new**. `area`, `tab`, `label` and `tone` are `ReadinessVerdict`
+ * verbatim, and `figure` is formatted from the same `EventSummary` fields `NumbersBand`
+ * reads. If the phone formatted its own, `16 / 8` and `16 ch in · 8 out` would be two
+ * renderings of one fact with two places to get it wrong — which is the mistake this
+ * module exists to prevent.
+ */
+export interface ReadinessLine extends ReadinessVerdict {
+  /**
+   * What the desktop's numbers band says about this area.
+   *
+   * **Absent, never `'0'`, for an area with no plan at all.** An event has not got zero
+   * channels; it has no patch — the same Undeclared/Empty distinction that makes `Meter`
+   * withhold itself at an undeclared capacity, and the one most easily lost in
+   * translation from a figure to a row.
+   */
+  figure?: string
+}
+
+export function readinessLines(summary: EventSummary): ReadinessLine[] {
+  const figures: Record<ReadinessArea, string | undefined> = {
+    audio:
+      summary.inputChannels == null
+        ? undefined
+        : `${summary.inputChannels} in · ${summary.outputChannels ?? 0} out`,
+    lighting:
+      summary.fixtures == null
+        ? undefined
+        : `${summary.fixtures} ${summary.fixtures === 1 ? 'fixture' : 'fixtures'}`,
+    rental:
+      summary.rentalTotalExVAT == null
+        ? undefined
+        : `${Math.round(summary.rentalTotalExVAT).toLocaleString('sv-SE')} kr`,
+    equipment:
+      summary.equipmentLines == null
+        ? undefined
+        : `${summary.equipmentLines} ${summary.equipmentLines === 1 ? 'line' : 'lines'}`,
+    // The plots verdict already *is* the count, so a figure would say it twice.
+    plots: undefined,
+  }
+
+  return summary.readiness.map((verdict) => ({ ...verdict, figure: figures[verdict.area] }))
+}
+
 export interface EventSummaryInput {
   event?: Event
   patch?: AudioPatchResponse

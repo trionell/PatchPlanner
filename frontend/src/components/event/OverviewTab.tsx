@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ExternalLink, Eye, Pencil } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { getAudioPatch } from '../../api/audioPatch'
 import { getEvent, updateEvent } from '../../api/events'
 import { listMembers } from '../../api/eventMembers'
@@ -11,6 +11,7 @@ import { getLightingRig } from '../../api/lighting'
 import { getRentalSummary } from '../../api/rentals'
 import { listPlotTrusses, listStagePlots } from '../../api/stagePlots'
 import { useEventTab } from '../../hooks/useEventTab'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { formatEventDates } from '../../lib/dashboard'
 import { eventSummary } from '../../lib/eventSummary'
 import { listEventOwnedEquipment } from '../../api/owned'
@@ -18,6 +19,7 @@ import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
 import { Dialog } from '../ui/Dialog'
 import { MicroLabel } from '../ui/Label'
+import { MobileOverviewPanel } from '../mobile/MobileOverviewPanel'
 import { EventInventoryBrowser } from './EventInventoryBrowser'
 import { type EventDraft, EventDetailsDrawer } from './EventDetailsDrawer'
 import { DmxMeter, NumbersBand, ReadinessRow, RigRibbon } from './OverviewBands'
@@ -43,6 +45,8 @@ import { DmxMeter, NumbersBand, ReadinessRow, RigRibbon } from './OverviewBands'
 export function OverviewTab({ eventId, readOnly = false }: { eventId: number; readOnly?: boolean }) {
   const queryClient = useQueryClient()
   const { openTab } = useEventTab()
+  const isMobile = useIsMobile()
+  const navigate = useNavigate()
   const [editing, setEditing] = useState(false)
   const [browsing, setBrowsing] = useState(false)
 
@@ -91,6 +95,73 @@ export function OverviewTab({ eventId, readOnly = false }: { eventId: number; re
 
   const event = eventQuery.data
   const ownsInventory = myInventoriesQuery.data?.some((inventory) => inventory.id === inventoryQuery.data?.id) ?? false
+
+  const meta = [
+    event?.created_at ? `Created ${event.created_at.slice(0, 10)}` : undefined,
+    summary.members != null ? `${summary.members} ${summary.members === 1 ? 'person has' : 'people have'} access` : undefined,
+    summary.yourRole ? `You are the ${summary.yourRole}` : undefined,
+  ].filter((entry): entry is string => entry != null)
+
+  /*
+    The phone (Wave 6c, audit.md M9). Below the queries and the `eventSummary` memo, so
+    nothing is fetched or derived twice; the desktop return below is untouched.
+
+    The composition is a component rather than 120 lines inline, which is the one place
+    this slice spends a Principle V exception: `MobileOverviewPanel` has exactly one
+    caller. The countervailing rule is `components.md` §5 — `components/mobile/` is
+    *reached only from inside a `useIsMobile()` branch* — and a phone composition sitting
+    in the middle of a desktop tab is how a phone value gets copied onto a desk.
+  */
+  if (isMobile) {
+    return (
+      <>
+        <MobileOverviewPanel
+          inventoryName={inventoryQuery.data?.name}
+          inventoryNote={
+            inventoryQuery.data?.sourceFilename
+              ? `Imported from ${inventoryQuery.data.sourceFilename}`
+              : 'No price list imported yet'
+          }
+          meta={meta}
+          notes={event?.notes}
+          onEdit={readOnly ? undefined : () => setEditing(true)}
+          /* An owner manages the catalog; everyone else browses it read-only — the
+             same split the desktop row makes, as one target instead of two. */
+          onOpenInventory={
+            ownsInventory && inventoryQuery.data
+              ? () => navigate(`/inventories/${inventoryQuery.data!.id}`)
+              : () => setBrowsing(true)
+          }
+          onOpenTab={openTab}
+          subtitle={[
+            event?.venue || 'Venue TBD',
+            formatEventDates(event).long ?? 'Date TBD',
+            summary.dayLabel ? `(${summary.dayLabel})` : undefined,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+          summary={summary}
+        />
+
+        <EventDetailsDrawer
+          event={event}
+          onClose={() => setEditing(false)}
+          onSave={(draft) => saveEvent.mutate(draft)}
+          open={editing}
+          saving={saveEvent.isPending}
+        />
+
+        {/* The catalog, read-only, in the sheet `ui/Dialog` becomes below 768px. */}
+        <Dialog
+          onClose={() => setBrowsing(false)}
+          open={browsing}
+          title={`${inventoryQuery.data?.name ?? 'Inventory'} (read-only)`}
+        >
+          <EventInventoryBrowser eventId={eventId} />
+        </Dialog>
+      </>
+    )
+  }
 
   return (
     <>

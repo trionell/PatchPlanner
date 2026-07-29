@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { MobilePanel } from './MobilePanel'
+import { MobilePanel, PanelActionRow } from './MobilePanel'
 
 /**
  * The panel's structure, pinned.
@@ -27,9 +27,29 @@ describe('MobilePanel', () => {
   it('P1 · draws one bordered frame, and the rows get no padding or gap of their own', () => {
     const markup = render(<MobilePanel title="Audio Inputs">{rows}</MobilePanel>)
     expect(markup.match(/rounded-xl border border-zinc-700/g)).toHaveLength(1)
-    // The rows container is a bare `<div>`: no class at all, so it cannot be adding
-    // padding, a gap, or a second scroll region inside the page's.
-    expect(markup).toContain('<div><div id="rows">')
+    // The rows container carries scroll classes and nothing else — no padding and no
+    // gap, so rows are separated by a hairline rather than by air.
+    expect(markup).toContain('<div class="min-h-0 flex-1 overflow-y-auto"><div id="rows">')
+  })
+
+  /**
+   * The shell's invariant, from the panel's side (Wave 6c).
+   *
+   * 6b built this column and reverted it, having got one half of the flex rule: it
+   * could shrink but it could not scroll, so three surfaces collapsed below their
+   * content and clipped with no scrollbar anywhere. Both classes are load-bearing and
+   * neither is visible in a screenshot until the content is tall.
+   */
+  it('exactly one element scrolls, and it can shrink to let it', () => {
+    const markup = render(
+      <MobilePanel title="Audio Inputs" strip={strip}>
+        {rows}
+      </MobilePanel>,
+    )
+    expect(markup.match(/overflow-y-auto/g)).toHaveLength(1)
+    expect(markup).toContain('min-h-0 flex-1 overflow-y-auto')
+    // …and the bar and the strip must not be allowed to absorb or yield space.
+    expect(markup).toContain('flex-none')
   })
 
   it('P2 · the strip is a sibling of the rows, never inside them', () => {
@@ -40,7 +60,7 @@ describe('MobilePanel', () => {
     )
     // It is what closes the panel, so it cannot be part of what the panel contains:
     // the rows container must have closed before the strip appears.
-    expect(markup).toContain('<div><div id="rows">eight rows</div></div><div id="strip">')
+    expect(markup).toContain('<div id="rows">eight rows</div></div><div id="strip">')
   })
 
   it('P6 · a role that cannot act gets no primary element at all, not a disabled one', () => {
@@ -113,5 +133,116 @@ describe('MobilePanel', () => {
     )
     expect(markup).toContain('value="mic"')
     expect(markup).toContain('aria-label="Clear search"')
+  })
+
+  it('the title adornment rides in the title’s own line, before the flexible gap', () => {
+    const markup = render(
+      <MobilePanel title="Stage Plots" titleAdornment={<span id="info" />}>
+        {rows}
+      </MobilePanel>,
+    )
+    // Inside the title span, so a closed note costs the bar no width and no row.
+    expect(markup).toContain('Stage Plots<span id="info"></span></span>')
+    expect(markup.indexOf('id="info"')).toBeLessThan(markup.indexOf('flex-1"'))
+  })
+
+  /**
+   * The overflow (Wave 6c, F2).
+   *
+   * `patterns.md` §7b specified it in 6b and nothing built it, because in 6b nothing
+   * overflowed. What is pinned here is the part a caller must not be allowed to decide:
+   * **how many actions earn a menu**. One does not, and a bar that hides a single action
+   * behind two taps is the failure this is guarding against — it is invisible in a
+   * screenshot and it would be settled differently by each of six call sites.
+   */
+  describe('the bar’s overflow', () => {
+    const three = [
+      { label: 'Open Rig', hint: '7 items', onClick: () => {} },
+      { label: 'Groups & DCAs', hint: '6', onClick: () => {} },
+      { label: 'Print patch sheet', onClick: () => {} },
+    ]
+
+    it('renders nothing when there is nothing to overflow', () => {
+      const markup = render(
+        <MobilePanel title="Equipment" overflow={[]}>
+          {rows}
+        </MobilePanel>,
+      )
+      expect(markup).not.toContain('aria-label="More actions"')
+    })
+
+    it('one action is its own target — a single control does not earn a menu', () => {
+      const markup = render(
+        <MobilePanel title="Signal flow" overflow={[{ label: 'Print', onClick: () => {} }]}>
+          {rows}
+        </MobilePanel>,
+      )
+      expect(markup).toContain('aria-label="Print"')
+      expect(markup).not.toContain('aria-label="More actions"')
+      // …and no sheet is rendered at all, so there is nothing to open.
+      expect(markup).not.toContain('Print</span>')
+    })
+
+    it('two or more collapse behind one target', () => {
+      const markup = render(
+        <MobilePanel title="Audio Inputs" overflow={three}>
+          {rows}
+        </MobilePanel>,
+      )
+      expect(markup).toContain('aria-label="More actions"')
+      expect(markup).not.toContain('aria-label="Open Rig"')
+    })
+
+    it('the overflow target is a 44px control like every other in the bar', () => {
+      const markup = render(
+        <MobilePanel title="Audio Inputs" overflow={three}>
+          {rows}
+        </MobilePanel>,
+      )
+      const target = markup.slice(markup.indexOf('aria-label="More actions"'))
+      expect(target).toContain('h-11 w-11')
+    })
+
+    it('sits after the visible selector and before the primary action', () => {
+      const markup = render(
+        <MobilePanel
+          title="Items"
+          actions={<button id="filter" type="button" />}
+          overflow={three}
+          primaryAction={<button id="add" type="button" />}
+        >
+          {rows}
+        </MobilePanel>,
+      )
+      expect(markup.indexOf('id="filter"')).toBeLessThan(markup.indexOf('aria-label="More actions"'))
+      expect(markup.indexOf('aria-label="More actions"')).toBeLessThan(markup.indexOf('id="add"'))
+    })
+
+    it('a closed overflow leaks no labels into the bar', () => {
+      // `ui/Sheet` renders null while closed, so the actions exist nowhere until the
+      // target is pressed. Worth pinning: a label that leaked would be an unlabelled
+      // 44px control's text sitting loose in a 317px bar.
+      const markup = render(
+        <MobilePanel title="Audio Inputs" overflow={three}>
+          {rows}
+        </MobilePanel>,
+      )
+      expect(markup).not.toContain('Open Rig')
+      expect(markup).not.toContain('7 items')
+    })
+
+    it('the sheet’s row is the panel’s, not a caller’s: 52px, label, hint', () => {
+      // Rendered directly, because the sheet it lives in is closed in every markup
+      // above and `renderToStaticMarkup` cannot press the target that opens it.
+      const markup = render(<PanelActionRow action={three[0]} onDone={() => {}} />)
+      expect(markup).toContain('min-h-[52px]')
+      expect(markup).toContain('Open Rig')
+      expect(markup).toContain('7 items')
+    })
+
+    it('a row without a hint draws no trailing element', () => {
+      const markup = render(<PanelActionRow action={three[2]} onDone={() => {}} />)
+      expect(markup).not.toContain('text-xs text-zinc-500')
+    })
   })
 })

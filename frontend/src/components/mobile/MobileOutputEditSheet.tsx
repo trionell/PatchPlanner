@@ -20,6 +20,7 @@ export function MobileOutputEditSheet({
   cables,
   onClose,
   onSaved,
+  readOnly = false,
 }: {
   eventId: number
   /** Omitted → creating a new output. */
@@ -29,6 +30,12 @@ export function MobileOutputEditSheet({
   cables: OutputCable[]
   onClose: () => void
   onSaved: () => Promise<void>
+  /**
+   * A viewer taps a row to *read* it (Wave 6c, audit.md M4). A phone row is a
+   * truncation, so a role that cannot edit still has to be able to open one — it
+   * gets this sheet with its fields inert and no confirm, never a dead row.
+   */
+  readOnly?: boolean
 }) {
   const queryClient = useQueryClient()
   const currentRouting = output ? resolveOutputRouting(output.id, cables) : {}
@@ -98,12 +105,16 @@ export function MobileOutputEditSheet({
       onClose={onClose}
       title={output ? `Output ${output.output_number}` : 'Add output'}
       footer={
-        <Button className="w-full" onClick={handleSave} disabled={saving || !name.trim()}>
-          {saving ? 'Saving…' : 'Save output'}
-        </Button>
+        readOnly ? undefined : (
+          <Button className="w-full" onClick={handleSave} disabled={saving || !name.trim()}>
+            {saving ? 'Saving…' : 'Save output'}
+          </Button>
+        )
       }
     >
       {error && <div className="rounded-md border border-red-800 bg-red-950/50 px-3 py-2 text-sm text-red-300">{error}</div>}
+      {/* Inert rather than absent: the values are the point of opening it. */}
+      <fieldset className="flex min-w-0 flex-col gap-3.5" disabled={readOnly}>
       <FieldStack label="Output" width="full">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Monitor 2" autoFocus />
       </FieldStack>
@@ -139,6 +150,7 @@ export function MobileOutputEditSheet({
       <FieldStack label="Notes" width="full">
         <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
       </FieldStack>
+      </fieldset>
     </Sheet>
   )
 }

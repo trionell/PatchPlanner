@@ -24,6 +24,17 @@ interface StagePlotInspectorProps {
   onReorderLink: (elementId: number, linkId: number, sortOrder: number) => void
   onDeleteLink: (elementId: number, linkId: number) => void
   readOnly?: boolean
+  /**
+   * Whether the spatial rows — Position, Size, Height, Elevation, Rotation, Tilt — are
+   * rendered. `false` only from the phone's sheet (Wave 6c).
+   *
+   * It is **not** a permission and it does not vary with role: what a phone withholds
+   * is the *gesture* of placing something on a scale drawing (patterns.md §7g), and
+   * everything an element *is* stays editable at every width. This is a composition
+   * decision about a 375px sheet, taken so the inspector needs no fork — the component
+   * this renders is the same one the desk renders.
+   */
+  spatial?: boolean
 }
 
 const ENTITY_KIND_LABELS: Record<StagePlotEntityKind, string> = {
@@ -342,7 +353,7 @@ function LinksSection({ eventId, element, disabled, onAdd, onReorder, onRemove }
 
 /** Right-hand inspector: exact numeric editing of the selected element.
  *  Values commit on blur or Enter (FR-022). */
-export function StagePlotInspector({ eventId, element, layers, onUpdate, onDuplicate, onDelete, onAddLink, onReorderLink, onDeleteLink, readOnly = false }: StagePlotInspectorProps) {
+export function StagePlotInspector({ eventId, element, layers, onUpdate, onDuplicate, onDelete, onAddLink, onReorderLink, onDeleteLink, readOnly = false, spatial = true }: StagePlotInspectorProps) {
   const [draft, setDraft] = useDraftState<StagePlotElement, ElementDraft>(element ?? undefined, toDraft, {
     name: '', x: '0', y: '0', z: '0', width: '0', depth: '0', height: '0', rotation: '0', tilt: '0',
   })
@@ -416,96 +427,108 @@ export function StagePlotInspector({ eventId, element, layers, onUpdate, onDupli
           />
         </Row>
 
-        <Row label="Position">
-          <Input
-            className="h-8 text-right tabular-nums"
-            value={draft.x}
-            onChange={(e) => setDraft((prev) => ({ ...prev, x: e.target.value }))}
-            onBlur={() => commitNumber('x', 'x_cm')}
-            onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-            aria-label="X position (cm)"
-          />
-          <Input
-            className="h-8 text-right tabular-nums"
-            value={draft.y}
-            onChange={(e) => setDraft((prev) => ({ ...prev, y: e.target.value }))}
-            onBlur={() => commitNumber('y', 'y_cm')}
-            onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-            aria-label="Y position (cm)"
-          />
-        </Row>
-
-        {element.kind !== 'truss' && (
-          <Row label="Size (cm)">
+        {/*
+          The spatial rows. Withheld only from the phone's sheet: placing an element is
+          a desk job (patterns.md §7g), and nine numeric fields is most of a 375px
+          sheet when the thing someone standing at the riser wants is its name and what
+          is on it. `spatial` defaults to true, so the desktop is not a caller of this.
+        */}
+        {spatial ? (
+          <>
+          <Row label="Position">
             <Input
               className="h-8 text-right tabular-nums"
-              value={draft.width}
-              onChange={(e) => setDraft((prev) => ({ ...prev, width: e.target.value }))}
-              onBlur={() => commitNumber('width', 'width_cm', clampDimension)}
+              value={draft.x}
+              onChange={(e) => setDraft((prev) => ({ ...prev, x: e.target.value }))}
+              onBlur={() => commitNumber('x', 'x_cm')}
               onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-              aria-label="Width (cm)"
+              aria-label="X position (cm)"
             />
             <Input
               className="h-8 text-right tabular-nums"
-              value={draft.depth}
-              onChange={(e) => setDraft((prev) => ({ ...prev, depth: e.target.value }))}
-              onBlur={() => commitNumber('depth', 'depth_cm', (value) => Math.max(0, value))}
+              value={draft.y}
+              onChange={(e) => setDraft((prev) => ({ ...prev, y: e.target.value }))}
+              onBlur={() => commitNumber('y', 'y_cm')}
               onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-              aria-label="Depth (cm)"
+              aria-label="Y position (cm)"
             />
           </Row>
-        )}
 
-        {element.kind !== 'truss' && (
-          <Row label="Height (cm)">
+          {element.kind !== 'truss' && (
+            <Row label="Size (cm)">
+              <Input
+                className="h-8 text-right tabular-nums"
+                value={draft.width}
+                onChange={(e) => setDraft((prev) => ({ ...prev, width: e.target.value }))}
+                onBlur={() => commitNumber('width', 'width_cm', clampDimension)}
+                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                aria-label="Width (cm)"
+              />
+              <Input
+                className="h-8 text-right tabular-nums"
+                value={draft.depth}
+                onChange={(e) => setDraft((prev) => ({ ...prev, depth: e.target.value }))}
+                onBlur={() => commitNumber('depth', 'depth_cm', (value) => Math.max(0, value))}
+                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                aria-label="Depth (cm)"
+              />
+            </Row>
+          )}
+
+          {element.kind !== 'truss' && (
+            <Row label="Height (cm)">
+              <Input
+                className="h-8 text-right tabular-nums"
+                value={draft.height}
+                onChange={(e) => setDraft((prev) => ({ ...prev, height: e.target.value }))}
+                onBlur={() => commitNumber('height', 'height_cm', (value) => Math.max(0, value))}
+                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                aria-label="Element height (cm)"
+                title="Vertical extent, drawn in the front/side views (e.g. a 60 cm stage deck)"
+              />
+            </Row>
+          )}
+          {element.kind !== 'truss' && (
+            <Row label="Elevation">
+              <Input
+                className="h-8 text-right tabular-nums"
+                value={draft.z}
+                onChange={(e) => setDraft((prev) => ({ ...prev, z: e.target.value }))}
+                onBlur={() => commitNumber('z', 'z_cm', (value) => Math.max(0, value))}
+                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                aria-label="Elevation above floor (cm)"
+                title="Bottom edge above the floor in cm — front/side views"
+              />
+            </Row>
+          )}
+
+          <Row label="Rotation (top)">
             <Input
               className="h-8 text-right tabular-nums"
-              value={draft.height}
-              onChange={(e) => setDraft((prev) => ({ ...prev, height: e.target.value }))}
-              onBlur={() => commitNumber('height', 'height_cm', (value) => Math.max(0, value))}
+              value={draft.rotation}
+              onChange={(e) => setDraft((prev) => ({ ...prev, rotation: e.target.value }))}
+              onBlur={() => commitNumber('rotation', 'rotation_deg', (value) => ((value % 360) + 360) % 360)}
               onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-              aria-label="Element height (cm)"
-              title="Vertical extent, drawn in the front/side views (e.g. a 60 cm stage deck)"
+              aria-label="Rotation (degrees)"
+              title="Rotation in the top view (degrees)"
             />
           </Row>
-        )}
-        {element.kind !== 'truss' && (
-          <Row label="Elevation">
+
+          <Row label="Tilt (front)">
             <Input
               className="h-8 text-right tabular-nums"
-              value={draft.z}
-              onChange={(e) => setDraft((prev) => ({ ...prev, z: e.target.value }))}
-              onBlur={() => commitNumber('z', 'z_cm', (value) => Math.max(0, value))}
+              value={draft.tilt}
+              onChange={(e) => setDraft((prev) => ({ ...prev, tilt: e.target.value }))}
+              onBlur={() => commitNumber('tilt', 'tilt_deg', (value) => ((value % 360) + 360) % 360)}
               onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-              aria-label="Elevation above floor (cm)"
-              title="Bottom edge above the floor in cm — front/side views"
+              aria-label="Rotation in the front view (degrees)"
+              title="Rotation in the front view (degrees) — rakes the element, e.g. an angled truss"
             />
           </Row>
+          </>
+        ) : (
+          <p className="text-xs leading-relaxed text-zinc-500">Position and size are set on a computer.</p>
         )}
-
-        <Row label="Rotation (top)">
-          <Input
-            className="h-8 text-right tabular-nums"
-            value={draft.rotation}
-            onChange={(e) => setDraft((prev) => ({ ...prev, rotation: e.target.value }))}
-            onBlur={() => commitNumber('rotation', 'rotation_deg', (value) => ((value % 360) + 360) % 360)}
-            onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-            aria-label="Rotation (degrees)"
-            title="Rotation in the top view (degrees)"
-          />
-        </Row>
-
-        <Row label="Tilt (front)">
-          <Input
-            className="h-8 text-right tabular-nums"
-            value={draft.tilt}
-            onChange={(e) => setDraft((prev) => ({ ...prev, tilt: e.target.value }))}
-            onBlur={() => commitNumber('tilt', 'tilt_deg', (value) => ((value % 360) + 360) % 360)}
-            onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-            aria-label="Rotation in the front view (degrees)"
-            title="Rotation in the front view (degrees) — rakes the element, e.g. an angled truss"
-          />
-        </Row>
       </fieldset>
 
       {(element.kind === 'resource' || element.kind === 'shape') && (

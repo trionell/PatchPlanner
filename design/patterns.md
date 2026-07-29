@@ -379,10 +379,10 @@ is a desk job.
 
 | Part | Value |
 |---|---|
-| header | `sticky top-0 z-20 h-14 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur px-4` |
+| header | `h-14 flex-none border-b border-zinc-800 bg-zinc-950/95 backdrop-blur px-4`. Not `sticky`: it is a row of a fixed-height column, so it cannot scroll |
 | header content | brand mark, page title `text-sm font-semibold`, avatar at `h-7 w-7` |
-| body | `px-4 py-4`, bottom padding derived from the nav's height. **The page scrolls**, not the surface — see §7b |
-| bottom nav | `fixed inset-x-0 bottom-0 h-14 border-t border-zinc-800 bg-zinc-950`, plus the safe inset |
+| body | `px-4 py-4`, `flex-1 min-h-0`. **The panel scrolls**, not the page — see §7b |
+| bottom nav | `h-14 flex-none border-t border-zinc-800 bg-zinc-950`, plus the safe inset. A **sibling in the column**, not an overlay, so the body reserves nothing for it |
 
 The sidebar has no phone form and needs none: it is four destinations, and four
 destinations are a bottom bar. What it keeps is P8 — the nav is on the **same
@@ -415,10 +415,31 @@ P1 does not have a width condition. A phone surface is one bordered thing:
 └─────────────────────────────┘
 ```
 
-- **The bar keeps §1's order** — title, `flex-1`, search, the surface's own controls,
-  primary action — and wraps rather than scrolls. What does not fit at 375 px goes into
-  the overflow the same way the nav's fourth slot works; it does not silently vanish.
-  Every control in it is 44 px ([tokens.md](tokens.md) §7).
+- **The bar keeps §1's order** — title, `flex-1`, the surface's own selector, search, the
+  overflow, primary action — and wraps rather than scrolls. Every control in it is 44 px
+  ([tokens.md](tokens.md) §7).
+
+- **The bar has 317 px**, and that number decides the rest: 375, less the body's `px-4` on
+  both sides, less the panel's two borders, less the bar's own `px-3`. A title and three
+  targets is 246 px; a title and five is 350.
+
+- **So the bar has an overflow, and what goes in it is a rule rather than a judgement.**
+  Specified here in Wave 6b, built in 6c, when five surfaces acquired controls at once:
+
+  > A control that changes **what you are looking at** stays in the bar.
+  > A control that **does a thing and is finished** goes in the overflow.
+
+  It is not a size test, so it cannot drift when a title changes, and it settles all nine
+  surfaces without any of them measuring anything. Visible: a category, a vocabulary, a
+  plot, a view, 6d's `Sheet │ Flow`. In the overflow: Open Rig, Buses, Universes, Print,
+  the three rental exports.
+
+  The overflow is a `⋯` opening a sheet of 52 px labelled rows — `SectionSwitcher`'s shape,
+  because the phone has one list-of-destinations idiom and it already had one. **One action
+  does not earn a menu**: an overflow holding exactly one control renders as that control's
+  own 44 px target, so Signal Flow's Print is one tap and Audio Inputs' three are two. The
+  panel decides that, never a caller. An action a role may not perform is **absent**, and
+  which those are is the desktop's existing answer, not a new one.
 - **Search is a target, not a field.** It opens the bar's second row, which is what
   *wraps to two rows* means. A field that is always open costs 44 px on every screen to
   serve something done on some of them, and it is what leaves a 375 px bar with room for
@@ -439,17 +460,31 @@ P1 does not have a width condition. A phone surface is one bordered thing:
   *addressed*, *all covered* — draws no chevron and is not a control; neither is one
   whose caller passed no handler, which is how a read-only role already sees every one
   of them.
-- **The page scrolls, not the panel** — and this is the one thing on the phone that is
-  *not* yet what it should be. A panel that filled the body, scrolling only its rows,
-  would keep the bar and the strip on screen at every position, which is what a strip is
-  for. Wave 6b built that and reverted it in the same slice: it requires the shell to be
-  a fixed-height column, a column makes every child a flex item, and **a flex item whose
-  root is a scroll container has an automatic minimum size of zero** — so the three phone
-  surfaces that are not panels yet (Overview's card, and the panel behind event Settings
-  and *My Defaults*) were compressed below their content and clipped, with no scrollbar
-  anywhere. The shell becomes a column in **6c**, when those three are panels too, and
-  the strip becomes permanently visible then. Until then it sits after the rows and is
-  reached by scrolling.
+- **The panel scrolls, not the page.** The shell is one fixed-height column (`100svh`,
+  `svh` and not `dvh`), the panel fills the body, and **only its rows region moves** — so
+  the bar and the strip are on screen at every scroll position, which is what a strip is
+  for on the device where someone is standing in the room the plan describes.
+
+  Wave 6b built this and reverted it in the same slice, having got one half of the rule.
+  It has two, and they pull in opposite directions:
+
+  | The flex item's own `overflow` | Automatic minimum size | What goes wrong |
+  |---|---|---|
+  | `visible` | its **content** | refuses to shrink, pushes the column past the viewport |
+  | `hidden` · `auto` · `scroll` | **`0`** | may collapse below its content — and with `hidden`, no scrollbar reveals it |
+
+  6b hit the second: `Card` and `PatchPanel` both carry `overflow-hidden`, so the three
+  surfaces that were not panels — Overview, event Settings and *My Defaults* — collapsed
+  silently. So the split is by **role**, not by element:
+
+  - everything that is not the rows region is **`flex-none`** — header, switcher, bar,
+    strip, nav;
+  - the rows region is **`flex-1 min-h-0 overflow-y-auto`**: `min-h-0` so it may shrink,
+    `overflow-y-auto` and never `hidden` so what does not fit stays reachable. That
+    pairing is what was missing.
+
+  **Every signed-in phone surface is a panel or a canvas**, which is what makes this
+  safe; a surface that is neither is a surface that will collapse.
 
 ### 7c · The row
 
@@ -463,6 +498,12 @@ list rather than eight objects, and it is also what pays for the type: the card'
 2 px of border and 4 px of gap are the difference between a 48 px pitch at 13/11 and a
 45 px pitch at 14/12. **Both lines truncate** — a row that grows to fit its content
 breaks the pitch the list is read at, which is the one thing a fixed row height is for.
+
+> **One stated exception, and it is a constraint rather than a licence.** The signal
+> chain wraps, because on Signal Flow the chain **is** the content rather than a summary
+> of it, and `Beta 91A → SB1 in 1 → Mu…` has lost the answer to the only question that
+> surface is ever asked. The reason is the test: a subtitle that *summarises* a row still
+> truncates. Wave 6c, and it is the only row in the application that grows.
 
 | | Carries |
 |---|---|
@@ -622,6 +663,14 @@ reason, and names what is still available:
 That sentence is the whole of the treatment. It is not a banner, not a dialog, and
 not a disabled control (P7); it sits where the editor would be, and the read view
 above it is complete for everyone.
+
+**And it can be put away.** Read once, it is a paragraph in the way — so it is a
+`ui/InfoNote`: open by default, closing to a single `i` that reopens it, and the choice
+remembered. That is not a weakening of the rule. The requirement is that the reason be
+**readable**, not that it be unavoidable; a tooltip would fail it, because a tooltip has
+no target on a touch screen. The same component is what the drawers use for *what this
+action does*, which is the other kind of thing that has to be said once and then never
+again to the person who has read it.
 
 **`!isMobile` never appears in a permission expression.** A capability is a role
 question. Whether a surface has built its phone editor yet is a fact about the

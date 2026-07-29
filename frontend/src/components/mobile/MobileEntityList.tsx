@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Pencil, Plus } from 'lucide-react'
-import { MobilePanel } from '../ui/MobilePanel'
+import { MobilePanel, type PanelAction } from '../ui/MobilePanel'
 import { CondensedListRow } from './CondensedListRow'
 
 export interface MobileEntityRow {
@@ -38,6 +38,7 @@ export function MobileEntityList({
   addLabel,
   emptyLabel,
   strip,
+  overflow,
   filtered = false,
 }: {
   /** The surface's name, repeated in the bar (patterns.md §1). */
@@ -51,6 +52,12 @@ export function MobileEntityList({
   emptyLabel: string
   /** The surface's status rail. */
   strip?: ReactNode
+  /**
+   * The bar's overflow, passed straight through: Open Rig, Buses, Universes, Print.
+   * This component decides nothing about them, exactly as it decides nothing about the
+   * strip — three surfaces share it and each has a different set.
+   */
+  overflow?: PanelAction[]
   /**
    * Whether the caller has already narrowed `items` with the strip's filter. Without
    * it an emptied filter reads as an empty surface — *"No input channels yet."* on an
@@ -88,6 +95,7 @@ export function MobileEntityList({
         ) : undefined
       }
       strip={strip}
+      overflow={overflow}
     >
       {visible.map((item) => (
         <CondensedListRow
@@ -100,7 +108,20 @@ export function MobileEntityList({
           }
           subtitle={item.subtitle}
           accentColor={item.color}
-          onClick={readOnly ? undefined : () => onSelect(item.id)}
+          /*
+            Always tappable, whatever the role (Wave 6c, audit.md M4).
+
+            This read `onClick={readOnly ? undefined : …}`, which is the same expression
+            six desktop sheets use and is correct on all six — a desktop row already
+            shows every column, and the click only opens an editor. **On a phone the row
+            is a truncation**: the source, the routing and the notes are behind the tap,
+            so withholding it meant a viewer could not read the patch at all. The
+            identical expression, right in one place and wrong in the other, is why P9
+            states the reading rule separately from P7.
+
+            What the role decides is what the sheet does, not whether it opens.
+          */
+          onClick={() => onSelect(item.id)}
           /* Drawn, not pressed — the row is the target. Two targets 8px apart inside a
              44px row is how a list starts mis-firing (patterns.md §7c). */
           trailing={!readOnly && <Pencil className="h-4 w-4 text-zinc-500" />}

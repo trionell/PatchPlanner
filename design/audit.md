@@ -37,44 +37,6 @@ grep -rn "if (isMobile)\|isMobile ?" --include='*.tsx' frontend/src | wc -l
 #  13
 ```
 
-### M4 · `!isMobile` is used as a permission · P7 · P9
-
-```
-grep -rn "!isMobile" --include='*.tsx' frontend/src
-#  EquipmentTab:28   const editable = !readOnly && !isMobile
-#  RentalTab:36      const editable = !readOnly && !isMobile
-#  StagePlotTab:51   const editingAllowed = !readOnly && !isMobile
-```
-
-A viewport is `&&`-ed into a role. Downstream, every `editable` check reads as
-*"you may not"* when the truth is *"this has no phone form yet"* — and the two
-have different answers (P9, 7g).
-
-The sharper half is one line:
-
-```
-frontend/src/components/mobile/MobileEntityList.tsx:75
-  onClick={readOnly ? undefined : () => onSelect(item.id)}
-```
-
-That expression appears on six desktop sheets and is correct on all six, because a
-desktop row already shows every column and the click only opens an editor. On the
-phone the row is a **truncation** — the source, the routing and the notes are
-behind the tap — so the same line means a viewer cannot read the patch at all. The
-identical expression, one right and one wrong, is why P9 states the reading rule
-separately from P7.
-
-### M5 · The rig cannot be declared from a phone · P9
-
-`AudioInputsTab`, `AudioOutputsTab` and `LightingTab` all return their phone
-branch **before** the `RigDrawer`, `BusesDrawer` and `UniversesDrawer` are
-rendered. So the edit sheet's *Stagebox* select can only ever offer what some
-desktop session declared earlier, and a stagebox that arrives at load-in cannot be
-entered from the loading bay.
-
-Things *declared once and referenced often* are §3's drawers, and the drawer's
-phone form is the same bottom sheet as everything else's.
-
 ### M6 · The Flow canvas never mounts on a phone · P9
 
 The rule this document and [patterns.md](patterns.md) §7 both carried — *"a patch
@@ -99,30 +61,82 @@ canvas at 375 px:
   stand a source is on, while standing next to the source, is the phone's best
   case — and it is not direct manipulation, so nothing in 7g withholds it.
 
-### M9 · Two tabs have no phone branch at all · P9
-
-```
-grep -c isMobile frontend/src/components/event/OverviewTab.tsx    # 0
-grep -c isMobile frontend/src/components/event/SettingsTab.tsx    # 0
-```
-
-Both render their desktop markup at 375 px. Overview is the worse of the two and
-the more interesting: it is Wave 4's best surface, and its numbers band is five
-`text-[26px]` mono figures in a row and its ribbon is *the flow canvas one row
-high* — a pattern built to be scanned across a desk. On a phone the band wraps
-and the ribbon overflows. §4b needs a phone form, not a phone exemption; the
-figures are the right five facts for someone on site.
-
-### M11 · A print from a phone is a blank page · Patterns §7h
-
-`AudioInputsTab` imports `InputPatchSheet` and renders it only in its desktop
-return; the phone branch is `<div className="print:hidden">` and nothing else.
-The same holds for the outputs and lighting branches. The print sheet is not
-chrome — it belongs to the tab at every width.
-
 ---
 
 ## Part 1b — Closed
+
+### M4 · A viewport was used as a permission · Wave 6c
+
+`EquipmentTab`, `RentalTab` and `StagePlotTab` each `&&`-ed the viewport into the role, so
+every downstream check read *you may not* when the truth was *nobody built it*. All three
+are role-only now, and the phone forms that made necessary exist: an equipment line and a
+rental quantity are forms over rows, and `patterns.md` §7g names **exactly one** desk job,
+which is neither of them. **Slice 21's FR-012 is superseded**, on the record, because it
+was written in the slice that introduced the phone at all — before anything on it could
+edit.
+
+**The sharper half was one line**, and it is the one worth remembering:
+`MobileEntityList`'s `onClick={readOnly ? undefined : …}` is the same expression six
+desktop sheets use and is correct on all six, because a desktop row already shows every
+column. On a phone the row is a **truncation**, so it meant a viewer could not read the
+patch at all. Rows are tappable for every role now, and the three existing edit sheets
+gained a read-only form so the tap lands somewhere. That is why P9 states the reading rule
+separately from P7.
+
+Stage Plots keeps its one withheld gesture and now says so in `patterns.md` §7g's own
+words, where **Viewer only** used to sit — three words that told an owner they were a
+viewer. Placement is withheld by wiring the canvas no handlers; the sentence does not vary
+with role, because it is about the surface.
+
+### M5 · The rig can be declared from a phone · Wave 6c
+
+The smallest fix in the wave, and the reason is worth recording: **all three drawers had
+had a phone form since 6a and nobody had ever seen it.** `RigDrawer`, `BusesDrawer` and
+`UniversesDrawer` are built on `ui/Drawer`, whose phone branch is *inside the component*,
+so all three have been bottom sheets at 375 px since Slice 33 — and all three tabs returned
+their phone branch before reaching them. The whole of the fix is rendering them and adding
+an overflow entry. **No drawer file was edited.**
+
+That is the third time this wave that a phone branch inside a shared component gave several
+surfaces a phone form for free — `ui/Drawer` in 6a, `StatusStrip` in 6b, `VocabularyPanel`
+in 6c — and it is the argument for putting the branch in the component rather than at the
+call site.
+
+Which entries a viewer sees is the **desktop's** existing answer: it passes no `onOpenRig`
+for a viewer, so a viewer's overflow is Print alone. The phone does not re-open a role
+question; it only stopped answering a reach question as if it were one.
+
+### M9 · Overview and Settings have a phone form · Wave 6c
+
+Both rendered desktop markup at 375 px. **Overview was the design work of the slice**: its
+composition is five 26 px figures side by side, a rig drawn as the flow canvas one row
+high, and five verdicts on one line — and every part of that is a *read across*, which a
+phone has not got. So the three bands were decided separately, by what each one is: a
+figure stays a figure (`tokens.md` §7 — *density comes from stacking, never from
+shrinking*) in a two-column grid with the countdown spanning; a ribbon stays a drawing and
+**pans**; and a verdict becomes a **row**. The last is the one worth arguing for: on a desk
+`ReadinessRow` is a convenience because the tab strip is right there, and on a phone the
+tab strip is behind a tap, so five 44 px rows that both state the verdict and open the
+section are the most useful object on the device.
+
+**Settings was one branch for two surfaces.** It lives inside `VocabularyPanel`, so event
+Settings and `/my-defaults` cannot drift — which matters here more than usual, because the
+whole point of the personal template is that it looks like the event's copy. The rail
+becomes `MobilePicker`, extracted at its second caller.
+
+Overview and Settings are also two of the three surfaces that made 6b revert the shell.
+
+### M11 · A phone prints · Wave 6c
+
+`print:hidden` was doing its job; the bug was that it was the *only* thing in three phone
+branches. The print sheet is a **sibling** of the wrapper now, which is exactly the desktop
+return's shape. Signal Flow already printed, and was the only one of the four that did —
+which is a decent argument that the other three were an oversight rather than a decision.
+
+**Print** joins the bar's overflow on every surface that has a sheet, and the rental
+exports with it: §7h's *every phone surface reaches the export it has* is not satisfied by
+a sheet reachable only through a browser's share menu.
+
 
 ### M1 · The phone has no frame · Wave 6b
 
@@ -220,8 +234,15 @@ whose root is a scroll container has an automatic minimum size of zero**, so the
 phone surfaces that are not panels yet — `OverviewTab`'s `Card`, and `PatchPanel` as
 reached by event Settings and by `/my-defaults`, which is in the bottom nav — were
 compressed below their content and clipped, with no scrollbar anywhere. It is 6c's,
-because 6c is what makes those three panels. Until then the page scrolls and the strip is
-reached by scrolling to it.
+because 6c is what makes those three panels.
+
+**Done in 6c**, and the reason it failed once is worth keeping: the rule has *two* halves.
+A flex item whose own overflow is `visible` gets an automatic minimum size of its
+**content**, so it refuses to shrink and pushes the column past the viewport; one whose
+overflow is not `visible` gets **zero**, so it may collapse — and with `hidden` there is no
+scrollbar to say so. 6b had the shrinking without the scrolling. The split is by role now:
+everything that is not the rows region is `flex-none`, and the rows region is
+`flex-1 min-h-0 overflow-y-auto`.
 
 **One thing changed that no finding had named:** `useIsMobile` guards a missing `window`.
 Without it, every component that branches on reach is unrenderable by this project's own
@@ -714,7 +735,7 @@ disagree — asserted directly by a Go test over every seeded value.
 (import is the bulk path, which is how 308 items arrive), no rail on the phone,
 and the start page is exempt (below).
 
-### Wave 6 · The phone — **6a and 6b done, 6c–6d not started**
+### Wave 6 · The phone — **6a, 6b and 6c done; 6d not started**
 
 M1–M12, and the one surface Waves 0–5 deliberately did not touch. It is ordered
 last for the reason it was skipped: every wave before it was changing the thing
@@ -728,8 +749,8 @@ is worth doing twice:
 |---|---|---|
 | 6a | `ui/Sheet`, and `Drawer`'s phone anchoring — **done**, Slice 33 | M8, and **M12, M7 and M10 with it**. Five call sites were waiting on it, and the correct implementation already existed inline in `MobileNav`. |
 | 6b | `ui/MobilePanel` — bar, rows, strip — **done**, Slice 34 | M1, M2, M3. The frame had to exist before a surface could be put in it, and the strips it ends with already existed. Nine lists in six files, because the row is shared. |
-| 6c | The nine surfaces | M4, M5, M9, M11 — each tab's phone branch onto 6a/6b, plus the two that have no branch at all. **The nine event sections**; the pages were 6b's, see below. |
-| 6d | The canvases | M6. Ordered last because it is the only phase that is a new capability rather than a conversion, and because 6c settles what a phone bar and a phone sheet are before a canvas has to use both. |
+| 6c | The nine surfaces — **done**, Slice 35 | M4, M5, M9, M11, **and three the document did not have**: a fifth status rail (F1), the bar's overflow specified in 6b and never built (F2), and a constant named after something 6a deleted (F3). It also collects the fixed-height shell 6b built and reverted. |
+| 6d | The canvases | M6, and the only finding left in the wave. Ordered last because it is the only phase that is a new capability rather than a conversion, and because 6c settles what a phone bar and a phone sheet are before a canvas has to use both. |
 
 **The wave table above under-assigned the wave**, and it has now done so twice.
 
@@ -745,6 +766,24 @@ Both corrections are recorded here rather than in either phase's spec, because t
 mistake was this document's, and it is the same mistake: **a finding with no phase is
 a finding nobody has agreed to close** — and neither is a surface that no finding
 happens to name.
+
+**And 6c found the third instance of it, which is the sharpest.** This document and
+`components.md` §5 both said *four status rails*. There are five:
+`SignalFlowStatusRail` hand-built the shell's markup — the same base classes, the same
+two tints, its own copy of the deliberately-below-`xs` control — and was missed because
+it is the one rail whose surface was **not among 6b's nine lists**. So `M1` was still
+standing on exactly one surface four waves after it was filed, on the surface nobody
+counted. Joining the shell also closed a latent bug the hand-built version had: it hid
+its control the moment the last gap was fixed, leaving a user who had filtered to the
+gaps looking at an empty list with no way back — the same trap 6b had already found and
+closed on the other four.
+
+Two smaller ones came with it. **The bar's overflow** (§7b) was specified in 6b and never
+implemented, because in 6b nothing overflowed; 6c is the phase that needed it, and Audio
+Inputs' bar would have carried 350 px of controls in 317. And
+**`MOBILE_SECTION_CAPABILITIES`** was still named after the badge 6a deleted — kept
+deliberately then, so a rename would not be mixed into a deletion, and renamed now that
+the deletion is legible on its own.
 
 **What this wave must not do** is take the desktop with it. Every M finding is
 inside `components/mobile/`, a phone branch, or `Layout`'s phone return — with two

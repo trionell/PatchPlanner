@@ -1,6 +1,6 @@
-import { Fragment, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, Search } from 'lucide-react'
+import { Printer, Search } from 'lucide-react'
 import { getAudioPatch } from '../../api/audioPatch'
 import { listEventInventoryItems } from '../../api/inventory'
 import { useEventTab } from '../../hooks/useEventTab'
@@ -9,11 +9,12 @@ import { buildInputChannelFlows, type InputChannelFlow } from '../../lib/inputSi
 import { matchesSearch } from '../../lib/patchSearch'
 import { buildOutputChannelFlows, type OutputChannelFlow } from '../../lib/signalFlow'
 import { busTint, itemLabel } from '../../lib/utils'
-import type { InputChannel, MixerDCA, MixerGroup } from '../../types'
+import type { MixerDCA, MixerGroup } from '../../types'
 import { PrintButton } from '../print/PrintButton'
 import { PrintSheet } from '../print/PrintSheet'
-import { Badge } from '../ui/Badge'
 import { Input } from '../ui/Input'
+import { MicroLabel } from '../ui/Label'
+import { MobilePanel } from '../ui/MobilePanel'
 import { PatchPanel } from '../ui/PatchPanel'
 import { NumCell, Pill, SheetBody, SheetCell, SheetHead, SheetHeadCell, SheetRow, SheetTable } from '../ui/SheetTable'
 import { ChainGap, ChainLine } from './ChainLine'
@@ -110,16 +111,77 @@ export function SignalFlowTab({ eventId }: { eventId: number }) {
       : undefined
 
   return (
-    <PrintSheet eventId={eventId} title="Signal Flow" empty={flows.length === 0 && outputFlows.length === 0} visibleOnScreen>
+    <PrintSheet
+      className={isMobile ? 'flex min-h-0 flex-1 flex-col print:block' : undefined}
+      empty={flows.length === 0 && outputFlows.length === 0}
+      eventId={eventId}
+      title="Signal Flow"
+      visibleOnScreen
+    >
       {isMobile ? (
-        <div className="space-y-1.5">
-          {flows.map((flow, index) => (
-            <InputFlowCard key={channels[index]?.id ?? flow.channelNumber} flow={flow} input={channels[index]} groups={groups} dcas={dcas} />
+        /*
+          One bordered panel, two runs, a strip (Wave 6c).
+
+          This was a `space-y-1.5` stack of `rounded-md border bg-zinc-900` cards until
+          Slice 35 — `M1` still standing on exactly one surface, and it is the surface
+          nobody counted: Signal Flow's phone branch was not among 6b's nine lists, which
+          is also how its status rail went four waves without joining the shared shell
+          (audit.md F1).
+        */
+        <MobilePanel
+          onSearch={setSearch}
+          /* One action, so the panel renders it as its own target rather than a menu. */
+          overflow={[{ label: 'Print signal flow', icon: <Printer className="h-4 w-4" />, onClick: () => window.print() }]}
+          search={search}
+          searchPlaceholder="Find a channel or a device…"
+          strip={
+            <SignalFlowStatusRail
+              filter={filter}
+              firstGap={firstGap}
+              gaps={gapCount}
+              hops={hopCount}
+              inputs={flows.length}
+              onFilterChange={setFilter}
+              outputs={outputFlows.length}
+            />
+          }
+          title="Signal flow"
+        >
+          <MobileRun count={visibleInputs.length} label="Inputs" />
+          {visibleInputs.map((flow) => (
+            <MobileFlowRow
+              key={`in-${flow.channelNumber}`}
+              name={flow.channelName}
+              number={flow.channelNumber}
+              paths={flow.paths.map((path) => ({
+                gap: path.hops.length === 0,
+                text:
+                  path.hops.length === 0
+                    ? `no source connected${path.sideLabel ? ` (${path.sideLabel})` : ''}`
+                    : [...path.hops.map((hop) => hop.label), `Ch ${flow.channelNumber}${path.sideLabel ? ` ${path.sideLabel}` : ''}`].join(' → '),
+              }))}
+            />
           ))}
-          {outputFlows.map((flow) => (
-            <OutputFlowCard key={flow.outputNumber} flow={flow} />
+
+          <MobileRun count={visibleOutputs.length} label="Outputs" />
+          {visibleOutputs.map((flow) => (
+            <MobileFlowRow
+              key={`out-${flow.outputNumber}`}
+              name={flow.outputName}
+              number={flow.outputNumber}
+              paths={flow.paths.map((path) => ({
+                gap: path.hops.some((hop) => hop.missing),
+                text: [`Out ${flow.outputNumber}${path.sideLabel ? ` ${path.sideLabel}` : ''}`, ...path.hops.map((hop) => hop.label)].join(' → '),
+              }))}
+            />
           ))}
-        </div>
+
+          {visibleInputs.length === 0 && visibleOutputs.length === 0 && (
+            <p className="px-3 py-3 text-sm text-zinc-500">
+              {filter ? 'Nothing left to fix — tap the strip to show everything.' : 'No matches.'}
+            </p>
+          )}
+        </MobilePanel>
       ) : (
         <PatchPanel
           bar={
@@ -261,79 +323,60 @@ function Dash() {
   return <span className="text-zinc-600">—</span>
 }
 
-/** Mobile card for one input channel's flow — full-width, so the signal chain wraps freely instead of squeezing into a table cell. */
-function InputFlowCard({
-  flow,
-  input,
-  groups,
-  dcas,
-}: {
-  flow: InputChannelFlow
-  input?: InputChannel
-  groups: MixerGroup[]
-  dcas: MixerDCA[]
-}) {
+/**
+ * A heading over a run of rows, inside the frame (tokens.md §7).
+ *
+ * The desktop's `FlowBand` in the geometry a phone panel has: it separates the two runs
+ * that share one scroll, which they do because the tab prints and a view toggle would
+ * print half the document.
+ */
+function MobileRun({ label, count }: { label: string; count: number }) {
   return (
-    <div className="rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-2">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[13px] font-medium text-zinc-100">
-          <span className="mr-1.5 font-mono text-[11px] text-amber-400">Ch {flow.channelNumber}</span>
-          {flow.channelName || '—'}
-        </span>
-        <BusBadges input={input} groups={groups} dcas={dcas} />
-      </div>
-      <div className="mt-1 space-y-1">
-        {flow.paths.map((path, pathIndex) => (
-          <div key={pathIndex} className="text-[11px] text-zinc-400">
-            {path.hops.length === 0 ? (
-              <span className="inline-flex items-baseline gap-1 font-medium text-amber-400">
-                <AlertTriangle className="h-3 w-3 self-center" />
-                no source connected{path.sideLabel ? ` (${path.sideLabel})` : ''}
-              </span>
-            ) : (
-              <span className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
-                {path.hops.map((hop, hopIndex) => (
-                  <Fragment key={hopIndex}>
-                    {hopIndex > 0 && <span className="text-zinc-500">→</span>}
-                    <span>{hop.label}</span>
-                  </Fragment>
-                ))}
-                <span className="text-zinc-500">→</span>
-                <span>
-                  Ch {flow.channelNumber}
-                  {path.sideLabel ? ` ${path.sideLabel}` : ''}
-                </span>
-              </span>
-            )}
-          </div>
-        ))}
-      </div>
+    <div className="flex items-center gap-2 bg-zinc-950/35 px-3 pb-1.5 pt-2.5">
+      <MicroLabel>{label}</MicroLabel>
+      <span className="font-mono text-[10px] tabular-nums text-zinc-600">{count}</span>
+      <span className="h-px flex-1 bg-zinc-800" />
     </div>
   )
 }
 
-/** Mobile card for one output channel's flow — mirrors InputFlowCard. */
-function OutputFlowCard({ flow }: { flow: OutputChannelFlow }) {
+/**
+ * One flow, as a phone row.
+ *
+ * **The chain wraps**, and it is the one row in the application that does. `patterns.md`
+ * §7c says both lines of a phone row truncate, and gives the reason — *a row that grows
+ * to fit its content breaks the pitch the list is read at* — but that reason is about a
+ * list you **scan**. Signal Flow is a list you **read**: each row is one chain, and a
+ * chain truncated at `Beta 91A → SB1 in 1 → Mu…` has lost the answer to the only
+ * question this surface is ever asked.
+ *
+ * The exception is written into `tokens.md` §7 and `patterns.md` §7c in the same commit,
+ * worded as a constraint rather than a licence: the chain wraps because it *is* the
+ * content; a subtitle that summarises a row still truncates.
+ */
+function MobileFlowRow({
+  number,
+  name,
+  paths,
+}: {
+  number: number
+  name?: string
+  paths: { text: string; gap: boolean }[]
+}) {
   return (
-    <div className="rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-2">
-      <span className="text-[13px] font-medium text-zinc-100">
-        <span className="mr-1.5 font-mono text-[11px] text-amber-400">Out {flow.outputNumber}</span>
-        {flow.outputName || '—'}
-      </span>
-      <div className="mt-1 space-y-1">
-        {flow.paths.map((path, pathIndex) => (
-          <span key={pathIndex} className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[11px] text-zinc-400">
-            <span>
-              Out {flow.outputNumber}
-              {path.sideLabel ? ` ${path.sideLabel}` : ''}
-            </span>
-            {path.hops.map((hop, hopIndex) => (
-              <Fragment key={hopIndex}>
-                <span className="text-zinc-500">→</span>
-                <span className={hop.missing ? 'font-medium text-amber-400' : undefined}>{hop.label}</span>
-              </Fragment>
-            ))}
-          </span>
+    <div className="flex min-h-[44px] items-stretch border-b border-zinc-800/60">
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 px-3 py-1.5">
+        <div className="truncate text-sm font-medium leading-tight text-zinc-100">
+          <span className="mr-1.5 font-mono text-xs tabular-nums text-amber-400">{number}</span>
+          {name || <Dash />}
+        </div>
+        {paths.map((path, index) => (
+          <div
+            className={`font-mono text-[11px] leading-tight ${path.gap ? 'text-red-400' : 'text-zinc-400'}`}
+            key={index}
+          >
+            {path.text}
+          </div>
         ))}
       </div>
     </div>
@@ -375,31 +418,3 @@ function BusPills({
   )
 }
 
-/** The phone's own chips stay navigation-tier — a touch target does not shrink because the data is dense. */
-function BusBadges({
-  input,
-  groups,
-  dcas,
-}: {
-  input?: { group_ids?: number[]; dca_ids?: number[] }
-  groups: { id: number; name: string; color?: string }[]
-  dcas: { id: number; name: string; color?: string }[]
-}) {
-  const memberGroups = groups.filter((group) => input?.group_ids?.includes(group.id))
-  const memberDCAs = dcas.filter((dca) => input?.dca_ids?.includes(dca.id))
-  if (memberGroups.length === 0 && memberDCAs.length === 0) return <span className="text-zinc-500">—</span>
-  return (
-    <span className="flex flex-wrap items-center gap-1">
-      {memberGroups.map((group) => (
-        <Badge key={`g-${group.id}`} style={busTint(group.color)}>
-          {group.name}
-        </Badge>
-      ))}
-      {memberDCAs.map((dca) => (
-        <Badge key={`d-${dca.id}`} style={busTint(dca.color)}>
-          DCA {dca.name}
-        </Badge>
-      ))}
-    </span>
-  )
-}
