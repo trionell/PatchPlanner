@@ -87,3 +87,32 @@ export function originShift(before: PlaneOrigin, after: PlaneOrigin, zoom: numbe
     y: (before.y - after.y) * zoom,
   }
 }
+
+/**
+ * The scroll offset that puts `pan` at the window's top-left.
+ *
+ * A remembered view is stored as the **logical** point the window was looking at, not as
+ * a scroll offset (FR-010). A scroll offset means nothing on its own: it is relative to an
+ * origin that moves with the content and scaled by a zoom that the next visit may not
+ * open at. The logical point is the only part of "where I was" that is still true
+ * tomorrow, on a rotated phone, after somebody else moved a node.
+ *
+ * Clamped at zero because that is what a scroll container would do anyway — better to
+ * agree with it than to hand it a negative and read a different number back.
+ */
+export function panToScroll(pan: PlanePoint, origin: PlaneOrigin, zoom: number): PlanePoint {
+  if (!Number.isFinite(zoom) || zoom <= 0) return { x: 0, y: 0 }
+  return {
+    x: Math.max(0, (pan.x - origin.x) * zoom),
+    y: Math.max(0, (pan.y - origin.y) * zoom),
+  }
+}
+
+/** The inverse: which logical point the window is looking at, to be stored. */
+export function scrollToPan(scroll: PlanePoint, origin: PlaneOrigin, zoom: number): PlanePoint {
+  if (!Number.isFinite(zoom) || zoom <= 0) return { ...origin }
+  return {
+    x: scroll.x / zoom + origin.x,
+    y: scroll.y / zoom + origin.y,
+  }
+}

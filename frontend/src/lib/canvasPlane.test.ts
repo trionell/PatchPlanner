@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { originShift, planeOrigin, PLANE_MARGIN } from './canvasPlane'
+import { originShift, panToScroll, planeOrigin, PLANE_MARGIN, scrollToPan } from './canvasPlane'
 
 describe('planeOrigin', () => {
   it('is 0,0 for a graph that lives entirely in positive space', () => {
@@ -63,5 +63,42 @@ describe('originShift', () => {
     // the way in, because a NaN here is a NaN scrollLeft and a canvas that never scrolls.
     expect(originShift({ x: 0, y: 0 }, { x: -100, y: 0 }, 0)).toEqual({ x: 0, y: 0 })
     expect(originShift({ x: 0, y: 0 }, { x: -100, y: 0 }, Number.NaN)).toEqual({ x: 0, y: 0 })
+  })
+})
+
+describe('panToScroll / scrollToPan', () => {
+  it('round-trips a remembered view', () => {
+    const origin = { x: -124, y: -24 }
+    const pan = { x: 340, y: 90 }
+    const scroll = panToScroll(pan, origin, 0.5)
+    expect(scrollToPan(scroll, origin, 0.5)).toEqual(pan)
+  })
+
+  it('survives the origin moving between visits', () => {
+    // The point of storing a logical pan rather than a scroll offset: somebody moves a
+    // node further left, the origin changes, and the window still opens looking at the
+    // same part of the *graph* rather than the same distance from a moved edge.
+    const pan = { x: 500, y: 200 }
+    const shifted = panToScroll(pan, { x: -300, y: 0 }, 1)
+    expect(shifted).toEqual({ x: 800, y: 200 })
+    expect(scrollToPan(shifted, { x: -300, y: 0 }, 1)).toEqual(pan)
+  })
+
+  it('survives being reopened at a different zoom', () => {
+    const pan = { x: 400, y: 100 }
+    expect(panToScroll(pan, { x: 0, y: 0 }, 1)).toEqual({ x: 400, y: 100 })
+    expect(panToScroll(pan, { x: 0, y: 0 }, 0.25)).toEqual({ x: 100, y: 25 })
+  })
+
+  it('clamps to zero rather than handing a scroll container a negative', () => {
+    // A pan left of the plane's own origin can only happen if the content shrank under a
+    // stored view. The container would clamp anyway; agreeing with it means the value read
+    // back is the value written.
+    expect(panToScroll({ x: -900, y: -900 }, { x: 0, y: 0 }, 1)).toEqual({ x: 0, y: 0 })
+  })
+
+  it('degrades to the origin rather than to NaN on an unmeasured zoom', () => {
+    expect(panToScroll({ x: 400, y: 100 }, { x: -24, y: -24 }, 0)).toEqual({ x: 0, y: 0 })
+    expect(scrollToPan({ x: 400, y: 100 }, { x: -24, y: -24 }, 0)).toEqual({ x: -24, y: -24 })
   })
 })

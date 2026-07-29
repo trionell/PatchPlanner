@@ -64,12 +64,19 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
   const [zoom, setZoom] = useState<number | null>(null)
   const [fit, setFit] = useState(1)
   /*
-    A desk's fit is 1, and only a phone ever reports one — so this is **derived rather
-    than reset**. Widening a phone-width window past the breakpoint would otherwise leave
-    the bar reading *42 %* over a canvas drawn at 100 %, and step the desktop control
-    from 0.42 straight into its own floor.
+    The floor of the zoom range, and the scale a surface opens at before anybody chooses
+    one — **at both widths since Slice 37**.
+
+    It used to be `isMobile ? fit : 1`, because a desk's canvas was sized to its own panel
+    and therefore always fitted. The plane is not: it is as wide as the graph placed on it,
+    which can exceed a desk's window too. Opening a desk at *fit* is also what keeps the
+    Channels rail visible now that it no longer hugs the window's right edge — the one
+    thing this slice was going to cost the desk, paid back by the same change.
+
+    Still derived rather than reset, for the reason it always was: a re-measurement must
+    clamp a chosen zoom into the new range, not throw it away.
   */
-  const fitFloor = isMobile ? fit : 1
+  const fitFloor = fit
   const zoomLevel = zoom ?? fitFloor
   /*
     A re-measurement — a rotation, the bar wrapping to a second row — moves `fit`. A
@@ -399,7 +406,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
         onOpenRig={readOnly ? undefined : () => setDrawer('rig')}
         onOpenBuses={readOnly ? undefined : () => setDrawer('buses')}
         onAdd={readOnly ? undefined : addChannel}
-        toolbarExtras={view === 'flow' ? <ZoomControl zoom={zoomLevel} onZoomChange={setZoom} /> : undefined}
+        toolbarExtras={view === 'flow' ? <ZoomControl zoom={zoomLevel} onZoomChange={setZoom} onReset={() => setZoom(null)} /> : undefined}
         drawers={
           <>
             <RigDrawer
