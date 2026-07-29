@@ -63,7 +63,14 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
   */
   const [zoom, setZoom] = useState<number | null>(null)
   const [fit, setFit] = useState(1)
-  const zoomLevel = zoom ?? fit
+  /*
+    A desk's fit is 1, and only a phone ever reports one — so this is **derived rather
+    than reset**. Widening a phone-width window past the breakpoint would otherwise leave
+    the bar reading *42 %* over a canvas drawn at 100 %, and step the desktop control
+    from 0.42 straight into its own floor.
+  */
+  const fitFloor = isMobile ? fit : 1
+  const zoomLevel = zoom ?? fitFloor
   /*
     A re-measurement — a rotation, the bar wrapping to a second row — moves `fit`. A
     chosen zoom is **clamped into the new range, not reset**: turning the phone is what
@@ -74,7 +81,8 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
     setFit(next)
     setZoom((current) => (current == null ? null : Math.min(1, Math.max(next, current))))
   }, [])
-  const stepZoom = (factor: number) => setZoom((current) => Math.min(1, Math.max(fit, (current ?? fit) * factor)))
+
+  const stepZoom = (factor: number) => setZoom((current) => Math.min(1, Math.max(fitFloor, (current ?? fitFloor) * factor)))
   // Open the first time, and then only for as long as it has not been read.
   const patchingIsADeskJob = useInfoNote({ id: 'flow-desk-job', defaultOpen: true })
   const [drawer, setDrawer] = useState<'rig' | 'buses' | null>(null)

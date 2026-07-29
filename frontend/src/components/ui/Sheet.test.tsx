@@ -141,3 +141,49 @@ describe('Sheet', () => {
     expect(markup).not.toContain('border-t border-zinc-800')
   })
 })
+
+describe('Sheet · the safe-area inset belongs to the last row, whatever it is', () => {
+  /*
+    `components.md` §5 has said this since Wave 6a — *"the safe-area inset under whatever
+    the last row is"* — and the code applied it only in the footer branch. So every sheet
+    without a footer put its last control under the home indicator: the canvas inspector,
+    whose delete sits at the foot of the scrolling body (patterns.md §7d), and the bar's
+    overflow, which is a run of rows and nothing else.
+
+    **The document was right and the code was not**, which is the reverse of the two
+    times this project found the opposite (tokens §7's 56 px row, Slice 34's shell
+    entry) — and it is why both are worth a test rather than a reading.
+  */
+  const inset = /env\(safe-area-inset-bottom\)/
+
+  it('puts it in the footer when there is one', () => {
+    const markup = renderToStaticMarkup(
+      <Sheet footer={<button type="button">Save channel</button>} onClose={() => {}} open title="Channel 12">
+        <p>fields</p>
+      </Sheet>,
+    )
+    expect(markup.match(inset)).not.toBeNull()
+    expect(markup).toContain('border-t border-zinc-800')
+  })
+
+  it('puts it on the body when there is not', () => {
+    const markup = renderToStaticMarkup(
+      <Sheet onClose={() => {}} open title="Source">
+        <p>the rail&rsquo;s fields, and delete at the foot of them</p>
+      </Sheet>,
+    )
+    expect(markup.match(inset)).not.toBeNull()
+  })
+
+  it('and on a flush body too, where the last row owns its own padding', () => {
+    const markup = renderToStaticMarkup(
+      <Sheet flush onClose={() => {}} open title="Audio Inputs">
+        <button type="button">Open Rig</button>
+      </Sheet>,
+    )
+    expect(markup.match(inset)).not.toBeNull()
+    // Flush means the rows own their padding, so the inset is added bare rather than
+    // on top of the body's own 1rem.
+    expect(markup).toContain('pb-[env(safe-area-inset-bottom)]')
+  })
+})

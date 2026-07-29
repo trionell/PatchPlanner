@@ -34,6 +34,16 @@ describe('fitScale', () => {
     expect(fitScale(345, 1000, 820, 640)).toBe(0.42)
   })
 
+  it('never returns zero, however small the window gets', () => {
+    // 6/640 = 0.009…, which the two-decimal floor rounds to **0** — and a zoom of zero
+    // is `scale(0)`, a content box of nothing, and NaN scroll offsets out of the pinch
+    // handler. Keeping zero out of this value is the whole reason the *unmeasured* case
+    // is `null` rather than `0`; rounding must not put it back.
+    expect(fitScale(341, 6, 820, 640)).toBe(0.01)
+    expect(fitScale(4, 300, 820, 640)).toBe(0.01)
+    expect(fitScale(341, 6, 820, 640)).toBeGreaterThan(0)
+  })
+
   it('rejects nonsense rather than propagating it', () => {
     expect(fitScale(-10, 300, 820, 640)).toBe(1)
     expect(fitScale(Number.NaN, 300, 820, 640)).toBe(1)

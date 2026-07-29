@@ -47,7 +47,16 @@ git diff -- frontend/src/components/event/graph/InspectorRail.tsx   # additions 
 # "only on a phone, scroll the selection clear of the sheet". None is a permission.
 # The check that means what the rule means is whether a reach term ever shares an
 # expression with a role term (audit.md Part 1, and A12's lesson a third time).
-grep -rn "isMobile" --include='*.tsx' --include='*.ts' frontend/src | grep -c "readOnly"   # 0
+grep -rnE "isMobile|\\bspatial\\b" --include='*.tsx' --include='*.ts' frontend/src \\
+  | grep -v "const spatial = " | grep "readOnly"        # exactly 2, both read
+
+# The alias matters: `spatial` IS the reach term at the point of use, so a check that
+# only looks for `isMobile` misses exactly the lines it was written to catch.
+#
+# It prints TWO, and both have an answer (audit.md Part 1): `dragHandle`, where a
+# withheld gesture and a withheld role legitimately gate the same drag handle; and
+# `StagePlotInspector`'s signature, which is two props in a parameter list. A grep tuned
+# until it prints 0 has stopped testing anything — this one prints lines to be read.
 
 # FR-013a — one zoom control, not two. Both hits are the two reaches of the same
 # component, in the same file; the point is that no caller draws its own.

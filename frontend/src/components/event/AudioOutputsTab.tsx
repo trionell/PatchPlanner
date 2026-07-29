@@ -102,14 +102,22 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
   */
   const [zoom, setZoom] = useState<number | null>(null)
   const [fit, setFit] = useState(1)
-  const zoomLevel = zoom ?? fit
+  /*
+    A desk's fit is 1, and only a phone ever reports one — so this is **derived rather
+    than reset**. Widening a phone-width window past the breakpoint would otherwise leave
+    the bar reading *42 %* over a canvas drawn at 100 %, and step the desktop control
+    from 0.42 straight into its own floor.
+  */
+  const fitFloor = isMobile ? fit : 1
+  const zoomLevel = zoom ?? fitFloor
   /* A re-measurement clamps a chosen zoom into the new range rather than resetting it —
      turning the phone is what someone does to see more of the graph. */
   const adoptFit = useCallback((next: number) => {
     setFit(next)
     setZoom((current) => (current == null ? null : Math.min(1, Math.max(next, current))))
   }, [])
-  const stepZoom = (factor: number) => setZoom((current) => Math.min(1, Math.max(fit, (current ?? fit) * factor)))
+
+  const stepZoom = (factor: number) => setZoom((current) => Math.min(1, Math.max(fitFloor, (current ?? fitFloor) * factor)))
   // Open the first time, and then only for as long as it has not been read.
   const patchingIsADeskJob = useInfoNote({ id: 'flow-desk-job', defaultOpen: true })
   // The phone's strip filter — the desktop's lives in `OutputSheet` (data-model.md §3).
@@ -820,12 +828,24 @@ function OutputGraphCanvas({
     [search, stageboxes, stageMultis, devices, consoles, outputs],
   )
 
+  const lastFocused = useRef('')
   /* The window follows the search, at every width (FR-030). See the inputs canvas. */
   useEffect(() => {
     const el = wrapperRef.current
-    if (!el || !search.trim()) return
+    if (!el || !search.trim()) {
+      lastFocused.current = ''
+      return
+    }
     const target = firstMatch(layout, matchesNode)
     if (!target) return
+    /*
+      Only when the *answer* changes. `layout` gets a new identity on every node
+      position update, so without this a term left in the search box would re-aim the
+      window on every frame of a desktop drag — the search would fight the hand.
+    */
+    const key = `${target.kind}:${target.id}`
+    if (key === lastFocused.current) return
+    lastFocused.current = key
     const { left, top } = focusOffset(target, {
       zoom,
       viewportW: el.clientWidth,
@@ -844,8 +864,16 @@ function OutputGraphCanvas({
   useEffect(() => {
     const el = wrapperRef.current
     if (!isMobile || !el || !selection) return
-    const wanted = selection.kind === 'output' ? 'mixer' : selection.kind
-    const target = layout.find((node) => node.kind === wanted && (selection.kind === 'output' || node.id === selection.id))
+    /*
+      An output lives *inside* a desk's bus list, so the node to aim at is the desk that
+      owns it — `mixer:0` being the box for outputs belonging to none. Matching the first
+      `mixer` node instead would scroll to the wrong desk on any event with two.
+    */
+    const owner =
+      selection.kind === 'output'
+        ? { kind: 'mixer', id: outputs.find((output) => output.id === selection.id)?.console_id ?? 0 }
+        : { kind: selection.kind, id: selection.id }
+    const target = layout.find((node) => node.kind === owner.kind && node.id === owner.id)
     if (!target) return
     const { left, top } = focusOffset(target, {
       zoom,
@@ -862,16 +890,32 @@ function OutputGraphCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selection, isMobile])
 
+  /*
+    Pinch, about the midpoint of the contacts (patterns.md §7f).
+
+    The correction is **stashed and applied after the new scale has been laid out**, not
+    written beside the state update. Setting `scrollLeft` while the content box is still
+    at the old scale hands the browser an offset it clamps to the old maximum — and
+    starting from *fit* the old maximum is ~0, so every frame of a pinch-in would be
+    clamped away and the graph would slide out from under the fingers. That is precisely
+    the failure `usePinchZoom` exists to prevent, one layer up from where it was fixed.
+  */
+  const pendingAnchor = useRef<{ logicalX: number; logicalY: number; pointX: number; pointY: number } | null>(null)
   const onPinch = useCallback(
     (next: number, anchor: { logicalX: number; logicalY: number; pointX: number; pointY: number }) => {
+      pendingAnchor.current = anchor
       onZoomChange?.(next)
-      const el = wrapperRef.current
-      if (!el) return
-      el.scrollLeft = anchor.logicalX * next - anchor.pointX
-      el.scrollTop = anchor.logicalY * next - anchor.pointY
     },
     [onZoomChange],
   )
+  useLayoutEffect(() => {
+    const el = wrapperRef.current
+    const anchor = pendingAnchor.current
+    if (!el || !anchor) return
+    pendingAnchor.current = null
+    el.scrollLeft = anchor.logicalX * zoom - anchor.pointX
+    el.scrollTop = anchor.logicalY * zoom - anchor.pointY
+  }, [zoom])
   usePinchZoom(wrapperRef, { enabled: isMobile, zoom, min: fit, max: 1, onZoom: onPinch })
 
   /*
@@ -890,6 +934,12 @@ function OutputGraphCanvas({
   function trackPress(event: ReactPointerEvent) {
     const start = press.current
     if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 3) moved.current = true
+  }
+  /* `pointercancel` is the browser saying *I have taken this gesture as a scroll*, and it
+     is the only signal that is certain: once it fires, `pointermove` stops, so a flick
+     whose scroll has not yet started would otherwise read as a clean tap. */
+  function cancelPress() {
+    moved.current = true
   }
   function pressWasPan(): boolean {
     if (moved.current) return true
@@ -935,6 +985,23 @@ function OutputGraphCanvas({
     if (!device) return
     moveDeviceMutation.mutate({ id, device: { ...device, position_x: x, position_y: y } }, { onError })
   }
+
+  /*
+    Whether a node's header carries a drag handle at all.
+
+    It has to be the **prop** and not a guard inside the handler: `NodeShell` puts
+    `touch-none` on the header whenever `onDragStart` is defined, so a handler that
+    merely returns early leaves a dead zone the size of every node's title bar — the
+    browser will not scroll it and the pan guard then swallows the tap. That is Slice
+    35's stage-plot defect ("the plot could only be moved from empty floor") arriving
+    by a different route.
+
+    Two independent conditions, combined once here rather than at six call sites.
+    `spatial` is about the **surface** — a phone withholds the gesture (§7g) — and
+    `readOnly` is about the **role**. Neither stands in for the other, and the desktop's
+    expression is unchanged, because `spatial` is always true there.
+  */
+  const dragHandle = (handler: (event: ReactPointerEvent) => void) => (spatial && !readOnly ? handler : undefined)
 
   function startNodeDrag(kind: PortRef['kind'], id: number, mode: 'y-only' | 'free', event: ReactPointerEvent) {
     if (!spatial) return
@@ -1096,7 +1163,11 @@ function OutputGraphCanvas({
   }, [dragGhost, zoom])
 
   return (
-    <div>
+    /* A column on a phone, so the viewport below can fill it. Without this the chain of
+       definite heights breaks here and the canvas is content-sized: the panel's rows
+       region takes the vertical pan and the withheld-gesture note scrolls away with it.
+       Both halves of the flex rule (patterns.md §7b) have to hold at every link. */
+    <div className={isMobile ? 'flex min-h-0 flex-1 flex-col' : undefined}>
       {error && <div className="border-b border-red-500/40 bg-red-500/10 px-3 py-1.5 text-[11px] text-red-300">{error}</div>}
       {pendingPort && !dragGhost && (
         <div className="border-b border-amber-500/30 bg-amber-500/[0.05] px-3 py-1.5 text-[11px] text-amber-300">
@@ -1110,6 +1181,7 @@ function OutputGraphCanvas({
         ref={wrapperRef}
         className={isMobile ? 'min-h-0 flex-1 overflow-auto' : 'min-w-0 flex-1 overflow-auto'}
         onPointerDown={isMobile ? beginPress : undefined}
+        onPointerCancel={isMobile ? cancelPress : undefined}
         onPointerMove={isMobile ? trackPress : undefined}
         style={isMobile ? { touchAction: 'pan-x pan-y' } : { height: CANVAS_HEIGHT }}
       >
@@ -1156,7 +1228,7 @@ function OutputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
-                    onDragStart={readOnly ? undefined : (e) => startNodeDrag('console_local', desk.id, 'free', e)}
+                    onDragStart={dragHandle((e) => startNodeDrag('console_local', desk.id, 'free', e))}
                     selected={selection?.kind === 'console_local' && selection.id === desk.id}
                     onSelect={onTap(() => onSelectionChange({ kind: 'console_local', id: desk.id }))}
                     dimmed={!matchesNode(node)}
@@ -1181,7 +1253,7 @@ function OutputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
-                    onDragStart={readOnly ? undefined : (e) => startNodeDrag('mixer', desk.id, 'y-only', e)}
+                    onDragStart={dragHandle((e) => startNodeDrag('mixer', desk.id, 'y-only', e))}
                     selectedOutputId={selection?.kind === 'output' ? selection.id : undefined}
                     onSelectOutput={(id) => onTap(() => onSelectionChange({ kind: 'output', id }))()}
                     search={search}
@@ -1198,7 +1270,7 @@ function OutputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
-                    onDragStart={readOnly ? undefined : (e) => startNodeDrag('mixer', 0, 'y-only', e)}
+                    onDragStart={dragHandle((e) => startNodeDrag('mixer', 0, 'y-only', e))}
                     selectedOutputId={selection?.kind === 'output' ? selection.id : undefined}
                     onSelectOutput={(id) => onTap(() => onSelectionChange({ kind: 'output', id }))()}
                     search={search}
@@ -1220,7 +1292,7 @@ function OutputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
-                    onDragStart={readOnly ? undefined : (e) => startNodeDrag('stagebox', sb.id, 'free', e)}
+                    onDragStart={dragHandle((e) => startNodeDrag('stagebox', sb.id, 'free', e))}
                     selected={selection?.kind === 'stagebox' && selection.id === sb.id}
                     onSelect={onTap(() => onSelectionChange({ kind: 'stagebox', id: sb.id }))}
                     dimmed={!matchesNode(node)}
@@ -1242,7 +1314,7 @@ function OutputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
-                    onDragStart={readOnly ? undefined : (e) => startNodeDrag('stage_multi', sm.id, 'free', e)}
+                    onDragStart={dragHandle((e) => startNodeDrag('stage_multi', sm.id, 'free', e))}
                     selected={selection?.kind === 'stage_multi' && selection.id === sm.id}
                     onSelect={onTap(() => onSelectionChange({ kind: 'stage_multi', id: sm.id }))}
                     dimmed={!matchesNode(node)}
@@ -1263,7 +1335,7 @@ function OutputGraphCanvas({
                   onPortPointerDown={handlePortPointerDown}
                   registerPort={registerPort}
                   colorContext={colorContext}
-                  onDragStart={readOnly ? undefined : (e) => startNodeDrag('device', device.id, node.zone === 'processing' ? 'free' : 'y-only', e)}
+                  onDragStart={dragHandle((e) => startNodeDrag('device', device.id, node.zone === 'processing' ? 'free' : 'y-only', e))}
                   selected={selection?.kind === 'device' && selection.id === device.id}
                   onSelect={onTap(() => onSelectionChange({ kind: 'device', id: device.id }))}
                   onDelete={readOnly ? undefined : () => deleteDeviceMutation.mutate(device.id)}

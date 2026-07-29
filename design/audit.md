@@ -56,9 +56,27 @@ instances, not the reason there are instances. The check that means what the rul
 is whether a reach term ever shares an expression with a role term:
 
 ```
-grep -rn "isMobile" --include='*.tsx' --include='*.ts' frontend/src | grep -c "readOnly"
+grep -rnE "isMobile|\bspatial\b" --include='*.tsx' --include='*.ts' frontend/src \
+  | grep -v "const spatial = " | grep -c "readOnly"
 #  0        a reach check is never a permission (P9, §7g)
 ```
+
+**And the replacement needed correcting once before it worked**, which is the same
+lesson a third time in one paragraph. The first version looked only for `isMobile` — but
+at the point of use the reach term is spelled **`spatial`**, so the new check missed
+exactly the lines it was written to catch. A proxy has to match the *vocabulary the code
+actually uses*, not the vocabulary the rule was written in.
+
+**It prints two, and that is the honest answer rather than a failure.** Both are read
+rather than counted, which is what makes this a check and not theatre:
+
+| Line | Why it is not a permission |
+|---|---|
+| `AudioOutputsTab`'s `dragHandle` | *Whether a node's header carries a drag handle.* A phone withholds the **gesture** and a viewer lacks the **role**; both legitimately gate the same handle, and neither stands in for the other. Combined in one named, commented place rather than at six call sites |
+| `StagePlotInspector`'s signature | Two **props** in a parameter list, not an expression at all |
+
+A grep that has been tuned until it prints `0` has stopped testing anything. This one
+prints the lines, and the rule is that every line it prints has an answer.
 
 ## Part 1b — Closed
 

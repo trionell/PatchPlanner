@@ -392,6 +392,14 @@ inspector and had none until Wave 6d, which is a long time for a branch to go
 unexercised. What it buys is the thing the sentence promises: with the inspector open
 the canvas behind it still pans, because there is no layer to swallow the touch.
 
+**Its first caller found the other half of that.** This document has said *"the
+safe-area inset under whatever the last row is"* since 6a, and the code applied it only
+in the **footer** branch — so every sheet without a footer put its last control under the
+home indicator: the canvas inspector, whose delete sits at the foot of the scrolling body
+(§7d), and the bar's own overflow, which is a run of rows and nothing else. The document
+was right and the code was not, which is the reverse of the two times this project found
+the opposite, and `Sheet.test.tsx` now asserts both branches.
+
 **`ui/Drawer` is `Sheet` on a phone.** The branch is in the component, so all
 six drawers — Rig, Buses, Universes, Categories, Import, the catalog's manage
 drawer — got a phone form in Wave 6a without one of their files being touched.

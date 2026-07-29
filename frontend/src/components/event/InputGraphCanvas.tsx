@@ -453,6 +453,7 @@ export function InputGraphCanvas({
     [search, sources, stageboxes, stageMultis, devices, consoles, channels, orphanChannels],
   )
 
+  const lastFocused = useRef('')
   /*
     The window follows the search (Slice 36 FR-030), at **every** width.
 
@@ -463,9 +464,20 @@ export function InputGraphCanvas({
   */
   useEffect(() => {
     const el = wrapperRef.current
-    if (!el || !search.trim()) return
+    if (!el || !search.trim()) {
+      lastFocused.current = ''
+      return
+    }
     const target = firstMatch(layout, matchesNode)
     if (!target) return
+    /*
+      Only when the *answer* changes. `layout` gets a new identity on every node
+      position update, so without this a term left in the search box would re-aim the
+      window on every frame of a desktop drag — the search would fight the hand.
+    */
+    const key = `${target.kind}:${target.id}`
+    if (key === lastFocused.current) return
+    lastFocused.current = key
     const { left, top } = focusOffset(target, {
       zoom,
       viewportW: el.clientWidth,
@@ -510,16 +522,32 @@ export function InputGraphCanvas({
     Pinch, about the midpoint of the contacts (patterns.md §7f). The tab owns the zoom,
     so this reports where the window has to land and the caller sets the scale.
   */
+  /*
+    Pinch, about the midpoint of the contacts (patterns.md §7f).
+
+    The correction is **stashed and applied after the new scale has been laid out**, not
+    written beside the state update. Setting `scrollLeft` while the content box is still
+    at the old scale hands the browser an offset it clamps to the old maximum — and
+    starting from *fit* the old maximum is ~0, so every frame of a pinch-in would be
+    clamped away and the graph would slide out from under the fingers. That is precisely
+    the failure `usePinchZoom` exists to prevent, one layer up from where it was fixed.
+  */
+  const pendingAnchor = useRef<{ logicalX: number; logicalY: number; pointX: number; pointY: number } | null>(null)
   const onPinch = useCallback(
     (next: number, anchor: { logicalX: number; logicalY: number; pointX: number; pointY: number }) => {
+      pendingAnchor.current = anchor
       onZoomChange?.(next)
-      const el = wrapperRef.current
-      if (!el) return
-      el.scrollLeft = anchor.logicalX * next - anchor.pointX
-      el.scrollTop = anchor.logicalY * next - anchor.pointY
     },
     [onZoomChange],
   )
+  useLayoutEffect(() => {
+    const el = wrapperRef.current
+    const anchor = pendingAnchor.current
+    if (!el || !anchor) return
+    pendingAnchor.current = null
+    el.scrollLeft = anchor.logicalX * zoom - anchor.pointX
+    el.scrollTop = anchor.logicalY * zoom - anchor.pointY
+  }, [zoom])
   usePinchZoom(wrapperRef, { enabled: isMobile, zoom, min: fit, max: 1, onZoom: onPinch })
 
   function persistPosition(kind: PortRef['kind'], id: number, x: number, y: number) {
@@ -576,6 +604,12 @@ export function InputGraphCanvas({
     const start = press.current
     if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 3) moved.current = true
   }
+  /* `pointercancel` is the browser saying *I have taken this gesture as a scroll*, and it
+     is the only signal that is certain: once it fires, `pointermove` stops, so a flick
+     whose scroll has not yet started would otherwise read as a clean tap. */
+  function cancelPress() {
+    moved.current = true
+  }
   function pressWasPan(): boolean {
     if (moved.current) return true
     const el = wrapperRef.current
@@ -589,7 +623,11 @@ export function InputGraphCanvas({
   }
 
   function startNodeDrag(kind: PortRef['kind'], id: number, event: ReactPointerEvent) {
-    if (!spatial || readOnly) return
+    // Two statements, never one expression: the first is a **gesture** withheld by reach
+    // and the second is a **permission** withheld by role, and `audit.md`'s own rule is
+    // that the two never share an expression (P9, §7g).
+    if (!spatial) return
+    if (readOnly) return
     const node = layout.find((n) => n.kind === kind && n.id === id)
     if (!node) return
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -768,6 +806,7 @@ export function InputGraphCanvas({
         ref={wrapperRef}
         className={isMobile ? 'min-h-0 flex-1 overflow-auto' : 'min-w-0 flex-1 overflow-auto'}
         onPointerDown={isMobile ? beginPress : undefined}
+        onPointerCancel={isMobile ? cancelPress : undefined}
         onPointerMove={isMobile ? trackPress : undefined}
         style={isMobile ? { touchAction: 'pan-x pan-y' } : { height: CANVAS_HEIGHT }}
       >
@@ -836,7 +875,7 @@ export function InputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
-                    onDragStart={(e) => startNodeDrag('console_local', desk.id, e)}
+                    onDragStart={spatial ? (e) => startNodeDrag('console_local', desk.id, e) : undefined}
                     selected={selection?.kind === 'console_local' && selection.id === desk.id}
                     onSelect={onTap(() => onSelectionChange({ kind: 'console_local', id: desk.id }))}
                     dimmed={!matchesNode(node)}
@@ -861,7 +900,7 @@ export function InputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
-                    onDragStart={(e) => startNodeDrag('channel', desk.id, e)}
+                    onDragStart={spatial ? (e) => startNodeDrag('channel', desk.id, e) : undefined}
                     selected={selection?.kind === 'channel' && selection.id === desk.id}
                     onSelect={onTap(() => onSelectionChange({ kind: 'channel', id: desk.id }))}
                     search={search}
@@ -878,7 +917,7 @@ export function InputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
-                    onDragStart={(e) => startNodeDrag('channel', 0, e)}
+                    onDragStart={spatial ? (e) => startNodeDrag('channel', 0, e) : undefined}
                     search={search}
                   />
                 )
@@ -897,7 +936,7 @@ export function InputGraphCanvas({
                     onPortClick={handlePortClick}
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
-                    onDragStart={(e) => startNodeDrag('stagebox', sb.id, e)}
+                    onDragStart={spatial ? (e) => startNodeDrag('stagebox', sb.id, e) : undefined}
                     selected={selection?.kind === 'stagebox' && selection.id === sb.id}
                     onSelect={onTap(() => onSelectionChange({ kind: 'stagebox', id: sb.id }))}
                     colorContext={colorContext}
@@ -919,7 +958,7 @@ export function InputGraphCanvas({
                     onPortClick={handlePortClick}
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
-                    onDragStart={(e) => startNodeDrag('stage_multi', sm.id, e)}
+                    onDragStart={spatial ? (e) => startNodeDrag('stage_multi', sm.id, e) : undefined}
                     selected={selection?.kind === 'stage_multi' && selection.id === sm.id}
                     onSelect={onTap(() => onSelectionChange({ kind: 'stage_multi', id: sm.id }))}
                     colorContext={colorContext}
@@ -940,7 +979,7 @@ export function InputGraphCanvas({
                   onPortClick={handlePortClick}
                   onPortPointerDown={handlePortPointerDown}
                   registerPort={registerPort}
-                  onDragStart={(e) => startNodeDrag('device', device.id, e)}
+                  onDragStart={spatial ? (e) => startNodeDrag('device', device.id, e) : undefined}
                   selected={selection?.kind === 'device' && selection.id === device.id}
                   onSelect={onTap(() => onSelectionChange({ kind: 'device', id: device.id }))}
                   colorContext={colorContext}
