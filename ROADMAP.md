@@ -1237,6 +1237,70 @@ one finding left, which is the Flow canvas.
   down rather than waved through.
 - **Left for 6d:** the Flow canvas (`M6`).
 
+## Known defects — found, reproduced, not yet scheduled
+
+Each of these has been traced to a specific line and is waiting for a slice to
+adopt it. A defect with a cause written down is a defect somebody can pick up; a
+symptom in a chat log is not.
+
+### D1 — The legacy catalog can become permanently ownerless
+
+**Found:** 2026-07-29, during the Slice 35 field test. The report was a console
+404 on `GET /api/v1/inventories/1/items/273/fixture-modes` when opening a
+fixture on the phone. That request is a symptom; the cause is three layers down
+and much wider.
+
+**The cause.** Migration `038_inventory_ownership.up.sql` deliberately creates
+the pre-existing catalog **ownerless**, to be adopted by whoever logs in first —
+and the adoption lives in `db.EnsureUserHasInventory`, called from `auth.go` on
+every login. But that function's first act is:
+
+```go
+SELECT COUNT(*) FROM inventories WHERE owner_user_id = ?
+if count > 0 { return nil }   // ← already has one; nothing to do
+```
+
+It answers *"does this user own at least one inventory?"*, when the claim needs
+*"is there an ownerless legacy inventory to adopt?"*. Those come apart the
+moment a user creates an inventory of their own **before** the legacy one is
+claimed: from then on the early return fires on every login and the legacy row
+stays `owner_user_id IS NULL` forever.
+
+**What that costs.** `middleware.RequireInventoryOwner` compares
+`inventory.OwnerUserID != user.ID`, and a NULL owner matches nobody — so **all
+eighteen owner-scoped routes 404 for everyone**: read/rename/delete the
+inventory, its categories, its items, `import-xlsx`, and the fixture modes. It
+is also absent from `listMine`, so it cannot be reached in the interface to be
+repaired or deleted. In this developer's database that is a catalog of **308
+items and 27 categories with a live event still bound to it** — the event works,
+because events read their catalog through `RequireEventAccess` rather than
+through the owner guard, which is exactly why this stayed invisible until a
+phone opened a fixture.
+
+**Not caused by Wave 6.** The desktop `LightingSheet` makes the identical call
+and has since Slice 7; the phone only made it reachable more often. Slice 35
+stopped the query retrying three times (`retry: false` — a 404 is an answer, not
+a hiccup) and left the cause alone, because it is a backend fix and that slice
+was frontend-only.
+
+**What a fix has to cover** — two halves, and the second is the one that is easy
+to miss:
+
+1. **The rule.** Adoption should be guarded on *"an ownerless inventory exists"*,
+   not on *"this user owns none"*. The `UPDATE … WHERE id = (SELECT id FROM
+   inventories WHERE owner_user_id IS NULL LIMIT 1)` beneath it is already
+   atomic and already a no-op when there is nothing to adopt, so the early
+   return can simply stop covering it. Worth deciding deliberately *who* should
+   adopt it when several users exist — first login is the migration's stated
+   intent, but it is no longer obviously right once there is more than one user.
+2. **The data.** Existing databases still hold the orphan. A repair migration
+   has to claim it, and it cannot guess an owner from nothing — the defensible
+   rule is the owner of the events already bound to it.
+
+Regression test to write with the fix: a user who owns an inventory logs in
+while an ownerless one exists, and the ownerless one is adopted rather than
+skipped.
+
 ## Dependency graph
 
 ```

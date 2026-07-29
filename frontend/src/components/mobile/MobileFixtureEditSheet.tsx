@@ -58,12 +58,15 @@ export function MobileFixtureEditSheet({
   /*
     `retry: false`, because a 404 here is an answer and not a hiccup.
 
-    The endpoint 404s when the item is not in *this* inventory — a fixture whose catalog
-    item predates a re-import, or came from another catalog — and the sheet already
-    handles that correctly by falling back to a free-text mode below. What it did not
-    handle was React Query's default three retries, which turned one dead lookup into
-    four console errors. The desktop `LightingSheet` has the same query and the same
-    behaviour; this is the copy Slice 35 owns.
+    A 404 means the whole *inventory* was rejected, not the item: every owner-scoped
+    inventory route 404s when the catalog's `owner_user_id` is NULL, which a legacy
+    catalog stays forever if any user created an inventory before it was adopted. That is
+    **ROADMAP.md D1**, it is a backend fix, and it is not Wave 6's — the desktop
+    `LightingSheet` makes the identical call and has since Slice 7.
+
+    What this line owns is the noise: React Query's default three retries turned one dead
+    lookup into four console errors. The sheet already degrades correctly, falling back to
+    a free-text mode below.
   */
   const modesQuery = useQuery({
     queryKey: ['fixture-modes', itemId],

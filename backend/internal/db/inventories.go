@@ -171,6 +171,14 @@ func (e InventoryInUseError) Is(target error) bool { return target == ErrInUse }
 // inventory if any exists, otherwise creates a fresh empty one for them.
 // The claim's WHERE/subquery is itself the atomic guard (research.md R4) —
 // safe to call on every login with no separate "am I first" check.
+//
+// KNOWN DEFECT — ROADMAP.md D1. The early return below asks "does this user own
+// at least one inventory?", but the claim needs "is there an ownerless legacy
+// inventory to adopt?". They come apart as soon as a user creates an inventory
+// of their own before the legacy one is claimed: the early return then fires on
+// every login and the legacy row stays ownerless forever, which makes all
+// eighteen owner-scoped routes 404 for a catalog that events are still bound to.
+// Fixing it also needs a repair migration for databases that already hold one.
 func EnsureUserHasInventory(database *sql.DB, userID int64) error {
 	var count int
 	if err := database.QueryRow(`SELECT COUNT(*) FROM inventories WHERE owner_user_id = ?`, userID).Scan(&count); err != nil {
