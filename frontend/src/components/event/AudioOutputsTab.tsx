@@ -195,6 +195,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
         {editingOutputId != null && (
           <MobileOutputEditSheet
             eventId={eventId}
+            readOnly={readOnly}
             output={editingOutput}
             outputs={outputs}
             stageboxes={stageboxes}

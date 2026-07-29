@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Plus, Search } from 'lucide-react'
+import { Pencil, Plus, Search } from 'lucide-react'
 import { listEventInventoryItems } from '../../api/inventory'
 import { listEventOwnedEquipment, listOwnedItems } from '../../api/owned'
 import { getRentalSummary } from '../../api/rentals'
@@ -8,6 +8,7 @@ import { useEventTab } from '../../hooks/useEventTab'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { equipmentRows, quantitySplit, rowKey } from '../../lib/equipmentRows'
 import { CondensedListRow } from '../mobile/CondensedListRow'
+import { MobileEquipmentEditSheet } from '../mobile/MobileEquipmentEditSheet'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { type EquipmentFilter, EquipmentStatusRail } from './EquipmentStatusRail'
@@ -25,9 +26,16 @@ import { EquipmentSheet } from './EquipmentSheet'
 export function EquipmentTab({ eventId, readOnly = false }: { eventId: number; readOnly?: boolean }) {
   const isMobile = useIsMobile()
   const { openTab } = useEventTab()
-  // Equipment is a read-only lookup on mobile for every role (Slice 21 FR-012) —
-  // not just a viewer-role restriction, so this gate is separate from readOnly.
-  const editable = !readOnly && !isMobile
+  /*
+    A role question, and only a role question (Wave 6c, audit.md M4).
+
+    This had the viewport `&&`-ed into the role until Slice 35, which made every check
+    say *you may not* when the truth was *nobody built the phone form yet* — and the two
+    have different answers (patterns.md §7g, P9). An equipment line is a quantity and a
+    note, which is a form over a row, which is what a phone is good at. Slice 21's FR-012
+    is superseded.
+  */
+  const editable = !readOnly
 
   const ownedCatalogQuery = useQuery({ queryKey: ['owned-items'], queryFn: listOwnedItems })
   const ownedLinesQuery = useQuery({ queryKey: ['owned-equipment', eventId], queryFn: () => listEventOwnedEquipment(eventId) })
@@ -39,6 +47,8 @@ export function EquipmentTab({ eventId, readOnly = false }: { eventId: number; r
 
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
+  // Keyed by the composite `rowKey`, because owned and rented ids overlap.
+  const [editingKey, setEditingKey] = useState<string | null>(null)
   // The phone's strip filter — the desktop's lives in `EquipmentSheet` (data-model.md §3).
   const [mobileFilter, setMobileFilter] = useState<EquipmentFilter>(null)
 
@@ -50,38 +60,78 @@ export function EquipmentTab({ eventId, readOnly = false }: { eventId: number; r
         (mobileFilter !== 'problems' || (row.source === 'owned' && row.over)) &&
         (!q || row.name.toLowerCase().includes(q) || row.type.toLowerCase().includes(q)),
     )
+    const editing = editingKey ? rows.find((row) => rowKey(row) === editingKey) : undefined
     return (
-      <MobilePanel
-        title="Equipment"
-        search={search}
-        onSearch={setSearch}
-        searchPlaceholder="Find a line…"
-        strip={<EquipmentStatusRail rows={rows} filter={mobileFilter} onFilterChange={readOnly ? undefined : setMobileFilter} />}
-      >
-        {visible.map((row) => {
-          const split = row.source === 'rented' ? quantitySplit(row) : undefined
-          return (
-            <CondensedListRow
-              key={rowKey(row)}
-              title={row.name}
-              subtitle={[
-                row.source,
-                row.type,
-                split ?? String(row.qty),
-                row.source === 'owned' && row.over ? `exceeds owned ${row.have}` : undefined,
-                row.note,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            />
-          )
-        })}
-        {visible.length === 0 && (
-          <p className="px-3 py-3 text-sm text-zinc-500">
-            {rows.length === 0 ? 'Nothing beyond the patch and the rig yet.' : 'No matches.'}
-          </p>
+      <>
+        <MobilePanel
+          title="Equipment"
+          search={search}
+          onSearch={setSearch}
+          searchPlaceholder="Find a line…"
+          /* Hidden, not disabled, for a role that cannot act (P7). */
+          primaryAction={
+            editable ? (
+              <button
+                aria-label="Add line"
+                className="flex h-11 w-11 items-center justify-center rounded-md bg-amber-500 text-zinc-950"
+                onClick={() => setAdding(true)}
+                type="button"
+              >
+                <Plus className="h-5 w-5" />
+              </button>
+            ) : undefined
+          }
+          strip={<EquipmentStatusRail rows={rows} filter={mobileFilter} onFilterChange={readOnly ? undefined : setMobileFilter} />}
+        >
+          {visible.map((row) => {
+            const split = row.source === 'rented' ? quantitySplit(row) : undefined
+            return (
+              <CondensedListRow
+                key={rowKey(row)}
+                title={row.name}
+                subtitle={[
+                  row.source,
+                  row.type,
+                  split ?? String(row.qty),
+                  row.source === 'owned' && row.over ? `exceeds owned ${row.have}` : undefined,
+                  row.note,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+                /* Always tappable, whatever the role. A phone row is a truncation — the
+                   type, the note and the stock are behind the tap — so a viewer who
+                   cannot open it cannot read the plan at all (audit.md M4). */
+                onClick={() => setEditingKey(rowKey(row))}
+                trailing={editable ? <Pencil className="h-4 w-4 text-zinc-500" /> : undefined}
+              />
+            )
+          })}
+          {visible.length === 0 && (
+            <p className="px-3 py-3 text-sm text-zinc-500">
+              {rows.length === 0
+                ? 'Nothing beyond the patch and the rig yet.'
+                : mobileFilter
+                  ? 'Nothing left to fix — tap the strip to show everything.'
+                  : 'No matches.'}
+            </p>
+          )}
+        </MobilePanel>
+
+        {(editing || adding) && (
+          <MobileEquipmentEditSheet
+            eventId={eventId}
+            onClose={() => {
+              setEditingKey(null)
+              setAdding(false)
+            }}
+            onOpenRental={() => openTab('rentals')}
+            ownedCatalog={ownedCatalogQuery.data ?? []}
+            readOnly={!editable}
+            rentalCatalog={allInventoryQuery.data ?? []}
+            row={editing}
+          />
         )}
-      </MobilePanel>
+      </>
     )
   }
 

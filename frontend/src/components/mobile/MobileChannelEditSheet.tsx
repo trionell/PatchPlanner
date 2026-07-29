@@ -27,6 +27,7 @@ export function MobileChannelEditSheet({
   cables,
   onClose,
   onSaved,
+  readOnly = false,
 }: {
   eventId: number
   /** Omitted → creating a new channel. */
@@ -37,6 +38,12 @@ export function MobileChannelEditSheet({
   cables: InputCable[]
   onClose: () => void
   onSaved: () => Promise<void>
+  /**
+   * A viewer taps a row to *read* it (Wave 6c, audit.md M4). A phone row is a
+   * truncation, so a role that cannot edit still has to be able to open one — it
+   * gets this sheet with its fields inert and no confirm, never a dead row.
+   */
+  readOnly?: boolean
 }) {
   const queryClient = useQueryClient()
   const currentRouting = channel ? resolveChannelRouting(channel.id, cables) : {}
@@ -111,12 +118,16 @@ export function MobileChannelEditSheet({
       onClose={onClose}
       title={channel ? `Channel ${channel.channel_number}` : 'Add channel'}
       footer={
-        <Button className="w-full" onClick={handleSave} disabled={saving || !name.trim()}>
-          {saving ? 'Saving…' : 'Save channel'}
-        </Button>
+        readOnly ? undefined : (
+          <Button className="w-full" onClick={handleSave} disabled={saving || !name.trim()}>
+            {saving ? 'Saving…' : 'Save channel'}
+          </Button>
+        )
       }
     >
       {error && <div className="rounded-md border border-red-800 bg-red-950/50 px-3 py-2 text-sm text-red-300">{error}</div>}
+      {/* Inert rather than absent: the values are the point of opening it. */}
+      <fieldset className="flex min-w-0 flex-col gap-3.5" disabled={readOnly}>
       <FieldStack label="Channel" width="full">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Kick In" autoFocus />
       </FieldStack>
@@ -161,6 +172,7 @@ export function MobileChannelEditSheet({
       <FieldStack label="Notes" width="full">
         <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
       </FieldStack>
+      </fieldset>
     </Sheet>
   )
 }

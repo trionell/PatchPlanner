@@ -134,6 +134,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
         {editingChannelId != null && (
           <MobileChannelEditSheet
             eventId={eventId}
+            readOnly={readOnly}
             channel={editingChannel}
             channels={channels}
             sources={sources}

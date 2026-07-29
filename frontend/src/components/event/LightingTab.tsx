@@ -148,6 +148,7 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
         {editingFixtureId != null && rigId != null && (
           <MobileFixtureEditSheet
             eventId={eventId}
+            readOnly={readOnly}
             rigId={rigId}
             inventoryId={inventoryId}
             fixture={editingFixture}

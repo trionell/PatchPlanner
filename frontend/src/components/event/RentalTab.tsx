@@ -13,6 +13,7 @@ import { useEventTab } from '../../hooks/useEventTab'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import type { UnplacedLine } from '../../types'
 import { CondensedListRow } from '../mobile/CondensedListRow'
+import { MobileRentalEditSheet } from '../mobile/MobileRentalEditSheet'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { hasManualPart } from '../../lib/rentalOrder'
@@ -35,8 +36,12 @@ import { RentalSheet } from './RentalSheet'
 export function RentalTab({ eventId, readOnly = false }: { eventId: number; readOnly?: boolean }) {
   const isMobile = useIsMobile()
   const { openTab } = useEventTab()
-  // Rental Order is a read-only lookup on mobile for every role (Slice 21 FR-012).
-  const editable = !readOnly && !isMobile
+  /*
+    A role question, and only a role question (Wave 6c, audit.md M4). See the same note
+    on `EquipmentTab`: the viewport was `&&`-ed into the role until Slice 35, and a manual
+    rental quantity is a form over a row. Slice 21's FR-012 is superseded.
+  */
+  const editable = !readOnly
 
   const rentalQuery = useQuery({ queryKey: ['rental-summary', eventId], queryFn: () => getRentalSummary(eventId) })
   const allInventoryQuery = useQuery({
@@ -53,6 +58,7 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
   const [adding, setAdding] = useState(false)
   const [unplacedLines, setUnplacedLines] = useState<UnplacedLine[]>([])
   const [exportError, setExportError] = useState('')
+  const [editingId, setEditingId] = useState<number | null>(null)
   // The phone's strip filter — the desktop's lives in `RentalSheet` (data-model.md §3).
   const [mobileFilter, setMobileFilter] = useState<RentalFilter>(null)
 
@@ -70,6 +76,40 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
     },
   })
 
+  /*
+    The three exports, as overflow entries (Wave 6c, F2 · M11).
+
+    On the desktop they are three `xs` outline buttons in the bar. At 375px the bar has
+    317px and a title plus three labelled buttons plus an add control does not fit, so
+    they take the shape §7b already specified for this: a `⋯` opening a run of labelled
+    rows. The price-list export stays conditional on the catalog having come from one,
+    which is the desktop's rule, not a phone rule.
+  */
+  const exportActions = [
+    {
+      label: 'Export .xlsx',
+      hint: 'download',
+      icon: <FileSpreadsheet className="h-4 w-4" />,
+      onClick: () => window.location.assign(rentalExportXlsxUrl(eventId)),
+    },
+    {
+      label: 'Export PDF',
+      hint: 'download',
+      icon: <FileDown className="h-4 w-4" />,
+      onClick: () => window.location.assign(rentalExportPdfUrl(eventId)),
+    },
+    ...(canExportPriceList
+      ? [
+          {
+            label: 'Export price list',
+            hint: 'LL.xlsx',
+            icon: <Cable className="h-4 w-4" />,
+            onClick: () => exportMutation.mutate(),
+          },
+        ]
+      : []),
+  ]
+
   if (isMobile) {
     const items = rentalQuery.data?.items ?? []
     const q = search.trim().toLowerCase()
@@ -78,6 +118,7 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
         (mobileFilter !== 'problems' || item.is_over_stock || item.is_discontinued) &&
         (!q || item.inventory_item_name.toLowerCase().includes(q)),
     )
+    const editing = items.find((item) => item.inventory_item_id === editingId)
     return (
       /*
         The hand-built total row is gone. It was a strip in intent — a sum in a
@@ -85,11 +126,29 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
         outside the component that already does this four times (audit.md M3).
         `RentalStatusRail` states the same number *and* whether the order can be sent.
       */
+      <>
       <MobilePanel
         title="Rental order"
         search={search}
         onSearch={setSearch}
         searchPlaceholder="Find a line…"
+        /* Downloads, and the surface's own paper. All three do a thing and are
+           finished, so they are the overflow rather than three outline buttons in a
+           317px bar (contracts/phone-surfaces.md §1). */
+        overflow={exportActions}
+        /* Hidden, not disabled, for a role that cannot act (P7). */
+        primaryAction={
+          editable ? (
+            <button
+              aria-label="Add manual line"
+              className="flex h-11 w-11 items-center justify-center rounded-md bg-amber-500 text-zinc-950"
+              onClick={() => setAdding(true)}
+              type="button"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
+          ) : undefined
+        }
         strip={
           <RentalStatusRail
             summary={rentalQuery.data}
@@ -100,6 +159,29 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
           />
         }
       >
+        {/* The export can now be started from a phone, so its two outcomes need
+            somewhere to land here too. The dropped lines stay a block rather than being
+            compressed into the strip: they are a list somebody has to act on
+            (design/patterns.md §5), and that is true in a loading bay as well. */}
+        {exportError && (
+          <p className="border-b border-zinc-800 px-3 py-2 text-xs text-red-400">Export failed: {exportError}</p>
+        )}
+        {unplacedLines.length > 0 && (
+          <div className="border-b border-zinc-800 px-3 py-2 text-xs text-amber-200">
+            <p className="font-semibold text-amber-100">
+              The exported file is missing {unplacedLines.length} line{unplacedLines.length > 1 ? 's' : ''} — add
+              these to the order by hand:
+            </p>
+            <ul className="mt-1.5 list-disc space-y-0.5 pl-4">
+              {unplacedLines.map((line) => (
+                <li key={line.inventory_item_id}>
+                  {line.inventory_item_name} — audio {line.quantity_audio}, lighting {line.quantity_lighting}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {visible.map((item) => (
           <CondensedListRow
             key={item.inventory_item_id}
@@ -112,13 +194,36 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
               </>
             }
             subtitle={`Audio ${item.quantity_audio} · Lighting ${item.quantity_lighting} · ${item.subtotal_ex_vat.toFixed(2)} kr`}
+            /* Always tappable, whatever the role: the price, the plan/manual split and
+               the note are all behind the tap (audit.md M4). */
+            onClick={() => setEditingId(item.inventory_item_id)}
             trailing={item.is_over_stock ? <span className="text-[10px] font-bold text-red-400">Over stock</span> : undefined}
           />
         ))}
         {visible.length === 0 && (
-          <p className="px-3 py-3 text-sm text-zinc-500">{items.length === 0 ? 'No rental items yet.' : 'No matches.'}</p>
+          <p className="px-3 py-3 text-sm text-zinc-500">
+            {items.length === 0
+              ? 'No rental items yet.'
+              : mobileFilter
+                ? 'Nothing left to fix — tap the strip to show everything.'
+                : 'No matches.'}
+          </p>
         )}
       </MobilePanel>
+
+      {(editing || adding) && (
+        <MobileRentalEditSheet
+          catalog={allInventoryQuery.data ?? []}
+          eventId={eventId}
+          item={editing}
+          onClose={() => {
+            setEditingId(null)
+            setAdding(false)
+          }}
+          readOnly={!editable}
+        />
+      )}
+      </>
     )
   }
 

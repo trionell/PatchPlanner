@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Maximize2, Minimize2, Minus, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Check, Info, Maximize2, Minimize2, Minus, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { getLightingRig } from '../../api/lighting'
 import {
   attachPlotTrussFixture,
@@ -38,17 +38,31 @@ import { ZoomControl } from './graph/ZoomControl'
 import { StagePlotCanvas, type PlotViewState } from './StagePlotCanvas'
 import { StagePlotInspector, StagePlotLayersPanel } from './StagePlotInspector'
 import { StagePlotPalette } from './StagePlotPalette'
+import { MobilePanel } from '../ui/MobilePanel'
+import { MobilePicker } from '../mobile/MobilePicker'
+import { Sheet } from '../ui/Sheet'
+import { StatusStrip } from './StatusStrip'
+import { Pill } from '../ui/SheetTable'
 
 /** The per-event Stage Plots section: plot tabs, toolbar, and the
  *  draw.io-style palette / canvas / inspector editor (Slice 13). */
 export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; readOnly?: boolean }) {
   const queryClient = useQueryClient()
   const isMobile = useIsMobile()
-  // Stage Plots is a viewer on phone-width screens for every role (FR-011)
-  // — pan/zoom stays free (handleViewStateChange already keeps that purely
-  // local for a read-only viewer), but no plot/element mutation is ever
-  // attempted from mobile, regardless of the signed-in user's real role.
-  const editingAllowed = !readOnly && !isMobile
+  /*
+    A role question, and only a role question (Wave 6c, audit.md M4).
+
+    This had the viewport `&&`-ed into the role until Slice 35. What a phone withholds is
+    real, but it is **one gesture** and not a permission: placing an element on a scale
+    drawing is a mouse's precision over a picture (patterns.md §7g). Everything an
+    element *is* — its name, its kind, its layer, what is attached to it — is a form
+    over a row, and that has a phone form now.
+
+    So this governs the role. The gesture is withheld structurally instead: the phone
+    branch wires the canvas no placement handlers at all, and says so in a sentence the
+    user can read.
+  */
+  const editingAllowed = !readOnly
   const plotsQuery = useQuery({ queryKey: ['stage-plots', eventId], queryFn: () => listStagePlots(eventId) })
   const plots = useMemo(() => plotsQuery.data ?? [], [plotsQuery.data])
 
@@ -93,10 +107,9 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
     }
   }, [fullscreen])
 
-  // Mobile's own view choice — local-only, never persisted (mirrors
-  // handleViewStateChange's "pan/zoom stays local for a viewer" pattern):
-  // active_view is a shared plot setting written for every viewer, which
-  // mobile must never do since it's a viewer for every role there.
+  // The phone's own view choice — local-only, never persisted. `active_view` is a
+  // shared plot setting, and switching to Front to check a rake on site should not
+  // change what the next person opens on a desk.
   const [mobileView, setMobileView] = useState<StagePlotView>('top')
 
   // Viewport state lives here (not in the canvas) so the palette can
@@ -342,6 +355,158 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
     return layer?.visible ? element : null
   })()
 
+  /*
+    The phone (Wave 6c). Its own return, above the desktop's, for the reason every other
+    tab's is: the plot tab strip, the rename controls and the palette are a desktop
+    composition, and sharing them meant the phone rendered a strip of `h-8` controls it
+    could not use above a canvas it could. Which plot is a *choose one of N*, and on a
+    phone that is `MobilePicker`.
+  */
+  if (isMobile) {
+    return (
+      <MobilePanel
+        /* Both selectors change what you are looking at, so both stay visible; the bar
+           wraps to two rows, which §7b says it does before it scrolls. */
+        actions={
+          <>
+            <MobilePicker
+              label="Plot"
+              onChange={(id) => {
+                setSelectedPlotId(Number(id))
+                setSelectedElementId(null)
+              }}
+              options={plots.map((plot) => ({ id: plot.id, label: plot.name }))}
+              title="Plots"
+              value={activePlotId}
+            />
+            <div className="flex h-11 flex-none items-center rounded-md border border-zinc-700 bg-zinc-900">
+              {(['top', 'front', 'side'] as const).map((viewOption) => (
+                <button
+                  className={
+                    mobileView === viewOption
+                      ? 'flex h-11 min-w-[3rem] items-center justify-center rounded-md bg-amber-500 px-2 text-sm font-medium text-zinc-950'
+                      : 'flex h-11 min-w-[3rem] items-center justify-center px-2 text-sm text-zinc-400'
+                  }
+                  key={viewOption}
+                  onClick={() => setMobileView(viewOption)}
+                  type="button"
+                >
+                  {viewOption === 'top' ? 'Top' : viewOption === 'front' ? 'Front' : 'Side'}
+                </button>
+              ))}
+            </div>
+            <span className="flex flex-none items-center gap-0.5">
+              <button
+                aria-label="Zoom out"
+                className="flex h-11 w-11 items-center justify-center rounded-md border border-zinc-700 bg-zinc-900 text-zinc-400"
+                onClick={() => zoomBy(1 / 1.25)}
+                type="button"
+              >
+                <Minus className="h-4 w-4" />
+              </button>
+              <span className="w-11 text-center font-mono text-xs tabular-nums text-zinc-300">
+                {Math.round(viewState.zoom * 100)}%
+              </span>
+              <button
+                aria-label="Zoom in"
+                className="flex h-11 w-11 items-center justify-center rounded-md border border-zinc-700 bg-zinc-900 text-zinc-400"
+                onClick={() => zoomBy(1.25)}
+                type="button"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </span>
+          </>
+        }
+        strip={
+          response ? (
+            <StatusStrip tint="border-zinc-800 bg-zinc-950/60">
+              <Pill className="bg-emerald-500/15 text-emerald-300">
+                {plots.length} {plots.length === 1 ? 'plot' : 'plots'}
+              </Pill>
+              <span className="font-mono tabular-nums text-zinc-200">{response.elements.length} elements</span>
+              <span className="font-mono tabular-nums text-zinc-500">{response.trusses.length} trusses</span>
+            </StatusStrip>
+          ) : undefined
+        }
+        title="Stage Plots"
+      >
+        {/*
+          The one desk job, named where the editor would be (patterns.md §7g). It is not
+          a banner, not a dialog and not a disabled control, and it does not change with
+          role — it is about the surface, not the person. The read view above it is
+          complete for everyone, and the second sentence has to be true, which is what
+          the inspector sheet below is for.
+        */}
+        <div className="flex gap-2 border-b border-zinc-800/60 bg-zinc-950/35 px-3 py-2.5">
+          <Info className="mt-0.5 h-4 w-4 flex-none text-zinc-500" />
+          <p className="text-xs leading-relaxed text-zinc-400">
+            <span className="font-medium text-zinc-300">Placing elements is a desk job</span> — open this plot on a
+            computer. Tap anything on it to read or edit what it is.
+          </p>
+        </div>
+
+        {activePlotId == null ? (
+          <p className="px-3 py-6 text-center text-sm text-zinc-500">No stage plots yet.</p>
+        ) : !response ? (
+          <p className="px-3 py-6 text-sm text-zinc-400">Loading plot…</p>
+        ) : (
+          <>
+            <div className="h-[60svh] min-h-[300px]">
+              <StagePlotCanvas
+                key={activePlotId}
+                elements={response.elements}
+                fillParent
+                fixtureNameById={fixtureNameById}
+                layers={response.layers}
+                onCanvasSize={(size) => {
+                  canvasSize.current = size
+                }}
+                onSelectElement={setSelectedElementId}
+                /* Placement is withheld by handing the canvas nothing to move with —
+                   the gesture, not the role. */
+                onUpdateElement={() => {}}
+                onViewStateChange={handleViewStateChange}
+                plot={response.plot}
+                readOnly
+                selectedElementId={selectedElementId}
+                trusses={response.trusses}
+                view={mobileView}
+                viewState={viewState}
+              />
+            </div>
+
+            {/* Tap an element and you get the rail's own fields, committing per field
+                as they do on a desk — so no footer and no Save (patterns.md §7d). */}
+            {selectedElement && (
+              <Sheet
+                onClose={() => setSelectedElementId(null)}
+                open
+                title={<span className="text-lg font-semibold">{selectedElement.name || 'Element'}</span>}
+              >
+                <StagePlotInspector
+                  element={selectedElement}
+                  eventId={eventId}
+                  layers={response.layers}
+                  onAddLink={(elementId, role, entityKind, entityId, sortOrder) =>
+                    addLinkMutation.mutate({ elementId, role, entityKind, entityId, sortOrder })
+                  }
+                  onDelete={(elementId) => deleteElementMutation.mutate(elementId)}
+                  onDeleteLink={(elementId, linkId) => deleteLinkMutation.mutate({ elementId, linkId })}
+                  onDuplicate={() => {}}
+                  onReorderLink={(elementId, linkId, sortOrder) => reorderLinkMutation.mutate({ elementId, linkId, sortOrder })}
+                  onUpdate={(elementId, patch) => updateElementMutation.mutate({ elementId, patch })}
+                  readOnly={!editingAllowed}
+                  spatial={false}
+                />
+              </Sheet>
+            )}
+          </>
+        )}
+      </MobilePanel>
+    )
+  }
+
   return (
     <>
     <div className="space-y-3 print:hidden">
@@ -584,61 +749,6 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
               />
           )
 
-          if (isMobile) {
-            return (
-              <>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm text-zinc-400">
-                  <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="sm" title="Zoom out" onClick={() => zoomBy(1 / 1.25)}>
-                      <Minus className="h-4 w-4" />
-                    </Button>
-                    <span className="w-12 text-center tabular-nums text-zinc-200">{Math.round(viewState.zoom * 100)}%</span>
-                    <Button variant="ghost" size="sm" title="Zoom in" onClick={() => zoomBy(1.25)}>
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="inline-flex rounded-md border border-zinc-700 bg-zinc-900 p-0.5">
-                    {(['top', 'front', 'side'] as const).map((viewOption) => (
-                      <button
-                        key={viewOption}
-                        type="button"
-                        onClick={() => setMobileView(viewOption)}
-                        className={
-                          mobileView === viewOption
-                            ? 'rounded bg-amber-500 px-2.5 py-1 text-xs font-medium text-zinc-950'
-                            : 'rounded px-2.5 py-1 text-xs text-zinc-400'
-                        }
-                      >
-                        {viewOption === 'top' ? 'Top' : viewOption === 'front' ? 'Front' : 'Side'}
-                      </button>
-                    ))}
-                  </div>
-                  <span className="ml-auto text-[11px] uppercase tracking-wide text-zinc-500">Viewer only</span>
-                </div>
-                <div className="h-[65vh] min-h-[360px]">
-                  <StagePlotCanvas
-                    key={activePlotId}
-                    plot={response.plot}
-                    trusses={response.trusses}
-                    layers={response.layers}
-                    elements={response.elements}
-                    view={mobileView}
-                    viewState={viewState}
-                    onViewStateChange={handleViewStateChange}
-                    selectedElementId={selectedElementId}
-                    onSelectElement={setSelectedElementId}
-                    onUpdateElement={() => {}}
-                    onCanvasSize={(size) => {
-                      canvasSize.current = size
-                    }}
-                    fixtureNameById={fixtureNameById}
-                    fillParent
-                    readOnly
-                  />
-                </div>
-              </>
-            )
-          }
 
           // The far column, on the rail both flow canvases already use: a left
           // border rather than a stack of cards floating beside the drawing.
