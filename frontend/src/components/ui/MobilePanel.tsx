@@ -48,6 +48,16 @@ export function PanelActionRow({ action, onDone }: { action: PanelAction; onDone
 interface MobilePanelProps {
   /** The surface's name. Repeats the section above it, deliberately (patterns.md §1). */
   title: string
+  /**
+   * One thing that belongs *to the title* rather than to the bar — today an
+   * `InfoToggle`, and only that.
+   *
+   * It sits inside the title's own line, before the flexible gap, so it costs the bar no
+   * width and no row. That is the whole reason it is not just another `actions` entry:
+   * an `i` on the right, among the 44 px targets, reads as a fourth control rather than
+   * as a footnote to the name.
+   */
+  titleAdornment?: ReactNode
   /** The query. Omit both this and `onSearch` to render no search control at all. */
   search?: string
   onSearch?: (value: string) => void
@@ -128,6 +138,7 @@ interface MobilePanelProps {
  */
 export function MobilePanel({
   title,
+  titleAdornment,
   search,
   onSearch,
   searchPlaceholder,
@@ -178,7 +189,10 @@ export function MobilePanel({
     */
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-zinc-700 bg-zinc-950/40">
       <div className="flex flex-none flex-wrap items-center gap-2 border-b border-zinc-800 px-3 py-2">
-        <span className="text-sm font-semibold text-zinc-100">{title}</span>
+        <span className="flex items-center gap-1.5 text-sm font-semibold text-zinc-100">
+          {title}
+          {titleAdornment}
+        </span>
         <span className="flex-1" />
         {searchable && (
           <button

@@ -1,5 +1,6 @@
-import { useState, type ReactNode } from 'react'
-import { Info, X } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { Info } from 'lucide-react'
+import type { InfoNoteState } from '../../hooks/useInfoNote'
 import { cn } from '../../lib/utils'
 
 /**
@@ -11,75 +12,60 @@ import { cn } from '../../lib/utils'
  * drawers had grown a paragraph each at the foot: correct, unread after the first time,
  * and on a phone a fifth of the screen.
  *
- * So the sentence keeps its place and gains a lid. Closed it is one `i` target; open it
- * is the same words it always was. **It is not deleted and it is not a tooltip** — a
- * tooltip has no target on a touch screen, and `patterns.md` §7g requires the reason a
- * gesture is withheld to be *readable*, not hoverable.
+ * So the sentence keeps its place and gains a lid. **It is not deleted and it is not a
+ * tooltip** — a tooltip has no target on a touch screen, and `patterns.md` §7g requires
+ * the reason a gesture is withheld to be *readable*, not hoverable.
  *
- * `id` makes the choice stick. Someone who closed it on Tuesday has still read it on
- * Wednesday, and a note that reopens every visit is a note that was never dismissible.
+ * **The toggle and the text are separate**, and that is the point of the split: the `i`
+ * rides in a row that already exists — beside a title — so a closed note costs **no
+ * space at all**, while the text opens where the text belongs, full width, further down.
+ * One component doing both would have to own a row to put the `i` in.
+ *
+ * ```tsx
+ * const note = useInfoNote({ id: 'plot-desk-job', defaultOpen: true })
+ * <MobilePanel title="Stage Plots" titleAdornment={<InfoToggle note={note} />}>
+ *   <InfoPanel note={note}>Placing elements is a desk job — …</InfoPanel>
+ * ```
+ *
+ * The state lives in `hooks/useInfoNote`, which is also where `id` — the thing that
+ * makes a dismissal stick — is documented.
  */
-export function InfoNote({
+
+/**
+ * The `i`, for a row that already exists.
+ *
+ * Sized to sit *inside* a line of text rather than to stand on its own: negative margin
+ * against its own padding, so it reaches a 44 px target while occupying a 16 px icon and
+ * costs the title's row no height at all (tokens.md §7, amendment 1).
+ */
+export function InfoToggle({ note, className }: { note: InfoNoteState; className?: string }) {
+  return (
+    <button
+      aria-expanded={note.open}
+      aria-label={note.open ? 'Hide the explanation' : 'What is this?'}
+      className={cn(
+        '-m-2.5 inline-flex flex-none items-center justify-center p-2.5 transition-colors',
+        note.open ? 'text-amber-400' : 'text-zinc-500 hover:text-zinc-300',
+        className,
+      )}
+      onClick={note.toggle}
+      type="button"
+    >
+      <Info className="h-4 w-4" />
+    </button>
+  )
+}
+
+/** The sentence, where the sentence belongs. Renders nothing when the note is closed. */
+export function InfoPanel({
+  note,
   children,
-  id,
-  defaultOpen = false,
   className,
 }: {
+  note: InfoNoteState
   children: ReactNode
-  /** Storage key for the dismissal. Omit to make the state last only as long as the mount. */
-  id?: string
-  /** True where the note answers a question the surface itself raises — see `StagePlotTab`. */
-  defaultOpen?: boolean
   className?: string
 }) {
-  const key = id ? `pp-info:${id}` : undefined
-
-  /*
-    Lazy initial state, and the `window` guard is not optional: this project's tests
-    render on the server with no `window`, so reaching for `localStorage` unguarded makes
-    every component holding a note unrenderable — the same trap `useIsMobile` guards.
-  */
-  const [open, setOpen] = useState(() => {
-    if (!key || typeof window === 'undefined') return defaultOpen
-    const stored = window.localStorage.getItem(key)
-    return stored == null ? defaultOpen : stored === 'open'
-  })
-
-  const set = (next: boolean) => {
-    setOpen(next)
-    if (key && typeof window !== 'undefined') window.localStorage.setItem(key, next ? 'open' : 'closed')
-  }
-
-  if (!open) {
-    return (
-      <button
-        aria-label="What is this?"
-        className={cn(
-          'flex h-8 w-8 flex-none items-center justify-center rounded-md text-zinc-500 hover:text-zinc-300',
-          className,
-        )}
-        onClick={() => set(true)}
-        type="button"
-      >
-        <Info className="h-4 w-4" />
-      </button>
-    )
-  }
-
-  return (
-    <div className={cn('flex items-start gap-2 text-xs leading-relaxed text-zinc-400', className)}>
-      <Info className="mt-0.5 h-4 w-4 flex-none text-zinc-500" />
-      <div className="min-w-0 flex-1">{children}</div>
-      {/* 44px on a phone, because it is the control that gets pressed once the sentence
-          has been read; the icon inside it stays 14px (tokens.md §7, amendment 1). */}
-      <button
-        aria-label="Hide this"
-        className="-my-2 -mr-1 flex h-11 w-11 flex-none items-center justify-center text-zinc-500 hover:text-zinc-300 md:-my-1 md:h-7 md:w-7"
-        onClick={() => set(false)}
-        type="button"
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  )
+  if (!note.open) return null
+  return <div className={cn('text-xs leading-relaxed text-zinc-400', className)}>{children}</div>
 }

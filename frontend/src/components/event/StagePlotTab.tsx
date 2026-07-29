@@ -38,7 +38,8 @@ import { ZoomControl } from './graph/ZoomControl'
 import { StagePlotCanvas, type PlotViewState } from './StagePlotCanvas'
 import { StagePlotInspector, StagePlotLayersPanel } from './StagePlotInspector'
 import { StagePlotPalette } from './StagePlotPalette'
-import { InfoNote } from '../ui/InfoNote'
+import { useInfoNote } from '../../hooks/useInfoNote'
+import { InfoPanel, InfoToggle } from '../ui/InfoNote'
 import { MobilePanel } from '../ui/MobilePanel'
 import { MobilePicker } from '../mobile/MobilePicker'
 import { Sheet } from '../ui/Sheet'
@@ -64,6 +65,8 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
     user can read.
   */
   const editingAllowed = !readOnly
+  // Open the first time, and then only for as long as it has not been read.
+  const deskJob = useInfoNote({ id: 'plot-desk-job', defaultOpen: true })
   const plotsQuery = useQuery({ queryKey: ['stage-plots', eventId], queryFn: () => listStagePlots(eventId) })
   const plots = useMemo(() => plotsQuery.data ?? [], [plotsQuery.data])
 
@@ -431,6 +434,9 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
           ) : undefined
         }
         title="Stage Plots"
+        /* The `i` rides in the title's own line, so a read-and-closed note costs the
+           panel no space at all — the sentence still opens below the bar. */
+        titleAdornment={<InfoToggle note={deskJob} />}
       >
         {/*
           The one desk job, named where the editor would be (patterns.md §7g). It is not
@@ -439,10 +445,10 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
           complete for everyone, and the second sentence has to be true, which is what
           the inspector sheet below is for.
         */}
-        <InfoNote className="border-b border-zinc-800/60 bg-zinc-950/35 px-3 py-2.5" defaultOpen id="plot-desk-job">
+        <InfoPanel className="border-b border-zinc-800/60 bg-zinc-950/35 px-3 py-2.5" note={deskJob}>
           <span className="font-medium text-zinc-300">Placing elements is a desk job</span> — open this plot on a
           computer. Tap anything on it to read or edit what it is.
-        </InfoNote>
+        </InfoPanel>
 
         {activePlotId == null ? (
           <p className="px-3 py-6 text-center text-sm text-zinc-500">No stage plots yet.</p>

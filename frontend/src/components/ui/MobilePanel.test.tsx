@@ -135,6 +135,17 @@ describe('MobilePanel', () => {
     expect(markup).toContain('aria-label="Clear search"')
   })
 
+  it('the title adornment rides in the title’s own line, before the flexible gap', () => {
+    const markup = render(
+      <MobilePanel title="Stage Plots" titleAdornment={<span id="info" />}>
+        {rows}
+      </MobilePanel>,
+    )
+    // Inside the title span, so a closed note costs the bar no width and no row.
+    expect(markup).toContain('Stage Plots<span id="info"></span></span>')
+    expect(markup.indexOf('id="info"')).toBeLessThan(markup.indexOf('flex-1"'))
+  })
+
   /**
    * The overflow (Wave 6c, F2).
    *
