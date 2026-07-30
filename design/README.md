@@ -17,7 +17,7 @@ which of the two is the target. This is that place.
 | 02 | [tokens.md](tokens.md) | The values. Colour roles, the two density tiers, the type scale, radii, borders, shadow. |
 | 03 | [components.md](components.md) | Which building block to reach for, and its binding values. |
 | 04 | [patterns.md](patterns.md) | How a whole surface is assembled — panels, drawers, rails, editors, states, chrome, print. |
-| 05 | [audit.md](audit.md) | Where the application diverges today, and the order to converge it in. |
+| 05 | [audit.md](audit.md) | Where the application diverges today, and the order to converge it in. **Part 1 is empty — every finding is closed.** The file is now a record: read Part 3 before changing a value, and never read it whole. |
 
 Plus one visual companion:
 
