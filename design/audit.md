@@ -772,6 +772,13 @@ much smaller", which held for three of the four and was wrong about the fourth.
 | `rounded-lg` | 5 | 0 |
 | Facts Overview shows about the event | 7 | 24 |
 
+**That zero is true of the four tabs and false of the application** — found
+2026-07-30, recorded as ROADMAP.md D4. `EventInventoryBrowser`, extracted out of
+`EventInventoryCard` during this very wave, is an overlay opened *from* Overview
+rather than a tab, and it kept its `ui/Table`. It is the last one left. Counting a
+wave's surfaces without counting what they open is how a surface goes nine slices
+unseen; the row stays as written because it is what the wave measured.
+
 **`OverviewTab` was the one the audit read wrong.** It was filed as "a form rather
 than a sheet, needs the navigation tier applied consistently" — a styling note.
 The user's answer to the mockup rejected that framing outright: *editing happens

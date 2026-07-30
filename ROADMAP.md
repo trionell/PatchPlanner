@@ -11,6 +11,7 @@ is left, it is only this:
 | Slice 31 | Rental pricing by duration | planned, not started — L1107 |
 | D2 | The flow inspector's delete is a browser dialog | L1457 |
 | D3 | The stage plot's remembered view is shared across every device | L1475 |
+| D4 | The event's read-only catalog browse is the last pre-redesign surface | L1495 |
 
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
 multi-event/tour planning (§3.11).
@@ -1490,6 +1491,53 @@ shared plot setting and `StagePlotTab:126` already argues correctly that the pho
 *local* view choice must not change what the next person opens on a desk. Dropping the
 three columns is a migration whose `down` cannot restore them, so it may be worth leaving
 them unread rather than removing them.
+
+### D4 — The event's read-only catalog browse is the last pre-redesign surface
+
+**Found:** 2026-07-30, while confirming that D1's fix had not made the *Browse* path
+dead code. It has not — `OverviewTab:97` branches on `ownsInventory`, so a contributor
+or viewer on someone else's event still gets a read-only browse, and an ownerless
+catalog was only ever a second, accidental way into it. But the surface behind that
+button never went through the convergence.
+
+`EventInventoryBrowser` is **the only remaining consumer of `ui/Table` in the
+application** — every other tabular surface (eleven files) is on
+`SheetTable`/`SheetHeadCell`. It renders the same content as `InventorySheet` (items,
+quantity, price) one tier too high: a catalog of equipment is a work surface, which is
+what the Inventories page already concluded about the identical data.
+
+Four things, all in `components/event/EventInventoryBrowser.tsx`:
+
+1. **The tier.** Navigation-tier `ui/Table` + `TableHead` + `Badge` on a work surface
+   → `SheetTable`/`SheetHead`/`SheetHeadCell`, and `Badge` → `Pill`
+   ([components.md](design/components.md) §1, and A9 in the audit for the chip).
+2. **The category rail copies `Tab`'s classes** — `border-amber-500 bg-amber-500/10
+   text-amber-300` hand-written on a `<button>`. `components.md` §3 states the rule
+   this breaks: *a selector that means what you are looking at uses this component
+   rather than copying its classes — that is the whole reason `active` exists.*
+3. **It has no phone treatment.** One component serves both branches
+   (`OverviewTab:160` and `:272`), so a four-column table renders inside the phone's
+   bottom sheet with an `overflow-x-auto` of its own. [patterns.md](design/patterns.md)
+   §7c is the answer — columns become a ranked title and subtitle in a
+   `CondensedListRow` — and §7g names *inventory items* explicitly among the things
+   that have a phone form.
+4. **`max-h-[70vh]` is the unit tokens.md rejects by name** ([tokens.md](design/tokens.md)
+   §7: `vh` is the *largest* viewport, so content can start below the fold with the
+   address bar showing), and it nests a second scroll container inside the sheet's own
+   `max-h-[85svh]`.
+
+**One decision the fix has to make first:** whether this stays an overlay at all.
+`components.md` §4 settled *"an overlay with fields is a `Sheet`; an overlay that is a
+sentence and two buttons is a `Dialog`"* — a read-only work surface is neither, and
+`Drawer`'s stated reason (*it opens over the sheet the user is cross-referencing*) fits
+what someone browsing a catalog mid-event is actually doing. A read-only route under
+`/inventories/{id}` is the third option and the largest.
+
+**A note for whoever picks this up:** [audit.md](design/audit.md)'s Wave 4 table reads
+*"Navigation-tier `ui/Table`s · 4 → 0"*. That count was taken across the four event
+tabs; this file is an overlay opened *from* one of them, and Slice 28 extracted it out
+of `EventInventoryCard` during that same wave. The zero is true of the tabs and false
+of the application — which is the whole reason this went unseen for nine slices.
 
 ## Dependency graph
 
