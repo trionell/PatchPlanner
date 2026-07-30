@@ -6,18 +6,22 @@
 delivery; everything below this section is history. If you are looking for what
 is left, it is only this:
 
-| | | |
-|---|---|---|
-| Slice 31 | Rental pricing by duration | planned, not started — L1107 |
-| D2 | The flow inspector's delete is a browser dialog | L1457 |
-| D3 | The stage plot's remembered view is shared across every device | L1475 |
-| D4 | The event's read-only catalog browse is the last pre-redesign surface | L1495 |
+| | |
+|---|---|
+| Slice 31 | Rental pricing by duration — planned, not started |
+| D2 | The flow inspector's delete is a browser dialog |
+| D3 | The stage plot's remembered view is shared across every device |
+| D4 | The event's read-only catalog browse is the last pre-redesign surface |
 
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
 multi-event/tour planning (§3.11).
 
-The dependency graph is at the foot of the file. **Grep this file; do not read it
-whole** — it is ~1,400 lines and the rest is retrospective.
+Reach any of them by heading, not by line number — `grep -n '^### D2' ROADMAP.md`.
+A closed defect keeps its section and gains a ✅; this table is the list of what
+has not. The dependency graph is at the foot of the file.
+
+**Grep this file; do not read it whole** — it is ~1,500 lines and the rest is
+retrospective.
 
 ---
 
