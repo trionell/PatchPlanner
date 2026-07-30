@@ -2,20 +2,20 @@
 
 ## What remains
 
-**Slices 0–37 are delivered.** This file is a per-slice record written after
-delivery; everything below this section is history. If you are looking for what
-is left, it is only this:
+**Nothing. Slices 0–37 are delivered and every recorded defect is fixed.**
 
-| | |
-|---|---|
-| Slice 31 | Rental pricing by duration — planned, not started |
+Slice 31 was the last open row in this table, and it closed on 2026-07-30. This
+file is now entirely a per-slice record written after delivery: everything below
+this section is history.
 
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
 multi-event/tour planning (§3.11).
 
-Reach any of them by heading, not by line number — `grep -n '^## Slice 31' ROADMAP.md`.
-A closed defect keeps its section and gains a ✅; this table is the list of what
-has not. The dependency graph is at the foot of the file.
+**This table is where the next piece of work goes.** A new slice or an approved
+defect takes a row here and loses it when it lands — an empty table means the
+roadmap is asking, not that the tool is finished. Reach any section by heading
+rather than by line number: `grep -n '^## Slice 31' ROADMAP.md`. A closed defect
+keeps its section and gains a ✅. The dependency graph is at the foot of the file.
 
 **Grep this file; do not read it whole** — it is ~1,500 lines and the rest is
 retrospective.
@@ -1106,13 +1106,73 @@ was otherwise the one column a reader has to be told about.
 quotes a five-day hire as a one-day hire, which it did before too — what changed
 is that the tool now *knows* the duration, which is why it is the next slice.
 
-## Slice 31 — Rental pricing by duration (planned)
+## Slice 31 — Rental pricing by duration (spec: `rental-pricing-duration`) ✅ done 2026-07-30
 
-Now that an event has a length, an order that quotes a five-day hire at the
-one-day rate is visibly wrong rather than merely unknowing. Needs a per-day rate
-on inventory items, a duration multiplier through the rental aggregation, and
-every export format following — under the standing invariant that every planned
-item appears on the rental order and in every export.
+**A day rate is not a price.** Between the two sit a table the supplier
+publishes, a discount somebody negotiated and a VAT rate, and the schema held
+none of them — so a festival that loaded in on Wednesday and out on Sunday was
+quoted at the price of a Tuesday afternoon, on screen, on the Overview figure and
+in all three exports.
+
+**The file already knew.** `LL.xlsx` ships three sheets and PatchPlanner read
+one. `Hyresfaktor` is sixteen rows of `days → multiplier`, starting at row 19
+under eighteen blank ones. `Sammanställning` holds the supplier's own arithmetic,
+already written — `(subtotal − subtotal × Rabatt) × Hyresfaktor` — with exactly
+two cells a human types. This slice reads both and writes the second.
+
+- **Four numbers, three stores.** Charged-days rule and VAT cascade from the
+  user's defaults → the catalog → the event, where `NULL` means *follow the
+  catalog*. The rate card belongs to the catalog because it is a fact about the
+  supplier; the discount belongs to the event because it is a fact about the job.
+- **A catalog copies the defaults when it is *created*, not when it is imported
+  into.** The columns are `NOT NULL`, so an import has no unset state to detect,
+  and one that re-applied them would silently undo the edit the catalog's own
+  drawer exists to allow. An import applies only what the **file** states.
+- **The rate card is read by stepping down**, clamped at both ends: 17 days gets
+  the 14-day factor, 45 gets the 30-day one. Settled with the user against
+  interpolating — a supplier cannot be asked to honour a rate they never
+  published. An empty card means ×1.00 and says so in amber words on the strip;
+  the strip's *tint* stays the stock verdict it has always been.
+- **An import carrying a rate card replaces the whole table.** There is no
+  `is_manual` here, unlike catalog items: a hand-typed 5-day factor and an
+  imported one are one fact disagreeing, not two things that can coexist. An
+  import carrying none leaves the table alone, which is what makes the blank
+  generated template harmless.
+- **VAT is read out of a formula.** `LL.xlsx` never states 25% as a value; it
+  states `*1.25` inside seven formulas. The rate is taken from the one on
+  `Summa utrustning ink`, and every failure path — missing sheet, renamed row,
+  absent formula, unparseable multiplier — means *this file states no rate*.
+  Nothing fails and nothing is guessed from a partial read.
+- **`db.GetRentalSummary` fills the pricing block, and that is the slice's one
+  structural decision.** Its four callers are the whole set of places an order is
+  rendered, so no export can be written that omits the price.
+- **`total_ex_vat` was renamed `subtotal_ex_vat`**, keeping its meaning. The
+  rename was the point: a field added beside it would have left all nine sites
+  that show money compiling and eight of them wrong — including the Overview
+  number band, which had shown a day rate labelled *RENTAL, EX VAT* since Wave 4.
+- **The factor multiplies the order, not the line.** Every line keeps its day
+  rate on every surface and in all three exports, so each stays checkable against
+  the supplier's published list.
+- **The LL export writes four cells and no total**, located by row label in
+  column A, and leaves the `*1.25` formulas alone — filling in the two cells that
+  file was built to have filled is a different act from editing its model. Where
+  the labels have been renamed the quantities still arrive and the report says
+  so; where an event's VAT disagrees with what the file computes, both numbers
+  are named. Principle IV's duty is to report, not to refuse.
+- One migration pair (050), five routes, two drawers, and **no `design/` edit**:
+  every construction was already in the language, and the ledger is `GearSpecs`
+  rows in a `GearCard`. `ui/Drawer` had already solved the phone — it branches to
+  `ui/Sheet` itself — so the separate mobile sheet the tasks planned was not
+  built.
+
+**Verified against the real data**: a 32-line wedding order at 5 994.00/day,
+priced over five on-site days at ×2.20 less 25%, comes to 9 890.10 ex VAT and
+12 362.62 inc, identically on the API, in the PDF and in the spreadsheet.
+
+**Out of scope, and named as decisions:** pricing owned gear (gear you own is
+not hired), interpolating between rate-card rows, per-line period pricing,
+labour and transport (`Sammanställning` has columns for both and PatchPlanner
+models neither), and price history.
 
 ## Slice 32 — The inventory list, and the catalogs nobody could see (spec: `inventories-list`)
 
