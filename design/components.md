@@ -239,7 +239,8 @@ Header `px-5 py-4` with a `text-lg` title and an optional subtitle; body
 `px-5 py-4` stacking sections with one gap owned by the drawer (`gap-5`), not by
 each section's own margin; optional footer `px-5 py-3 text-xs text-zinc-500` — used
 to state what the drawer's contents *mean*, e.g. *"Every row here is one line on
-the rental order · 12 items"*.
+the rental order · 12 items"*, in **one line** and no more (see the footer/`info`
+rule below); optional `info`, beside the title, for everything longer.
 
 **`flush` drops that padding and that gap, at both widths** — for a body that is
 one construction rather than a stack of `DrawerSection`s. Two things need it and
@@ -248,6 +249,26 @@ the edge it shares with the sheet ([patterns.md](patterns.md) §4), and the run 
 full-bleed rows that rail becomes on a phone (§7c). Both are wrong inset by 20 px,
 and both are wrong with 20 px between them. It is `ui/Sheet`'s own prop,
 forwarded — unlike `width`, which is deliberately not.
+
+**`footer` is a line; anything longer is `info`.** The two look interchangeable
+and are not, and the test is whether it is worth re-reading. A footer states what
+the contents *are* — *"Every row here is one line on the rental order · 12
+items"* — and is worth a glance every visit. An explanation of what the drawer
+*does* is read once and costs its space forever after: on a phone, where the
+drawer is a bottom sheet, a two-sentence footer is a fifth of the screen you
+cannot put away. That is what `ui/InfoNote` is for, and `info` is where it goes.
+Slice 31 filed two such explanations into `footer` and had to be told; the rule
+had been stated only from the `InfoNote` end, which is the end you are not
+reading when you are writing a drawer.
+
+**An editable number sits at the right edge, with what it means to its left.**
+Both because a phone's right edge is where the thumb already is, and because a
+drawer that also *states* numbers — the rental order's ledger, whose labels are
+left and whose figures are right — otherwise reads in two directions at once.
+The field keeps its `MicroLabel` above it; the sentence beside it is the hint,
+not the label. Same at both widths: this is one of the few places where the
+phone's ergonomics and the desktop's alignment want the same thing, so neither
+gets a branch.
 
 **A read-only work surface opened from another surface is a `Drawer`.** The third
 answer to the question §4's rule settles: an overlay with fields is a `Sheet`, an

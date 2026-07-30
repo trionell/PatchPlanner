@@ -13,8 +13,8 @@ findings still open will move as the waves land.
 
 ## Part 1 — Findings
 
-**Every finding is closed** — the desktop's twelve, the phone's twelve, and M13, each
-in Part 1b with the wave or slice that closed it. **Part 1 is empty.**
+**Every finding is closed** — the desktop's twelve, the phone's twelve, and M13 and
+M14, each in Part 1b with the wave or slice that closed it. **Part 1 is empty.**
 
 The phone's twelve went in four phases: M7, M8, M10 and M12 by Wave 6a (Slice 33);
 M1, M2 and M3 by Wave 6b (Slice 34); M4, M5, M9 and M11 by Wave 6c (Slice 35); and
@@ -85,6 +85,28 @@ A grep that has been tuned until it prints `0` has stopped testing anything. Thi
 prints the lines, and the rule is that every line it prints has an answer.
 
 ## Part 1b — Closed
+
+### M14 · A drawer's explanation was furniture on a phone · Slice 31
+
+Reported from use: *"At the bottom there is a disclaimer 'Pricing changes no line..'. It is
+very big and I want it to work exactly like the 'i' information in for example the lighting
+tab > universes drawer."*
+
+Four drawers put a **read-once explanation in `footer`** — the two Pricing drawers built by
+Slice 31, and Categories and Import, which had done it since Slice 29. A footer is a fixed
+strip at the bottom of the drawer, and on a phone the drawer is a bottom sheet: a
+two-sentence footer is a fifth of the screen, on every visit, with no way to put it away.
+
+`ui/InfoNote` had existed since Wave 6a for exactly this, and the drawer had taken it as
+`info` since then. **The rule was written from the wrong end** — components.md described
+`InfoNote` as holding *"what a drawer's own actions do"*, which is the sentence you read
+when you are already looking at `InfoNote`, and said nothing at the `Drawer` entry where
+somebody choosing between two props is actually looking. All four drawers were written by
+someone who had read the `Drawer` entry.
+
+Fixed by moving all four to `info`, and by stating the test at the `Drawer` entry:
+**`footer` is a line; anything longer is `info`.** The same report also settled where an
+editable number sits in a drawer — the right edge, its hint to the left, at both widths.
 
 ### M13 · A stored position meant a different place on every screen · Slice 37
 

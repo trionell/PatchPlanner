@@ -99,9 +99,11 @@ export function CategoriesDrawer({ open, onClose, inventoryId, categories, onErr
       title="Categories"
       subtitle="How this catalog is divided, and which pickers it feeds"
       width="narrow"
-      footer={
+      /* An explanation of what a field here does — read once, and a fifth of a
+         phone's sheet ever after if it stays in the footer (components.md §4). */
+      info={
         <>
-          A category's <b className="font-medium text-zinc-400">picker role</b> is what makes its items appear in a
+          A category's <b className="font-medium text-zinc-300">picker role</b> is what makes its items appear in a
           patch row's cable, stand or truss picker. Leave it unset for equipment chosen some other way.
         </>
       }
@@ -261,9 +263,10 @@ export function ImportDrawer({ open, onClose, inventoryId, inventory, onError, e
       title="Import"
       subtitle="Fill this catalog from a spreadsheet"
       width="narrow"
-      footer={
+      /* What the drawer's own action does — `info`, not `footer`. */
+      info={
         <>
-          An import <b className="font-medium text-zinc-400">replaces</b> the imported part of the catalog. Items you
+          An import <b className="font-medium text-zinc-300">replaces</b> the imported part of the catalog. Items you
           added by hand are left alone.
         </>
       }
@@ -399,10 +402,14 @@ export function CatalogPricingDrawer({ open, onClose, inventoryId, onError, edit
       title="Pricing"
       subtitle="What this supplier charges for a longer hire"
       width="narrow"
-      footer={
+      /* What this drawer's contents do when an import arrives — an explanation
+         read once, so `info` rather than `footer` (components.md §4). */
+      info={
         <>
-          An import carrying a factor table <b className="font-medium text-zinc-400">replaces every row here</b>. One
-          that carries none leaves them alone.
+          An import carrying a factor table <b className="font-medium text-zinc-300">replaces every row here</b>. One
+          that carries none leaves them alone. A hire longer than one row but shorter than the next is charged at the
+          row <b className="font-medium text-zinc-300">below</b> it — 17 days on a card that jumps 14 to 21 is charged
+          at the 14-day factor. Past the last row, the last row holds.
         </>
       }
     >
@@ -428,26 +435,32 @@ export function CatalogPricingDrawer({ open, onClose, inventoryId, onError, edit
 
       <DrawerSection label="VAT">
         <GearCard>
-          <div className="flex flex-wrap items-center gap-2">
+          {/* Hint left, field right — the same direction the event drawer's
+              ledger reads, and on a phone the edge the thumb is already on. */}
+          <div className="flex items-end justify-between gap-3">
+            <span className="pb-1.5 text-xs leading-snug text-zinc-500">
+              The rate this supplier charges, as a percentage.
+            </span>
             {editable ? (
-              <Input
-                size="sm"
-                type="number"
-                min={0}
-                className="w-20"
-                key={`vat-${data?.vat_percent}`}
-                defaultValue={data?.vat_percent ?? 25}
-                onBlur={(event) => {
-                  const value = Number(event.target.value)
-                  if (Number.isFinite(value) && value >= 0 && value !== data?.vat_percent) {
-                    setTerms.mutate({ vat_percent: value })
-                  }
-                }}
-              />
+              <label className="flex w-24 shrink-0 flex-col gap-1">
+                <MicroLabel>VAT %</MicroLabel>
+                <Input
+                  size="sm"
+                  type="number"
+                  min={0}
+                  key={`vat-${data?.vat_percent}`}
+                  defaultValue={data?.vat_percent ?? 25}
+                  onBlur={(event) => {
+                    const value = Number(event.target.value)
+                    if (Number.isFinite(value) && value >= 0 && value !== data?.vat_percent) {
+                      setTerms.mutate({ vat_percent: value })
+                    }
+                  }}
+                />
+              </label>
             ) : (
-              <span className="font-mono text-xs text-zinc-300">{data?.vat_percent ?? 25}</span>
+              <span className="font-mono text-xs text-zinc-300">{data?.vat_percent ?? 25}%</span>
             )}
-            <span className="text-xs text-zinc-500">%</span>
           </div>
         </GearCard>
       </DrawerSection>
@@ -530,11 +543,6 @@ export function CatalogPricingDrawer({ open, onClose, inventoryId, onError, edit
         )}
       </DrawerSection>
 
-      <p className="text-xs leading-relaxed text-zinc-500">
-        A hire longer than one row but shorter than the next is charged at the row{' '}
-        <b className="font-medium text-zinc-400">below</b> it — 17 days on a card that jumps 14 to 21 is charged at the
-        14-day factor. Past the last row, the last row holds.
-      </p>
     </Drawer>
   )
 }

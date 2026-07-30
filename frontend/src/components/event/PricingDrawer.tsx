@@ -119,10 +119,18 @@ function PricingForm({
       title="Pricing"
       subtitle="What this hire costs, and why"
       width="narrow"
-      footer={
+      /*
+        `info`, not `footer`. The footer states what a drawer's contents *mean*,
+        in a line — "every row here is one line on the rental order". This is an
+        explanation of what the drawer does, read once and in the way ever after,
+        which is exactly what `ui/InfoNote` exists for: one `i` closed, the
+        sentence open, the choice remembered. On a phone a footer this long is a
+        fifth of the sheet, permanently (components.md §4).
+      */
+      info={
         <>
           Pricing changes no line on the order. Every price on the sheet is the catalog's{' '}
-          <b className="font-medium text-zinc-400">day rate</b>, which is what the supplier's own list says.
+          <b className="font-medium text-zinc-300">day rate</b>, which is what the supplier's own list says.
         </>
       }
     >
@@ -163,24 +171,17 @@ function PricingForm({
             actions={<span className="font-mono text-[10px] text-zinc-500">{factorSourceWords(pricing)}</span>}
           />
           {editable && (
-            <div className="flex flex-wrap items-end gap-2">
-              <label className="flex w-24 flex-col gap-1">
-                <MicroLabel>Override</MicroLabel>
-                <Input
-                  size="sm"
-                  type="number"
-                  min={0}
-                  step="0.05"
-                  /* The looked-up value as a placeholder, not as a value: a
-                     number you can see but did not type is one the catalog's
-                     table can still correct. */
-                  placeholder={pricing.rent_factor.toFixed(2)}
-                  value={draft.rentFactorOverride}
-                  onChange={(e) => update({ rentFactorOverride: e.target.value })}
-                />
-              </label>
-              <span className="pb-1.5 text-xs text-zinc-500">Leave empty to follow the catalog's table.</span>
-            </div>
+            <NumberField
+              label="Override"
+              hint="Leave empty to follow the catalog's table."
+              step="0.05"
+              /* The looked-up value as a placeholder, not as a value: a number
+                 you can see but did not type is one the catalog's table can
+                 still correct. */
+              placeholder={pricing.rent_factor.toFixed(2)}
+              value={draft.rentFactorOverride}
+              onChange={(value) => update({ rentFactorOverride: value })}
+            />
           )}
         </GearCard>
       </DrawerSection>
@@ -188,20 +189,13 @@ function PricingForm({
       <DrawerSection label="Discount">
         <GearCard>
           {editable ? (
-            <div className="flex flex-wrap items-end gap-2">
-              <label className="flex w-24 flex-col gap-1">
-                <MicroLabel>Percent</MicroLabel>
-                <Input
-                  size="sm"
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={draft.discountPercent}
-                  onChange={(e) => update({ discountPercent: e.target.value })}
-                />
-              </label>
-              <span className="pb-1.5 text-xs text-zinc-500">% off the equipment subtotal.</span>
-            </div>
+            <NumberField
+              label="Percent"
+              hint="% off the equipment subtotal."
+              max={100}
+              value={draft.discountPercent}
+              onChange={(value) => update({ discountPercent: value })}
+            />
           ) : (
             <GearSpecs>
               <Spec label="discount" value={`${formatPercent(pricing.discount_percent)}%`} />
@@ -221,20 +215,13 @@ function PricingForm({
             }
           />
           {editable && (
-            <div className="flex flex-wrap items-end gap-2">
-              <label className="flex w-24 flex-col gap-1">
-                <MicroLabel>Override</MicroLabel>
-                <Input
-                  size="sm"
-                  type="number"
-                  min={0}
-                  placeholder={formatPercent(pricing.vat_percent)}
-                  value={draft.vatPercent}
-                  onChange={(e) => update({ vatPercent: e.target.value })}
-                />
-              </label>
-              <span className="pb-1.5 text-xs text-zinc-500">Leave empty to follow the catalog.</span>
-            </div>
+            <NumberField
+              label="Override"
+              hint="Leave empty to follow the catalog."
+              placeholder={formatPercent(pricing.vat_percent)}
+              value={draft.vatPercent}
+              onChange={(value) => update({ vatPercent: value })}
+            />
           )}
         </GearCard>
       </DrawerSection>
@@ -284,6 +271,53 @@ export function Ledger({ pricing }: { pricing: RentalPricing }) {
           <span className={row.emphasis ? 'ml-auto' : 'ml-auto text-zinc-300'}>{row.value}</span>
         </div>
       ))}
+    </div>
+  )
+}
+
+/**
+ * One editable number, with what it means to its left.
+ *
+ * **The field sits on the right, at both widths.** Two reasons, and the second
+ * is why there is no `useIsMobile` branch here. On a phone the right edge is
+ * where the thumb already is, so that is where a control belongs. And the
+ * ledger directly below these cards puts its labels left and its numbers right
+ * — so aligning the editable numbers with the derived ones makes the whole
+ * drawer read in one direction rather than two.
+ */
+function NumberField({
+  label,
+  hint,
+  value,
+  placeholder,
+  step,
+  max,
+  onChange,
+}: {
+  label: string
+  hint: string
+  value: string
+  placeholder?: string
+  step?: string
+  max?: number
+  onChange: (value: string) => void
+}) {
+  return (
+    <div className="flex items-end justify-between gap-3">
+      <span className="pb-1.5 text-xs leading-snug text-zinc-500">{hint}</span>
+      <label className="flex w-24 shrink-0 flex-col gap-1">
+        <MicroLabel>{label}</MicroLabel>
+        <Input
+          size="sm"
+          type="number"
+          min={0}
+          max={max}
+          step={step}
+          placeholder={placeholder}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </label>
     </div>
   )
 }
