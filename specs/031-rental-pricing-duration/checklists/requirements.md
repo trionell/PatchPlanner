@@ -66,3 +66,22 @@ pinned to the convention 040/041/046 already set.
 - [x] No `design/` file is edited by this slice (FR-038, SC-006) — every
       construction is already in the language, so the second Frontend Design
       Workflow trigger does **not** fire
+
+## Delivered 2026-07-30
+
+- [x] All seven phases landed; gates green on both sides at every commit
+- [x] `design/` untouched, confirmed by `git diff --stat main -- design/`
+- [x] Verified against a copy of the real database: migration 050 applies, every
+      existing catalog reads `onsite`/25%, no event carries a departure, and a
+      real 32-line order prices to the same figures on the API, in the PDF and in
+      the spreadsheet
+- [x] Two departures from the written plan, both recorded rather than quietly
+      satisfied: no `MobilePricingSheet` was built (FR-027 — `ui/Drawer` already
+      branches), and the catalog's drawer is desktop-only like its two siblings
+      (FR-027a)
+
+**Not verified:** the live rendering at 1440 px and 375 px. The machine's dev
+servers were already running on both ports and no headless browser is available,
+so the built pages were not read against the mockup by eye. Everything behind
+them — the payloads, the arithmetic, both spreadsheet exports and the PDF — was
+checked against real data.

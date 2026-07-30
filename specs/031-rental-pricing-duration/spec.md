@@ -412,8 +412,18 @@ a row has a phone form — but nothing is unusable without it.
   and *Import*, holding the charged-days rule, the VAT rate and the rate card.
 - **FR-026** Every control on both drawers is **absent** for a role that cannot
   use it (P7), the read view being identical for everyone.
-- **FR-027** Both drawers reach the phone through the panel's overflow, as a
-  `ui/Sheet` with 44 px controls and the same ledger.
+- **FR-027** The event's Pricing drawer reaches the phone through the rental
+  panel's overflow, as a `ui/Sheet` with 44 px controls and the same ledger.
+  **No new component builds this**: `ui/Drawer` branches on `useIsMobile`
+  itself, precisely so that every drawer acquires a phone form at once rather
+  than each call site answering the question again.
+- **FR-027a** The **catalog's** Pricing drawer is desktop-only, like its two
+  siblings. The phone's catalog surface offers *Manage* and nothing else —
+  Categories and Import have never been reachable there — and adding one of the
+  three alone would make the omission of the other two look like a decision.
+  Editing a supplier's rate card is a desk job in exactly the sense those two
+  already are. **This is a gap in that surface, not in this slice**, and it is
+  recorded here rather than quietly satisfied.
 
 ### The exports (US5)
 
