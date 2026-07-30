@@ -775,9 +775,14 @@ much smaller", which held for three of the four and was wrong about the fourth.
 **That zero is true of the four tabs and false of the application** — found
 2026-07-30, recorded as ROADMAP.md D4. `EventInventoryBrowser`, extracted out of
 `EventInventoryCard` during this very wave, is an overlay opened *from* Overview
-rather than a tab, and it kept its `ui/Table`. It is the last one left. Counting a
+rather than a tab, and it kept its `ui/Table`. It was the last one left. Counting a
 wave's surfaces without counting what they open is how a surface goes nine slices
 unseen; the row stays as written because it is what the wave measured.
+
+D4 was fixed the same day, so the zero is now true of the application as well: that
+browse is a `SheetTable` behind a `ui/PanelRail` in a `ui/Drawer`, with the phone
+form it never had. **`ui/Table` is deleted** — the count in that row can no longer
+go back up, which is the only kind of zero an audit can stop watching.
 
 **`OverviewTab` was the one the audit read wrong.** It was filed as "a form rather
 than a sheet, needs the navigation tier applied consistently" — a styling note.

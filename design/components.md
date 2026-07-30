@@ -18,7 +18,7 @@ common way a new screen ends up looking like it belongs to a different applicati
 | Concept | Work surface | Navigation surface |
 |---|---|---|
 | Frame | `ui/PatchPanel` | `ui/Card` + `CardHeader` / `CardTitle` / `CardContent` / `CardFooter` |
-| Table | `ui/SheetTable` | `ui/Table` |
+| Table | `ui/SheetTable` | — see below |
 | Chip | `Pill` (from `ui/SheetTable`) | `ui/Badge` |
 | Label | `MICRO_LABEL` / `MicroLabel` | `FieldLabel` |
 | Field | `<Input size="sm">` · `<Select size="sm">` | `<Input>` · `<Select>` (md) |
@@ -28,9 +28,21 @@ Both members of a pair live in one file wherever there are only two of them —
 `MicroLabel` and `FieldLabel` are both in `ui/Label.tsx` — so picking the wrong tier
 takes a deliberate act rather than an absent-minded import.
 
-`ui/Table` and `ui/Badge` are deliberately untouched by the patch work: six other
-tabs render them, and Slice 25 was scoped to leave those exactly as they were. That
-scoping decision is now spent — [audit.md](audit.md) says what happens to them.
+**The table pair is not a pair any more — `ui/Table` is deleted** (ROADMAP D4
+converted its last caller, Wave 4 having taken the other six). `ui/SheetTable` is
+now the application's only table, at either tier, and a navigation-tier one is
+made by overriding its padding — which `SheetHeadCell` was already doing for the
+catalog list before any of this ([tokens.md](tokens.md) §3).
+
+The row above says *see below* rather than naming a replacement, because there is
+nothing to pick between: **a table of records is a work surface.** That is what
+five waves of converting them found, and the deleted component is what kept
+offering the other answer. If a genuinely navigational table ever turns up — a
+short summary of somewhere else to go — it is `SheetTable` with the navigation
+tier's padding, not a second component.
+
+`ui/Badge` is untouched and keeps several callers: a role chip on a dashboard card
+is a navigation surface and always was.
 
 ## 2 · Work-surface components
 
@@ -229,6 +241,23 @@ each section's own margin; optional footer `px-5 py-3 text-xs text-zinc-500` —
 to state what the drawer's contents *mean*, e.g. *"Every row here is one line on
 the rental order · 12 items"*.
 
+**`flush` drops that padding and that gap, at both widths** — for a body that is
+one construction rather than a stack of `DrawerSection`s. Two things need it and
+they are the same thing at two reaches: a `PanelCols` whose rail is bordered on
+the edge it shares with the sheet ([patterns.md](patterns.md) §4), and the run of
+full-bleed rows that rail becomes on a phone (§7c). Both are wrong inset by 20 px,
+and both are wrong with 20 px between them. It is `ui/Sheet`'s own prop,
+forwarded — unlike `width`, which is deliberately not.
+
+**A read-only work surface opened from another surface is a `Drawer`.** The third
+answer to the question §4's rule settles: an overlay with fields is a `Sheet`, an
+overlay that is a sentence and two buttons is a `Dialog`, and a catalog you are
+*consulting while working on something else* is neither. The reason is the one
+stated above — it opens over the surface being cross-referenced — and the event's
+read-only browse of someone else's inventory is the instance (ROADMAP D4). It was
+a `Dialog` for four slices, which is how it also came to have no phone form: a
+`Drawer` is a bottom sheet below 768 px and a `Dialog` stays centred.
+
 ### `ui/Tabs`
 
 `TabList` `inline-flex flex-wrap gap-1` — no trough, per [patterns.md](patterns.md)
@@ -240,7 +269,7 @@ canvas selection.
 A selector that means *what you are looking at* uses this component rather than
 copying its classes. That is the whole reason `active` exists.
 
-### `ui/Dialog`, `ui/Card`, `ui/Table`, `ui/Badge`
+### `ui/Dialog`, `ui/Card`, `ui/Badge`
 
 Navigation-surface components; values in [tokens.md](tokens.md). `Dialog` and
 `Drawer` already share their header, padding and close conventions, and should
@@ -309,6 +338,24 @@ set of values.
 | `MobileChannelEditSheet` · `MobileOutputEditSheet` · `MobileFixtureEditSheet` · `MobileEquipmentEditSheet` · `MobileRentalEditSheet` | The phone's row editor, one per entity, deliberately not one configurable form — the same reasoning as `GearList`. Add and edit are **one** construction in each (§2). A failed save keeps the sheet open with every value intact. Each takes `readOnly`: a role that may not edit still opens the sheet, because a phone row is a truncation and the values are the point of opening it ([audit.md](audit.md) M4). |
 | `MobileOverviewPanel` | Overview's phone composition — a two-column figure grid with the countdown spanning, both rig ribbons as horizontally panning drawings, and the five readiness verdicts as 44 px rows that state *and* route. One caller, deliberately: a 120-line phone composition inside a desktop tab is how a phone value gets copied onto a desk. It derives nothing — `lib/eventSummary` computes both halves of every row for the desktop already. |
 | `MobilePicker` | *Choose one of N*, on a phone: a control naming the current choice, opening a sheet of 52 px rows with the sidebar's 2 px amber left edge. Every desktop *choose one of N* — a rail, a tab strip, a list down the left — becomes this, because a column is the one thing a 375 px screen has not got. Never in the overflow: choosing changes *what you are looking at*. Two variants, and which one is a question about the surface. **`field`** sits among the bar's targets, capped, where the panel has a name of its own — the plot picker beside *Stage Plots*. **`title`** *is* the panel's name, where the surface genuinely is one of N at a time: the vocabularies have a rail on the desktop and none on a phone, so naming the panel *Vocabularies* and truncating *which one* to 112 px named the wrong thing and hid the useful half. Extracted at its second caller, the rule `ui/PanelRail` was made to follow. |
+
+**A third placement, and it takes `title`** (ROADMAP D4). A picker at the head of a
+`flush` `ui/Sheet` body, where a desktop `PanelRail` filters a surface that is *in*
+an overlay rather than in a panel: the event's read-only catalog browse is the
+instance. It is neither of the two cases above — the sheet's header already names
+the inventory, which is `field`'s stated condition, but there is no bar for `field`
+to sit among and 112 px would truncate *All categories* to the same nothing the
+vocabularies' did. So the rule is by **what is left to name**, which is what both
+existing cases were really deciding: the header names the *thing*, the picker names
+*which part of it you are looking at*, and that is a name, so it takes the title's
+own width.
+
+Its bar is the only geometry this adds, and it is stated once: `sticky top-0`, the
+sheet's own `bg-zinc-900`, `px-3`, a `border-b border-zinc-800`, the 44 px picker
+and a mono count of the filtered rows pushed to the far end. Sticky because a
+filter you have scrolled past is one you have to scroll back to, and a catalog is
+308 rows. It is not a `MobilePanel` bar — there is no panel — and it holds a
+selector and a count and never an action.
 
 **`ui/MobilePanel`.** The phone's frame — bar, rows, strip — and P1 at 375 px.
 Built in Wave 6b, where it replaced nine `space-y-*` stacks of free-standing

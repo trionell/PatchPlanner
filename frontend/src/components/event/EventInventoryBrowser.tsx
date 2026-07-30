@@ -1,8 +1,12 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { listEventInventoryCategories, listEventInventoryItems } from '../../api/inventory'
-import { Badge } from '../ui/Badge'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table'
+import { useIsMobile } from '../../hooks/useIsMobile'
+import type { InventoryItem } from '../../types'
+import { CondensedListRow } from '../mobile/CondensedListRow'
+import { MobilePicker } from '../mobile/MobilePicker'
+import { PanelCols, PanelMain, PanelRail, PanelRailRow } from '../ui/PanelRail'
+import { NumCell, SheetBody, SheetCell, SheetHead, SheetHeadCell, SheetRow, SheetTable } from '../ui/SheetTable'
 
 /**
  * A read-only browse of the inventory an event is bound to (Slice 16 US3).
@@ -13,9 +17,24 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
  *
  * Its own file since Slice 28: it used to live inside `EventInventoryCard`, and
  * that card became a row on Overview.
+ *
+ * **It is the same data as `inventory/InventorySheet`, so it is the same surface**
+ * (ROADMAP D4). Until then it was the last consumer of `ui/Table` in the
+ * application — which is why converting it is what let that component be deleted —
+ * a navigation-tier table, a `Badge` and a hand-written copy of
+ * `Tab`'s classes, on a catalog of equipment, which is the work surface the
+ * Inventories page had already concluded this data to be (components.md §1,
+ * patterns.md §4). The rail is `ui/PanelRail`, the fourth instance of the pattern
+ * and the same one the owner's own view of these rows filters with.
+ *
+ * It has no editor and no add: everything a role may not do is **absent** rather
+ * than disabled (P7), which is the whole difference between this and the sheet it
+ * mirrors.
  */
 export function EventInventoryBrowser({ eventId }: { eventId: number }) {
+  const isMobile = useIsMobile()
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>()
+
   const categoriesQuery = useQuery({
     queryKey: ['inventory-categories', eventId],
     queryFn: () => listEventInventoryCategories(eventId),
@@ -25,47 +44,156 @@ export function EventInventoryBrowser({ eventId }: { eventId: number }) {
     queryFn: () => listEventInventoryItems(eventId, selectedCategoryId ? { categoryId: selectedCategoryId } : undefined),
   })
 
-  return (
-    <div className="grid max-h-[70vh] gap-4 overflow-y-auto lg:grid-cols-[220px,1fr]">
-      <div className="space-y-2">
-        {(categoriesQuery.data ?? []).map((category) => (
-          <button
-            key={category.id}
-            type="button"
-            onClick={() => setSelectedCategoryId(category.id === selectedCategoryId ? undefined : category.id)}
-            className={`flex w-full items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-sm ${
-              category.id === selectedCategoryId
-                ? 'border-amber-500 bg-amber-500/10 text-amber-300'
-                : 'border-zinc-800 bg-zinc-900 text-zinc-200 hover:border-zinc-700'
-            }`}
-          >
-            <span>{category.name}</span>
-            <Badge>{category.item_count ?? 0}</Badge>
-          </button>
+  const categories = categoriesQuery.data ?? []
+  const items = itemsQuery.data ?? []
+  // What *All* holds. The categories carry the only counts either reach has —
+  // `items` is the filtered page, so it cannot answer this.
+  const total = categories.reduce((sum, category) => sum + (category.item_count ?? 0), 0)
+
+  /*
+    An empty list and an unanswered request look identical, and `ui/Drawer` renders
+    nothing until it is open — so both queries start cold at the moment this opens,
+    and *Nothing in this catalog yet* would be the first thing anyone browsing a
+    full catalog is told, every time, for a round trip. The Inventories page guards
+    the same sentence the same way; the old table said nothing either way, because
+    it had no empty state at all.
+  */
+  const itemsNote = itemsQuery.isPending ? 'Loading catalog…' : EMPTY
+
+  /*
+    The phone (patterns.md §7c). The columns rank into a title and a subtitle, and
+    the rail — a column, which is the one thing a 375px screen does not have —
+    becomes the control that names the current choice and opens a sheet.
+
+    There is no `max-h` and no scroll container of either kind here. This renders
+    inside `ui/Drawer`, which is a bottom `ui/Sheet` at this width and owns the
+    only scroll on the surface; a second one nested in it is what `70vh` used to
+    add on top of the sheet's own `85svh` (tokens.md §7).
+  */
+  if (isMobile) {
+    return (
+      <>
+        {/* Sticky, because a filter you have scrolled past is a filter you have to
+            scroll back to — and a catalog is 308 rows (patterns.md §4). */}
+        <div className="sticky top-0 z-10 flex flex-none items-center gap-2 border-b border-zinc-800 bg-zinc-900 px-3">
+          <MobilePicker
+            label="All categories"
+            onChange={(id) => setSelectedCategoryId(id === ALL ? undefined : Number(id))}
+            options={[
+              { id: ALL, label: 'All categories', hint: String(total) },
+              ...categories.map((category) => ({
+                id: category.id,
+                label: category.name,
+                hint: String(category.item_count ?? 0),
+              })),
+            ]}
+            title="Filter by category"
+            /* `title`, not `field`: the sheet's own heading is the inventory, so
+               this names which category is on screen rather than sitting among a
+               bar's other targets — and 112px of truncation would hide it. */
+            variant="title"
+            value={selectedCategoryId ?? ALL}
+          />
+          <span className="ml-auto flex-none font-mono text-xs tabular-nums text-zinc-500">{items.length}</span>
+        </div>
+
+        {items.map((item) => (
+          <CondensedListRow key={item.id} subtitle={phoneSubtitle(item)} title={item.name} />
         ))}
-      </div>
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Item</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Qty</TableHead>
-              <TableHead>Price ex VAT</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {(itemsQuery.data ?? []).map((item) => (
-              <TableRow key={item.id}>
-                <TableCell className="font-medium">{item.name}</TableCell>
-                <TableCell className="text-zinc-400">{item.description || '—'}</TableCell>
-                <TableCell>{item.quantity_available}</TableCell>
-                <TableCell>{item.price_ex_vat.toFixed(2)}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-    </div>
+        {items.length === 0 && <p className="px-3 py-3 text-sm text-zinc-500">{itemsNote}</p>}
+      </>
+    )
+  }
+
+  return (
+    /* `min-h-full` so the rail's border reaches the foot of the drawer when a
+       category holds four items. The rail is given no height of its own — the
+       columns stretch it, and the drawer body is the one thing that scrolls. */
+    <PanelCols className="min-h-full">
+      <PanelRail>
+        <PanelRailRow
+          count={total}
+          label="All items"
+          onSelect={() => setSelectedCategoryId(undefined)}
+          selected={selectedCategoryId === undefined}
+        />
+        {categories.map((category) => (
+          <PanelRailRow
+            count={category.item_count ?? 0}
+            key={category.id}
+            label={category.name}
+            onSelect={() => setSelectedCategoryId(category.id === selectedCategoryId ? undefined : category.id)}
+            qualifier={category.category_type}
+            selected={category.id === selectedCategoryId}
+          />
+        ))}
+        {categories.length === 0 && !categoriesQuery.isPending && (
+          <p className="px-2 py-1 text-xs text-zinc-500">{EMPTY}</p>
+        )}
+      </PanelRail>
+
+      <PanelMain>
+        <div className="overflow-x-auto">
+          <SheetTable>
+            <SheetHead>
+              <tr>
+                {COLUMNS.map((column) => (
+                  <SheetHeadCell key={column}>{column}</SheetHeadCell>
+                ))}
+              </tr>
+            </SheetHead>
+            <SheetBody>
+              {items.map((item, index) => (
+                <SheetRow key={item.id} striped={index % 2 === 1}>
+                  <SheetCell className="whitespace-nowrap text-zinc-100">{item.name}</SheetCell>
+                  <SheetCell className="max-w-64 truncate text-zinc-500">{item.description || <Dash />}</SheetCell>
+                  <NumCell>{item.quantity_available}</NumCell>
+                  <NumCell>{item.price_ex_vat.toFixed(2)}</NumCell>
+                </SheetRow>
+              ))}
+
+              {items.length === 0 && (
+                <tr>
+                  <SheetCell className="text-zinc-500" colSpan={COLUMNS.length}>
+                    {itemsNote}
+                  </SheetCell>
+                </tr>
+              )}
+            </SheetBody>
+          </SheetTable>
+        </div>
+      </PanelMain>
+    </PanelCols>
   )
+}
+
+const COLUMNS = ['Item', 'Description', 'Qty', 'Price ex VAT']
+
+/** The `MobilePicker` entry for *no filter*. Its ids are strings or numbers, and
+ *  every number is a category. */
+const ALL = 'all'
+
+const EMPTY = 'Nothing in this catalog yet.'
+
+/**
+ * **This sheet's other three columns, ranked and joined** (patterns.md §7c) — which
+ * is the rule, and it is why this differs by one word from the owner's own phone
+ * list of the same rows in `pages/Inventories`. That one says *category* first,
+ * because its sheet has a Category column; this one has none, since the rail beside
+ * it is the category. A phone row is the surface's own columns ranked, so two
+ * lists of one catalog say what their own sheets say — the same rule reaching two
+ * answers, not two designs.
+ *
+ * A missing description drops out rather than falling back to the category: the
+ * desktop draws an em-dash there, and substituting a column this sheet does not
+ * show would make the two reaches disagree to fix a gap neither of them has.
+ */
+function phoneSubtitle(item: InventoryItem): string {
+  return [item.description, `Qty ${item.quantity_available}`, `${item.price_ex_vat.toFixed(2)} kr`]
+    .filter(Boolean)
+    .join(' · ')
+}
+
+function Dash() {
+  return <span className="text-zinc-600">—</span>
 }

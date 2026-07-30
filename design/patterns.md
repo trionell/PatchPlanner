@@ -160,7 +160,19 @@ forty, and the body scrolls.
 
 `ui/PanelRail` is the same construction once more: `w-56 shrink-0`, bordered on
 the edge it shares with the sheet, scrolling on its own. The inventory catalog
-filters by category with it and the vocabulary panel picks a vocabulary with it.
+filters by category with it, the vocabulary panel picks a vocabulary with it, and
+the event's read-only browse of someone else's catalog filters by category with it
+too — the same rows, the same rail, one of them owned and one of them not, which
+is the point (ROADMAP D4).
+
+**A rail inside a `Drawer` is still a rail.** It goes in a `flush` body so it can
+be bordered on the edge it shares with the sheet rather than floating 20 px inside
+one. **`min-h-full` goes on the `PanelCols`, never on the rail** — the columns are
+`items-stretch`, so the rail is already as tall as they are and a `min-h` on it
+resolves against a content-height parent and does nothing. On the container it is
+what makes that border reach the foot of the drawer when the chosen category holds
+four items. Either way the rail is given no height of its own, and the drawer's
+body is the one thing that scrolls.
 
 **A filter has to be entirely visible**, which is the whole reason it exists. The
 inventory page's categories used to show about four of twenty-seven, because each
