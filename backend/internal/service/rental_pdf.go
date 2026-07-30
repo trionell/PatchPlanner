@@ -247,7 +247,7 @@ func writePDFTotals(pdf *fpdf.Fpdf, tr func(string) string, summary domain.Renta
 		plural(summary.TotalItems, "item", "items"),
 		plural(summary.TotalQuantity, "unit", "units"))), "", 0, "L", false, 0, "")
 	pdf.SetFont("Helvetica", "B", 11)
-	pdf.CellFormat(0, 6, tr(formatMoney(summary.TotalExVAT)+" SEK"), "", 1, "R", false, 0, "")
+	pdf.CellFormat(0, 6, tr(formatMoney(summary.SubtotalExVAT)+" SEK"), "", 1, "R", false, 0, "")
 	pdf.SetFont("Helvetica", "I", 8)
 	pdf.SetTextColor(120, 120, 120)
 	pdf.CellFormat(0, 4, tr("excl. VAT"), "", 1, "R", false, 0, "")

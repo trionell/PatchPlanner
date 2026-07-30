@@ -102,7 +102,7 @@ func (s ExportService) BuildGenericRentalXLSX(eventID int64) (*excelize.File, st
 		}
 	}
 
-	totals := []any{"TOTAL", "", "", "", "", summary.TotalQuantity, "", summary.TotalExVAT}
+	totals := []any{"TOTAL", "", "", "", "", summary.TotalQuantity, "", summary.SubtotalExVAT}
 	if err := writeRentalRow(file, row+1, totals); err != nil {
 		_ = file.Close()
 		return nil, "", err

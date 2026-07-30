@@ -8,12 +8,46 @@ import (
 	"github.com/trionell/patchplanner/internal/domain"
 )
 
+// eventColumns is the one place an event's column list lives, prefixed for
+// whichever query needs it. Two hand-maintained SELECT lists that must agree is
+// how a column added to one and forgotten in the other becomes a field that is
+// populated on one screen and zero on another — which is what Slice 31's four
+// pricing columns would have risked.
+func eventColumns(prefix string) string {
+	return prefix + "id, " + prefix + "name, " +
+		"COALESCE(" + prefix + "load_in_date, ''), COALESCE(" + prefix + "start_date, ''), " +
+		"COALESCE(" + prefix + "end_date, ''), COALESCE(" + prefix + "load_out_date, ''), " +
+		"COALESCE(" + prefix + "venue, ''), COALESCE(" + prefix + "notes, ''), " +
+		"COALESCE(" + prefix + "created_at, ''), COALESCE(" + prefix + "updated_at, ''), " +
+		"COALESCE(" + prefix + "inventory_id, 0), " +
+		prefix + "charged_days, " + prefix + "rent_factor_override, " + prefix + "vat_percent, " +
+		"COALESCE(" + prefix + "discount_percent, 0)"
+}
+
+// scanEvent reads eventColumns in order. The three pricing pointers stay
+// nullable through the scan because NULL is a meaning here — "follow the
+// catalog" — and COALESCE-ing them to zero would turn every inheriting event
+// into one charging nothing.
+func scanEvent(row scanner, event *domain.Event) error {
+	var chargedDays sql.NullString
+	var rentFactorOverride, vatPercent sql.NullFloat64
+	if err := row.Scan(&event.ID, &event.Name, &event.LoadInDate, &event.StartDate, &event.EndDate,
+		&event.LoadOutDate, &event.Venue, &event.Notes, &event.CreatedAt, &event.UpdatedAt,
+		&event.InventoryID, &chargedDays, &rentFactorOverride, &vatPercent, &event.DiscountPercent); err != nil {
+		return err
+	}
+	event.ChargedDays = stringPtrFromNull(chargedDays)
+	event.RentFactorOverride = floatPtrFromNull(rentFactorOverride)
+	event.VATPercent = floatPtrFromNull(vatPercent)
+	return nil
+}
+
 // ListEventsForUser returns only events the user owns or is a member of,
 // each annotated with that user's role (FR-008 — an event the user has no
 // role on is completely absent, not just unlisted).
 func ListEventsForUser(db *sql.DB, userID int64) ([]domain.Event, error) {
 	rows, err := db.Query(`
-		SELECT e.id, e.name, COALESCE(e.load_in_date, ''), COALESCE(e.start_date, ''), COALESCE(e.end_date, ''), COALESCE(e.load_out_date, ''), COALESCE(e.venue, ''), COALESCE(e.notes, ''), COALESCE(e.created_at, ''), COALESCE(e.updated_at, ''), COALESCE(e.inventory_id, 0),
+		SELECT `+eventColumns("e.")+`,
 			CASE WHEN e.owner_user_id = ? THEN 'owner' ELSE m.role END AS your_role
 		FROM events e
 		LEFT JOIN event_memberships m ON m.event_id = e.id AND m.user_id = ?
@@ -27,9 +61,19 @@ func ListEventsForUser(db *sql.DB, userID int64) ([]domain.Event, error) {
 	events := make([]domain.Event, 0)
 	for rows.Next() {
 		var event domain.Event
-		if err := rows.Scan(&event.ID, &event.Name, &event.LoadInDate, &event.StartDate, &event.EndDate, &event.LoadOutDate, &event.Venue, &event.Notes, &event.CreatedAt, &event.UpdatedAt, &event.InventoryID, &event.YourRole); err != nil {
+		// The role rides along on the same row, so this one call site scans it
+		// itself rather than reaching for scanEvent.
+		var chargedDays sql.NullString
+		var rentFactorOverride, vatPercent sql.NullFloat64
+		if err := rows.Scan(&event.ID, &event.Name, &event.LoadInDate, &event.StartDate, &event.EndDate,
+			&event.LoadOutDate, &event.Venue, &event.Notes, &event.CreatedAt, &event.UpdatedAt,
+			&event.InventoryID, &chargedDays, &rentFactorOverride, &vatPercent, &event.DiscountPercent,
+			&event.YourRole); err != nil {
 			return nil, fmt.Errorf("scan event: %w", err)
 		}
+		event.ChargedDays = stringPtrFromNull(chargedDays)
+		event.RentFactorOverride = floatPtrFromNull(rentFactorOverride)
+		event.VATPercent = floatPtrFromNull(vatPercent)
 		events = append(events, event)
 	}
 	return events, rows.Err()
@@ -81,12 +125,25 @@ func ClaimOwnerlessEvents(db *sql.DB, userID int64) (int64, error) {
 
 func GetEvent(db *sql.DB, id int64) (domain.Event, error) {
 	var event domain.Event
-	err := db.QueryRow(`SELECT id, name, COALESCE(load_in_date, ''), COALESCE(start_date, ''), COALESCE(end_date, ''), COALESCE(load_out_date, ''), COALESCE(venue, ''), COALESCE(notes, ''), COALESCE(created_at, ''), COALESCE(updated_at, ''), COALESCE(inventory_id, 0) FROM events WHERE id = ?`, id).
-		Scan(&event.ID, &event.Name, &event.LoadInDate, &event.StartDate, &event.EndDate, &event.LoadOutDate, &event.Venue, &event.Notes, &event.CreatedAt, &event.UpdatedAt, &event.InventoryID)
-	if err != nil {
+	if err := scanEvent(db.QueryRow(`SELECT `+eventColumns("")+` FROM events WHERE id = ?`, id), &event); err != nil {
 		return domain.Event{}, err
 	}
 	return event, nil
+}
+
+// UpdateEventPricing writes only this event's four pricing columns.
+//
+// Its own statement, and its own route, because UpdateEvent is a whole-object
+// replace: folding pricing into it would mean the details drawer's Save — which
+// sends a name, a venue, four dates and notes — silently wiped an agreed
+// discount (research.md R3).
+func UpdateEventPricing(db *sql.DB, id int64, req domain.EventPricingRequest) (domain.Event, error) {
+	_, err := db.Exec(`UPDATE events SET charged_days = ?, rent_factor_override = ?, vat_percent = ?, discount_percent = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		nullStringPtr(req.ChargedDays), nullFloat(req.RentFactorOverride), nullFloat(req.VATPercent), req.DiscountPercent, id)
+	if err != nil {
+		return domain.Event{}, fmt.Errorf("update event pricing: %w", err)
+	}
+	return GetEvent(db, id)
 }
 
 func CreateEvent(db *sql.DB, event domain.Event, ownerUserID, inventoryID int64) (domain.Event, error) {

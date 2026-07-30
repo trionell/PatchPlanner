@@ -49,3 +49,33 @@ func intPtrFromNull(value sql.NullInt64) *int {
 	v := int(value.Int64)
 	return &v
 }
+
+func stringPtrFromNull(value sql.NullString) *string {
+	if !value.Valid {
+		return nil
+	}
+	v := value.String
+	return &v
+}
+
+func floatPtrFromNull(value sql.NullFloat64) *float64 {
+	if !value.Valid {
+		return nil
+	}
+	v := value.Float64
+	return &v
+}
+
+func nullFloat(value *float64) sql.NullFloat64 {
+	if value == nil {
+		return sql.NullFloat64{}
+	}
+	return sql.NullFloat64{Float64: *value, Valid: true}
+}
+
+func nullStringPtr(value *string) sql.NullString {
+	if value == nil || *value == "" {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: *value, Valid: true}
+}

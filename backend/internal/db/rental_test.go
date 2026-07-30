@@ -91,8 +91,8 @@ func TestRentalSummaryCountsAllSources(t *testing.T) {
 		t.Errorf("total_quantity=%d, want 8", summary.TotalQuantity)
 	}
 	// 2*150 + 100 + 700 + 300 + 400 + 500 + 250
-	if summary.TotalExVAT != 2550 {
-		t.Errorf("total_ex_vat=%.2f, want 2550", summary.TotalExVAT)
+	if summary.SubtotalExVAT != 2550 {
+		t.Errorf("total_ex_vat=%.2f, want 2550", summary.SubtotalExVAT)
 	}
 	if summary.HasOverStock {
 		t.Errorf("has_over_stock=true for a plan within stock limits")
@@ -693,7 +693,7 @@ func TestTrussPieceRentalCounting(t *testing.T) {
 	if err != nil {
 		t.Fatalf("summary final: %v", err)
 	}
-	if after.TotalQuantity != before.TotalQuantity || after.TotalExVAT != before.TotalExVAT {
+	if after.TotalQuantity != before.TotalQuantity || after.SubtotalExVAT != before.SubtotalExVAT {
 		t.Errorf("summary changed after truss removal: %+v vs %+v", after, before)
 	}
 }
@@ -789,5 +789,107 @@ func TestRentalSummaryCountsConsoles(t *testing.T) {
 	}
 	if summary.TotalQuantity != 2 {
 		t.Errorf("total quantity after deleting the owned desk = %d, want 2", summary.TotalQuantity)
+	}
+}
+
+// TestRentalSummaryCarriesItsPrice covers Slice 31's structural decision: the
+// pricing block is filled in GetRentalSummary, so no caller — and there are four,
+// which is every place an order is rendered — can produce one without it.
+func TestRentalSummaryCarriesItsPrice(t *testing.T) {
+	database := openTestDB(t)
+	cat := seedCatalog(t, database)
+	eventID := createTestEvent(t, database)
+
+	event, err := GetEvent(database, eventID)
+	if err != nil {
+		t.Fatalf("get event: %v", err)
+	}
+	// Bind the event to the seeded catalog and give it a five-day span.
+	if _, err := database.Exec(`UPDATE events SET inventory_id = ?, load_in_date = '2026-08-12', start_date = '2026-08-13', end_date = '2026-08-15', load_out_date = '2026-08-16' WHERE id = ?`, cat.InventoryID, eventID); err != nil {
+		t.Fatalf("bind event to catalog: %v", err)
+	}
+	_ = event
+	createMicSource(t, database, eventID, &cat.Mic) // 150 kr/day
+
+	t.Run("a catalog with no rate card prices at 1.00 and says so", func(t *testing.T) {
+		summary, err := GetRentalSummary(database, eventID)
+		if err != nil {
+			t.Fatalf("get rental summary: %v", err)
+		}
+		if summary.Pricing.BilledDays != 5 {
+			t.Errorf("billed days = %d, want 5", summary.Pricing.BilledDays)
+		}
+		if summary.Pricing.RentFactor != 1 || summary.Pricing.RentFactorSource != domain.SourceNone {
+			t.Errorf("factor = %v from %q, want 1 from none", summary.Pricing.RentFactor, summary.Pricing.RentFactorSource)
+		}
+		if summary.Pricing.TotalExVAT != summary.SubtotalExVAT {
+			t.Errorf("total %v != subtotal %v with no rate card", summary.Pricing.TotalExVAT, summary.SubtotalExVAT)
+		}
+	})
+
+	t.Run("the rate card and the event's terms price the hire", func(t *testing.T) {
+		if err := ReplaceRentFactors(database, cat.InventoryID, []domain.RentFactor{{Days: 1, Factor: 1}, {Days: 5, Factor: 2.2}}); err != nil {
+			t.Fatalf("seed rate card: %v", err)
+		}
+		if _, err := UpdateEventPricing(database, eventID, domain.EventPricingRequest{DiscountPercent: 25}); err != nil {
+			t.Fatalf("set discount: %v", err)
+		}
+
+		summary, err := GetRentalSummary(database, eventID)
+		if err != nil {
+			t.Fatalf("get rental summary: %v", err)
+		}
+		if summary.Pricing.RentFactor != 2.2 || summary.Pricing.RentFactorDays != 5 {
+			t.Errorf("factor = %v from row %d, want 2.2 from row 5", summary.Pricing.RentFactor, summary.Pricing.RentFactorDays)
+		}
+		// 150 -> -25% -> 112.50 -> x2.2 -> 247.50, +25% VAT -> 309.375.
+		//
+		// Compared with a tolerance because 112.5 * 2.2 is 247.50000000000003 in
+		// float64. Rounding is presentational here, as it is for every existing
+		// total in the application: each surface formats to two decimals, and
+		// the LL export writes the factor itself rather than a product, so the
+		// supplier's own file does its own arithmetic.
+		assertMoney(t, "total ex VAT", summary.Pricing.TotalExVAT, 247.5)
+		assertMoney(t, "total inc VAT", summary.Pricing.TotalIncVAT, 309.375)
+
+		// FR-016: the factor multiplies the ORDER, not the line. Every line
+		// stays a day rate on every surface and in every export, so each stays
+		// checkable against the supplier's published price list.
+		for _, line := range summary.Items {
+			if line.InventoryItemID != cat.Mic {
+				continue
+			}
+			if line.PriceExVAT != 150 || line.SubtotalExVAT != 150 {
+				t.Errorf("line = %v/%v, want the untouched 150 day rate", line.PriceExVAT, line.SubtotalExVAT)
+			}
+		}
+		if summary.SubtotalExVAT != 150 {
+			t.Errorf("subtotal = %v, want the sum of day rates unchanged", summary.SubtotalExVAT)
+		}
+	})
+
+	t.Run("an event with no dates is one day and nothing is blocked", func(t *testing.T) {
+		if _, err := database.Exec(`UPDATE events SET load_in_date = NULL, start_date = NULL, end_date = NULL, load_out_date = NULL WHERE id = ?`, eventID); err != nil {
+			t.Fatalf("clear dates: %v", err)
+		}
+		summary, err := GetRentalSummary(database, eventID)
+		if err != nil {
+			t.Fatalf("get rental summary: %v", err)
+		}
+		if summary.Pricing.BilledDays != 1 {
+			t.Errorf("billed days = %d, want 1", summary.Pricing.BilledDays)
+		}
+		if summary.Pricing.FirstDay != "" || summary.Pricing.LastDay != "" {
+			t.Errorf("span = %q..%q, want empty", summary.Pricing.FirstDay, summary.Pricing.LastDay)
+		}
+	})
+}
+
+// assertMoney compares to the half-öre, which is finer than any surface renders
+// and coarse enough to ignore float64's binary representation of a decimal rate.
+func assertMoney(t *testing.T, name string, got, want float64) {
+	t.Helper()
+	if diff := got - want; diff > 0.005 || diff < -0.005 {
+		t.Errorf("%s = %v, want %v", name, got, want)
 	}
 }
