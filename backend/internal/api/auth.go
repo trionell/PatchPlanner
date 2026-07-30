@@ -117,9 +117,11 @@ func (h AuthHandler) callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Slice 16: guarantee the user owns at least one inventory — claims
-	// the legacy bootstrap catalog if still unowned, else creates a fresh
-	// empty one; a no-op if they already own one (research.md R4).
+	// Slice 16: claim the legacy bootstrap catalog if it is still unowned —
+	// on the same first-login-wins rule as the events above, and whether or
+	// not this user already owns an inventory (ROADMAP.md D1) — and otherwise
+	// guarantee they own at least one by creating a fresh empty one
+	// (research.md R4).
 	if err := db.EnsureUserHasInventory(h.DB, user.ID); err != nil {
 		writeError(w, http.StatusInternalServerError, "ensure user inventory")
 		return

@@ -1,6 +1,7 @@
 package db
 
 import (
+	"database/sql"
 	"errors"
 	"testing"
 
@@ -65,9 +66,10 @@ func TestDeleteInventoryBlockedWhileInUse(t *testing.T) {
 func TestEnsureUserHasInventory(t *testing.T) {
 	database := openTestDB(t)
 
-	// A brand-new database's bootstrap-free state: no ownerless row exists
-	// (openTestDB runs every migration from scratch, with no legacy data),
-	// so the first user simply gets a fresh empty inventory.
+	// Migration 038 inserts its bootstrap 'Imported catalog' ownerless in
+	// every database, including a freshly migrated one, so the first user to
+	// log in adopts that rather than getting a created inventory. Either way
+	// they end up owning exactly one.
 	first, _ := UpsertUserByGoogleSub(database, "first-sub", "first@example.com", "First", "")
 	if err := EnsureUserHasInventory(database, first.ID); err != nil {
 		t.Fatalf("ensure inventory for first user: %v", err)
@@ -109,6 +111,116 @@ func TestEnsureUserHasInventory(t *testing.T) {
 	if len(secondList) != 1 || secondList[0].Name != "Legacy catalog" {
 		t.Fatalf("second user's inventories = %+v, want the claimed legacy catalog", secondList)
 	}
+}
+
+// TestEnsureUserHasInventoryAdoptsWhileAlreadyOwning is ROADMAP.md D1: the
+// adoption is guarded on "an ownerless inventory exists", not on "this user
+// owns none". A user who already owns one used to return early and leave the
+// legacy catalog ownerless forever — every owner-scoped route 404ing for a
+// catalog its events could still reach.
+func TestEnsureUserHasInventoryAdoptsWhileAlreadyOwning(t *testing.T) {
+	database := openTestDB(t)
+	user, _ := UpsertUserByGoogleSub(database, "owner-sub", "owner@example.com", "Owner", "")
+	if _, err := CreateInventory(database, user.ID, "My Inventory"); err != nil {
+		t.Fatalf("create own inventory: %v", err)
+	}
+	if _, err := database.Exec(`INSERT INTO inventories (name) VALUES ('Legacy catalog')`); err != nil {
+		t.Fatalf("seed ownerless inventory: %v", err)
+	}
+
+	if err := EnsureUserHasInventory(database, user.ID); err != nil {
+		t.Fatalf("ensure inventory: %v", err)
+	}
+
+	var ownerless int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM inventories WHERE owner_user_id IS NULL`).Scan(&ownerless); err != nil {
+		t.Fatalf("count ownerless inventories: %v", err)
+	}
+	if ownerless != 0 {
+		t.Errorf("%d inventories still ownerless, want 0 (an ownerless catalog must be adopted)", ownerless)
+	}
+	var owner sql.NullInt64
+	if err := database.QueryRow(`SELECT owner_user_id FROM inventories WHERE name = 'Legacy catalog'`).Scan(&owner); err != nil {
+		t.Fatalf("read legacy catalog owner: %v", err)
+	}
+	if !owner.Valid || owner.Int64 != user.ID {
+		t.Errorf("legacy catalog owner = %+v, want the user who logged in (%d)", owner, user.ID)
+	}
+
+	// Still idempotent: with nothing left to adopt and one already owned,
+	// a repeat login neither claims nor creates anything.
+	before, err := ListInventoriesForOwner(database, user.ID)
+	if err != nil {
+		t.Fatalf("list inventories: %v", err)
+	}
+	if err := EnsureUserHasInventory(database, user.ID); err != nil {
+		t.Fatalf("ensure inventory again: %v", err)
+	}
+	after, err := ListInventoriesForOwner(database, user.ID)
+	if err != nil {
+		t.Fatalf("list inventories again: %v", err)
+	}
+	if len(after) != len(before) {
+		t.Errorf("user owns %d inventories after repeat call, want %d (idempotent)", len(after), len(before))
+	}
+}
+
+// TestMigration048AdoptsOrphanedCatalog covers the other half of D1: the
+// databases that already hold an orphan. The repair claims it for the owner of
+// the earliest event bound to it, and leaves an ownerless inventory with no
+// owned event alone for the fixed login path to pick up.
+func TestMigration048AdoptsOrphanedCatalog(t *testing.T) {
+	database := openTestDB(t)
+	first, _ := UpsertUserByGoogleSub(database, "first-sub", "first@example.com", "First", "")
+	second, _ := UpsertUserByGoogleSub(database, "second-sub", "second@example.com", "Second", "")
+
+	orphan := seedOwnerlessInventory(t, database, "Orphaned catalog")
+	if _, err := CreateEvent(database, testEvent("Older gig"), second.ID, orphan); err != nil {
+		t.Fatalf("create older event: %v", err)
+	}
+	if _, err := CreateEvent(database, testEvent("Newer gig"), first.ID, orphan); err != nil {
+		t.Fatalf("create newer event: %v", err)
+	}
+	unbound := seedOwnerlessInventory(t, database, "Never used")
+
+	execMigrationFile(t, database, "048_adopt_ownerless_inventory.up.sql")
+
+	var owner sql.NullInt64
+	if err := database.QueryRow(`SELECT owner_user_id FROM inventories WHERE id = ?`, orphan).Scan(&owner); err != nil {
+		t.Fatalf("read repaired owner: %v", err)
+	}
+	if !owner.Valid || owner.Int64 != second.ID {
+		t.Errorf("repaired owner = %+v, want the owner of the earliest bound event (%d)", owner, second.ID)
+	}
+
+	if err := database.QueryRow(`SELECT owner_user_id FROM inventories WHERE id = ?`, unbound).Scan(&owner); err != nil {
+		t.Fatalf("read unbound owner: %v", err)
+	}
+	if owner.Valid {
+		t.Errorf("unbound inventory owner = %d, want NULL (no event to derive one from)", owner.Int64)
+	}
+
+	// Re-running is a no-op on rows it already repaired.
+	execMigrationFile(t, database, "048_adopt_ownerless_inventory.up.sql")
+	if err := database.QueryRow(`SELECT owner_user_id FROM inventories WHERE id = ?`, orphan).Scan(&owner); err != nil {
+		t.Fatalf("read owner after re-run: %v", err)
+	}
+	if !owner.Valid || owner.Int64 != second.ID {
+		t.Errorf("owner after re-run = %+v, want %d unchanged", owner, second.ID)
+	}
+}
+
+func seedOwnerlessInventory(t *testing.T, database *sql.DB, name string) int64 {
+	t.Helper()
+	result, err := database.Exec(`INSERT INTO inventories (name) VALUES (?)`, name)
+	if err != nil {
+		t.Fatalf("seed ownerless inventory: %v", err)
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		t.Fatalf("seed ownerless inventory id: %v", err)
+	}
+	return id
 }
 
 // TestDuplicateInventory covers US2: duplicating produces a fully

@@ -8,10 +8,9 @@ is left, it is only this:
 
 | | | |
 |---|---|---|
-| Slice 31 | Rental pricing by duration | planned, not started — L1102 |
-| D1 | The legacy catalog can become permanently ownerless | L1348 |
-| D2 | The flow inspector's delete is a browser dialog | L1407 |
-| D3 | The stage plot's remembered view is shared across every device | L1425 |
+| Slice 31 | Rental pricing by duration | planned, not started — L1101 |
+| D2 | The flow inspector's delete is a browser dialog | L1429 |
+| D3 | The stage plot's remembered view is shared across every device | L1447 |
 
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
 multi-event/tour planning (§3.11).
@@ -1343,9 +1342,10 @@ together and overlap."*
 
 Each of these has been traced to a specific line and is waiting for a slice to
 adopt it. A defect with a cause written down is a defect somebody can pick up; a
-symptom in a chat log is not.
+symptom in a chat log is not. A fixed one keeps its section and is marked as
+fixed: the cause is still the most useful thing written down about that code.
 
-### D1 — The legacy catalog can become permanently ownerless
+### D1 — The legacy catalog can become permanently ownerless ✅ fixed 2026-07-30
 
 **Found:** 2026-07-29, during the Slice 35 field test. The report was a console
 404 on `GET /api/v1/inventories/1/items/273/fixture-modes` when opening a
@@ -1385,23 +1385,46 @@ stopped the query retrying three times (`retry: false` — a 404 is an answer, n
 a hiccup) and left the cause alone, because it is a backend fix and that slice
 was frontend-only.
 
-**What a fix has to cover** — two halves, and the second is the one that is easy
-to miss:
+**The fix** — the rule, the decision inside it, and the data already spoiled:
 
-1. **The rule.** Adoption should be guarded on *"an ownerless inventory exists"*,
-   not on *"this user owns none"*. The `UPDATE … WHERE id = (SELECT id FROM
-   inventories WHERE owner_user_id IS NULL LIMIT 1)` beneath it is already
-   atomic and already a no-op when there is nothing to adopt, so the early
-   return can simply stop covering it. Worth deciding deliberately *who* should
-   adopt it when several users exist — first login is the migration's stated
-   intent, but it is no longer obviously right once there is more than one user.
-2. **The data.** Existing databases still hold the orphan. A repair migration
-   has to claim it, and it cannot guess an owner from nothing — the defensible
-   rule is the owner of the events already bound to it.
+1. **The rule.** The two checks changed places. `EnsureUserHasInventory` now
+   claims first and asks afterwards: `UPDATE inventories SET owner_user_id = ?
+   WHERE owner_user_id IS NULL` runs on every login, and only if it claimed
+   nothing does the function ask whether this user owns anything and create a
+   starter inventory. The `WHERE` clause was always the atomic guard, so it
+   needed no new "am I first" check — only to stop being shadowed by one.
+   `LIMIT 1` went with the subquery: claiming *every* ownerless row is
+   self-healing, matches `ClaimOwnerlessEvents` one call earlier in the same
+   login, and by construction there is only ever the one from 038 anyway.
+2. **Who adopts it.** First login still wins — the migration's stated intent,
+   kept deliberately after weighing an owner-of-bound-events rule at runtime
+   too. Two reasons: `ClaimOwnerlessEvents` runs immediately before this on the
+   same login and hands that user the events bound to the catalog, so the two
+   rules agree in every real case; and an ownerless catalog with no events bound
+   to it has nothing to derive an owner from, so an events-only rule would
+   re-create the orphan it was meant to prevent. Sharing an adopted catalog is a
+   transfer question, not an adoption question.
+3. **The data.** Migration `048_adopt_ownerless_inventory` claims the orphan in
+   databases that already hold one, for the owner of the **earliest** event
+   bound to it — so several owners resolve deterministically to whoever has had
+   the catalog longest. An ownerless inventory with no owned event bound to it is
+   left alone for the corrected login path to pick up. Its `down` is a
+   documented no-op: nothing records which rows were repaired, and guessing would
+   re-orphan a catalog. Rehearsed against a copy of this developer's database —
+   version 48, clean, inventory 1 now owned, its 308 items and 27 categories
+   intact.
 
-Regression test to write with the fix: a user who owns an inventory logs in
-while an ownerless one exists, and the ownerless one is adopted rather than
-skipped.
+Found while fixing, and worth knowing: migration 038's `INSERT INTO inventories
+(name) VALUES ('Imported catalog')` is unconditional, so **every** database has an
+ownerless bootstrap row — a freshly created one included. The first login on a new
+install has always adopted that empty row rather than creating "My Inventory"; a
+comment in `TestEnsureUserHasInventory` claimed the opposite and has been corrected.
+
+Regression tests: a user who owns an inventory logs in while an ownerless one
+exists and adopts it rather than skipping it
+(`TestEnsureUserHasInventoryAdoptsWhileAlreadyOwning`), and the repair migration
+run on seeded pre-fix data
+(`TestMigration048AdoptsOrphanedCatalog`, via the `execMigrationFile` harness).
 
 
 ### D2 — The flow inspector's delete is a browser dialog
