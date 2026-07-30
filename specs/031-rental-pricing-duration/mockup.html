@@ -1,8 +1,17 @@
 <!--
   PatchPlanner — rental pricing by duration (Slice 31). Design mockup,
-  revision 1.
+  revision 2.
 
-  For approval before the spec is written.
+  Revision 1 was approved, with one addition: VAT. It is a fourth number on
+  the same cascade as the charged-days rule — imported from the file where
+  the file states it, typed where it does not. Two consequences fall out of
+  that and are drawn here: LL.xlsx states its rate only inside a formula
+  (=B6*1.25), which is where we read it from; and the LL export does not
+  rewrite those formulas, because filling in the two cells a human types is
+  a different act from editing someone else's model.
+
+  Revision 1's two open questions are settled: the amber words stay, and
+  owned gear is outside pricing entirely.
 
   Slice 30 gave an event a length. Nothing spends it: the rental order still
   quotes a five-day hire at the one-day rate, because the day rate is the only
@@ -379,7 +388,7 @@
 <div class="wrap">
 
   <header class="head">
-    <span class="head__eyebrow">slice 31 · rental pricing by duration · revision 1</span>
+    <span class="head__eyebrow">slice 31 · rental pricing by duration · revision 2 · approved</span>
     <h1>The five-day hire that costs one day</h1>
     <p class="head__lede">
       Slice 30 gave an event a length, and named what it did not do:
@@ -403,7 +412,7 @@
   <section>
     <div class="sec__hd">
       <span class="sec__no">00 · at a glance</span>
-      <h2>Three numbers, and where each one lives</h2>
+      <h2>Four numbers, and where each one lives</h2>
     </div>
 
     <div class="led">
@@ -437,9 +446,20 @@
         </div>
       </div>
       <div class="led__row">
+        <div class="led__k">VAT<span class="tag tag--new">new</span></div>
+        <div class="led__v">
+          A percentage on the same cascade as the charged-days rule — your default, adopted
+          by a catalog, overridable on one event — except that <b>a file that states its own
+          rate wins over your default</b>. <code>LL.xlsx</code> states 25%, but only inside a
+          formula: <code>Summa utrustning ink = B6*1.25</code>. That is where we read it
+          from. The generic template gains a <code>VAT %</code> row on the same optional
+          sheet as the rate card. <em>§03, §04, §05.</em>
+        </div>
+      </div>
+      <div class="led__row">
         <div class="led__k">The ledger<span class="tag tag--new">new</span></div>
         <div class="led__v">
-          Four lines that say how the total was reached, drawn once and used in five places:
+          Six lines that say how the total was reached, drawn once and used in five places:
           the drawer, the strip, the phone sheet, the PDF and the spreadsheet. It is not a
           new component — it is <code>GearSpecs</code> rows in a <code>GearCard</code>.
           <em>§04.</em>
@@ -541,7 +561,7 @@
             <tr class="new"><td class="b">Rabatt utrustning</td><td class="r b">0,5</td><td class="cellref">typed</td></tr>
             <tr class="new"><td class="b">Hyresfaktor (Antal dagar)</td><td class="r b">1</td><td class="cellref">typed</td></tr>
             <tr><td>Summa utrustning ex</td><td class="r">0</td><td class="cellref">=(B2-(B2*B4))*B5</td></tr>
-            <tr><td>Summa utrustning ink</td><td class="r">0</td><td class="cellref">=B6*1.25</td></tr>
+            <tr class="new"><td class="b">Summa utrustning ink</td><td class="r">0</td><td class="cellref b">=B6*1.25</td></tr>
             <tr><td colspan="3" style="color:#888">…lön, transport…</td></tr>
             <tr><td class="b">Totalsumma ex</td><td class="r b">0</td><td class="cellref">=B6+B13+B20</td></tr>
           </table>
@@ -551,6 +571,12 @@
           <code>(subtotal − subtotal × discount) × factor</code>. Two cells are
           <b>typed by a human</b> and the rest computes. The export has been leaving both
           blank. <em>§05 fills them in and lets the file do its own sums.</em>
+          <br>
+          The third highlighted row is where <b>VAT</b> comes from. The file never states
+          25% as a value — it states it as <code>*1.25</code>, seven times over, inside
+          formulas. We read the one on <code>Summa utrustning ink</code> and take the
+          multiplier; a file whose formula we cannot read simply does not carry a rate, and
+          the catalog adopts your default instead.
         </div>
       </div>
     </div>
@@ -741,6 +767,19 @@
                 </div>
 
                 <div class="dsec">
+                  <div class="dsec__hd"><span class="lbl">VAT</span></div>
+                  <div class="gear">
+                    <div class="gear__row">
+                      <span class="fld fld--num">25</span>
+                      <span class="dnote">%</span>
+                    </div>
+                    <div class="gear__sp">
+                      <span>read from <b>LL.xlsx</b> — <code style="color:#a1a1aa">=B6*1.25</code></span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="dsec">
                   <div class="dsec__hd">
                     <span class="lbl">Rent factor</span>
                     <span class="dsec__ct">16 rows</span>
@@ -827,6 +866,57 @@
         the one this event lands on and is drawn here only to show the hit — the built
         drawer has no such highlight, because the catalog does not know which event is
         looking at it.
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>
+        And the generic template gains the third sheet a supplier-agnostic catalog needs to
+        say the same things. It is <strong>optional and read by label</strong>, like every
+        other column in that format — a row whose first cell says <em>VAT %</em> carries the
+        rate, and the <em>Days / Factor</em> heading opens the rate card. The shipped
+        template carries the labels and no values, which is what makes uploading it
+        untouched harmless: a sheet with no rows carries no table, and a table it does not
+        carry it cannot replace.
+      </p>
+    </div>
+
+    <div class="grid2">
+      <div class="spec">
+        <div class="spec__frame">
+          <table class="xl">
+            <tr><th colspan="2">Pricing &nbsp;— the template as shipped</th></tr>
+            <tr><td class="b">VAT %</td><td></td></tr>
+            <tr><td></td><td></td></tr>
+            <tr><td class="b">Days</td><td class="b">Factor</td></tr>
+            <tr><td></td><td></td></tr>
+            <tr><td></td><td></td></tr>
+          </table>
+        </div>
+        <div class="spec__cap">
+          <b>blank</b> — carries nothing, replaces nothing. The sheet is generated by
+          <code>BuildInventoryTemplate</code> rather than checked in, so the round-trip test
+          keeps it and the parser from drifting apart, exactly as it does for the
+          <em>Inventory</em> sheet today.
+        </div>
+      </div>
+      <div class="spec">
+        <div class="spec__frame">
+          <table class="xl">
+            <tr><th colspan="2">Pricing &nbsp;— filled in</th></tr>
+            <tr class="new"><td class="b">VAT %</td><td class="r b">25</td></tr>
+            <tr><td></td><td></td></tr>
+            <tr><td class="b">Days</td><td class="b">Factor</td></tr>
+            <tr class="new"><td class="r">1</td><td class="r">1</td></tr>
+            <tr class="new"><td class="r">3</td><td class="r">1,8</td></tr>
+            <tr class="new"><td class="r">7</td><td class="r">2,6</td></tr>
+          </table>
+        </div>
+        <div class="spec__cap">
+          <b>filled in</b> — a three-row rate card is a complete one. Rows that will not
+          parse are <b>warnings, not errors</b>: a malformed factor never rejects a 308-item
+          price list, and the catalog imports with a note.
+        </div>
       </div>
     </div>
   </section>
@@ -927,6 +1017,25 @@
                 </div>
 
                 <div class="dsec">
+                  <div class="dsec__hd"><span class="lbl">VAT</span></div>
+                  <div class="gear">
+                    <div class="gear__top">
+                      <span class="gear__nm">25%</span>
+                      <span class="gear__ac">LL · from the file</span>
+                    </div>
+                    <div class="gear__row">
+                      <div class="fstack">
+                        <span class="lbl">Override</span>
+                        <span class="fld fld--num fld--ph">25</span>
+                      </div>
+                      <span class="dnote" style="align-self:flex-end;padding-bottom:6px">
+                        Leave empty to follow the catalog.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="dsec">
                   <div class="dsec__hd"><span class="lbl">This order</span></div>
                   <div class="gear">
                     <div class="ldg">
@@ -934,6 +1043,8 @@
                       <div class="ldg__r ldg__r--op"><span class="ldg__k">Discount <b>25%</b></span><span class="ldg__v">−3 120.00</span></div>
                       <div class="ldg__r ldg__r--op"><span class="ldg__k">Rent factor <b>×2.20</b> · 5 days</span><span class="ldg__v">×2.20</span></div>
                       <div class="ldg__r ldg__r--tot"><span class="ldg__k">Total ex VAT</span><span class="ldg__v">20 592.00</span></div>
+                      <div class="ldg__r ldg__r--op"><span class="ldg__k">VAT <b>25%</b></span><span class="ldg__v">+5 148.00</span></div>
+                      <div class="ldg__r ldg__r--tot"><span class="ldg__k">Total inc VAT</span><span class="ldg__v">25 740.00</span></div>
                     </div>
                   </div>
                 </div>
@@ -948,10 +1059,12 @@
         </div>
       </div>
       <div class="spec__cap">
-        <b>the event's Pricing drawer</b> — three cards you can act on and one you cannot.
-        The ledger is last because it is the consequence of the three above it, and it
-        restates the two operations rather than only their result, so a number that looks
-        wrong can be traced without leaving the drawer.
+        <b>the event's Pricing drawer</b> — four cards you can act on and one you cannot.
+        The ledger is last because it is the consequence of the four above it, and it
+        restates every operation rather than only its result, so a number that looks wrong
+        can be traced without leaving the drawer. <b>Two totals, both stated</b>: ex VAT is
+        what every other surface in the application has always meant, and inc VAT is what
+        the invoice will say.
       </div>
     </div>
 
@@ -976,6 +1089,7 @@
             <span class="mono q">5 days ×2.20</span>
             <span class="mono q">−25%</span>
             <span class="mono">20 592.00 kr ex VAT</span>
+            <span class="mono q">25 740.00 inc</span>
           </div>
         </div>
       </div>
@@ -984,6 +1098,9 @@
         for, which is the only one at full contrast. <code>−25%</code> appears only when a
         discount was typed; <code>5 days ×2.20</code> always, because the day count is the
         fact Slice 30 earned and a hire at <code>×1.00</code> is worth seeing.
+        <b>Ex VAT keeps the emphasis</b> — it is what every other surface in the application
+        already means, and the strip is read beside them — with inc VAT following it quietly
+        rather than competing for the same glance.
       </div>
     </div>
 
@@ -999,6 +1116,7 @@
               <span class="sep">·</span>
               <span class="mono q">1 day ×1.00</span>
               <span class="mono">3 200.00 kr ex VAT</span>
+              <span class="mono q">4 000.00 inc</span>
             </div>
           </div>
         </div>
@@ -1017,13 +1135,14 @@
               <span class="mono q">5 days</span>
               <span class="mono" style="color:#fcd34d">×1.00 no rate card</span>
               <span class="mono">12 480.00 kr ex VAT</span>
+              <span class="mono q">15 600.00 inc</span>
             </div>
           </div>
         </div>
         <div class="spec__cap">
           <b>a catalog with no table</b> — amber <em>words</em>, never an amber strip: the
           strip's tint is the stock verdict and stays it. This is the case the slice exists
-          to make visible. <em>An open question — §07.</em>
+          to make visible, and it is <b>approved as drawn</b>.
         </div>
       </div>
     </div>
@@ -1076,6 +1195,8 @@
             <tr><td>Rent factor</td><td class="muted">5 days on site, 12 Aug - 16 Aug &nbsp;·&nbsp; LL's 5-day rate</td><td class="r">x 2.20</td></tr>
             <tr><td class="tot" style="padding-top:6px;border-top:1px solid #111">TOTAL, 5 DAYS</td><td style="border-top:1px solid #111"></td><td class="r tot" style="padding-top:6px;border-top:1px solid #111">20 592.00 SEK</td></tr>
             <tr><td></td><td></td><td class="r muted">excl. VAT</td></tr>
+            <tr><td>VAT</td><td class="muted">25%</td><td class="r">5 148.00</td></tr>
+            <tr><td class="tot">TOTAL, INCL. VAT</td><td></td><td class="r tot">25 740.00 SEK</td></tr>
           </table>
         </div>
       </div>
@@ -1100,10 +1221,12 @@
           <tr class="new"><td>Discount</td><td class="r">25%</td><td></td><td></td><td></td><td></td><td></td><td class="r">-3 120.00</td></tr>
           <tr class="new"><td>Rent factor</td><td class="r">2.20</td><td>LL's 5-day rate</td><td></td><td></td><td></td><td></td><td></td></tr>
           <tr class="new"><td class="b">TOTAL, 5 DAYS</td><td></td><td></td><td></td><td></td><td></td><td></td><td class="r b">20 592.00</td></tr>
+          <tr class="new"><td>VAT</td><td class="r">25%</td><td></td><td></td><td></td><td></td><td></td><td class="r">5 148.00</td></tr>
+          <tr class="new"><td class="b">TOTAL, INC VAT</td><td></td><td></td><td></td><td></td><td></td><td></td><td class="r b">25 740.00</td></tr>
         </table>
       </div>
       <div class="spec__cap">
-        <b>the generic spreadsheet</b> — four rows under the existing total, in the same
+        <b>the generic spreadsheet</b> — six rows under the existing total, in the same
         columns. Values, not formulas: this is an order document, and a supplier who edits
         the quantities is editing a list, not running a model.
       </div>
@@ -1118,7 +1241,9 @@
           <tr class="new"><td class="cellref">4</td><td class="b">Rabatt utrustning</td><td class="r b">0,25</td><td class="r b">0,25</td></tr>
           <tr class="new"><td class="cellref">5</td><td class="b">Hyresfaktor (Antal dagar)</td><td class="r b">2,2</td><td class="r b">2,2</td></tr>
           <tr><td class="cellref">6</td><td>Summa utrustning ex</td><td class="r">17 820.00</td><td class="r">2 772.00</td></tr>
+          <tr><td class="cellref">7</td><td>Summa utrustning ink <span style="color:#888">=B6*1.25</span></td><td class="r">22 275.00</td><td class="r">3 465.00</td></tr>
           <tr><td class="cellref">26</td><td class="b">Totalsumma ex</td><td class="r b" colspan="2">20 592.00</td></tr>
+          <tr><td class="cellref">27</td><td class="b">Totalsumma ink</td><td class="r b" colspan="2">25 740.00</td></tr>
         </table>
       </div>
       <div class="spec__cap">
@@ -1133,6 +1258,13 @@
         rule the quantity columns have followed since Slice 2. A file whose labels have been
         renamed gets its quantities as before, and the order reports that its pricing could
         not be placed.
+        <br>
+        <b>VAT is not written, and the ×1.25 formulas are not touched.</b> Filling in the two
+        cells a human types is a different act from rewriting someone else's model — the file
+        computes its own <em>ink.</em> column and always has. If this event's VAT has been
+        overridden to something other than the rate that file states, the export report says
+        so and names both numbers, rather than producing a document that quietly disagrees
+        with the app.
       </div>
     </div>
   </section>
@@ -1179,12 +1311,18 @@
                     <span class="lbl">Discount %</span>
                     <span class="fld phfld mono">25</span>
                   </div>
+                  <div class="fstack">
+                    <span class="lbl">VAT %</span>
+                    <span class="fld phfld"><span class="mono">25</span> <span style="color:#71717a;margin-left:8px">LL · from the file</span></span>
+                  </div>
                   <div class="gear">
                     <div class="ldg">
                       <div class="ldg__r"><span class="ldg__k">Subtotal, per day</span><span class="ldg__v">12 480.00</span></div>
                       <div class="ldg__r ldg__r--op"><span class="ldg__k">Discount <b>25%</b></span><span class="ldg__v">−3 120.00</span></div>
                       <div class="ldg__r ldg__r--op"><span class="ldg__k">5 days</span><span class="ldg__v">×2.20</span></div>
                       <div class="ldg__r ldg__r--tot"><span class="ldg__k">Total ex VAT</span><span class="ldg__v">20 592.00</span></div>
+                      <div class="ldg__r ldg__r--op"><span class="ldg__k">VAT <b>25%</b></span><span class="ldg__v">+5 148.00</span></div>
+                      <div class="ldg__r ldg__r--tot"><span class="ldg__k">Total inc VAT</span><span class="ldg__v">25 740.00</span></div>
                     </div>
                   </div>
                   <span class="btn btn--primary phbtn" style="justify-content:center">Save</span>
@@ -1217,9 +1355,14 @@
                   <span class="lbl">Which days a hire is charged for</span>
                   <span class="fld fld--sel fld--w">All on-site days (load-in → load-out)</span>
                 </div>
+                <div class="fstack" style="max-width:340px">
+                  <span class="lbl">VAT %</span>
+                  <span class="fld fld--num">25</span>
+                </div>
                 <p class="dnote" style="max-width:52ch">
-                  A catalog adopts this when you import into it. Changing it here never
-                  changes a catalog you already have — open that catalog's Pricing drawer.
+                  A catalog adopts both when you import into it — except that a file
+                  stating its own VAT rate wins over this one. Changing either here never
+                  changes a catalog you already have; open that catalog's Pricing drawer.
                 </p>
               </div>
               <div class="strip">
@@ -1244,7 +1387,7 @@
   <section>
     <div class="sec__hd">
       <span class="sec__no">07 · decisions</span>
-      <h2>What this mockup decides, and what it asks</h2>
+      <h2>What this mockup decides</h2>
     </div>
 
     <div class="led">
@@ -1290,12 +1433,32 @@
         </div>
       </div>
       <div class="led__row">
-        <div class="led__k">No VAT line<span class="tag tag--new">decided here</span></div>
+        <div class="led__k">VAT joins the cascade<span class="tag tag--new">revision 2</span></div>
         <div class="led__v">
-          <code>LL.xlsx</code> carries an <em>ink.</em> column at ×1.25 throughout. Nothing
-          in PatchPlanner has ever shown VAT and adding it is a separate argument about a
-          rate that is not ours to assume. Everything stays <b>ex VAT</b>, labelled as it
-          already is.
+          Your addition. Same three stores as the charged-days rule, with one difference
+          that matters: <b>a file stating its own rate beats your default</b>, because a
+          supplier's VAT is a fact about the supplier. Every surface keeps its
+          <b>ex VAT</b> figure — that is what the application has always meant — and states
+          the inc-VAT total beside it.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">VAT is read from a formula<span class="tag tag--new">revision 2</span></div>
+        <div class="led__v">
+          <code>LL.xlsx</code> never states 25% as a value; it states <code>*1.25</code>
+          inside seven formulas. We read the multiplier off
+          <code>Summa utrustning ink</code> and convert it. It is a heuristic and it is
+          treated like one: if the row or the formula cannot be read, the file carries no
+          rate and the catalog adopts your default. <em>Nothing fails.</em>
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">LL's formulas stay LL's<span class="tag tag--new">revision 2</span></div>
+        <div class="led__v">
+          The export writes the two cells a human types and <b>does not rewrite the ×1.25
+          formulas</b>. Where an event's VAT override disagrees with the rate that file
+          states, the export report names both numbers rather than shipping a document that
+          quietly disagrees with the screen.
         </div>
       </div>
       <div class="led__row">
@@ -1310,18 +1473,17 @@
     </div>
 
     <div class="ask">
-      <h3>Two questions for you</h3>
+      <h3>Revision 1's two questions, answered</h3>
       <p>
-        <b>1 · The amber words on the strip.</b> When a catalog has no rate card, a five-day
-        hire prices at ×1.00 — which is exactly the bug this slice exists to end, and it
-        would be silent. §04's second strip says <span class="mono">×1.00 no rate card</span>
-        in amber text while leaving the strip's tint to the stock verdict. Is that the right
-        weight, or should it be plain grey like every other derivation step?
+        <b>1 · The amber words stay.</b> A catalog with no rate card says
+        <span class="mono">×1.00 no rate card</span> in amber text on the strip, while the
+        strip's <em>tint</em> stays the stock verdict it has always been. It is the one case
+        the slice exists to make visible, and it would otherwise be silent.
       </p>
       <p>
-        <b>2 · Owned gear.</b> Gear you own is not hired, so no factor and no discount touch
-        it, and the Equipment tab is untouched by this slice. Confirming that is deliberate:
-        if you ever price your own gear per day to a client, that is a different slice.
+        <b>2 · Owned gear is outside pricing.</b> Gear you own is not hired: no factor, no
+        discount, no VAT, and the Equipment tab is untouched. Pricing your own gear to a
+        client would be a different slice.
       </p>
     </div>
   </section>
