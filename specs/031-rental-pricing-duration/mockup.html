@@ -13,6 +13,13 @@
   Revision 1's two open questions are settled: the amber words stay, and
   owned gear is outside pricing entirely.
 
+  Revision 3 is two corrections from the cross-artifact consistency pass, not
+  new design: the drawers no longer claim VAT was "read from LL.xlsx" (nothing
+  stores that, and it would start lying the moment the field was edited — it is
+  reported in the import result instead), and a catalog copies the user's
+  defaults when it is CREATED rather than when it is imported into, so a second
+  import cannot undo the edit the drawer exists to allow.
+
   Slice 30 gave an event a length. Nothing spends it: the rental order still
   quotes a five-day hire at the one-day rate, because the day rate is the only
   price the catalog has ever held. This slice adds the three numbers that turn
@@ -388,7 +395,7 @@
 <div class="wrap">
 
   <header class="head">
-    <span class="head__eyebrow">slice 31 · rental pricing by duration · revision 2 · approved</span>
+    <span class="head__eyebrow">slice 31 · rental pricing by duration · revision 3 · approved</span>
     <h1>The five-day hire that costs one day</h1>
     <p class="head__lede">
       Slice 30 gave an event a length, and named what it did not do:
@@ -774,7 +781,7 @@
                       <span class="dnote">%</span>
                     </div>
                     <div class="gear__sp">
-                      <span>read from <b>LL.xlsx</b> — <code style="color:#a1a1aa">=B6*1.25</code></span>
+                      <span>what this supplier charges · applied to every event on this catalog</span>
                     </div>
                   </div>
                 </div>
@@ -1021,7 +1028,7 @@
                   <div class="gear">
                     <div class="gear__top">
                       <span class="gear__nm">25%</span>
-                      <span class="gear__ac">LL · from the file</span>
+                      <span class="gear__ac">from the catalog</span>
                     </div>
                     <div class="gear__row">
                       <div class="fstack">
@@ -1313,7 +1320,7 @@
                   </div>
                   <div class="fstack">
                     <span class="lbl">VAT %</span>
-                    <span class="fld phfld"><span class="mono">25</span> <span style="color:#71717a;margin-left:8px">LL · from the file</span></span>
+                    <span class="fld phfld"><span class="mono">25</span> <span style="color:#71717a;margin-left:8px">from the catalog</span></span>
                   </div>
                   <div class="gear">
                     <div class="ldg">
@@ -1459,6 +1466,27 @@
           formulas</b>. Where an event's VAT override disagrees with the rate that file
           states, the export report names both numbers rather than shipping a document that
           quietly disagrees with the screen.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Provenance is not stored<span class="tag tag--new">revision 3</span></div>
+        <div class="led__v">
+          Revision 2 had both drawers saying VAT was <em>read from LL.xlsx</em>. Nothing
+          stores that, and a stored provenance would keep claiming it after somebody edited
+          the field. It is reported <b>in the import result</b> — <em>"VAT 25% read from the
+          file"</em> — and then forgotten. The drawers say <em>from the catalog</em>, which
+          is a fact that stays true.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Defaults seed at creation<span class="tag tag--new">revision 3</span></div>
+        <div class="led__v">
+          Also from the consistency pass. A catalog copies your defaults when it is
+          <b>created</b>, not when it is imported into: the columns are <code>NOT NULL</code>,
+          so there is no unset state an import could detect, and a second import would
+          silently undo the change you made after the first — the exact thing you asked to
+          be possible. What an import applies is what the <b>file</b> says. In the ordinary
+          flow the two rules give the same answer.
         </div>
       </div>
       <div class="led__row">

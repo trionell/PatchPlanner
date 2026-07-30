@@ -65,9 +65,10 @@ cd frontend && npx tsc -b && npx eslint src && npx vitest run && npx vite build
       there is no data conversion and no entry needed in `db.go`'s staged
       `Migrate(N)` sequencing. Write the header comment the way 046's is written:
       what `NULL` means, and why there are no CHECK constraints.
-- [ ] **T002** Write `050_rental_pricing.down.sql`. SQLite cannot drop a column
-      before 3.35 in every build path the project supports — follow whatever the
-      existing down-migrations do for added columns, and drop the table.
+- [ ] **T002** Write `050_rental_pricing.down.sql`: `ALTER TABLE ... DROP COLUMN`
+      for all eight, in reverse order, then `DROP TABLE inventory_rent_factors`.
+      That is what 040, 041 and 046 all do. Say in the header, as 046 does, what
+      reversing costs: every rate card and every agreed discount goes with it.
 - [ ] **T003** [P] `backend/internal/domain/pricing.go` — `RentFactor`,
       `InventoryPricing`, `PricingDefaults`, `RentalPricing`, and the two charged-days
       constants. Structs only; no logic yet.
@@ -84,8 +85,10 @@ cd frontend && npx tsc -b && npx eslint src && npx vitest run && npx vite build
 - [ ] **T007** `backend/internal/domain/pricing_test.go` — table-driven, and the
       six lookup cases FR-003 names by name: exact hit, between rows (17 → the
       14-day row), below the first, above the last, single row, empty card. Plus
-      the arithmetic against the worked example: `12 480 → −25% → ×2.20 →
-      20 592 → +25% VAT → 25 740`.
+      **`BilledDays`' four cases** (FR-011): onsite over four dates, show days
+      over the same, an event carrying only a `start_date` → 1, an event with no
+      dates → 1. Plus the arithmetic against the worked example:
+      `12 480 → −25% → ×2.20 → 20 592 → +25% VAT → 25 740`.
 - [ ] **T008** `backend/internal/db/pricing.go` — the rate card's CRUD (returning
       `ErrDuplicate` on the unique violation, ordered by `days` ascending),
       `GetInventoryPricing`/`SetInventoryPricing`,
@@ -118,7 +121,10 @@ cd frontend && npx tsc -b && npx eslint src && npx vitest run && npx vite build
 - [ ] **T014** `backend/internal/db/rental_test.go` — the summary carries a
       pricing block; a catalog with no rate card gives `rent_factor 1.0` and
       `rent_factor_source "none"`; an event with no dates gives `billed_days 1`;
-      an override beats the table.
+      an override beats the table. And **FR-016 as an assertion**: with a factor
+      and a discount applied, every line's `price_ex_vat` and `subtotal_ex_vat`
+      are byte-for-byte what they were before — the factor multiplies the order,
+      not the line, and nothing else in this slice says so out loud.
 - [ ] **T015** [P] `frontend/src/types/index.ts` — `RentalPricing`, the rename on
       `RentalSummary`, the four fields on `Event`, `InventoryPricing`,
       `RentFactor`, `PricingDefaults`.
@@ -164,8 +170,10 @@ cd frontend && npx tsc -b && npx eslint src && npx vitest run && npx vite build
 - [ ] **T023** `backend/internal/service/inventory_pricing_sheet.go` — one
       parser, both importers: find the sheet by name (aliases `pricing`,
       `rent factor`, `rental factor`, `hyresfaktor`), find the `Days`/`Factor`
-      header row by label (aliases including `antal dagar`), read the rows, and
-      read an optional `VAT %` row (aliases including `moms`). Returns rows, an
+      header row by label (aliases including `antal dagar`), and read the rows.
+      The optional `VAT %` row (aliases including `moms`) is **generic-only** —
+      LL states its rate in `Sammanställning`, not in `Hyresfaktor`, which is why
+      T024 is a separate reader rather than a branch in here. Returns rows, an
       optional rate, and warnings. Reuses `normalizeHeader`.
 - [ ] **T024** The VAT formula heuristic — locate the `Summa utrustning ink` row
       in `Sammanställning` by label, read `GetCellFormula`, take the multiplier
@@ -173,14 +181,18 @@ cd frontend && npx tsc -b && npx eslint src && npx vitest run && npx vite build
       path means *this file states no rate*; none of them is an error
       (research.md R2).
 - [ ] **T025** `inventory_import.go` — the LL importer calls both, replacing the
-      rate card only when rows were found (FR-006), and adopting the file's VAT
-      over the user's default (FR-017).
+      rate card only when rows were found (FR-006) and the catalog's VAT only
+      when the file stated one (FR-017). Neither ever reads a user default.
 - [ ] **T026** `inventory_import_generic.go` — the same, from the optional
       `Pricing` sheet. A rate-card problem is a **warning**, never an
       `ImportValidationError` (FR-007).
-- [ ] **T027** Both importers seed a never-imported catalog's `charged_days` and
-      `vat_percent` from the importing user's defaults, and only at import
-      (data-model.md).
+- [ ] **T027** `db.CreateInventory` seeds `charged_days` and `vat_percent` from
+      the **creating user's** defaults. Creation, not import: the columns are
+      `NOT NULL`, so there is no unset state an import could detect, and an
+      import that re-applied a default would undo the edit the drawer exists to
+      allow (data-model.md). Add the *"VAT 25% read from the file"* line to the
+      import result's warnings — the only place that provenance is ever
+      reported (FR-017a).
 - [ ] **T028** `inventory_template.go` — the blank `Pricing` sheet: the `VAT %`
       label, the `Days`/`Factor` header, no values. Extend the instructions on
       the `Example` sheet.
@@ -210,8 +222,8 @@ catalog with nothing typed. Commit 4.
       of `Sammanställning`, write both value columns. **Never** write VAT, and
       never touch a formula (FR-031).
 - [ ] **T034** `domain.RentalExportReport` gains `pricing_placed` and
-      `pricing_note`; the note carries both numbers when the event's VAT
-      disagrees with the file's. A failure to place never fails the export.
+      `pricing_notes` — a **list**, since the labels being absent and the VAT
+      disagreeing are independent. A failure to place never fails the export.
 - [ ] **T035** `rental_pdf_test.go`, `rental_export_test.go`,
       `rental_export_formats_test.go` — the figures appear; a renamed label
       still exports the quantities and reports the miss; the `*1.25` formulas are
@@ -239,7 +251,10 @@ catalog with nothing typed. Commit 4.
       (P7).
 - [ ] **T040** `RentalTab.tsx` — the **Pricing** button in the bar's drawer slot,
       after search and before the exports (patterns §1), and the matching
-      overflow entry on the phone.
+      overflow entry on the phone. Render `pricing_notes` where the tab already
+      renders unplaced lines, in both branches (FR-032) — the block exists twice
+      there already, and a note that appears only on the desktop is a note the
+      person in the loading bay does not get.
 - [ ] **T041** `components/mobile/MobilePricingSheet.tsx` — `ui/Sheet`, 44 px
       controls, the same ledger (patterns §7g).
 - [ ] **T042** `components/inventory/InventoryDrawers.tsx` — the catalog's
@@ -275,6 +290,9 @@ catalog with nothing typed. Commit 4.
 ## Dependencies
 
 - **T004–T006** need T003's structs. **T007** needs all three.
+- **T027** touches `db.CreateInventory`, so it needs T008's defaults reader. It
+  is listed in Phase 4 because it lands with the importers it is easiest to
+  review beside, not because it depends on them.
 - **T012** needs T004–T006 and T008.
 - **T013/T016** must land in the same commit as T011: the rename does not compile
   by halves.

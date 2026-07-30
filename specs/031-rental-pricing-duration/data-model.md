@@ -63,9 +63,17 @@ implementation of a rule that already lives in one place.
 | Discount % | `events.discount_percent` |
 
 `users.default_*` appears nowhere in this table on purpose: it is read **once**,
-when an import writes to a catalog, and never again. A default that participated
-in the live resolution would make every historical catalog change retroactively
-when the user changed their mind.
+when a catalog is created, and never again. A default that participated in the
+live resolution would make every historical catalog change retroactively when the
+user changed their mind.
+
+**Creation, not import.** These columns are `NOT NULL`, so there is no "unset"
+state an import could detect — an import that re-applied the user's defaults
+would silently undo the edit made after the previous one, which is precisely what
+the drawer exists to allow. What an import applies is what the **file states**:
+the rate card (replacing the table) and the VAT rate (replacing the column),
+every time. Catalogs that existed before migration 050 keep the constant defaults
+and are editable in the drawer like any other.
 
 ## Derived values — stored nowhere
 
@@ -158,6 +166,11 @@ The three `*_source` fields are why the drawer can say *LL · the 5-day row*
 rather than only *×2.20*. A number whose origin is invisible is a number nobody
 will trust the first time it looks wrong.
 
+They distinguish **the event from its catalog, and nothing further**. Whether the
+catalog's own VAT was read from a file or typed is *not* modelled: it is reported
+in the import result that produced it and then forgotten, because a stored
+provenance would keep claiming *from the file* after somebody edited the field.
+
 `RentFactorDays` is the row that produced the factor, which is how the drawer
 distinguishes an exact hit from a step-down: `billed_days 17, rent_factor_days
 14`.
@@ -209,3 +222,7 @@ malformed factor row must never reject a 308-item price list.
   true of every line on it.
 - **Per-line factors.** Rejected in the mockup: the line is a day rate.
 - **Owned gear.** Outside pricing entirely.
+- **Where a catalog's VAT came from.** Reported at import, stored nowhere.
+- **A read-only role on a catalog.** There is none: `/inventories/{id}` is
+  owner-guarded, so a non-owner gets 404 rather than a read-only view. The
+  read-only case that exists is a viewer on an **event**.

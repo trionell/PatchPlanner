@@ -40,6 +40,25 @@
 - [x] A catalog with no rate card says so in amber **words**; the strip's tint is unchanged
 - [x] Owned gear is outside pricing entirely
 
+## Cross-artifact analysis (2026-07-30)
+
+Nine findings, all remediated before implementation. The three that mattered:
+
+- [x] **The user's defaults seed a catalog at creation, not at import.** The
+      columns are `NOT NULL`, so an import had no unset state to detect and would
+      have undone the edit the drawer exists to allow. Imports apply only what the
+      file states. (spec FR-012/FR-017, data-model, T025–T027)
+- [x] **A catalog has no read-only role.** `/inventories/{id}` is owner-guarded,
+      so US2's "a contributor or viewer reads the drawer" was untestable. The
+      reachable read-only case is a viewer on an **event**. (spec US2, US3)
+- [x] **VAT provenance is reported, not stored.** Both drawers claimed *read from
+      LL.xlsx*; nothing stored it and it would have kept claiming it after an
+      edit. It is a line in the import result. (spec FR-017a, mockup revision 3)
+
+Plus: FR-016 and FR-032 gained verifying tasks, `BilledDays`' four cases were
+named in T007, `pricing_note` became a list, and T002's down-migration was
+pinned to the convention 040/041/046 already set.
+
 ## Design gate
 
 - [x] Mockup built and published — [mockup.html](../mockup.html), revision 2

@@ -184,14 +184,16 @@ same is now true of the two cells.
   "placed_lines": 62,
   "unplaced_lines": [],
   "pricing_placed": true,
-  "pricing_note": "this event's VAT is 12%, but LL.xlsx computes 25% — its own formulas are unchanged"
+  "pricing_notes": [
+    "this event's VAT is 12%, but LL.xlsx computes 25% - its own formulas are unchanged"
+  ]
 }
 ```
 
 | Field | Meaning |
 |---|---|
 | `pricing_placed` | both `Rabatt utrustning` and `Hyresfaktor (Antal dagar)` were found and written |
-| `pricing_note` | present only when there is something to say: the labels were not found, or the event's VAT disagrees with the file's |
+| `pricing_notes` | empty unless there is something to say. A **list**, because the two things it can say are independent: the labels were not found, and the event's VAT disagrees with the file's |
 
 `pricing_placed: false` never fails the export. The quantities are written as
 before and the file is returned; the note is what the tab renders where it
@@ -240,10 +242,16 @@ existing `warnings` strings:
   "format": "ll",
   "warnings": [
     "rent factor row 24: days \"tre\" is not a number - row skipped",
-    "rent factor: days 5 appears twice; the last row wins"
+    "rent factor: days 5 appears twice; the last row wins",
+    "VAT 25% read from the file"
   ]
 }
 ```
 
 A rate-card problem is **never** an `ImportValidationError`: the catalog's items
 import regardless (FR-007).
+
+The last line is not a problem but a **statement of what was adopted**, and it is
+the only place a catalog's VAT provenance is ever reported (FR-017a). Nothing
+stores it, so no drawer claims *from the file* after somebody has edited the
+field.

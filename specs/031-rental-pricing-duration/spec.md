@@ -76,16 +76,24 @@ it is `*1.25` inside seven formulas.
 
 | Number | User default | Catalog | Event |
 |---|---|---|---|
-| Charged days | `default_charged_days` | copied at import, editable | overridable (`NULL` = follow the catalog) |
-| VAT % | `default_vat_percent` | **the file's rate if it states one**, else the user's, editable | overridable |
+| Charged days | `default_charged_days` | copied at creation, editable | overridable (`NULL` = follow the catalog) |
+| VAT % | `default_vat_percent` | copied at creation, **replaced by the file's rate whenever one is imported**, editable | overridable |
 | Rent factor | — | the rate card itself | the *resulting number* is overridable |
 | Discount % | — | — | typed here only, default 0 |
 
-A catalog **copies** the user's default when it is imported into; changing the
-default afterwards never reaches back. An event **references** its catalog until
+A catalog **copies** the user's defaults when it is **created**; changing the
+defaults afterwards never reaches back. An event **references** its catalog until
 it disagrees, so a catalog corrected after the fact corrects every event that
 never departed from it. This is Slice 17's snapshot rule and Slice 22's
 `is_manual` rule applied to a third thing.
+
+**Creation, not import, is when the user's defaults are read**, and the
+distinction matters: `inventories.charged_days` is `NOT NULL`, so there is no
+"unset" state an import could detect, and an import that re-applied the defaults
+would silently undo the edit the user made after the last one. What an import
+does apply is what the **file itself states** — its rate card and its VAT rate —
+every time, because that is the supplier speaking. In the ordinary flow (create a
+catalog, then import into it) the two rules give the same result.
 
 ### What a rate card is
 
@@ -153,9 +161,10 @@ optional sheet, or typed by hand into the catalog's own Pricing drawer.
 5. **Given** any catalog, **When** its owner adds, edits or deletes a rate-card
    row, **Then** it persists and every event bound to that catalog prices
    against it immediately.
-6. **Given** a contributor or viewer, **When** they open the catalog's Pricing
-   drawer, **Then** they read the rate card and are offered no control to change
-   it.
+6. **Given** a user who does not own the catalog, **When** they request its
+   pricing, **Then** they get the middleware's `404` — a catalog is owner-only
+   and this slice adds no route that departs from that. The read-only role case
+   that *is* reachable lives on the event's drawer, in US3.
 
 ---
 
@@ -349,8 +358,9 @@ a row has a phone form — but nothing is unusable without it.
 - **FR-011** `onsite` counts `load-out − load-in + 1`; `show` counts
   `end − start + 1`. An event with no `start_date` is 1 day.
 - **FR-012** The rule is `users.default_charged_days` → copied to
-  `inventories.charged_days` when a catalog is imported into → `events.charged_days`,
-  where `NULL` means *follow the catalog*.
+  `inventories.charged_days` when a catalog is **created** → `events.charged_days`,
+  where `NULL` means *follow the catalog*. An import never re-applies a user
+  default; it applies only what the file itself states.
 
 ### The event's own terms (US3)
 
@@ -368,7 +378,13 @@ a row has a phone form — but nothing is unusable without it.
 ### VAT (US4)
 
 - **FR-017** VAT follows the same three stores as the charged-days rule, with one
-  difference: **a file stating its own rate beats the user's default** at import.
+  difference: **a file stating its own rate replaces the catalog's**, on every
+  import, because that is the supplier speaking. Where the file states none, the
+  catalog keeps what it has.
+- **FR-017a** Where a catalog's VAT came from is reported in the **import
+  result** — *"VAT 25% read from the file"* — and stored nowhere. Provenance that
+  survives one edit of the field would start lying the moment somebody changed
+  it, so no surface claims it after the import that produced it.
 - **FR-018** An LL import reads the rate from the `Summa utrustning ink` row's
   formula in `Sammanställning`, taking the multiplier from `=B6*1.25` as 25%. It
   is a heuristic: if the row or the formula cannot be read, the file carries no
@@ -414,8 +430,10 @@ a row has a phone form — but nothing is unusable without it.
   `*1.25` formulas. Filling in the two cells a human types is a different act
   from editing someone else's model.
 - **FR-032** `RentalExportReport` gains the pricing outcome: whether the two
-  cells were placed, and, when the event's VAT disagrees with the file's, both
-  numbers. The rental tab renders it where it renders unplaced lines.
+  cells were placed, and a list of notes — the labels were not found, the event's
+  VAT disagrees with the file's, or both, since the two are independent. The
+  rental tab renders them where it renders unplaced lines, on the desktop and on
+  the phone.
 
 ### The wire (US1, US4)
 
