@@ -98,6 +98,7 @@ export function CategoriesDrawer({ open, onClose, inventoryId, categories, onErr
       onClose={onClose}
       title="Categories"
       subtitle="How this catalog is divided, and which pickers it feeds"
+      noteId="catalog-categories"
       width="narrow"
       /* An explanation of what a field here does — read once, and a fifth of a
          phone's sheet ever after if it stays in the footer (components.md §4). */
@@ -262,6 +263,7 @@ export function ImportDrawer({ open, onClose, inventoryId, inventory, onError, e
       onClose={onClose}
       title="Import"
       subtitle="Fill this catalog from a spreadsheet"
+      noteId="catalog-import"
       width="narrow"
       /* What the drawer's own action does — `info`, not `footer`. */
       info={
@@ -401,6 +403,9 @@ export function CatalogPricingDrawer({ open, onClose, inventoryId, onError, edit
       onClose={onClose}
       title="Pricing"
       subtitle="What this supplier charges for a longer hire"
+      /* The other half of the pair — `event/PricingDrawer` is also titled
+         *Pricing*, and the two notes were one key until D5. */
+      noteId="catalog-pricing"
       width="narrow"
       /* What this drawer's contents do when an import arrives — an explanation
          read once, so `info` rather than `footer` (components.md §4). */

@@ -261,6 +261,19 @@ Slice 31 filed two such explanations into `footer` and had to be told; the rule
 had been stated only from the `InfoNote` end, which is the end you are not
 reading when you are writing a drawer.
 
+**A note is remembered under `noteId`, never under the title.** `info` and
+`noteId` arrive together — the type requires each of the other — because an
+explanation you can put away is one something has to remember, and the name it is
+remembered by is the call site's to give: kebab-case, after what the drawer *is*.
+A title cannot serve. It is a label: it is chosen for the header, it repeats —
+two drawers are called *Pricing*, what a hire costs and what a supplier charges —
+and since Slice 32 it is sometimes a record's name. Keyed by the title, the two
+*Pricing* drawers shared one remembered choice, so opening the `i` on one made the
+other volunteer a sentence nobody asked for; and a drawer titled with a catalog's
+name gave every catalog a private copy of one shared explanation, orphaned the
+moment it was renamed (ROADMAP D5). The identity is `event-pricing` and
+`catalog-pricing`, which is the distinction the two titles never carried.
+
 **An editable number sits at the right edge, with what it means to its left.**
 Both because a phone's right edge is where the thumb already is, and because a
 drawer that also *states* numbers — the rental order's ledger, whose labels are

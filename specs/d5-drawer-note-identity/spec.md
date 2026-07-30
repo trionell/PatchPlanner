@@ -1,6 +1,7 @@
 # D5 — A drawer's info note is remembered under its title
 
-**Branch:** `d5-drawer-note-identity` · **Status:** in progress · **Mockup:** waived
+**Branch:** `d5-drawer-note-identity` · **Status:** complete 2026-07-31, unmerged ·
+**Mockup:** waived
 (ROADMAP D5, 2026-07-30 user decision — nothing on screen moves)
 
 The traced fault, both of its halves and the decision they turn on are in

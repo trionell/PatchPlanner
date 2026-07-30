@@ -1,8 +1,10 @@
 # D5 — Plan
 
 Stack, gates, layout and the design-language routing table are in `CLAUDE.md`;
-nothing here departs from them. This is a frontend-only change: eleven files in
-`frontend/src`, one section of `design/components.md`, no backend, no migration.
+nothing here departs from them. This is a frontend-only change: eight files in
+`frontend/src` — `ui/Drawer` and its test, and six call-site files, one of which
+holds three of the eight drawers — plus one section of `design/components.md`. No
+backend, no migration.
 
 ## The decision the brief left open
 
@@ -36,17 +38,22 @@ undetectable by reading either call site, and it is now undetectable only if
 
 There is no user data in them — each is the string `open` or `closed` — and no
 migration path worth writing: `localStorage` cannot be enumerated from the server,
-the mapping from old title to new `noteId` would have to be a hardcoded table
-shipped to every client to run once, and the worst outcome of skipping it is that
-one note re-opens once at whatever it was last set to, and is then put away for
-good. That is a smaller cost than the code that would avoid it. Said out loud
-here because it is a decision, not an oversight.
+and the mapping from old title to new `noteId` would have to be a hardcoded table
+shipped to every client to run once. The worst outcome of skipping it is that a
+note someone had left **open** comes back closed and must be opened again by hand.
+(Not "re-opens once", which is how the ROADMAP brief put it: `Drawer` passes no
+`defaultOpen`, so an absent key reads as closed. The cost is a lost preference to
+see the sentence, not an unwanted appearance of one.) That is a smaller cost than
+the code that would avoid it. Said out loud here because it is a decision, not an
+oversight.
 
 The `drawer:` prefix stays inside the component, so the key is
 `pp-info:drawer:<noteId>` and drawer notes remain one namespace, separate from the
 panel notes (`flow-desk-job`, `plot-desk-job`) that name themselves. No new
-`noteId` can collide with an orphan: every one is kebab-case and every orphan is a
-capitalised title or a catalog name.
+`noteId` collides with an orphan left by a *constant* title — those are
+capitalised, these are kebab-case. Orphans left by a catalog's name are free text
+and carry no such guarantee (a catalog named `buses` wrote today's `buses` key);
+the cost of one such hit is the same stale open-or-closed as any other orphan.
 
 ## Approach
 

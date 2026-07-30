@@ -110,6 +110,10 @@ export function InventoryDrawer({ open, onClose, inventory, onError, onDeleted }
       onClose={onClose}
       title={inventory ? inventory.name : 'New catalog'}
       subtitle={inventory ? manageSubtitle(inventory, boundEvents) : 'An independent catalog of equipment and prices'}
+      /* One name for both modes and for every catalog: the title here is a
+         record's name, which gave each catalog a private copy of one shared
+         sentence and orphaned it on rename (ROADMAP D5). */
+      noteId="catalog-manage"
       width="narrow"
       /* What this drawer's own actions do — read once, and a fifth of a phone's
          sheet ever after if it stays in the footer (components.md §4). Both

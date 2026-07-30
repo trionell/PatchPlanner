@@ -7,7 +7,6 @@ delivery; everything below this section is history. What is left is only this:
 
 | | |
 |---|---|
-| D5 | A drawer's info note is remembered under its title — approved 2026-07-30, not started |
 | Slice 38 | Who can see this event — sharing has no phone form and is still a `Dialog`; added 2026-07-31, not started |
 
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
@@ -1803,7 +1802,7 @@ document said:
   so, which is why this looked like a new one.
 
 
-### D5 — A drawer's info note is remembered under its title
+### D5 — A drawer's info note is remembered under its title ✅ 2026-07-31
 
 **Found:** 2026-07-30, while moving `InventoryDrawer`'s two `footer` paragraphs to
 `info` — the components.md §4 rule that Slice 31 had already been told once. The
@@ -1876,6 +1875,60 @@ tasks still runs, because the trigger for *those* is the `design/` edit itself a
 that edit is still happening. D4 remains the precedent for what skipping the whole
 apparatus costs, and this is not that — the design step is being *answered* here,
 not stepped around.
+
+**Fixed** by `noteId`, a `Drawer` prop the call site gives its note, in
+`specs/d5-drawer-note-identity/`. Both halves come off the one line: the title is
+no longer read for identity anywhere in the component, so *Pricing* and *Pricing*
+are `event-pricing` and `catalog-pricing`, and a catalog's manage drawer is
+`catalog-manage` whatever the catalog is called or is renamed to.
+
+The decisions worth keeping:
+
+1. **Explicit, and required by the type.** `DrawerProps` is now the base props
+   intersected with `{ info, noteId } | { info?: undefined, noteId?: undefined }`,
+   so `info` without a name does not compile and a name with nothing to put away
+   does not either. The alternatives — a component name, a route, `useId()` —
+   were rejected on one shared ground: they are stable only until a file is
+   renamed or moved, and none of them is *visible at the call site*, which is the
+   property the fault actually turned on. The *Pricing* collision was unreadable
+   in both files; under a derived scheme it would have stayed unreadable. Making
+   it a type is what turns a convention into a gate, since `tsc -b` is one.
+2. **The old keys are left where they are.** `pp-info:drawer:<Title>` entries in
+   browsers now match nothing. Each holds the string `open` or `closed`; there is
+   no user data and no migration path from a `localStorage` key that the server
+   cannot enumerate. The whole cost of skipping it: a note someone had left
+   **open** is closed again, once, and has to be opened by hand. **The brief above
+   had this backwards** — it said the note "quietly re-opens once, at whatever it
+   was last set to", but `Drawer` passes no `defaultOpen`, so `useInfoNote`
+   defaults to `false` and a missing key reads as *closed*, never as open. Nothing
+   re-opens; a preference to *see* the sentence is what is lost. Still cheaper
+   than the table of old titles that avoiding it would ship to every client, and
+   the decision does not change — but the cost is the opposite one.
+3. **The `drawer:` prefix stays inside the component**, so the key is
+   `pp-info:drawer:<noteId>` and drawer notes remain one namespace beside the
+   panel notes that name themselves (`flow-desk-job`, `plot-desk-job`). No new
+   name collides with an orphan a *constant* title left — those are capitalised
+   and the new names are kebab-case. Orphans left by a **catalog's name** carry no
+   such guarantee, because that name is free text: a catalog someone called
+   `buses` wrote the exact key `BusesDrawer` now uses. The cost is one stale
+   open-or-closed in one browser, which is the same cost as any other orphan, so
+   this is a footnote to the decision rather than a hole in it.
+
+`design/components.md` §4 states the rule where `Drawer`'s props are stated, after
+the footer/`info` rule — a note is remembered under `noteId`, never under the
+title, because a title is a label: chosen for the header, repeated freely, and
+since Slice 32 sometimes a record. `EventFormDrawer`'s latent case is closed with
+the rest (`event-form`); the three drawers that pass no `info` — Rig, Event
+details, `OverviewTab`'s read-only browse — pass no `noteId` and were not touched.
+
+Two `@ts-expect-error` cases in `ui/Drawer.test.tsx` pin both directions of the
+rule at compile time, and a third case pins the rendered result: one `i`, and a
+panel that is closed, which is what an unremembered note is. That is the whole
+suite, because these tests render with no `window` — the remembering itself is
+unreachable from them. **The two acceptance walks were left
+for a browser** — the fix is a literal string per call site, and `tsc` plus a grep
+for `noteId=` prove the eight are present and distinct, but nothing here observed
+`localStorage` doing it.
 
 ## Dependency graph
 

@@ -52,6 +52,7 @@ export function UniversesDrawer({ open, onClose, map, fixtures, onAutoAssign, on
       onClose={onClose}
       title="Universes"
       subtitle="DMX allocation across the rig"
+      noteId="universes"
       width="narrow"
       info={
         <>

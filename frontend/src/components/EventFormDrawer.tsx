@@ -129,6 +129,7 @@ export function EventFormDrawer({
       onClose={onClose}
       title={title}
       subtitle="Name, venue, dates, notes and the inventory it draws from"
+      noteId="event-form"
       /* A rule about what this form's choice commits you to, not a statement of
          what its contents are — read once, so `info` (components.md §4). */
       info={

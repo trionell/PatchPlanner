@@ -118,6 +118,10 @@ function PricingForm({
       onClose={onClose}
       title="Pricing"
       subtitle="What this hire costs, and why"
+      /* The name carries the distinction the title never did: the catalog's own
+         Pricing drawer is called *Pricing* too, and while the note was keyed by
+         the title the two shared one remembered choice (ROADMAP D5). */
+      noteId="event-pricing"
       width="narrow"
       /*
         `info`, not `footer`. The footer states what a drawer's contents *mean*,

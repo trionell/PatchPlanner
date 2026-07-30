@@ -6,7 +6,7 @@ import { useInfoNote } from '../../hooks/useInfoNote'
 import { InfoPanel, InfoToggle } from './InfoNote'
 import { Sheet } from './Sheet'
 
-interface DrawerProps {
+interface DrawerBaseProps {
   open: boolean
   onClose: () => void
   title: string
@@ -29,15 +29,33 @@ interface DrawerProps {
   flush?: boolean
   children: ReactNode
   footer?: ReactNode
-  /**
-   * What the drawer's own actions do, said once and then put away (`ui/InfoNote`).
-   *
-   * These used to be `footer` prose — a paragraph at the foot of Universes, Buses and
-   * Groups & DCAs, correct and unread after the first time, and on a phone a fifth of the
-   * screen. It sits beside the title now, closed, behind one `i`.
-   */
-  info?: ReactNode
 }
+
+/**
+ * `info` — what the drawer's own actions do, said once and then put away
+ * (`ui/InfoNote`) — and `noteId`, the name under which that choice is
+ * remembered. They arrive together or not at all: a note the user can put away
+ * is a note something has to remember, and this union is what stops a drawer
+ * from having the one without the other.
+ *
+ * `info` used to be `footer` prose — a paragraph at the foot of Universes, Buses
+ * and Groups & DCAs, correct and unread after the first time, and on a phone a
+ * fifth of the screen. It sits beside the title now, closed, behind one `i`.
+ *
+ * **`noteId` is the note's identity, and `title` is not** (ROADMAP D5). The
+ * title was the identity until this was written, which was safe only while every
+ * title was a constant word. It is not: two drawers are called *Pricing* — what
+ * a hire costs, and what a supplier charges — and shared one remembered choice,
+ * so opening the `i` on one volunteered the other's sentence; and a title that
+ * is a record's name (a catalog's) gave every catalog a private copy of one
+ * shared explanation, orphaned on rename. A title is a label. It repeats, it is
+ * chosen for the header, and it is sometimes data — none of which an identity
+ * may be. So the call site names its note, in kebab-case, after what the drawer
+ * *is*: `event-pricing`, `catalog-pricing`.
+ */
+type DrawerNoteProps = { info: ReactNode; noteId: string } | { info?: undefined; noteId?: undefined }
+
+type DrawerProps = DrawerBaseProps & DrawerNoteProps
 
 /**
  * A right-anchored overlay panel — the audio tabs' Rig and Buses drawers
@@ -55,11 +73,14 @@ interface DrawerProps {
  * six drawers acquire a phone form at once; six call sites each answering the
  * same question is how `NodeShell` ended up with two copies.
  */
-export function Drawer({ open, onClose, title, subtitle, width = 'wide', flush = false, children, footer, info }: DrawerProps) {
+export function Drawer({ open, onClose, title, subtitle, width = 'wide', flush = false, children, footer, info, noteId }: DrawerProps) {
   useEscapeToClose(open, onClose)
   const isMobile = useIsMobile()
   // The `i` rides in the title's row, so a closed note costs the drawer no space.
-  const note = useInfoNote({ id: `drawer:${title}` })
+  // Keyed by `noteId`, never by the title — see `DrawerNoteProps` for what that cost.
+  // The `drawer:` prefix keeps these one namespace, apart from the panel notes
+  // that name themselves (`flow-desk-job`, `plot-desk-job`).
+  const note = useInfoNote({ id: noteId ? `drawer:${noteId}` : undefined })
 
   if (!open) return null
 
