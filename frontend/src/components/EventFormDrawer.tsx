@@ -129,7 +129,14 @@ export function EventFormDrawer({
       onClose={onClose}
       title={title}
       subtitle="Name, venue, dates, notes and the inventory it draws from"
-      footer={<>An event&rsquo;s inventory is chosen once, at creation, and never changes afterwards.</>}
+      /* A rule about what this form's choice commits you to, not a statement of
+         what its contents are — read once, so `info` (components.md §4). */
+      info={
+        <>
+          An event&rsquo;s <b className="font-medium text-zinc-300">inventory</b> is chosen once, at creation, and
+          never changes afterwards.
+        </>
+      }
     >
       <form
         className="flex flex-col gap-3.5"

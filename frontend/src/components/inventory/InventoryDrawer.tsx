@@ -111,16 +111,20 @@ export function InventoryDrawer({ open, onClose, inventory, onError, onDeleted }
       title={inventory ? inventory.name : 'New catalog'}
       subtitle={inventory ? manageSubtitle(inventory, boundEvents) : 'An independent catalog of equipment and prices'}
       width="narrow"
-      footer={
+      /* What this drawer's own actions do — read once, and a fifth of a phone's
+         sheet ever after if it stays in the footer (components.md §4). Both
+         modes explain a *doing*, not what the contents are, so neither is a
+         footer line. */
+      info={
         inventory ? (
           <>
-            <b className="font-medium text-zinc-400">Duplicate</b> copies every category and item · no event bindings
-            come with the copy
+            <b className="font-medium text-zinc-300">Duplicate</b> copies every category and item. No event bindings
+            come with the copy.
           </>
         ) : (
           <>
-            A catalog holds its own <b className="font-medium text-zinc-400">categories</b> and{' '}
-            <b className="font-medium text-zinc-400">items</b> · import a price list into it, or build it by hand
+            A catalog holds its own <b className="font-medium text-zinc-300">categories</b> and{' '}
+            <b className="font-medium text-zinc-300">items</b>. Import a price list into it, or build it by hand.
           </>
         )
       }
