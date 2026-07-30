@@ -33,3 +33,24 @@ export function fitScale(viewportW: number, viewportH: number, graphW: number, g
   if (!Number.isFinite(raw) || raw <= 0) return 1
   return Math.min(1, Math.max(0.01, Math.floor(raw * 100) / 100))
 }
+
+/**
+ * One additive step of a zoom control, bounded by the range that is actually reachable.
+ *
+ * Pure and shared because the bound is the whole point and it was wrong once. `ZoomControl`
+ * steps between its own `ZOOM_MIN` and `ZOOM_MAX`, which was right while a desk's canvas was
+ * sized to its own panel and therefore always fitted. Since Slice 37 the plane can be wider
+ * than the window, so a desk's *fit* can sit below `ZOOM_MIN` — and stepping down from the
+ * opening state would then clamp **up** to 0.5 and zoom in. The floor has to be the fit.
+ *
+ * Rounded to two decimals so repeated steps do not accumulate a drifting fraction, and so the
+ * readout shows a stable percentage.
+ */
+export function stepZoomAdditive(current: number | null, delta: number, floor: number, ceiling: number): number {
+  const from = current ?? floor
+  if (!Number.isFinite(from) || !Number.isFinite(delta)) return floor
+  // A floor above the ceiling is not a range; the floor wins, because it is the scale at
+  // which the graph is whole and the ceiling is only a preference.
+  const top = Math.max(floor, ceiling)
+  return Math.min(top, Math.max(floor, Math.round((from + delta) * 100) / 100))
+}

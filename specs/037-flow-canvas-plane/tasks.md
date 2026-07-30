@@ -27,7 +27,8 @@ Spec [spec.md](./spec.md) · Plan [plan.md](./plan.md) · Research [research.md]
       shift must reverse when the plane shrinks back.
 - [x] **T008** `hooks/useFlowView.ts` + `parseFlowView` exported for test, 6 cases.
 - [x] **T009** `hooks/usePlaneView.ts` — restore-and-save, one hook for both canvases
-      because the three-render ordering is the whole difficulty (R10).
+      because the ordering is the whole difficulty (R10). Four steps after review: the
+      graph's data, the scale, the plane's size, then the offset.
 
 ## Phase D — the canvases
 
@@ -66,12 +67,34 @@ Spec [spec.md](./spec.md) · Plan [plan.md](./plan.md) · Research [research.md]
 
 ## Phase G — validation
 
-- [x] **T033** `tsc -b`, `eslint src`, **525 tests**, `vite build`, `go vet`, `go test` —
+- [x] **T033** `tsc -b`, `eslint src`, **533 tests**, `vite build`, `go vet`, `go test` —
       all green.
 - [x] **T034** Scope greps: no `canvasWidth` in code, no clamp, no zone helpers, no
       `LaneBands`. The reach-vs-permission grep now prints **1**, down from 2, with the
       written answer still beside it.
-- [ ] **T035** `reviewer` sub-agent.
+- [x] **T035** `reviewer` sub-agent. **NEEDS_CHANGES → NEEDS_CHANGES → verified**, over two rounds.
+
+  Round 1, eight findings, three of them live on the normal path. The two worth recording:
+  **the remembered view destroyed itself on every cold load** (neither tab gates its canvas
+  on the query, so the restore latched against a placeholder plane, was clamped, and the
+  debounced save wrote the clamp back — warm tab switches worked, which is why it looked
+  right by hand); and **the measured extent could grow but never shrink**, because the
+  measured element contained the cable `<svg>`, which is sized *from* the measurement, and
+  inherited the scrolled box's `plane.width * zoom` as a floor. Also: a desk created after
+  this slice would have landed on the Sources rail, since the schema defaults both rail
+  pairs to `0,0` and that was invisible while they were pinned. Fixed in `92c3e0a`, with a
+  self-correction in `e732f8f` — my verify-before-latch had a stuck state, because the
+  effect only re-runs on a dependency change, so a restore that could never succeed would
+  have disabled saving for the life of the mount.
+
+  Round 2 verified all eight and raised four smaller ones: `canvasRef` had lost its explicit
+  size, so above 100 % the transformed box overflowed the sized one and leaked up to half a
+  plane of dead scroll; two comments still asserted the invariant FR-006a exists to deny;
+  `stepDeskZoom` and the plane's margin were duplicated inline rather than shared and
+  tested; and `components.md` described the restore ordering without the data gate. Fixed in the commit
+  that records this line, which also took round 2's suggestion of replacing the timed echo window
+  with an offset comparison — a window of milliseconds can both swallow a real pan inside
+  it and miss a late echo outside it, and a value comparison can do neither.
 - [ ] **T036** The manual pass in `quickstart.md`. **Cannot be done in this toolchain** —
       no browser, no DOM, no gesture. §C and §E are judgements, not checks.
 

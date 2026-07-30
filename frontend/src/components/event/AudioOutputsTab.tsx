@@ -21,7 +21,7 @@ import { usePlaneView } from '../../hooks/usePlaneView'
 import { usePinchZoom } from '../../hooks/usePinchZoom'
 import { fitScale } from '../../lib/canvasFit'
 import { firstMatch, focusOffset } from '../../lib/canvasFocus'
-import { originShift, PLANE_MARGIN, planeOrigin } from '../../lib/canvasPlane'
+import { originShift, planeExtent, planeOrigin } from '../../lib/canvasPlane'
 import { usePatchView } from '../../hooks/usePatchView'
 import { buildMobileOutputList } from '../../lib/mobileOutputList'
 import { outputPatchStatus } from '../../lib/patchCapacity'
@@ -54,6 +54,7 @@ import { OutputFlowInspector, type OutputFlowSelection } from './OutputFlowInspe
 import { NodeShell as SharedNodeShell } from './graph/NodeShell'
 import { PortRow as SharedPortRow, SplitPortRow, type PortWiring } from './graph/PortRow'
 import { ZoomControl, ZOOM_MAX, ZOOM_STEP } from './graph/ZoomControl'
+import { stepZoomAdditive } from '../../lib/canvasFit'
 import { ConsoleSection } from './ConsoleSection'
 import { OutputSheet } from './OutputSheet'
 import { PatchStatusRail } from './PatchStatusRail'
@@ -138,8 +139,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
     the opening state would zoom *in*. So the floor is the fit, and the ceiling stays the
     desk's own `ZOOM_MAX`.
   */
-  const stepDeskZoom = (delta: number) =>
-    setZoom((current) => Math.min(ZOOM_MAX, Math.max(fitFloor, Math.round(((current ?? fitFloor) + delta) * 100) / 100)))
+  const stepDeskZoom = (delta: number) => setZoom((current) => stepZoomAdditive(current, delta, fitFloor, ZOOM_MAX))
   // Open the first time, and then only for as long as it has not been read.
   const patchingIsADeskJob = useInfoNote({ id: 'flow-desk-job', defaultOpen: true })
   // The phone's strip filter — the desktop's lives in `OutputSheet` (data-model.md §3).
@@ -622,10 +622,7 @@ function OutputGraphCanvas({
     sides (FR-006). Without it a node against the right edge is against the edge of the
     scrollable area too, with nowhere to drop the one beside it.
   */
-  const plane = useMemo(
-    () => ({ width: content.width + PLANE_MARGIN, height: content.height + PLANE_MARGIN }),
-    [content],
-  )
+  const plane = useMemo(() => planeExtent(content), [content])
 
   /*
     The scale at which the whole graph fits its window (patterns.md §7f), measured on both
@@ -1300,15 +1297,23 @@ function OutputGraphCanvas({
         style={isMobile ? { touchAction: 'pan-x pan-y' } : { height: CANVAS_HEIGHT }}
       >
         {/*
-          The scrolled box, sized to the plane at the current scale, and the plane itself —
-          which is given no width or height, because its size *is* its content's and that is
-          what the measurement reads back off it.
+          The scrolled box, sized to the plane at the current scale, and inside it the plane
+          itself at its logical size.
+
+          Both are sized, and the inner one **must** be. A block element with `width: auto`
+          lays out at its parent's width — already `plane.width * zoom` — and then paints
+          through `scale(zoom)` at `plane.width * zoom²`, so above 100 % the transformed box
+          overflows the sized one and the wrapper gains up to half a plane of empty scroll.
+          Stating the logical size makes the painted size exactly the parent's.
+
+          This element is **not** what the extent is measured from — that is `nodesRef`
+          below, for the reason given at its own site.
 
           No lane bands: a band saying *Rig* is a claim about where nodes are, and nothing
           constrains that now (FR-013, research.md R7).
         */}
         <div style={{ width: plane.width * zoom, height: plane.height * zoom }}>
-          <div ref={canvasRef} className="relative" style={{ transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
+          <div ref={canvasRef} className="relative" style={{ width: plane.width, height: plane.height, transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
             <svg className="pointer-events-none absolute left-0 top-0" width={plane.width} height={plane.height}>
               {/* Same two encodings as the input graph (Slice 23): hue is the
                   output this run carries, dash pattern is what kind of link it

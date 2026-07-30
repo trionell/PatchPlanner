@@ -17,6 +17,7 @@ import { MobileSegmented } from '../mobile/MobileSegmented'
 import { InputPatchSheet } from '../print/InputPatchSheet'
 import { AudioPatchShell } from './AudioPatchShell'
 import { ZoomControl, ZOOM_MAX, ZOOM_STEP } from './graph/ZoomControl'
+import { stepZoomAdditive } from '../../lib/canvasFit'
 import type { InputFlowSelection } from './InputFlowInspector'
 import { BusesDrawer } from './BusesDrawer'
 import { ConsoleSection } from './ConsoleSection'
@@ -102,8 +103,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
     the opening state would zoom *in*. So the floor is the fit, and the ceiling stays the
     desk's own `ZOOM_MAX`.
   */
-  const stepDeskZoom = (delta: number) =>
-    setZoom((current) => Math.min(ZOOM_MAX, Math.max(fitFloor, Math.round(((current ?? fitFloor) + delta) * 100) / 100)))
+  const stepDeskZoom = (delta: number) => setZoom((current) => stepZoomAdditive(current, delta, fitFloor, ZOOM_MAX))
   // Open the first time, and then only for as long as it has not been read.
   const patchingIsADeskJob = useInfoNote({ id: 'flow-desk-job', defaultOpen: true })
   const [drawer, setDrawer] = useState<'rig' | 'buses' | null>(null)

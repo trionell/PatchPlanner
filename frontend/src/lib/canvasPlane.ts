@@ -116,3 +116,15 @@ export function scrollToPan(scroll: PlanePoint, origin: PlaneOrigin, zoom: numbe
     y: scroll.y / zoom + origin.y,
   }
 }
+
+/**
+ * The plane's extent: the content it holds, plus the same margin `planeOrigin` puts on the
+ * other two sides (FR-006).
+ *
+ * Here rather than inline in each canvas so that the four sides of one margin are defined
+ * in one file. Without the right and bottom, a node against the edge of the content is
+ * against the edge of the scrollable area too, with nowhere to drop the one beside it.
+ */
+export function planeExtent(content: { width: number; height: number }, margin: number = PLANE_MARGIN): { width: number; height: number } {
+  return { width: content.width + margin, height: content.height + margin }
+}

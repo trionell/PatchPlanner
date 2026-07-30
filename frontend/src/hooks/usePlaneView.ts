@@ -58,8 +58,17 @@ export function usePlaneView({ eventId, tab, wrapperRef, zoom, zoomProp, origin,
   const [stored, setStored] = useFlowView(eventId, tab)
   const restored = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  /** When the restore last wrote a scroll offset, so its own echo is not saved back. */
-  const settled = useRef(0)
+  /**
+   * The offset the restore actually left behind — read back, so it is the *clamped* value
+   * the container settled on rather than the one that was asked for.
+   *
+   * The restore's own write raises scroll events after it. Recording them would write the
+   * restored position straight back, which is harmless when it is right and destructive
+   * when it is not, so they are skipped. Compared by value rather than timed: a window of
+   * milliseconds can both swallow a real pan that happens inside it and miss a late echo
+   * outside it, and this can do neither.
+   */
+  const echo = useRef<{ x: number; y: number } | null>(null)
   // Read inside the debounced write rather than captured, so a save that fires after a
   // zoom or a node move records what is true then, not what was true 800 ms ago.
   const latest = useRef({ zoom, origin })
@@ -105,19 +114,20 @@ export function usePlaneView({ eventId, tab, wrapperRef, zoom, zoomProp, origin,
       that silently stops being remembered is harder to notice than one that opens clamped.
     */
     restored.current = true
-    // The scroll events this restore just caused arrive after it. Recording them is
-    // harmless when the offset is right and destructive when it is not, so drop them.
-    settled.current = Date.now()
+    echo.current = { x: el.scrollLeft, y: el.scrollTop }
   }, [stored, zoomProp, content, zoom, origin, ready, onZoom, wrapperRef])
 
   // A pan writes on the frame it happens; without settling that is a write per frame.
   const onScroll = useCallback(() => {
     const el = wrapperRef.current
     if (!el || !restored.current) return
-    if (Date.now() - settled.current < 250) return
-    if (timer.current) clearTimeout(timer.current)
     const left = el.scrollLeft
     const top = el.scrollTop
+    // The restore's own echo, and only that: the first offset that differs is a real pan,
+    // and from then on nothing is skipped.
+    if (echo.current && echo.current.x === left && echo.current.y === top) return
+    echo.current = null
+    if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(() => {
       const { zoom: z, origin: o } = latest.current
       const pan = scrollToPan({ x: left, y: top }, o, z)

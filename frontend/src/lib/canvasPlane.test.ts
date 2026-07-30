@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { originShift, panToScroll, planeOrigin, PLANE_MARGIN, scrollToPan } from './canvasPlane'
+import { originShift, panToScroll, planeExtent, planeOrigin, PLANE_MARGIN, scrollToPan } from './canvasPlane'
 
 describe('planeOrigin', () => {
   it('is 0,0 for a graph that lives entirely in positive space', () => {
@@ -100,5 +100,15 @@ describe('panToScroll / scrollToPan', () => {
   it('degrades to the origin rather than to NaN on an unmeasured zoom', () => {
     expect(panToScroll({ x: 400, y: 100 }, { x: -24, y: -24 }, 0)).toEqual({ x: 0, y: 0 })
     expect(scrollToPan({ x: 400, y: 100 }, { x: -24, y: -24 }, 0)).toEqual({ x: -24, y: -24 })
+  })
+})
+
+describe('planeExtent', () => {
+  it('adds the margin the origin puts on the other two sides', () => {
+    expect(planeExtent({ width: 1500, height: 640 })).toEqual({ width: 1500 + PLANE_MARGIN, height: 640 + PLANE_MARGIN })
+  })
+
+  it('gives an empty graph somewhere to put its first node', () => {
+    expect(planeExtent({ width: 0, height: 0 })).toEqual({ width: PLANE_MARGIN, height: PLANE_MARGIN })
   })
 })

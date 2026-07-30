@@ -29,7 +29,7 @@ import { usePlaneView } from '../../hooks/usePlaneView'
 import { usePinchZoom } from '../../hooks/usePinchZoom'
 import { fitScale } from '../../lib/canvasFit'
 import { firstMatch, focusOffset } from '../../lib/canvasFocus'
-import { originShift, PLANE_MARGIN, planeOrigin } from '../../lib/canvasPlane'
+import { originShift, planeExtent, planeOrigin } from '../../lib/canvasPlane'
 import { stageboxPorts, stageMultiPorts } from '../../lib/outputGraph'
 import { matchesSearch } from '../../lib/patchSearch'
 import { itemLabel } from '../../lib/utils'
@@ -216,10 +216,7 @@ export function InputGraphCanvas({
     sides (FR-006). Without it a node against the right edge is against the edge of the
     scrollable area too, with nowhere to drop the one beside it.
   */
-  const plane = useMemo(
-    () => ({ width: content.width + PLANE_MARGIN, height: content.height + PLANE_MARGIN }),
-    [content],
-  )
+  const plane = useMemo(() => planeExtent(content), [content])
 
   /*
     The scale at which the whole graph fits its window (patterns.md §7f).
@@ -902,10 +899,17 @@ export function InputGraphCanvas({
         style={isMobile ? { touchAction: 'pan-x pan-y' } : { height: CANVAS_HEIGHT }}
       >
         {/*
-          The scrolled box, sized to the plane at the current scale, and the plane itself.
-          The inner element is given **no** width or height: its size is its content's,
-          which is exactly what the measurement above reads back off it. Setting a size
-          here from that measurement would be a loop.
+          The scrolled box, sized to the plane at the current scale, and inside it the
+          plane itself at its logical size.
+
+          Both are sized, and the inner one **must** be. A block element with `width: auto`
+          lays out at its parent's width — already `plane.width * zoom` — and then paints
+          through `scale(zoom)` at `plane.width * zoom²`, so above 100 % the transformed box
+          overflows the sized one and the wrapper gains up to half a plane of empty scroll.
+          Stating the logical size makes the painted size exactly the parent's.
+
+          This element is **not** what the extent is measured from — that is `nodesRef`
+          below, for the reason given at its own site.
 
           No lane bands. They were three regions computed from the canvas width, and there
           is no canvas width any more — but the reason they are gone rather than pinned to
@@ -913,7 +917,7 @@ export function InputGraphCanvas({
           nothing constrains that now (Slice 37 FR-013, research.md R7).
         */}
         <div style={{ width: plane.width * zoom, height: plane.height * zoom }}>
-          <div ref={canvasRef} className="relative" style={{ transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
+          <div ref={canvasRef} className="relative" style={{ width: plane.width, height: plane.height, transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
             <svg className="pointer-events-none absolute left-0 top-0" width={plane.width} height={plane.height}>
               {/* Two independent encodings (Slice 23): hue says which channel this
                   run reaches, dash pattern says what kind of link it is — so a
