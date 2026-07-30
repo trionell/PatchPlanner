@@ -23,6 +23,21 @@ type Event struct {
 	OwnerUserID *int64 `json:"-"`
 	YourRole    string `json:"yourRole,omitempty"`
 	InventoryID int64  `json:"inventoryId"`
+
+	// This job's own pricing terms (Slice 31), written only by
+	// PUT /events/{id}/pricing — never by the create or update handlers, whose
+	// UpdateEvent is a whole-object replace that would wipe them.
+	//
+	// The three pointers are nullable because NULL is a meaning here, as it is
+	// on the three dates above: "follow the catalog". A catalog corrected after
+	// the fact therefore corrects every event that never disagreed with it.
+	// DiscountPercent is not a pointer and not omitempty — there is nothing
+	// above it to inherit from, and a zero discount is a stated fact the
+	// drawer's field has to render as 0 rather than as empty.
+	ChargedDays        *string  `json:"chargedDays,omitempty"`
+	RentFactorOverride *float64 `json:"rentFactorOverride,omitempty"`
+	VATPercent         *float64 `json:"vatPercent,omitempty"`
+	DiscountPercent    float64  `json:"discountPercent"`
 }
 
 // ResolvedDates is Event's four dates with every gap filled from its

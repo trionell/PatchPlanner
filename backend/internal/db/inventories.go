@@ -9,8 +9,22 @@ import (
 
 const inventoryColumns = `id, COALESCE(owner_user_id, 0), name, COALESCE(source_filename, ''), COALESCE(source_format, ''), created_at`
 
+// CreateInventory makes an empty catalog owned by ownerUserID, carrying a copy
+// of that user's pricing defaults (Slice 31).
+//
+// Creation is when the defaults are read, and the only time. Not at import: the
+// two columns are NOT NULL, so an import has no "unset" state to detect, and one
+// that re-applied the defaults would silently undo the edit the catalog's own
+// Pricing drawer exists to allow. What an import applies is what the file itself
+// states. The copy is Slice 17's rule again — changing your defaults afterwards
+// reaches nothing that already exists.
 func CreateInventory(database *sql.DB, ownerUserID int64, name string) (domain.Inventory, error) {
-	result, err := database.Exec(`INSERT INTO inventories (owner_user_id, name) VALUES (?, ?)`, ownerUserID, name)
+	defaults, err := GetPricingDefaults(database, ownerUserID)
+	if err != nil {
+		return domain.Inventory{}, err
+	}
+	result, err := database.Exec(`INSERT INTO inventories (owner_user_id, name, charged_days, vat_percent) VALUES (?, ?, ?, ?)`,
+		ownerUserID, name, defaults.ChargedDays, defaults.VATPercent)
 	if err != nil {
 		return domain.Inventory{}, fmt.Errorf("create inventory: %w", err)
 	}

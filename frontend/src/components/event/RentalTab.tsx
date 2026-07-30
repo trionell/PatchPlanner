@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Cable, FileDown, FileSpreadsheet, Plus, Search } from 'lucide-react'
+import { Cable, Coins, FileDown, FileSpreadsheet, Plus, Search } from 'lucide-react'
+import { getEvent } from '../../api/events'
 import { getEventInventory, listEventInventoryItems } from '../../api/inventory'
 import {
   getRentalExportReport,
@@ -20,6 +21,7 @@ import { hasManualPart } from '../../lib/rentalOrder'
 import { type RentalFilter, RentalStatusRail } from './RentalStatusRail'
 import { MobilePanel } from '../ui/MobilePanel'
 import { PatchPanel } from '../ui/PatchPanel'
+import { PricingDrawer } from './PricingDrawer'
 import { RentalSheet } from './RentalSheet'
 
 /**
@@ -54,9 +56,15 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
   const inventoryQuery = useQuery({ queryKey: ['event-inventory', eventId], queryFn: () => getEventInventory(eventId) })
   const canExportPriceList = inventoryQuery.data?.sourceFormat === 'll'
 
+  // The event's own pricing terms (Slice 31). Shares Layout's cache entry, so
+  // opening the drawer costs no request.
+  const eventQuery = useQuery({ queryKey: ['event', eventId], queryFn: () => getEvent(eventId) })
+
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
+  const [pricingOpen, setPricingOpen] = useState(false)
   const [unplacedLines, setUnplacedLines] = useState<UnplacedLine[]>([])
+  const [pricingNotes, setPricingNotes] = useState<string[]>([])
   const [exportError, setExportError] = useState('')
   const [editingId, setEditingId] = useState<number | null>(null)
   // The phone's strip filter — the desktop's lives in `RentalSheet` (data-model.md §3).
@@ -67,14 +75,38 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
     onSuccess: (report) => {
       setExportError('')
       setUnplacedLines(report.unplaced_lines)
+      // What the export could not write into the supplier's own file, and any
+      // disagreement between this event's VAT and the rate that file computes.
+      setPricingNotes(report.pricing_notes ?? [])
       // The browser handles the download natively via the attachment URL.
       window.location.assign(rentalExportUrl(eventId))
     },
     onError: (error) => {
       setUnplacedLines([])
+      setPricingNotes([])
       setExportError(error.message)
     },
   })
+
+  /**
+   * What the export could not place, in both branches (Slice 31 FR-032).
+   *
+   * A note that appears only on the desktop is a note the person in the loading
+   * bay does not get, and this one says their quote's totals may not be the ones
+   * on their screen.
+   */
+  const pricingNoteBlock = pricingNotes.length > 0 && (
+    <div className="border-b border-zinc-800 px-3 py-2 text-xs text-amber-200">
+      <p className="font-semibold text-amber-100">
+        The exported price list needs {pricingNotes.length === 1 ? 'a note' : 'notes'}:
+      </p>
+      <ul className="mt-1.5 list-disc space-y-0.5 pl-4">
+        {pricingNotes.map((note) => (
+          <li key={note}>{note}</li>
+        ))}
+      </ul>
+    </div>
+  )
 
   /*
     The three exports, as overflow entries (Wave 6c, F2 · M11).
@@ -86,6 +118,18 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
     which is the desktop's rule, not a phone rule.
   */
   const exportActions = [
+    /*
+      Pricing leads the overflow rather than joining the downloads, because it is
+      the one entry here that opens something rather than finishing. The drawer
+      it opens is a `ui/Sheet` at this width — `ui/Drawer` branches itself, which
+      is what gave every drawer a phone form at once (patterns §7d).
+    */
+    {
+      label: 'Pricing',
+      hint: `${rentalQuery.data?.pricing.billed_days ?? 1} days`,
+      icon: <Coins className="h-4 w-4" />,
+      onClick: () => setPricingOpen(true),
+    },
     {
       label: 'Export .xlsx',
       hint: 'download',
@@ -166,6 +210,7 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
         {exportError && (
           <p className="border-b border-zinc-800 px-3 py-2 text-xs text-red-400">Export failed: {exportError}</p>
         )}
+        {pricingNoteBlock}
         {unplacedLines.length > 0 && (
           <div className="border-b border-zinc-800 px-3 py-2 text-xs text-amber-200">
             <p className="font-semibold text-amber-100">
@@ -223,6 +268,15 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
           readOnly={!editable}
         />
       )}
+
+      <PricingDrawer
+        open={pricingOpen}
+        onClose={() => setPricingOpen(false)}
+        eventId={eventId}
+        event={eventQuery.data}
+        pricing={rentalQuery.data?.pricing}
+        editable={editable}
+      />
       </>
     )
   }
@@ -243,6 +297,12 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
               onChange={(event) => setSearch(event.target.value)}
             />
           </div>
+
+          {/* The drawer slot: after search, before the exports (patterns §1). */}
+          <Button size="xs" variant="outline" onClick={() => setPricingOpen(true)}>
+            <Coins className="mr-1.5 h-3.5 w-3.5" />
+            Pricing
+          </Button>
 
           <Button size="xs" variant="outline" onClick={() => window.location.assign(rentalExportXlsxUrl(eventId))}>
             <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
@@ -279,6 +339,8 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
         <p className="border-b border-zinc-800 px-3 py-2 text-xs text-red-400">Export failed: {exportError}</p>
       )}
 
+      {pricingNoteBlock}
+
       {/*
         The dropped lines are a list somebody has to act on, so they stay a block
         rather than being compressed into the strip (design/patterns.md §5).
@@ -313,6 +375,15 @@ export function RentalTab({ eventId, readOnly = false }: { eventId: number; read
         onAddingChange={setAdding}
         onOpenEquipment={() => openTab('equipment')}
         readOnly={!editable}
+      />
+
+      <PricingDrawer
+        open={pricingOpen}
+        onClose={() => setPricingOpen(false)}
+        eventId={eventId}
+        event={eventQuery.data}
+        pricing={rentalQuery.data?.pricing}
+        editable={editable}
       />
     </PatchPanel>
   )

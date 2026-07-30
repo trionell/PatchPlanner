@@ -43,11 +43,54 @@ func writeRenterFixtureXLSX(t *testing.T, dir string) string {
 			t.Fatalf("write row %d: %v", i+1, err)
 		}
 	}
+	writeRenterSummarySheet(t, file)
+
 	path := filepath.Join(dir, "LL.xlsx")
 	if err := file.SaveAs(path); err != nil {
 		t.Fatalf("save fixture: %v", err)
 	}
 	return path
+}
+
+// writeRenterSummarySheet adds the Sammanställning sheet in the real file's
+// shape (Slice 31): a label in column A, two value columns, the two cells a
+// human types, and the formulas that compute from them — including the *1.25
+// that is the only place that file states its VAT rate.
+//
+// The fixture's comment above has always claimed to mirror what ships in
+// LL.xlsx; until this slice needed the other two sheets, only one of the three
+// was actually reproduced.
+func writeRenterSummarySheet(t *testing.T, file *excelize.File) {
+	t.Helper()
+	if _, err := file.NewSheet(summarySheet); err != nil {
+		t.Fatalf("create summary sheet: %v", err)
+	}
+	rows := [][]any{
+		{"Fyll ej i gråa fält.", "LL Ljud", "LL Ljus"},
+		{"Utrustning ex", 0, 0},
+		{"Utrustning ink", 0, 0},
+		{"Rabatt utrustning", 0.5, 0.5},
+		{"Hyresfaktor (Antal dagar)", 1, 1},
+		{"Summa utrustning ex"},
+		{"Summa utrustning ink"},
+	}
+	for index, row := range rows {
+		cellName, err := excelize.CoordinatesToCellName(1, index+1)
+		if err != nil {
+			t.Fatalf("cell name: %v", err)
+		}
+		if err := file.SetSheetRow(summarySheet, cellName, &row); err != nil {
+			t.Fatalf("write summary row %d: %v", index+1, err)
+		}
+	}
+	for ref, formula := range map[string]string{
+		"B6": "(B2-(B2*B4))*B5",
+		"B7": "B6*1.25",
+	} {
+		if err := file.SetCellFormula(summarySheet, ref, formula); err != nil {
+			t.Fatalf("set formula %s: %v", ref, err)
+		}
+	}
 }
 
 // exportSetup imports the renter fixture into a fresh owned inventory,

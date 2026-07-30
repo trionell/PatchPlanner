@@ -31,8 +31,20 @@ type RentalSummary struct {
 	Items         []EventRental `json:"items"`
 	TotalItems    int           `json:"total_items"`
 	TotalQuantity int           `json:"total_quantity"`
-	TotalExVAT    float64       `json:"total_ex_vat"`
-	HasOverStock  bool          `json:"has_over_stock"`
+	// SubtotalExVAT is the sum of every line's day rate — what it has always
+	// been. It was called TotalExVAT until Slice 31, when it stopped being the
+	// order's total: the hire's price is Pricing.TotalExVAT, which is this
+	// number after the discount and the rent factor.
+	//
+	// The rename is deliberate rather than cosmetic. Adding a field beside the
+	// old one would have left all nine sites that show money compiling, and
+	// eight of them wrong — including the Overview number band, which had shown
+	// a day rate labelled "RENTAL, EX VAT" since Wave 4.
+	SubtotalExVAT float64 `json:"subtotal_ex_vat"`
+	HasOverStock  bool    `json:"has_over_stock"`
+	// Pricing is how the subtotal becomes a price. A value and not a pointer:
+	// every order has one, even when it is x1.00 and 0%.
+	Pricing RentalPricing `json:"pricing"`
 }
 
 // ManualRentalRequest is the payload for PUT /events/{id}/rentals/manual/{itemID}.
@@ -65,4 +77,14 @@ type RentalExportReport struct {
 	Filename      string         `json:"filename"`
 	PlacedLines   int            `json:"placed_lines"`
 	UnplacedLines []UnplacedLine `json:"unplaced_lines"`
+	// PricingPlaced reports whether the price-list file's two typed cells —
+	// Rabatt utrustning and Hyresfaktor (Antal dagar) — were found and written.
+	// The constitution's Principle IV requires that lines which cannot be
+	// represented faithfully are reported rather than silently dropped; from
+	// Slice 31 the same is true of the price.
+	PricingPlaced bool `json:"pricing_placed"`
+	// PricingNotes is empty unless there is something to say. A list, because
+	// the two things it can say are independent: the labels were not found, and
+	// this event's VAT disagrees with the rate the file computes.
+	PricingNotes []string `json:"pricing_notes"`
 }

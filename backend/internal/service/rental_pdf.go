@@ -229,7 +229,9 @@ func writePDFCategory(pdf *fpdf.Fpdf, tr func(string) string, group rentalCatego
 }
 
 func writePDFTotals(pdf *fpdf.Fpdf, tr func(string) string, summary domain.RentalSummary, categories int) {
-	if pdf.GetY() > 255 {
+	// A little more headroom than before: the block below the rule grew from
+	// two lines to six when the order learned its price.
+	if pdf.GetY() > 235 {
 		pdf.AddPage()
 	}
 	pdf.Ln(2)
@@ -247,11 +249,86 @@ func writePDFTotals(pdf *fpdf.Fpdf, tr func(string) string, summary domain.Renta
 		plural(summary.TotalItems, "item", "items"),
 		plural(summary.TotalQuantity, "unit", "units"))), "", 0, "L", false, 0, "")
 	pdf.SetFont("Helvetica", "B", 11)
-	pdf.CellFormat(0, 6, tr(formatMoney(summary.TotalExVAT)+" SEK"), "", 1, "R", false, 0, "")
+	pdf.CellFormat(0, 6, tr(formatMoney(summary.SubtotalExVAT)+" SEK"), "", 1, "R", false, 0, "")
+	pdf.SetFont("Helvetica", "I", 8)
+	pdf.SetTextColor(120, 120, 120)
+	// Two words this row has always meant and never said. Every line above is a
+	// day rate, and so is their sum.
+	pdf.CellFormat(0, 4, tr("per day, excl. VAT"), "", 1, "R", false, 0, "")
+	pdf.SetTextColor(0, 0, 0)
+
+	writePDFPricing(pdf, tr, summary.Pricing)
+}
+
+// writePDFPricing renders the ledger: what was taken off, what it was multiplied
+// by, and both totals (Slice 31).
+//
+// Every string here obeys this file's cp1252 constraint — "x" not "×", "-" not
+// "−" — for the reason its header comment gives: the document uses built-in
+// Helvetica with a cp1252 translator so no font file is embedded.
+func writePDFPricing(pdf *fpdf.Fpdf, tr func(string) string, pricing domain.RentalPricing) {
+	label := func(text, detail, amount string) {
+		pdf.SetFont("Helvetica", "", 9)
+		pdf.CellFormat(40, 5, tr(text), "", 0, "L", false, 0, "")
+		pdf.SetFont("Helvetica", "I", 8)
+		pdf.SetTextColor(120, 120, 120)
+		pdf.CellFormat(90, 5, tr(detail), "", 0, "L", false, 0, "")
+		pdf.SetTextColor(0, 0, 0)
+		pdf.SetFont("Helvetica", "", 9)
+		pdf.CellFormat(0, 5, tr(amount), "", 1, "R", false, 0, "")
+	}
+
+	pdf.Ln(2)
+	if pricing.DiscountPercent > 0 {
+		label("Discount",
+			fmt.Sprintf("%s%% of the equipment subtotal", trimPercent(pricing.DiscountPercent)),
+			"-"+formatMoney(pricing.DiscountAmount))
+	}
+	label("Rent factor", pdfFactorDetail(pricing), fmt.Sprintf("x %.2f", pricing.RentFactor))
+
+	pdf.Ln(1)
+	pdf.SetLineWidth(0.4)
+	y := pdf.GetY()
+	pdf.Line(pdfMarginLeft, y, 210-pdfMarginRight, y)
+	pdf.SetLineWidth(0.2)
+	pdf.Ln(2)
+
+	pdf.SetFont("Helvetica", "B", 10)
+	pdf.CellFormat(130, 6, tr(fmt.Sprintf("TOTAL, %s", plural(pricing.BilledDays, "DAY", "DAYS"))), "", 0, "L", false, 0, "")
+	pdf.SetFont("Helvetica", "B", 11)
+	pdf.CellFormat(0, 6, tr(formatMoney(pricing.TotalExVAT)+" SEK"), "", 1, "R", false, 0, "")
 	pdf.SetFont("Helvetica", "I", 8)
 	pdf.SetTextColor(120, 120, 120)
 	pdf.CellFormat(0, 4, tr("excl. VAT"), "", 1, "R", false, 0, "")
 	pdf.SetTextColor(0, 0, 0)
+
+	label("VAT", trimPercent(pricing.VATPercent)+"%", formatMoney(pricing.VATAmount))
+	pdf.SetFont("Helvetica", "B", 10)
+	pdf.CellFormat(130, 6, tr("TOTAL, INCL. VAT"), "", 0, "L", false, 0, "")
+	pdf.SetFont("Helvetica", "B", 11)
+	pdf.CellFormat(0, 6, tr(formatMoney(pricing.TotalIncVAT)+" SEK"), "", 1, "R", false, 0, "")
+}
+
+// pdfFactorDetail says where the multiplier came from, because a supplier
+// checking the arithmetic needs to find it on their own rate card — and a
+// step-down is invisible unless it is stated.
+func pdfFactorDetail(pricing domain.RentalPricing) string {
+	span := ""
+	if pricing.FirstDay != "" && pricing.LastDay != "" && pricing.FirstDay != pricing.LastDay {
+		span = fmt.Sprintf(", %s - %s", pricing.FirstDay, pricing.LastDay)
+	}
+	days := plural(pricing.BilledDays, "day", "days")
+	switch pricing.RentFactorSource {
+	case domain.SourceOverride:
+		return fmt.Sprintf("%s%s, agreed for this hire", days, span)
+	case domain.SourceNone:
+		return fmt.Sprintf("%s%s, no rate card", days, span)
+	default:
+		if pricing.RentFactorDays == pricing.BilledDays {
+			return fmt.Sprintf("%s%s", days, span)
+		}
+		return fmt.Sprintf("%s%s, at the %d-day rate", days, span, pricing.RentFactorDays)
+	}
 }
 
 // writePDFFootnotes explains the ASCII status markers used on lines. They

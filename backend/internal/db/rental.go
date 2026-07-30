@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/trionell/patchplanner/internal/domain"
@@ -109,6 +110,18 @@ const rentalSummaryQuery = `
 	GROUP BY i.id, i.name, i.description, er.quantity_audio, er.quantity_lighting, er.notes, i.price_ex_vat, i.quantity_available, i.discontinued, i.category_id, cat.name, cat.category_type
 	ORDER BY i.name ASC, i.id ASC`
 
+// GetRentalSummary derives the order and prices it.
+//
+// The pricing block is filled HERE, and that is the slice's one structural
+// decision (Slice 31, research.md R4). This function has exactly four callers —
+// the JSON the tab reads, the PDF, the generic spreadsheet and the LL price list
+// — and they are the whole set of places an order is ever rendered. Computing
+// the price in the API layer instead would leave three exports free to disagree
+// with the screen, or to ship without a price at all; here, none of them can
+// reach the lines without it.
+//
+// The arithmetic itself is domain.ComputePricing. This function composes; it
+// does not decide.
 func GetRentalSummary(db *sql.DB, eventID int64) (domain.RentalSummary, error) {
 	rows, err := db.Query(rentalSummaryQuery,
 		eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID, eventID)
@@ -137,13 +150,47 @@ func GetRentalSummary(db *sql.DB, eventID int64) (domain.RentalSummary, error) {
 		}
 		summary.TotalItems++
 		summary.TotalQuantity += item.TotalQuantity
-		summary.TotalExVAT += item.SubtotalExVAT
+		summary.SubtotalExVAT += item.SubtotalExVAT
 		summary.Items = append(summary.Items, item)
 	}
 	if err := rows.Err(); err != nil {
 		return domain.RentalSummary{}, err
 	}
+
+	pricing, err := priceOrder(db, eventID, summary.SubtotalExVAT)
+	if err != nil {
+		return domain.RentalSummary{}, err
+	}
+	summary.Pricing = pricing
 	return summary, nil
+}
+
+// priceOrder turns the day-rate subtotal into a hire price, from the event's own
+// departures and its catalog's terms.
+//
+// Two queries. A missing event or catalog is not an error worth failing an order
+// over — the summary above is already complete and correct — so this falls back
+// to pricing at x1.00 and 0%, which is exactly what every order meant before
+// Slice 31.
+func priceOrder(db *sql.DB, eventID int64, subtotal float64) (domain.RentalPricing, error) {
+	unpriced := domain.InventoryPricing{ChargedDays: domain.ChargedDaysOnsite}
+
+	event, err := GetEvent(db, eventID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return domain.ComputePricing(subtotal, domain.Event{}, unpriced), nil
+	}
+	if err != nil {
+		return domain.RentalPricing{}, fmt.Errorf("load event for pricing: %w", err)
+	}
+
+	inventory, err := GetInventoryPricing(db, event.InventoryID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.ComputePricing(subtotal, event, unpriced), nil
+		}
+		return domain.RentalPricing{}, fmt.Errorf("load catalog pricing: %w", err)
+	}
+	return domain.ComputePricing(subtotal, event, inventory), nil
 }
 
 // GetRentalLine returns the summary line for one catalog item, or a zeroed

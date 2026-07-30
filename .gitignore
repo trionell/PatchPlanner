@@ -2,3 +2,7 @@ node_modules/
 
 # Slice 36 phase 1: before/after markup captures. Scratch, never committed.
 frontend/.baseline/
+
+# LibreOffice's lock file, present whenever LL.xlsx is open. Slice 31 committed
+# one by accident through `git add -A`; this is so the next one cannot.
+.~lock.*#

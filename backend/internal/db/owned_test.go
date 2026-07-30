@@ -157,7 +157,7 @@ func TestOwnedGearNeverOnRentalOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("summary after: %v", err)
 	}
-	if len(after.Items) != len(before.Items) || after.TotalQuantity != before.TotalQuantity || after.TotalExVAT != before.TotalExVAT {
+	if len(after.Items) != len(before.Items) || after.TotalQuantity != before.TotalQuantity || after.SubtotalExVAT != before.SubtotalExVAT {
 		t.Errorf("rental summary changed by owned gear:\nbefore %+v\nafter  %+v", before, after)
 	}
 }

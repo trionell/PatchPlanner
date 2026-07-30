@@ -1,4 +1,13 @@
-import type { Event, FixtureMode, Inventory, InventoryCategory, InventoryImportResult, InventoryItem } from '../types'
+import type {
+  Event,
+  FixtureMode,
+  Inventory,
+  InventoryCategory,
+  InventoryImportResult,
+  InventoryItem,
+  InventoryPricing,
+  RentFactor,
+} from '../types'
 import { API_BASE, request } from './client'
 
 // Owner-scoped inventory management (Slice 16) — every route here is
@@ -95,3 +104,33 @@ export const updateFixtureMode = (inventoryId: number, modeId: number, name: str
   })
 export const deleteFixtureMode = (inventoryId: number, modeId: number) =>
   request<void>(`/inventories/${inventoryId}/fixture-modes/${modeId}`, { method: 'DELETE' })
+
+// ---- Pricing (Slice 31) ----
+// The catalog's own terms and the supplier's rate card. Owner-only like
+// everything else in this file.
+
+export const getInventoryPricing = (inventoryId: number) =>
+  request<InventoryPricing>(`/inventories/${inventoryId}/pricing`)
+
+/**
+ * Writes the catalog's two terms. The rate card is deliberately not part of
+ * this call — it is edited row by row, so a drawer that is mid-edit cannot post
+ * a stale copy of the whole curve over a row that changed under it.
+ */
+export const updateInventoryPricing = (inventoryId: number, pricing: Omit<InventoryPricing, 'factors'>) =>
+  request<InventoryPricing>(`/inventories/${inventoryId}/pricing`, { method: 'PUT', body: JSON.stringify(pricing) })
+
+export const createRentFactor = (inventoryId: number, days: number, factor: number) =>
+  request<RentFactor>(`/inventories/${inventoryId}/rent-factors`, {
+    method: 'POST',
+    body: JSON.stringify({ days, factor }),
+  })
+
+export const updateRentFactor = (inventoryId: number, factorId: number, days: number, factor: number) =>
+  request<RentFactor>(`/inventories/${inventoryId}/rent-factors/${factorId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ days, factor }),
+  })
+
+export const deleteRentFactor = (inventoryId: number, factorId: number) =>
+  request<void>(`/inventories/${inventoryId}/rent-factors/${factorId}`, { method: 'DELETE' })

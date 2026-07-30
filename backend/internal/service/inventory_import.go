@@ -86,7 +86,63 @@ func (s InventoryService) ImportFromXLSX(inventoryID int64, filename string, r i
 		return domain.InventoryImportResult{}, err
 	}
 
-	return domain.InventoryImportResult{CategoriesImported: len(categories), ItemsImported: len(items)}, nil
+	// The price list's other two sheets, which this importer ignored until
+	// Slice 31: the rate card, and the VAT rate hidden in a formula.
+	warnings, err := s.importPricing(inventoryID, file)
+	if err != nil {
+		return domain.InventoryImportResult{}, err
+	}
+
+	return domain.InventoryImportResult{
+		CategoriesImported: len(categories),
+		ItemsImported:      len(items),
+		Warnings:           warnings,
+	}, nil
+}
+
+// importPricing applies whatever the file itself said about pricing — its rate
+// card and its VAT rate — and nothing else. It never reads a user's defaults:
+// those are copied when a catalog is created, and an import that re-applied them
+// would silently undo the edit the catalog's own drawer exists to allow.
+//
+// A file carrying no rate card leaves the existing one alone, which is what
+// makes the blank generated template harmless. Every problem is a warning; the
+// catalog's items have already been written by the time this runs, and a
+// malformed factor row is not worth failing an import over (FR-007).
+func (s InventoryService) importPricing(inventoryID int64, file *excelize.File) ([]string, error) {
+	sheet := parsePricingSheet(file)
+	warnings := sheet.Warnings
+
+	if len(sheet.Factors) > 0 {
+		if err := db.ReplaceRentFactors(s.DB, inventoryID, sheet.Factors); err != nil {
+			return nil, err
+		}
+	}
+
+	// The generic format states VAT on the pricing sheet; LL states it only
+	// inside a formula. Whichever the file used, the file wins.
+	rate, found := sheet.VATPercent, sheet.VATPercent != nil
+	if !found {
+		if llRate, ok := readLLVATPercent(file); ok {
+			rate, found = &llRate, true
+		}
+	}
+	if found {
+		if err := db.SetInventoryVATPercent(s.DB, inventoryID, *rate); err != nil {
+			return nil, err
+		}
+		// The only place a catalog's VAT provenance is ever reported. Nothing
+		// stores it, so no drawer can go on claiming "from the file" after
+		// somebody has edited the field.
+		warnings = append(warnings, fmt.Sprintf("VAT %s%% read from the file", trimPercent(*rate)))
+	}
+	return warnings, nil
+}
+
+// trimPercent renders 25 as "25" and 12.5 as "12.5", so the note reads the way a
+// person would say it.
+func trimPercent(value float64) string {
+	return strconv.FormatFloat(value, 'f', -1, 64)
 }
 
 // isCategoryHeader recognizes rows like "Mikrofoner:" — a name ending in a

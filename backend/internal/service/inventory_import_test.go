@@ -1,12 +1,14 @@
 package service
 
 import (
+	"bytes"
 	"database/sql"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/trionell/patchplanner/internal/db"
@@ -191,5 +193,108 @@ func TestImportRoundTripPreservesReferences(t *testing.T) {
 	}
 	if !found[micID] || !found[speakerID] {
 		t.Fatalf("references no longer resolve after re-import: %+v", summary.Items)
+	}
+}
+
+// TestImportRealLLPricesTheCatalog is Slice 31's headline claim, against the
+// user's actual price list: importing it produces a priced catalog with nothing
+// typed. Sixteen rate-card rows and 25% VAT, neither of which that file states
+// anywhere PatchPlanner used to look.
+func TestImportRealLLPricesTheCatalog(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "LL.xlsx"))
+	if err != nil {
+		t.Skipf("real LL.xlsx not available: %v", err)
+	}
+	database := openTestDB(t)
+	svc := InventoryService{DB: database}
+	owner, err := db.UpsertUserByGoogleSub(database, "test-owner-sub", "owner@example.com", "Test Owner", "")
+	if err != nil {
+		t.Fatalf("seed test owner: %v", err)
+	}
+	// A VAT rate the file will have to overrule, and a rule it must not.
+	if _, err := db.SetPricingDefaults(database, owner.ID, domain.PricingDefaults{ChargedDays: domain.ChargedDaysShow, VATPercent: 6}); err != nil {
+		t.Fatalf("set defaults: %v", err)
+	}
+	inventory, err := db.CreateInventory(database, owner.ID, "LL")
+	if err != nil {
+		t.Fatalf("create inventory: %v", err)
+	}
+
+	result, err := svc.Import(inventory.ID, "LL.xlsx", bytes.NewReader(data))
+	if err != nil {
+		t.Fatalf("import real LL.xlsx: %v", err)
+	}
+
+	pricing, err := db.GetInventoryPricing(database, inventory.ID)
+	if err != nil {
+		t.Fatalf("get inventory pricing: %v", err)
+	}
+	if len(pricing.Factors) != 16 {
+		t.Errorf("rate card has %d rows, want 16", len(pricing.Factors))
+	}
+	// The file states its own rate, and a file's statement beats a default.
+	if pricing.VATPercent != 25 {
+		t.Errorf("VAT = %v, want the file's 25 rather than the user's 6", pricing.VATPercent)
+	}
+	// The charged-days rule is NOT something the file states, so the copy the
+	// catalog took at creation stands.
+	if pricing.ChargedDays != domain.ChargedDaysShow {
+		t.Errorf("charged days = %q, want the %q copied at creation", pricing.ChargedDays, domain.ChargedDaysShow)
+	}
+	// And the provenance is reported once, here, and stored nowhere.
+	var reported bool
+	for _, warning := range result.Warnings {
+		if strings.Contains(warning, "VAT 25% read from the file") {
+			reported = true
+		}
+	}
+	if !reported {
+		t.Errorf("warnings = %v, want the VAT provenance reported", result.Warnings)
+	}
+
+	// A hand-typed row, then a re-import: the card is one curve, so the import
+	// replaces it whole rather than merging (research.md R7).
+	if _, err := db.CreateRentFactor(database, inventory.ID, 45, 8); err != nil {
+		t.Fatalf("hand-typed row: %v", err)
+	}
+	if _, err := svc.Import(inventory.ID, "LL.xlsx", bytes.NewReader(data)); err != nil {
+		t.Fatalf("re-import: %v", err)
+	}
+	pricing, err = db.GetInventoryPricing(database, inventory.ID)
+	if err != nil {
+		t.Fatalf("get inventory pricing: %v", err)
+	}
+	if len(pricing.Factors) != 16 {
+		t.Errorf("rate card has %d rows after a re-import, want the file's 16", len(pricing.Factors))
+	}
+}
+
+// A file carrying no rate card leaves the catalog's alone — which is what makes
+// the blank generated template harmless.
+func TestImportWithoutARateCardLeavesItAlone(t *testing.T) {
+	database := openTestDB(t)
+	svc := InventoryService{DB: database}
+	owner, err := db.UpsertUserByGoogleSub(database, "test-owner-sub", "owner@example.com", "Test Owner", "")
+	if err != nil {
+		t.Fatalf("seed test owner: %v", err)
+	}
+	inventory, err := db.CreateInventory(database, owner.ID, "Test Inventory")
+	if err != nil {
+		t.Fatalf("create inventory: %v", err)
+	}
+	if _, err := db.CreateRentFactor(database, inventory.ID, 5, 2.2); err != nil {
+		t.Fatalf("seed rate card: %v", err)
+	}
+
+	if _, err := importFixture(t, svc, inventory.ID, writeFixtureXLSX(t)); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+
+	pricing, err := db.GetInventoryPricing(database, inventory.ID)
+	if err != nil {
+		t.Fatalf("get inventory pricing: %v", err)
+	}
+	if len(pricing.Factors) != 1 || pricing.Factors[0].Days != 5 {
+		t.Errorf("rate card = %+v, want the existing row untouched", pricing.Factors)
 	}
 }

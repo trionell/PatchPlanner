@@ -1,0 +1,1574 @@
+<!--
+  PatchPlanner — rental pricing by duration (Slice 31). Design mockup,
+  revision 2.
+
+  Revision 1 was approved, with one addition: VAT. It is a fourth number on
+  the same cascade as the charged-days rule — imported from the file where
+  the file states it, typed where it does not. Two consequences fall out of
+  that and are drawn here: LL.xlsx states its rate only inside a formula
+  (=B6*1.25), which is where we read it from; and the LL export does not
+  rewrite those formulas, because filling in the two cells a human types is
+  a different act from editing someone else's model.
+
+  Revision 1's two open questions are settled: the amber words stay, and
+  owned gear is outside pricing entirely.
+
+  Revision 4 is two fixes reported against the BUILT page, on a phone: the
+  drawers' closing paragraph becomes a `ui/InfoNote` (a footer is a fixed strip,
+  and on a bottom sheet a two-sentence one is a fifth of the screen forever),
+  and the editable numbers move to the right edge with their hints on the left.
+  Both are now rules in design/components.md's ui/Drawer entry, and audit.md
+  records the report as M14. Four drawers had the footer fault, two of them
+  older than this slice; all four are fixed.
+
+  Revision 3 was two corrections from the cross-artifact consistency pass, not
+  new design: the drawers no longer claim VAT was "read from LL.xlsx" (nothing
+  stores that, and it would start lying the moment the field was edited — it is
+  reported in the import result instead), and a catalog copies the user's
+  defaults when it is CREATED rather than when it is imported into, so a second
+  import cannot undo the edit the drawer exists to allow.
+
+  Slice 30 gave an event a length. Nothing spends it: the rental order still
+  quotes a five-day hire at the one-day rate, because the day rate is the only
+  price the catalog has ever held. This slice adds the three numbers that turn
+  a day rate into a hire price — how many days are charged, what the supplier
+  multiplies by for that many days, and what discount was agreed — and carries
+  all three through the strip, the Overview figure and every export.
+
+  Four decisions were taken with the user before this was drawn:
+    · the factor table is read as a rate card — step DOWN to the row at or
+      below the day count, clamp at both ends;
+    · the charged-days rule cascades user default → inventory → event;
+    · an import carrying a factor table replaces the whole table;
+    · the factor multiplies the ORDER, not the line — every line stays a day
+      rate, which is what the supplier's own price list says.
+
+  The file is an HTML *fragment*: the Artifact publisher wraps it in
+  doctype/head/body, so there are deliberately no <html>, <head> or <body> tags.
+
+  Specimen CSS is the shared set from specs/032-inventories-list/mockup.html,
+  which shares it with 030, 029 and 028, which lifted it from
+  design/design-language.html. Everything below the ADDITIONS block is new here.
+-->
+
+<title>Rental pricing by duration</title>
+
+<style>
+  /* ==================================================================
+     DOCUMENT CHROME — theme-aware, tokens only.
+     ================================================================== */
+  :root {
+    --ground: #f2f2f4;
+    --raised: #ffffff;
+    --sunken: #e8e8ec;
+    --rule: #d7d7de;
+    --rule-soft: #e4e4ea;
+    --ink: #16171b;
+    --ink-2: #43444d;
+    --muted: #6c6d78;
+    --faint: #90919c;
+    --amber: #b45309;
+    --keep: #0e7490;
+    --drop: #9f1239;
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --measure: 68ch;
+    --wrap: 1180px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0a0b0d;
+      --raised: #14151a;
+      --sunken: #101014;
+      --rule: #26272e;
+      --rule-soft: #1d1e24;
+      --ink: #f2f2f4;
+      --ink-2: #b6b7c0;
+      --muted: #8b8c96;
+      --faint: #62636d;
+      --amber: #f59e0b;
+      --keep: #22d3ee;
+      --drop: #fb7185;
+    }
+  }
+
+  :root[data-theme="light"] {
+    --ground: #f2f2f4; --raised: #ffffff; --sunken: #e8e8ec;
+    --rule: #d7d7de; --rule-soft: #e4e4ea;
+    --ink: #16171b; --ink-2: #43444d; --muted: #6c6d78; --faint: #90919c;
+    --amber: #b45309; --keep: #0e7490; --drop: #9f1239;
+  }
+  :root[data-theme="dark"] {
+    --ground: #0a0b0d; --raised: #14151a; --sunken: #101014;
+    --rule: #26272e; --rule-soft: #1d1e24;
+    --ink: #f2f2f4; --ink-2: #b6b7c0; --muted: #8b8c96; --faint: #62636d;
+    --amber: #f59e0b; --keep: #22d3ee; --drop: #fb7185;
+  }
+
+  body {
+    background: var(--ground); color: var(--ink);
+    font-family: var(--sans); line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  * { box-sizing: border-box; }
+  h1, h2, h3, h4 { font-weight: 600; line-height: 1.2; margin: 0; letter-spacing: -0.01em; }
+  h1 { font-size: 40px; letter-spacing: -0.025em; }
+  h2 { font-size: 27px; letter-spacing: -0.02em; }
+  h3 { font-size: 17px; }
+  p { margin: 0; max-width: var(--measure); }
+  ul { margin: 0; padding-left: 20px; }
+  li { margin: 4px 0; color: var(--ink-2); }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px 110px; }
+  section { padding: 40px 0; border-top: 1px solid var(--rule-soft); display: flex; flex-direction: column; gap: 22px; }
+  section:first-of-type { border-top: none; }
+
+  .head { padding: 60px 0 8px; display: flex; flex-direction: column; gap: 14px; }
+  .head__eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  .head__lede { font-size: 18px; color: var(--ink-2); line-height: 1.5; }
+
+  .sec__no {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  .sec__hd { display: flex; flex-direction: column; gap: 8px; }
+  .prose { display: flex; flex-direction: column; gap: 13px; color: var(--ink-2); font-size: 15.5px; }
+  .prose strong { color: var(--ink); font-weight: 600; }
+  .prose code, .led__v code, .ask code {
+    font-family: var(--mono); font-size: 0.87em; background: var(--sunken);
+    border: 1px solid var(--rule-soft); border-radius: 4px; padding: 1px 5px;
+  }
+
+  .spec { display: flex; flex-direction: column; gap: 9px; }
+  .spec__frame {
+    border: 1px solid var(--rule); border-radius: 12px; background: var(--raised);
+    overflow: hidden;
+  }
+  .spec__cap {
+    font-family: var(--mono); font-size: 11px; color: var(--faint);
+    letter-spacing: 0.04em; line-height: 1.5;
+  }
+  .spec__cap b { color: var(--ink-2); font-weight: 500; }
+
+  .led { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .led__row {
+    display: grid; grid-template-columns: 210px 1fr; gap: 10px 28px;
+    padding: 14px 0; border-bottom: 1px solid var(--rule-soft); align-items: start;
+  }
+  .led__k {
+    font-size: 13px; font-weight: 600; color: var(--ink);
+    display: flex; flex-wrap: wrap; align-items: center; gap: 7px;
+  }
+  .led__v { font-size: 15px; color: var(--ink-2); line-height: 1.5; }
+  .led__v b { color: var(--ink); font-weight: 600; }
+  .led__v em { font-style: normal; color: var(--faint); }
+
+  .tag {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em;
+    text-transform: uppercase; border-radius: 3px; padding: 1px 5px;
+  }
+  .tag--keep { color: var(--keep); border: 1px solid currentColor; }
+  .tag--drop { color: var(--drop); border: 1px solid currentColor; }
+  .tag--new { color: var(--amber); border: 1px solid currentColor; }
+
+  .ask {
+    border: 1px solid var(--amber); border-radius: 10px; padding: 18px 20px;
+    display: flex; flex-direction: column; gap: 10px; background: var(--raised);
+  }
+  .ask h3 { color: var(--ink); }
+  .ask p { font-size: 15px; color: var(--ink-2); max-width: none; }
+
+  /* ==================================================================
+     THE APP SPECIMEN — the application's own dark palette, at its own
+     values. Both font stacks are scoped in here to the app's own, so the
+     specimen is never rendered in this document's faces.
+     ================================================================== */
+  .app {
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #09090b; color: #e4e4e7; padding: 22px;
+    display: flex; flex-direction: column; gap: 16px; line-height: 1.5;
+    overflow-x: auto;
+  }
+  .app--tight { padding: 16px; min-width: 0; }
+  .app *, .app *::before, .app *::after { box-sizing: border-box; }
+
+  .pan { border: 1px solid #3f3f46; border-radius: 12px; background: rgba(9, 9, 11, 0.4); overflow: hidden; }
+  .pan__bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    padding: 8px 12px; border-bottom: 1px solid #27272a; background: #18181b;
+  }
+  .pan__ti { font-size: 14px; font-weight: 600; color: #f4f4f5; margin-right: 4px; }
+  .grow { flex: 1; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px;
+    border-radius: 6px; font-size: 12px; font-weight: 500; border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .btn--primary { background: #f59e0b; border-color: #f59e0b; color: #09090b; }
+  .btn--outline { background: #18181b; border-color: #3f3f46; color: #f4f4f5; }
+  .btn--ghost { background: transparent; color: #f4f4f5; }
+  .btn--sm { height: 24px; padding: 0 8px; font-size: 11px; }
+  .btn--md { height: 40px; padding: 0 16px; font-size: 14px; }
+  .btn--danger-ghost { background: transparent; color: #f87171; }
+
+  .fld {
+    display: inline-flex; align-items: center; height: 30px; padding: 0 8px;
+    border: 1px solid #3f3f46; border-radius: 6px; background: #09090b;
+    font-size: 12px; color: #e4e4e7; white-space: nowrap;
+  }
+  .fld--ph { color: #71717a; }
+  .fld--sel::after { content: "▾"; margin-left: auto; padding-left: 8px; color: #71717a; font-size: 10px; }
+  .fld--srch { position: relative; padding-left: 26px; min-width: 170px; max-width: 240px; flex: 1; }
+  .fld--srch::before {
+    content: "⌕"; position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+    color: #71717a; font-size: 13px;
+  }
+  .fld--num { width: 76px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .fld--w { width: 100%; }
+
+  .lbl {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #71717a;
+  }
+  .pill {
+    display: inline-flex; align-items: center; border-radius: 3px; padding: 1px 6px;
+    font-size: 10px; font-weight: 600;
+  }
+  .t-ok   { background: rgba(52, 211, 153, 0.15); color: #6ee7b7; }
+  .t-warn { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
+  .t-err  { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+  .t-def  { background: #3f3f46; color: #f4f4f5; }
+
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  .sheet { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .sheet th {
+    text-align: left; font-family: var(--mono); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.14em; text-transform: uppercase; color: #71717a;
+    padding: 6px 8px; background: rgba(9, 9, 11, 0.6);
+    border-bottom: 1px solid #27272a; white-space: nowrap;
+  }
+  .sheet td { padding: 4px 8px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); vertical-align: middle; color: #e4e4e7; }
+  .sheet tr.alt td { background: rgba(255, 255, 255, 0.014); }
+  .sheet td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #a1a1aa; text-align: right; }
+  .sheet .nm { color: #fafafa; white-space: nowrap; }
+  .sheet .desc { color: #71717a; max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sheet .none { color: #52525b; text-align: right; }
+
+  .strip {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
+    padding: 8px 12px; border-top: 1px solid #27272a;
+    background: rgba(9, 9, 11, 0.6); font-size: 11px; color: #a1a1aa;
+  }
+  .strip .mono { color: #e4e4e7; }
+  .strip .q { color: #71717a; }
+  .strip .sep { color: #3f3f46; }
+
+  /* -- the drawer, lifted verbatim from design/design-language.html's own
+     drawer specimen (.dstack / .scrim / .sd). -- */
+  .dstack { position: relative; min-height: 560px; overflow: hidden; }
+  .scrim { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.7); }
+  .sd {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 448px; max-width: 100%;
+    background: #18181b; border-left: 1px solid #3f3f46;
+    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.5);
+    display: flex; flex-direction: column;
+  }
+  .sd__hd { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 14px 20px; border-bottom: 1px solid #27272a; }
+  .sd__ti { font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .sd__sub { font-size: 12px; color: #71717a; margin-top: 2px; }
+  .sd__x { color: #a1a1aa; font-size: 15px; line-height: 1.2; }
+  .sd__body { padding: 16px 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+  .sd__ft { margin-top: auto; padding: 12px 20px; border-top: 1px solid #27272a; font-size: 12px; color: #71717a; }
+  .sd__ft b { color: #a1a1aa; font-weight: 500; }
+  /* ui/InfoNote, closed: one target beside the title, the sentence behind it.
+     Revision 4 — a two-sentence footer is a fifth of a phone's sheet, forever. */
+  .infob {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; border-radius: 999px; border: 1px solid #3f3f46;
+    color: #a1a1aa; font-size: 11px; font-style: italic; font-family: Georgia, serif;
+    margin-left: 8px; vertical-align: middle;
+  }
+  /* a field row: what it means on the left, the control at the right edge */
+  .fieldrow { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+  .fieldrow .dnote { padding-bottom: 6px; }
+  .fieldrow .fstack { flex: none; }
+  .dsec { display: flex; flex-direction: column; gap: 6px; }
+  .dsec__hd { display: flex; align-items: center; gap: 8px; }
+  .dsec__ct { font-family: var(--mono); font-size: 10px; color: #52525b; }
+
+  .gear {
+    border: 1px solid #27272a; border-radius: 6px; background: #18181b;
+    padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .gear__top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+  .gear__nm { font-size: 14px; font-weight: 500; color: #f4f4f5; }
+  .gear__ac { margin-left: auto; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; color: #a1a1aa; }
+  .gear__sp { display: flex; flex-wrap: wrap; gap: 2px 12px; font-family: var(--mono); font-size: 10px; color: #71717a; }
+  .gear__sp b { color: #d4d4d8; font-weight: 400; }
+  .gear__row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .dnote { font-size: 12px; color: #71717a; }
+  .fstack { display: flex; flex-direction: column; gap: 4px; }
+
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  @media (max-width: 820px) { .grid2, .grid3 { grid-template-columns: minmax(0, 1fr); } }
+
+  /* -- the phone -- */
+  .ph { width: 384px; max-width: 100%; margin: 0 auto; }
+  .phsheet {
+    border: 1px solid #3f3f46; border-top-left-radius: 14px; border-top-right-radius: 14px;
+    background: #18181b; overflow: hidden;
+  }
+  .phsheet__gr { display: flex; justify-content: center; padding: 8px 0 2px; }
+  .phsheet__gr i { display: block; width: 36px; height: 4px; border-radius: 999px; background: #3f3f46; }
+  .phsheet__hd { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 16px 12px; border-bottom: 1px solid #27272a; }
+  .phsheet__ti { font-size: 16px; font-weight: 600; color: #f4f4f5; }
+  .phsheet__bd { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
+  .phrow {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    border-bottom: 1px solid rgba(39, 39, 42, 0.6); padding: 12px 4px; font-size: 14px;
+  }
+  .phrow .t { color: #f4f4f5; font-weight: 500; }
+  .phrow .s { font-size: 12px; color: #71717a; margin-top: 2px; }
+  .phfld { height: 44px; font-size: 14px; width: 100%; }
+  .phbtn { height: 44px; font-size: 14px; }
+
+  /* ==================================================================
+     ADDITIONS FOR RENTAL PRICING — the ledger, the rate card, the paper
+     specimens, and the cascade diagram.
+     ================================================================== */
+
+  /* -- THE LEDGER. The one new construction in the slice: subtotal, the two
+     things that act on it, and the total. It is not a new component — it is
+     GearSpecs rows in a GearCard, mono and tabular, right-aligned, with the
+     total separated by the same hairline every strip uses. -- */
+  .ldg { display: flex; flex-direction: column; gap: 0; }
+  .ldg__r {
+    display: flex; align-items: baseline; gap: 12px; padding: 4px 0;
+    font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 11px;
+  }
+  .ldg__k { color: #71717a; }
+  .ldg__k b { color: #d4d4d8; font-weight: 400; }
+  .ldg__v { margin-left: auto; color: #d4d4d8; }
+  .ldg__r--op .ldg__v { color: #a1a1aa; }
+  .ldg__r--tot {
+    border-top: 1px solid #27272a; margin-top: 4px; padding-top: 7px; font-size: 13px;
+  }
+  .ldg__r--tot .ldg__k { color: #f4f4f5; }
+  .ldg__r--tot .ldg__v { color: #f4f4f5; }
+
+  /* -- the rate card, as the drawer draws it: a two-column mono list, not a
+     sheet. Sixteen rows of two numbers is a list, and it lives in a drawer. -- */
+  .rate { display: flex; flex-direction: column; gap: 4px; }
+  .rate__r { display: flex; align-items: center; gap: 6px; }
+  .rate__d { width: 62px; }
+  .rate__f { width: 76px; }
+  .rate__hit { border-color: #f59e0b !important; }
+  .rate__note { font-family: var(--mono); font-size: 10px; color: #52525b; margin-left: auto; }
+
+  /* -- paper: the PDF and the spreadsheet, drawn as themselves rather than
+     described. Neither is in the app's palette because neither is the app. -- */
+  .paper {
+    background: #fff; color: #111; padding: 26px 30px; font-family: Helvetica, Arial, sans-serif;
+    font-size: 12px; line-height: 1.45; overflow-x: auto;
+  }
+  .paper h5 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: 0.02em; }
+  .paper .ptab { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px; }
+  .paper .ptab td, .paper .ptab th { padding: 3px 4px; }
+  .paper .ptab th { text-align: left; font-size: 9px; color: #555; border-bottom: 1px solid #333; font-weight: 700; }
+  .paper .r { text-align: right; }
+  .paper .rule { border-top: 1.2px solid #111; margin: 8px 0 6px; }
+  .paper .tot { font-weight: 700; font-size: 13px; }
+  .paper .muted { color: #666; font-size: 9px; }
+  .paper .new { background: #fff3cd; }
+
+  .xl { width: 100%; border-collapse: collapse; font-size: 11px; font-family: Calibri, Arial, sans-serif; background: #fff; color: #111; }
+  .xl th, .xl td { border: 1px solid #d0d0d0; padding: 3px 6px; white-space: nowrap; }
+  .xl th { background: #f2f2f2; font-weight: 700; text-align: left; }
+  .xl .r { text-align: right; font-variant-numeric: tabular-nums; }
+  .xl .b { font-weight: 700; }
+  .xl .new { background: #fff3cd; }
+  .xl .cellref { background: #eef4ff; color: #444; font-family: var(--mono); font-size: 9px; }
+
+  /* -- the cascade: three boxes and two arrows, in the app's palette -- */
+  .casc { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; }
+  .casc__b {
+    flex: 1; min-width: 190px; border: 1px solid #3f3f46; border-radius: 8px;
+    background: #18181b; padding: 10px 12px; display: flex; flex-direction: column; gap: 5px;
+  }
+  .casc__b--now { border-color: #f59e0b; }
+  .casc__w { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #71717a; }
+  .casc__v { font-size: 13px; color: #f4f4f5; }
+  .casc__n { font-size: 11px; color: #71717a; }
+  .casc__ar { display: flex; align-items: center; color: #52525b; font-size: 16px; }
+  @media (max-width: 820px) { .casc__ar { display: none; } }
+</style>
+
+<div class="wrap">
+
+  <header class="head">
+    <span class="head__eyebrow">slice 31 · rental pricing by duration · revision 4 · built</span>
+    <h1>The five-day hire that costs one day</h1>
+    <p class="head__lede">
+      Slice 30 gave an event a length, and named what it did not do:
+      <em>“the order quotes a five-day hire as a one-day hire, which it did before too —
+      what changed is that the tool now <strong>knows</strong> the duration.”</em>
+      This is the slice that spends it.
+    </p>
+    <p class="head__lede">
+      A day rate is not a price. Between the two sits a table the supplier publishes and a
+      discount somebody negotiated, and PatchPlanner has held neither. The catalog holds one
+      number per item and the order sums it, so a festival that loads in on Wednesday and
+      loads out on Sunday is quoted at the price of a Tuesday afternoon. Everyone using this
+      has been doing the multiplication in their head, against a table in a spreadsheet the
+      app already imports and throws away.
+    </p>
+  </header>
+
+  <!-- ==================================================================
+       00 · WHAT THIS ADDS
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">00 · at a glance</span>
+      <h2>Four numbers, and where each one lives</h2>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">Billed days<span class="tag tag--new">new</span></div>
+        <div class="led__v">
+          Derived from the event's own dates — never typed. Either <b>all on-site days</b>
+          (load-in through load-out) or <b>show days only</b> (start through end), because
+          some suppliers charge for the truck and some charge for the stage. The rule
+          cascades: your default, adopted by a catalog when it is imported, overridable on
+          one event. <em>§02.</em>
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Rent factor<span class="tag tag--new">new</span></div>
+        <div class="led__v">
+          The supplier's own table of <b>days → multiplier</b>, imported from
+          <code>LL.xlsx</code>'s <em>Hyresfaktor</em> sheet, or typed by hand, or read from a
+          new optional sheet in the generic template. It belongs to the <b>inventory</b>,
+          because it is a fact about the supplier. An event may override the resulting
+          number when a job was priced some other way. <em>§03, §04.</em>
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Discount<span class="tag tag--new">new</span></div>
+        <div class="led__v">
+          A percentage, typed <b>per event</b>, defaulting to zero.
+          <code>LL.xlsx</code> has carried this in <em>Sammanställning</em> all along —
+          <code>Rabatt utrustning</code> — and PatchPlanner has been exporting orders that
+          leave it blank. <em>§04.</em>
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">VAT<span class="tag tag--new">new</span></div>
+        <div class="led__v">
+          A percentage on the same cascade as the charged-days rule — your default, adopted
+          by a catalog, overridable on one event — except that <b>a file that states its own
+          rate wins over your default</b>. <code>LL.xlsx</code> states 25%, but only inside a
+          formula: <code>Summa utrustning ink = B6*1.25</code>. That is where we read it
+          from. The generic template gains a <code>VAT %</code> row on the same optional
+          sheet as the rate card. <em>§03, §04, §05.</em>
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">The ledger<span class="tag tag--new">new</span></div>
+        <div class="led__v">
+          Six lines that say how the total was reached, drawn once and used in five places:
+          the drawer, the strip, the phone sheet, the PDF and the spreadsheet. It is not a
+          new component — it is <code>GearSpecs</code> rows in a <code>GearCard</code>.
+          <em>§04.</em>
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Every line stays a day rate<span class="tag tag--keep">unchanged</span></div>
+        <div class="led__v">
+          The factor multiplies the <b>order</b>, not the line. A supplier reading the PDF
+          has to be able to check each line against their own price list, and
+          <code>LL.xlsx</code> applies its factor exactly once, to the sum. Multiplication
+          distributes; where it is applied is a question about the document, not about the
+          arithmetic.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Nothing is blocked<span class="tag tag--keep">unchanged</span></div>
+        <div class="led__v">
+          A catalog with no factor table prices at <b>×1.00</b> and says so. That is the
+          honest answer for a supplier who does not work this way, and it is what every
+          existing catalog means today.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       01 · TODAY
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">01 · today</span>
+      <h2>What the strip says now</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        The rental order's strip states three numbers and a verdict. The third number is
+        the sum of every line's <code>price_ex_vat × quantity</code> — a
+        <strong>day rate</strong>, labelled as though it were the price.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app app--tight">
+          <div class="strip">
+            <span class="pill t-ok">in stock</span>
+            <span class="mono">62 lines</span>
+            <span class="mono q">214 pieces</span>
+            <span class="mono">12 480.00 kr ex VAT</span>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap">
+        <b>before</b> — <code>RentalStatusRail</code>. The event is five days long and the
+        strip has no opinion about that. Neither has the Overview figure it feeds, nor any
+        of the three exports.
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>
+        And the file the number came from knows better. <code>LL.xlsx</code> ships three
+        sheets; PatchPlanner reads one of them. Here is the whole of what it has been
+        ignoring, at the values in the user's own file:
+      </p>
+    </div>
+
+    <div class="grid2">
+      <div class="spec">
+        <div class="spec__frame">
+          <table class="xl">
+            <tr><th colspan="2">Hyresfaktor</th></tr>
+            <tr><th>Antal dagar</th><th>Hyresfaktor</th></tr>
+            <tr><td class="r">1</td><td class="r">1</td></tr>
+            <tr><td class="r">2</td><td class="r">1.5</td></tr>
+            <tr><td class="r">3</td><td class="r">1.8</td></tr>
+            <tr><td class="r">4</td><td class="r">2</td></tr>
+            <tr class="new"><td class="r b">5</td><td class="r b">2.2</td></tr>
+            <tr><td class="r">6</td><td class="r">2.4</td></tr>
+            <tr><td class="r muted" colspan="2" style="text-align:center;color:#888">… 7 – 13 …</td></tr>
+            <tr><td class="r">14</td><td class="r">4</td></tr>
+            <tr><td class="r">21</td><td class="r">5.4</td></tr>
+            <tr><td class="r">30</td><td class="r">6.6</td></tr>
+          </table>
+        </div>
+        <div class="spec__cap">
+          <b>LL.xlsx · sheet 3</b> — sixteen rows, never parsed. Note the gaps: after 14 it
+          jumps to 21 and then to 30. <em>What a 17-day hire costs is §03's decision.</em>
+        </div>
+      </div>
+
+      <div class="spec">
+        <div class="spec__frame">
+          <table class="xl">
+            <tr><th colspan="3">Sammanställning</th></tr>
+            <tr><td>Utrustning ex</td><td class="r">0</td><td class="cellref">=B3*0.8</td></tr>
+            <tr class="new"><td class="b">Rabatt utrustning</td><td class="r b">0,5</td><td class="cellref">typed</td></tr>
+            <tr class="new"><td class="b">Hyresfaktor (Antal dagar)</td><td class="r b">1</td><td class="cellref">typed</td></tr>
+            <tr><td>Summa utrustning ex</td><td class="r">0</td><td class="cellref">=(B2-(B2*B4))*B5</td></tr>
+            <tr class="new"><td class="b">Summa utrustning ink</td><td class="r">0</td><td class="cellref b">=B6*1.25</td></tr>
+            <tr><td colspan="3" style="color:#888">…lön, transport…</td></tr>
+            <tr><td class="b">Totalsumma ex</td><td class="r b">0</td><td class="cellref">=B6+B13+B20</td></tr>
+          </table>
+        </div>
+        <div class="spec__cap">
+          <b>LL.xlsx · sheet 1</b> — the supplier's own arithmetic, already written:
+          <code>(subtotal − subtotal × discount) × factor</code>. Two cells are
+          <b>typed by a human</b> and the rest computes. The export has been leaving both
+          blank. <em>§05 fills them in and lets the file do its own sums.</em>
+          <br>
+          The third highlighted row is where <b>VAT</b> comes from. The file never states
+          25% as a value — it states it as <code>*1.25</code>, seven times over, inside
+          formulas. We read the one on <code>Summa utrustning ink</code> and take the
+          multiplier; a file whose formula we cannot read simply does not carry a rate, and
+          the catalog adopts your default instead.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       02 · BILLED DAYS
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">02 · billed days</span>
+      <h2>Which days you pay for</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        An event has four dates. Two of them are the show and two of them are the truck, and
+        which pair the supplier charges for is a term of business, not a fact about the
+        event. <strong>Some rental houses charge from load-in to load-out; some charge only
+        for the days the event covers.</strong> Both are ordinary.
+      </p>
+      <p>
+        So it is a setting — and it is a setting in three places, each one a copy rather
+        than a reference, which is the same shape Slice 17 gave event settings and Slice 22
+        gave hand-entered items. <strong>Changing your default never reaches back into a
+        catalog, and changing a catalog never reaches into an event that already departed
+        from it.</strong>
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div class="casc">
+            <div class="casc__b">
+              <span class="casc__w">my defaults</span>
+              <span class="casc__v">All on-site days</span>
+              <span class="casc__n">Yours, once. Seeds a catalog at import.</span>
+            </div>
+            <div class="casc__ar">→</div>
+            <div class="casc__b">
+              <span class="casc__w">catalog · LL</span>
+              <span class="casc__v">All on-site days</span>
+              <span class="casc__n">Adopted on import; editable after. The supplier's rule.</span>
+            </div>
+            <div class="casc__ar">→</div>
+            <div class="casc__b casc__b--now">
+              <span class="casc__w">this event</span>
+              <span class="casc__v">Use the catalog's rule <span class="mono" style="color:#71717a">→ 5 days</span></span>
+              <span class="casc__n">Departs only when this job was agreed differently.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap">
+        <b>the cascade</b> — three stores, one question. An event holding <em>use the
+        catalog's rule</em> is holding <code>NULL</code>, not a copy, so a catalog corrected
+        after the fact corrects every event that never disagreed with it.
+      </div>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div class="grid2">
+            <div class="pan">
+              <div class="pan__bar"><span class="pan__ti">Sommarfestivalen</span></div>
+              <div style="padding:12px">
+                <div class="ldg">
+                  <div class="ldg__r"><span class="ldg__k">load-in</span><span class="ldg__v">2026-08-12</span></div>
+                  <div class="ldg__r"><span class="ldg__k">first show day</span><span class="ldg__v">2026-08-13</span></div>
+                  <div class="ldg__r"><span class="ldg__k">last show day</span><span class="ldg__v">2026-08-15</span></div>
+                  <div class="ldg__r"><span class="ldg__k">load-out</span><span class="ldg__v">2026-08-16</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="pan">
+              <div class="pan__bar"><span class="pan__ti">Billed days</span></div>
+              <div style="padding:12px">
+                <div class="ldg">
+                  <div class="ldg__r"><span class="ldg__k"><b>All on-site days</b> · 12 Aug → 16 Aug</span><span class="ldg__v">5 days</span></div>
+                  <div class="ldg__r ldg__r--op"><span class="ldg__k">Show days only · 13 Aug → 15 Aug</span><span class="ldg__v">3 days</span></div>
+                </div>
+                <p class="dnote" style="margin-top:10px">
+                  Inclusive of both ends: a hire that arrives and leaves on one day is 1 day,
+                  which is what every event created before Slice 30 means.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap">
+        <b>the derivation</b> — both counts come from <code>Event.Resolve()</code>, which
+        already fills every absent date from its neighbour. An event with no dates at all is
+        <b>1 day</b>; it is not an error and nothing is blocked.
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       03 · THE RATE CARD
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">03 · the rate card</span>
+      <h2>The factor table, and the catalog that owns it</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        The table belongs to the <strong>inventory</strong> — it is the supplier's price
+        curve, arriving with their price list and changing when theirs does. It reaches the
+        catalog three ways: an <code>LL.xlsx</code> import reads the
+        <em>Hyresfaktor</em> sheet, a generic import reads a new optional
+        <em>Rent factor</em> sheet, and a person types rows into the drawer.
+      </p>
+      <p>
+        <strong>It is read as a rate card, not as a curve.</strong> Seventeen days gets the
+        14-day factor — the last rate you qualified for — and anything past the final row
+        holds at the final row's factor. Below the first row, the first row. This was
+        settled with the user against the alternative of interpolating between rows: a rate
+        card is a step function everywhere else in the trade, and a number the supplier
+        never published is a number nobody can check.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app">
+          <div class="ldg" style="max-width:520px">
+            <div class="ldg__r"><span class="ldg__k">5 days</span><span class="ldg__v">×2.20 &nbsp;<span style="color:#52525b">exact row</span></span></div>
+            <div class="ldg__r"><span class="ldg__k">17 days</span><span class="ldg__v">×4.00 &nbsp;<span style="color:#52525b">the 14-day row</span></span></div>
+            <div class="ldg__r"><span class="ldg__k">45 days</span><span class="ldg__v">×6.60 &nbsp;<span style="color:#52525b">the 30-day row, held</span></span></div>
+            <div class="ldg__r"><span class="ldg__k">1 day</span><span class="ldg__v">×1.00 &nbsp;<span style="color:#52525b">exact row</span></span></div>
+            <div class="ldg__r"><span class="ldg__k">no table at all</span><span class="ldg__v">×1.00 &nbsp;<span style="color:#52525b">and the drawer says so</span></span></div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap">
+        <b>the lookup</b> — step down, clamp at both ends. One pure function in
+        <code>lib/</code> on the front end and one in <code>domain/</code> on the back, tested
+        against these five cases and the empty table.
+      </div>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app app--tight">
+          <div class="dstack">
+            <div class="pan" style="height:100%">
+              <div class="pan__bar">
+                <span class="pan__ti">LL price list</span>
+                <span class="fld fld--srch fld--ph">Find an item…</span>
+                <span class="btn btn--sm btn--outline">Categories</span>
+                <span class="btn btn--sm btn--outline" style="border-color:#f59e0b;color:#fbbf24">Pricing</span>
+                <span class="btn btn--sm btn--outline">Import</span>
+                <span class="grow"></span>
+                <span class="btn btn--sm btn--primary">＋ Item</span>
+              </div>
+              <table class="sheet">
+                <tr><th>Item</th><th>Description</th><th>Qty</th><th>Price</th></tr>
+                <tr><td class="nm">Shure SM58</td><td class="desc">Dynamic vocal mic</td><td class="num">24</td><td class="num">120.00</td></tr>
+                <tr class="alt"><td class="nm">Shure Beta 91A</td><td class="desc">Boundary kick mic</td><td class="num">4</td><td class="num">250.00</td></tr>
+                <tr><td class="nm">DiGiCo SD10</td><td class="desc">96 ch digital console</td><td class="num">2</td><td class="num">8 500.00</td></tr>
+              </table>
+            </div>
+            <div class="scrim"></div>
+
+            <aside class="sd">
+              <div class="sd__hd">
+                <div>
+                  <div class="sd__ti">Pricing<span class="infob">i</span></div>
+                  <div class="sd__sub">What this supplier charges for a longer hire</div>
+                </div>
+                <span class="sd__x">✕</span>
+              </div>
+
+              <div class="sd__body">
+                <div class="dsec">
+                  <div class="dsec__hd"><span class="lbl">Charged days</span></div>
+                  <div class="gear">
+                    <span class="fld fld--sel fld--w">All on-site days (load-in → load-out)</span>
+                    <div class="gear__sp">
+                      <span>adopted from <b>My defaults</b> when this catalog was imported</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="dsec">
+                  <div class="dsec__hd"><span class="lbl">VAT</span></div>
+                  <div class="gear">
+                    <div class="fieldrow">
+                      <span class="dnote">The rate this supplier charges, as a percentage.</span>
+                      <div class="fstack">
+                        <span class="lbl">VAT %</span>
+                        <span class="fld fld--num">25</span>
+                      </div>
+                    </div>
+                    <div class="gear__sp">
+                      <span>what this supplier charges · applied to every event on this catalog</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="dsec">
+                  <div class="dsec__hd">
+                    <span class="lbl">Rent factor</span>
+                    <span class="dsec__ct">16 rows</span>
+                  </div>
+                  <div class="gear">
+                    <div class="rate">
+                      <div class="rate__r">
+                        <span class="lbl rate__d">days</span>
+                        <span class="lbl rate__f">factor</span>
+                      </div>
+                      <div class="rate__r">
+                        <span class="fld fld--num rate__d">1</span>
+                        <span class="fld fld--num rate__f">1.00</span>
+                        <span class="btn btn--sm btn--danger-ghost">🗑</span>
+                      </div>
+                      <div class="rate__r">
+                        <span class="fld fld--num rate__d">2</span>
+                        <span class="fld fld--num rate__f">1.50</span>
+                        <span class="btn btn--sm btn--danger-ghost">🗑</span>
+                      </div>
+                      <div class="rate__r">
+                        <span class="fld fld--num rate__d">3</span>
+                        <span class="fld fld--num rate__f">1.80</span>
+                        <span class="btn btn--sm btn--danger-ghost">🗑</span>
+                      </div>
+                      <div class="rate__r">
+                        <span class="fld fld--num rate__d">4</span>
+                        <span class="fld fld--num rate__f">2.00</span>
+                        <span class="btn btn--sm btn--danger-ghost">🗑</span>
+                      </div>
+                      <div class="rate__r">
+                        <span class="fld fld--num rate__d rate__hit">5</span>
+                        <span class="fld fld--num rate__f rate__hit">2.20</span>
+                        <span class="btn btn--sm btn--danger-ghost">🗑</span>
+                      </div>
+                      <div class="rate__r"><span class="rate__note">… 6 – 13 …</span></div>
+                      <div class="rate__r">
+                        <span class="fld fld--num rate__d">14</span>
+                        <span class="fld fld--num rate__f">4.00</span>
+                        <span class="btn btn--sm btn--danger-ghost">🗑</span>
+                      </div>
+                      <div class="rate__r">
+                        <span class="fld fld--num rate__d">21</span>
+                        <span class="fld fld--num rate__f">5.40</span>
+                        <span class="btn btn--sm btn--danger-ghost">🗑</span>
+                      </div>
+                      <div class="rate__r">
+                        <span class="fld fld--num rate__d">30</span>
+                        <span class="fld fld--num rate__f">6.60</span>
+                        <span class="btn btn--sm btn--danger-ghost">🗑</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="gear">
+                    <div class="rate__r">
+                      <div class="fstack">
+                        <span class="lbl">Days</span>
+                        <span class="fld fld--num rate__d fld--ph">45</span>
+                      </div>
+                      <div class="fstack">
+                        <span class="lbl">Factor</span>
+                        <span class="fld fld--num rate__f fld--ph">8.00</span>
+                      </div>
+                      <span class="btn btn--sm btn--primary" style="align-self:flex-end">Add</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Revision 4: this was a footer. It is behind the `i` above now. -->
+            </aside>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap">
+        <b>the catalog's Pricing drawer</b> — <code>ui/Drawer</code>, <code>narrow</code>,
+        opened from the bar's drawer slot beside <em>Categories</em> and <em>Import</em>
+        (patterns §1). Interior is <code>ui/GearList</code> at the work tier throughout, per
+        patterns §3. Rows edit on blur like every other field in the app; the amber row is
+        the one this event lands on and is drawn here only to show the hit — the built
+        drawer has no such highlight, because the catalog does not know which event is
+        looking at it.
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>
+        And the generic template gains the third sheet a supplier-agnostic catalog needs to
+        say the same things. It is <strong>optional and read by label</strong>, like every
+        other column in that format — a row whose first cell says <em>VAT %</em> carries the
+        rate, and the <em>Days / Factor</em> heading opens the rate card. The shipped
+        template carries the labels and no values, which is what makes uploading it
+        untouched harmless: a sheet with no rows carries no table, and a table it does not
+        carry it cannot replace.
+      </p>
+    </div>
+
+    <div class="grid2">
+      <div class="spec">
+        <div class="spec__frame">
+          <table class="xl">
+            <tr><th colspan="2">Pricing &nbsp;— the template as shipped</th></tr>
+            <tr><td class="b">VAT %</td><td></td></tr>
+            <tr><td></td><td></td></tr>
+            <tr><td class="b">Days</td><td class="b">Factor</td></tr>
+            <tr><td></td><td></td></tr>
+            <tr><td></td><td></td></tr>
+          </table>
+        </div>
+        <div class="spec__cap">
+          <b>blank</b> — carries nothing, replaces nothing. The sheet is generated by
+          <code>BuildInventoryTemplate</code> rather than checked in, so the round-trip test
+          keeps it and the parser from drifting apart, exactly as it does for the
+          <em>Inventory</em> sheet today.
+        </div>
+      </div>
+      <div class="spec">
+        <div class="spec__frame">
+          <table class="xl">
+            <tr><th colspan="2">Pricing &nbsp;— filled in</th></tr>
+            <tr class="new"><td class="b">VAT %</td><td class="r b">25</td></tr>
+            <tr><td></td><td></td></tr>
+            <tr><td class="b">Days</td><td class="b">Factor</td></tr>
+            <tr class="new"><td class="r">1</td><td class="r">1</td></tr>
+            <tr class="new"><td class="r">3</td><td class="r">1,8</td></tr>
+            <tr class="new"><td class="r">7</td><td class="r">2,6</td></tr>
+          </table>
+        </div>
+        <div class="spec__cap">
+          <b>filled in</b> — a three-row rate card is a complete one. Rows that will not
+          parse are <b>warnings, not errors</b>: a malformed factor never rejects a 308-item
+          price list, and the catalog imports with a note.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       04 · THE EVENT
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">04 · the event</span>
+      <h2>The order's own price</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        The rental tab gains one drawer button, in the drawer slot patterns §1 already
+        specifies — after search, before the exports. Inside it are the two things this
+        event may say about pricing and the one thing it derives.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app app--tight">
+          <div class="dstack">
+            <div class="pan" style="height:100%">
+              <div class="pan__bar">
+                <span class="pan__ti">Rental order</span>
+                <span class="fld fld--srch fld--ph">Find an item…</span>
+                <span class="btn btn--sm btn--outline" style="border-color:#f59e0b;color:#fbbf24">Pricing</span>
+                <span class="grow"></span>
+                <span class="btn btn--sm btn--outline">Export .xlsx</span>
+                <span class="btn btn--sm btn--outline">Export PDF</span>
+                <span class="btn btn--sm btn--outline">Export LL.xlsx</span>
+                <span class="btn btn--sm btn--primary">＋ Manual line</span>
+              </div>
+              <table class="sheet">
+                <tr><th>Item</th><th>Description</th><th>Audio</th><th>Light</th><th>Qty</th><th>Price</th><th>Subtotal</th></tr>
+                <tr><td class="nm">DiGiCo SD10</td><td class="desc">96 ch digital console</td><td class="num">1</td><td class="none">—</td><td class="num">1</td><td class="num">8 500.00</td><td class="num">8 500.00</td></tr>
+                <tr class="alt"><td class="nm">Shure SM58</td><td class="desc">Dynamic vocal mic</td><td class="num">12</td><td class="none">—</td><td class="num">12</td><td class="num">120.00</td><td class="num">1 440.00</td></tr>
+                <tr><td class="nm">Robe Pointe</td><td class="desc">20ch / 24ch modes</td><td class="none">—</td><td class="num">8</td><td class="num">8</td><td class="num">180.00</td><td class="num">1 440.00</td></tr>
+              </table>
+            </div>
+            <div class="scrim"></div>
+
+            <aside class="sd">
+              <div class="sd__hd">
+                <div>
+                  <div class="sd__ti">Pricing<span class="infob">i</span></div>
+                  <div class="sd__sub">What this hire costs, and why</div>
+                </div>
+                <span class="sd__x">✕</span>
+              </div>
+
+              <div class="sd__body">
+                <div class="dsec">
+                  <div class="dsec__hd"><span class="lbl">Billed days</span></div>
+                  <div class="gear">
+                    <div class="gear__top">
+                      <span class="gear__nm">5 days</span>
+                      <span class="gear__ac">12 Aug → 16 Aug</span>
+                    </div>
+                    <span class="fld fld--sel fld--w">Use the catalog's rule — all on-site days</span>
+                    <div class="gear__sp">
+                      <span>load-in <b>2026-08-12</b></span>
+                      <span>load-out <b>2026-08-16</b></span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="dsec">
+                  <div class="dsec__hd"><span class="lbl">Rent factor</span></div>
+                  <div class="gear">
+                    <div class="gear__top">
+                      <span class="gear__nm">×2.20</span>
+                      <span class="gear__ac">LL · the 5-day row</span>
+                    </div>
+                    <div class="fieldrow">
+                      <span class="dnote">Leave empty to follow the catalog's table.</span>
+                      <div class="fstack">
+                        <span class="lbl">Override</span>
+                        <span class="fld fld--num fld--ph">2.20</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="dsec">
+                  <div class="dsec__hd"><span class="lbl">Discount</span></div>
+                  <div class="gear">
+                    <div class="fieldrow">
+                      <span class="dnote">% off the equipment subtotal</span>
+                      <div class="fstack">
+                        <span class="lbl">Percent</span>
+                        <span class="fld fld--num">25</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="dsec">
+                  <div class="dsec__hd"><span class="lbl">VAT</span></div>
+                  <div class="gear">
+                    <div class="gear__top">
+                      <span class="gear__nm">25%</span>
+                      <span class="gear__ac">from the catalog</span>
+                    </div>
+                    <div class="fieldrow">
+                      <span class="dnote">Leave empty to follow the catalog.</span>
+                      <div class="fstack">
+                        <span class="lbl">Override</span>
+                        <span class="fld fld--num fld--ph">25</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="dsec">
+                  <div class="dsec__hd"><span class="lbl">This order</span></div>
+                  <div class="gear">
+                    <div class="ldg">
+                      <div class="ldg__r"><span class="ldg__k">Subtotal, per day</span><span class="ldg__v">12 480.00</span></div>
+                      <div class="ldg__r ldg__r--op"><span class="ldg__k">Discount <b>25%</b></span><span class="ldg__v">−3 120.00</span></div>
+                      <div class="ldg__r ldg__r--op"><span class="ldg__k">Rent factor <b>×2.20</b> · 5 days</span><span class="ldg__v">×2.20</span></div>
+                      <div class="ldg__r ldg__r--tot"><span class="ldg__k">Total ex VAT</span><span class="ldg__v">20 592.00</span></div>
+                      <div class="ldg__r ldg__r--op"><span class="ldg__k">VAT <b>25%</b></span><span class="ldg__v">+5 148.00</span></div>
+                      <div class="ldg__r ldg__r--tot"><span class="ldg__k">Total inc VAT</span><span class="ldg__v">25 740.00</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Revision 4: this was a footer. It is behind the `i` above now. -->
+            </aside>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap">
+        <b>the event's Pricing drawer</b> — four cards you can act on and one you cannot.
+        The ledger is last because it is the consequence of the four above it, and it
+        restates every operation rather than only its result, so a number that looks wrong
+        can be traced without leaving the drawer. <b>Two totals, both stated</b>: ex VAT is
+        what every other surface in the application has always meant, and inc VAT is what
+        the invoice will say.
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>
+        And the strip carries the same four numbers in a line, because the strip is where a
+        panel states whether the plan holds — and <em>what this costs</em> is now part of
+        that. The day rate stays: it is what every line on the sheet above adds up to, and
+        a strip whose total no longer matches the column above it is a strip nobody trusts.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app app--tight">
+          <div class="strip">
+            <span class="pill t-ok">in stock</span>
+            <span class="mono">62 lines</span>
+            <span class="mono q">214 pieces</span>
+            <span class="mono q">12 480.00 kr/day</span>
+            <span class="sep">·</span>
+            <span class="mono q">5 days ×2.20</span>
+            <span class="mono q">−25%</span>
+            <span class="mono">20 592.00 kr ex VAT</span>
+            <span class="mono q">25 740.00 inc</span>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap">
+        <b>after</b> — the derivation reads left to right and ends on the number you came
+        for, which is the only one at full contrast. <code>−25%</code> appears only when a
+        discount was typed; <code>5 days ×2.20</code> always, because the day count is the
+        fact Slice 30 earned and a hire at <code>×1.00</code> is worth seeing.
+        <b>Ex VAT keeps the emphasis</b> — it is what every other surface in the application
+        already means, and the strip is read beside them — with inc VAT following it quietly
+        rather than competing for the same glance.
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="spec">
+        <div class="spec__frame">
+          <div class="app app--tight">
+            <div class="strip">
+              <span class="pill t-ok">in stock</span>
+              <span class="mono">18 lines</span>
+              <span class="mono q">44 pieces</span>
+              <span class="mono q">3 200.00 kr/day</span>
+              <span class="sep">·</span>
+              <span class="mono q">1 day ×1.00</span>
+              <span class="mono">3 200.00 kr ex VAT</span>
+              <span class="mono q">4 000.00 inc</span>
+            </div>
+          </div>
+        </div>
+        <div class="spec__cap"><b>a one-day job</b>, no discount — the derivation is honest and quiet.</div>
+      </div>
+
+      <div class="spec">
+        <div class="spec__frame">
+          <div class="app app--tight">
+            <div class="strip">
+              <span class="pill t-warn">2 discontinued</span>
+              <span class="mono">62 lines</span>
+              <span class="mono q">214 pieces</span>
+              <span class="mono q">12 480.00 kr/day</span>
+              <span class="sep">·</span>
+              <span class="mono q">5 days</span>
+              <span class="mono" style="color:#fcd34d">×1.00 no rate card</span>
+              <span class="mono">12 480.00 kr ex VAT</span>
+              <span class="mono q">15 600.00 inc</span>
+            </div>
+          </div>
+        </div>
+        <div class="spec__cap">
+          <b>a catalog with no table</b> — amber <em>words</em>, never an amber strip: the
+          strip's tint is the stock verdict and stays it. This is the case the slice exists
+          to make visible, and it is <b>approved as drawn</b>.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       05 · THE EXPORTS
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">05 · the exports</span>
+      <h2>The same four lines, on paper</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        The standing invariant from Slice 6 says every planned item appears on the order and
+        in every export. Pricing takes the same rule: <strong>a total that appears on screen
+        and not on the paper is a quote nobody can send.</strong> All three exports gain the
+        ledger, each in its own idiom.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="paper">
+          <h5>RENTAL ORDER</h5>
+          <div style="font-weight:700;margin-top:3px">Sommarfestivalen</div>
+          <div class="muted" style="font-size:10px">2026-08-13 - Kulturhuset &nbsp;·&nbsp; Inventory: LL price list</div>
+
+          <table class="ptab">
+            <tr><th>Item</th><th>Description</th><th class="r">Audio</th><th class="r">Light</th><th class="r">Total</th><th class="r">Unit</th><th class="r">Sum</th></tr>
+            <tr><td>DiGiCo SD10</td><td>96 ch digital console</td><td class="r">1</td><td class="r">-</td><td class="r">1</td><td class="r">8 500.00</td><td class="r">8 500.00</td></tr>
+            <tr><td>Shure SM58</td><td>Dynamic vocal mic</td><td class="r">12</td><td class="r">-</td><td class="r">12</td><td class="r">120.00</td><td class="r">1 440.00</td></tr>
+            <tr><td colspan="7" style="color:#888">… 60 more lines, in nine categories …</td></tr>
+          </table>
+
+          <div class="rule"></div>
+          <table class="ptab" style="margin-top:0">
+            <tr>
+              <td class="tot" style="width:130px">TOTAL</td>
+              <td class="muted">9 categories, 62 items, 214 units</td>
+              <td class="r tot">12 480.00 SEK</td>
+            </tr>
+            <tr><td></td><td></td><td class="r muted">per day, excl. VAT</td></tr>
+          </table>
+
+          <table class="ptab new" style="margin-top:6px">
+            <tr><td style="width:130px">Discount</td><td class="muted">25% of the equipment subtotal</td><td class="r">-3 120.00</td></tr>
+            <tr><td>Rent factor</td><td class="muted">5 days on site, 12 Aug - 16 Aug &nbsp;·&nbsp; LL's 5-day rate</td><td class="r">x 2.20</td></tr>
+            <tr><td class="tot" style="padding-top:6px;border-top:1px solid #111">TOTAL, 5 DAYS</td><td style="border-top:1px solid #111"></td><td class="r tot" style="padding-top:6px;border-top:1px solid #111">20 592.00 SEK</td></tr>
+            <tr><td></td><td></td><td class="r muted">excl. VAT</td></tr>
+            <tr><td>VAT</td><td class="muted">25%</td><td class="r">5 148.00</td></tr>
+            <tr><td class="tot">TOTAL, INCL. VAT</td><td></td><td class="r tot">25 740.00 SEK</td></tr>
+          </table>
+        </div>
+      </div>
+      <div class="spec__cap">
+        <b>the PDF</b> — the highlighted block is new; everything above it is untouched. The
+        existing <code>TOTAL</code> row gains two words, <em>per day</em>, which is what it
+        has always meant. Still Helvetica with a cp1252 translator, so <code>×</code> is
+        <code>x</code> and <code>−</code> is <code>-</code>, exactly as
+        <code>rental_pdf.go</code>'s header comment requires.
+      </div>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame" style="overflow-x:auto">
+        <table class="xl">
+          <tr><th>Category</th><th>Item</th><th>Description</th><th>Audio</th><th>Lighting</th><th>Total</th><th>Unit price</th><th>Subtotal</th></tr>
+          <tr><td>Consoles</td><td>DiGiCo SD10</td><td>96 ch digital console</td><td class="r">1</td><td></td><td class="r">1</td><td class="r">8 500.00</td><td class="r">8 500.00</td></tr>
+          <tr><td>Microphones</td><td>Shure SM58</td><td>Dynamic vocal mic</td><td class="r">12</td><td></td><td class="r">12</td><td class="r">120.00</td><td class="r">1 440.00</td></tr>
+          <tr><td colspan="8" style="color:#888">… 60 more …</td></tr>
+          <tr><td class="b">TOTAL</td><td></td><td></td><td></td><td></td><td class="r b">214</td><td></td><td class="r b">12 480.00</td></tr>
+          <tr class="new"><td>Billed days</td><td>5</td><td>on-site days, 2026-08-12 → 2026-08-16</td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr class="new"><td>Discount</td><td class="r">25%</td><td></td><td></td><td></td><td></td><td></td><td class="r">-3 120.00</td></tr>
+          <tr class="new"><td>Rent factor</td><td class="r">2.20</td><td>LL's 5-day rate</td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr class="new"><td class="b">TOTAL, 5 DAYS</td><td></td><td></td><td></td><td></td><td></td><td></td><td class="r b">20 592.00</td></tr>
+          <tr class="new"><td>VAT</td><td class="r">25%</td><td></td><td></td><td></td><td></td><td></td><td class="r">5 148.00</td></tr>
+          <tr class="new"><td class="b">TOTAL, INC VAT</td><td></td><td></td><td></td><td></td><td></td><td></td><td class="r b">25 740.00</td></tr>
+        </table>
+      </div>
+      <div class="spec__cap">
+        <b>the generic spreadsheet</b> — six rows under the existing total, in the same
+        columns. Values, not formulas: this is an order document, and a supplier who edits
+        the quantities is editing a list, not running a model.
+      </div>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame" style="overflow-x:auto">
+        <table class="xl">
+          <tr><th colspan="4">Sammanställning &nbsp;— written back into the supplier's own file</th></tr>
+          <tr><th></th><th>A</th><th>B &nbsp;LL Ljud</th><th>C &nbsp;LL Ljus</th></tr>
+          <tr><td class="cellref">3</td><td>Utrustning ink</td><td class="r">10 800.00</td><td class="r">1 680.00</td></tr>
+          <tr class="new"><td class="cellref">4</td><td class="b">Rabatt utrustning</td><td class="r b">0,25</td><td class="r b">0,25</td></tr>
+          <tr class="new"><td class="cellref">5</td><td class="b">Hyresfaktor (Antal dagar)</td><td class="r b">2,2</td><td class="r b">2,2</td></tr>
+          <tr><td class="cellref">6</td><td>Summa utrustning ex</td><td class="r">17 820.00</td><td class="r">2 772.00</td></tr>
+          <tr><td class="cellref">7</td><td>Summa utrustning ink <span style="color:#888">=B6*1.25</span></td><td class="r">22 275.00</td><td class="r">3 465.00</td></tr>
+          <tr><td class="cellref">26</td><td class="b">Totalsumma ex</td><td class="r b" colspan="2">20 592.00</td></tr>
+          <tr><td class="cellref">27</td><td class="b">Totalsumma ink</td><td class="r b" colspan="2">25 740.00</td></tr>
+        </table>
+      </div>
+      <div class="spec__cap">
+        <b>the LL price-list export</b> — and this is the one that matters most.
+        PatchPlanner writes <b>two cells per column</b>, the two a human types, and the
+        supplier's own formulas produce every figure below them. We do not write a total
+        into someone else's spreadsheet; we fill in the blanks it was built with. Both
+        columns get both values, because <code>Rabatt</code> and <code>Hyresfaktor</code> are
+        per-column in that file and one hire has one of each.
+        <br>
+        Cells are found by their <b>row label</b> in column A, never by address — the same
+        rule the quantity columns have followed since Slice 2. A file whose labels have been
+        renamed gets its quantities as before, and the order reports that its pricing could
+        not be placed.
+        <br>
+        <b>VAT is not written, and the ×1.25 formulas are not touched.</b> Filling in the two
+        cells a human types is a different act from rewriting someone else's model — the file
+        computes its own <em>ink.</em> column and always has. If this event's VAT has been
+        overridden to something other than the rate that file states, the export report says
+        so and names both numbers, rather than producing a document that quietly disagrees
+        with the app.
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       06 · THE PHONE, AND MY DEFAULTS
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">06 · the phone, and my defaults</span>
+      <h2>Two more surfaces, both already specified</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Patterns §7g: everything that is a form over a row has a phone form. A discount and
+        an override are exactly that, and they are typed in a loading bay as often as at a
+        desk — so <em>Pricing</em> joins the rental panel's overflow and opens the sheet
+        below. The rate card is the same, in the catalog's own overflow.
+      </p>
+    </div>
+
+    <div class="grid2">
+      <div class="spec">
+        <div class="spec__frame">
+          <div class="app app--tight">
+            <div class="ph">
+              <div class="phsheet">
+                <div class="phsheet__gr"><i></i></div>
+                <div class="phsheet__hd">
+                  <span class="phsheet__ti">Pricing<span class="infob">i</span></span>
+                  <span class="sd__x">✕</span>
+                </div>
+                <div class="phsheet__bd">
+                  <div class="fstack">
+                    <span class="lbl">Billed days</span>
+                    <span class="fld fld--sel phfld">Catalog's rule — on-site · 5 days</span>
+                  </div>
+                  <div class="fstack">
+                    <span class="lbl">Rent factor</span>
+                    <span class="fld phfld"><span class="mono">2.20</span> <span style="color:#71717a;margin-left:8px">LL · the 5-day row</span></span>
+                  </div>
+                  <div class="fieldrow">
+                    <span class="dnote">% off the equipment subtotal</span>
+                    <div class="fstack">
+                      <span class="lbl">Discount %</span>
+                      <span class="fld fld--num mono" style="height:44px;font-size:14px">25</span>
+                    </div>
+                  </div>
+                  <div class="fieldrow">
+                    <span class="dnote">Leave empty to follow the catalog.</span>
+                    <div class="fstack">
+                      <span class="lbl">VAT %</span>
+                      <span class="fld fld--num mono" style="height:44px;font-size:14px">25</span>
+                    </div>
+                  </div>
+                  <div class="gear">
+                    <div class="ldg">
+                      <div class="ldg__r"><span class="ldg__k">Subtotal, per day</span><span class="ldg__v">12 480.00</span></div>
+                      <div class="ldg__r ldg__r--op"><span class="ldg__k">Discount <b>25%</b></span><span class="ldg__v">−3 120.00</span></div>
+                      <div class="ldg__r ldg__r--op"><span class="ldg__k">5 days</span><span class="ldg__v">×2.20</span></div>
+                      <div class="ldg__r ldg__r--tot"><span class="ldg__k">Total ex VAT</span><span class="ldg__v">20 592.00</span></div>
+                      <div class="ldg__r ldg__r--op"><span class="ldg__k">VAT <b>25%</b></span><span class="ldg__v">+5 148.00</span></div>
+                      <div class="ldg__r ldg__r--tot"><span class="ldg__k">Total inc VAT</span><span class="ldg__v">25 740.00</span></div>
+                    </div>
+                  </div>
+                  <span class="btn btn--primary phbtn" style="justify-content:center">Save</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="spec__cap">
+          <b>the phone</b> — <code>ui/Sheet</code>, the same construction as
+          <code>MobileRentalEditSheet</code>: 44 px controls, one column, the ledger
+          unchanged from the drawer because it is already a mono list that fits 375 px.
+        </div>
+      </div>
+
+      <div class="spec">
+        <div class="spec__frame">
+          <div class="app app--tight">
+            <div style="display:inline-flex;gap:4px;margin-bottom:12px">
+              <span class="btn btn--sm btn--ghost" style="color:#a1a1aa">Vocabularies</span>
+              <span class="btn btn--sm btn--primary">Rental pricing</span>
+            </div>
+            <div class="pan">
+              <div class="pan__bar">
+                <span class="pan__ti">Rental pricing</span>
+                <span class="grow"></span>
+              </div>
+              <div style="padding:14px 12px;display:flex;flex-direction:column;gap:10px">
+                <div class="fstack" style="max-width:340px">
+                  <span class="lbl">Which days a hire is charged for</span>
+                  <span class="fld fld--sel fld--w">All on-site days (load-in → load-out)</span>
+                </div>
+                <div class="fstack" style="max-width:340px">
+                  <span class="lbl">VAT %</span>
+                  <span class="fld fld--num">25</span>
+                </div>
+                <p class="dnote" style="max-width:52ch">
+                  A catalog adopts both when you import into it — except that a file
+                  stating its own VAT rate wins over this one. Changing either here never
+                  changes a catalog you already have; open that catalog's Pricing drawer.
+                </p>
+              </div>
+              <div class="strip">
+                <span class="q">seeds new catalogs · changes nothing that exists</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="spec__cap">
+          <b>/my-defaults</b> gains a second tab rather than a second panel. Patterns §1
+          already covers <em>one page whose tabs each own a panel</em> — Inventories is the
+          instance — and it is the shape that survives the third default arriving. The
+          existing vocabulary panel is untouched behind the first tab.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       07 · DECISIONS
+       ================================================================== -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">07 · decisions</span>
+      <h2>What this mockup decides</h2>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">Step down, clamp both ends<span class="tag tag--keep">settled</span></div>
+        <div class="led__v">
+          Agreed with you before drawing. 17 days → the 14-day factor; past the last row the
+          last row holds. <em>The alternative, interpolating, was rejected: a supplier cannot
+          be asked to honour a rate they never published.</em>
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">An import replaces the table<span class="tag tag--keep">settled</span></div>
+        <div class="led__v">
+          Agreed with you before drawing. The table is one curve, not a set of independent
+          rows, so <code>is_manual</code> has no meaning here. An import carrying
+          <b>no</b> factor sheet leaves the table alone — which is what makes the blank
+          generic template harmless.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">User → catalog → event<span class="tag tag--keep">settled</span></div>
+        <div class="led__v">
+          Your instruction, drawn in §02. The catalog <b>copies</b> your default at import;
+          the event <b>references</b> the catalog until it disagrees.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">The factor is not per line<span class="tag tag--new">decided here</span></div>
+        <div class="led__v">
+          Every line keeps its day rate, on screen and in all three exports; the factor and
+          discount act once, on the sum. It is what <code>LL.xlsx</code> does, and it keeps
+          each line checkable against the supplier's published list.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Two words on the old total<span class="tag tag--new">decided here</span></div>
+        <div class="led__v">
+          <code>total_ex_vat</code> becomes <code>subtotal_ex_vat</code> in the API and
+          <em>per day</em> on paper, and the priced total is a new field beside it. The
+          rename is deliberate: it makes the compiler visit every screen that shows money,
+          so none can keep quietly showing the day rate.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">VAT joins the cascade<span class="tag tag--new">revision 2</span></div>
+        <div class="led__v">
+          Your addition. Same three stores as the charged-days rule, with one difference
+          that matters: <b>a file stating its own rate beats your default</b>, because a
+          supplier's VAT is a fact about the supplier. Every surface keeps its
+          <b>ex VAT</b> figure — that is what the application has always meant — and states
+          the inc-VAT total beside it.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">VAT is read from a formula<span class="tag tag--new">revision 2</span></div>
+        <div class="led__v">
+          <code>LL.xlsx</code> never states 25% as a value; it states <code>*1.25</code>
+          inside seven formulas. We read the multiplier off
+          <code>Summa utrustning ink</code> and convert it. It is a heuristic and it is
+          treated like one: if the row or the formula cannot be read, the file carries no
+          rate and the catalog adopts your default. <em>Nothing fails.</em>
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">LL's formulas stay LL's<span class="tag tag--new">revision 2</span></div>
+        <div class="led__v">
+          The export writes the two cells a human types and <b>does not rewrite the ×1.25
+          formulas</b>. Where an event's VAT override disagrees with the rate that file
+          states, the export report names both numbers rather than shipping a document that
+          quietly disagrees with the screen.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Provenance is not stored<span class="tag tag--new">revision 3</span></div>
+        <div class="led__v">
+          Revision 2 had both drawers saying VAT was <em>read from LL.xlsx</em>. Nothing
+          stores that, and a stored provenance would keep claiming it after somebody edited
+          the field. It is reported <b>in the import result</b> — <em>"VAT 25% read from the
+          file"</em> — and then forgotten. The drawers say <em>from the catalog</em>, which
+          is a fact that stays true.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Defaults seed at creation<span class="tag tag--new">revision 3</span></div>
+        <div class="led__v">
+          Also from the consistency pass. A catalog copies your defaults when it is
+          <b>created</b>, not when it is imported into: the columns are <code>NOT NULL</code>,
+          so there is no unset state an import could detect, and a second import would
+          silently undo the change you made after the first — the exact thing you asked to
+          be possible. What an import applies is what the <b>file</b> says. In the ordinary
+          flow the two rules give the same answer.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">The explanation is an <em>i</em><span class="tag tag--new">revision 4</span></div>
+        <div class="led__v">
+          Reported against the built page: <em>"at the bottom there is a disclaimer… it is
+          very big."</em> A drawer's footer is a fixed strip, and on a phone the drawer is a
+          bottom sheet — so a two-sentence footer is <b>a fifth of the screen, on every
+          visit, with no way to put it away.</b> It is <code>ui/InfoNote</code> now, the same
+          <em>i</em> the Universes drawer carries. Four drawers had the fault, two of them
+          older than this slice; all four are fixed.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">The number sits at the thumb<span class="tag tag--new">revision 4</span></div>
+        <div class="led__v">
+          Also reported: the inputs were on the <em>left</em> of their descriptions. They are
+          at the <b>right edge</b> now, hint to the left — on a phone that is where the thumb
+          already is, and on the desktop it lines them up with the ledger below, whose labels
+          are left and whose figures are right. <b>No <code>useIsMobile</code> branch:</b>
+          this is one of the few places where the phone's ergonomics and the desktop's
+          alignment want the same thing.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Two rules written down<span class="tag tag--new">revision 4</span></div>
+        <div class="led__v">
+          Both went into <code>design/components.md</code>'s <code>ui/Drawer</code> entry, and
+          <code>audit.md</code> records the report as <b>M14</b>. The <em>i</em> rule existed
+          already — but only at the <code>InfoNote</code> end, which is not where somebody
+          writing a drawer is looking. That is why four drawers got it wrong.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">No new design rule<span class="tag tag--keep">was checked</span></div>
+        <div class="led__v">
+          Drawer, GearList, StatusStrip, Select, Input, page tabs — every construction here
+          is already in <code>design/</code>, and the ledger is <code>GearSpecs</code> rows
+          in a <code>GearCard</code>. This held through the build: the slice shipped without
+          touching <code>design/</code>. <b>It stopped holding when the built page was used
+          on a phone</b> — see the two rows above. The language gained two sentences, both
+          about drawers in general rather than about pricing.
+        </div>
+      </div>
+    </div>
+
+    <div class="ask">
+      <h3>Revision 1's two questions, answered</h3>
+      <p>
+        <b>1 · The amber words stay.</b> A catalog with no rate card says
+        <span class="mono">×1.00 no rate card</span> in amber text on the strip, while the
+        strip's <em>tint</em> stays the stock verdict it has always been. It is the one case
+        the slice exists to make visible, and it would otherwise be silent.
+      </p>
+      <p>
+        <b>2 · Owned gear is outside pricing.</b> Gear you own is not hired: no factor, no
+        discount, no VAT, and the Equipment tab is untouched. Pricing your own gear to a
+        client would be a different slice.
+      </p>
+    </div>
+  </section>
+
+</div>

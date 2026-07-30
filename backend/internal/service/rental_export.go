@@ -16,6 +16,12 @@ import (
 // priceListSheet is the sheet both the importer and the exporter operate on.
 const priceListSheet = "Prislista LL"
 
+// summarySheet is where the price-list file does its own arithmetic: the two
+// cells a human types (Rabatt utrustning, Hyresfaktor) and the formulas that
+// turn them into a total. Slice 31 both reads it (for the VAT rate, which lives
+// only inside a formula) and writes it (the two typed cells).
+const summarySheet = "Sammanställning"
+
 // Header texts of the order-quantity columns, compared after normalization
 // (the real file's headers contain embedded newlines).
 const (
@@ -104,6 +110,7 @@ func (s ExportService) BuildRentalExport(eventID int64) (*excelize.File, domain.
 	report := domain.RentalExportReport{
 		Filename:      exportFilename(event, ".xlsx"),
 		UnplacedLines: make([]domain.UnplacedLine, 0),
+		PricingNotes:  make([]string, 0),
 	}
 	for _, line := range summary.Items {
 		if line.QuantityAudio == 0 && line.QuantityLighting == 0 {
@@ -144,7 +151,92 @@ func (s ExportService) BuildRentalExport(eventID int64) (*excelize.File, domain.
 		report.PlacedLines++
 	}
 
+	writePricingCells(file, summary.Pricing, &report)
 	return file, report, nil
+}
+
+// The two cells in Sammanställning that a human types. Everything else on that
+// sheet is a formula computing from them.
+var (
+	discountRowLabel = "rabatt utrustning"
+	factorRowLabel   = "hyresfaktor (antal dagar)"
+	// The value columns: B is LL Ljud, C is LL Ljus. Both get both values,
+	// because Rabatt and Hyresfaktor are per-column in that file and one hire
+	// has one of each.
+	pricingValueColumns = []int{2, 3}
+)
+
+// writePricingCells fills in the discount and the rent factor, and lets the
+// supplier's own file compute every figure below them (Slice 31).
+//
+// This is the whole intervention. We do NOT write a total into someone else's
+// spreadsheet, and we do not touch the *1.25 formulas that produce its inc-VAT
+// column — filling in the two cells that file was built to have filled is a
+// different act from editing its model. If this event's VAT has been overridden
+// away from what that file computes, the report says so and names both numbers
+// rather than shipping a document that quietly disagrees with the screen.
+//
+// Failing to place is never fatal: the quantities are already written, the file
+// is still worth having, and Principle IV's duty is to REPORT what could not be
+// represented, not to refuse.
+func writePricingCells(file *excelize.File, pricing domain.RentalPricing, report *domain.RentalExportReport) {
+	rows, err := file.GetRows(summarySheet, excelize.Options{RawCellValue: true})
+	if err != nil {
+		report.PricingNotes = append(report.PricingNotes,
+			fmt.Sprintf("this price list has no %q sheet, so the discount and rent factor could not be written into it", summarySheet))
+		return
+	}
+
+	// Located by row label in column A, never by address — the same rule the
+	// quantity columns have followed since Slice 2.
+	discountRow, factorRow := 0, 0
+	for index, row := range rows {
+		switch normalizeHeader(cell(row, 0)) {
+		case discountRowLabel:
+			discountRow = index + 1
+		case factorRowLabel:
+			factorRow = index + 1
+		}
+	}
+	if discountRow == 0 || factorRow == 0 {
+		report.PricingNotes = append(report.PricingNotes,
+			fmt.Sprintf("could not find the %q and %q rows in %q, so this event's pricing was not written into the file - its quantities are correct, but its totals are the file's own",
+				"Rabatt utrustning", "Hyresfaktor (Antal dagar)", summarySheet))
+		return
+	}
+
+	// The file's own formula is `(subtotal - subtotal * B4) * B5`, so the
+	// discount goes in as the fraction it multiplies by, not as a percentage.
+	for _, column := range pricingValueColumns {
+		for _, write := range []struct {
+			row   int
+			value float64
+		}{{discountRow, pricing.DiscountPercent / 100}, {factorRow, pricing.RentFactor}} {
+			cellName, err := excelize.CoordinatesToCellName(column, write.row)
+			if err != nil {
+				report.PricingNotes = append(report.PricingNotes, fmt.Sprintf("could not address a pricing cell: %v", err))
+				return
+			}
+			if err := file.SetCellValue(summarySheet, cellName, write.value); err != nil {
+				report.PricingNotes = append(report.PricingNotes, fmt.Sprintf("could not write a pricing cell: %v", err))
+				return
+			}
+		}
+	}
+	report.PricingPlaced = true
+
+	// The file computes its own inc-VAT column at whatever rate its formulas
+	// carry. Where this event says something else, both numbers are named.
+	if fileRate, ok := readLLVATPercent(file); ok && !sameRate(fileRate, pricing.VATPercent) {
+		report.PricingNotes = append(report.PricingNotes,
+			fmt.Sprintf("this event's VAT is %s%%, but the price list computes %s%% - its own formulas are unchanged, so its inc-VAT column follows the file rather than the event",
+				trimPercent(pricing.VATPercent), trimPercent(fileRate)))
+	}
+}
+
+func sameRate(a, b float64) bool {
+	diff := a - b
+	return diff < 0.005 && diff > -0.005
 }
 
 // placementProblem returns the unplaced reason for an item, or "" when its
