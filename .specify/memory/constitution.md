@@ -1,89 +1,3 @@
-<!--
-SYNC IMPACT REPORT
-==================
-Version change: 0.3.1 → 0.4.0
-Modified principles:
-  - I. Domain-First Data Model — the inventory-catalog bullet no longer
-    names LL.xlsx as *the* source. The catalog is now defined by its
-    role (the authoritative source of rentable equipment for the event
-    that binds it), with its origin — a supplier price list, a generic
-    spreadsheet, or direct entry — explicitly declared irrelevant to
-    every downstream consumer. Slice 22 makes the tool usable by
-    technicians who rent from any supplier, so hardcoding one
-    supplier's file into a core principle became actively wrong.
-  - II. Extensibility by Design — the "new inventory *categories* from
-    the LL.xlsx catalog" bullet is generalized to categories from any
-    source, including ones the user creates by hand. The substance of
-    the rule (no new endpoints or components; never branch logic on a
-    category name) is unchanged and now covers user-defined categories.
-  - IV. Inventory-Driven Rental Workflow — was written as "the export
-    MUST reproduce the LL.xlsx template format". Restructured into a
-    general obligation (every inventory MUST be exportable in a
-    supplier-neutral form) plus a conditional fidelity requirement (an
-    inventory populated from a supplier's own price-list file MUST be
-    exportable back into that exact file, and MUST NOT offer that
-    export otherwise). This strengthens rather than relaxes the old
-    rule: it adds the negative half, which is the actual new
-    invariant.
-Added sections: none (no new principles)
-Removed sections: none
-Technology Stack: added a "Documents" row naming excelize for
-  spreadsheets and a pure-Go PDF writer for the PDF rental order (the
-  first PDF generation in the project; the dependency itself is
-  justified in specs/022-generic-inventory-formats/plan.md under
-  Complexity Tracking, per Governance).
-Other corrections bundled in (both factual drift, PATCH-level on their
-own — folded into this MINOR amendment rather than deferred):
-  - Project structure block listed `inventory/LL.xlsx` as a read-only
-    input directory. That has not been true since Slice 16: price-list
-    files are per-inventory uploads stored in the database, and the
-    repo-root LL.xlsx is only a bootstrap sample. Block corrected.
-  - Development Workflow required `tsc --noEmit`, which silently checks
-    nothing against this repo's references-only root tsconfig. Changed
-    to `tsc -b`, matching the `typecheck` script CI actually runs.
-Templates checked:
-  ✅ plan-template.md — Constitution Check section is generic, no
-     hardcoded principle text to update
-  ✅ spec-template.md — no constitution references
-  ✅ tasks-template.md — no constitution references
-  ✅ checklist-template.md — no constitution references
-Follow-up required (tracked in the Slice 22 task list, not deferred
-indefinitely):
-  ⚠ PROJECT.md §1 and §2.2 still describe the catalog as sourced from
-     LL.xlsx; to be updated as part of Slice 22's documentation task.
-  ⚠ ROADMAP.md standing invariant (line 27) names "the Excel export";
-     to be reworded to cover all three export formats in the same task.
-Deferred TODOs: none
--->
-
-<!--
-PRIOR SYNC IMPACT REPORT (0.3.0 → 0.3.1)
-==================
-Version change: 0.3.0 → 0.3.1
-Modified principles:
-  - III. Full-Stack Monorepo Architecture — the single-binary-deploy
-    bullet no longer describes this as optional/future work: production
-    deployment shipped as roadmap Slice 18 (`make build` + `go:embed`),
-    correcting the stale "tracked as roadmap Slice 16" pointer (Slice 16
-    became inventory ownership during planning; deployment moved to
-    Slice 18). Local dev is now described accurately (Vite dev-server
-    proxy forwards `/api` and `/health`, since the frontend's API base
-    URL became relative in this same slice).
-Added sections: none
-Removed sections: none
-Technology Stack: "Build/deploy" row updated to state the single-binary
-  production build concretely instead of calling it optional.
-Templates checked:
-  ✅ plan-template.md — no hardcoded principle text to update
-  ✅ spec-template.md — no constitution references
-  ✅ tasks-template.md — no constitution references
-  ✅ commands/*.md — none present in this project
-This is a documentation-only PATCH clarifying wording after Slice 18
-(production deployment) shipped — no principle was added, removed, or
-redefined.
-Deferred TODOs: none
--->
-
 # PatchPlanner Constitution
 
 ## Core Principles
@@ -264,3 +178,96 @@ migration.
   MUST be documented in the relevant plan.md with rationale.
 
 **Version**: 0.4.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-25
+
+---
+
+## Amendment record
+
+The sync impact report for the most recent amendment. Git history holds the rest;
+this is kept inline so the rationale travels with the document.
+
+<!--
+SYNC IMPACT REPORT
+==================
+Version change: 0.3.1 → 0.4.0
+Modified principles:
+  - I. Domain-First Data Model — the inventory-catalog bullet no longer
+    names LL.xlsx as *the* source. The catalog is now defined by its
+    role (the authoritative source of rentable equipment for the event
+    that binds it), with its origin — a supplier price list, a generic
+    spreadsheet, or direct entry — explicitly declared irrelevant to
+    every downstream consumer. Slice 22 makes the tool usable by
+    technicians who rent from any supplier, so hardcoding one
+    supplier's file into a core principle became actively wrong.
+  - II. Extensibility by Design — the "new inventory *categories* from
+    the LL.xlsx catalog" bullet is generalized to categories from any
+    source, including ones the user creates by hand. The substance of
+    the rule (no new endpoints or components; never branch logic on a
+    category name) is unchanged and now covers user-defined categories.
+  - IV. Inventory-Driven Rental Workflow — was written as "the export
+    MUST reproduce the LL.xlsx template format". Restructured into a
+    general obligation (every inventory MUST be exportable in a
+    supplier-neutral form) plus a conditional fidelity requirement (an
+    inventory populated from a supplier's own price-list file MUST be
+    exportable back into that exact file, and MUST NOT offer that
+    export otherwise). This strengthens rather than relaxes the old
+    rule: it adds the negative half, which is the actual new
+    invariant.
+Added sections: none (no new principles)
+Removed sections: none
+Technology Stack: added a "Documents" row naming excelize for
+  spreadsheets and a pure-Go PDF writer for the PDF rental order (the
+  first PDF generation in the project; the dependency itself is
+  justified in specs/022-generic-inventory-formats/plan.md under
+  Complexity Tracking, per Governance).
+Other corrections bundled in (both factual drift, PATCH-level on their
+own — folded into this MINOR amendment rather than deferred):
+  - Project structure block listed `inventory/LL.xlsx` as a read-only
+    input directory. That has not been true since Slice 16: price-list
+    files are per-inventory uploads stored in the database, and the
+    repo-root LL.xlsx is only a bootstrap sample. Block corrected.
+  - Development Workflow required `tsc --noEmit`, which silently checks
+    nothing against this repo's references-only root tsconfig. Changed
+    to `tsc -b`, matching the `typecheck` script CI actually runs.
+Templates checked:
+  ✅ plan-template.md — Constitution Check section is generic, no
+     hardcoded principle text to update
+  ✅ spec-template.md — no constitution references
+  ✅ tasks-template.md — no constitution references
+  ✅ checklist-template.md — no constitution references
+Follow-up required (tracked in the Slice 22 task list, not deferred
+indefinitely):
+  ⚠ PROJECT.md §1 and §2.2 still describe the catalog as sourced from
+     LL.xlsx; to be updated as part of Slice 22's documentation task.
+  ⚠ ROADMAP.md standing invariant (line 27) names "the Excel export";
+     to be reworded to cover all three export formats in the same task.
+Deferred TODOs: none
+-->
+
+<!--
+PRIOR SYNC IMPACT REPORT (0.3.0 → 0.3.1)
+==================
+Version change: 0.3.0 → 0.3.1
+Modified principles:
+  - III. Full-Stack Monorepo Architecture — the single-binary-deploy
+    bullet no longer describes this as optional/future work: production
+    deployment shipped as roadmap Slice 18 (`make build` + `go:embed`),
+    correcting the stale "tracked as roadmap Slice 16" pointer (Slice 16
+    became inventory ownership during planning; deployment moved to
+    Slice 18). Local dev is now described accurately (Vite dev-server
+    proxy forwards `/api` and `/health`, since the frontend's API base
+    URL became relative in this same slice).
+Added sections: none
+Removed sections: none
+Technology Stack: "Build/deploy" row updated to state the single-binary
+  production build concretely instead of calling it optional.
+Templates checked:
+  ✅ plan-template.md — no hardcoded principle text to update
+  ✅ spec-template.md — no constitution references
+  ✅ tasks-template.md — no constitution references
+  ✅ commands/*.md — none present in this project
+This is a documentation-only PATCH clarifying wording after Slice 18
+(production deployment) shipped — no principle was added, removed, or
+redefined.
+Deferred TODOs: none
+-->

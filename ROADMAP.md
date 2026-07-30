@@ -1,5 +1,26 @@
 # PatchPlanner — Implementation Roadmap
 
+## What remains
+
+**Slices 0–37 are delivered.** This file is a per-slice record written after
+delivery; everything below this section is history. If you are looking for what
+is left, it is only this:
+
+| | | |
+|---|---|---|
+| Slice 31 | Rental pricing by duration | planned, not started — L1102 |
+| D1 | The legacy catalog can become permanently ownerless | L1348 |
+| D2 | The flow inspector's delete is a browser dialog | L1407 |
+| D3 | The stage plot's remembered view is shared across every device | L1425 |
+
+Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
+multi-event/tour planning (§3.11).
+
+The dependency graph is at the foot of the file. **Grep this file; do not read it
+whole** — it is ~1,400 lines and the rest is retrospective.
+
+---
+
 Master plan to take PatchPlanner from its current state to a finished v1.
 Each numbered slice (except Slice 0) is delivered through the Spec-Kit
 workflow: `/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
