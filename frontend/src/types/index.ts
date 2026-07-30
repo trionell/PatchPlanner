@@ -597,8 +597,12 @@ export interface StagePlot {
   show_fixture_fid: boolean
   show_fixture_dmx: boolean
   active_view: StagePlotView
+  /** @deprecated The view is one person's, and lives on their device — `usePlotView`,
+   *  ROADMAP D3. Still returned by the API, read by nothing. */
   zoom: number
+  /** @deprecated See `zoom`. */
   pan_x_cm: number
+  /** @deprecated See `zoom`. */
   pan_y_cm: number
 }
 

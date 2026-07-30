@@ -9,13 +9,12 @@ is left, it is only this:
 | | |
 |---|---|
 | Slice 31 | Rental pricing by duration — planned, not started |
-| D3 | The stage plot's remembered view is shared across every device |
 | D4 | The event's read-only catalog browse is the last pre-redesign surface |
 
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
 multi-event/tour planning (§3.11).
 
-Reach any of them by heading, not by line number — `grep -n '^### D3' ROADMAP.md`.
+Reach any of them by heading, not by line number — `grep -n '^### D4' ROADMAP.md`.
 A closed defect keeps its section and gains a ✅; this table is the list of what
 has not. The dependency graph is at the foot of the file.
 
@@ -1500,7 +1499,7 @@ sweep across sixteen surfaces in one commit is a regression nobody can attribute
 is the rule every wave in the convergence has followed. Each takes `ConfirmDialog` when
 its own surface is next opened.
 
-### D3 — The stage plot's remembered view is shared across every device
+### D3 — The stage plot's remembered view is shared across every device ✅ fixed 2026-07-30
 
 **Found:** 2026-07-30, while deciding where Slice 37's view should live. `stage_plots`
 holds `zoom`, `pan_x_cm` and `pan_y_cm`, and `StagePlotTab` writes them on an 800 ms
@@ -1518,6 +1517,39 @@ shared plot setting and `StagePlotTab:126` already argues correctly that the pho
 *local* view choice must not change what the next person opens on a desk. Dropping the
 three columns is a migration whose `down` cannot restore them, so it may be worth leaving
 them unread rather than removing them.
+
+**Fixed** by `hooks/usePlotView.ts`, which is to `StagePlotTab` what `useFlowView` is to
+the two flow canvases: the view keyed by plot in `localStorage`, the debounced server
+write gone. `active_view` stays on the plot, as the fix was asked to leave it.
+
+Five decisions worth keeping:
+
+1. **The columns stay.** `zoom`, `pan_x_cm` and `pan_y_cm` are still selected and still
+   patchable; nothing reads them and nothing writes them. The migration that removed them
+   could not put them back, and the reward for running it is three unread floats. The
+   `StagePlot` type marks them `@deprecated` so the next reader does not re-wire them.
+2. **The role gate is gone with the server write.** It existed because the value went to
+   everybody; a view in `localStorage` belongs to the person holding the device, and
+   withholding it from a viewer would take something from them and give it to nobody —
+   `usePlaneView` had already written that sentence about the flow canvases.
+3. **The parse is `parseFlowView` plus a ceiling.** The shape is identical, so the
+   validation is reused rather than copied; the one difference is that this canvas has a
+   maximum scale, and a stored zoom outside `[0.05, 20]` is **clamped rather than
+   rejected** — a plot opened at 400× is a place you can recognise once you zoom out.
+   `MIN_PLOT_ZOOM` / `MAX_PLOT_ZOOM` / `clampPlotZoom` moved to `lib/stagePlot.ts`, which
+   is where the wheel handler, the toolbar's `±` and the parse can all reach them; the
+   toolbar had been carrying its own copy of the two numbers since Slice 13.
+4. **A pending write survives a plot switch.** One timer serves every plot, so the first
+   frame of a pan on the plot just opened would have cancelled the settling write of the
+   one just left. It is flushed instead, keyed by the plot it came from — as are unmount
+   and `pagehide`, both of which the server version simply lost. A deleted plot goes the
+   other way: `forget` drops the key *and* the write still settling for it, so a pan in
+   the last 800 ms of a plot's life cannot resurrect its view.
+5. **A new plot now opens at (−50, −50) cm rather than (0, 0).** The columns default to
+   zero, so a plot nobody had panned used to open with the stage origin hard against the
+   canvas corner. The default view insets it, which is what the old *unloaded* fallback
+   already did. Besides everyone's remembered views resetting once, this is the only
+   visible change.
 
 ### D4 — The event's read-only catalog browse is the last pre-redesign surface
 

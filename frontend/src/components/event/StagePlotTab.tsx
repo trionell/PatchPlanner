@@ -24,7 +24,8 @@ import {
 import type { PlotTruss, StagePlotResponse, StagePlotView, TrussSide } from '../../types'
 import { useDraftState } from '../../hooks/useDraftState'
 import { useIsMobile } from '../../hooks/useIsMobile'
-import { roundCm } from '../../lib/stagePlot'
+import { usePlotView } from '../../hooks/usePlotView'
+import { clampPlotZoom, roundCm } from '../../lib/stagePlot'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { MicroLabel } from '../ui/Label'
@@ -35,7 +36,7 @@ import { StagePlotSheet } from '../print/StagePlotSheet'
 import { PlotTrussManager } from './PlotTrussManager'
 import { InspectorRail } from './graph/InspectorRail'
 import { ZoomControl } from './graph/ZoomControl'
-import { StagePlotCanvas, type PlotViewState } from './StagePlotCanvas'
+import { StagePlotCanvas } from './StagePlotCanvas'
 import { StagePlotInspector, StagePlotLayersPanel } from './StagePlotInspector'
 import { StagePlotPalette } from './StagePlotPalette'
 import { useInfoNote } from '../../hooks/useInfoNote'
@@ -117,17 +118,11 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
   // change what the next person opens on a desk.
   const [mobileView, setMobileView] = useState<StagePlotView>('top')
 
-  // Viewport state lives here (not in the canvas) so the palette can
-  // place elements at the visible centre; persisted debounced.
-  const [viewStates, setViewStates] = useState<Record<number, PlotViewState>>({})
+  // Viewport state lives here (not in the canvas) so the palette can place elements at
+  // the visible centre. Remembered per plot on this device — the plot's own `zoom` and
+  // `pan_*_cm` columns are no longer read or written (ROADMAP D3, `usePlotView`).
+  const [viewState, handleViewStateChange, forgetPlotView] = usePlotView(activePlotId)
   const canvasSize = useRef({ width: 800, height: 560 })
-  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const viewState: PlotViewState =
-    (activePlotId != null ? viewStates[activePlotId] : undefined) ??
-    (response
-      ? { zoom: response.plot.zoom, panX: response.plot.pan_x_cm, panY: response.plot.pan_y_cm }
-      : { zoom: 1, panX: -50, panY: -50 })
 
   const invalidatePlot = useCallback(
     () => queryClient.invalidateQueries({ queryKey: ['stage-plot', eventId, activePlotId] }),
@@ -154,8 +149,15 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
     },
   })
   const deletePlotMutation = useMutation({
-    mutationFn: () => deleteStagePlot(eventId, activePlotId as number),
-    onSuccess: async () => {
+    mutationFn: async () => {
+      const doomed = activePlotId as number
+      await deleteStagePlot(eventId, doomed)
+      return doomed
+    },
+    onSuccess: async (doomed) => {
+      // The remembered view goes with the plot; a key nothing can ever open again is
+      // litter, and a write still settling for it would put it straight back.
+      forgetPlotView(doomed)
       setSelectedPlotId(null)
       setSelectedElementId(null)
       setFullscreen(false)
@@ -252,24 +254,12 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
 
   // ---- Viewport ----
 
-  const handleViewStateChange = (state: PlotViewState) => {
-    if (activePlotId == null) return
-    setViewStates((prev) => ({ ...prev, [activePlotId]: state }))
-    // Pan/zoom itself is a local view interaction a viewer may still do
-    // freely — only persisting it back to the server is gated.
-    if (readOnly) return
-    if (persistTimer.current) clearTimeout(persistTimer.current)
-    persistTimer.current = setTimeout(() => {
-      updatePlotSettings.mutate({ zoom: state.zoom, pan_x_cm: roundCm(state.panX), pan_y_cm: roundCm(state.panY) })
-    }, 800)
-  }
-
   const zoomBy = (factor: number) => {
     const center = {
       u: viewState.panX + canvasSize.current.width / (2 * viewState.zoom),
       v: viewState.panY + canvasSize.current.height / (2 * viewState.zoom),
     }
-    const zoom = Math.min(20, Math.max(0.05, viewState.zoom * factor))
+    const zoom = clampPlotZoom(viewState.zoom * factor)
     handleViewStateChange({
       zoom,
       panX: center.u - canvasSize.current.width / (2 * zoom),

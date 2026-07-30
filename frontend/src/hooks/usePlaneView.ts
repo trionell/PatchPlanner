@@ -49,10 +49,11 @@ export interface PlaneViewOptions {
  * and the plane's extent is not known until it has been laid out — so restoring takes
  * three renders and each one has to check that the previous has happened.
  *
- * **Persisted for a viewer too**, unlike `StagePlotTab`'s pan which is gated on role. That
- * gate exists because a stage plot's view goes to the server and belongs to everybody;
- * this one is in `localStorage` and belongs to the person holding the device. Withholding
- * it from a read-only role would take something away from them and give it to nobody.
+ * **Persisted for a viewer too.** This is in `localStorage` and belongs to the person
+ * holding the device; withholding it from a read-only role would take something away from
+ * them and give it to nobody. `StagePlotTab`'s pan was gated on role because it went to
+ * the server and belonged to everybody — `usePlotView` ended that (ROADMAP D3), and the
+ * gate went with it.
  */
 export function usePlaneView({ eventId, tab, wrapperRef, zoom, zoomProp, origin, content, ready, onZoom }: PlaneViewOptions): { onScroll: () => void } {
   const [stored, setStored] = useFlowView(eventId, tab)
