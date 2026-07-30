@@ -13,8 +13,20 @@ func testLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
+// seedBootstrapInventory recreates what migration 038 leaves behind in a
+// pre-Slice-16 upgrade: the catalog at inventories.id = 1. A freshly migrated
+// database has no such row — 049 removes it when it is empty — so a test of
+// the legacy conversion has to stand one up deliberately.
+func seedBootstrapInventory(t *testing.T, database *sql.DB) {
+	t.Helper()
+	if _, err := database.Exec(`INSERT INTO inventories (id, name) VALUES (1, 'Imported catalog')`); err != nil {
+		t.Fatalf("seed bootstrap inventory: %v", err)
+	}
+}
+
 func TestConvertLegacyInventoryTemplate(t *testing.T) {
 	database := openTestDB(t)
+	seedBootstrapInventory(t, database)
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "LL.xlsx")
@@ -29,7 +41,7 @@ func TestConvertLegacyInventoryTemplate(t *testing.T) {
 
 	var sourceXLSX []byte
 	var sourceFilename string
-	if err := database.QueryRow(`SELECT source_xlsx, source_filename FROM inventories WHERE owner_user_id IS NULL`).Scan(&sourceXLSX, &sourceFilename); err != nil {
+	if err := database.QueryRow(`SELECT source_xlsx, source_filename FROM inventories WHERE id = 1`).Scan(&sourceXLSX, &sourceFilename); err != nil {
 		t.Fatalf("query bootstrap inventory: %v", err)
 	}
 	if string(sourceXLSX) != "fake xlsx bytes" {
@@ -48,7 +60,7 @@ func TestConvertLegacyInventoryTemplate(t *testing.T) {
 		t.Fatalf("second convert call: %v", err)
 	}
 	var sourceXLSXAfter []byte
-	if err := database.QueryRow(`SELECT source_xlsx FROM inventories WHERE owner_user_id IS NULL`).Scan(&sourceXLSXAfter); err != nil {
+	if err := database.QueryRow(`SELECT source_xlsx FROM inventories WHERE id = 1`).Scan(&sourceXLSXAfter); err != nil {
 		t.Fatalf("query bootstrap inventory again: %v", err)
 	}
 	if string(sourceXLSXAfter) != "fake xlsx bytes" {
@@ -58,6 +70,7 @@ func TestConvertLegacyInventoryTemplate(t *testing.T) {
 
 func TestConvertLegacyInventoryTemplateNoFile(t *testing.T) {
 	database := openTestDB(t)
+	seedBootstrapInventory(t, database)
 	t.Setenv("INVENTORY_PATH", filepath.Join(t.TempDir(), "does-not-exist.xlsx"))
 
 	if err := convertLegacyInventoryTemplate(database, testLogger()); err != nil {
@@ -65,7 +78,7 @@ func TestConvertLegacyInventoryTemplateNoFile(t *testing.T) {
 	}
 
 	var sourceXLSX sql.NullString
-	if err := database.QueryRow(`SELECT source_xlsx FROM inventories WHERE owner_user_id IS NULL`).Scan(&sourceXLSX); err != nil {
+	if err := database.QueryRow(`SELECT source_xlsx FROM inventories WHERE id = 1`).Scan(&sourceXLSX); err != nil {
 		t.Fatalf("query bootstrap inventory: %v", err)
 	}
 	if sourceXLSX.Valid {

@@ -1,0 +1,11 @@
+-- Deliberately a no-op, and this file exists to say why rather than to be run.
+--
+-- The up migration set an owner on rows that had none. Nothing records which
+-- rows those were, so nothing can distinguish them from inventories that were
+-- owned all along; setting owner_user_id back to NULL for any of them would
+-- re-orphan a catalog and reinstate the 404s D1 describes.
+--
+-- Rolling the code back without rolling this file back is safe: an owned
+-- inventory is what every owner-scoped route already expects, and the old
+-- adoption path simply finds nothing left to claim.
+SELECT 1;

@@ -8,10 +8,10 @@ is left, it is only this:
 
 | | | |
 |---|---|---|
-| Slice 31 | Rental pricing by duration | planned, not started — L1102 |
-| D1 | The legacy catalog can become permanently ownerless | L1348 |
-| D2 | The flow inspector's delete is a browser dialog | L1407 |
-| D3 | The stage plot's remembered view is shared across every device | L1425 |
+| Slice 31 | Rental pricing by duration | planned, not started — L1107 |
+| D2 | The flow inspector's delete is a browser dialog | L1457 |
+| D3 | The stage plot's remembered view is shared across every device | L1475 |
+| D4 | The event's read-only catalog browse is the last pre-redesign surface | L1495 |
 
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
 multi-event/tour planning (§3.11).
@@ -568,6 +568,12 @@ pass, not fully locked here.
   reinvented. Every user after that gets their own empty starter inventory
   auto-created on their first sign-in, ready to import an LL.xlsx into —
   no dead-end empty state.
+  **Both halves of that were reversed on 2026-07-30 while fixing D1** — a
+  login now provisions nothing and adopts only a catalog the user's own
+  events already read. The "dead-end empty state" argument had expired:
+  Slice 32 gave the Inventories page a real onboarding empty state, so an
+  auto-created *My Inventory* was a row nobody asked for, and first-login
+  adoption would hand a new user someone else's catalog.
 - [x] Duplication: `POST /inventories/{id}/duplicate` deep-copies categories,
   items, and their `fixture_modes` into a brand-new inventory owned by the
   caller; the original and any events already using it are untouched.
@@ -1343,9 +1349,10 @@ together and overlap."*
 
 Each of these has been traced to a specific line and is waiting for a slice to
 adopt it. A defect with a cause written down is a defect somebody can pick up; a
-symptom in a chat log is not.
+symptom in a chat log is not. A fixed one keeps its section and is marked as
+fixed: the cause is still the most useful thing written down about that code.
 
-### D1 — The legacy catalog can become permanently ownerless
+### D1 — The legacy catalog can become permanently ownerless ✅ fixed 2026-07-30
 
 **Found:** 2026-07-29, during the Slice 35 field test. The report was a console
 404 on `GET /api/v1/inventories/1/items/273/fixture-modes` when opening a
@@ -1385,23 +1392,67 @@ stopped the query retrying three times (`retry: false` — a 404 is an answer, n
 a hiccup) and left the cause alone, because it is a backend fix and that slice
 was frontend-only.
 
-**What a fix has to cover** — two halves, and the second is the one that is easy
-to miss:
+**The rule the fix settled on** (2026-07-30 product decision, which is wider than
+the defect): **a login provisions no inventory.** A new user owns no catalog until
+they create or import one, or reaches one through an event shared with them. That
+retires both of Slice 16's bootstrap behaviours — the auto-created *My Inventory*
+and first-login adoption of the legacy catalog — and it is affordable now because
+Slice 32 gave the Inventories page a real onboarding empty state (`EmptyAccount`:
+*New catalog* and *Download the template*), so there is no dead end to protect
+against. Event creation already 400s with *"inventoryId must be an inventory you
+own"* and the drawer's `Select` is empty, so the path to the empty state is the
+only path.
 
-1. **The rule.** Adoption should be guarded on *"an ownerless inventory exists"*,
-   not on *"this user owns none"*. The `UPDATE … WHERE id = (SELECT id FROM
-   inventories WHERE owner_user_id IS NULL LIMIT 1)` beneath it is already
-   atomic and already a no-op when there is nothing to adopt, so the early
-   return can simply stop covering it. Worth deciding deliberately *who* should
-   adopt it when several users exist — first login is the migration's stated
-   intent, but it is no longer obviously right once there is more than one user.
-2. **The data.** Existing databases still hold the orphan. A repair migration
-   has to claim it, and it cannot guess an owner from nothing — the defensible
-   rule is the owner of the events already bound to it.
+**The fix**, under that rule:
 
-Regression test to write with the fix: a user who owns an inventory logs in
-while an ownerless one exists, and the ownerless one is adopted rather than
-skipped.
+1. **The claim.** `EnsureUserHasInventory` is gone, replaced by
+   `db.ClaimInventoriesForOwnedEvents`: `UPDATE inventories SET owner_user_id = ?
+   WHERE owner_user_id IS NULL AND EXISTS (SELECT 1 FROM events e WHERE
+   e.inventory_id = inventories.id AND e.owner_user_id = ?)`. It runs on every
+   login, straight after `ClaimOwnerlessEvents` — the events are claimed first
+   and the catalog they read follows them. No "does this user own one?" guard
+   survives, which is the defect itself; the `WHERE` clause is the whole test,
+   and it is idempotent because a claimed row is no longer ownerless.
+   This is the only claim narrow enough to live under the rule: a user whose own
+   events already read a catalog is not being handed anything, they are being let
+   back into what D1 locked them out of. A stranger's login claims nothing.
+2. **The data.** Migration `048_adopt_ownerless_inventory` applies the same rule
+   — the catalog follows its events — to databases that already hold the orphan,
+   claiming it for the owner of the **earliest** event bound to it, so several
+   owners resolve deterministically to whoever has had it longest. It exists
+   *because* the login path cannot cover a pre-Slice-16 upgrade: at migration
+   time that database has no users at all, so nobody's events can pull the
+   catalog across yet.
+3. **The sweep.** Migration `049_drop_empty_bootstrap_inventory` deletes an
+   ownerless inventory that holds no category, no item and no event. This is
+   038's bootstrap row, which is inserted **unconditionally** — so *every*
+   database has had one, a freshly created one included, and it was only ever
+   reachable through the first-login adoption that the rule above retires. Left
+   in place it would sit ownerless forever: invisible in the list, 404ing every
+   owner-scoped route — D1's state reached by a different road. Anything with
+   content in it is real data and is left to 048.
+4. **What 048 broke on the way, and how.** `convertLegacyInventoryTemplate`
+   identified the bootstrap row as *the ownerless one* — true until 048 started
+   claiming it first, after which a pre-Slice-16 upgrade would have skipped
+   storing its `LL.xlsx`. It now keys on `id = 1`, which is exact rather than
+   clever: 038 creates the table and inserts exactly one row, the column is
+   `AUTOINCREMENT`, and `sqlite_sequence` was checked on a fresh install — after
+   049 deletes row 1 the next inventory gets id 2, so nothing can ever occupy it.
+   Both `down` files are documented no-ops: nothing records which rows 048
+   repaired, and 049 deleted rows that held nothing to restore.
+
+**Rehearsed** against a copy of this developer's database (never the file itself):
+version 49, clean; inventory 1 now owned, with its 308 items, 27 categories and
+its stored `LL.xlsx` intact; the other three untouched; nothing deleted. And on a
+fresh database: version 49, **zero** inventories.
+
+Regression tests: a first login provisions nothing and a freshly migrated database
+holds no inventory row at all (`TestLoginProvisionsNoInventory`); the owner of an
+event bound to an ownerless catalog adopts it even though they already own one,
+while a stranger claims nothing (`TestClaimInventoriesForOwnedEvents`); and both
+migrations run on seeded pre-fix data (`TestMigration048AdoptsOrphanedCatalog`,
+`TestMigration049DropsEmptyBootstrapInventory`, via the `execMigrationFile`
+harness).
 
 
 ### D2 — The flow inspector's delete is a browser dialog
@@ -1440,6 +1491,53 @@ shared plot setting and `StagePlotTab:126` already argues correctly that the pho
 *local* view choice must not change what the next person opens on a desk. Dropping the
 three columns is a migration whose `down` cannot restore them, so it may be worth leaving
 them unread rather than removing them.
+
+### D4 — The event's read-only catalog browse is the last pre-redesign surface
+
+**Found:** 2026-07-30, while confirming that D1's fix had not made the *Browse* path
+dead code. It has not — `OverviewTab:97` branches on `ownsInventory`, so a contributor
+or viewer on someone else's event still gets a read-only browse, and an ownerless
+catalog was only ever a second, accidental way into it. But the surface behind that
+button never went through the convergence.
+
+`EventInventoryBrowser` is **the only remaining consumer of `ui/Table` in the
+application** — every other tabular surface (eleven files) is on
+`SheetTable`/`SheetHeadCell`. It renders the same content as `InventorySheet` (items,
+quantity, price) one tier too high: a catalog of equipment is a work surface, which is
+what the Inventories page already concluded about the identical data.
+
+Four things, all in `components/event/EventInventoryBrowser.tsx`:
+
+1. **The tier.** Navigation-tier `ui/Table` + `TableHead` + `Badge` on a work surface
+   → `SheetTable`/`SheetHead`/`SheetHeadCell`, and `Badge` → `Pill`
+   ([components.md](design/components.md) §1, and A9 in the audit for the chip).
+2. **The category rail copies `Tab`'s classes** — `border-amber-500 bg-amber-500/10
+   text-amber-300` hand-written on a `<button>`. `components.md` §3 states the rule
+   this breaks: *a selector that means what you are looking at uses this component
+   rather than copying its classes — that is the whole reason `active` exists.*
+3. **It has no phone treatment.** One component serves both branches
+   (`OverviewTab:160` and `:272`), so a four-column table renders inside the phone's
+   bottom sheet with an `overflow-x-auto` of its own. [patterns.md](design/patterns.md)
+   §7c is the answer — columns become a ranked title and subtitle in a
+   `CondensedListRow` — and §7g names *inventory items* explicitly among the things
+   that have a phone form.
+4. **`max-h-[70vh]` is the unit tokens.md rejects by name** ([tokens.md](design/tokens.md)
+   §7: `vh` is the *largest* viewport, so content can start below the fold with the
+   address bar showing), and it nests a second scroll container inside the sheet's own
+   `max-h-[85svh]`.
+
+**One decision the fix has to make first:** whether this stays an overlay at all.
+`components.md` §4 settled *"an overlay with fields is a `Sheet`; an overlay that is a
+sentence and two buttons is a `Dialog`"* — a read-only work surface is neither, and
+`Drawer`'s stated reason (*it opens over the sheet the user is cross-referencing*) fits
+what someone browsing a catalog mid-event is actually doing. A read-only route under
+`/inventories/{id}` is the third option and the largest.
+
+**A note for whoever picks this up:** [audit.md](design/audit.md)'s Wave 4 table reads
+*"Navigation-tier `ui/Table`s · 4 → 0"*. That count was taken across the four event
+tabs; this file is an overlay opened *from* one of them, and Slice 28 extracted it out
+of `EventInventoryCard` during that same wave. The zero is true of the tabs and false
+of the application — which is the whole reason this went unseen for nine slices.
 
 ## Dependency graph
 

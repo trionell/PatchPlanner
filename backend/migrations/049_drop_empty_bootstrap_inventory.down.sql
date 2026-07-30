@@ -1,0 +1,11 @@
+-- Deliberately a no-op, and this file exists to say why rather than to be run.
+--
+-- The up migration deleted an ownerless inventory that held no categories, no
+-- items and no events. Re-inserting it would not restore anything — there was
+-- nothing in it — and it would hand back a row that no code path claims any
+-- more, which is precisely the orphan the up migration removed.
+--
+-- Rolling the code back without rolling this file back is safe: the old login
+-- path created a starter inventory when it found nothing to adopt, so a user
+-- who needs one still gets one.
+SELECT 1;

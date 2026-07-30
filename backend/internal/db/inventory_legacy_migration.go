@@ -9,21 +9,26 @@ import (
 )
 
 // convertLegacyInventoryTemplate reads whatever file currently sits at the
-// configured inventory path into the one still-ownerless bootstrap
-// inventory row's source_xlsx/source_filename (research.md R5), so the
-// legacy catalog can still be re-imported/exported once claimed instead of
-// needing an immediate re-upload. Unlike the destructive-migration-adjacent
-// conversions (Slices 11–13), this needs no version-sequencing gate: it
-// always runs during db.Open, before the HTTP server starts accepting any
-// request, so there is no possible race with a real login — the guard
-// (still ownerless AND no template set yet) is naturally a permanent no-op
-// the moment either becomes true, which can only happen after this code
-// has already run once. A missing file is a safe no-op: the inventory
-// simply starts with no stored template, same as any inventory before its
-// first import.
+// configured inventory path into the bootstrap inventory row's
+// source_xlsx/source_filename (research.md R5), so the legacy catalog can
+// still be re-imported/exported instead of needing an immediate re-upload.
+// Unlike the destructive-migration-adjacent conversions (Slices 11–13), this
+// needs no version-sequencing gate: it always runs during db.Open, before the
+// HTTP server accepts any request, so there is no possible race with a login —
+// and "no template set yet" makes it a permanent no-op once it has run.
+//
+// The bootstrap row is identified as id 1, not as the ownerless one it used to
+// be: migration 048 now claims that row before this code sees it, and an owned
+// legacy catalog still needs its template. id 1 is exact rather than clever —
+// 038 creates the table and inserts exactly one row into it, and the column is
+// AUTOINCREMENT, so no later inventory can ever occupy id 1 even after 049
+// deletes an empty bootstrap row.
+//
+// A missing file is a safe no-op: the inventory simply starts with no stored
+// template, same as any inventory before its first import.
 func convertLegacyInventoryTemplate(db *sql.DB, logger *slog.Logger) error {
 	var bootstrapID sql.NullInt64
-	err := db.QueryRow(`SELECT id FROM inventories WHERE owner_user_id IS NULL AND source_xlsx IS NULL LIMIT 1`).Scan(&bootstrapID)
+	err := db.QueryRow(`SELECT id FROM inventories WHERE id = 1 AND source_xlsx IS NULL`).Scan(&bootstrapID)
 	if err == sql.ErrNoRows {
 		return nil
 	}

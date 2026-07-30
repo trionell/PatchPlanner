@@ -166,46 +166,41 @@ func (e InventoryInUseError) Error() string {
 
 func (e InventoryInUseError) Is(target error) bool { return target == ErrInUse }
 
-// EnsureUserHasInventory guarantees userID owns at least one inventory:
-// a no-op if they already do, otherwise claims one pre-existing ownerless
-// inventory if any exists, otherwise creates a fresh empty one for them.
-// The claim's WHERE/subquery is itself the atomic guard (research.md R4) —
-// safe to call on every login with no separate "am I first" check.
+// ClaimInventoriesForOwnedEvents adopts any ownerless inventory that an event
+// owned by userID is bound to, and nothing else. Called on every login, after
+// ClaimOwnerlessEvents — so the events are claimed first and the catalog they
+// draw from follows them.
 //
-// KNOWN DEFECT — ROADMAP.md D1. The early return below asks "does this user own
-// at least one inventory?", but the claim needs "is there an ownerless legacy
-// inventory to adopt?". They come apart as soon as a user creates an inventory
-// of their own before the legacy one is claimed: the early return then fires on
-// every login and the legacy row stays ownerless forever, which makes all
-// eighteen owner-scoped routes 404 for a catalog that events are still bound to.
-// Fixing it also needs a repair migration for databases that already hold one.
-func EnsureUserHasInventory(database *sql.DB, userID int64) error {
-	var count int
-	if err := database.QueryRow(`SELECT COUNT(*) FROM inventories WHERE owner_user_id = ?`, userID).Scan(&count); err != nil {
-		return fmt.Errorf("count user inventories: %w", err)
-	}
-	if count > 0 {
-		return nil
-	}
-
+// **A login never provisions an inventory.** A new user owns no catalog until
+// they create or import one, or reach one through an event shared with them
+// (2026-07-30 decision, superseding Slice 16's starter inventory and the
+// first-login adoption of the legacy catalog). This function is not that: it is
+// the legacy repair, and the only claim narrow enough to survive the rule —
+// a user whose own events already read a catalog is not being handed anything,
+// they are being let back into what ROADMAP.md D1 locked them out of.
+//
+// D1 itself was the guard: the claim used to sit behind "does this user own an
+// inventory?", which is a different question from "is there an ownerless
+// inventory to adopt?". They come apart the moment a user owns one of their
+// own, and the legacy row then stays ownerless forever — all eighteen
+// owner-scoped routes 404ing for a catalog its events could still reach. There
+// is no such guard now: the WHERE clause is the whole test, and it is
+// idempotent because a claimed row is no longer ownerless.
+//
+// Migration 048 applies this same rule — the catalog follows its events — to
+// databases that already hold an orphan, and 049 removes an ownerless
+// inventory that has nothing in it and nothing bound to it.
+func ClaimInventoriesForOwnedEvents(database *sql.DB, userID int64) (int64, error) {
 	result, err := database.Exec(`
 		UPDATE inventories SET owner_user_id = ?
-		WHERE id = (SELECT id FROM inventories WHERE owner_user_id IS NULL LIMIT 1)`, userID)
+		WHERE owner_user_id IS NULL
+		  AND EXISTS (SELECT 1 FROM events e WHERE e.inventory_id = inventories.id AND e.owner_user_id = ?)`,
+		userID, userID)
 	if err != nil {
-		return fmt.Errorf("claim ownerless inventory: %w", err)
+		return 0, fmt.Errorf("claim inventories for owned events: %w", err)
 	}
-	claimed, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("claim ownerless inventory: %w", err)
-	}
-	if claimed > 0 {
-		return nil
-	}
-
-	if _, err := CreateInventory(database, userID, "My Inventory"); err != nil {
-		return fmt.Errorf("create starter inventory: %w", err)
-	}
-	return nil
+	claimed, _ := result.RowsAffected()
+	return claimed, nil
 }
 
 // DuplicateInventory deep-copies sourceInventoryID's categories, items,

@@ -115,10 +115,11 @@ func getReferenceTemplateValue(database *sql.DB, ownerUserID int64, vocabulary s
 // rows, otherwise an idempotent copy-from-seed (research.md R5) — every
 // event_id IS NULL reference_values row (the permanent shared seed left
 // behind by migration 039's rebuild) is copied into fresh rows owned by
-// userID. Unlike EnsureUserHasInventory this never exclusively claims a
-// single shared row: the seed is immutable reference content, safe to copy
+// userID. Unlike ClaimInventoriesForOwnedEvents this never exclusively claims
+// a single shared row: the seed is immutable reference content, safe to copy
 // to as many users as need a starting point, so every user — first login
-// or the millionth — gets an identical fresh copy (spec.md FR-004).
+// or the millionth — gets an identical fresh copy (spec.md FR-004). It is
+// also the one thing a login still provisions; a catalog is not (D1).
 func EnsureUserHasReferenceTemplate(database *sql.DB, userID int64) error {
 	var count int
 	if err := database.QueryRow(`SELECT COUNT(*) FROM reference_templates WHERE owner_user_id = ?`, userID).Scan(&count); err != nil {
