@@ -164,9 +164,11 @@ func TestInventoryTemplateDownload(t *testing.T) {
 		t.Fatalf("downloaded template is not a readable workbook: %v", err)
 	}
 	defer func() { _ = file.Close() }()
+	// Inventory first, because it is the one that must be filled in; Pricing
+	// second (Slice 31, optional); Example last, and never read.
 	sheets := file.GetSheetList()
-	if len(sheets) != 2 || sheets[0] != "Inventory" {
-		t.Errorf("sheets = %v, want [Inventory Example]", sheets)
+	if len(sheets) != 3 || sheets[0] != "Inventory" || sheets[1] != "Pricing" || sheets[2] != "Example" {
+		t.Errorf("sheets = %v, want [Inventory Pricing Example]", sheets)
 	}
 	rows, err := file.GetRows("Inventory")
 	if err != nil || len(rows) == 0 {

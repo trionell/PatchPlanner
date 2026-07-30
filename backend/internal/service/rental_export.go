@@ -16,6 +16,12 @@ import (
 // priceListSheet is the sheet both the importer and the exporter operate on.
 const priceListSheet = "Prislista LL"
 
+// summarySheet is where the price-list file does its own arithmetic: the two
+// cells a human types (Rabatt utrustning, Hyresfaktor) and the formulas that
+// turn them into a total. Slice 31 both reads it (for the VAT rate, which lives
+// only inside a formula) and writes it (the two typed cells).
+const summarySheet = "Sammanställning"
+
 // Header texts of the order-quantity columns, compared after normalization
 // (the real file's headers contain embedded newlines).
 const (

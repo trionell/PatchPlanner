@@ -109,6 +109,14 @@ func (s InventoryService) ImportFromGenericXLSX(inventoryID int64, filename stri
 		return domain.InventoryImportResult{}, err
 	}
 
+	// The optional Pricing sheet, on the same terms as the LL importer's: the
+	// file's own rate card and VAT rate, or nothing at all (Slice 31).
+	pricingWarnings, err := s.importPricing(inventoryID, file)
+	if err != nil {
+		return domain.InventoryImportResult{}, err
+	}
+	warnings = append(warnings, pricingWarnings...)
+
 	return domain.InventoryImportResult{
 		CategoriesImported: len(categories),
 		ItemsImported:      len(items),
