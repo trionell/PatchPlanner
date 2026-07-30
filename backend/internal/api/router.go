@@ -20,15 +20,18 @@ func NewRouter(db *sql.DB, auth AuthConfig) http.Handler {
 		OwnedHandler{DB: db}.Register(r)
 		InventoriesHandler{DB: db}.Register(r)
 		ReferenceTemplateHandler{DB: db}.Register(r)
+		PricingHandler{DB: db}.Register(r)
 
 		r.Route("/inventories/{inventoryID}", func(ir chi.Router) {
 			ir.Use(middleware.RequireInventoryOwner(db))
 			InventoriesHandler{DB: db}.RegisterOwned(ir)
+			PricingHandler{DB: db}.RegisterOwned(ir)
 		})
 
 		r.Route("/events/{eventID}", func(er chi.Router) {
 			er.Use(middleware.RequireEventAccess(db))
 			EventsHandler{DB: db}.RegisterEvent(er)
+			PricingHandler{DB: db}.RegisterEvent(er)
 			EventMembersHandler{DB: db}.Register(er)
 			EventInventoryHandler{DB: db}.Register(er)
 			ReferenceHandler{DB: db}.Register(er)
