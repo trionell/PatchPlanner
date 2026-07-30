@@ -2,8 +2,10 @@ package service
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/trionell/patchplanner/internal/db"
+	"github.com/trionell/patchplanner/internal/domain"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -102,29 +104,91 @@ func (s ExportService) BuildGenericRentalXLSX(eventID int64) (*excelize.File, st
 		}
 	}
 
-	totals := []any{"TOTAL", "", "", "", "", summary.TotalQuantity, "", summary.SubtotalExVAT}
-	if err := writeRentalRow(file, row+1, totals); err != nil {
+	totalRow := row + 1
+	totals := []any{"TOTAL, PER DAY", "", "", "", "", summary.TotalQuantity, "", summary.SubtotalExVAT}
+	if err := writeRentalRow(file, totalRow, totals); err != nil {
 		_ = file.Close()
 		return nil, "", err
 	}
-	totalCell, err := excelize.CoordinatesToCellName(1, row+1)
-	if err != nil {
+	if err := boldRentalRow(file, totalRow, headerStyle); err != nil {
 		_ = file.Close()
-		return nil, "", fmt.Errorf("total cell name: %w", err)
+		return nil, "", err
 	}
-	lastCell, err := excelize.CoordinatesToCellName(len(rentalXLSXHeaders), row+1)
-	if err != nil {
-		_ = file.Close()
-		return nil, "", fmt.Errorf("total cell name: %w", err)
+
+	// The ledger (Slice 31), as rows in the same columns — values rather than
+	// formulas, because this is an order document and a supplier who edits the
+	// quantities is editing a list, not running a model.
+	pricing := summary.Pricing
+	ledger := [][]any{}
+	if pricing.DiscountPercent > 0 {
+		ledger = append(ledger, []any{"Discount", trimPercent(pricing.DiscountPercent) + "%", "", "", "", "", "", -pricing.DiscountAmount})
 	}
-	if err := file.SetCellStyle(rentalSheet, totalCell, lastCell, headerStyle); err != nil {
-		_ = file.Close()
-		return nil, "", fmt.Errorf("style totals row: %w", err)
+	ledger = append(ledger,
+		[]any{"Billed days", pricing.BilledDays, xlsxBilledDaysNote(pricing), "", "", "", "", ""},
+		[]any{"Rent factor", pricing.RentFactor, xlsxFactorNote(pricing), "", "", "", "", ""},
+		[]any{fmt.Sprintf("TOTAL, %s", plural(pricing.BilledDays, "DAY", "DAYS")), "", "", "", "", "", "", pricing.TotalExVAT},
+		[]any{"VAT", trimPercent(pricing.VATPercent) + "%", "", "", "", "", "", pricing.VATAmount},
+		[]any{"TOTAL, INC VAT", "", "", "", "", "", "", pricing.TotalIncVAT},
+	)
+	for index, values := range ledger {
+		ledgerRow := totalRow + 1 + index
+		if err := writeRentalRow(file, ledgerRow, values); err != nil {
+			_ = file.Close()
+			return nil, "", err
+		}
+		if label, _ := values[0].(string); strings.HasPrefix(label, "TOTAL") {
+			if err := boldRentalRow(file, ledgerRow, headerStyle); err != nil {
+				_ = file.Close()
+				return nil, "", err
+			}
+		}
 	}
 
 	// " (lista)" keeps this from colliding with the price-list export in a
 	// downloads folder when an LL user takes both.
 	return file, exportFilename(event, " (lista).xlsx"), nil
+}
+
+func boldRentalRow(file *excelize.File, row, headerStyle int) error {
+	first, err := excelize.CoordinatesToCellName(1, row)
+	if err != nil {
+		return fmt.Errorf("total cell name: %w", err)
+	}
+	last, err := excelize.CoordinatesToCellName(len(rentalXLSXHeaders), row)
+	if err != nil {
+		return fmt.Errorf("total cell name: %w", err)
+	}
+	if err := file.SetCellStyle(rentalSheet, first, last, headerStyle); err != nil {
+		return fmt.Errorf("style totals row: %w", err)
+	}
+	return nil
+}
+
+// The two notes name where the numbers came from, so a supplier can check them
+// against their own rate card rather than taking them on trust.
+func xlsxBilledDaysNote(pricing domain.RentalPricing) string {
+	rule := "on-site days"
+	if pricing.ChargedDays == domain.ChargedDaysShow {
+		rule = "show days"
+	}
+	if pricing.FirstDay == "" || pricing.LastDay == "" {
+		return rule
+	}
+	return fmt.Sprintf("%s, %s → %s", rule, pricing.FirstDay, pricing.LastDay)
+}
+
+func xlsxFactorNote(pricing domain.RentalPricing) string {
+	switch pricing.RentFactorSource {
+	case domain.SourceOverride:
+		return "agreed for this hire"
+	case domain.SourceNone:
+		return "no rate card"
+	default:
+		if pricing.RentFactorDays == pricing.BilledDays {
+			return fmt.Sprintf("the %d-day rate", pricing.RentFactorDays)
+		}
+		return fmt.Sprintf("the %d-day rate, for %d days", pricing.RentFactorDays, pricing.BilledDays)
+	}
 }
 
 func writeRentalRow(file *excelize.File, row int, values []any) error {
