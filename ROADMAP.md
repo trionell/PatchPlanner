@@ -1359,6 +1359,14 @@ a `specs/` directory — see *Defects* in `CLAUDE.md`. One that edits `design/`,
 needs a migration, or spreads past a handful of files is a slice instead, and
 goes through the design approval and the full spec → plan → tasks.
 
+**Adding one is the user's decision, not the agent's.** Report the defect — the
+reproduction, the line, and what a fix would have to cover — and ask before
+writing a section. A section here schedules work and gives a symptom the standing
+of a traced fault; neither is yours to grant. Once it is approved, an open defect
+also takes a row in **What remains** at the top of this file, and loses that row
+when it is fixed. The section stays either way: the index is the worklist, the
+sections are the record.
+
 ### D1 — The legacy catalog can become permanently ownerless ✅ fixed 2026-07-30
 
 **Found:** 2026-07-29, during the Slice 35 field test. The report was a console

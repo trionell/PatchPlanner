@@ -131,6 +131,13 @@ was not run as one: it amended `components.md` §4, changed `patterns.md` and
 `tokens.md`, and deleted `ui/Table`, with no design approval anywhere. That is
 the case this rule and the second trigger below both exist to catch.
 
+**Never add a defect on your own.** When you find one, report it — the
+reproduction, the line, and what a fix would have to cover — and **stop and ask**
+before writing a section into `ROADMAP.md`. Recording one schedules future work
+and promotes a symptom to a traced fault; both are the user's call. Once
+approved, an open defect also takes a row in the **What remains** index, which it
+loses when fixed.
+
 ## Frontend Design Workflow
 
 Two triggers. The first is a judgment call; the second is not.
@@ -183,4 +190,5 @@ Stop and ask only when:
 - two requirements conflict;
 - a destructive or irreversible action is required;
 - a significant product decision is not covered by the specification;
-- a security-sensitive decision requires human judgment.
+- a security-sensitive decision requires human judgment;
+- a defect is about to be recorded in `ROADMAP.md` — see *Defects* above.
