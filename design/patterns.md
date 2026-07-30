@@ -167,9 +167,12 @@ is the point (ROADMAP D4).
 
 **A rail inside a `Drawer` is still a rail.** It goes in a `flush` body so it can
 be bordered on the edge it shares with the sheet rather than floating 20 px inside
-one, and it takes `min-h-full` so that border reaches the foot of the drawer when
-the chosen category holds four items. That is not a height of its own: the columns
-stretch it, and the drawer's body is the one thing that scrolls.
+one. **`min-h-full` goes on the `PanelCols`, never on the rail** — the columns are
+`items-stretch`, so the rail is already as tall as they are and a `min-h` on it
+resolves against a content-height parent and does nothing. On the container it is
+what makes that border reach the foot of the drawer when the chosen category holds
+four items. Either way the rail is given no height of its own, and the drawer's
+body is the one thing that scrolls.
 
 **A filter has to be entirely visible**, which is the whole reason it exists. The
 inventory page's categories used to show about four of twenty-seven, because each

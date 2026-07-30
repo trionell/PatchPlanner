@@ -50,6 +50,16 @@ export function EventInventoryBrowser({ eventId }: { eventId: number }) {
   const total = categories.reduce((sum, category) => sum + (category.item_count ?? 0), 0)
 
   /*
+    An empty list and an unanswered request look identical, and `ui/Drawer` renders
+    nothing until it is open — so both queries start cold at the moment this opens,
+    and *Nothing in this catalog yet* would be the first thing anyone browsing a
+    full catalog is told, every time, for a round trip. The Inventories page guards
+    the same sentence the same way; the old table said nothing either way, because
+    it had no empty state at all.
+  */
+  const itemsNote = itemsQuery.isPending ? 'Loading catalog…' : EMPTY
+
+  /*
     The phone (patterns.md §7c). The columns rank into a title and a subtitle, and
     the rail — a column, which is the one thing a 375px screen does not have —
     becomes the control that names the current choice and opens a sheet.
@@ -89,7 +99,7 @@ export function EventInventoryBrowser({ eventId }: { eventId: number }) {
         {items.map((item) => (
           <CondensedListRow key={item.id} subtitle={phoneSubtitle(item)} title={item.name} />
         ))}
-        {items.length === 0 && <p className="px-3 py-3 text-sm text-zinc-500">{EMPTY}</p>}
+        {items.length === 0 && <p className="px-3 py-3 text-sm text-zinc-500">{itemsNote}</p>}
       </>
     )
   }
@@ -116,7 +126,9 @@ export function EventInventoryBrowser({ eventId }: { eventId: number }) {
             selected={category.id === selectedCategoryId}
           />
         ))}
-        {categories.length === 0 && <p className="px-2 py-1 text-xs text-zinc-500">Nothing in this catalog yet.</p>}
+        {categories.length === 0 && !categoriesQuery.isPending && (
+          <p className="px-2 py-1 text-xs text-zinc-500">{EMPTY}</p>
+        )}
       </PanelRail>
 
       <PanelMain>
@@ -142,7 +154,7 @@ export function EventInventoryBrowser({ eventId }: { eventId: number }) {
               {items.length === 0 && (
                 <tr>
                   <SheetCell className="text-zinc-500" colSpan={COLUMNS.length}>
-                    {EMPTY}
+                    {itemsNote}
                   </SheetCell>
                 </tr>
               )}
@@ -163,12 +175,20 @@ const ALL = 'all'
 const EMPTY = 'Nothing in this catalog yet.'
 
 /**
- * The three remaining columns, joined — the same order and the same wording the
- * owner's own phone list of these rows uses (`pages/Inventories`), because two
- * lists of one catalog that disagree about what a row says are two designs.
+ * **This sheet's other three columns, ranked and joined** (patterns.md §7c) — which
+ * is the rule, and it is why this differs by one word from the owner's own phone
+ * list of the same rows in `pages/Inventories`. That one says *category* first,
+ * because its sheet has a Category column; this one has none, since the rail beside
+ * it is the category. A phone row is the surface's own columns ranked, so two
+ * lists of one catalog say what their own sheets say — the same rule reaching two
+ * answers, not two designs.
+ *
+ * A missing description drops out rather than falling back to the category: the
+ * desktop draws an em-dash there, and substituting a column this sheet does not
+ * show would make the two reaches disagree to fix a gap neither of them has.
  */
 function phoneSubtitle(item: InventoryItem): string {
-  return [item.description || item.category_name, `Qty ${item.quantity_available}`, `${item.price_ex_vat.toFixed(2)} kr`]
+  return [item.description, `Qty ${item.quantity_available}`, `${item.price_ex_vat.toFixed(2)} kr`]
     .filter(Boolean)
     .join(' · ')
 }

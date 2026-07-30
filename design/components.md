@@ -335,6 +335,24 @@ set of values.
 | `MobileOverviewPanel` | Overview's phone composition — a two-column figure grid with the countdown spanning, both rig ribbons as horizontally panning drawings, and the five readiness verdicts as 44 px rows that state *and* route. One caller, deliberately: a 120-line phone composition inside a desktop tab is how a phone value gets copied onto a desk. It derives nothing — `lib/eventSummary` computes both halves of every row for the desktop already. |
 | `MobilePicker` | *Choose one of N*, on a phone: a control naming the current choice, opening a sheet of 52 px rows with the sidebar's 2 px amber left edge. Every desktop *choose one of N* — a rail, a tab strip, a list down the left — becomes this, because a column is the one thing a 375 px screen has not got. Never in the overflow: choosing changes *what you are looking at*. Two variants, and which one is a question about the surface. **`field`** sits among the bar's targets, capped, where the panel has a name of its own — the plot picker beside *Stage Plots*. **`title`** *is* the panel's name, where the surface genuinely is one of N at a time: the vocabularies have a rail on the desktop and none on a phone, so naming the panel *Vocabularies* and truncating *which one* to 112 px named the wrong thing and hid the useful half. Extracted at its second caller, the rule `ui/PanelRail` was made to follow. |
 
+**A third placement, and it takes `title`** (ROADMAP D4). A picker at the head of a
+`flush` `ui/Sheet` body, where a desktop `PanelRail` filters a surface that is *in*
+an overlay rather than in a panel: the event's read-only catalog browse is the
+instance. It is neither of the two cases above — the sheet's header already names
+the inventory, which is `field`'s stated condition, but there is no bar for `field`
+to sit among and 112 px would truncate *All categories* to the same nothing the
+vocabularies' did. So the rule is by **what is left to name**, which is what both
+existing cases were really deciding: the header names the *thing*, the picker names
+*which part of it you are looking at*, and that is a name, so it takes the title's
+own width.
+
+Its bar is the only geometry this adds, and it is stated once: `sticky top-0`, the
+sheet's own `bg-zinc-900`, `px-3`, a `border-b border-zinc-800`, the 44 px picker
+and a mono count of the filtered rows pushed to the far end. Sticky because a
+filter you have scrolled past is one you have to scroll back to, and a catalog is
+308 rows. It is not a `MobilePanel` bar — there is no panel — and it holds a
+selector and a count and never an action.
+
 **`ui/MobilePanel`.** The phone's frame — bar, rows, strip — and P1 at 375 px.
 Built in Wave 6b, where it replaced nine `space-y-*` stacks of free-standing
 bordered cards, which is what made a phone list read as a column of inputs and left

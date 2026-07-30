@@ -1637,6 +1637,25 @@ one construction rather than a stack of `DrawerSection`s wants neither the 20 px
 nor the 20 px gap: the rail has to be bordered on the edge it shares with the sheet, and
 the phone's rows have to be full-bleed with a hairline between them.
 
+Review found three more, all of them the same kind — a thing the code did that no
+document said:
+
+- **A drawer renders nothing until it is open**, so both queries are cold at the moment
+  this mounts, and *Nothing in this catalog yet* was the first thing anyone browsing a
+  full catalog was told, for a round trip, at both reaches. The old table had no empty
+  state at all, so this was new. It is guarded now, as the same sentence on the
+  Inventories page already was.
+- **The phone subtitle is this sheet's own columns ranked**, which is why it says
+  *description* where the owner's phone list of the same rows says *category*: that
+  sheet has a Category column and this one has none, because the rail beside it is the
+  category. One rule, two answers — and a missing description drops out rather than
+  falling back to a column this sheet does not show.
+- **`MobilePicker` acquired a third placement** and it is written down
+  ([components.md](design/components.md) §5): a picker at the head of a `flush` sheet,
+  where the header names the *thing* and the picker names *which part of it you are
+  looking at*. Both existing cases were deciding that question all along; neither said
+  so, which is why this looked like a new one.
+
 ## Dependency graph
 
 ```

@@ -5,11 +5,16 @@ import { MICRO_LABEL } from './Label'
 /**
  * The audio sheets' own table (Slice 25 US3).
  *
- * Deliberately *not* a change to `ui/Table`: six other tabs render that one and
- * FR-039 requires them unchanged. This is the mockup's density — headings as mono
+ * Deliberately *not* a change to `ui/Table`: six other tabs rendered that one and
+ * FR-039 required them unchanged. This is the mockup's density — headings as mono
  * micro-labels on a darker ground, one-line rows, striping you have to look for —
  * which would be wrong on an equipment list and is right on a patch sheet a planner
  * reads two hundred rows of.
+ *
+ * Those six converted over Waves 3–5, and ROADMAP D4 took the last one anywhere, so
+ * **`ui/Table` now has no caller at all**. It stays, and so does the pair
+ * (components.md §1): a tabular *navigation* surface is a thing this application may
+ * build again, and rebuilding it from memory is how two tiers come to disagree.
  *
  * Sizes are the mockup's ratios at this app's 14px base, not its 11px pixel values
  * (see specs/025-patch-visual-language/research.md R11).

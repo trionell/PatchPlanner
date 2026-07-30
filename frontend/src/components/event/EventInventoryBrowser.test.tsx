@@ -51,10 +51,12 @@ const items: InventoryItem[] = [
   },
 ]
 
-function render(): string {
+function render({ loaded = true }: { loaded?: boolean } = {}): string {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  client.setQueryData(['inventory-categories', 1], categories)
-  client.setQueryData(['inventory-items', 1, undefined], items)
+  if (loaded) {
+    client.setQueryData(['inventory-categories', 1], categories)
+    client.setQueryData(['inventory-items', 1, undefined], items)
+  }
   return renderToStaticMarkup(
     <QueryClientProvider client={client}>
       <EventInventoryBrowser eventId={1} />
@@ -98,10 +100,15 @@ describe('the catalog browse · the phone', () => {
     expect(markup).not.toContain('<table')
     expect(markup).toContain('min-h-[44px]')
     expect(markup).toContain('Beta 91A')
-    // The three remaining columns, in the order the owner’s own phone list uses.
+    // This sheet's other three columns, ranked (patterns.md §7c).
     expect(markup).toContain('Boundary kick mic · Qty 4 · 120.00 kr')
-    // No description falls back to the category, so the line is never a bare number.
-    expect(markup).toContain('Microphones · Qty 6 · 95.50 kr')
+    /*
+      A missing description drops out. It must **not** fall back to the category:
+      this sheet has no Category column — the rail beside it is the category — so
+      substituting one would make the two reaches of one surface disagree.
+    */
+    expect(markup).toContain('Qty 6 · 95.50 kr')
+    expect(markup).not.toContain('Microphones · Qty 6')
   })
 
   it('turns the rail into the control that names the category on screen', () => {
@@ -120,5 +127,40 @@ describe('the catalog browse · the phone', () => {
 
     expect(markup).not.toContain('vh]')
     expect(markup).not.toContain('overflow-x-auto')
+  })
+})
+
+/**
+ * `ui/Drawer` renders nothing until it is open, so this component mounts *as* the
+ * drawer opens and both queries are cold on the first browse of every session. An
+ * empty catalog and an unfetched one look identical, and only one of them is a fact.
+ */
+describe('the catalog browse · before the fetch answers', () => {
+  it('does not call a full catalog empty, at either reach', () => {
+    setWidth(false)
+    const desk = render({ loaded: false })
+    expect(desk).toContain('Loading catalog…')
+    expect(desk).not.toContain('Nothing in this catalog yet.')
+
+    setWidth(true)
+    const phone = render({ loaded: false })
+    expect(phone).toContain('Loading catalog…')
+    expect(phone).not.toContain('Nothing in this catalog yet.')
+  })
+
+  it('still says so once the answer is that there is nothing', () => {
+    setWidth(false)
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    client.setQueryData(['inventory-categories', 1], [])
+    client.setQueryData(['inventory-items', 1, undefined], [])
+    const markup = renderToStaticMarkup(
+      <QueryClientProvider client={client}>
+        <EventInventoryBrowser eventId={1} />
+      </QueryClientProvider>,
+    )
+
+    // Both the rail's and the sheet's — an empty catalog has neither half.
+    expect(markup.match(/Nothing in this catalog yet\./g)).toHaveLength(2)
+    expect(markup).not.toContain('Loading catalog…')
   })
 })

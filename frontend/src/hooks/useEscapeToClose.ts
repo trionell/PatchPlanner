@@ -42,7 +42,10 @@ export function useEscapeToClose(active: boolean, onClose: () => void): void {
     if (!active) return
     stack.push(token)
     return () => {
-      stack.splice(stack.indexOf(token), 1)
+      // Guarded: `splice(-1, 1)` drops the *last* entry, which is the overlay on
+      // top — a silent way to close the wrong one if a cleanup ever runs twice.
+      const at = stack.indexOf(token)
+      if (at !== -1) stack.splice(at, 1)
     }
   }, [active, token])
 
