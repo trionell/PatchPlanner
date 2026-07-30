@@ -107,15 +107,25 @@ output out of the main context.
 
 If a task introduces, modifies, or substantially changes a user-facing frontend:
 
-1. **You MUST use the `/frontend-design` skill before implementing the frontend.**
-2. Use it to create a visual mockup or prototype of the proposed UI.
-3. Present the result to the user for approval.
-4. **STOP and wait for explicit user approval.**
-5. Do not begin production frontend implementation until the user approves.
-6. After approval, fold the approved design into the spec and the plan.
+1. Delegate the mockup to the **`mockup` subagent**. It loads the
+   `/frontend-design` skill, builds `specs/<slice>/mockup.html`, publishes it as
+   an Artifact, and returns the URL plus the decisions it made. The ~1,600 lines
+   of markup stay out of this context; the review is visual anyway.
+2. Present the artifact URL and the returned decisions to the user.
+3. **STOP and wait for explicit user approval.**
+4. Do not begin production frontend implementation until the user approves.
+5. Send revision feedback back to the **same** agent with `SendMessage`, so it
+   revises rather than rebuilds. It republishes to the same URL.
+6. After approval, fold the approved design into the spec and the plan — the
+   agent's decision list is written to become the functional requirements.
 7. Then continue autonomously through implementation and validation.
 
-This approval is the primary human checkpoint in the workflow.
+This approval is the primary human checkpoint in the workflow. The subagent
+builds the mockup; **it never approves it, and neither do you.**
+
+Build the mockup inline instead when the design is the hard part of the slice and
+you need the understanding in this thread to write the spec — several slices here
+drew the mockup *before* the spec for exactly that reason.
 
 If the user says the design is already approved, or supplies an approved design,
 do not build another mockup — go straight to the Spec Kit workflow.
