@@ -114,13 +114,32 @@ function rentalItem(overrides: Partial<EventRental> = {}): EventRental {
   } as EventRental
 }
 
-function rental(items: EventRental[]): RentalSummary {
+function rental(items: EventRental[], pricingOverrides: Partial<RentalSummary['pricing']> = {}): RentalSummary {
+  const subtotal = items.reduce((total, item) => total + item.subtotal_ex_vat, 0)
   return {
     items,
     total_items: items.length,
     total_quantity: items.reduce((total, item) => total + item.total_quantity, 0),
-    total_ex_vat: items.reduce((total, item) => total + item.subtotal_ex_vat, 0),
+    subtotal_ex_vat: subtotal,
     has_over_stock: items.some((item) => item.is_over_stock),
+    // The unpriced case, which is what every catalog without a rate card
+    // means: one day, ×1.00, nothing off, and the total equal to the subtotal.
+    pricing: {
+      billed_days: 1,
+      charged_days: 'onsite',
+      charged_days_source: 'inventory',
+      rent_factor: 1,
+      rent_factor_source: 'none',
+      discount_percent: 0,
+      discount_amount: 0,
+      subtotal_ex_vat: subtotal,
+      total_ex_vat: subtotal,
+      vat_percent: 25,
+      vat_source: 'inventory',
+      vat_amount: subtotal * 0.25,
+      total_inc_vat: subtotal * 1.25,
+      ...pricingOverrides,
+    },
   }
 }
 
@@ -421,7 +440,7 @@ describe('SC-008 — the summary agrees with the tabs it links to', () => {
   it('states the rental figures the rental strip states', () => {
     expect(summary.rentalLines).toBe(order.total_items)
     expect(summary.rentalPieces).toBe(order.total_quantity)
-    expect(summary.rentalTotalExVAT).toBe(order.total_ex_vat)
+    expect(summary.rentalTotalExVAT).toBe(order.pricing.total_ex_vat)
     expect(summary.rentalOverStock).toBe(order.items.filter((item) => item.is_over_stock).length)
   })
 })

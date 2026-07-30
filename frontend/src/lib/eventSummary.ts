@@ -292,7 +292,11 @@ export function eventSummary(input: EventSummaryInput): EventSummary {
   if (rental) {
     summary.rentalLines = rental.total_items
     summary.rentalPieces = rental.total_quantity
-    summary.rentalTotalExVAT = rental.total_ex_vat
+    // The PRICED total, not the day-rate subtotal. This figure has been
+    // labelled "RENTAL, EX VAT" on the Overview band and the dashboard since
+    // Wave 4 while showing what a one-day hire would cost, because a day rate
+    // was the only price the catalog had. Slice 31 gave it the real one.
+    summary.rentalTotalExVAT = rental.pricing.total_ex_vat
     summary.rentalOverStock = rental.items.filter((item) => item.is_over_stock).length
     summary.rentalDiscontinued = rental.items.filter((item) => item.is_discontinued).length
   }

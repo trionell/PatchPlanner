@@ -19,6 +19,24 @@ export interface Event {
   updated_at: string
   yourRole?: 'owner' | 'contributor' | 'viewer'
   inventoryId: number
+  /**
+   * This job's own pricing terms (Slice 31), written only by
+   * `putEventPricing` — never by the details drawer, whose save is a
+   * whole-object replace on the server.
+   *
+   * The first three are absent when the event follows its catalog, which is why
+   * absence is the representation: a catalog corrected after the fact corrects
+   * every event that never disagreed with it.
+   *
+   * `discountPercent` is always sent by the server — zero is a stated fact — but
+   * is optional here for the reason `itemCount` is on `Inventory`: absent and 0
+   * mean the same thing, and requiring it would make every call site that builds
+   * an `Event` carry a field none of them decides.
+   */
+  chargedDays?: 'onsite' | 'show'
+  rentFactorOverride?: number
+  vatPercent?: number
+  discountPercent?: number
 }
 
 /** An owned, independent equipment catalog (Slice 16). */
@@ -458,12 +476,84 @@ export interface ManualRentalRequest {
   notes?: string
 }
 
+/**
+ * How an order's day-rate subtotal becomes a hire price (Slice 31). Derived on
+ * every read and stored nowhere.
+ *
+ * It carries every intermediate step rather than only the result, because the
+ * ledger, the strip and all three exports print the derivation — a total nobody
+ * can trace is a total nobody will send.
+ */
+export interface RentalPricing {
+  billed_days: number
+  /** The effective rule: 'onsite' bills load-in→load-out, 'show' bills the show days. */
+  charged_days: 'onsite' | 'show'
+  charged_days_source: 'inventory' | 'event'
+  /** The two dates the day count spans, inclusive. Absent on an undated event. */
+  first_day?: string
+  last_day?: string
+  rent_factor: number
+  /** 'none' means the catalog has no rate card, and the factor is 1.0. */
+  rent_factor_source: 'table' | 'override' | 'none'
+  /** The rate-card row that produced the factor — 17 billed days can read row 14. */
+  rent_factor_days?: number
+  discount_percent: number
+  discount_amount: number
+  subtotal_ex_vat: number
+  total_ex_vat: number
+  vat_percent: number
+  vat_source: 'inventory' | 'event'
+  vat_amount: number
+  total_inc_vat: number
+}
+
 export interface RentalSummary {
   items: EventRental[]
   total_items: number
   total_quantity: number
-  total_ex_vat: number
+  /**
+   * The sum of every line's **day rate** — what this number has always been. It
+   * was called `total_ex_vat` until Slice 31, when it stopped being the order's
+   * total: the hire's price is `pricing.total_ex_vat`.
+   *
+   * The rename was the point. A field added beside the old one would have left
+   * every screen that shows money compiling and quietly showing a day rate.
+   */
+  subtotal_ex_vat: number
   has_over_stock: boolean
+  pricing: RentalPricing
+}
+
+/** One row of a supplier's rate card: hire this many days, multiply by this. */
+export interface RentFactor {
+  id: number
+  days: number
+  factor: number
+}
+
+/** A catalog's own terms — the supplier's, not the job's. Ordered by days ascending. */
+export interface InventoryPricing {
+  charged_days: 'onsite' | 'show'
+  vat_percent: number
+  factors: RentFactor[]
+}
+
+/** What a catalog copies when it is created. Read at creation and never again. */
+export interface PricingDefaults {
+  charged_days: 'onsite' | 'show'
+  vat_percent: number
+}
+
+/**
+ * This event's departures. `null` on the first three means *follow the catalog*,
+ * which is why they are nullable rather than optional — clearing one has to be
+ * sendable.
+ */
+export interface EventPricingRequest {
+  charged_days: 'onsite' | 'show' | null
+  rent_factor_override: number | null
+  vat_percent: number | null
+  discount_percent: number
 }
 
 export interface OwnedItem {

@@ -1,4 +1,5 @@
 import { rentalStatusState } from '../../lib/rentalOrder'
+import { formatPercent } from '../../lib/rentalPricing'
 import type { EventRental, RentalSummary } from '../../types'
 import { Pill } from '../ui/SheetTable'
 import { StatusStrip } from './StatusStrip'
@@ -64,9 +65,44 @@ export function RentalStatusRail({ summary, items, manualCount, filter, onFilter
         {summary?.total_items ?? items.length} {(summary?.total_items ?? items.length) === 1 ? 'line' : 'lines'}
       </span>
       <span className="font-mono tabular-nums text-zinc-500">{summary?.total_quantity ?? 0} pieces</span>
-      <span className="font-mono tabular-nums text-zinc-200">
-        {(summary?.total_ex_vat ?? 0).toFixed(2)} kr ex VAT
+
+      {/*
+        The derivation, left to right, ending on the number you came for — the
+        only one at full contrast (Slice 31 FR-023). The day rate stays because
+        it is what every line in the sheet above adds up to, and a strip whose
+        total no longer matches the column above it is a strip nobody trusts.
+      */}
+      <span className="font-mono tabular-nums text-zinc-500">
+        {(summary?.subtotal_ex_vat ?? 0).toFixed(2)} kr/day
       </span>
+      {summary?.pricing && (
+        <>
+          <span className="text-zinc-700">·</span>
+          {/* Always shown: the day count is the fact Slice 30 earned, and a
+              five-day hire priced at ×1.00 is worth seeing. */}
+          <span className="font-mono tabular-nums text-zinc-500">
+            {summary.pricing.billed_days} {summary.pricing.billed_days === 1 ? 'day' : 'days'}
+            {summary.pricing.rent_factor_source !== 'none' && ` ×${summary.pricing.rent_factor.toFixed(2)}`}
+          </span>
+          {/* The one case the slice exists to make visible, and it would
+              otherwise be silent. Amber WORDS — the strip's tint stays the stock
+              verdict it has always been (FR-024). */}
+          {summary.pricing.rent_factor_source === 'none' && (
+            <span className="font-mono tabular-nums text-amber-300">×1.00 no rate card</span>
+          )}
+          {summary.pricing.discount_percent > 0 && (
+            <span className="font-mono tabular-nums text-zinc-500">
+              −{formatPercent(summary.pricing.discount_percent)}%
+            </span>
+          )}
+          <span className="font-mono tabular-nums text-zinc-200">
+            {summary.pricing.total_ex_vat.toFixed(2)} kr ex VAT
+          </span>
+          <span className="font-mono tabular-nums text-zinc-500">
+            {summary.pricing.total_inc_vat.toFixed(2)} inc
+          </span>
+        </>
+      )}
 
       {manualCount > 0 && (
         <span className="text-zinc-500">
