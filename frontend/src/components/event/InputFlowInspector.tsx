@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Copy } from 'lucide-react'
 import { createInputSource, deleteInputSource, updateInputSource } from '../../api/audioPatch'
@@ -8,6 +9,7 @@ import { toOptionalNumber } from '../../lib/utils'
 import { vocabularyTint } from '../../lib/vocabularyTint'
 import type { Console, InputCable, InputChannel, InputDevice, InputSource, InventoryItem, StageMulti, Stagebox } from '../../types'
 import { Button } from '../ui/Button'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Input } from '../ui/Input'
 import { Pill } from '../ui/SheetTable'
 import { Select } from '../ui/Select'
@@ -81,6 +83,11 @@ export function FlowInspector({
   // column cannot afford 40 px rows (tokens.md §7 amendment 2; research R9).
   const ctl = useInspectorControlSize()
   const dense = ctl === 'sm'
+  // The id being confirmed, not a boolean: the rail's subject can change under it
+  // (deleted from the sheet in another window, refetched away), and an open confirm
+  // that silently re-aims at a different source is the one outcome a confirm exists
+  // to prevent.
+  const [confirmingDelete, setConfirmingDelete] = useState<number | null>(null)
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['rental-summary', eventId] })
     await onChanged()
@@ -127,142 +134,157 @@ export function FlowInspector({
   const { heading, title } = describe(selection, { sources, stageboxes, stageMultis, devices, consoles })
 
   return (
-    <InspectorFrame
-      heading={heading}
-      onClose={onClose}
-      pill={source && <Pill className={vocabularyTint(source.kind)}>{source.kind}</Pill>}
-    >
-      {source ? (
-        <>
-          <Input
-            size={ctl}
-            className={dense ? 'h-7 font-semibold' : 'font-semibold'}
-            defaultValue={source.name}
-            disabled={readOnly}
-            key={`${source.id}-name`}
-            onBlur={(event) => {
-              const name = event.target.value.trim()
-              if (name && name !== source.name) saveSource({ name })
-            }}
-          />
+    <>
+      <InspectorFrame
+        heading={heading}
+        onClose={onClose}
+        pill={source && <Pill className={vocabularyTint(source.kind)}>{source.kind}</Pill>}
+      >
+        {source ? (
+          <>
+            <Input
+              size={ctl}
+              className={dense ? 'h-7 font-semibold' : 'font-semibold'}
+              defaultValue={source.name}
+              disabled={readOnly}
+              key={`${source.id}-name`}
+              onBlur={(event) => {
+                const name = event.target.value.trim()
+                if (name && name !== source.name) saveSource({ name })
+              }}
+            />
 
-          <Field label="Kind">
-            <Select size={ctl} value={source.kind} disabled={readOnly} onChange={(event) => saveSource({ kind: event.target.value as InputSource['kind'] })}>
-              <option value="mic">Mic</option>
-              <option value="line">Line</option>
-            </Select>
-          </Field>
-          {source.kind === 'mic' && (
-            <>
-              <Field label="Mic">
-                <Select size={ctl} value={source.mic_item_id ?? ''} disabled={readOnly} onChange={(event) => saveSource({ mic_item_id: toOptionalNumber(event.target.value) })}>
-                  <option value="">—</option>
-                  {micItems.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Stand">
-                <Select size={ctl} value={source.stand_item_id ?? ''} disabled={readOnly} onChange={(event) => saveSource({ stand_item_id: toOptionalNumber(event.target.value) })}>
-                  <option value="">—</option>
-                  {standItems.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="48 V">
-                <label className="flex items-center gap-2 text-[11px] text-zinc-400">
-                  <input
-                    type="checkbox"
-                    checked={source.phantom_power}
-                    disabled={readOnly}
-                    onChange={(event) => saveSource({ phantom_power: event.target.checked })}
-                    className="h-3.5 w-3.5 accent-red-500"
-                  />
-                  <span className={source.phantom_power ? PHANTOM_BAR : 'inline-block h-[3px] w-2 rounded-sm bg-zinc-700'} />
-                  {source.phantom_power ? 'on' : 'off'}
-                </label>
-              </Field>
-            </>
-          )}
-          <Field label="Conn">
-            <Select size={ctl} value={source.connector_type} disabled={readOnly} onChange={(event) => saveSource({ connector_type: event.target.value })}>
-              <option value="">—</option>
-              {options('preamp_connectors', source.connector_type).map((value) => (
-                <option key={value.value} value={value.value}>
-                  {value.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Width">
-            <Select size={ctl} value={source.width} disabled={readOnly} onChange={(event) => saveSource({ width: event.target.value as InputSource['width'] })}>
-              <option value="mono">Mono</option>
-              <option value="stereo">Stereo</option>
-            </Select>
-          </Field>
+            <Field label="Kind">
+              <Select size={ctl} value={source.kind} disabled={readOnly} onChange={(event) => saveSource({ kind: event.target.value as InputSource['kind'] })}>
+                <option value="mic">Mic</option>
+                <option value="line">Line</option>
+              </Select>
+            </Field>
+            {source.kind === 'mic' && (
+              <>
+                <Field label="Mic">
+                  <Select size={ctl} value={source.mic_item_id ?? ''} disabled={readOnly} onChange={(event) => saveSource({ mic_item_id: toOptionalNumber(event.target.value) })}>
+                    <option value="">—</option>
+                    {micItems.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Stand">
+                  <Select size={ctl} value={source.stand_item_id ?? ''} disabled={readOnly} onChange={(event) => saveSource({ stand_item_id: toOptionalNumber(event.target.value) })}>
+                    <option value="">—</option>
+                    {standItems.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="48 V">
+                  <label className="flex items-center gap-2 text-[11px] text-zinc-400">
+                    <input
+                      type="checkbox"
+                      checked={source.phantom_power}
+                      disabled={readOnly}
+                      onChange={(event) => saveSource({ phantom_power: event.target.checked })}
+                      className="h-3.5 w-3.5 accent-red-500"
+                    />
+                    <span className={source.phantom_power ? PHANTOM_BAR : 'inline-block h-[3px] w-2 rounded-sm bg-zinc-700'} />
+                    {source.phantom_power ? 'on' : 'off'}
+                  </label>
+                </Field>
+              </>
+            )}
+            <Field label="Conn">
+              <Select size={ctl} value={source.connector_type} disabled={readOnly} onChange={(event) => saveSource({ connector_type: event.target.value })}>
+                <option value="">—</option>
+                {options('preamp_connectors', source.connector_type).map((value) => (
+                  <option key={value.value} value={value.value}>
+                    {value.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Width">
+              <Select size={ctl} value={source.width} disabled={readOnly} onChange={(event) => saveSource({ width: event.target.value as InputSource['width'] })}>
+                <option value="mono">Mono</option>
+                <option value="stereo">Stereo</option>
+              </Select>
+            </Field>
 
-          <Reaches source={source} channels={channels} devices={devices} stageboxes={stageboxes} stageMultis={stageMultis} consoles={consoles} cables={cables} itemLabelById={itemLabelById} />
-          <Legend rows={INPUT_LEGEND} />
+            <Reaches source={source} channels={channels} devices={devices} stageboxes={stageboxes} stageMultis={stageMultis} consoles={consoles} cables={cables} itemLabelById={itemLabelById} />
+            <Legend rows={INPUT_LEGEND} />
 
-          {!readOnly && (
-            <div className="mt-auto flex gap-2">
-              <Button
-                size={dense ? 'sm' : 'md'}
-                variant="outline"
-                className={dense ? 'h-7 px-2.5 text-xs' : undefined}
-                onClick={() =>
-                  create.mutate({
-                    name: `${source.name} copy`,
-                    kind: source.kind,
-                    mic_item_id: source.mic_item_id,
-                    stand_item_id: source.stand_item_id,
-                    phantom_power: source.phantom_power,
-                    connector_type: source.connector_type,
-                    width: source.width,
-                    position_x: source.position_x,
-                    position_y: source.position_y + 24,
-                  })
-                }
-              >
-                <Copy className="mr-1.5 h-3.5 w-3.5" />Duplicate
-              </Button>
-              <Button
-                size={dense ? 'sm' : 'md'}
-                variant="ghost"
-                className={dense ? 'h-7 px-2.5 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-300' : 'text-red-400 hover:bg-red-500/10 hover:text-red-300'}
-                onClick={() => {
-                  if (window.confirm(`Delete source “${source.name}”? Any cable connected to it is removed with it.`)) {
-                    remove.mutate(source.id)
-                    onClose()
+            {!readOnly && (
+              <div className="mt-auto flex gap-2">
+                <Button
+                  size={dense ? 'sm' : 'md'}
+                  variant="outline"
+                  className={dense ? 'h-7 px-2.5 text-xs' : undefined}
+                  onClick={() =>
+                    create.mutate({
+                      name: `${source.name} copy`,
+                      kind: source.kind,
+                      mic_item_id: source.mic_item_id,
+                      stand_item_id: source.stand_item_id,
+                      phantom_power: source.phantom_power,
+                      connector_type: source.connector_type,
+                      width: source.width,
+                      position_x: source.position_x,
+                      position_y: source.position_y + 24,
+                    })
                   }
-                }}
-              >
-                Delete
-              </Button>
-            </div>
-          )}
-        </>
-      ) : (
-        <>
-          <p className="text-sm font-semibold text-zinc-100">{title}</p>
-          <Note label="Edited in the Rig drawer">
-            <span className="text-[11px] leading-snug text-zinc-400">
-              Rig gear is declared once per event and shared by both audio tabs. Select a source to edit it here.
-            </span>
-          </Note>
-          <Legend rows={INPUT_LEGEND} />
-        </>
-      )}
+                >
+                  <Copy className="mr-1.5 h-3.5 w-3.5" />Duplicate
+                </Button>
+                <Button
+                  size={dense ? 'sm' : 'md'}
+                  variant="ghost"
+                  className={dense ? 'h-7 px-2.5 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-300' : 'text-red-400 hover:bg-red-500/10 hover:text-red-300'}
+                  onClick={() => setConfirmingDelete(source.id)}
+                >
+                  Delete
+                </Button>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <p className="text-sm font-semibold text-zinc-100">{title}</p>
+            <Note label="Edited in the Rig drawer">
+              <span className="text-[11px] leading-snug text-zinc-400">
+                Rig gear is declared once per event and shared by both audio tabs. Select a source to edit it here.
+              </span>
+            </Note>
+            <Legend rows={INPUT_LEGEND} />
+          </>
+        )}
 
-      {(update.error ?? create.error ?? remove.error) && (
-        <p className="text-[11px] text-red-400">{(update.error ?? create.error ?? remove.error)?.message}</p>
+        {(update.error ?? create.error ?? remove.error) && (
+          <p className="text-[11px] text-red-400">{(update.error ?? create.error ?? remove.error)?.message}</p>
+        )}
+      </InspectorFrame>
+
+      {/* A sibling of the frame, not a child of it: on a phone the frame is a bottom
+          sheet, and a centred overlay nested inside a scrolling sheet body is a
+          stacking question nobody should have to answer twice. */}
+      {source && (
+        <ConfirmDialog
+          open={confirmingDelete === source.id}
+          title="Delete source"
+          onCancel={() => setConfirmingDelete(null)}
+          onConfirm={() => {
+            setConfirmingDelete(null)
+            remove.mutate(source.id)
+            onClose()
+          }}
+        >
+          “{source.name}” will be deleted. Any cable connected to it is removed with it.
+        </ConfirmDialog>
       )}
-    </InspectorFrame>
+    </>
   )
 }
 

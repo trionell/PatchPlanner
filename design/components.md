@@ -262,6 +262,28 @@ The `Escape` handler now lives in `hooks/useEscapeToClose`, shared by `Drawer`,
 `Dialog` and `Sheet`. Three callers, in one commit — Principle V forbids
 abstracting ahead of a second caller; it does not ask for a third copy.
 
+### `ui/ConfirmDialog`
+
+The sentence-and-two-buttons `Dialog`, named: a destructive confirm, in this
+language rather than the browser's. **A `window.confirm` is not a component**
+— the same argument Slice 32 used to remove the application's only
+`window.prompt`, and it applies harder on a phone, where the browser's dialog
+interrupts the sheet the user is reading.
+
+It is `max-w-md`, not `Dialog`'s `max-w-2xl` (`ChainCell` already narrows the
+same way), a `ghost` **Cancel** beside a `destructive` confirm — the one place
+that variant is for — and `Escape`, the scrim and the × all cancel, because the
+safe answer is the one that costs nothing to repeat.
+
+Cancel is present here and absent from `ui/Sheet`'s footer
+([patterns.md](patterns.md) §7d), and the two rules do not conflict: a sheet's
+close target abandons an edit you can re-open, while here the two buttons *are*
+the question, and a question with one answer is not one.
+
+Two callers so far — both flow inspectors, converted together
+(ROADMAP D2). The other `window.confirm` call sites are not yet converted; each
+should use this when its surface is next opened, not by a sweep.
+
 `Badge` and `Pill` both read their tint from `lib/vocabularyTint.ts`, so the two
 sizes of one chip cannot disagree about what colour a `monitor` is. It takes any
 vocabulary string and falls back to the neutral style for values it has no entry
