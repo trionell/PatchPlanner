@@ -14,6 +14,19 @@ interface DrawerProps {
   subtitle?: string
   /** wide = the Rig drawer (four kinds of equipment); narrow = Buses. */
   width?: 'wide' | 'narrow'
+  /**
+   * The body gives up its padding and the gap between its sections, at both
+   * widths — for contents that are a construction of the panel's own rather than
+   * a stack of `DrawerSection`s: a `PanelCols` whose rail is bordered on the edge
+   * it shares with the sheet, and on a phone a run of full-bleed rows separated
+   * by a hairline ([patterns.md](../../../design/patterns.md) §4, §7c). Both are
+   * wrong inset by 20 px, and both are wrong with 20 px between them.
+   *
+   * The same prop `ui/Sheet` already has, forwarded — unlike `width`, which is
+   * deliberately not, because a phone has one width and a sheet that accepted it
+   * would carry an API it must never use.
+   */
+  flush?: boolean
   children: ReactNode
   footer?: ReactNode
   /**
@@ -42,7 +55,7 @@ interface DrawerProps {
  * six drawers acquire a phone form at once; six call sites each answering the
  * same question is how `NodeShell` ended up with two copies.
  */
-export function Drawer({ open, onClose, title, subtitle, width = 'wide', children, footer, info }: DrawerProps) {
+export function Drawer({ open, onClose, title, subtitle, width = 'wide', flush = false, children, footer, info }: DrawerProps) {
   useEscapeToClose(open, onClose)
   const isMobile = useIsMobile()
   // The `i` rides in the title's row, so a closed note costs the drawer no space.
@@ -57,6 +70,7 @@ export function Drawer({ open, onClose, title, subtitle, width = 'wide', childre
     return (
       <Sheet
         open
+        flush={flush}
         onClose={onClose}
         title={
           <>
@@ -96,9 +110,10 @@ export function Drawer({ open, onClose, title, subtitle, width = 'wide', childre
           </button>
         </div>
         {/* Sections are stacked full width with one gap owned here, rather than
-            each carrying its own margin (Slice 24 FR-018). */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">
-          <div className="flex flex-col gap-5">{children}</div>
+            each carrying its own margin (Slice 24 FR-018) — unless the contents
+            are one construction rather than a stack, which is what `flush` says. */}
+        <div className={cn('flex-1 overflow-y-auto', !flush && 'px-5 py-4')}>
+          {flush ? children : <div className="flex flex-col gap-5">{children}</div>}
         </div>
         {footer && <div className="border-t border-zinc-800 px-5 py-3 text-xs text-zinc-500">{footer}</div>}
       </div>

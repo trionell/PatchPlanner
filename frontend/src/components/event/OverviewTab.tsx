@@ -17,7 +17,7 @@ import { eventSummary } from '../../lib/eventSummary'
 import { listEventOwnedEquipment } from '../../api/owned'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
-import { Dialog } from '../ui/Dialog'
+import { Drawer } from '../ui/Drawer'
 import { MicroLabel } from '../ui/Label'
 import { MobileOverviewPanel } from '../mobile/MobileOverviewPanel'
 import { EventInventoryBrowser } from './EventInventoryBrowser'
@@ -96,6 +96,27 @@ export function OverviewTab({ eventId, readOnly = false }: { eventId: number; re
   const event = eventQuery.data
   const ownsInventory = myInventoriesQuery.data?.some((inventory) => inventory.id === inventoryQuery.data?.id) ?? false
 
+  /*
+    The catalog, read-only — a `Drawer` rather than a `Dialog` since ROADMAP D4.
+    It opens over the surface the user is cross-referencing, which is `Drawer`'s
+    stated reason for being an overlay at all (components.md §4) and is exactly
+    what browsing someone else's catalog mid-event is; a centred dialog is *a
+    sentence and two buttons*, and this is neither. The phone form comes with it —
+    a `Drawer` is a bottom `ui/Sheet` below 768px — so the two branches below hold
+    one element rather than two call sites answering the same question twice.
+  */
+  const catalog = (
+    <Drawer
+      flush
+      onClose={() => setBrowsing(false)}
+      open={browsing}
+      subtitle="Read-only — only the catalog's owner can change it"
+      title={inventoryQuery.data?.name ?? 'Inventory'}
+    >
+      <EventInventoryBrowser eventId={eventId} />
+    </Drawer>
+  )
+
   const meta = [
     event?.created_at ? `Created ${event.created_at.slice(0, 10)}` : undefined,
     summary.members != null ? `${summary.members} ${summary.members === 1 ? 'person has' : 'people have'} access` : undefined,
@@ -151,14 +172,7 @@ export function OverviewTab({ eventId, readOnly = false }: { eventId: number; re
           saving={saveEvent.isPending}
         />
 
-        {/* The catalog, read-only, in the sheet `ui/Dialog` becomes below 768px. */}
-        <Dialog
-          onClose={() => setBrowsing(false)}
-          open={browsing}
-          title={`${inventoryQuery.data?.name ?? 'Inventory'} (read-only)`}
-        >
-          <EventInventoryBrowser eventId={eventId} />
-        </Dialog>
+        {catalog}
       </>
     )
   }
@@ -264,13 +278,7 @@ export function OverviewTab({ eventId, readOnly = false }: { eventId: number; re
         onSave={(draft) => saveEvent.mutate(draft)}
       />
 
-      <Dialog
-        open={browsing}
-        onClose={() => setBrowsing(false)}
-        title={`${inventoryQuery.data?.name ?? 'Inventory'} (read-only)`}
-      >
-        <EventInventoryBrowser eventId={eventId} />
-      </Dialog>
+      {catalog}
     </>
   )
 }

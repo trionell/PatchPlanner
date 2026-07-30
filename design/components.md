@@ -32,6 +32,14 @@ takes a deliberate act rather than an absent-minded import.
 tabs render them, and Slice 25 was scoped to leave those exactly as they were. That
 scoping decision is now spent — [audit.md](audit.md) says what happens to them.
 
+**And it is now fully spent: `ui/Table` has no caller left in the application**
+(ROADMAP D4 converted the last one). `Badge` keeps several, because a role chip on
+a dashboard card is a navigation surface and always was. The file stays, and the
+pair stays a pair — a tabular *navigation* surface is a thing this application may
+build again, and rebuilding it from memory is how the two tiers come to disagree.
+What does not stay is the reflex: a table of records is a work surface unless
+something makes it a summary, which is what four waves of converting them found.
+
 ## 2 · Work-surface components
 
 ### `ui/PatchPanel` — the frame
@@ -228,6 +236,23 @@ Header `px-5 py-4` with a `text-lg` title and an optional subtitle; body
 each section's own margin; optional footer `px-5 py-3 text-xs text-zinc-500` — used
 to state what the drawer's contents *mean*, e.g. *"Every row here is one line on
 the rental order · 12 items"*.
+
+**`flush` drops that padding and that gap, at both widths** — for a body that is
+one construction rather than a stack of `DrawerSection`s. Two things need it and
+they are the same thing at two reaches: a `PanelCols` whose rail is bordered on
+the edge it shares with the sheet ([patterns.md](patterns.md) §4), and the run of
+full-bleed rows that rail becomes on a phone (§7c). Both are wrong inset by 20 px,
+and both are wrong with 20 px between them. It is `ui/Sheet`'s own prop,
+forwarded — unlike `width`, which is deliberately not.
+
+**A read-only work surface opened from another surface is a `Drawer`.** The third
+answer to the question §4's rule settles: an overlay with fields is a `Sheet`, an
+overlay that is a sentence and two buttons is a `Dialog`, and a catalog you are
+*consulting while working on something else* is neither. The reason is the one
+stated above — it opens over the surface being cross-referenced — and the event's
+read-only browse of someone else's inventory is the instance (ROADMAP D4). It was
+a `Dialog` for four slices, which is how it also came to have no phone form: a
+`Drawer` is a bottom sheet below 768 px and a `Dialog` stays centred.
 
 ### `ui/Tabs`
 

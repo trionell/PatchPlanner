@@ -9,12 +9,11 @@ is left, it is only this:
 | | |
 |---|---|
 | Slice 31 | Rental pricing by duration — planned, not started |
-| D4 | The event's read-only catalog browse is the last pre-redesign surface |
 
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
 multi-event/tour planning (§3.11).
 
-Reach any of them by heading, not by line number — `grep -n '^### D4' ROADMAP.md`.
+Reach any of them by heading, not by line number — `grep -n '^## Slice 31' ROADMAP.md`.
 A closed defect keeps its section and gains a ✅; this table is the list of what
 has not. The dependency graph is at the foot of the file.
 
@@ -1551,7 +1550,7 @@ Five decisions worth keeping:
    already did. Besides everyone's remembered views resetting once, this is the only
    visible change.
 
-### D4 — The event's read-only catalog browse is the last pre-redesign surface
+### D4 — The event's read-only catalog browse is the last pre-redesign surface ✅ fixed 2026-07-30
 
 **Found:** 2026-07-30, while confirming that D1's fix had not made the *Browse* path
 dead code. It has not — `OverviewTab:97` branches on `ownsInventory`, so a contributor
@@ -1597,6 +1596,46 @@ what someone browsing a catalog mid-event is actually doing. A read-only route u
 tabs; this file is an overlay opened *from* one of them, and Slice 28 extracted it out
 of `EventInventoryCard` during that same wave. The zero is true of the tabs and false
 of the application — which is the whole reason this went unseen for nine slices.
+
+**Fixed.** The decision came first and it is **`ui/Drawer`**: an overlay that opens over
+the surface you are cross-referencing, which is the drawer's stated reason for existing
+and is exactly what consulting someone else's catalog mid-event is. The read-only route
+was the alternative and it is a backend change — a non-owner cannot read an inventory by
+id, which is why the event-scoped endpoints exist at all — so it buys a back button at
+the price of a new authorization path. `components.md` §4 now records the drawer as the
+third answer to the *`Sheet` or `Dialog`* rule, since the rule had two and this is
+neither.
+
+The four things, and one that came with them:
+
+1. `SheetTable`/`SheetHead`/`SheetHeadCell`/`SheetRow`/`NumCell`. **`ui/Table` now has
+   no caller anywhere in the application.** The file stays and the tier pair stays a
+   pair — a tabular *navigation* surface is buildable again and rebuilding it from
+   memory is how two tiers come to disagree — but the count in the audit is now true of
+   the application and not only of the tabs.
+2. The hand-written `Tab` classes are `ui/PanelRail` — the same rail the *owner's* view
+   of these same rows filters with, one page over, plus its `All items` row. Not a `Tab`:
+   the tier pairs were never the whole of the mistake, and a category filter is a filter
+   rail (patterns.md §4), not a selector of what you are looking at.
+3. The phone is the columns ranked into `CondensedListRow`s with the rail as a
+   `MobilePicker` — and it arrives *through the drawer*, which is a bottom sheet below
+   768 px. That is the second reason the overlay decision came first: as a `Dialog` this
+   surface had no phone form available to it at all.
+4. `max-h-[70vh]` is gone with nothing in its place. The drawer's body owns the only
+   scroll at both reaches; the horizontal one is gone from the phone branch entirely,
+   because a four-column table is not what the phone renders any more.
+5. **`useEscapeToClose` closes the topmost overlay, and only it.** Every open caller
+   listened on `window` independently, so one `Escape` closed all of them — which costs
+   nothing while overlays never nest and is wrong the moment one does, and this fix
+   nests a picker's sheet inside the drawer's. `stopPropagation` cannot arbitrate it
+   (both listeners are on the same target); a stack can, and the last entry is by
+   construction the overlay on top. Reachable on a desk, too — `useIsMobile` is a width,
+   so a narrow browser window gets the phone branch and a real `Escape` key.
+
+`ui/Drawer` gained `flush`, the prop `ui/Sheet` already had, forwarded. A body that is
+one construction rather than a stack of `DrawerSection`s wants neither the 20 px inset
+nor the 20 px gap: the rail has to be bordered on the edge it shares with the sheet, and
+the phone's rows have to be full-bleed with a hairline between them.
 
 ## Dependency graph
 
