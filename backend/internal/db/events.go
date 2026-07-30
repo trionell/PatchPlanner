@@ -24,16 +24,21 @@ func eventColumns(prefix string) string {
 		"COALESCE(" + prefix + "discount_percent, 0)"
 }
 
-// scanEvent reads eventColumns in order. The three pricing pointers stay
-// nullable through the scan because NULL is a meaning here — "follow the
-// catalog" — and COALESCE-ing them to zero would turn every inheriting event
-// into one charging nothing.
-func scanEvent(row scanner, event *domain.Event) error {
+// scanEvent reads eventColumns in order, plus whatever a query selected after
+// them — ListEventsForUser appends the caller's role to the same row.
+//
+// The three pricing pointers stay nullable through the scan because NULL is a
+// meaning here, "follow the catalog", and COALESCE-ing them to zero would turn
+// every inheriting event into one charging nothing.
+func scanEvent(row scanner, event *domain.Event, extra ...any) error {
 	var chargedDays sql.NullString
 	var rentFactorOverride, vatPercent sql.NullFloat64
-	if err := row.Scan(&event.ID, &event.Name, &event.LoadInDate, &event.StartDate, &event.EndDate,
+	targets := append([]any{
+		&event.ID, &event.Name, &event.LoadInDate, &event.StartDate, &event.EndDate,
 		&event.LoadOutDate, &event.Venue, &event.Notes, &event.CreatedAt, &event.UpdatedAt,
-		&event.InventoryID, &chargedDays, &rentFactorOverride, &vatPercent, &event.DiscountPercent); err != nil {
+		&event.InventoryID, &chargedDays, &rentFactorOverride, &vatPercent, &event.DiscountPercent,
+	}, extra...)
+	if err := row.Scan(targets...); err != nil {
 		return err
 	}
 	event.ChargedDays = stringPtrFromNull(chargedDays)
@@ -61,19 +66,10 @@ func ListEventsForUser(db *sql.DB, userID int64) ([]domain.Event, error) {
 	events := make([]domain.Event, 0)
 	for rows.Next() {
 		var event domain.Event
-		// The role rides along on the same row, so this one call site scans it
-		// itself rather than reaching for scanEvent.
-		var chargedDays sql.NullString
-		var rentFactorOverride, vatPercent sql.NullFloat64
-		if err := rows.Scan(&event.ID, &event.Name, &event.LoadInDate, &event.StartDate, &event.EndDate,
-			&event.LoadOutDate, &event.Venue, &event.Notes, &event.CreatedAt, &event.UpdatedAt,
-			&event.InventoryID, &chargedDays, &rentFactorOverride, &vatPercent, &event.DiscountPercent,
-			&event.YourRole); err != nil {
+		// The role rides along on the same row, after the shared columns.
+		if err := scanEvent(rows, &event, &event.YourRole); err != nil {
 			return nil, fmt.Errorf("scan event: %w", err)
 		}
-		event.ChargedDays = stringPtrFromNull(chargedDays)
-		event.RentFactorOverride = floatPtrFromNull(rentFactorOverride)
-		event.VATPercent = floatPtrFromNull(vatPercent)
 		events = append(events, event)
 	}
 	return events, rows.Err()
