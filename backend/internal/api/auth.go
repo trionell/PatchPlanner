@@ -117,13 +117,13 @@ func (h AuthHandler) callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Slice 16: claim the legacy bootstrap catalog if it is still unowned —
-	// on the same first-login-wins rule as the events above, and whether or
-	// not this user already owns an inventory (ROADMAP.md D1) — and otherwise
-	// guarantee they own at least one by creating a fresh empty one
-	// (research.md R4).
-	if err := db.EnsureUserHasInventory(h.DB, user.ID); err != nil {
-		writeError(w, http.StatusInternalServerError, "ensure user inventory")
+	// The catalog follows the events just claimed above: an ownerless
+	// inventory that one of this user's own events is bound to is adopted, and
+	// nothing else is. A login provisions no inventory — a new user owns none
+	// until they create or import one, or reach one through a shared event
+	// (2026-07-30 decision; ROADMAP.md D1 for what the old rule cost).
+	if _, err := db.ClaimInventoriesForOwnedEvents(h.DB, user.ID); err != nil {
+		writeError(w, http.StatusInternalServerError, "claim inventories for owned events")
 		return
 	}
 	// Idempotent copy-from-seed, not a claim — every user gets their own

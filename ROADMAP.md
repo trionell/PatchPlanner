@@ -8,9 +8,9 @@ is left, it is only this:
 
 | | | |
 |---|---|---|
-| Slice 31 | Rental pricing by duration | planned, not started — L1101 |
-| D2 | The flow inspector's delete is a browser dialog | L1429 |
-| D3 | The stage plot's remembered view is shared across every device | L1447 |
+| Slice 31 | Rental pricing by duration | planned, not started — L1107 |
+| D2 | The flow inspector's delete is a browser dialog | L1457 |
+| D3 | The stage plot's remembered view is shared across every device | L1475 |
 
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
 multi-event/tour planning (§3.11).
@@ -567,6 +567,12 @@ pass, not fully locked here.
   reinvented. Every user after that gets their own empty starter inventory
   auto-created on their first sign-in, ready to import an LL.xlsx into —
   no dead-end empty state.
+  **Both halves of that were reversed on 2026-07-30 while fixing D1** — a
+  login now provisions nothing and adopts only a catalog the user's own
+  events already read. The "dead-end empty state" argument had expired:
+  Slice 32 gave the Inventories page a real onboarding empty state, so an
+  auto-created *My Inventory* was a row nobody asked for, and first-login
+  adoption would hand a new user someone else's catalog.
 - [x] Duplication: `POST /inventories/{id}/duplicate` deep-copies categories,
   items, and their `fixture_modes` into a brand-new inventory owned by the
   caller; the original and any events already using it are untouched.
@@ -1385,46 +1391,67 @@ stopped the query retrying three times (`retry: false` — a 404 is an answer, n
 a hiccup) and left the cause alone, because it is a backend fix and that slice
 was frontend-only.
 
-**The fix** — the rule, the decision inside it, and the data already spoiled:
+**The rule the fix settled on** (2026-07-30 product decision, which is wider than
+the defect): **a login provisions no inventory.** A new user owns no catalog until
+they create or import one, or reaches one through an event shared with them. That
+retires both of Slice 16's bootstrap behaviours — the auto-created *My Inventory*
+and first-login adoption of the legacy catalog — and it is affordable now because
+Slice 32 gave the Inventories page a real onboarding empty state (`EmptyAccount`:
+*New catalog* and *Download the template*), so there is no dead end to protect
+against. Event creation already 400s with *"inventoryId must be an inventory you
+own"* and the drawer's `Select` is empty, so the path to the empty state is the
+only path.
 
-1. **The rule.** The two checks changed places. `EnsureUserHasInventory` now
-   claims first and asks afterwards: `UPDATE inventories SET owner_user_id = ?
-   WHERE owner_user_id IS NULL` runs on every login, and only if it claimed
-   nothing does the function ask whether this user owns anything and create a
-   starter inventory. The `WHERE` clause was always the atomic guard, so it
-   needed no new "am I first" check — only to stop being shadowed by one.
-   `LIMIT 1` went with the subquery: claiming *every* ownerless row is
-   self-healing, matches `ClaimOwnerlessEvents` one call earlier in the same
-   login, and by construction there is only ever the one from 038 anyway.
-2. **Who adopts it.** First login still wins — the migration's stated intent,
-   kept deliberately after weighing an owner-of-bound-events rule at runtime
-   too. Two reasons: `ClaimOwnerlessEvents` runs immediately before this on the
-   same login and hands that user the events bound to the catalog, so the two
-   rules agree in every real case; and an ownerless catalog with no events bound
-   to it has nothing to derive an owner from, so an events-only rule would
-   re-create the orphan it was meant to prevent. Sharing an adopted catalog is a
-   transfer question, not an adoption question.
-3. **The data.** Migration `048_adopt_ownerless_inventory` claims the orphan in
-   databases that already hold one, for the owner of the **earliest** event
-   bound to it — so several owners resolve deterministically to whoever has had
-   the catalog longest. An ownerless inventory with no owned event bound to it is
-   left alone for the corrected login path to pick up. Its `down` is a
-   documented no-op: nothing records which rows were repaired, and guessing would
-   re-orphan a catalog. Rehearsed against a copy of this developer's database —
-   version 48, clean, inventory 1 now owned, its 308 items and 27 categories
-   intact.
+**The fix**, under that rule:
 
-Found while fixing, and worth knowing: migration 038's `INSERT INTO inventories
-(name) VALUES ('Imported catalog')` is unconditional, so **every** database has an
-ownerless bootstrap row — a freshly created one included. The first login on a new
-install has always adopted that empty row rather than creating "My Inventory"; a
-comment in `TestEnsureUserHasInventory` claimed the opposite and has been corrected.
+1. **The claim.** `EnsureUserHasInventory` is gone, replaced by
+   `db.ClaimInventoriesForOwnedEvents`: `UPDATE inventories SET owner_user_id = ?
+   WHERE owner_user_id IS NULL AND EXISTS (SELECT 1 FROM events e WHERE
+   e.inventory_id = inventories.id AND e.owner_user_id = ?)`. It runs on every
+   login, straight after `ClaimOwnerlessEvents` — the events are claimed first
+   and the catalog they read follows them. No "does this user own one?" guard
+   survives, which is the defect itself; the `WHERE` clause is the whole test,
+   and it is idempotent because a claimed row is no longer ownerless.
+   This is the only claim narrow enough to live under the rule: a user whose own
+   events already read a catalog is not being handed anything, they are being let
+   back into what D1 locked them out of. A stranger's login claims nothing.
+2. **The data.** Migration `048_adopt_ownerless_inventory` applies the same rule
+   — the catalog follows its events — to databases that already hold the orphan,
+   claiming it for the owner of the **earliest** event bound to it, so several
+   owners resolve deterministically to whoever has had it longest. It exists
+   *because* the login path cannot cover a pre-Slice-16 upgrade: at migration
+   time that database has no users at all, so nobody's events can pull the
+   catalog across yet.
+3. **The sweep.** Migration `049_drop_empty_bootstrap_inventory` deletes an
+   ownerless inventory that holds no category, no item and no event. This is
+   038's bootstrap row, which is inserted **unconditionally** — so *every*
+   database has had one, a freshly created one included, and it was only ever
+   reachable through the first-login adoption that the rule above retires. Left
+   in place it would sit ownerless forever: invisible in the list, 404ing every
+   owner-scoped route — D1's state reached by a different road. Anything with
+   content in it is real data and is left to 048.
+4. **What 048 broke on the way, and how.** `convertLegacyInventoryTemplate`
+   identified the bootstrap row as *the ownerless one* — true until 048 started
+   claiming it first, after which a pre-Slice-16 upgrade would have skipped
+   storing its `LL.xlsx`. It now keys on `id = 1`, which is exact rather than
+   clever: 038 creates the table and inserts exactly one row, the column is
+   `AUTOINCREMENT`, and `sqlite_sequence` was checked on a fresh install — after
+   049 deletes row 1 the next inventory gets id 2, so nothing can ever occupy it.
+   Both `down` files are documented no-ops: nothing records which rows 048
+   repaired, and 049 deleted rows that held nothing to restore.
 
-Regression tests: a user who owns an inventory logs in while an ownerless one
-exists and adopts it rather than skipping it
-(`TestEnsureUserHasInventoryAdoptsWhileAlreadyOwning`), and the repair migration
-run on seeded pre-fix data
-(`TestMigration048AdoptsOrphanedCatalog`, via the `execMigrationFile` harness).
+**Rehearsed** against a copy of this developer's database (never the file itself):
+version 49, clean; inventory 1 now owned, with its 308 items, 27 categories and
+its stored `LL.xlsx` intact; the other three untouched; nothing deleted. And on a
+fresh database: version 49, **zero** inventories.
+
+Regression tests: a first login provisions nothing and a freshly migrated database
+holds no inventory row at all (`TestLoginProvisionsNoInventory`); the owner of an
+event bound to an ownerless catalog adopts it even though they already own one,
+while a stranger claims nothing (`TestClaimInventoriesForOwnedEvents`); and both
+migrations run on seeded pre-fix data (`TestMigration048AdoptsOrphanedCatalog`,
+`TestMigration049DropsEmptyBootstrapInventory`, via the `execMigrationFile`
+harness).
 
 
 ### D2 — The flow inspector's delete is a browser dialog

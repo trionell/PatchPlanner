@@ -63,112 +63,104 @@ func TestDeleteInventoryBlockedWhileInUse(t *testing.T) {
 	}
 }
 
-func TestEnsureUserHasInventory(t *testing.T) {
+// TestLoginProvisionsNoInventory is the 2026-07-30 rule: a new user owns no
+// catalog until they create or import one, or reach one through a shared event.
+// A freshly migrated database has no inventory row at all — migration 049
+// removes 038's empty bootstrap row, so there is nothing to adopt either.
+func TestLoginProvisionsNoInventory(t *testing.T) {
 	database := openTestDB(t)
 
-	// Migration 038 inserts its bootstrap 'Imported catalog' ownerless in
-	// every database, including a freshly migrated one, so the first user to
-	// log in adopts that rather than getting a created inventory. Either way
-	// they end up owning exactly one.
-	first, _ := UpsertUserByGoogleSub(database, "first-sub", "first@example.com", "First", "")
-	if err := EnsureUserHasInventory(database, first.ID); err != nil {
-		t.Fatalf("ensure inventory for first user: %v", err)
+	var rows int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM inventories`).Scan(&rows); err != nil {
+		t.Fatalf("count inventories: %v", err)
 	}
-	firstList, err := ListInventoriesForOwner(database, first.ID)
+	if rows != 0 {
+		t.Errorf("a freshly migrated database holds %d inventories, want 0", rows)
+	}
+
+	user, _ := UpsertUserByGoogleSub(database, "first-sub", "first@example.com", "First", "")
+	claimed, err := ClaimInventoriesForOwnedEvents(database, user.ID)
 	if err != nil {
-		t.Fatalf("list first user's inventories: %v", err)
+		t.Fatalf("claim inventories: %v", err)
 	}
-	if len(firstList) != 1 {
-		t.Fatalf("first user owns %d inventories, want 1", len(firstList))
+	if claimed != 0 {
+		t.Errorf("first login claimed %d inventories, want 0", claimed)
 	}
-
-	// Calling again is a no-op — no second inventory created.
-	if err := EnsureUserHasInventory(database, first.ID); err != nil {
-		t.Fatalf("ensure inventory again: %v", err)
-	}
-	firstListAgain, err := ListInventoriesForOwner(database, first.ID)
-	if err != nil {
-		t.Fatalf("list first user's inventories again: %v", err)
-	}
-	if len(firstListAgain) != 1 {
-		t.Fatalf("first user owns %d inventories after repeat call, want 1 (idempotent)", len(firstListAgain))
-	}
-
-	// A genuinely ownerless inventory (simulating the legacy bootstrap
-	// row) is claimed by the next user to call this, instead of getting
-	// them a second, redundant fresh one.
-	if _, err := database.Exec(`INSERT INTO inventories (name) VALUES ('Legacy catalog')`); err != nil {
-		t.Fatalf("seed ownerless inventory: %v", err)
-	}
-	second, _ := UpsertUserByGoogleSub(database, "second-sub", "second@example.com", "Second", "")
-	if err := EnsureUserHasInventory(database, second.ID); err != nil {
-		t.Fatalf("ensure inventory for second user: %v", err)
-	}
-	secondList, err := ListInventoriesForOwner(database, second.ID)
-	if err != nil {
-		t.Fatalf("list second user's inventories: %v", err)
-	}
-	if len(secondList) != 1 || secondList[0].Name != "Legacy catalog" {
-		t.Fatalf("second user's inventories = %+v, want the claimed legacy catalog", secondList)
-	}
-}
-
-// TestEnsureUserHasInventoryAdoptsWhileAlreadyOwning is ROADMAP.md D1: the
-// adoption is guarded on "an ownerless inventory exists", not on "this user
-// owns none". A user who already owns one used to return early and leave the
-// legacy catalog ownerless forever — every owner-scoped route 404ing for a
-// catalog its events could still reach.
-func TestEnsureUserHasInventoryAdoptsWhileAlreadyOwning(t *testing.T) {
-	database := openTestDB(t)
-	user, _ := UpsertUserByGoogleSub(database, "owner-sub", "owner@example.com", "Owner", "")
-	if _, err := CreateInventory(database, user.ID, "My Inventory"); err != nil {
-		t.Fatalf("create own inventory: %v", err)
-	}
-	if _, err := database.Exec(`INSERT INTO inventories (name) VALUES ('Legacy catalog')`); err != nil {
-		t.Fatalf("seed ownerless inventory: %v", err)
-	}
-
-	if err := EnsureUserHasInventory(database, user.ID); err != nil {
-		t.Fatalf("ensure inventory: %v", err)
-	}
-
-	var ownerless int
-	if err := database.QueryRow(`SELECT COUNT(*) FROM inventories WHERE owner_user_id IS NULL`).Scan(&ownerless); err != nil {
-		t.Fatalf("count ownerless inventories: %v", err)
-	}
-	if ownerless != 0 {
-		t.Errorf("%d inventories still ownerless, want 0 (an ownerless catalog must be adopted)", ownerless)
-	}
-	var owner sql.NullInt64
-	if err := database.QueryRow(`SELECT owner_user_id FROM inventories WHERE name = 'Legacy catalog'`).Scan(&owner); err != nil {
-		t.Fatalf("read legacy catalog owner: %v", err)
-	}
-	if !owner.Valid || owner.Int64 != user.ID {
-		t.Errorf("legacy catalog owner = %+v, want the user who logged in (%d)", owner, user.ID)
-	}
-
-	// Still idempotent: with nothing left to adopt and one already owned,
-	// a repeat login neither claims nor creates anything.
-	before, err := ListInventoriesForOwner(database, user.ID)
+	list, err := ListInventoriesForOwner(database, user.ID)
 	if err != nil {
 		t.Fatalf("list inventories: %v", err)
 	}
-	if err := EnsureUserHasInventory(database, user.ID); err != nil {
-		t.Fatalf("ensure inventory again: %v", err)
+	if len(list) != 0 {
+		t.Errorf("user owns %d inventories after first login, want 0 (%+v)", len(list), list)
 	}
-	after, err := ListInventoriesForOwner(database, user.ID)
+}
+
+// TestClaimInventoriesForOwnedEvents is ROADMAP.md D1: the claim is guarded on
+// "is there an ownerless inventory my events read?", not on "do I own none". A
+// user who already owned one used to return early and leave the legacy catalog
+// ownerless forever — every owner-scoped route 404ing for a catalog its own
+// events could still reach. A user with no event bound to it gets nothing.
+func TestClaimInventoriesForOwnedEvents(t *testing.T) {
+	database := openTestDB(t)
+	user, _ := UpsertUserByGoogleSub(database, "owner-sub", "owner@example.com", "Owner", "")
+	stranger, _ := UpsertUserByGoogleSub(database, "stranger-sub", "stranger@example.com", "Stranger", "")
+	if _, err := CreateInventory(database, user.ID, "My own catalog"); err != nil {
+		t.Fatalf("create own inventory: %v", err)
+	}
+	legacy := seedOwnerlessInventory(t, database, "Legacy catalog")
+	if _, err := CreateEvent(database, testEvent("Gig"), user.ID, legacy); err != nil {
+		t.Fatalf("create event on the legacy catalog: %v", err)
+	}
+
+	// The stranger owns no event bound to it, so a login hands them nothing.
+	claimed, err := ClaimInventoriesForOwnedEvents(database, stranger.ID)
 	if err != nil {
-		t.Fatalf("list inventories again: %v", err)
+		t.Fatalf("claim inventories for stranger: %v", err)
 	}
-	if len(after) != len(before) {
-		t.Errorf("user owns %d inventories after repeat call, want %d (idempotent)", len(after), len(before))
+	if claimed != 0 {
+		t.Errorf("stranger claimed %d inventories, want 0", claimed)
+	}
+
+	// The owner of the event bound to it adopts it — even though they
+	// already own a catalog of their own, which is what D1 tripped over.
+	claimed, err = ClaimInventoriesForOwnedEvents(database, user.ID)
+	if err != nil {
+		t.Fatalf("claim inventories: %v", err)
+	}
+	if claimed != 1 {
+		t.Errorf("claimed %d inventories, want 1", claimed)
+	}
+	var owner sql.NullInt64
+	if err := database.QueryRow(`SELECT owner_user_id FROM inventories WHERE id = ?`, legacy).Scan(&owner); err != nil {
+		t.Fatalf("read legacy catalog owner: %v", err)
+	}
+	if !owner.Valid || owner.Int64 != user.ID {
+		t.Errorf("legacy catalog owner = %+v, want the owner of its event (%d)", owner, user.ID)
+	}
+
+	// Idempotent: a claimed row is no longer ownerless, so a repeat login
+	// claims nothing and creates nothing.
+	claimed, err = ClaimInventoriesForOwnedEvents(database, user.ID)
+	if err != nil {
+		t.Fatalf("claim inventories again: %v", err)
+	}
+	if claimed != 0 {
+		t.Errorf("repeat login claimed %d inventories, want 0 (idempotent)", claimed)
+	}
+	list, err := ListInventoriesForOwner(database, user.ID)
+	if err != nil {
+		t.Fatalf("list inventories: %v", err)
+	}
+	if len(list) != 2 {
+		t.Errorf("user owns %d inventories, want 2 (their own plus the adopted legacy one)", len(list))
 	}
 }
 
 // TestMigration048AdoptsOrphanedCatalog covers the other half of D1: the
 // databases that already hold an orphan. The repair claims it for the owner of
 // the earliest event bound to it, and leaves an ownerless inventory with no
-// owned event alone for the fixed login path to pick up.
+// owned event alone — 049 removes that one when it is empty, and a login
+// claims it if an owned event is ever bound to it.
 func TestMigration048AdoptsOrphanedCatalog(t *testing.T) {
 	database := openTestDB(t)
 	first, _ := UpsertUserByGoogleSub(database, "first-sub", "first@example.com", "First", "")
@@ -207,6 +199,52 @@ func TestMigration048AdoptsOrphanedCatalog(t *testing.T) {
 	}
 	if !owner.Valid || owner.Int64 != second.ID {
 		t.Errorf("owner after re-run = %+v, want %d unchanged", owner, second.ID)
+	}
+}
+
+// TestMigration049DropsEmptyBootstrapInventory covers the sweep that follows
+// from a login provisioning nothing: 038's empty bootstrap row has no events to
+// follow and nothing to claim it, so it goes — but only when it is genuinely
+// empty. A category, an item or a bound event makes it real data.
+func TestMigration049DropsEmptyBootstrapInventory(t *testing.T) {
+	database := openTestDB(t)
+	user, _ := UpsertUserByGoogleSub(database, "owner-sub", "owner@example.com", "Owner", "")
+
+	empty := seedOwnerlessInventory(t, database, "Imported catalog")
+	withCategory := seedOwnerlessInventory(t, database, "Has a category")
+	if _, err := database.Exec(
+		`INSERT INTO inventory_categories (name, category_type, inventory_id) VALUES ('Mics', 'audio', ?)`,
+		withCategory); err != nil {
+		t.Fatalf("seed category: %v", err)
+	}
+	withEvent := seedOwnerlessInventory(t, database, "Has an event")
+	if _, err := CreateEvent(database, testEvent("Gig"), user.ID, withEvent); err != nil {
+		t.Fatalf("seed event: %v", err)
+	}
+	owned, err := CreateInventory(database, user.ID, "Mine, and empty")
+	if err != nil {
+		t.Fatalf("create owned inventory: %v", err)
+	}
+
+	execMigrationFile(t, database, "049_drop_empty_bootstrap_inventory.up.sql")
+
+	for _, tc := range []struct {
+		id      int64
+		name    string
+		survive bool
+	}{
+		{empty, "the empty ownerless row", false},
+		{withCategory, "an ownerless row with a category", true},
+		{withEvent, "an ownerless row with a bound event", true},
+		{owned.ID, "an owned but empty inventory", true},
+	} {
+		var count int
+		if err := database.QueryRow(`SELECT COUNT(*) FROM inventories WHERE id = ?`, tc.id).Scan(&count); err != nil {
+			t.Fatalf("count %s: %v", tc.name, err)
+		}
+		if survived := count == 1; survived != tc.survive {
+			t.Errorf("%s survived = %v, want %v", tc.name, survived, tc.survive)
+		}
 	}
 }
 

@@ -100,10 +100,11 @@ func seedSession(t *testing.T, database *sql.DB) string {
 	if err != nil {
 		t.Fatalf("seed user: %v", err)
 	}
-	// Mirrors what a real login does (auth.go's callback) — every test
-	// event created via seedEvent needs an inventory to bind to, and a
-	// personal reference template to copy its vocabulary from.
-	if err := db.EnsureUserHasInventory(database, user.ID); err != nil {
+	// A login provisions no inventory (2026-07-30 decision), so this seeds
+	// the one every test event created via seedEvent binds to — the same
+	// thing a new user does by hand before their first event. The reference
+	// template *is* what a real login does (auth.go's callback).
+	if _, err := db.CreateInventory(database, user.ID, "Test Inventory"); err != nil {
 		t.Fatalf("seed test owner inventory: %v", err)
 	}
 	if err := db.EnsureUserHasReferenceTemplate(database, user.ID); err != nil {
@@ -251,8 +252,8 @@ func seedEvent(t *testing.T, serverURL string) int64 {
 }
 
 // testOwnerInventoryID returns the seeded test owner's (only) inventory —
-// EnsureUserHasInventory (called from seedSession) guarantees exactly one
-// exists by the time any test reaches this point.
+// seedSession creates exactly one, so it exists by the time any test reaches
+// this point.
 func testOwnerInventoryID(t *testing.T, serverURL string) int64 {
 	t.Helper()
 	status, raw := doJSON(t, http.MethodGet, serverURL+"/inventories", nil)
