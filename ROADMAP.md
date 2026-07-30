@@ -2,11 +2,12 @@
 
 ## What remains
 
-**Nothing. Slices 0–37 are delivered and every recorded defect is fixed.**
+**Slices 0–37 are delivered.** This file is a per-slice record written after
+delivery; everything below this section is history. What is left is only this:
 
-Slice 31 was the last open row in this table, and it closed on 2026-07-30. This
-file is now entirely a per-slice record written after delivery: everything below
-this section is history.
+| | |
+|---|---|
+| D5 | A drawer's info note is remembered under its title — approved 2026-07-30, not started |
 
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
 multi-event/tour planning (§3.11).
@@ -1741,6 +1742,81 @@ document said:
   where the header names the *thing* and the picker names *which part of it you are
   looking at*. Both existing cases were deciding that question all along; neither said
   so, which is why this looked like a new one.
+
+
+### D5 — A drawer's info note is remembered under its title
+
+**Found:** 2026-07-30, while moving `InventoryDrawer`'s two `footer` paragraphs to
+`info` — the components.md §4 rule that Slice 31 had already been told once. The
+move is done and committed separately; this is what the move walked into.
+
+**The cause.** `ui/Drawer.tsx:62` keys the note by the drawer's own title:
+
+```ts
+const note = useInfoNote({ id: `drawer:${title}` })
+```
+
+`useInfoNote` turns that into the `localStorage` key `pp-info:drawer:<title>`, so
+**the title is the note's identity**. That was safe when it was written: every
+drawer's title was a constant — *Rig*, *Buses*, *Universes*, *Categories*,
+*Import*, *Event details*. Two things have since made it untrue, and they are
+different faults sharing one line.
+
+**1. Two drawers are both called *Pricing*, and share one remembered choice.**
+`event/PricingDrawer.tsx:119` (what a hire costs) and the `CatalogPricingDrawer`
+at `inventory/InventoryDrawers.tsx:402` (what a supplier charges for a longer
+hire) both pass `title="Pricing"` and both pass `info` — two different
+explanations under one key. Reproduction: open an event's Pricing drawer, open
+the `i`, close the drawer; go to Inventories → a catalog's Pricing drawer; its
+`i` is already open, showing the other sentence. It reads as the interface
+volunteering an explanation you never asked for, and dismissing either one
+dismisses both. This is live today.
+
+**2. A title that is data gives every row its own note.** `InventoryDrawer.tsx:111`
+is `title={inventory ? inventory.name : 'New catalog'}`, and `OverviewTab.tsx:114`
+is `title={inventoryQuery.data?.name ?? 'Inventory'}` — the first drawers whose
+title is a record rather than a word. Each catalog therefore carries a private
+copy of one shared sentence: opening the `i` on *Backline* leaves it closed on
+*PA*, renaming a catalog silently orphans its key and resets the note, and the
+key space grows one entry per catalog name ever opened, forever. Milder than the
+collision — the note defaults closed, so nothing nags — but it is the same line,
+and it is why the collision is not a coincidence that can be renamed away.
+(`EventFormDrawer.tsx:130` also takes its title as a prop and now passes `info`,
+but all three of its call sites pass the constant *Create event*, so it is a
+latent case rather than a live one — worth not mistaking for a third fault.)
+
+**What a fix has to cover.** Both halves, from the one line — a per-drawer note
+identity that is neither the title nor the record in it. `Drawer` currently takes
+no such prop, so this is an API addition, not a rewiring: the eight call sites
+that pass `info` name their note, and `title` goes back to being a label.
+
+**The decision it has to make first:** whether the identity is an explicit
+`noteId` prop (required when `info` is passed, so a new drawer cannot forget it
+and silently collide) or derived from something structural the call site already
+has. Explicit is the obvious answer and the one that catches the *Pricing* case
+at the type level; it is written here because it is the choice, not because it is
+made. Second, and smaller: the `pp-info:drawer:*` keys already in this
+developer's browser become orphans under any new scheme. Leaving them is a note
+that quietly re-opens once, at whatever it was last set to; there is no user data
+in them and no migration path from a `localStorage` key, so *leave them* is
+probably right and should be said out loud rather than discovered.
+
+**This is a slice, not a `dN-` branch.** The fix documents a new `Drawer` prop, and
+`design/components.md` §4 is where `Drawer`'s props are stated — so it edits
+`design/`, which is the standing trigger for the full spec → plan → tasks and for
+design approval (see the note at the head of this section, and *Defects* in
+`CLAUDE.md`).
+
+**The mockup is waived** (2026-07-30 user decision, asked and answered before the
+work starts, which is the only place it can be). Nothing on screen moves: no
+value, tier, spacing or component changes, and the `i` and its panel are drawn
+exactly as `ui/InfoNote` already draws them. What §4 gains is a prop in a table —
+a sentence about identity, not about appearance — so there is no visual claim for
+a mockup to put in front of anyone. The waiver is this narrow: the spec → plan →
+tasks still runs, because the trigger for *those* is the `design/` edit itself and
+that edit is still happening. D4 remains the precedent for what skipping the whole
+apparatus costs, and this is not that — the design step is being *answered* here,
+not stepped around.
 
 ## Dependency graph
 
