@@ -10,6 +10,8 @@ delivery; everything below this section is history. What is left is only this:
 | Slice 38 | Who can see this event — sharing has no phone form and is still a `Dialog`; added 2026-07-31, not started |
 | Slice 39 | The Trusses overlay — the stage plot's truss manager is a `Dialog` of fields and should be a `Drawer`; added 2026-07-31, not started |
 | D6 | Eight deletes are still `window.confirm` — D2's *convert it when the surface is next opened* never converged; added 2026-07-31, open |
+| Slice 40 | The audio exports become documents — server-generated PDFs for the input sheet, the output sheet and the flow; the chain column becomes a diagram; added 2026-07-31, not started |
+| Slice 41 | The plot on paper — three views, colour that survives the dark-to-white crossing, a stated scale; added 2026-07-31, not started |
 
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
 multi-event/tour planning (§3.11).
@@ -1625,6 +1627,152 @@ judgment call). Depends on Slice 13 (trusses and their pieces/attachments, uncha
 Slice 33 (`ui/Sheet` and `Drawer`'s phone branch) and Slice 36 (the plot's read-only
 phone decision, which the first call above rests on). Shares its rule with Slice 38.
 
+## Slice 40 — The audio exports become documents (spec: `audio-pdf-exports`) — not started
+
+**Asked for 2026-07-31:** *"redesign some of the print/pdf exports… Audio input and
+output sheets, stage plots and signal flow. I want to improve the signal flow parts in
+input and output sheets and the complete signal flow pdf. Perhaps have separate table
+for channel info and signal flow? And sources?"* Split in two at the ask: the audio
+sheets and the flow are this slice, the plot is Slice 41.
+
+**Three decisions were taken before the spec, and they are the shape of the slice.**
+
+**1 · These become generated PDFs, not browser print (user's call).** Everything in
+`components/print/` is a React sheet hidden on screen and revealed by `@media print`
+(`index.css:121-143`); *PDF* today means whatever the browser makes of it, and
+`PrintButton.tsx` is eleven lines around `window.print()`. The only real document the
+application produces is the rental order — `service/rental_pdf.go`, `go-pdf/fpdf`,
+served at `GET /events/{id}/rental-export/pdf` (`api/rental.go:28`). That is the
+pattern these three follow: pagination, repeated headers and an honest scale are worth
+the second implementation, and none of them are the browser's to give.
+
+**2 · The chain column leaves the table, and the flow prints as the diagram.** *"The
+long strings of steps are not easy to read"* — and that is the whole diagnosis. The
+input sheet is eight columns (`InputPatchSheet.tsx:8`) of which one, `Chain`, holds an
+entire path as `→`-joined segments (`ChainText.tsx:18`); the output sheet is six
+(`OutputPatchSheet.tsx:9`) with the same column doing the same thing; and Signal Flow
+prints as two tables of the same strings (`SignalFlowTab.tsx:113-318`). One column was
+being asked to carry a graph, and it squeezed every other column to do it.
+
+Take it out and the table has room for what the sheet was missing: **channel identity
+and source in one table** (user's preference; two is acceptable if one will not fit).
+The source fields are already there to print — kind, mic item, stand item, phantom,
+connector, width (`types/index.ts:185-199`) — and today a crew reads them out of a
+chain string or not at all. The output sheet's analogue is the destination end.
+
+**3 · The reading of "the signal flow parts in input and output sheets".** Each patch
+sheet's document ends with its own diagram, filtered to that sheet; the complete signal
+flow PDF carries both. Three documents, three endpoints, one renderer. The spec
+confirms this before anything is built — it is the one place the request admits a
+second reading.
+
+**What makes the diagram affordable is that nobody has to lay it out.** The nodes are
+user-placed and the positions are already server-side: migrations 025, 027, 029, 031
+and 043 put `position_x/position_y` (and the input graph's and console-local variants)
+on devices, stageboxes, stage-multis and desks. The PDF draws the picture the canvas
+shows because it reads the same coordinates. Slice 37 is why they are trustworthy —
+until it landed they held browser-window widths.
+
+**What is not affordable is everything else about the drawing, and this is the decision
+the plan makes first.** Only the node *origin* is in the database. Box size, port rows,
+edge routing and the colour derivations are computed in `lib/inputGraph.ts` (344),
+`lib/outputGraph.ts` (384) and `InputGraphCanvas.tsx` (1,750) — TypeScript the backend
+cannot call. Three ways out, and the plan picks one with its reasons written down:
+
+- **Port the geometry to Go.** Honest, self-contained, and a second implementation of a
+  drawing that will drift from the canvas the first time either side changes.
+- **The client sends the geometry it has already computed** and the endpoint draws it.
+  One implementation of the layout, at the cost of an export that cannot be produced
+  from a URL alone.
+- **Move only the derivable part** — sizes and port order are functions of the data;
+  edge routing is not. A split, and splits are where drift hides.
+
+**The font is a hard constraint, not a detail.** `rental_pdf.go:36-43` records it: the
+document uses built-in Helvetica with a cp1252 translator so no font file is embedded
+and the binary stays small, and **`→`, `·` and `–` are not representable**. The arrow
+that survives on paper today does not survive a cp1252 PDF. Either these documents
+embed a UTF-8 font (`AddUTF8Font`; still CGO-free, larger binary) or arrows are drawn
+as vector glyphs, which the diagram needs anyway. Decide once, for all three.
+
+**Three of the four sheets convert; Lighting does not.** `LightingRigSheet.tsx` was not
+in the request and stays browser print, so both mechanisms coexist afterwards and
+`design/patterns.md` §8 has to say which surface uses which and why — it currently
+describes one mechanism as though it were the only one (*"Any new print surface follows
+the same two mechanisms"*). §7h's *every phone surface reaches the export it has* gets
+easier, not harder: a download is a download. Whether the converted sheets' React
+components are then deleted is the same question `feedback-delete-dead-components`
+answers — a zero-caller component is a second answer sitting where the first one goes —
+and the sheets' Vitest coverage (`printSheets.test.tsx`, 306 lines) moves to Go with
+them or is lost knowingly.
+
+Design approval is required: it is a substantial change to user-facing output
+(trigger 1) and it amends §8 (trigger 2, not a judgment call). The mockup owns the page
+furniture — header block, per-page repeat, column widths, how a diagram too wide for A4
+breaks — and should be drawn as the PDF's own language rather than as the screen's.
+
+Depends on Slice 22 (the PDF writer and its cp1252 constraint), Slice 37 (positions that
+mean something), and Slices 11/12 (the graphs themselves). Shares its §8 amendment with
+Slice 41, and whichever lands second inherits the other's wording.
+
+## Slice 41 — The plot on paper, in three views and in colour (spec: `stage-plot-pdf`) — not started
+
+**Asked for 2026-07-31, in the same breath as Slice 40:** *"Stage plots I just want to
+make prettier with layout and color and have all three angles."* Same delivery decision
+— a generated PDF, not browser print.
+
+**Today it prints one angle.** `StagePlotSheet.tsx:159` renders `plot.active_view` and
+nothing else: whichever of top/front/side the editor happened to be showing. The
+elevations get a floor line (line 169), the drawing is framed to its content with a
+60 cm margin, the height is capped at `160mm` (line 167), and a caption says the grid
+square and *drawn to scale* without saying what the scale is. **One page each for top,
+front and side** (user's call — option 1), which also removes the trap that the printed
+sheet depends on editor state.
+
+**Colour, with the contrast handled — and this is the part that is a rule, not a
+setting.** The user's wording: *"The frontend has a black background and PDF have white.
+Some colors might need to be inverted. At least when they are on the grayscale
+spectrum."* Colour on a plot is per-layer (`StagePlotLayer.color`,
+`types/index.ts:715`), defaulting to `#a1a1aa` — zinc-400, chosen to read on a dark
+canvas (`StagePlotCanvas.tsx:58`). Elements carry no colour of their own
+(`types/index.ts:734-755`), so the layer is the whole palette. A near-grey picked to
+glow on black is washed out to invisible on white, and inverting its lightness is the
+fix; a saturated hue keeps its hue and needs a lightness clamp instead, or a pale yellow
+line disappears just as completely. **That is a rule about how the dark language crosses
+onto paper, it applies beyond this one surface, and it belongs in `design/` rather than
+inside a renderer** — which is what makes this a slice and not a defect.
+
+`patterns.md` §8 currently states the opposite in as many words: *black on white… colour
+cannot be relied on from a printer.* That sentence was true of a browser print of a
+table and it is not true of a generated PDF of a scale drawing, where colour is how a
+layer is told from a layer. §8 gets the amendment; Slice 40 needs the same paragraph
+rewritten for a different reason, so the two coordinate.
+
+**The geometry port is the cost, and it is heavier than Slice 40's.**
+`lib/stagePlot.ts` is 496 lines — `projectElement`, `projectedBounds`, `projectedAxes`,
+`projectedOutline`, `trussLaneLocalV`, `clampFixtureOffset`, `fixtureLabel` — and
+`lib/stagePlotIcons.tsx` is 627 lines of SVG glyphs, **per icon and per view**. The
+print sheet reaches straight into both (`StagePlotSheet.tsx:2-3`). The projection maths
+is pure and ports cleanly. The icons are the bulk and the real decision: port the path
+data, draw simpler primitives on paper, or hold the glyphs in one format both sides
+read. The same question Slice 40 asks about edge routing, with more surface area.
+
+Three more the mockup owns:
+
+- **A stated scale.** *Drawn to scale* is not a scale. A crew that measures off a
+  printout needs 1:50 or 1:100 named on the page, and a fixed scale is what makes three
+  pages comparable — the current fit-to-content framing gives each view a different one.
+- **What a page carries besides the drawing** — the plot name, view, grid, scale, and
+  whether the legend is the layer list. A legend is what earns the colour.
+- **Trusses and their fixtures on the elevations.** The hang-below-the-bar projection at
+  `StagePlotSheet.tsx:118-139` is the fiddliest thing on the sheet and the most valuable
+  to a rigger; a fixture marker that renders as a 1 mm square with an unreadable label
+  is worse than an honest table beside the drawing.
+
+Design approval is required on both triggers. Depends on Slice 13 (plots, layers,
+trusses), Slice 22 (the PDF writer), and Slice 40 if it lands first — the renderer, the
+font decision and the §8 wording are shared, and doing it second is meaningfully
+cheaper.
+
 ## Known defects — found, reproduced, not yet scheduled
 
 Each of these has been traced to a specific line. A defect with a cause written
@@ -2170,4 +2318,6 @@ Slice 21 (mobile redesign) + Slice 29 (the language it converges onto) ──→
 Slice 14 (auth) ──→ Slice 15 (event ownership & sharing) ──→ Slice 16 (inventory ownership) ──→ Slice 17 (event settings) ──→ Slice 18 (deployment) ✅
 Slice 15 (sharing, the model it exposes) + Slice 33 (ui/Sheet, and Drawer's phone branch) ──→ Slice 38 (who can see this event)
 Slice 13 (stage plots, the trusses) + Slice 33 (ui/Drawer) + Slice 36 (the plot is read-only on a phone) ──→ Slice 39 (the Trusses overlay) — shares components.md's Dialog/Sheet rule with Slice 38
+Slice 22 (the Go PDF writer) + Slice 11 + Slice 12 (the graphs) + Slice 37 (positions that mean something) ──→ Slice 40 (the audio exports become documents)
+Slice 13 (plots, layers, trusses) + Slice 22 (the Go PDF writer) ──→ Slice 41 (the plot on paper) — shares patterns.md §8, the renderer and the font decision with Slice 40; cheaper second
 ```
