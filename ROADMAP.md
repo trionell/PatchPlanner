@@ -8,6 +8,7 @@ delivery; everything below this section is history. What is left is only this:
 | | |
 |---|---|
 | D5 | A drawer's info note is remembered under its title — approved 2026-07-30, not started |
+| Slice 38 | Who can see this event — sharing has no phone form and is still a `Dialog`; added 2026-07-31, not started |
 
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
 multi-event/tour planning (§3.11).
@@ -1415,6 +1416,64 @@ together and overlap."*
   window's right edge. Opening at *fit* — now true on the desktop too — is what puts it
   back on screen.
 
+## Slice 38 — Who can see this event (spec: `event-access`) — not started
+
+**Reported from use:** *"I can't find a way to invite a user to my events on
+mobile."* It is not there. Sharing has been an owner-only desktop affordance since
+Slice 15 and never got a phone form, and the surface it opens is the last one in
+the application still shaped by the pre-redesign vocabulary.
+
+Two halves, and they are one slice because the second decides the first:
+
+**1 · The phone cannot reach it at all.** `EventMembersDialog` is complete — invite
+picker, role change, remove — and its only trigger is the desktop header's *Invite*
+button (`pages/EventDetail.tsx:130-135`). The mobile branch returns at
+`EventDetail.tsx:85`, above both that button and the dialog's own mount at line 140,
+so on `(max-width: 767px)` neither element exists. There is no second door: none of
+the nine `MOBILE_SECTIONS` is an access surface, `SettingsTab` has no member UI, and
+`OverviewTab` fetches `listMembers` (line 60) only to fill a band. An owner on a
+phone can see who has access and change none of it. The backend has been complete
+throughout — this is entirely a missing frontend.
+
+**2 · The desktop surface is a `Dialog`, and the rule says it should not be.**
+`components.md` §`ui/Dialog` settles this: *an overlay with fields is a `Sheet`; an
+overlay that is a sentence and two buttons is a `Dialog`.* Manage access is an
+overlay of fields — two `Select`s and a button to invite, a `Select` and a delete
+per member. It is the same fault D4 found in the catalog browse, which had been a
+`Dialog` for four slices, and it has the same consequence: **a `Dialog` stays centred
+at every width, so it has no phone form, while `ui/Drawer` is `Sheet` below 768 px.**
+Getting the desktop shape right is what gives the phone its surface — one component,
+not two.
+
+Which shape is the decision the mockup makes first. It is not the read-only
+consult-while-working case `Drawer` was ruled for in D4, and it is not `Sheet`'s
+phone-edit-form case either; it is an owner managing a small list. Whatever it lands
+on, `Drawer`'s `narrow` (`max-w-md`) is the width in the neighbourhood, not
+`Dialog`'s `max-w-2xl`.
+
+What the redesign has to cover once the shape is chosen:
+
+- **The invite row does not fit a phone.** Three across in one flex —
+  person `Select`, role `Select`, *Invite* button (`EventMembersDialog.tsx:119-141`).
+  At 375 px that is a stack, and the role belongs with the person it applies to.
+- **Two controls below the 44 px minimum**, on the row a thumb has to hit: the
+  per-member role `Select` is `h-8` (line 97) and the remove control is a `ghost`
+  button around an `h-3.5` icon (lines 99-101). `tokens.md` §7 amendment 1.
+- **Removing a member is a destructive act behind a bare icon** — no confirm at all
+  (`removeM.mutate` fires on click). `ui/ConfirmDialog` exists for exactly this.
+- **The empty state is an explanation, not a label** — *"Everyone who has signed in
+  is already on this event. New people must sign in at least once before they can be
+  invited"* (lines 114-117). Two sentences read once: `ui/InfoNote`, per the
+  footer/`info` rule D5 restated. Read that rule before placing it.
+- `readOnly` and its defense-in-depth comment (lines 17-20) survive the move intact;
+  a viewer still sees the list and no controls, and `canManageMembers` still gates
+  the trigger client-side rather than leaning on the 403.
+
+Design approval is required — it is a new phone surface *and* it touches the
+`Dialog`/`Drawer`/`Sheet` rule in `components.md` §5, which is the second trigger
+and not a judgment call. Depends on Slice 15 (the membership model and endpoints,
+unchanged) and Slice 33 (`ui/Sheet`, and `Drawer`'s phone branch).
+
 ## Known defects — found, reproduced, not yet scheduled
 
 Each of these has been traced to a specific line. A defect with a cause written
@@ -1833,4 +1892,5 @@ Slice 7 (lighting rig) + Slice 25 (visual language) ──→ Slice 27 (Lighting
 Slice 16 (inventory ownership) + Slice 29 (pages and residue) + Slice 30 (the spine) ──→ Slice 32 (the inventory list — the last card list)
 Slice 21 (mobile redesign) + Slice 29 (the language it converges onto) ──→ Slice 33 (the phone's bottom sheet; design wave 6a) ──→ Slice 34 (the phone's panel; design wave 6b) ──→ Slice 35 (the nine surfaces; design wave 6c) ──→ Slice 36 (the canvases; design wave 6d — convergence complete) ✅ ──→ Slice 37 (the flow canvas as a plane; found by using 6d)
 Slice 14 (auth) ──→ Slice 15 (event ownership & sharing) ──→ Slice 16 (inventory ownership) ──→ Slice 17 (event settings) ──→ Slice 18 (deployment) ✅
+Slice 15 (sharing, the model it exposes) + Slice 33 (ui/Sheet, and Drawer's phone branch) ──→ Slice 38 (who can see this event)
 ```
