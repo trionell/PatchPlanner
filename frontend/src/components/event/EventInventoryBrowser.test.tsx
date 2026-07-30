@@ -71,7 +71,12 @@ describe('the catalog browse · the desk', () => {
 
     // `SheetHeadCell`'s mono micro-label, which is what a work-surface heading is.
     expect(markup).toContain('font-mono text-[10px] uppercase')
-    // `ui/Table`'s own heading and cell padding, which is what it used to be.
+    /*
+      `ui/Table`'s own heading and cell padding, which is what this used to render.
+      The component is deleted, so nothing can import them back — these two guard
+      the other route, which is the one that put them here in the first place:
+      writing the classes out by hand.
+    */
     expect(markup).not.toContain('px-3 py-3 text-left font-medium text-zinc-400')
     expect(markup).not.toContain('px-3 py-3 align-top text-zinc-100')
   })

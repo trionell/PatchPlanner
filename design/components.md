@@ -18,7 +18,7 @@ common way a new screen ends up looking like it belongs to a different applicati
 | Concept | Work surface | Navigation surface |
 |---|---|---|
 | Frame | `ui/PatchPanel` | `ui/Card` + `CardHeader` / `CardTitle` / `CardContent` / `CardFooter` |
-| Table | `ui/SheetTable` | `ui/Table` |
+| Table | `ui/SheetTable` | — see below |
 | Chip | `Pill` (from `ui/SheetTable`) | `ui/Badge` |
 | Label | `MICRO_LABEL` / `MicroLabel` | `FieldLabel` |
 | Field | `<Input size="sm">` · `<Select size="sm">` | `<Input>` · `<Select>` (md) |
@@ -28,17 +28,21 @@ Both members of a pair live in one file wherever there are only two of them —
 `MicroLabel` and `FieldLabel` are both in `ui/Label.tsx` — so picking the wrong tier
 takes a deliberate act rather than an absent-minded import.
 
-`ui/Table` and `ui/Badge` are deliberately untouched by the patch work: six other
-tabs render them, and Slice 25 was scoped to leave those exactly as they were. That
-scoping decision is now spent — [audit.md](audit.md) says what happens to them.
+**The table pair is not a pair any more — `ui/Table` is deleted** (ROADMAP D4
+converted its last caller, Wave 4 having taken the other six). `ui/SheetTable` is
+now the application's only table, at either tier, and a navigation-tier one is
+made by overriding its padding — which `SheetHeadCell` was already doing for the
+catalog list before any of this ([tokens.md](tokens.md) §3).
 
-**And it is now fully spent: `ui/Table` has no caller left in the application**
-(ROADMAP D4 converted the last one). `Badge` keeps several, because a role chip on
-a dashboard card is a navigation surface and always was. The file stays, and the
-pair stays a pair — a tabular *navigation* surface is a thing this application may
-build again, and rebuilding it from memory is how the two tiers come to disagree.
-What does not stay is the reflex: a table of records is a work surface unless
-something makes it a summary, which is what four waves of converting them found.
+The row above says *see below* rather than naming a replacement, because there is
+nothing to pick between: **a table of records is a work surface.** That is what
+five waves of converting them found, and the deleted component is what kept
+offering the other answer. If a genuinely navigational table ever turns up — a
+short summary of somewhere else to go — it is `SheetTable` with the navigation
+tier's padding, not a second component.
+
+`ui/Badge` is untouched and keeps several callers: a role chip on a dashboard card
+is a navigation surface and always was.
 
 ## 2 · Work-surface components
 
@@ -265,7 +269,7 @@ canvas selection.
 A selector that means *what you are looking at* uses this component rather than
 copying its classes. That is the whole reason `active` exists.
 
-### `ui/Dialog`, `ui/Card`, `ui/Table`, `ui/Badge`
+### `ui/Dialog`, `ui/Card`, `ui/Badge`
 
 Navigation-surface components; values in [tokens.md](tokens.md). `Dialog` and
 `Drawer` already share their header, padding and close conventions, and should

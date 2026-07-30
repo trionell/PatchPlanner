@@ -11,10 +11,11 @@ import { MICRO_LABEL } from './Label'
  * which would be wrong on an equipment list and is right on a patch sheet a planner
  * reads two hundred rows of.
  *
- * Those six converted over Waves 3–5, and ROADMAP D4 took the last one anywhere, so
- * **`ui/Table` now has no caller at all**. It stays, and so does the pair
- * (components.md §1): a tabular *navigation* surface is a thing this application may
- * build again, and rebuilding it from memory is how two tiers come to disagree.
+ * Those six converted over Waves 3–5, ROADMAP D4 took the last one anywhere, and
+ * `ui/Table` was deleted with it. **This is now the application's only table**, at
+ * either tier: a navigation-tier one is this component with the navigation tier's
+ * padding, which `SheetHeadCell` was already being imported for (tokens.md §3).
+ * There is no second component to pick wrong any more.
  *
  * Sizes are the mockup's ratios at this app's 14px base, not its 11px pixel values
  * (see specs/025-patch-visual-language/research.md R11).

@@ -1608,11 +1608,15 @@ neither.
 
 The four things, and one that came with them:
 
-1. `SheetTable`/`SheetHead`/`SheetHeadCell`/`SheetRow`/`NumCell`. **`ui/Table` now has
-   no caller anywhere in the application.** The file stays and the tier pair stays a
-   pair — a tabular *navigation* surface is buildable again and rebuilding it from
-   memory is how two tiers come to disagree — but the count in the audit is now true of
-   the application and not only of the tabs.
+1. `SheetTable`/`SheetHead`/`SheetHeadCell`/`SheetRow`/`NumCell`. That left **`ui/Table`
+   with no caller anywhere**, and after the user verified the surface at both reaches on
+   2026-07-30 the component was **deleted** — so the audit's Wave 4 count is now true of
+   the application rather than only of the four tabs, and it cannot go back up.
+   `SheetTable` is the application's one table at either tier: a navigation-tier one is
+   this component with the navigation tier's padding, which `SheetHeadCell` was already
+   imported for. The pair in components.md §1 is a pair no longer, because the answer it
+   was offering — *a table of records might be a navigation surface* — is the one five
+   waves of conversions kept finding wrong.
 2. The hand-written `Tab` classes are `ui/PanelRail` — the same rail the *owner's* view
    of these same rows filters with, one page over, plus its `All items` row. Not a `Tab`:
    the tier pairs were never the whole of the mistake, and a category filter is a filter

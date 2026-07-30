@@ -76,9 +76,10 @@ which is §7 — it is not a third tier.
 padding, not its font: `SheetHeadCell` is the one implementation, imported with
 a padding override where the rows are navigation tier (the catalog list). This
 row used to read `text-zinc-400 font-medium` on the right-hand side, which
-described `ui/Table` — a component one surface still renders — and reading it
-as guidance for a *new* table is how the catalog list shipped with the only
-sans header in the application.
+described `ui/Table` — and reading it as guidance for a *new* table is how the
+catalog list shipped with the only sans header in the application. That component
+is gone (ROADMAP D4), so `SheetHeadCell` is not merely the one implementation of
+this row; it is the only table header there is.
 
 **Fixed geometry** — work surfaces only, and not on the tier ladder because these
 are structural rather than typographic:

@@ -20,7 +20,8 @@ import { NumCell, SheetBody, SheetCell, SheetHead, SheetHeadCell, SheetRow, Shee
  *
  * **It is the same data as `inventory/InventorySheet`, so it is the same surface**
  * (ROADMAP D4). Until then it was the last consumer of `ui/Table` in the
- * application — a navigation-tier table, a `Badge` and a hand-written copy of
+ * application — which is why converting it is what let that component be deleted —
+ * a navigation-tier table, a `Badge` and a hand-written copy of
  * `Tab`'s classes, on a catalog of equipment, which is the work surface the
  * Inventories page had already concluded this data to be (components.md §1,
  * patterns.md §4). The rail is `ui/PanelRail`, the fourth instance of the pattern

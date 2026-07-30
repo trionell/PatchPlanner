@@ -781,7 +781,8 @@ unseen; the row stays as written because it is what the wave measured.
 
 D4 was fixed the same day, so the zero is now true of the application as well: that
 browse is a `SheetTable` behind a `ui/PanelRail` in a `ui/Drawer`, with the phone
-form it never had, and **`ui/Table` has no caller left anywhere**.
+form it never had. **`ui/Table` is deleted** — the count in that row can no longer
+go back up, which is the only kind of zero an audit can stop watching.
 
 **`OverviewTab` was the one the audit read wrong.** It was filed as "a form rather
 than a sheet, needs the navigation tier applied consistently" — a styling note.
