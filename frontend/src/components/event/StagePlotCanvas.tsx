@@ -2,9 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { PlotTruss, StagePlot, StagePlotElement, StagePlotLayer, StagePlotView, TrussSide } from '../../types'
 import type { StagePlotElementPatch } from '../../api/stagePlots'
+import type { PlotViewState } from '../../hooks/usePlotView'
 import {
   clampDimension,
   clampFixtureOffset,
+  clampPlotZoom,
   fixtureDropOnTruss,
   fixtureLabel,
   projectedAxes,
@@ -21,13 +23,10 @@ import {
 } from '../../lib/stagePlot'
 import { iconGlyph, iconViewBox } from '../../lib/stagePlotIcons'
 
-/** Live viewport state (owned by the tab so the palette can place
- *  elements at the visible center). Pan is the viewBox origin in cm. */
-export interface PlotViewState {
-  zoom: number
-  panX: number
-  panY: number
-}
+/** Live viewport state (owned by the tab so the palette can place elements at the
+ *  visible center, and by `usePlotView` so it outlives the mount). Pan is the viewBox
+ *  origin in cm. Re-exported here because this is where most callers meet it. */
+export type { PlotViewState }
 
 interface StagePlotCanvasProps {
   plot: StagePlot
@@ -57,8 +56,6 @@ interface StagePlotCanvasProps {
 }
 
 const DEFAULT_LAYER_COLOR = '#a1a1aa'
-const MIN_ZOOM = 0.05
-const MAX_ZOOM = 20
 
 /** Grid lines over the visible cm range, coarsened (×2 steps) until
  *  lines are at least 8 screen px apart. */
@@ -188,7 +185,7 @@ export function StagePlotCanvas({
       if (!rect) return
       event.preventDefault()
       const factor = Math.exp(-event.deltaY * 0.0015)
-      const nextZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * factor))
+      const nextZoom = clampPlotZoom(zoom * factor)
       // Keep the cm point under the cursor stationary while zooming.
       const cursorU = panX + (event.clientX - rect.left) / zoom
       const cursorV = panY + (event.clientY - rect.top) / zoom

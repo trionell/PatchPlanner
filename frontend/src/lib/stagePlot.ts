@@ -233,6 +233,18 @@ export function roundCm(valueCm: number): number {
   return Math.round(valueCm * 100) / 100
 }
 
+/** The scale a plot canvas may be held at, in px per cm: an 800 px viewport
+ *  spans 160 m at the floor and 40 cm at the ceiling. */
+export const MIN_PLOT_ZOOM = 0.05
+export const MAX_PLOT_ZOOM = 20
+
+/** Hold a scale inside the range the canvas can draw and the buttons can walk
+ *  back from. The wheel, the toolbar and the remembered view all pass through
+ *  it, so a stored value can never open a plot somewhere the UI cannot leave. */
+export function clampPlotZoom(zoom: number): number {
+  return Math.min(MAX_PLOT_ZOOM, Math.max(MIN_PLOT_ZOOM, zoom))
+}
+
 // ---- Trusses & fixture labels (US5) ----
 
 /**
