@@ -8,6 +8,8 @@ delivery; everything below this section is history. What is left is only this:
 | | |
 |---|---|
 | Slice 38 | Who can see this event — sharing has no phone form and is still a `Dialog`; added 2026-07-31, not started |
+| Slice 39 | The Trusses overlay — the stage plot's truss manager is a `Dialog` of fields and should be a `Drawer`; added 2026-07-31, not started |
+| D6 | Eight deletes are still `window.confirm` — D2's *convert it when the surface is next opened* never converged; added 2026-07-31, open |
 
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
 multi-event/tour planning (§3.11).
@@ -1450,6 +1452,12 @@ phone-edit-form case either; it is an owner managing a small list. Whatever it l
 on, `Drawer`'s `narrow` (`max-w-md`) is the width in the neighbourhood, not
 `Dialog`'s `max-w-2xl`.
 
+**Slice 39 states the test this turns on** — *a `Dialog` interrupts with one choice
+before you can continue; a `Drawer` is a companion workspace beside what you are doing*
+(2026-07-31; see that section). Manage access is the second: nothing is waiting on it,
+you open it to work in it. The two slices share one rule and it is written once —
+whichever runs first writes it into `components.md`, and the other applies it.
+
 What the redesign has to cover once the shape is chosen:
 
 - **The invite row does not fit a phone.** Three across in one flex —
@@ -1472,6 +1480,150 @@ Design approval is required — it is a new phone surface *and* it touches the
 `Dialog`/`Drawer`/`Sheet` rule in `components.md` §5, which is the second trigger
 and not a judgment call. Depends on Slice 15 (the membership model and endpoints,
 unchanged) and Slice 33 (`ui/Sheet`, and `Drawer`'s phone branch).
+
+## Slice 39 — The Trusses overlay (spec: `plot-trusses-drawer`) — not started
+
+**Reported from use, 2026-07-31:** *"In the stage plot there is a Trusses modal to
+manage trusses. It should be a drawer according to the design language."* It is a
+`Dialog` — `PlotTrussManager.tsx:78`, titled *Trusses*, opened from the desktop
+toolbar's *Trusses…* button (`StagePlotTab.tsx:670-674`) and mounted at
+`StagePlotTab.tsx:776-789`.
+
+**It is an overlay of fields by any reading.** Per truss: an inline-committing name
+and a hang height (lines 196, 205), rotation and rake when the truss is on the
+current plot (240, 258), a piece picker with an auto-suggested length and *Add*
+(297-323), an attach-fixture picker with an offset and *Attach* (341-359), plus a
+per-piece and per-fixture row each carrying its own controls. Below all of it, a
+new-truss form (100-112). Nothing here is a sentence and two buttons, which is the
+only thing `components.md` §`ui/Dialog` reserves a `Dialog` for.
+
+**The shape.** §`ui/Dialog`'s rule as written offers two answers — *an overlay with
+fields is a `Sheet`; an overlay that is a sentence and two buttons is a `Dialog`* —
+and `Sheet` is the phone's anchor, reached on a desk only through `ui/Drawer`, which
+*is* `Sheet` below 768 px. So the desktop shape of an overlay with fields is a
+`Drawer`, which is what the report says and what this slice builds. That reading is
+not yet written down in those words: D4 added the read-only-consult answer to the
+same rule and left the fielded case pointing at a component that has no desktop form.
+**Slice 38 walks into the identical gap** — `EventMembersDialog` is the same fault on
+the same rule — so whichever of the two lands second inherits the other's wording,
+and the rule is stated once, not twice.
+
+**The distinction the rule needs is not *has fields / has no fields* — it is what the
+overlay is for** (user's call, 2026-07-31, and the wording the rule should be written
+from):
+
+> **A `Dialog` interrupts.** One choice has to be made before what you were doing can
+> continue — pick the cable, confirm the delete — so it takes the centre, blocks the
+> surface behind it, and leaves as soon as it is answered.
+>
+> **A `Drawer` accompanies.** It is a companion workspace beside the thing you are
+> working on: it opens over the surface without replacing it, and you go on working in
+> it rather than answering it.
+>
+> **A companion does not have to be editable.** A `Drawer` is equally the place to
+> *see more* — the detail, the breakdown, the list the surface behind it only counts.
+> Consulting is accompanying; it is the same shape with nothing to change. **On a
+> phone that is the common case**: the canvas or the row is the work, the drawer is
+> where its values are legible, and several are read-only outright.
+
+Read that way the rule sorts every overlay in the application without a second clause,
+and four cases that used to need arguing fall out of it. **`ui/ConfirmDialog` is the
+purest `Dialog`** — a single choice, and nothing continues until it is made. **The
+cable pickers stay `Dialog`s** (`InputGraphCanvas.tsx:1689`, `AudioOutputsTab.tsx:1860`,
+and the two *Cable* dialogs beside them) even though they hold a field: they are one
+choice raised mid-patch, and centred is where the pointer already is — a right-anchored
+drawer would make a picker travel to the edge of the screen and back for every cable,
+which is `Drawer`'s own ergonomic argument read from the other end. **Trusses is a
+`Drawer`**, and this is the test that says so plainly: nothing is waiting on it. You
+assemble a truss, hang a fixture, go back to the canvas and come back — the plot is
+what you are working on and the truss list is the bench beside it. `ChainCell.tsx:175`
+stays settled too, on the same reading.
+
+**And D4's rule stops being a third answer and becomes a sub-case.** *A read-only work
+surface opened from another surface is a `Drawer`* is not a separate ruling once a
+drawer is defined as a companion — the catalog browse is a companion you cannot edit,
+which is what consulting is. One clause absorbs it, and `components.md` §`ui/Drawer`
+loses a paragraph instead of gaining one.
+
+This is also what makes Slice 39's own phone decision ordinary rather than an
+exception. A drawer that is read-only on a phone is not a drawer with its function
+removed — it is the *see more* case, which is the case a phone has most of: the canvas
+cannot show a truss's pieces, its total length or which fixture hangs at which offset,
+and the drawer is where those become legible. Editing is absent because placement is
+absent, and the surface is doing its job either way.
+
+It also explains why *has fields* was the wrong test in the first place: it asked what
+an overlay **contains**, and the pickers have fields while being interruptions and the
+read-only companions have none while being workspaces. The test misfiled both from the
+day it was written.
+
+Width is the mockup's call: `Dialog`'s `max-w-2xl` is what it has now, `Drawer`'s
+`wide` is `max-w-3xl` and `narrow` is `max-w-md`. The rows run three and four controls
+across, so `wide` is the neighbourhood. Whether each truss becomes a `DrawerSection`
+or the body stays one construction under `flush` is the second call.
+
+**On a phone the drawer opens and edits nothing — decided 2026-07-31, before the
+mockup.** The stage plot's mobile branch (`StagePlotTab.tsx:360-487`) is read-only *by
+decision*: the canvas takes `readOnly`, placement is withheld by handing it
+`onUpdateElement={() => {}}` (lines 444-447), and the desk-job note says so in the
+panel. Slice 36 settled that the plot is edited at a desk. A `Drawer` acquires a phone
+form for free, and the question that answers is whether that form edits. It does not,
+and the reason is the canvas behind it: **you cannot move a truss on a phone, so
+adding one there buys nothing** — you would assemble a truss out of pieces and have no
+way to put it anywhere. Add and remove are only worth having where placement is.
+
+So the phone gets the read and the desk keeps the write, which is what the surface
+already does one layer out. That is `readOnly` forced at the mobile mount rather than
+a second component — the same move the mobile branch already makes for the canvas on
+the line above, and role still forces it independently on either width. It is also
+what `components.md` §5 says a phone overlay is for: *a role that may not edit still
+opens the sheet, because the values are the point of opening it* (audit M4). The
+values here are the ones the canvas cannot show — a truss's pieces, its total length,
+its hang height, and which rig fixtures hang at which offset.
+
+**This is provisional, and the section says so on purpose.** It is *for now*, tied to
+one fact: the phone cannot move a plot element. If the phone ever gets placement, this
+is the paragraph that reverses, and the reversal is a decision, not a leftover.
+
+Two things follow that the mockup owns. **The trigger needs a phone home** — the
+desktop's *Trusses…* button sits in a toolbar the phone does not render, and the
+mobile panel's status strip already counts *N trusses* (line 406), which is either the
+way in or the argument for a `MobilePanel` action beside the plot picker. And **the
+read view is not the edit view with its inputs disabled**: a `Select` and an `Input`
+greyed out is the shape 6c spent a slice removing. Values read as values; `tokens.md`
+§7's 44 px minimum binds only what remains tappable, which on a phone is the way in,
+the way out, and nothing else.
+
+What the redesign covers once the shape is chosen:
+
+- **The four-sentence explanation at the top of the body** (lines 79-84 — what a truss
+  belongs to, how it is counted on the rental order, that its length is the sum of its
+  pieces, and that fixtures can be dropped on it) is read once and costs its space
+  forever after. It is `info` with a `noteId`, per the rule D5 restated — not the
+  body's first paragraph, and not `footer`. The id is the call site's to give,
+  kebab-case, after what the drawer *is*; the title *Trusses* cannot serve.
+- **Deleting a truss is a `window.confirm`** (line 227) — the browser's own dialog,
+  which D2 removed from the flow inspector and `ui/ConfirmDialog` exists for. It is
+  the right sentence already; it is in the wrong component. **This slice converts the
+  one it owns and no others** — the other eight are D6, which settles the pattern. If
+  D6 lands first this bullet is already done; if this slice lands first, D6 finds
+  seven and this one is its worked example.
+- **Removing a piece and detaching a fixture have no confirm at all** and no label:
+  both are a bare `X` at `h-3.5` (lines 288, 413). Detaching is recoverable and the
+  title says so (*the fixture stays in the rig*); removing a piece silently changes the
+  truss's drawn length, which is the thing the plot is measured against. Decide per
+  action rather than converting both by reflex.
+- **The legacy-piece marker** (lines 284-286) — an amber *(legacy)* whose meaning lives
+  only in a `title` attribute — is a state a drawer can state properly.
+- `readOnly` already gates every control and survives the move intact; a viewer keeps
+  the read of the truss list, its pieces and its attached fixtures.
+
+Design approval is required. It is a substantial change to a user-facing surface
+(trigger 1) and it settles a rule in `components.md` §`ui/Dialog` that the language
+does not currently state in the form the change needs (trigger 2, which is not a
+judgment call). Depends on Slice 13 (trusses and their pieces/attachments, unchanged),
+Slice 33 (`ui/Sheet` and `Drawer`'s phone branch) and Slice 36 (the plot's read-only
+phone decision, which the first call above rests on). Shares its rule with Slice 38.
 
 ## Known defects — found, reproduced, not yet scheduled
 
@@ -1942,6 +2094,65 @@ names this case; `audit.md` M-drawer records the old wording as superseded.
 contents are and carries a count that changes while you work, which is the thing
 a footer is for. It is the application's last prose footer.
 
+### D6 — Eight deletes are still the browser's own dialog
+
+**Found:** 2026-07-31, while writing Slice 39, and **approved for recording the same
+day.** D2 converted the two flow inspectors and deliberately left the rest, with a
+policy: *"Each takes `ConfirmDialog` when its own surface is next opened."* The policy
+does not converge. Nothing schedules these eight surfaces — the two open slices in
+**What remains** open none of them — so *next opened* means *not scheduled*, and the
+browser's dialog stays the confirm most of the application actually uses.
+
+Verified today, live calls only (`InventoryDrawer.tsx:21` and `ConfirmDialog.tsx:19`
+name it in prose and are not calls):
+
+| File | Line | What it confirms |
+|---|---|---|
+| `event/StagePlotInspector.tsx` | 181 | delete a layer *and every element on it* |
+| `event/ConsoleSection.tsx` | 228 | delete a console; patched local jacks are cleared |
+| `event/StageboxSection.tsx` | 197 | delete a stagebox; every cable patched to it goes |
+| `event/OutputSheet.tsx` | 223 | delete an output; the cable leaving it goes |
+| `event/ProcessingDeviceSection.tsx` | 71 | delete a device; connected cables go |
+| `inventory/InventorySheet.tsx` | 151 | delete an item from a catalog |
+| `inventory/InventoryDrawers.tsx` | 174 | delete a category |
+| `OwnedGearManager.tsx` | 161 | delete owned gear, *naming how many events plan it* |
+
+D2's own count of *"the other sixteen"* was overstated; no commit since has removed one
+(`git log -S` finds only `a41bf38`, D2's own). Nine remain in total — these eight plus
+the truss delete, which Slice 39 owns because it is rebuilding that surface anyway.
+
+**What a fix has to cover.** `ui/ConfirmDialog` at each site, keeping the sentence:
+every one of them already names the subject and then the consequence, which is the
+component's stated contract, and `OwnedGearManager` computes its sentence from a count
+(*"is planned on 3 events"*) — that must survive, so the pending state carries the row,
+not a flag. This is a substitution, not a redesign: no `design/` file changes, no rule
+is added, and `ConfirmDialog` needs no new props.
+
+**Three decisions, and the first surface converted settles all three.**
+
+1. **Per-site `useState`, or a shared hook.** Two callers today, ten after. Principle V
+   forbids abstraction ahead of need, not at ten. But a promise-returning `useConfirm`
+   re-creates `window.confirm`'s own shape, and it would have to preserve D2's decision
+   2 — *the open state is the id being confirmed, not a boolean*, because a confirm that
+   silently re-aims at another row is the one outcome a confirm prevents. Six of these
+   eight fire from inside a `.map()`. Prefer the per-site state that decision implies,
+   and reach for the hook only if six copies of it turn out identical.
+2. **Where it mounts.** D2 decision 1 made the dialog a *sibling* of `InspectorFrame`,
+   not a child. That matters more here: `Dialog`, `Drawer` and `Sheet` are all `z-50`
+   (`Dialog.tsx:33`, `Drawer.tsx:112`, `Sheet.tsx:75`), so among siblings **DOM order
+   decides**, and several of these confirms are raised from inside a drawer, a sheet or
+   an open `RowEditor`. A confirm that renders under the surface that raised it is the
+   failure mode to check for at each site, on a phone especially.
+3. **One commit per surface, on one branch.** D2's reason for deferring was that a
+   sweep in one commit is a regression nobody can attribute; that reason is still good,
+   and scheduling the work does not repeal it.
+
+**It touches eight files, which brushes the rule that makes a defect a slice** — it
+edits no `design/` and needs no migration, so it stays a defect on that test, and the
+substitution is mechanical. If the first two surfaces show it is not mechanical — if
+the state shape genuinely differs per site rather than differing in the row it carries
+— stop and convert it to a slice rather than improvising across the remaining six.
+
 ## Dependency graph
 
 ```
@@ -1958,4 +2169,5 @@ Slice 16 (inventory ownership) + Slice 29 (pages and residue) + Slice 30 (the sp
 Slice 21 (mobile redesign) + Slice 29 (the language it converges onto) ──→ Slice 33 (the phone's bottom sheet; design wave 6a) ──→ Slice 34 (the phone's panel; design wave 6b) ──→ Slice 35 (the nine surfaces; design wave 6c) ──→ Slice 36 (the canvases; design wave 6d — convergence complete) ✅ ──→ Slice 37 (the flow canvas as a plane; found by using 6d)
 Slice 14 (auth) ──→ Slice 15 (event ownership & sharing) ──→ Slice 16 (inventory ownership) ──→ Slice 17 (event settings) ──→ Slice 18 (deployment) ✅
 Slice 15 (sharing, the model it exposes) + Slice 33 (ui/Sheet, and Drawer's phone branch) ──→ Slice 38 (who can see this event)
+Slice 13 (stage plots, the trusses) + Slice 33 (ui/Drawer) + Slice 36 (the plot is read-only on a phone) ──→ Slice 39 (the Trusses overlay) — shares components.md's Dialog/Sheet rule with Slice 38
 ```
