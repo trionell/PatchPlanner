@@ -1,113 +1,60 @@
-# Implementation Plan: [FEATURE]
+# Implementation Plan — [FEATURE]
 
-**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
-
-**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
-
-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/plan-template.md` for the execution workflow.
-
-## Summary
-
-[Extract from feature spec: primary requirement + technical approach from research]
+**Branch**: `[###-feature-name]`
+**Spec**: [spec.md](./spec.md) · **Research**: [research.md](./research.md)
+[**Design**: [mockup.html](./mockup.html), revision [N], approved — omit if no UI]
 
 ## Technical Context
 
-<!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
--->
+State only what is **true of this slice and not already true of the project**.
+The stack, the test harness, the phone breakpoint, the gate commands and the
+repository layout are in `CLAUDE.md`; restating them here creates a second copy
+that can disagree with the first, which has happened.
 
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]
+| | |
+|---|---|
+| Language | [only if this slice departs from the CLAUDE.md stack] |
+| Backend | [the shape of the backend change — "none", or the migration and whether it alters schema] |
+| Testing | [what the harness makes hard for *this* slice, and the consequence — e.g. "no DOM, so the arithmetic must be pure functions in `lib/` to be testable at all"] |
+| New dependency | [None, or the name and the Complexity Tracking justification] |
+| Scope | [what changes — files, surfaces, endpoints. A rough count, not a list] |
 
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]
+Design values come from `design/`, not from slice contracts. If this slice
+changes one, say which document and section, and update it in the same commit.
 
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
-
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]
-
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-
-**Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]
-
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]
-
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]
-
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+Mark anything genuinely unknown as **NEEDS CLARIFICATION**; do not guess and do
+not pad the table with rows that only repeat the project defaults.
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+*GATE: passed before Phase 0, re-checked after Phase 1.*
 
-[Gates determined based on constitution file]
+Name the principles this slice could plausibly break and say how it does not.
+A check that could be pasted into any slice's plan is not a check — cite the
+specific decision that satisfies each one.
 
-## Project Structure
+- **[Principle or rule]** — [the decision in this slice that satisfies it]
 
-### Documentation (this feature)
+Violations go in Complexity Tracking below, not here.
 
-```text
-specs/[###-feature]/
-├── plan.md              # This file (/speckit.plan command output)
-├── research.md          # Phase 0 output (/speckit.plan command)
-├── data-model.md        # Phase 1 output (/speckit.plan command)
-├── quickstart.md        # Phase 1 output (/speckit.plan command)
-├── contracts/           # Phase 1 output (/speckit.plan command)
-└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
-```
+## Phases
 
-### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
+Numbered phases, each a commit-sized step with its own reason for existing.
+Say what changes and what deliberately does not. Include the signature of any
+new pure function — that is the part the tests bind to.
 
-```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
-src/
-├── models/
-├── services/
-├── cli/
-└── lib/
+### Phase 0 — [name] *(scope note, e.g. "no UI change")*
 
-tests/
-├── contract/
-├── integration/
-└── unit/
+## Risks
 
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
-├── src/
-│   ├── models/
-│   ├── services/
-│   └── api/
-└── tests/
-
-frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
-
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
-```
-
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+| Risk | Why it is real here | What contains it |
+|---|---|---|
+| | | |
 
 ## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
+Fill **only** if the Constitution Check found a violation. If it found none,
+write one line saying so and move on.
 
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+| Violation | Why needed | Simpler alternative rejected because |
+|---|---|---|

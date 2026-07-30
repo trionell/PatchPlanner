@@ -90,18 +90,31 @@ Spec-Driven Development with Spec Kit. For every feature or change:
 
 1. Understand the request, and whether it touches the user-facing frontend.
 2. If it does, follow **Frontend Design Workflow** below and stop for approval.
-3. Then, via the Spec Kit skills: specification → plan → tasks.
-4. Implement, then run the Gates above.
-5. Review against the specification and acceptance criteria; fix what review finds.
-6. Report complete only after validation succeeds.
+3. Then, via the Spec Kit skills: specification → plan → tasks. Write these
+   yourself — they are the brief you implement from, and they carry questions
+   for the user. Keep them lean: state what is true of *this slice*, not what is
+   already true of the project and written above.
+4. Run the `analyze` subagent over spec/plan/tasks before implementing.
+5. Implement, then run the Gates above.
+6. Review against the specification and acceptance criteria; fix what review finds.
+7. Report complete only after validation succeeds.
 
 Always work on the spec-specific branch and commit after each stage. **Merging to
 main or pushing a PR is the user's decision, not yours.**
 
-Delegate to the `explorer`, `reviewer` and `validator` subagents when they reduce
-context or give independent review; their briefs live in `.claude/agents/`. Use
-`validator` to run the Gates — it returns failures only, keeping build and test
-output out of the main context.
+Delegate when it reduces context or gives independent review; the briefs live in
+`.claude/agents/`.
+
+| Agent | For |
+|---|---|
+| `explorer` | finding the relevant code when it is not obvious |
+| `mockup` | building and publishing a slice's design mockup |
+| `analyze` | cross-artifact consistency before implementing |
+| `validator` | running the Gates — returns failures only |
+| `reviewer` | independent review before declaring a slice complete |
+
+Do **not** delegate the spec, the plan or the tasks. Their output is the working
+context for everything after them, so sending it away only means reading it back.
 
 ## Frontend Design Workflow
 
