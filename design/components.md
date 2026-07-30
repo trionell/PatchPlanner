@@ -250,8 +250,8 @@ full-bleed rows that rail becomes on a phone (§7c). Both are wrong inset by 20 
 and both are wrong with 20 px between them. It is `ui/Sheet`'s own prop,
 forwarded — unlike `width`, which is deliberately not.
 
-**`footer` is a line; anything longer is `info`.** The two look interchangeable
-and are not, and the test is whether it is worth re-reading. A footer states what
+**The test is whether it is worth re-reading — not how long it is.** The two look
+interchangeable and are not. A footer states what
 the contents *are* — *"Every row here is one line on the rental order · 12
 items"* — and is worth a glance every visit. An explanation of what the drawer
 *does* is read once and costs its space forever after: on a phone, where the
@@ -260,6 +260,17 @@ cannot put away. That is what `ui/InfoNote` is for, and `info` is where it goes.
 Slice 31 filed two such explanations into `footer` and had to be told; the rule
 had been stated only from the `InfoNote` end, which is the end you are not
 reading when you are writing a drawer.
+
+**Length is not a proxy for it, and this rule used to say it was.** It opened
+*"`footer` is a line; anything longer is `info`"*, which is the first thing anyone
+reads and is the wrong test — Event details' *"Renaming an event never changes its
+patch, its rig or its rental order"* fits on one line and is still read once and
+never again, so it is `info` (D5's follow-on, 2026-07-31). Two readers in a row
+checked it against the headline, called it compliant and moved on. The remaining
+prose footer in the application is Rig's *"Every row here is one line on the rental
+order · 12 items"*, which stays a footer for the reason above and not for its
+length: it states what the contents are, and it carries a count that changes while
+you work.
 
 **A note is remembered under `noteId`, never under the title.** `info` and
 `noteId` arrive together — the type requires each of the other — because an

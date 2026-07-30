@@ -1930,6 +1930,18 @@ for a browser** — the fix is a literal string per call site, and `tsc` plus a 
 for `noteId=` prove the eight are present and distinct, but nothing here observed
 `localStorage` doing it.
 
+**A follow-on, reported from use the same day: `EventDetailsDrawer`'s footer was
+an `info` too** (`noteId="event-details"`) — *"Renaming an event never changes its
+patch, its rig or its rental order"*, a reassurance read once. It survived this
+slice, and the review, because **§4's rule led with the wrong test**: it opened
+*"`footer` is a line; anything longer is `info`"* while its own body said the test
+is whether it is worth re-reading. One line and read-once are not the same
+property, and the headline is what gets read. §4 now leads with re-readability and
+names this case; `audit.md` M-drawer records the old wording as superseded.
+**Rig's footer stays a footer** (user decision, 2026-07-31): it states what the
+contents are and carries a count that changes while you work, which is the thing
+a footer is for. It is the application's last prose footer.
+
 ## Dependency graph
 
 ```

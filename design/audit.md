@@ -108,6 +108,11 @@ Fixed by moving all four to `info`, and by stating the test at the `Drawer` entr
 **`footer` is a line; anything longer is `info`.** The same report also settled where an
 editable number sits in a drawer — the right edge, its hint to the left, at both widths.
 
+**That wording is superseded** (2026-07-31, D5's follow-on): the test is whether it is
+worth re-reading, and length was only ever a proxy for it. Event details' one-line
+footer was read-once prose and had to move too — twice checked against the headline and
+twice passed. §4 states it by the real test now.
+
 ### M13 · A stored position meant a different place on every screen · Slice 37
 
 Reported from use: *"on desktop I place the nodes where I want them but on mobile the rig

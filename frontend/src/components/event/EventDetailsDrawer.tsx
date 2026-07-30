@@ -89,7 +89,12 @@ function EventDetailsForm({
       onClose={onClose}
       title="Event details"
       subtitle="Name, venue, dates and notes"
-      footer={<>Renaming an event never changes its patch, its rig or its rental order.</>}
+      noteId="event-details"
+      /* A reassurance about what editing here does — and does not — reach. Read
+         once and true forever after, which is `info` and not `footer`: a footer
+         states what the contents *are* and is worth a glance every visit
+         (components.md §4). Length was never the test. */
+      info={<>Renaming an event never changes its patch, its rig or its rental order.</>}
     >
       <div className="flex flex-col gap-3.5">
         <div>
