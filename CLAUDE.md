@@ -116,9 +116,33 @@ Delegate when it reduces context or gives independent review; the briefs live in
 Do **not** delegate the spec, the plan or the tasks. Their output is the working
 context for everything after them, so sending it away only means reading it back.
 
+### Defects
+
+A defect listed in `ROADMAP.md` under *Known defects* already carries its own
+brief — the cause traced to a line, what a fix has to cover, and the decision the
+fix has to make first. **That section is the spec; do not transcribe it into a
+`specs/` directory.** Work on a `dN-short-name` branch, fix it, and write the
+outcome back into its ROADMAP section under **Fixed**, with the decisions worth
+keeping. Mark the heading ✅ and the date.
+
+A defect becomes a full slice — spec → plan → tasks — when it edits `design/`,
+needs a migration, or spreads past a handful of files. D4 was the first kind and
+was not run as one: it amended `components.md` §4, changed `patterns.md` and
+`tokens.md`, and deleted `ui/Table`, with no design approval anywhere. That is
+the case this rule and the second trigger below both exist to catch.
+
 ## Frontend Design Workflow
 
-If a task introduces, modifies, or substantially changes a user-facing frontend:
+Two triggers. The first is a judgment call; the second is not.
+
+- A task **introduces, modifies, or substantially changes a user-facing frontend.**
+- A change **edits `design/`.** Editing `tokens.md`, `components.md`,
+  `patterns.md` or `principles.md` *is* changing the design, whatever the task was
+  called — a defect fix that amends the language is still amending the language.
+  Deleting a component from `ui/` counts. If you are about to make that edit,
+  stop: the design is approved first and written second.
+
+Then:
 
 1. Delegate the mockup to the **`mockup` subagent**. It loads the
    `/frontend-design` skill, builds `specs/<slice>/mockup.html`, publishes it as
@@ -141,7 +165,10 @@ you need the understanding in this thread to write the spec — several slices h
 drew the mockup *before* the spec for exactly that reason.
 
 If the user says the design is already approved, or supplies an approved design,
-do not build another mockup — go straight to the Spec Kit workflow.
+do not build another mockup — go straight to the Spec Kit workflow. That hatch
+covers *applying* an approved language. It does not cover *amending* one: the
+moment the work needs a rule `design/` does not already state, the second trigger
+fires and the hatch is shut.
 
 ## Autonomy
 

@@ -1348,10 +1348,16 @@ together and overlap."*
 
 ## Known defects — found, reproduced, not yet scheduled
 
-Each of these has been traced to a specific line and is waiting for a slice to
-adopt it. A defect with a cause written down is a defect somebody can pick up; a
-symptom in a chat log is not. A fixed one keeps its section and is marked as
-fixed: the cause is still the most useful thing written down about that code.
+Each of these has been traced to a specific line. A defect with a cause written
+down is a defect somebody can pick up; a symptom in a chat log is not. A fixed
+one keeps its section and is marked as fixed: the cause is still the most useful
+thing written down about that code.
+
+**A section here is the brief.** It states the cause, what a fix has to cover and
+the decision the fix has to make first, so it is fixed on a `dN-` branch without
+a `specs/` directory — see *Defects* in `CLAUDE.md`. One that edits `design/`,
+needs a migration, or spreads past a handful of files is a slice instead, and
+goes through the design approval and the full spec → plan → tasks.
 
 ### D1 — The legacy catalog can become permanently ownerless ✅ fixed 2026-07-30
 
