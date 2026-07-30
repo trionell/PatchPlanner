@@ -594,6 +594,17 @@ export interface RentalExportReport {
   filename: string
   placed_lines: number
   unplaced_lines: UnplacedLine[]
+  /**
+   * Whether the price list's two typed cells — `Rabatt utrustning` and
+   * `Hyresfaktor (Antal dagar)` — were found and written (Slice 31).
+   */
+  pricing_placed?: boolean
+  /**
+   * Empty unless there is something to say. A list, because the two things it
+   * can say are independent: the labels were not found, and this event's VAT
+   * disagrees with the rate the file computes.
+   */
+  pricing_notes?: string[]
 }
 
 export interface ReferenceValue {

@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Download, Filter, MoreHorizontal, Plus, Search } from 'lucide-react'
 import { inventoryTemplateUrl, listCategories, listItems, listMyInventories } from '../api/inventories'
 import { InventorySheet } from '../components/inventory/InventorySheet'
-import { CategoriesDrawer, ImportDrawer } from '../components/inventory/InventoryDrawers'
+import { CatalogPricingDrawer, CategoriesDrawer, ImportDrawer } from '../components/inventory/InventoryDrawers'
 import { InventoryDrawer } from '../components/inventory/InventoryDrawer'
 import { OwnedGearManager } from '../components/OwnedGearManager'
 import { useIsMobile } from '../hooks/useIsMobile'
@@ -429,6 +429,7 @@ function InventoryDetail({ inventory, onBack }: { inventory: Inventory; onBack: 
   const [adding, setAdding] = useState(false)
   const [categoriesOpen, setCategoriesOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [pricingOpen, setPricingOpen] = useState(false)
   const [manageOpen, setManageOpen] = useState(false)
   const [error, setError] = useState('')
   const [categoryFilterOpen, setCategoryFilterOpen] = useState(false)
@@ -506,6 +507,9 @@ function InventoryDetail({ inventory, onBack }: { inventory: Inventory; onBack: 
             <Button size="xs" variant="outline" onClick={() => setCategoriesOpen(true)}>
               Categories
             </Button>
+            <Button size="xs" variant="outline" onClick={() => setPricingOpen(true)}>
+              Pricing
+            </Button>
             <Button size="xs" variant="outline" onClick={() => setImportOpen(true)}>
               Import
             </Button>
@@ -580,6 +584,13 @@ function InventoryDetail({ inventory, onBack }: { inventory: Inventory; onBack: 
         onClose={() => setCategoriesOpen(false)}
         inventoryId={inventoryId}
         categories={categories}
+        onError={setError}
+        editable
+      />
+      <CatalogPricingDrawer
+        open={pricingOpen}
+        onClose={() => setPricingOpen(false)}
+        inventoryId={inventoryId}
         onError={setError}
         editable
       />
