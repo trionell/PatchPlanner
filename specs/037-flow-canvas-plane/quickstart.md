@@ -19,7 +19,8 @@ cd ../backend && go vet ./... && go test ./...
 grep -n "canvasWidth" frontend/src/components/event/InputGraphCanvas.tsx \
                       frontend/src/components/event/AudioOutputsTab.tsx
 
-# The clamp, the pins and the bands are gone. Expect nothing.
+# The clamp, the pins and the bands are gone. Expect **one comment line** in tokens.ts
+# recording what `LANE_LABEL` and `LANE_BAND_*` were, and no code.
 grep -rn "clampProcessingX\|zoneProcessingBounds\|zoneChannelsX\|zoneDestinationsX\|LaneBands" frontend/src/
 
 # A reach check is never a permission (P9, §7g) — carried forward from Slice 36 and
