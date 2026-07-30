@@ -13,7 +13,15 @@
   Revision 1's two open questions are settled: the amber words stay, and
   owned gear is outside pricing entirely.
 
-  Revision 3 is two corrections from the cross-artifact consistency pass, not
+  Revision 4 is two fixes reported against the BUILT page, on a phone: the
+  drawers' closing paragraph becomes a `ui/InfoNote` (a footer is a fixed strip,
+  and on a bottom sheet a two-sentence one is a fifth of the screen forever),
+  and the editable numbers move to the right edge with their hints on the left.
+  Both are now rules in design/components.md's ui/Drawer entry, and audit.md
+  records the report as M14. Four drawers had the footer fault, two of them
+  older than this slice; all four are fixed.
+
+  Revision 3 was two corrections from the cross-artifact consistency pass, not
   new design: the drawers no longer claim VAT was "read from LL.xlsx" (nothing
   stores that, and it would start lying the moment the field was edited — it is
   reported in the import result instead), and a catalog copies the user's
@@ -280,6 +288,18 @@
   .sd__body { padding: 16px 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
   .sd__ft { margin-top: auto; padding: 12px 20px; border-top: 1px solid #27272a; font-size: 12px; color: #71717a; }
   .sd__ft b { color: #a1a1aa; font-weight: 500; }
+  /* ui/InfoNote, closed: one target beside the title, the sentence behind it.
+     Revision 4 — a two-sentence footer is a fifth of a phone's sheet, forever. */
+  .infob {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; border-radius: 999px; border: 1px solid #3f3f46;
+    color: #a1a1aa; font-size: 11px; font-style: italic; font-family: Georgia, serif;
+    margin-left: 8px; vertical-align: middle;
+  }
+  /* a field row: what it means on the left, the control at the right edge */
+  .fieldrow { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+  .fieldrow .dnote { padding-bottom: 6px; }
+  .fieldrow .fstack { flex: none; }
   .dsec { display: flex; flex-direction: column; gap: 6px; }
   .dsec__hd { display: flex; align-items: center; gap: 8px; }
   .dsec__ct { font-family: var(--mono); font-size: 10px; color: #52525b; }
@@ -395,7 +415,7 @@
 <div class="wrap">
 
   <header class="head">
-    <span class="head__eyebrow">slice 31 · rental pricing by duration · revision 3 · approved</span>
+    <span class="head__eyebrow">slice 31 · rental pricing by duration · revision 4 · built</span>
     <h1>The five-day hire that costs one day</h1>
     <p class="head__lede">
       Slice 30 gave an event a length, and named what it did not do:
@@ -756,7 +776,7 @@
             <aside class="sd">
               <div class="sd__hd">
                 <div>
-                  <div class="sd__ti">Pricing</div>
+                  <div class="sd__ti">Pricing<span class="infob">i</span></div>
                   <div class="sd__sub">What this supplier charges for a longer hire</div>
                 </div>
                 <span class="sd__x">✕</span>
@@ -776,9 +796,12 @@
                 <div class="dsec">
                   <div class="dsec__hd"><span class="lbl">VAT</span></div>
                   <div class="gear">
-                    <div class="gear__row">
-                      <span class="fld fld--num">25</span>
-                      <span class="dnote">%</span>
+                    <div class="fieldrow">
+                      <span class="dnote">The rate this supplier charges, as a percentage.</span>
+                      <div class="fstack">
+                        <span class="lbl">VAT %</span>
+                        <span class="fld fld--num">25</span>
+                      </div>
                     </div>
                     <div class="gear__sp">
                       <span>what this supplier charges · applied to every event on this catalog</span>
@@ -857,10 +880,7 @@
                 </div>
               </div>
 
-              <div class="sd__ft">
-                An import carrying a factor table <b>replaces every row here</b>. One that
-                carries none leaves them alone.
-              </div>
+              <!-- Revision 4: this was a footer. It is behind the `i` above now. -->
             </aside>
           </div>
         </div>
@@ -972,7 +992,7 @@
             <aside class="sd">
               <div class="sd__hd">
                 <div>
-                  <div class="sd__ti">Pricing</div>
+                  <div class="sd__ti">Pricing<span class="infob">i</span></div>
                   <div class="sd__sub">What this hire costs, and why</div>
                 </div>
                 <span class="sd__x">✕</span>
@@ -1001,14 +1021,12 @@
                       <span class="gear__nm">×2.20</span>
                       <span class="gear__ac">LL · the 5-day row</span>
                     </div>
-                    <div class="gear__row">
+                    <div class="fieldrow">
+                      <span class="dnote">Leave empty to follow the catalog's table.</span>
                       <div class="fstack">
                         <span class="lbl">Override</span>
                         <span class="fld fld--num fld--ph">2.20</span>
                       </div>
-                      <span class="dnote" style="align-self:flex-end;padding-bottom:6px">
-                        Leave empty to follow the catalog's table.
-                      </span>
                     </div>
                   </div>
                 </div>
@@ -1016,9 +1034,12 @@
                 <div class="dsec">
                   <div class="dsec__hd"><span class="lbl">Discount</span></div>
                   <div class="gear">
-                    <div class="gear__row">
-                      <span class="fld fld--num">25</span>
+                    <div class="fieldrow">
                       <span class="dnote">% off the equipment subtotal</span>
+                      <div class="fstack">
+                        <span class="lbl">Percent</span>
+                        <span class="fld fld--num">25</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1030,14 +1051,12 @@
                       <span class="gear__nm">25%</span>
                       <span class="gear__ac">from the catalog</span>
                     </div>
-                    <div class="gear__row">
+                    <div class="fieldrow">
+                      <span class="dnote">Leave empty to follow the catalog.</span>
                       <div class="fstack">
                         <span class="lbl">Override</span>
                         <span class="fld fld--num fld--ph">25</span>
                       </div>
-                      <span class="dnote" style="align-self:flex-end;padding-bottom:6px">
-                        Leave empty to follow the catalog.
-                      </span>
                     </div>
                   </div>
                 </div>
@@ -1057,10 +1076,7 @@
                 </div>
               </div>
 
-              <div class="sd__ft">
-                Pricing changes no line on the order. Every price on the sheet is the
-                catalog's <b>day rate</b>, which is what the supplier's own list says.
-              </div>
+              <!-- Revision 4: this was a footer. It is behind the `i` above now. -->
             </aside>
           </div>
         </div>
@@ -1302,7 +1318,7 @@
               <div class="phsheet">
                 <div class="phsheet__gr"><i></i></div>
                 <div class="phsheet__hd">
-                  <span class="phsheet__ti">Pricing</span>
+                  <span class="phsheet__ti">Pricing<span class="infob">i</span></span>
                   <span class="sd__x">✕</span>
                 </div>
                 <div class="phsheet__bd">
@@ -1314,13 +1330,19 @@
                     <span class="lbl">Rent factor</span>
                     <span class="fld phfld"><span class="mono">2.20</span> <span style="color:#71717a;margin-left:8px">LL · the 5-day row</span></span>
                   </div>
-                  <div class="fstack">
-                    <span class="lbl">Discount %</span>
-                    <span class="fld phfld mono">25</span>
+                  <div class="fieldrow">
+                    <span class="dnote">% off the equipment subtotal</span>
+                    <div class="fstack">
+                      <span class="lbl">Discount %</span>
+                      <span class="fld fld--num mono" style="height:44px;font-size:14px">25</span>
+                    </div>
                   </div>
-                  <div class="fstack">
-                    <span class="lbl">VAT %</span>
-                    <span class="fld phfld"><span class="mono">25</span> <span style="color:#71717a;margin-left:8px">from the catalog</span></span>
+                  <div class="fieldrow">
+                    <span class="dnote">Leave empty to follow the catalog.</span>
+                    <div class="fstack">
+                      <span class="lbl">VAT %</span>
+                      <span class="fld fld--num mono" style="height:44px;font-size:14px">25</span>
+                    </div>
                   </div>
                   <div class="gear">
                     <div class="ldg">
@@ -1490,12 +1512,45 @@
         </div>
       </div>
       <div class="led__row">
-        <div class="led__k">No new design rule<span class="tag tag--keep">checked</span></div>
+        <div class="led__k">The explanation is an <em>i</em><span class="tag tag--new">revision 4</span></div>
+        <div class="led__v">
+          Reported against the built page: <em>"at the bottom there is a disclaimer… it is
+          very big."</em> A drawer's footer is a fixed strip, and on a phone the drawer is a
+          bottom sheet — so a two-sentence footer is <b>a fifth of the screen, on every
+          visit, with no way to put it away.</b> It is <code>ui/InfoNote</code> now, the same
+          <em>i</em> the Universes drawer carries. Four drawers had the fault, two of them
+          older than this slice; all four are fixed.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">The number sits at the thumb<span class="tag tag--new">revision 4</span></div>
+        <div class="led__v">
+          Also reported: the inputs were on the <em>left</em> of their descriptions. They are
+          at the <b>right edge</b> now, hint to the left — on a phone that is where the thumb
+          already is, and on the desktop it lines them up with the ledger below, whose labels
+          are left and whose figures are right. <b>No <code>useIsMobile</code> branch:</b>
+          this is one of the few places where the phone's ergonomics and the desktop's
+          alignment want the same thing.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">Two rules written down<span class="tag tag--new">revision 4</span></div>
+        <div class="led__v">
+          Both went into <code>design/components.md</code>'s <code>ui/Drawer</code> entry, and
+          <code>audit.md</code> records the report as <b>M14</b>. The <em>i</em> rule existed
+          already — but only at the <code>InfoNote</code> end, which is not where somebody
+          writing a drawer is looking. That is why four drawers got it wrong.
+        </div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">No new design rule<span class="tag tag--keep">was checked</span></div>
         <div class="led__v">
           Drawer, GearList, StatusStrip, Select, Input, page tabs — every construction here
           is already in <code>design/</code>, and the ledger is <code>GearSpecs</code> rows
-          in a <code>GearCard</code>. <b>Nothing in <code>design/</code> needs editing</b>,
-          which is what keeps this a slice about money rather than about the language.
+          in a <code>GearCard</code>. This held through the build: the slice shipped without
+          touching <code>design/</code>. <b>It stopped holding when the built page was used
+          on a phone</b> — see the two rows above. The language gained two sentences, both
+          about drawers in general rather than about pricing.
         </div>
       </div>
     </div>

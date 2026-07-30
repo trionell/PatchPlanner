@@ -1159,11 +1159,19 @@ two cells a human types. This slice reads both and writes the second.
   the labels have been renamed the quantities still arrive and the report says
   so; where an event's VAT disagrees with what the file computes, both numbers
   are named. Principle IV's duty is to report, not to refuse.
-- One migration pair (050), five routes, two drawers, and **no `design/` edit**:
-  every construction was already in the language, and the ledger is `GearSpecs`
-  rows in a `GearCard`. `ui/Drawer` had already solved the phone — it branches to
-  `ui/Sheet` itself — so the separate mobile sheet the tasks planned was not
-  built.
+- One migration pair (050), five routes and two drawers. `ui/Drawer` had already
+  solved the phone — it branches to `ui/Sheet` itself — so the separate mobile
+  sheet the tasks planned was not built.
+- **`design/` was untouched until the built page was used on a phone.** Two
+  things came back from that (audit.md M14, both now rules on `ui/Drawer`): a
+  drawer's closing paragraph belongs in `ui/InfoNote`, not in `footer` — on a
+  bottom sheet a two-sentence footer is a fifth of the screen with no way to put
+  it away — and an editable number sits at the **right edge** with its hint to
+  the left, which is where the thumb is and which aligns it with the ledger
+  below. Four drawers had the footer fault, two of them older than this slice.
+  The `InfoNote` rule had existed since Wave 6a but was written only at the
+  `InfoNote` entry, not at the `Drawer` entry where somebody choosing between two
+  props is actually looking.
 
 **Verified against the real data**: a 32-line wedding order at 5 994.00/day,
 priced over five on-site days at ×2.20 less 25%, comes to 9 890.10 ex VAT and
