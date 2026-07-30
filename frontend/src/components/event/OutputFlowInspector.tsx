@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Copy } from 'lucide-react'
 import { createAudioOutput, deleteAudioOutput, updateAudioOutput } from '../../api/audioPatch'
@@ -10,6 +10,7 @@ import { outputChainSegments } from '../../lib/patchSheet'
 import type { OutputFlowContext } from '../../lib/signalFlow'
 import type { AudioPatchOutput, Console, OutputCable, OutputDevice, StageMulti, Stagebox } from '../../types'
 import { Button } from '../ui/Button'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Input } from '../ui/Input'
 import { Pill } from '../ui/SheetTable'
 import { Select } from '../ui/Select'
@@ -87,6 +88,10 @@ export function OutputFlowInspector({
   // column cannot afford 40 px rows (tokens.md §7 amendment 2; research R9).
   const ctl = useInspectorControlSize()
   const dense = ctl === 'sm'
+  // The id being confirmed, not a boolean — this rail already knows its subject can
+  // vanish underneath it (see `orphaned` below), and an open confirm that silently
+  // re-aims at a different output is the one outcome a confirm exists to prevent.
+  const [confirmingDelete, setConfirmingDelete] = useState<number | null>(null)
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['rental-summary', eventId] })
     await onChanged()
@@ -144,144 +149,158 @@ export function OutputFlowInspector({
   const color = derivedOutputPortColor('mixer', output.id, 0, { outputs, cables, devices })
   const portCount = output.width === 'stereo' ? 2 : 1
 
-  return (
-    <InspectorFrame
-      heading="Output"
-      onClose={close}
-      pill={<Pill className={vocabularyTint(output.output_type)}>{output.output_type}</Pill>}
-    >
-      <Input
-        size={ctl}
-        className={dense ? 'h-7 font-semibold' : 'font-semibold'}
-        defaultValue={output.output_name ?? ''}
-        disabled={readOnly}
-        key={`${output.id}-name`}
-        placeholder="unnamed"
-        onBlur={(event) => {
-          const name = event.target.value.trim()
-          if (name !== (output.output_name ?? '')) saveOutput({ output_name: name })
-        }}
-      />
+  const label = `${output.output_number}${output.output_name ? ` ${output.output_name}` : ''}`
 
-      <Field label="Out">
+  return (
+    <>
+      <InspectorFrame
+        heading="Output"
+        onClose={close}
+        pill={<Pill className={vocabularyTint(output.output_type)}>{output.output_type}</Pill>}
+      >
         <Input
           size={ctl}
-          type="number"
-          defaultValue={output.output_number}
+          className={dense ? 'h-7 font-semibold' : 'font-semibold'}
+          defaultValue={output.output_name ?? ''}
           disabled={readOnly}
-          key={`${output.id}-number`}
-          // On blur, not per keystroke: typing "12" would otherwise save 1 and then
-          // 12, and briefly renumber the row to a number someone else may hold.
+          key={`${output.id}-name`}
+          placeholder="unnamed"
           onBlur={(event) => {
-            const next = Number(event.target.value)
-            if (Number.isFinite(next) && next > 0 && next !== output.output_number) saveOutput({ output_number: next })
+            const name = event.target.value.trim()
+            if (name !== (output.output_name ?? '')) saveOutput({ output_name: name })
           }}
         />
-      </Field>
-      <Field label="Type">
-        <Select size={ctl} value={output.output_type} disabled={readOnly} onChange={(event) => saveOutput({ output_type: event.target.value })}>
-          {options('output_types', output.output_type).map((value) => (
-            <option key={value.value} value={value.value}>
-              {value.label}
-            </option>
-          ))}
-        </Select>
-      </Field>
-      <Field label="Width">
-        <Select size={ctl} value={output.width} disabled={readOnly} onChange={(event) => saveOutput({ width: event.target.value as AudioPatchOutput['width'] })}>
-          <option value="mono">Mono</option>
-          <option value="stereo">Stereo</option>
-        </Select>
-      </Field>
-      <Field label="Tape">
-        <ColorSelect eventId={eventId} value={output.color} disabled={readOnly} onChange={(next) => saveOutput({ color: next || undefined })} />
-      </Field>
-      {/* Only with more than one desk, exactly as the sheet's Desk column is: a picker
-          with one option is a control that cannot be used (FR-003). */}
-      {consoles.length > 1 && (
-        <Field label="Desk">
-          <Select
+
+        <Field label="Out">
+          <Input
             size={ctl}
-            value={output.console_id ?? ''}
+            type="number"
+            defaultValue={output.output_number}
             disabled={readOnly}
-            onChange={(event) => saveOutput({ console_id: event.target.value ? Number(event.target.value) : undefined })}
-          >
-            <option value="">No desk</option>
-            {consoles.map((candidate) => (
-              <option key={candidate.id} value={candidate.id}>
-                {candidate.name || 'Console'}
+            key={`${output.id}-number`}
+            // On blur, not per keystroke: typing "12" would otherwise save 1 and then
+            // 12, and briefly renumber the row to a number someone else may hold.
+            onBlur={(event) => {
+              const next = Number(event.target.value)
+              if (Number.isFinite(next) && next > 0 && next !== output.output_number) saveOutput({ output_number: next })
+            }}
+          />
+        </Field>
+        <Field label="Type">
+          <Select size={ctl} value={output.output_type} disabled={readOnly} onChange={(event) => saveOutput({ output_type: event.target.value })}>
+            {options('output_types', output.output_type).map((value) => (
+              <option key={value.value} value={value.value}>
+                {value.label}
               </option>
             ))}
           </Select>
         </Field>
-      )}
-      <Field label="Notes">
-        <Input
-          size={ctl}
-          defaultValue={output.notes ?? ''}
-          disabled={readOnly}
-          key={`${output.id}-notes`}
-          onBlur={(event) => {
-            const notes = event.target.value
-            if (notes !== (output.notes ?? '')) saveOutput({ notes })
-          }}
-        />
-      </Field>
-
-      <Note label="Lands on">
-        {patched ? (
-          landings.map((landing) => (
-            <span key={`${landing.sideLabel ?? ''}${landing.label}`} className="font-mono text-[11px]" style={color ? { color } : undefined}>
-              {landing.sideLabel ? `${landing.sideLabel} → ` : ''}
-              {landing.label}
-            </span>
-          ))
-        ) : (
-          <span className="text-[11px] text-zinc-500">Not patched — this output doesn't leave the desk.</span>
+        <Field label="Width">
+          <Select size={ctl} value={output.width} disabled={readOnly} onChange={(event) => saveOutput({ width: event.target.value as AudioPatchOutput['width'] })}>
+            <option value="mono">Mono</option>
+            <option value="stereo">Stereo</option>
+          </Select>
+        </Field>
+        <Field label="Tape">
+          <ColorSelect eventId={eventId} value={output.color} disabled={readOnly} onChange={(next) => saveOutput({ color: next || undefined })} />
+        </Field>
+        {/* Only with more than one desk, exactly as the sheet's Desk column is: a picker
+            with one option is a control that cannot be used (FR-003). */}
+        {consoles.length > 1 && (
+          <Field label="Desk">
+            <Select
+              size={ctl}
+              value={output.console_id ?? ''}
+              disabled={readOnly}
+              onChange={(event) => saveOutput({ console_id: event.target.value ? Number(event.target.value) : undefined })}
+            >
+              <option value="">No desk</option>
+              {consoles.map((candidate) => (
+                <option key={candidate.id} value={candidate.id}>
+                  {candidate.name || 'Console'}
+                </option>
+              ))}
+            </Select>
+          </Field>
         )}
-        <span className="font-mono text-[10px] text-zinc-500">
-          {portCount} {portCount === 1 ? 'port' : 'ports'} · {desk?.name || 'no desk'}
-        </span>
-      </Note>
-      <Legend rows={OUTPUT_LEGEND} />
-
-      {!readOnly && (
-        <div className="mt-auto flex gap-2">
-          <Button
-            size={dense ? 'sm' : 'md'}
-            variant="outline"
-            className={dense ? 'h-7 px-2.5 text-xs' : undefined}
-            onClick={() =>
-              create.mutate(duplicateOf(output, outputs), {
-                // Follow the copy. The route returns the created row, so the rail does
-                // not have to guess which of two identical-looking rows is the new one.
-                onSuccess: (created) => onSelectionChange({ kind: 'output', id: created.id }),
-              })
-            }
-          >
-            <Copy className="mr-1.5 h-3.5 w-3.5" />Duplicate
-          </Button>
-          <Button
-            size={dense ? 'sm' : 'md'}
-            variant="ghost"
-            className={dense ? 'h-7 px-2.5 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-300' : 'text-red-400 hover:bg-red-500/10 hover:text-red-300'}
-            onClick={() => {
-              const label = `${output.output_number}${output.output_name ? ` ${output.output_name}` : ''}`
-              if (window.confirm(`Delete output ${label}? Any cable leaving it is removed with it.`)) {
-                remove.mutate(output.id)
-                close()
-              }
+        <Field label="Notes">
+          <Input
+            size={ctl}
+            defaultValue={output.notes ?? ''}
+            disabled={readOnly}
+            key={`${output.id}-notes`}
+            onBlur={(event) => {
+              const notes = event.target.value
+              if (notes !== (output.notes ?? '')) saveOutput({ notes })
             }}
-          >
-            Delete
-          </Button>
-        </div>
-      )}
+          />
+        </Field>
 
-      {(update.error ?? create.error ?? remove.error) && (
-        <p className="text-[11px] text-red-400">{(update.error ?? create.error ?? remove.error)?.message}</p>
-      )}
-    </InspectorFrame>
+        <Note label="Lands on">
+          {patched ? (
+            landings.map((landing) => (
+              <span key={`${landing.sideLabel ?? ''}${landing.label}`} className="font-mono text-[11px]" style={color ? { color } : undefined}>
+                {landing.sideLabel ? `${landing.sideLabel} → ` : ''}
+                {landing.label}
+              </span>
+            ))
+          ) : (
+            <span className="text-[11px] text-zinc-500">Not patched — this output doesn't leave the desk.</span>
+          )}
+          <span className="font-mono text-[10px] text-zinc-500">
+            {portCount} {portCount === 1 ? 'port' : 'ports'} · {desk?.name || 'no desk'}
+          </span>
+        </Note>
+        <Legend rows={OUTPUT_LEGEND} />
+
+        {!readOnly && (
+          <div className="mt-auto flex gap-2">
+            <Button
+              size={dense ? 'sm' : 'md'}
+              variant="outline"
+              className={dense ? 'h-7 px-2.5 text-xs' : undefined}
+              onClick={() =>
+                create.mutate(duplicateOf(output, outputs), {
+                  // Follow the copy. The route returns the created row, so the rail does
+                  // not have to guess which of two identical-looking rows is the new one.
+                  onSuccess: (created) => onSelectionChange({ kind: 'output', id: created.id }),
+                })
+              }
+            >
+              <Copy className="mr-1.5 h-3.5 w-3.5" />Duplicate
+            </Button>
+            <Button
+              size={dense ? 'sm' : 'md'}
+              variant="ghost"
+              className={dense ? 'h-7 px-2.5 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-300' : 'text-red-400 hover:bg-red-500/10 hover:text-red-300'}
+              onClick={() => setConfirmingDelete(output.id)}
+            >
+              Delete
+            </Button>
+          </div>
+        )}
+
+        {(update.error ?? create.error ?? remove.error) && (
+          <p className="text-[11px] text-red-400">{(update.error ?? create.error ?? remove.error)?.message}</p>
+        )}
+      </InspectorFrame>
+
+      {/* A sibling of the frame, not a child of it: on a phone the frame is a bottom
+          sheet, and a centred overlay nested inside a scrolling sheet body is a
+          stacking question nobody should have to answer twice. */}
+      <ConfirmDialog
+        open={confirmingDelete === output.id}
+        title="Delete output"
+        onCancel={() => setConfirmingDelete(null)}
+        onConfirm={() => {
+          setConfirmingDelete(null)
+          remove.mutate(output.id)
+          close()
+        }}
+      >
+        Output {label} will be deleted. Any cable leaving it is removed with it.
+      </ConfirmDialog>
+    </>
   )
 }
 

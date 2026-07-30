@@ -9,14 +9,13 @@ is left, it is only this:
 | | |
 |---|---|
 | Slice 31 | Rental pricing by duration — planned, not started |
-| D2 | The flow inspector's delete is a browser dialog |
 | D3 | The stage plot's remembered view is shared across every device |
 | D4 | The event's read-only catalog browse is the last pre-redesign surface |
 
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
 multi-event/tour planning (§3.11).
 
-Reach any of them by heading, not by line number — `grep -n '^### D2' ROADMAP.md`.
+Reach any of them by heading, not by line number — `grep -n '^### D3' ROADMAP.md`.
 A closed defect keeps its section and gains a ✅; this table is the list of what
 has not. The dependency graph is at the foot of the file.
 
@@ -1459,7 +1458,7 @@ migrations run on seeded pre-fix data (`TestMigration048AdoptsOrphanedCatalog`,
 harness).
 
 
-### D2 — The flow inspector's delete is a browser dialog
+### D2 — The flow inspector's delete is a browser dialog ✅ fixed 2026-07-30
 
 **Found:** 2026-07-29, during Slice 36. `InputFlowInspector` and `OutputFlowInspector`
 both confirm a delete with `window.confirm`, at every width.
@@ -1476,6 +1475,30 @@ sentence and two buttons is a `Dialog`"* (`patterns.md` §7d), which is what thi
 both widths. Both inspectors, together, for the reason everything in these two files is
 done together. The sentence should keep naming the consequence, which the current one
 already does: *any cable connected to it is removed with it.*
+
+**Fixed** by `ui/ConfirmDialog` — a `Dialog` at `max-w-md` holding one sentence, a
+`ghost` **Cancel** and a `destructive` confirm, which is the one place that variant is
+for ([components.md](design/components.md) §4). Two callers, converted in one commit, so
+it is not an abstraction ahead of its second (Principle V).
+
+Three decisions worth keeping:
+
+1. **The dialog is a sibling of `InspectorFrame`, not a child.** In a hand the frame is
+   a bottom sheet with an internal scroll and, uniquely, no scrim — nesting a centred
+   `fixed` overlay inside that makes the stacking and the `pointer-events-none` root
+   into questions that have to be re-answered every time either component moves.
+2. **The open state is the id being confirmed, not a boolean.** Both rails already know
+   their subject can vanish underneath them — `OutputFlowInspector`'s `orphaned` effect
+   exists for exactly that — and a confirm that silently re-aims at a different row is
+   the one outcome a confirm exists to prevent.
+3. **Cancel is present**, though §7d removes it from the phone sheet's footer. Those do
+   not conflict: a sheet's close target abandons an edit you can re-open, while here the
+   two buttons *are* the question.
+
+The other sixteen `window.confirm` call sites are untouched and this is deliberate — a
+sweep across sixteen surfaces in one commit is a regression nobody can attribute, which
+is the rule every wave in the convergence has followed. Each takes `ConfirmDialog` when
+its own surface is next opened.
 
 ### D3 — The stage plot's remembered view is shared across every device
 
