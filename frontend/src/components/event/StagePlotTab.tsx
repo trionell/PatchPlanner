@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Maximize2, Minimize2, Minus, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Check, Maximize2, Minimize2, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { getLightingRig } from '../../api/lighting'
 import {
   attachPlotTrussFixture,
@@ -42,6 +42,7 @@ import { useInfoNote } from '../../hooks/useInfoNote'
 import { InfoPanel, InfoToggle } from '../ui/InfoNote'
 import { MobilePanel } from '../ui/MobilePanel'
 import { MobilePicker } from '../mobile/MobilePicker'
+import { MobileSegmented } from '../mobile/MobileSegmented'
 import { Sheet } from '../ui/Sheet'
 import { StatusStrip } from './StatusStrip'
 import { Pill } from '../ui/SheetTable'
@@ -383,43 +384,26 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
               title="Plots"
               value={activePlotId}
             />
-            <div className="flex h-11 flex-none items-center rounded-md border border-zinc-700 bg-zinc-900">
-              {(['top', 'front', 'side'] as const).map((viewOption) => (
-                <button
-                  className={
-                    mobileView === viewOption
-                      ? 'flex h-11 min-w-[3rem] items-center justify-center rounded-md bg-amber-500 px-2 text-sm font-medium text-zinc-950'
-                      : 'flex h-11 min-w-[3rem] items-center justify-center px-2 text-sm text-zinc-400'
-                  }
-                  key={viewOption}
-                  onClick={() => setMobileView(viewOption)}
-                  type="button"
-                >
-                  {viewOption === 'top' ? 'Top' : viewOption === 'front' ? 'Front' : 'Side'}
-                </button>
-              ))}
-            </div>
-            <span className="flex flex-none items-center gap-0.5">
-              <button
-                aria-label="Zoom out"
-                className="flex h-11 w-11 items-center justify-center rounded-md border border-zinc-700 bg-zinc-900 text-zinc-400"
-                onClick={() => zoomBy(1 / 1.25)}
-                type="button"
-              >
-                <Minus className="h-4 w-4" />
-              </button>
-              <span className="w-11 text-center font-mono text-xs tabular-nums text-zinc-300">
-                {Math.round(viewState.zoom * 100)}%
-              </span>
-              <button
-                aria-label="Zoom in"
-                className="flex h-11 w-11 items-center justify-center rounded-md border border-zinc-700 bg-zinc-900 text-zinc-400"
-                onClick={() => zoomBy(1.25)}
-                type="button"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-            </span>
+            <MobileSegmented
+              label="Plot view"
+              onChange={setMobileView}
+              options={[
+                { value: 'top', label: 'Top' },
+                { value: 'front', label: 'Front' },
+                { value: 'side', label: 'Side' },
+              ] as const}
+              value={mobileView}
+            />
+            {/* The shared control, which has had a phone form since Slice 36. This was
+                three hand-built targets — right in 6c, when this was the only phone
+                canvas, and the `NodeShell` mistake the moment there were three. It
+                resets to 100 % and so names no reset target. */}
+            <ZoomControl
+              zoom={viewState.zoom}
+              onZoomIn={() => zoomBy(1.25)}
+              onZoomOut={() => zoomBy(1 / 1.25)}
+              onReset={() => zoomBy(1 / viewState.zoom)}
+            />
           </>
         }
         strip={

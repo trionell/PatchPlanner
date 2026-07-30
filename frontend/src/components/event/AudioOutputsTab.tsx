@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Boxes, Printer, Unplug } from 'lucide-react'
 import {
@@ -17,12 +17,16 @@ import { listEventInventoryItems } from '../../api/inventory'
 import { listOwnedItems } from '../../api/owned'
 import { useDraftState } from '../../hooks/useDraftState'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { usePinchZoom } from '../../hooks/usePinchZoom'
+import { fitScale } from '../../lib/canvasFit'
+import { firstMatch, focusOffset } from '../../lib/canvasFocus'
 import { usePatchView } from '../../hooks/usePatchView'
 import { buildMobileOutputList } from '../../lib/mobileOutputList'
 import { outputPatchStatus } from '../../lib/patchCapacity'
 import { matchesSearch } from '../../lib/patchSearch'
 import type { SegmentNode } from '../../lib/patchSheet'
 import { MobileEntityList } from '../mobile/MobileEntityList'
+import { MobileSegmented } from '../mobile/MobileSegmented'
 import { MobileOutputEditSheet } from '../mobile/MobileOutputEditSheet'
 import {
   cableAtPort,
@@ -54,6 +58,8 @@ import { OutputSheet } from './OutputSheet'
 import { PatchStatusRail } from './PatchStatusRail'
 import { ProcessingDeviceSection } from './ProcessingDeviceSection'
 import { RigDrawer } from './RigDrawer'
+import { useInfoNote } from '../../hooks/useInfoNote'
+import { InfoPanel, InfoToggle } from '../ui/InfoNote'
 import { TrueOutputDeviceSection } from './TrueOutputDeviceSection'
 import { OutputPatchSheet } from '../print/OutputPatchSheet'
 import { Button } from '../ui/Button'
@@ -89,7 +95,31 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
   const [view, setView] = usePatchView(eventId, 'outputs')
   const [search, setSearch] = useState('')
   const [rigOpen, setRigOpen] = useState(false)
-  const [zoom, setZoom] = useState(1)
+  /*
+    The canvas zoom (Slice 25 FR-020). `null` means *fit* — the scale at which the whole
+    graph fits its window, which only the canvas can measure (Slice 36 R3). A desk's
+    `fit` is 1, so `null` reads as 100 % there and nothing about the desktop changes.
+  */
+  const [zoom, setZoom] = useState<number | null>(null)
+  const [fit, setFit] = useState(1)
+  /*
+    A desk's fit is 1, and only a phone ever reports one — so this is **derived rather
+    than reset**. Widening a phone-width window past the breakpoint would otherwise leave
+    the bar reading *42 %* over a canvas drawn at 100 %, and step the desktop control
+    from 0.42 straight into its own floor.
+  */
+  const fitFloor = isMobile ? fit : 1
+  const zoomLevel = zoom ?? fitFloor
+  /* A re-measurement clamps a chosen zoom into the new range rather than resetting it —
+     turning the phone is what someone does to see more of the graph. */
+  const adoptFit = useCallback((next: number) => {
+    setFit(next)
+    setZoom((current) => (current == null ? null : Math.min(1, Math.max(next, current))))
+  }, [])
+
+  const stepZoom = (factor: number) => setZoom((current) => Math.min(1, Math.max(fitFloor, (current ?? fitFloor) * factor)))
+  // Open the first time, and then only for as long as it has not been read.
+  const patchingIsADeskJob = useInfoNote({ id: 'flow-desk-job', defaultOpen: true })
   // The phone's strip filter — the desktop's lives in `OutputSheet` (data-model.md §3).
   const [gapsOnly, setGapsOnly] = useState(false)
   // What the graph has selected, and so what its inspector is open on. Held here
@@ -193,23 +223,86 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
                 ]),
             { label: 'Print patch sheet', icon: <Printer className="h-4 w-4" />, onClick: () => window.print() },
           ]}
+          /* Two views, one frame — identical to Audio Inputs by decision, not by
+             coincidence: a phone branch built at one call site and copied to the second
+             is how the two canvases drifted the first time (Slice 36 R10). */
+          actions={
+            <>
+              <MobileSegmented
+                label="View"
+                onChange={setView}
+                options={[
+                  { value: 'sheet', label: 'Sheet' },
+                  { value: 'flow', label: 'Flow' },
+                ]}
+                value={view}
+              />
+              {view === 'flow' && (
+                <ZoomControl
+                  onReset={() => setZoom(null)}
+                  onZoomIn={() => stepZoom(1.4)}
+                  onZoomOut={() => stepZoom(1 / 1.4)}
+                  resetLabel="fit"
+                  zoom={zoomLevel}
+                />
+              )}
+            </>
+          }
           strip={
             <PatchStatusRail
               status={status}
               noun="output"
               gapsOnly={gapsOnly}
-              onShowGaps={status.gaps.length > 0 || gapsOnly ? () => setGapsOnly((only) => !only) : undefined}
+              /* Not a control in Flow: the canvas does not filter (patterns.md §7b). */
+              onShowGaps={
+                view === 'sheet' && (status.gaps.length > 0 || gapsOnly) ? () => setGapsOnly((only) => !only) : undefined
+              }
             />
           }
           items={items}
           filtered={gapsOnly}
           onSelect={setEditingOutputId}
-          onAdd={() => setEditingOutputId('new')}
+          /* No primary action in Flow (FR-022) — see Audio Inputs for the argument. */
+          onAdd={view === 'sheet' ? () => setEditingOutputId('new') : undefined}
           readOnly={readOnly}
-          searchPlaceholder="Find an output…"
+          search={search}
+          onSearch={setSearch}
+          searchPlaceholder={view === 'flow' ? 'Find a box or an output…' : 'Find an output…'}
           addLabel="Add output"
           emptyLabel="No output channels yet."
-        />
+          titleAdornment={view === 'flow' ? <InfoToggle note={patchingIsADeskJob} /> : undefined}
+        >
+          {view === 'flow' ? (
+            <div className="flex h-full min-h-0 flex-col">
+              {/* The one desk job, named where the editor would be (patterns.md §7g).
+                  The same sentence Audio Inputs shows, and the same note id: it is one
+                  fact about one canvas, so reading it on one tab reads it on both. */}
+              <InfoPanel className="flex-none border-b border-zinc-800/60 bg-zinc-950/35 px-3 py-2.5" note={patchingIsADeskJob}>
+                <span className="font-medium text-zinc-300">Patching is a desk job</span> — open this event on a
+                computer. Tap any box to read or edit what it is.
+              </InfoPanel>
+              <OutputGraphCanvas
+                cableItems={cableItems}
+                cables={outputCables}
+                consoles={consoles}
+                devices={outputDevices}
+                eventId={eventId}
+                itemLabelById={itemLabelById}
+                onChanged={invalidate}
+                onFitChange={adoptFit}
+                onSelectionChange={setSelection}
+                onZoomChange={setZoom}
+                outputs={outputs}
+                readOnly={readOnly}
+                search={search}
+                selection={selection}
+                stageMultis={stageMultis}
+                stageboxes={stageboxes}
+                zoom={zoom}
+              />
+            </div>
+          ) : undefined}
+        </MobileEntityList>
         {editingOutputId != null && (
           <MobileOutputEditSheet
             eventId={eventId}
@@ -279,7 +372,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
         onSearchChange={setSearch}
         onOpenRig={readOnly ? undefined : () => setRigOpen(true)}
         onAdd={readOnly ? undefined : addOutputRow}
-        toolbarExtras={view === 'flow' ? <ZoomControl zoom={zoom} onZoomChange={setZoom} /> : undefined}
+        toolbarExtras={view === 'flow' ? <ZoomControl zoom={zoomLevel} onZoomChange={setZoom} /> : undefined}
         drawers={
           <RigDrawer
             open={rigOpen}
@@ -343,6 +436,8 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
             selection={selection}
             onSelectionChange={setSelection}
             zoom={zoom}
+            onFitChange={adoptFit}
+            onZoomChange={setZoom}
             onChanged={invalidate}
             readOnly={readOnly}
           />
@@ -415,7 +510,9 @@ function OutputGraphCanvas({
   search = '',
   selection,
   onSelectionChange,
-  zoom,
+  zoom: zoomProp,
+  onFitChange,
+  onZoomChange,
   onChanged,
   readOnly = false,
 }: {
@@ -438,11 +535,27 @@ function OutputGraphCanvas({
   /** What the graph marks, and so what the rail shows. Owned by the tab (Slice 25 FR-002). */
   selection: OutputFlowSelection | null
   onSelectionChange: (selection: OutputFlowSelection | null) => void
-  /** Owned by the tab, because its control lives in the panel's toolbar (FR-020). */
-  zoom: number
+  /**
+   * Owned by the tab, because its control lives in the panel's toolbar (FR-020).
+   *
+   * `null` means *fit, not yet measured* — the phone opens at the scale where the whole
+   * graph fits its window, and only this component can know what that is (Slice 36 R3).
+   */
+  zoom: number | null
+  /** The fit scale, reported after each measurement so the bar's readout can name it. */
+  onFitChange?: (fit: number) => void
+  /** Set by the pinch gesture only; the bar's control is still the tab's. */
+  onZoomChange?: (zoom: number) => void
   onChanged: () => Promise<void>
   readOnly?: boolean
 }) {
+  const isMobile = useIsMobile()
+  /*
+    The one desk job, withheld by the gesture doing nothing (patterns.md §7g). Not a
+    permission and not role-dependent: `readOnly` is separate and still applies at both
+    widths. Withholding it is also what leaves the platform's own pan unobstructed.
+  */
+  const spatial = !isMobile
   const wrapperRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
   const portEls = useRef(new Map<string, HTMLElement>())
@@ -458,27 +571,53 @@ function OutputGraphCanvas({
   // panel's edges and follow the browser window when resized, instead of
   // a hardcoded canvas width drifting out of view on any screen narrower
   // than that constant.
-  const [wrapperWidth, setWrapperWidth] = useState(1180)
-  // The canvas's LOGICAL width/height (the coordinate space node
-  // positions and zone bounds live in) grow as you zoom out and shrink
-  // as you zoom in, while canvasRef's own rendered box is scaled by
-  // `zoom` so its on-screen footprint always exactly matches the panel
-  // in both dimensions — zooming out reveals more logical room for the
-  // processing zone within the same panel size, rather than just
-  // shrinking the drawing and leaving empty space around/below it.
-  const canvasWidth = wrapperWidth / zoom
-  const canvasHeight = CANVAS_HEIGHT / zoom
+  const [viewport, setViewport] = useState({ width: 1180, height: CANVAS_HEIGHT })
+
+  /* The scale at which the whole graph fits its window — the phone's opening state
+     (patterns.md §7f; Slice 36 R2). Measured, never assumed. */
+  const fit = useMemo(
+    () => (isMobile ? fitScale(viewport.width, viewport.height, CANVAS_MIN_WIDTH, CANVAS_HEIGHT) : 1),
+    [isMobile, viewport],
+  )
+  const zoom = zoomProp ?? fit
+
+  /*
+    The canvas's LOGICAL width/height — the coordinate space node positions and zone
+    bounds live in — and the one thing here that differs by reach.
+
+    On a desk it **grows as you zoom out**: the processing zone gets more logical room
+    inside the same panel, rather than the drawing shrinking and leaving empty space.
+
+    In a hand that is exactly wrong. The measured width is ~341, so at the fit scale the
+    space would become ~1950 and the destination lane would slide off to the right —
+    zooming out to see the whole graph would push the graph away as fast as you zoomed. A
+    phone's canvas is a **viewport**: the space is fixed and zoom moves the window onto
+    it (patterns.md §7f, Slice 36 R1).
+  */
+  const canvasWidth = isMobile ? CANVAS_MIN_WIDTH : Math.max(CANVAS_MIN_WIDTH, viewport.width) / zoom
+  const canvasHeight = isMobile ? CANVAS_HEIGHT : CANVAS_HEIGHT / zoom
 
   useLayoutEffect(() => {
     const el = wrapperRef.current
     if (!el) return
     const observer = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width
-      if (width) setWrapperWidth(Math.max(CANVAS_MIN_WIDTH, Math.floor(width)))
+      const box = entries[0]?.contentRect
+      // A zero measurement is the element being hidden, not a viewport of nothing —
+      // adopting it would drop the desktop's logical width to the 820 floor.
+      if (!box || !box.width || !box.height) return
+      setViewport((current) =>
+        Math.floor(box.width) === current.width && Math.floor(box.height) === current.height
+          ? current
+          : { width: Math.floor(box.width), height: Math.floor(box.height) },
+      )
     })
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
+
+  useEffect(() => {
+    if (isMobile) onFitChange?.(fit)
+  }, [fit, isMobile, onFitChange])
 
   function clampProcessingX(x: number): number {
     const { min, max } = zoneProcessingBounds(canvasWidth)
@@ -652,6 +791,181 @@ function OutputGraphCanvas({
     setPaths(next)
   }, [cables, layout, zoom, outputs, devices])
 
+  /*
+    Whether a node matches the search term — **one** predicate, used both to dim and to
+    aim the window (Slice 36 R6). A second predicate is how the dimmed set and the
+    window's target come to disagree.
+  */
+  const matchesNode = useCallback(
+    (node: NodeLayout): boolean => {
+      if (!search.trim()) return true
+      switch (node.kind) {
+        case 'stagebox': {
+          const sb = stageboxes.find((candidate) => candidate.id === node.id)
+          return !!sb && matchesSearch(search, sb.name, sb.model)
+        }
+        case 'stage_multi': {
+          const sm = stageMultis.find((candidate) => candidate.id === node.id)
+          return !!sm && matchesSearch(search, sm.name)
+        }
+        case 'device': {
+          const device = devices.find((candidate) => candidate.id === node.id)
+          return !!device && matchesSearch(search, device.name)
+        }
+        case 'console_local': {
+          const deskFor = consoles.find((candidate) => candidate.id === node.id)
+          return !!deskFor && matchesSearch(search, deskFor.name, 'local')
+        }
+        default: {
+          // A desk's bus list, or the box holding outputs with no desk. It matches when
+          // any output on it does — the rows are inside the node, so the node is what
+          // the window can be aimed at.
+          const owned = node.id === 0 ? outputs.filter((o) => o.console_id == null) : outputs.filter((o) => o.console_id === node.id)
+          return owned.some((output) => matchesSearch(search, output.output_number, output.output_name, output.notes))
+        }
+      }
+    },
+    [search, stageboxes, stageMultis, devices, consoles, outputs],
+  )
+
+  const lastFocused = useRef('')
+  /* The window follows the search, at every width (FR-030). See the inputs canvas. */
+  useEffect(() => {
+    const el = wrapperRef.current
+    if (!el || !search.trim()) {
+      lastFocused.current = ''
+      return
+    }
+    const target = firstMatch(layout, matchesNode)
+    if (!target) return
+    /*
+      Only when the *answer* changes. `layout` gets a new identity on every node
+      position update, so without this a term left in the search box would re-aim the
+      window on every frame of a desktop drag — the search would fight the hand.
+    */
+    const key = `${target.kind}:${target.id}`
+    if (key === lastFocused.current) return
+    lastFocused.current = key
+    const { left, top } = focusOffset(target, {
+      zoom,
+      viewportW: el.clientWidth,
+      viewportH: el.clientHeight,
+      scrollLeft: el.scrollLeft,
+      scrollTop: el.scrollTop,
+      nodeW: NODE_WIDTH,
+      contentW: canvasWidth * zoom,
+      contentH: canvasHeight * zoom,
+    })
+    el.scrollTo({ left, top, behavior: 'smooth' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, layout, zoom])
+
+  /* A phone selection is scrolled clear of the inspector sheet (FR-019). */
+  useEffect(() => {
+    const el = wrapperRef.current
+    if (!isMobile || !el || !selection) return
+    /*
+      An output lives *inside* a desk's bus list, so the node to aim at is the desk that
+      owns it — `mixer:0` being the box for outputs belonging to none. Matching the first
+      `mixer` node instead would scroll to the wrong desk on any event with two.
+    */
+    const owner =
+      selection.kind === 'output'
+        ? { kind: 'mixer', id: outputs.find((output) => output.id === selection.id)?.console_id ?? 0 }
+        : { kind: selection.kind, id: selection.id }
+    const target = layout.find((node) => node.kind === owner.kind && node.id === owner.id)
+    if (!target) return
+    const { left, top } = focusOffset(target, {
+      zoom,
+      viewportW: el.clientWidth,
+      viewportH: el.clientHeight,
+      scrollLeft: el.scrollLeft,
+      scrollTop: el.scrollTop,
+      nodeW: NODE_WIDTH,
+      clearBottom: el.clientHeight / 2,
+      contentW: canvasWidth * zoom,
+      contentH: canvasHeight * zoom,
+    })
+    el.scrollTo({ left, top, behavior: 'smooth' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selection, isMobile])
+
+  /*
+    Pinch, about the midpoint of the contacts (patterns.md §7f).
+
+    The correction is **stashed and applied after the new scale has been laid out**, not
+    written beside the state update. Setting `scrollLeft` while the content box is still
+    at the old scale hands the browser an offset it clamps to the old maximum — and
+    starting from *fit* the old maximum is ~0, so every frame of a pinch-in would be
+    clamped away and the graph would slide out from under the fingers. That is precisely
+    the failure `usePinchZoom` exists to prevent, one layer up from where it was fixed.
+  */
+  const pendingAnchor = useRef<{ target: number; logicalX: number; logicalY: number; pointX: number; pointY: number } | null>(null)
+  const onPinch = useCallback(
+    (next: number, anchor: { logicalX: number; logicalY: number; pointX: number; pointY: number }) => {
+      pendingAnchor.current = { ...anchor, target: next }
+      onZoomChange?.(next)
+    },
+    [onZoomChange],
+  )
+  useLayoutEffect(() => {
+    const el = wrapperRef.current
+    const pending = pendingAnchor.current
+    if (!el || !pending) return
+    /*
+      **The scale this anchor was computed for**, and it is checked rather than assumed.
+
+      A pinch emits on every pointer move with no equality test, so the moment it reaches
+      either end of `[fit, 1]` — which is the normal way a pinch finishes, over a range
+      this short — `setZoom` is a no-op, React bails, and this effect never runs. The
+      anchor would then sit in the ref until the *next* zoom change from any source, and
+      a tap on the bar's `+` would re-scroll the window to a midpoint from a gesture that
+      finished minutes ago.
+
+      Cleared either way: a stale anchor is dropped rather than applied late.
+    */
+    pendingAnchor.current = null
+    if (pending.target !== zoom) return
+    el.scrollLeft = pending.logicalX * zoom - pending.pointX
+    el.scrollTop = pending.logicalY * zoom - pending.pointY
+  }, [zoom])
+  usePinchZoom(wrapperRef, { enabled: isMobile, zoom, min: fit, max: 1, onZoom: onPinch })
+
+  /*
+    Tap versus pan (Slice 36 R5) — Slice 35's stage-plot finding, applied where the
+    handler already is. The browser cancels pointer events once it takes a scroll, so
+    the scroll offset is checked as well as the movement.
+  */
+  const press = useRef<{ x: number; y: number; left: number; top: number } | null>(null)
+  const moved = useRef(false)
+
+  function beginPress(event: ReactPointerEvent) {
+    const el = wrapperRef.current
+    press.current = { x: event.clientX, y: event.clientY, left: el?.scrollLeft ?? 0, top: el?.scrollTop ?? 0 }
+    moved.current = false
+  }
+  function trackPress(event: ReactPointerEvent) {
+    const start = press.current
+    if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 3) moved.current = true
+  }
+  /* `pointercancel` is the browser saying *I have taken this gesture as a scroll*, and it
+     is the only signal that is certain: once it fires, `pointermove` stops, so a flick
+     whose scroll has not yet started would otherwise read as a clean tap. */
+  function cancelPress() {
+    moved.current = true
+  }
+  function pressWasPan(): boolean {
+    if (moved.current) return true
+    const el = wrapperRef.current
+    const start = press.current
+    return !!el && !!start && (Math.abs(el.scrollLeft - start.left) > 3 || Math.abs(el.scrollTop - start.top) > 3)
+  }
+  /** A selection handler that yields to the pan. Every `onSelect` on this canvas uses it. */
+  const onTap = (select: () => void) => () => {
+    if (pressWasPan()) return
+    select()
+  }
+
   function persistPosition(kind: PortRef['kind'], id: number, x: number, y: number) {
     const onError = (e: unknown) => setError(e instanceof Error ? e.message : 'Failed to save position')
     if (kind === 'console_local') {
@@ -685,7 +999,25 @@ function OutputGraphCanvas({
     moveDeviceMutation.mutate({ id, device: { ...device, position_x: x, position_y: y } }, { onError })
   }
 
+  /*
+    Whether a node's header carries a drag handle at all.
+
+    It has to be the **prop** and not a guard inside the handler: `NodeShell` puts
+    `touch-none` on the header whenever `onDragStart` is defined, so a handler that
+    merely returns early leaves a dead zone the size of every node's title bar — the
+    browser will not scroll it and the pan guard then swallows the tap. That is Slice
+    35's stage-plot defect ("the plot could only be moved from empty floor") arriving
+    by a different route.
+
+    Two independent conditions, combined once here rather than at six call sites.
+    `spatial` is about the **surface** — a phone withholds the gesture (§7g) — and
+    `readOnly` is about the **role**. Neither stands in for the other, and the desktop's
+    expression is unchanged, because `spatial` is always true there.
+  */
+  const dragHandle = (handler: (event: ReactPointerEvent) => void) => (spatial && !readOnly ? handler : undefined)
+
   function startNodeDrag(kind: PortRef['kind'], id: number, mode: 'y-only' | 'free', event: ReactPointerEvent) {
+    if (!spatial) return
     const node = layout.find((n) => n.kind === kind && n.id === id)
     if (!node) return
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -740,6 +1072,9 @@ function OutputGraphCanvas({
   }
 
   function handlePortClick(port: PortRef) {
+    // A port is drawn, never a target (patterns.md §7f). The cable info dialog behind
+    // this is unreachable with it, which is why neither gains a phone form.
+    if (!spatial) return
     setError(null)
     // A mixer port is a logical channel, not a physical jack — clicking
     // it always starts (or completes) a connection, even if it already
@@ -771,6 +1106,8 @@ function OutputGraphCanvas({
   }
 
   function handlePortPointerDown(port: PortRef, event: ReactPointerEvent) {
+    // Not stopped, and not handled: the press belongs to the pan.
+    if (!spatial) return
     event.stopPropagation()
     // A non-mixer port already carrying a cable has nothing new to drag
     // — go straight to its info dialog, the same as a plain click,
@@ -839,15 +1176,28 @@ function OutputGraphCanvas({
   }, [dragGhost, zoom])
 
   return (
-    <div>
+    /* A column on a phone, so the viewport below can fill it. Without this the chain of
+       definite heights breaks here and the canvas is content-sized: the panel's rows
+       region takes the vertical pan and the withheld-gesture note scrolls away with it.
+       Both halves of the flex rule (patterns.md §7b) have to hold at every link. */
+    <div className={isMobile ? 'flex min-h-0 flex-1 flex-col' : undefined}>
       {error && <div className="border-b border-red-500/40 bg-red-500/10 px-3 py-1.5 text-[11px] text-red-300">{error}</div>}
       {pendingPort && !dragGhost && (
         <div className="border-b border-amber-500/30 bg-amber-500/[0.05] px-3 py-1.5 text-[11px] text-amber-300">
           Selected {pendingPort.label} — click a free {pendingPort.direction === 'out' ? 'input' : 'output'} port to connect, or click it again to cancel.
         </div>
       )}
-      <div className="flex items-start gap-3">
-      <div ref={wrapperRef} className="min-w-0 flex-1 overflow-auto" style={{ height: CANVAS_HEIGHT }}>
+      <div className={isMobile ? 'flex min-h-0 flex-1 flex-col' : 'flex items-start gap-3'}>
+      {/* The viewport. On a phone the pan is the platform's own scrolling — see the
+          inputs canvas and Slice 36 R4. */}
+      <div
+        ref={wrapperRef}
+        className={isMobile ? 'min-h-0 flex-1 overflow-auto' : 'min-w-0 flex-1 overflow-auto'}
+        onPointerDown={isMobile ? beginPress : undefined}
+        onPointerCancel={isMobile ? cancelPress : undefined}
+        onPointerMove={isMobile ? trackPress : undefined}
+        style={isMobile ? { touchAction: 'pan-x pan-y' } : { height: CANVAS_HEIGHT }}
+      >
         <div style={{ width: canvasWidth * zoom, height: canvasHeight * zoom }}>
           <div ref={canvasRef} className="relative" style={{ width: canvasWidth, height: canvasHeight, transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
             <LaneBands
@@ -891,10 +1241,10 @@ function OutputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
-                    onDragStart={readOnly ? undefined : (e) => startNodeDrag('console_local', desk.id, 'free', e)}
+                    onDragStart={dragHandle((e) => startNodeDrag('console_local', desk.id, 'free', e))}
                     selected={selection?.kind === 'console_local' && selection.id === desk.id}
-                    onSelect={() => onSelectionChange({ kind: 'console_local', id: desk.id })}
-                    dimmed={!matchesSearch(search, desk.name, 'local')}
+                    onSelect={onTap(() => onSelectionChange({ kind: 'console_local', id: desk.id }))}
+                    dimmed={!matchesNode(node)}
                   />
                 )
               }
@@ -916,9 +1266,9 @@ function OutputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
-                    onDragStart={readOnly ? undefined : (e) => startNodeDrag('mixer', desk.id, 'y-only', e)}
+                    onDragStart={dragHandle((e) => startNodeDrag('mixer', desk.id, 'y-only', e))}
                     selectedOutputId={selection?.kind === 'output' ? selection.id : undefined}
-                    onSelectOutput={(id) => onSelectionChange({ kind: 'output', id })}
+                    onSelectOutput={(id) => onTap(() => onSelectionChange({ kind: 'output', id }))()}
                     search={search}
                   />
                 ) : (
@@ -933,9 +1283,9 @@ function OutputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
-                    onDragStart={readOnly ? undefined : (e) => startNodeDrag('mixer', 0, 'y-only', e)}
+                    onDragStart={dragHandle((e) => startNodeDrag('mixer', 0, 'y-only', e))}
                     selectedOutputId={selection?.kind === 'output' ? selection.id : undefined}
-                    onSelectOutput={(id) => onSelectionChange({ kind: 'output', id })}
+                    onSelectOutput={(id) => onTap(() => onSelectionChange({ kind: 'output', id }))()}
                     search={search}
                   />
                 )
@@ -955,10 +1305,10 @@ function OutputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
-                    onDragStart={readOnly ? undefined : (e) => startNodeDrag('stagebox', sb.id, 'free', e)}
+                    onDragStart={dragHandle((e) => startNodeDrag('stagebox', sb.id, 'free', e))}
                     selected={selection?.kind === 'stagebox' && selection.id === sb.id}
-                    onSelect={() => onSelectionChange({ kind: 'stagebox', id: sb.id })}
-                    dimmed={!matchesSearch(search, sb.name, sb.model)}
+                    onSelect={onTap(() => onSelectionChange({ kind: 'stagebox', id: sb.id }))}
+                    dimmed={!matchesNode(node)}
                   />
                 )
               }
@@ -977,10 +1327,10 @@ function OutputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
-                    onDragStart={readOnly ? undefined : (e) => startNodeDrag('stage_multi', sm.id, 'free', e)}
+                    onDragStart={dragHandle((e) => startNodeDrag('stage_multi', sm.id, 'free', e))}
                     selected={selection?.kind === 'stage_multi' && selection.id === sm.id}
-                    onSelect={() => onSelectionChange({ kind: 'stage_multi', id: sm.id })}
-                    dimmed={!matchesSearch(search, sm.name)}
+                    onSelect={onTap(() => onSelectionChange({ kind: 'stage_multi', id: sm.id }))}
+                    dimmed={!matchesNode(node)}
                   />
                 )
               }
@@ -998,11 +1348,11 @@ function OutputGraphCanvas({
                   onPortPointerDown={handlePortPointerDown}
                   registerPort={registerPort}
                   colorContext={colorContext}
-                  onDragStart={readOnly ? undefined : (e) => startNodeDrag('device', device.id, node.zone === 'processing' ? 'free' : 'y-only', e)}
+                  onDragStart={dragHandle((e) => startNodeDrag('device', device.id, node.zone === 'processing' ? 'free' : 'y-only', e))}
                   selected={selection?.kind === 'device' && selection.id === device.id}
-                  onSelect={() => onSelectionChange({ kind: 'device', id: device.id })}
+                  onSelect={onTap(() => onSelectionChange({ kind: 'device', id: device.id }))}
                   onDelete={readOnly ? undefined : () => deleteDeviceMutation.mutate(device.id)}
-                  dimmed={!matchesSearch(search, device.name)}
+                  dimmed={!matchesNode(node)}
                 />
               )
             })}

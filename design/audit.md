@@ -13,14 +13,20 @@ findings still open will move as the waves land.
 
 ## Part 1 — Findings
 
-**Every finding the desktop opened is closed** — see Part 1b, and the wave that
-closed each. Part 2's five waves are done.
+**Every finding is closed** — the desktop's twelve and the phone's twelve, each in
+Part 1b with the wave that closed it. **Part 1 is empty**, and this is the first time
+that has been true since the document was written.
 
-**Seven of the phone's twelve are closed** — M7, M8, M10 and M12 by Wave 6a
-(Slice 33), and M1, M2 and M3 by Wave 6b (Slice 34); they are in Part 1b with the
-rest. **Five remain**, below, and they have a different character from the seven: the
-seven were the phone speaking a language of its own, and the five are surfaces that
-have not been built yet.
+The phone's twelve went in four phases: M7, M8, M10 and M12 by Wave 6a (Slice 33);
+M1, M2 and M3 by Wave 6b (Slice 34); M4, M5, M9 and M11 by Wave 6c (Slice 35); and
+**M6 by Wave 6d (Slice 36)**, which is the only phase that built a capability rather
+than converting one.
+
+A finding closing is not the same as a surface being finished, and the honest note is
+this: what these documents now describe is what the tree contains. What they cannot
+describe is what a hand finds. Every phase of Wave 6 has ended with a field test, and
+three of the four found something the document had asserted and nobody had checked —
+a sum that was never built, an inset that had always been zero, a rail nobody counted.
 
 The wave's shape was one finding wearing twelve names, and the name is a date:
 `components/mobile/` was built in **Slice 21**, two slices before the language
@@ -29,41 +35,102 @@ it — Wave 4 says so in writing (*"the phone branches, the print sheets and the
 backend are untouched"*), and that was the right call at the time, because a wave that
 mixes a refactor with a redesign makes a regression unattributable.
 
-M-counts are from `frontend/src` at `bfb62a2`, and reproduce the same way the
-A-counts do. There are 13 phone branches in the tree:
+M-counts were from `frontend/src` at `bfb62a2` and reproduce the same way the A-counts
+do. The branch count is the one number that **rose** across the wave, and that is the
+right direction: a phone branch is a composition the phone needed and did not have.
 
 ```
 grep -rn "if (isMobile)\|isMobile ?" --include='*.tsx' frontend/src | wc -l
-#  13
+#  41       (was 13 at bfb62a2, before 6b)
 ```
 
-### M6 · The Flow canvas never mounts on a phone · P9
+**And one of this document's own greps stopped working, which is worth recording rather
+than quietly replacing.** §7g's rule is *"`!isMobile` never appears in a permission
+expression"*, and the check for it was `grep -rn "!isMobile"` returning nothing. Wave 6d
+made that grep return four hits, none of them a permission: two name the withheld
+gesture (`const spatial = !isMobile`) and two say *only on a phone, scroll the selection
+clear of the sheet*. The rule is intact; the proxy for it is not.
 
-The rule this document and [patterns.md](patterns.md) §7 both carried — *"a patch
-graph on a phone is unreadable at any density"* — is **reversed**, on the report
-that the picture of where the signal goes is exactly what is wanted on site. The
-canvas is drawn as it is drawn and only the editing gesture is withheld
-([patterns.md](patterns.md) §7f). Stage Plots already does the viewable half and
-is the working precedent.
+That is A12's lesson from a third direction — a grep that matches a **token** finds
+instances, not the reason there are instances. The check that means what the rule means
+is whether a reach term ever shares an expression with a role term:
 
-Two requirements come with it, and neither is satisfied by mounting the desktop
-canvas at 375 px:
+```
+grep -rnE "isMobile|\bspatial\b" --include='*.tsx' --include='*.ts' frontend/src \
+  | grep -v "const spatial = " | grep -c "readOnly"
+#  0        a reach check is never a permission (P9, §7g)
+```
 
-- **The canvas is a viewport with nothing pinned to its edges.** One local
-  coordinate system, pan and zoom moving the window rather than the contents, and
-  no rails: panning to the sources takes the desk off-screen, which is what makes
-  a 375 px window over a 20-node graph worth having. The sources rail is already
-  drawn in canvas space and needs no decision; `InspectorRail` is a real column
-  and becomes the sheet — `ui/Sheet` with `scrim={false}`, which Wave 6a built
-  and left unwired for exactly this (M8, Part 1b).
-- **The inspector sheet edits.** `InputFlowInspector` already holds kind, mic,
-  stand, 48 V, connector and width, and already commits per field. Changing which
-  stand a source is on, while standing next to the source, is the phone's best
-  case — and it is not direct manipulation, so nothing in 7g withholds it.
+**And the replacement needed correcting once before it worked**, which is the same
+lesson a third time in one paragraph. The first version looked only for `isMobile` — but
+at the point of use the reach term is spelled **`spatial`**, so the new check missed
+exactly the lines it was written to catch. A proxy has to match the *vocabulary the code
+actually uses*, not the vocabulary the rule was written in.
 
----
+**It prints two, and that is the honest answer rather than a failure.** Both are read
+rather than counted, which is what makes this a check and not theatre:
+
+| Line | Why it is not a permission |
+|---|---|
+| `AudioOutputsTab`'s `dragHandle` | *Whether a node's header carries a drag handle.* A phone withholds the **gesture** and a viewer lacks the **role**; both legitimately gate the same handle, and neither stands in for the other. Combined in one named, commented place rather than at six call sites |
+| `StagePlotInspector`'s signature | Two **props** in a parameter list, not an expression at all |
+
+A grep that has been tuned until it prints `0` has stopped testing anything. This one
+prints the lines, and the rule is that every line it prints has an answer.
 
 ## Part 1b — Closed
+
+### M6 · The Flow canvas is in the hand · Wave 6d
+
+The rule this document and [patterns.md](patterns.md) §7 both carried — *"a patch graph
+on a phone is unreadable at any density"* — is **reversed**, on the report that the
+picture of where the signal goes is exactly what is wanted on site. Both canvases mount;
+only the editing gesture is withheld.
+
+**The finding underneath it was a line neither document had looked at.** Both canvases
+compute their logical space as `panelWidth / zoom`, so zooming *out* on a desk **grows
+the coordinate space** — the processing lane gets more logical room inside the same
+panel, which its own comment says is the point. In a hand that is not merely unhelpful,
+it is backwards: the panel is 341 px, so at the scale where the whole graph fits, the
+space would become ~1950 and the desk lane would slide out past `x = 1730`. **Zooming
+out to see the whole graph would push the graph away as fast as you zoomed.** §7f had
+described the phone's behaviour correctly for four waves — *"pan and zoom move the
+window onto it and move nothing within it"* — without anyone noticing the code said the
+opposite. It says both now, one per surface, in a table.
+
+**And the open question this document deferred to this phase is answered.** It was filed
+as a preference — *pan-and-zoom, or fit-to-width?* — and it is arithmetic. 100 % opens
+onto the Stage lane with nothing on screen saying a desk exists; fitting the *width*
+alone needs a scale below the shared control's floor. The second dimension settles it:
+the graph is 640 tall and the canvas region about 300, so at ~42 % it fits **both axes,
+whole, once**. Fit is the opening state, pan-and-zoom is the working state, and the one
+control whose meaning changes is the readout — 100 % on a desk is where you can read, and
+in a hand it is where you are lost.
+
+**Out of that came the design work of the slice, which no finding had named.** On a
+341 px window over an 820 px graph the hard thing is not reading a box, it is finding
+one. Both canvases already dimmed non-matching nodes rather than hiding them; one call
+turns a highlight into a direction, and it is **not guarded on reach**, because a
+60-channel graph scrolls on a desk too. One predicate both dims and aims — a second is
+how the dimmed set and the window's target come to disagree.
+
+**The withholding is what makes the pan good**, which is the reverse of how §7g reads.
+The canvas is handed no gesture handler at all, so one finger is left to the platform's
+own scrolling — momentum, both axes, rubber-banding — and pinch is the only thing
+written by hand. A phone canvas that implemented its own pan would be worse in a way no
+document would have caught.
+
+**Two duplications went with it, and both were the same shape.** `ZoomControl`'s targets
+are 28 px, which `tokens.md` §7 amendment 1 forbids in the hand, so 6c hand-built a
+second cluster inside `StagePlotTab`; and 6c hand-built a segmented view control there
+too. Both are shared components now and both copies are deleted. That is the **fifth**
+and **sixth** time in this wave that a branch inside a shared component gave several
+surfaces a phone form at once — after `ui/Drawer` (6a), `StatusStrip` (6b),
+`VocabularyPanel` and the drawers (6c) — and the lesson has stopped being a surprise:
+**the phase that needs a thing twice is the phase that should own it.**
+
+`ui/Sheet`'s `scrim={false}` finally has a caller. It was built in 6a for exactly this
+and went four phases unexercised, which is a long time for a branch to go untested.
 
 ### M4 · A viewport was used as a permission · Wave 6c
 
@@ -735,7 +802,7 @@ disagree — asserted directly by a Go test over every seeded value.
 (import is the bulk path, which is how 308 items arrive), no rail on the phone,
 and the start page is exempt (below).
 
-### Wave 6 · The phone — **6a, 6b and 6c done; 6d not started**
+### Wave 6 · The phone — **done**
 
 M1–M12, and the one surface Waves 0–5 deliberately did not touch. It is ordered
 last for the reason it was skipped: every wave before it was changing the thing
@@ -750,7 +817,7 @@ is worth doing twice:
 | 6a | `ui/Sheet`, and `Drawer`'s phone anchoring — **done**, Slice 33 | M8, and **M12, M7 and M10 with it**. Five call sites were waiting on it, and the correct implementation already existed inline in `MobileNav`. |
 | 6b | `ui/MobilePanel` — bar, rows, strip — **done**, Slice 34 | M1, M2, M3. The frame had to exist before a surface could be put in it, and the strips it ends with already existed. Nine lists in six files, because the row is shared. |
 | 6c | The nine surfaces — **done**, Slice 35 | M4, M5, M9, M11, **and three the document did not have**: a fifth status rail (F1), the bar's overflow specified in 6b and never built (F2), and a constant named after something 6a deleted (F3). It also collects the fixed-height shell 6b built and reverted. |
-| 6d | The canvases | M6, and the only finding left in the wave. Ordered last because it is the only phase that is a new capability rather than a conversion, and because 6c settles what a phone bar and a phone sheet are before a canvas has to use both. |
+| 6d | The canvases — **done**, Slice 36 | M6, the last finding in the wave. Ordered last because it is the only phase that is a **new capability** rather than a conversion, and because 6c had to settle what a phone bar and a phone sheet are before a canvas could use both. It also deleted **two** controls 6c had hand-built, for want of a phone form the shared component now has. |
 
 **The wave table above under-assigned the wave**, and it has now done so twice.
 
@@ -798,10 +865,26 @@ exceptions that are shared code and have to be handled as additions, the way Wav
   frame (`components.md` §5). Wave 2 already split this component along exactly
   this seam once, for the stage plot.
 
-**The open question this wave will answer**, and the reason 6d is last: whether a
-phone canvas wants the desktop's pan-and-zoom or a fit-to-width default with zoom
-as the exception. Nobody has held a 60-channel patch graph on a phone yet. That is
-a field-test question, not a document one.
+**The open question this wave was to answer, and the answer.** It was filed as a
+preference — whether a phone canvas wants the desktop's pan-and-zoom or a fit-to-width
+default with zoom as the exception — and deferred to 6d on the grounds that nobody had
+held a 60-channel patch graph on a phone.
+
+It turned out to be **arithmetic**, and both options were wrong. The graph's logical
+space is 820 × 640 and the phone's panel is 341 wide: 100 % opens onto the Stage lane
+with nothing on screen saying a desk exists, and fitting the *width* needs a scale
+below the shared control's floor. What settles it is the axis the question never
+mentioned — the canvas region is about 300 px tall, so at ~42 % the graph fits **both
+axes, whole, once**. Fit is the opening state, pan-and-zoom is the working state, and
+the reset target is fit rather than 100 %.
+
+**The lesson is about the deferral, not the answer.** A question filed as *needs a
+field test* went four phases without anyone multiplying out the two numbers that
+decided it — and this is the second time in this wave that has happened
+([tokens.md](tokens.md) §7's 56 px row was the first, and Slice 34 found it the same
+way). *Some* of it did need a hand: whether the whole graph at 42 % is worth having, or
+merely small, is not a number. But that is a much smaller question than the one that was
+deferred, and it could have been asked four phases earlier.
 
 ---
 

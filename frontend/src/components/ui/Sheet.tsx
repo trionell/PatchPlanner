@@ -117,10 +117,19 @@ export function Sheet({
           </button>
         </div>
 
+        {/*
+          The safe-area inset belongs to **whatever the last row is**, which is the body
+          when there is no footer. Until Slice 36 it was added only in the footer branch,
+          so a sheet without one — the canvas inspector, whose delete sits at the foot of
+          the scrolling body (§7d), and the overflow's own list — put its last control
+          under the home indicator. A control the home indicator sits on is a control
+          that misses, which is the sentence the footer branch was already written to.
+        */}
         <div
           className={cn(
             'flex flex-1 flex-col overflow-y-auto overscroll-contain',
             flush ? '' : 'gap-3.5 px-4 py-4',
+            !footer && (flush ? 'pb-[env(safe-area-inset-bottom)]' : 'pb-[calc(env(safe-area-inset-bottom)+1rem)]'),
           )}
         >
           {children}

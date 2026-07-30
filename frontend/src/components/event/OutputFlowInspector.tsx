@@ -14,7 +14,9 @@ import { Input } from '../ui/Input'
 import { Pill } from '../ui/SheetTable'
 import { Select } from '../ui/Select'
 import { ColorSelect } from './ColorSelect'
-import { Field, InspectorHeader, InspectorRail, Legend, Note, type LegendRow } from './graph/InspectorRail'
+import { Field, Legend, Note, type LegendRow } from './graph/InspectorRail'
+import { useInspectorControlSize } from './graph/inspectorTier'
+import { InspectorFrame } from './graph/InspectorFrame'
 
 /**
  * What the outputs canvas has selected (Slice 26, data-model.md §2).
@@ -80,6 +82,11 @@ export function OutputFlowInspector({
 }: OutputFlowInspectorProps) {
   const queryClient = useQueryClient()
   const { options } = useReferenceData(eventId)
+  // The rail's controls are `sm` on a desk and `md` in a hand — the one surface in the
+  // application where a phone's geometry is not already the default, because a 240 px
+  // column cannot afford 40 px rows (tokens.md §7 amendment 2; research R9).
+  const ctl = useInspectorControlSize()
+  const dense = ctl === 'sm'
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['rental-summary', eventId] })
     await onChanged()
@@ -118,8 +125,7 @@ export function OutputFlowInspector({
 
   if (!output) {
     return (
-      <InspectorRail>
-        <InspectorHeader label={box!.heading} onClose={close} />
+      <InspectorFrame heading={box!.heading} onClose={close}>
         <p className="text-sm font-semibold text-zinc-100">{box!.title}</p>
         <Note label="Edited in the Rig drawer">
           <span className="text-[11px] leading-snug text-zinc-400">
@@ -127,7 +133,7 @@ export function OutputFlowInspector({
           </span>
         </Note>
         <Legend rows={OUTPUT_LEGEND} />
-      </InspectorRail>
+      </InspectorFrame>
     )
   }
 
@@ -139,16 +145,14 @@ export function OutputFlowInspector({
   const portCount = output.width === 'stereo' ? 2 : 1
 
   return (
-    <InspectorRail>
-      <InspectorHeader
-        label="Output"
-        onClose={close}
-        pill={<Pill className={vocabularyTint(output.output_type)}>{output.output_type}</Pill>}
-      />
-
+    <InspectorFrame
+      heading="Output"
+      onClose={close}
+      pill={<Pill className={vocabularyTint(output.output_type)}>{output.output_type}</Pill>}
+    >
       <Input
-        size="sm"
-        className="h-7 font-semibold"
+        size={ctl}
+        className={dense ? 'h-7 font-semibold' : 'font-semibold'}
         defaultValue={output.output_name ?? ''}
         disabled={readOnly}
         key={`${output.id}-name`}
@@ -161,7 +165,7 @@ export function OutputFlowInspector({
 
       <Field label="Out">
         <Input
-          size="sm"
+          size={ctl}
           type="number"
           defaultValue={output.output_number}
           disabled={readOnly}
@@ -175,7 +179,7 @@ export function OutputFlowInspector({
         />
       </Field>
       <Field label="Type">
-        <Select size="sm" value={output.output_type} disabled={readOnly} onChange={(event) => saveOutput({ output_type: event.target.value })}>
+        <Select size={ctl} value={output.output_type} disabled={readOnly} onChange={(event) => saveOutput({ output_type: event.target.value })}>
           {options('output_types', output.output_type).map((value) => (
             <option key={value.value} value={value.value}>
               {value.label}
@@ -184,7 +188,7 @@ export function OutputFlowInspector({
         </Select>
       </Field>
       <Field label="Width">
-        <Select size="sm" value={output.width} disabled={readOnly} onChange={(event) => saveOutput({ width: event.target.value as AudioPatchOutput['width'] })}>
+        <Select size={ctl} value={output.width} disabled={readOnly} onChange={(event) => saveOutput({ width: event.target.value as AudioPatchOutput['width'] })}>
           <option value="mono">Mono</option>
           <option value="stereo">Stereo</option>
         </Select>
@@ -197,7 +201,7 @@ export function OutputFlowInspector({
       {consoles.length > 1 && (
         <Field label="Desk">
           <Select
-            size="sm"
+            size={ctl}
             value={output.console_id ?? ''}
             disabled={readOnly}
             onChange={(event) => saveOutput({ console_id: event.target.value ? Number(event.target.value) : undefined })}
@@ -213,7 +217,7 @@ export function OutputFlowInspector({
       )}
       <Field label="Notes">
         <Input
-          size="sm"
+          size={ctl}
           defaultValue={output.notes ?? ''}
           disabled={readOnly}
           key={`${output.id}-notes`}
@@ -244,9 +248,9 @@ export function OutputFlowInspector({
       {!readOnly && (
         <div className="mt-auto flex gap-2">
           <Button
-            size="sm"
+            size={dense ? 'sm' : 'md'}
             variant="outline"
-            className="h-7 px-2.5 text-xs"
+            className={dense ? 'h-7 px-2.5 text-xs' : undefined}
             onClick={() =>
               create.mutate(duplicateOf(output, outputs), {
                 // Follow the copy. The route returns the created row, so the rail does
@@ -258,9 +262,9 @@ export function OutputFlowInspector({
             <Copy className="mr-1.5 h-3.5 w-3.5" />Duplicate
           </Button>
           <Button
-            size="sm"
+            size={dense ? 'sm' : 'md'}
             variant="ghost"
-            className="h-7 px-2.5 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-300"
+            className={dense ? 'h-7 px-2.5 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-300' : 'text-red-400 hover:bg-red-500/10 hover:text-red-300'}
             onClick={() => {
               const label = `${output.output_number}${output.output_name ? ` ${output.output_name}` : ''}`
               if (window.confirm(`Delete output ${label}? Any cable leaving it is removed with it.`)) {
@@ -277,7 +281,7 @@ export function OutputFlowInspector({
       {(update.error ?? create.error ?? remove.error) && (
         <p className="text-[11px] text-red-400">{(update.error ?? create.error ?? remove.error)?.message}</p>
       )}
-    </InspectorRail>
+    </InspectorFrame>
   )
 }
 

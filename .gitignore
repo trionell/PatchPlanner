@@ -1,1 +1,4 @@
 node_modules/
+
+# Slice 36 phase 1: before/after markup captures. Scratch, never committed.
+frontend/.baseline/

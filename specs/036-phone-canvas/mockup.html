@@ -1,0 +1,1711 @@
+<!--
+  PatchPlanner — Wave 6d: the canvases.
+  Redesign mockup, revision 1. For approval before the spec is written.
+
+  6d is the last of Wave 6's four phases and the only one that is a NEW
+  CAPABILITY rather than a conversion. 6a built the overlay, 6b built the
+  frame, 6c put the nine event sections in it. 6d closes the last finding in
+  the audit: M6, "the Flow canvas never mounts on a phone".
+
+  Almost all of the language is already written down. patterns.md §7f draws
+  the canvas in the hand — pan, pinch, tap a node, edit in an un-scrimmed
+  sheet, no rails pinned to the edges. §7g says what stays a desk job and how
+  a surface says so. components.md §5 says the inspector sheet is
+  InspectorRail's contents in ui/Sheet, which 6a built and left unwired for
+  exactly this. tokens.md §7 states every value.
+
+  So this document is NOT a restyle proposal. It exists for the three things
+  no document settles, and the first of them is the one audit.md Part 2 named
+  in advance as the reason 6d was ordered last:
+
+    Q1 · DOES A PHONE CANVAS WANT PAN-AND-ZOOM, OR FIT-TO-WIDTH?
+         "Nobody has held a 60-channel patch graph on a phone yet. That is a
+         field-test question, not a document one." §01 answers it with
+         arithmetic, and the answer is neither of the two on offer.
+
+    Q2 · WHAT IS IN THE BAR, AND WHAT LEAVES IT. Flow adds a view toggle and
+         a zoom control to a bar that already has 317 px and five things
+         wanting it. §02 does the arithmetic and drops one control, with the
+         reason.
+
+    Q3 · WHAT SEARCH MEANS ON A CANVAS YOU CANNOT SEE ALL OF. §03. This is
+         the design work of the slice, and it came out of Q1 rather than into
+         it.
+
+  The specimens in §01, §03 and §04 are LIVE. Drag them, pinch them, tap the
+  boxes. That is deliberate: Q1 is a field-test question, so open this page on
+  the phone you would actually carry to a load-in and answer it with a thumb.
+
+  The file is an HTML *fragment*: the Artifact publisher wraps it in
+  doctype/head/body, so there are deliberately no <html>, <head> or <body>
+  tags.
+
+  Specimen CSS is shared with specs/035-phone-surfaces/mockup.html, which
+  shares it with 034/033/032/030/029/028, which lifted it from
+  design/design-language.html. Everything below the ADDITIONS FOR WAVE 6d
+  block is new here.
+-->
+
+<title>Wave 6d · the canvases</title>
+<style>
+  /* ==================================================================
+     DOCUMENT CHROME — theme-aware, tokens only.
+     ================================================================== */
+  :root {
+    --ground: #f2f2f4;
+    --raised: #ffffff;
+    --sunken: #e8e8ec;
+    --rule: #d7d7de;
+    --rule-soft: #e4e4ea;
+    --ink: #16171b;
+    --ink-2: #43444d;
+    --muted: #6c6d78;
+    --faint: #90919c;
+    --amber: #b45309;
+    --keep: #0e7490;
+    --drop: #9f1239;
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --measure: 68ch;
+    --wrap: 1180px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0a0b0d; --raised: #14151a; --sunken: #101014;
+      --rule: #26272e; --rule-soft: #1d1e24;
+      --ink: #f2f2f4; --ink-2: #b6b7c0; --muted: #8b8c96; --faint: #62636d;
+      --amber: #f59e0b; --keep: #22d3ee; --drop: #fb7185;
+    }
+  }
+
+  :root[data-theme="light"] {
+    --ground: #f2f2f4; --raised: #ffffff; --sunken: #e8e8ec;
+    --rule: #d7d7de; --rule-soft: #e4e4ea;
+    --ink: #16171b; --ink-2: #43444d; --muted: #6c6d78; --faint: #90919c;
+    --amber: #b45309; --keep: #0e7490; --drop: #9f1239;
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0a0b0d; --raised: #14151a; --sunken: #101014;
+    --rule: #26272e; --rule-soft: #1d1e24;
+    --ink: #f2f2f4; --ink-2: #b6b7c0; --muted: #8b8c96; --faint: #62636d;
+    --amber: #f59e0b; --keep: #22d3ee; --drop: #fb7185;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px 110px; }
+
+  h1, h2, h3 { margin: 0; font-family: var(--mono); font-weight: 500; }
+  h1 {
+    font-size: clamp(28px, 4.4vw, 46px);
+    line-height: 1.04; letter-spacing: -0.035em; text-wrap: balance;
+  }
+  h2 { font-size: clamp(19px, 2.3vw, 25px); letter-spacing: -0.02em; text-wrap: balance; }
+  h3 { font-size: 14px; letter-spacing: 0.02em; color: var(--ink-2); }
+
+  p { margin: 0; max-width: var(--measure); }
+  a { color: inherit; }
+
+  .head {
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 68px 0 30px; border-bottom: 1px solid var(--rule);
+  }
+  .head__eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--amber);
+  }
+  .head__lede { font-size: 18px; color: var(--ink-2); line-height: 1.5; }
+
+  section { display: flex; flex-direction: column; gap: 22px; padding: 56px 0 0; }
+  .sec__no {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  .sec__hd { display: flex; flex-direction: column; gap: 8px; }
+  .prose { display: flex; flex-direction: column; gap: 13px; color: var(--ink-2); font-size: 15.5px; }
+  .prose strong { color: var(--ink); font-weight: 600; }
+  .prose code, .k {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  .spec { display: flex; flex-direction: column; gap: 9px; }
+  .spec__frame {
+    overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px;
+    background: #09090b; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  }
+  .spec__cap {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-left: 2px;
+  }
+  .spec__cap b { color: var(--ink-2); font-weight: 500; }
+
+  .led { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .led__row {
+    display: grid; grid-template-columns: 148px minmax(0, 1fr);
+    gap: 18px; padding: 15px 2px; border-bottom: 1px solid var(--rule-soft);
+    align-items: start;
+  }
+  .led__k {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-top: 3px;
+  }
+  .led__v { font-size: 15px; color: var(--ink-2); line-height: 1.5; }
+  .led__v b { color: var(--ink); font-weight: 600; }
+  .led__v em { font-style: normal; color: var(--faint); }
+  .led__v code, .led__v .k {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  .tag {
+    display: inline-block; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase; padding: 1px 6px;
+    border-radius: 4px; vertical-align: 2px; margin-left: 7px;
+  }
+  .tag--keep { color: var(--keep); border: 1px solid currentColor; }
+  .tag--drop { color: var(--drop); border: 1px solid currentColor; }
+  .tag--new { color: var(--amber); border: 1px solid currentColor; }
+
+  .ask {
+    border: 1px solid var(--rule); border-left: 3px solid var(--amber);
+    border-radius: 0 8px 8px 0; padding: 16px 18px; background: var(--raised);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .ask h3 { color: var(--ink); }
+  .ask p { font-size: 15px; color: var(--ink-2); max-width: none; }
+
+  .tbl { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  .tbl th {
+    text-align: left; font-family: var(--mono); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint);
+    padding: 8px 12px 8px 2px; border-bottom: 1px solid var(--rule);
+  }
+  .tbl td {
+    padding: 11px 12px 11px 2px; border-bottom: 1px solid var(--rule-soft);
+    color: var(--ink-2); vertical-align: top;
+  }
+  .tbl td b { color: var(--ink); font-weight: 600; }
+  .tbl td .k { white-space: nowrap; }
+  .tbl td em { font-style: normal; color: var(--faint); }
+
+  @media (max-width: 720px) {
+    .led__row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  }
+
+  /* ==================================================================
+     SPECIMENS — the app's own faces and values.
+     ================================================================== */
+  .app {
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px; line-height: 1.45;
+    color: #f4f4f5; background: #09090b;
+    padding: 16px; min-width: 1040px;
+  }
+  .app--tight { padding: 16px; min-width: 0; }
+  .app *, .app *::before, .app *::after { box-sizing: border-box; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 28px; padding: 0 10px; border: 1px solid transparent; border-radius: 6px;
+    font-size: 12px; font-weight: 500; white-space: nowrap; font-family: inherit;
+  }
+  .btn--primary { background: #f59e0b; border-color: #f59e0b; color: #09090b; }
+  .btn--outline { background: #18181b; border-color: #3f3f46; color: #f4f4f5; }
+  .btn--ghost { background: transparent; color: #f4f4f5; }
+  .btn--sm { height: 24px; padding: 0 8px; font-size: 11px; }
+  .btn--md { height: 40px; padding: 0 16px; font-size: 14px; }
+  .btn--danger-ghost { background: transparent; color: #f87171; }
+  .seg { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; }
+
+  .fld {
+    height: 32px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b;
+    display: inline-flex; align-items: center; padding: 0 8px;
+    font-size: 12px; color: #e4e4e7; min-width: 0;
+  }
+  .fld--md { height: 40px; font-size: 14px; padding: 0 12px; }
+  .fld--ph { color: #71717a; }
+  .fld--sel::after { content: "▾"; margin-left: auto; padding-left: 8px; color: #71717a; font-size: 10px; }
+  .fld--foc { border-color: #f59e0b; }
+
+  .lbl {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #71717a; font-weight: 500;
+  }
+  .lbl--nav { font-family: inherit; font-size: 14px; letter-spacing: 0; text-transform: none; color: #d4d4d8; font-weight: 400; }
+
+  .pill {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 1px 6px; font-size: 10px; font-weight: 500; white-space: nowrap;
+  }
+  .t-drum { background: rgba(56, 189, 248, 0.15); color: #7dd3fc; }
+  .t-ok   { background: rgba(52, 211, 153, 0.15); color: #6ee7b7; }
+  .t-warn { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
+  .t-err  { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+  .t-def  { background: #3f3f46; color: #f4f4f5; }
+  .t-sky  { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .p48 { display: inline-block; width: 8px; height: 3px; border-radius: 2px; background: #ef4444; box-shadow: 0 0 5px rgba(239, 68, 68, 0.65); vertical-align: 2px; }
+  .tape { display: inline-block; width: 3px; height: 14px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+
+  .badge {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 2px 10px; font-size: 12px; font-weight: 500; white-space: nowrap;
+  }
+
+  /* the desktop drawer, for the side-by-side in §06 */
+  .dstack { position: relative; min-height: 400px; overflow: hidden; }
+  .scrim { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.7); }
+  .sd {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 420px;
+    background: #18181b; border-left: 1px solid #3f3f46;
+    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.5);
+    display: flex; flex-direction: column;
+  }
+  .sd__hd { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 14px 20px; border-bottom: 1px solid #27272a; }
+  .sd__ti { font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .sd__sub { font-size: 12px; color: #71717a; margin-top: 2px; }
+  .sd__x { color: #a1a1aa; font-size: 15px; line-height: 1.2; }
+  .sd__body { padding: 16px 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+  .sd__ft { margin-top: auto; padding: 12px 20px; border-top: 1px solid #27272a; font-size: 12px; color: #71717a; }
+  .sd__ft b { color: #a1a1aa; font-weight: 500; }
+  .dsec { display: flex; flex-direction: column; gap: 6px; }
+  .dsec__hd { display: flex; align-items: center; gap: 8px; }
+  .dsec__ct { font-family: var(--mono); font-size: 10px; color: #52525b; }
+  .gear {
+    border: 1px solid #27272a; border-radius: 6px; background: #18181b;
+    padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .gear__top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+  .gear__nm { font-size: 14px; font-weight: 500; color: #f4f4f5; }
+  .gear__ac { margin-left: auto; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; color: #a1a1aa; }
+  .gear__sp { display: flex; flex-wrap: wrap; gap: 2px 12px; font-family: var(--mono); font-size: 10px; color: #71717a; }
+  .gear__sp b { color: #d4d4d8; font-weight: 400; }
+  .insp__box { border: 1px solid #27272a; border-radius: 5px; background: rgba(9, 9, 11, 0.6); padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+  .insp__lg { display: flex; align-items: center; gap: 8px; font-size: 10px; color: #a1a1aa; }
+
+  /* ==================================================================
+     THE PHONE — lifted verbatim from design/design-language.html §8.
+     True 375 px width, 14 px base, 44 px targets.
+     ================================================================== */
+  .phones { display: flex; flex-wrap: wrap; gap: 22px; }
+  .phone { display: flex; flex-direction: column; gap: 9px; width: 375px; }
+  .phone__frame {
+    width: 375px; height: 690px; flex: none;
+    border: 1px solid #3f3f46; border-radius: 22px; background: #09090b;
+    overflow: hidden; position: relative;
+    display: flex; flex-direction: column;
+    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    font-size: 14px; line-height: 1.45; color: #f4f4f5;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  }
+  .phone__frame * { box-sizing: border-box; }
+  .phone__cap { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .phone__cap b { color: var(--ink-2); font-weight: 500; }
+  .phone__cap--bad b { color: var(--drop); }
+
+  .m-hd { display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 56px; padding: 0 16px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-hd__ti { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; min-width: 0; }
+  .m-hd__ic { width: 26px; height: 26px; border-radius: 6px; background: rgba(245, 158, 11, 0.15); color: #fbbf24; display: grid; place-items: center; flex: none; font-size: 13px; }
+  .m-hd__av { width: 28px; height: 28px; border-radius: 999px; background: #27272a; flex: none; }
+  .m-bd { flex: 1; overflow: hidden; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .m-nav { display: flex; height: 56px; border-top: 1px solid #27272a; background: #09090b; flex: none; }
+  .m-nav__i { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; color: #a1a1aa; }
+  .m-nav__i.on { color: #fbbf24; }
+  .m-nav__g { font-size: 18px; line-height: 1; }
+
+  .m-pan { border: 1px solid #3f3f46; border-radius: 12px; background: rgba(9, 9, 11, 0.4); overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+  .m-pan--fill { flex: 1; }
+  .m-pan__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-pan__ti { font-size: 14px; font-weight: 600; color: #f4f4f5; margin-right: auto; }
+  .m-pan__ic { width: 36px; height: 36px; border-radius: 6px; border: 1px solid #3f3f46; background: #18181b; display: grid; place-items: center; color: #a1a1aa; font-size: 14px; flex: none; }
+  .m-pan__ic--pri { background: #f59e0b; border-color: #f59e0b; color: #09090b; font-size: 17px; }
+  .m-pan__rows { flex: 1; min-height: 0; overflow: hidden; }
+
+  .m-row { display: flex; align-items: stretch; min-height: 44px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-row__e { width: 3px; flex: none; }
+  .m-row__c { flex: 1; min-width: 0; padding: 5px 12px; display: flex; flex-direction: column; justify-content: center; }
+  .m-row__t { font-size: 14px; font-weight: 500; line-height: 1.3; color: #f4f4f5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-row__s { font-size: 12px; line-height: 1.3; color: #a1a1aa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-row__n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #fbbf24; margin-right: 7px; }
+
+  .m-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 12px; padding: 10px 12px; border-top: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); font-size: 12px; color: #a1a1aa; flex: none; }
+  .m-strip .mono { color: #e4e4e7; }
+
+  .m-sw { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 44px; padding: 0 12px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; flex: none; }
+  .m-sw__t { font-size: 14px; font-weight: 600; }
+  .m-sw--old { border-color: rgba(245, 158, 11, 0.6); }
+
+  /* -- ui/Sheet, the phone's sibling of the drawer -- */
+  .m-sheet { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.8); display: flex; align-items: flex-end; }
+  .m-sheet--noscrim { background: transparent; pointer-events: none; }
+  .m-sheet__p { width: 100%; max-height: 85%; overflow: hidden; border-top: 1px solid #3f3f46; border-radius: 12px 12px 0 0; background: #18181b; display: flex; flex-direction: column; }
+  .m-sheet__hd { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-sheet__ti { font-size: 18px; font-weight: 600; }
+  .m-sheet__sub { font-size: 12px; color: #71717a; margin-top: 2px; }
+  .m-sheet__x { margin-left: auto; width: 44px; height: 44px; margin-right: -10px; display: grid; place-items: center; color: #a1a1aa; font-size: 18px; flex: none; }
+  .m-sheet__bd { padding: 16px; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+  .m-sheet__ft { display: flex; align-items: center; gap: 10px; padding: 12px 16px 20px; border-top: 1px solid #27272a; flex: none; }
+  .m-fld { display: flex; flex-direction: column; gap: 5px; }
+  .m-insp { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; align-items: center; }
+
+  .m-jump { display: flex; flex-direction: column; }
+  .m-jump__i { display: flex; align-items: center; gap: 11px; min-height: 52px; padding: 0 14px 0 12px; border-left: 2px solid transparent; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-jump__i.on { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.06); }
+  .m-jump__n { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; letter-spacing: 0.14em; color: #52525b; width: 16px; flex: none; }
+  .m-jump__i.on .m-jump__n { color: #f59e0b; }
+  .m-jump__l { font-size: 14px; color: #d4d4d8; flex: 1; min-width: 0; }
+  .m-jump__i.on .m-jump__l { color: #fcd34d; font-weight: 600; }
+  .m-jump__c { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 11px; color: #71717a; flex: none; }
+
+  .m-cvs { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #09090b; }
+  .cvs__band { position: absolute; top: 0; bottom: 0; }
+  .node { position: absolute; border: 1px solid #3f3f46; border-radius: 7px; background: #1f2028; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); overflow: hidden; }
+  .node__hd { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-bottom: 1px solid #27272a; font-size: 11px; font-weight: 600; color: #fafafa; }
+  .node__bdg { margin-left: auto; font-family: var(--mono); font-size: 9px; background: #27272a; border-radius: 3px; padding: 0 3px; color: #a1a1aa; }
+  .node__body { padding: 3px 0; }
+  .node__ft { padding: 3px 6px; border-top: 1px solid #27272a; font-family: var(--mono); font-size: 9px; color: #71717a; }
+  .prow { display: flex; align-items: center; gap: 6px; height: 18px; padding: 0 6px; font-size: 11px; color: #d4d4d8; }
+  .port { width: 7px; height: 7px; border-radius: 50%; border: 1px solid #71717a; background: #27272a; flex: none; }
+  .port--c { border-color: var(--c); background: color-mix(in srgb, var(--c) 75%, transparent); }
+  .srail { position: absolute; border: 1px solid #3f3f46; border-radius: 7px; background: #1f2028; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); overflow: hidden; }
+  .srail__hd { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 6px; border-bottom: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); }
+  .srail__hd b { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; font-weight: 500; }
+  .srail__hd span { font-family: var(--mono); font-size: 10px; color: #52525b; margin-left: auto; }
+  .srow { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 6px 0 0; border-bottom: 1px solid rgba(39, 39, 42, 0.6); font-size: 11px; color: #d4d4d8; }
+  .srow--sel { background: rgba(245, 158, 11, 0.1); }
+  .srow__tape { width: 3px; align-self: stretch; flex: none; }
+  .srow__nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 4px; }
+  .srow__md { font-family: var(--mono); font-size: 10px; color: #71717a; flex: none; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6a — the centred dialog as it stands today, the
+     virtual keyboard, the anatomy diagram, the safe area.
+     ================================================================== */
+
+  /* the centred dialog, at ui/Dialog's real values, inside a 375 px frame */
+  .m-dlg { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.8); display: flex; align-items: center; justify-content: center; padding: 0 16px; }
+  .m-dlg__p { width: 100%; border: 1px solid #3f3f46; border-radius: 12px; background: #18181b; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6); }
+  .m-dlg__hd { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #27272a; }
+  .m-dlg__ti { font-size: 18px; font-weight: 600; }
+  .m-dlg__x { color: #a1a1aa; font-size: 16px; }
+  .m-dlg__bd { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+  /* the two things that make it not a sheet: it is centred, and it does not
+     scroll — so anything past the frame is simply gone. */
+  .m-dlg--clip { overflow: hidden; }
+  .m-cut { position: absolute; left: 0; right: 0; height: 1px; background: repeating-linear-gradient(90deg, #f87171 0 6px, transparent 6px 12px); }
+  .m-cut__l {
+    position: absolute; right: 6px; transform: translateY(-100%);
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: #f87171; padding-bottom: 2px;
+  }
+
+  /* the virtual keyboard, drawn because it is half the finding */
+  .m-kbd { position: absolute; inset-inline: 0; bottom: 0; height: 268px; background: #1c1c1e; border-top: 1px solid #3f3f46; padding: 8px 4px 26px; display: flex; flex-direction: column; gap: 8px; }
+  .m-kbd__r { display: flex; gap: 5px; justify-content: center; flex: 1; }
+  .m-kbd__k { flex: 1; max-width: 32px; border-radius: 5px; background: #48484a; box-shadow: 0 1px 0 rgba(0,0,0,0.4); }
+  .m-kbd__k--w { max-width: 120px; }
+  .m-kbd__k--sp { max-width: 170px; }
+  .m-kbd__home { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 134px; height: 5px; border-radius: 3px; background: #f4f4f5; opacity: 0.85; }
+
+  /* the anatomy diagram — labelled parts down the right of a real sheet */
+  .anat { display: grid; grid-template-columns: 375px minmax(0, 1fr); gap: 26px; align-items: start; }
+  @media (max-width: 860px) { .anat { grid-template-columns: minmax(0, 1fr); } }
+  .anat__parts { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .anat__p { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--rule-soft); align-items: start; }
+  .anat__n { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); padding-top: 3px; }
+  .anat__v { font-size: 14.5px; color: var(--ink-2); line-height: 1.5; }
+  .anat__v b { color: var(--ink); font-weight: 600; }
+  .anat__v .k { font-size: 0.85em; }
+  .anat__v .cls { display: block; font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-top: 4px; word-break: break-word; }
+
+  /* the marker that pins a specimen part to its row in the anatomy list */
+  .mk {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; border-radius: 999px; flex: none;
+    background: #f59e0b; color: #09090b;
+    font-family: var(--mono); font-size: 9px; font-weight: 700;
+  }
+  .mk--doc { background: var(--amber); color: var(--ground); }
+  .mk--abs { position: absolute; z-index: 5; }
+
+  /* safe area, drawn */
+  .safe { position: absolute; inset-inline: 0; bottom: 0; height: 22px; background: repeating-linear-gradient(45deg, rgba(245,158,11,0.16) 0 5px, transparent 5px 10px); border-top: 1px dashed rgba(245,158,11,0.45); }
+  .safe__l { position: absolute; right: 8px; top: 3px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: #fbbf24; }
+
+  /* two-up comparison of one decision */
+  .vs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  @media (max-width: 860px) { .vs { grid-template-columns: minmax(0, 1fr); } }
+  .vs__c { display: flex; flex-direction: column; gap: 9px; }
+  .vs__hd { display: flex; align-items: baseline; gap: 9px; }
+  .vs__hd b { font-size: 15px; color: var(--ink); }
+  .vs__hd span { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+  .vs__note { font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+  .vs__note b { color: var(--ink-2); font-weight: 600; }
+
+  /* the thumb, drawn where the argument is about reach */
+  .thumb { position: absolute; border-radius: 999px; border: 1px dashed rgba(248, 113, 113, 0.55); background: rgba(248, 113, 113, 0.07); pointer-events: none; }
+  .thumb__l { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: #f87171; white-space: nowrap; }
+
+  .files { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .file { display: grid; grid-template-columns: 22px minmax(0, 260px) minmax(0, 1fr); gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--rule-soft); align-items: baseline; }
+  .file__s { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  .file__s--new { color: var(--amber); }
+  .file__s--del { color: var(--drop); }
+  .file__n { font-family: var(--mono); font-size: 13px; color: var(--ink); word-break: break-word; }
+  .file__w { font-size: 14px; color: var(--ink-2); line-height: 1.5; }
+  .file__w b { color: var(--ink); font-weight: 600; }
+
+  .code {
+    border: 1px solid var(--rule); border-radius: 8px; background: var(--sunken);
+    padding: 14px 16px; overflow-x: auto;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.65; color: var(--ink-2);
+    white-space: pre;
+  }
+  .code b { color: var(--ink); font-weight: 600; }
+  .code i { font-style: normal; color: var(--faint); }
+  .code u { text-decoration: none; color: var(--amber); }
+
+  .empty { padding: 34px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6b — the list as it ships today, the target
+     overlay, the bar's second row, the strip as its own control.
+     ================================================================== */
+
+  /* today: the row as a free-standing card on the page ground, at the real
+     values — px-2.5 py-1.5, 13px over 11px, its own border and bg-zinc-900 */
+  .m-card {
+    display: flex; align-items: center; gap: 8px;
+    border: 1px solid #27272a; border-radius: 6px; background: #18181b;
+    padding: 6px 10px;
+  }
+  .m-card + .m-card { margin-top: 4px; }
+  .m-card__c { flex: 1; min-width: 0; }
+  .m-card__t { font-size: 13px; font-weight: 500; line-height: 1.25; color: #f4f4f5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-card__s { font-size: 11px; line-height: 1.25; color: #a1a1aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-card__x { flex: none; color: #52525b; font-size: 12px; }
+  /* the h-9 search field and the h-9 w-9 add button, drawn at their real size */
+  .m-srch { display: flex; align-items: center; gap: 8px; flex: none; }
+  .m-srch__f { flex: 1; height: 36px; display: flex; align-items: center; gap: 7px; padding: 0 10px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; font-size: 14px; color: #71717a; }
+  .m-srch__b { width: 36px; height: 36px; border-radius: 6px; background: #f59e0b; color: #09090b; display: grid; place-items: center; font-size: 16px; flex: none; }
+
+  /* a control drawn with its true target bounds called out */
+  .tgt { position: relative; }
+  .tgt::after {
+    content: ""; position: absolute; inset: 50% auto auto 50%;
+    width: var(--tw); height: var(--th); transform: translate(-50%, -50%);
+    border: 1px dashed var(--tc); border-radius: 7px; pointer-events: none;
+  }
+  .tgt--bad { --tc: rgba(248, 113, 113, 0.75); }
+  .tgt--ok { --tc: rgba(52, 211, 153, 0.7); }
+  .szl { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .szl--bad { color: #f87171; }
+  .szl--ok { color: #34d399; }
+
+  /* the bar's second row, when search is open */
+  .m-pan__ic--44 { width: 44px; height: 44px; font-size: 16px; }
+  .m-pan__ic--44.m-pan__ic--pri { font-size: 20px; }
+  .m-pan__sr { display: flex; align-items: center; gap: 8px; padding: 0 12px 8px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-pan__sr .fld { flex: 1; }
+
+  /* a heading over a run of rows, inside the frame */
+  .m-hdr { display: flex; align-items: center; gap: 9px; padding: 9px 12px 5px; background: rgba(9, 9, 11, 0.35); }
+  .m-hdr b { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; }
+  .m-hdr i { font-style: normal; flex: 1; height: 1px; background: #27272a; }
+  .m-hdr--today b { color: #f59e0b; }
+  .m-hdr--today i { background: rgba(245, 158, 11, 0.45); }
+
+  /* the strip when it is the control that filters what it reports */
+  .m-strip__go { margin-left: auto; display: flex; align-items: center; gap: 5px; flex: none; color: #fcd34d; font-size: 12px; }
+  .m-strip--on { border-top-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.09); }
+
+  /* the row arithmetic, drawn as a stacked bar */
+  .stack { display: flex; flex-direction: column; width: 190px; flex: none; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em; }
+  .stack__b { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 7px; color: var(--muted); border-bottom: 1px solid var(--rule-soft); background: var(--sunken); }
+  .stack__b--rows { background: rgba(245, 158, 11, 0.12); color: var(--amber); }
+  .stack__b--chrome { background: transparent; }
+  .stacks { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+  .stacks__c { display: flex; flex-direction: column; gap: 8px; }
+  .stacks__t { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .stacks__t b { color: var(--ink-2); font-weight: 500; }
+
+  .empty { padding: 34px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+</style>
+<style>
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6c — the figures grid, the ribbon in the hand,
+     the bar's overflow, the withheld-gesture sentence, the plot canvas.
+     ================================================================== */
+
+  /* Overview's numbers band, at 375 px. Hairlines, never cards: five tiles
+     separated the way rows are separated, so the band is part of the frame.
+     The countdown spans, because it is the one figure that is about NOW. */
+  .m-figs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-fig { padding: 10px 12px 11px; border-top: 1px solid rgba(39, 39, 42, 0.6); border-left: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-fig:nth-child(odd) { border-left: 0; }
+  .m-fig--span { grid-column: 1 / -1; border-top: 0; padding-top: 12px; padding-bottom: 13px; }
+  .m-fig__v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 26px; line-height: 1.05; color: #f4f4f5; }
+  .m-fig--span .m-fig__v { font-size: 34px; }
+  .m-fig__v i { font-style: normal; font-size: 0.5em; color: #71717a; margin-left: 3px; }
+  .m-fig__v u { text-decoration: none; color: #52525b; }
+  .m-fig__l { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; margin-top: 7px; display: block; }
+
+  /* the rig ribbon: the flow canvas one row high, and on a phone it pans.
+     Drawn clipped at the right edge, because that is what it does. */
+  .m-rib { padding: 9px 0 10px 12px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-rib__l { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; display: block; margin-bottom: 7px; }
+  .m-rib__t { display: flex; align-items: center; gap: 0; overflow: hidden; }
+  .m-rib__n { flex: none; border: 1px solid #3f3f46; border-radius: 5px; background: #1f2028; padding: 4px 8px; text-align: center; min-width: 58px; }
+  .m-rib__n b { display: block; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 400; line-height: 1.2; color: #f4f4f5; }
+  .m-rib__n s { display: block; text-decoration: none; font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: #71717a; margin-top: 2px; }
+  .m-rib__n--desk { border-color: rgba(245, 158, 11, 0.5); background: rgba(245, 158, 11, 0.08); }
+  .m-rib__w { flex: none; width: 14px; height: 1px; background: #3f3f46; }
+  .m-rib__m { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-right: 12px; }
+  .m-rib__bar { flex: 1; height: 5px; border-radius: 3px; background: #27272a; overflow: hidden; }
+  .m-rib__bar i { display: block; height: 100%; background: #34d399; }
+  .m-rib__mv { font-family: var(--mono); font-size: 10px; color: #a1a1aa; flex: none; }
+
+  /* readiness, as rows: the phone's index of the show. Trailing pill, leading
+     edge in the verdict's own tone, and the tap opens that section. */
+  .m-rd { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px 0 0; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-rd__e { width: 3px; align-self: stretch; flex: none; }
+  .m-rd__a { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #d4d4d8; padding-left: 9px; width: 88px; flex: none; }
+  .m-rd__f { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: #71717a; flex: 1; min-width: 0; }
+  .m-rd__c { flex: none; color: #52525b; font-size: 13px; }
+
+  /* a quiet last row: the desktop card's meta footer */
+  .m-meta { display: flex; flex-wrap: wrap; gap: 3px 14px; padding: 9px 12px 10px; font-size: 12px; color: #71717a; }
+
+  /* the event's name, in the shell's own header — the one place on the phone
+     that is on screen in all nine sections and never scrolls */
+  .m-hd__nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+  /* the switcher row: the back target and the section switcher, one 44 px row,
+     because the block they replace was 48 px of a 490 px panel */
+  .m-swr { display: flex; align-items: center; gap: 8px; flex: none; }
+  .m-swr .m-sw { flex: 1; min-width: 0; }
+  .m-back { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; color: #a1a1aa; font-size: 16px; }
+
+  /* the event, stated once at the top of its own section */
+  .m-sub { padding: 9px 12px 10px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); font-size: 12px; color: #a1a1aa; }
+  .m-sub b { color: #d4d4d8; font-weight: 500; }
+  .m-sub s { text-decoration: none; color: #71717a; }
+
+  /* a bar control that names a selection and opens a sheet — the rail, and the
+     plot picker, collapsed to a target. It stays in the bar because it changes
+     WHAT YOU ARE LOOKING AT. */
+  .m-pick { display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 10px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; font-size: 13px; color: #f4f4f5; flex: none; max-width: 112px; }
+  .m-pick b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-pick s { text-decoration: none; color: #a1a1aa; flex: none; font-size: 11px; }
+
+  /* a segmented view toggle at a 44 px target — the plot's Top/Front/Side */
+  .m-seg { display: flex; height: 44px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; overflow: hidden; flex: none; }
+  .m-seg span { display: grid; place-items: center; min-width: 46px; padding: 0 8px; font-size: 13px; color: #a1a1aa; border-left: 1px solid #27272a; }
+  .m-seg span:first-child { border-left: 0; }
+  .m-seg span.on { background: #f59e0b; color: #09090b; font-weight: 500; }
+
+  /* the sentence that names a withheld gesture. Not a banner, not a dialog,
+     not a disabled control — it sits where the editor would be. */
+  .m-said { display: flex; gap: 9px; padding: 11px 12px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); background: rgba(9, 9, 11, 0.35); }
+  .m-said__i { flex: none; color: #71717a; font-size: 13px; line-height: 1.5; }
+  .m-said__t { font-size: 12.5px; line-height: 1.5; color: #a1a1aa; }
+  .m-said__t b { color: #d4d4d8; font-weight: 500; }
+
+  /* the stage plot canvas, in the frame */
+  .m-plot { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #09090b; }
+  .m-plot__g { position: absolute; inset: 0; background-image: linear-gradient(rgba(63,63,70,0.28) 1px, transparent 1px), linear-gradient(90deg, rgba(63,63,70,0.28) 1px, transparent 1px); background-size: 34px 34px; }
+  .m-el { position: absolute; border: 1px solid #52525b; border-radius: 4px; background: #27272a; display: grid; place-items: center; font-size: 10px; color: #d4d4d8; text-align: center; padding: 2px; }
+  .m-el--sel { border-color: #f59e0b; background: rgba(245, 158, 11, 0.16); color: #fcd34d; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25); }
+  .m-el--truss { border-color: #38bdf8; background: rgba(56, 189, 248, 0.1); color: #7dd3fc; }
+
+  /* the overflow sheet's rows — SectionSwitcher's shape, one labelled action each */
+  .m-act { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 4px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-act:last-child { border-bottom: 0; }
+  .m-act__i { width: 22px; flex: none; text-align: center; color: #a1a1aa; font-size: 14px; }
+  .m-act__l { font-size: 14px; color: #f4f4f5; flex: 1; min-width: 0; }
+  .m-act__h { font-size: 12px; color: #71717a; flex: none; }
+
+  /* the bar-width arithmetic, drawn as a ruler */
+  .rule { display: flex; align-items: stretch; width: 375px; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; font-family: var(--mono); font-size: 9px; letter-spacing: 0.04em; }
+  .rule__s { display: grid; place-items: center; min-height: 30px; border-left: 1px solid var(--rule-soft); color: var(--muted); background: var(--sunken); text-align: center; padding: 0 1px; }
+  .rule__s:first-child { border-left: 0; }
+  .rule__s--t { background: rgba(245, 158, 11, 0.14); color: var(--amber); }
+  .rule__s--o { background: rgba(159, 18, 57, 0.14); color: var(--drop); }
+  .rule__s--g { background: transparent; }
+  .rulel { display: flex; align-items: baseline; gap: 10px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+  .rulel b { color: var(--ink-2); font-weight: 500; }
+  .rulel u { text-decoration: none; color: var(--drop); }
+
+  /* a rule stated once, in a box, because it is the thing that stops nine
+     call sites making nine judgements */
+  .law { border: 1px solid var(--rule); border-left: 3px solid var(--amber); border-radius: 0 8px 8px 0; background: var(--raised); padding: 16px 18px; display: flex; flex-direction: column; gap: 9px; }
+  .law__h { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); }
+  .law__t { font-size: 16.5px; line-height: 1.45; color: var(--ink); }
+  .law__t b { font-weight: 600; }
+  .law__n { font-size: 14px; line-height: 1.55; color: var(--muted); }
+  .law__n b { color: var(--ink-2); font-weight: 600; }
+
+  /* two columns of examples under a rule */
+  .split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 26px; }
+  @media (max-width: 720px) { .split { grid-template-columns: minmax(0, 1fr); } }
+  .split__c { display: flex; flex-direction: column; gap: 7px; padding-top: 4px; }
+  .split__h { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); padding-bottom: 6px; border-bottom: 1px solid var(--rule); }
+  .split__i { display: flex; gap: 9px; font-size: 14px; color: var(--ink-2); line-height: 1.5; }
+  .split__i b { color: var(--ink); font-weight: 600; }
+  .split__i em { font-style: normal; color: var(--faint); }
+</style>
+<style>
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6d — the canvas as a viewport, the zoom cluster,
+     the two-row bar, and the un-scrimmed sheet read against a live graph.
+     ================================================================== */
+
+  /* The viewport. It is `overflow: auto` and nothing else: the pan gesture is
+     the platform's own, because on a phone the canvas is handed no handlers
+     (patterns.md §7g) and native scroll is better than any we would write —
+     momentum, both axes, unbounded, and it is what a thumb already expects. */
+  .m-vp { position: relative; flex: 1; min-height: 0; overflow: auto; background: #09090b; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-x pan-y; }
+  .m-vp__box { position: relative; }            /* the scrolled box: logical × zoom */
+  .m-vp__c   { position: absolute; top: 0; left: 0; transform-origin: 0 0; }  /* the graph, scaled */
+
+  /* Nothing is pinned to the viewport's edges — §7f — so this is the ONLY
+     absolutely-positioned thing over the canvas in the whole slice, and it is
+     not furniture: it is the specimen's own hint, and it does not ship. */
+  .m-vp__hint { position: absolute; left: 50%; bottom: 9px; transform: translateX(-50%); z-index: 3; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #52525b; background: rgba(9, 9, 11, 0.85); border: 1px solid #27272a; border-radius: 999px; padding: 3px 10px; pointer-events: none; }
+
+  /* the zoom cluster, in the bar's second row. Three 44 px targets, and the
+     readout in the middle is one of them — tapping it resets, which is the one
+     thing a pair of steppers cannot do. */
+  .m-zoom { display: flex; align-items: center; gap: 2px; flex: none; }
+  .m-zoom button { width: 44px; height: 44px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; color: #a1a1aa; font-size: 17px; display: grid; place-items: center; padding: 0; font-family: inherit; }
+  .m-zoom button:disabled { color: #3f3f46; }
+  .m-zoom .m-zoom__v { width: 62px; height: 44px; border: 0; background: transparent; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: #d4d4d8; }
+  .m-zoom .m-zoom__v b { display: block; font-weight: 400; }
+  .m-zoom .m-zoom__v s { display: block; text-decoration: none; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: #52525b; }
+
+  /* the bar's second row: one flex-none strip below the wrap, so the bar is
+     genuinely two rows and not a scrolling one */
+  .m-pan__bar2 { display: flex; align-items: center; gap: 8px; padding: 0 12px 8px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-pan__bar2 .m-fldi { flex: 1; min-width: 0; height: 40px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; color: #f4f4f5; font-size: 14px; padding: 0 10px; font-family: inherit; }
+  .m-pan__bar2 .m-fldi::placeholder { color: #52525b; }
+
+  /* an `i` riding inside the title's own line — ui/InfoNote closed. 6c's move,
+     reused verbatim: a read-and-closed sentence costs the panel no row. */
+  .m-info { width: 20px; height: 20px; border-radius: 999px; border: 1px solid #3f3f46; background: #18181b; color: #a1a1aa; font-family: var(--mono); font-size: 10px; display: inline-grid; place-items: center; flex: none; }
+
+  /* the graph, drawn small. These reuse .node/.prow/.port/.srail/.srow from the
+     shared block above — nothing on the canvas is re-sized for the phone
+     (§7f), so there is nothing here but placement. */
+  .g-lane { position: absolute; top: 0; bottom: 0; border-left: 1px dashed rgba(63, 63, 70, 0.5); }
+  .g-lane b { position: absolute; top: 6px; left: 8px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: #3f3f46; font-weight: 500; }
+  .g-dim { opacity: 0.22; }
+  .g-hit { opacity: 1; }
+  .node--sel, .srail .srow--sel { box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35); }
+  .node--sel { border-color: #f59e0b; }
+
+  /* the ruler, a second time: bar row 1 and bar row 2 stacked */
+  .rules { display: flex; flex-direction: column; gap: 7px; }
+
+  /* a decision recorded as a strike-through of the alternative */
+  .verdict { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 14px 18px; align-items: baseline; }
+  .verdict__k { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); }
+  .verdict__v { font-size: 15px; color: var(--ink-2); line-height: 1.5; }
+  .verdict__v b { color: var(--ink); font-weight: 600; }
+  .verdict__v u { text-decoration: line-through; text-decoration-color: var(--drop); color: var(--faint); }
+  @media (max-width: 720px) { .verdict { grid-template-columns: minmax(0, 1fr); gap: 4px 0; } }
+</style>
+
+<div class="wrap">
+
+  <header class="head">
+    <span class="head__eyebrow">wave 6d · the canvases · revision 1 · for approval</span>
+    <h1>The window is the point</h1>
+    <p class="head__lede">
+      6a built the overlay. 6b built the frame. 6c put the nine event sections in it. <b>6d is the
+      last phase of Wave 6 and the only one that is a new capability rather than a conversion</b>:
+      the Flow canvas mounts on a phone, and the rule that kept it off — <em>“a patch graph on a
+      phone is unreadable at any density”</em> — is reversed, on the report that the picture of
+      where the signal goes is exactly what is wanted on site.
+    </p>
+    <p class="head__lede">
+      Almost all of it is already written down: <code>patterns.md</code> §7f draws the canvas in the
+      hand, §7g says what stays a desk job, <code>components.md</code> §5 says the inspector is the
+      rail’s own contents in the un-scrimmed <code>ui/Sheet</code> that 6a built and deliberately
+      left unwired. <b>This document is for the three things no document settles</b> — and the first
+      is the question <code>audit.md</code> named in advance as the reason this phase was ordered
+      last.
+    </p>
+  </header>
+
+  <!-- ============================================================ 01 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">01 · the question 6d was ordered last to answer</span>
+      <h2>Fit-to-width or pan-and-zoom? Neither. Both, in that order.</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <code>audit.md</code> Part 2 left one thing open for a field test: <em>“whether a phone
+        canvas wants the desktop’s pan-and-zoom or a fit-to-width default with zoom as the
+        exception. Nobody has held a 60-channel patch graph on a phone yet.”</em> It reads as a
+        preference. <strong>It is arithmetic, and the arithmetic answers it.</strong>
+      </p>
+      <p>
+        The graph has a fixed logical width. <code>InputGraphCanvas</code> and
+        <code>OutputGraphCanvas</code> both clamp their coordinate space to
+        <code>CANVAS_MIN_WIDTH = 820</code> and place the desk lane at
+        <code>canvasWidth − 200 − 24</code>. That number is not a layout choice a phone can
+        renegotiate: it is where every stored <code>position_x</code> in the database already is.
+        The phone’s panel has <strong>341 px</strong> of it — 375, less the body’s
+        <code>px-4</code> twice, less the panel’s two borders.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="rules">
+        <div class="rule">
+          <span class="rule__s rule__s--t" style="flex: 341">341 · the phone’s panel</span>
+          <span class="rule__s rule__s--o" style="flex: 479">479 more, off the right edge</span>
+        </div>
+      </div>
+      <span class="spec__cap"><b>the graph at 100 %</b> — 820 logical px in a 341 px window. two and a half screens wide</span>
+    </div>
+
+    <div class="prose">
+      <p>
+        So <em>pan-and-zoom, opening at 100 %</em> means opening onto the Stage lane and nothing
+        else, with no way to know from the screen that there is a desk. And <em>fit-to-width</em>
+        needs <code>341 / 820 = 0.42</code>, which is <strong>below the zoom floor the shared
+        control ships</strong> (<code>ZOOM_MIN = 0.5</code>) and renders an 11 px node title at
+        4.6 px. Both horns are bad, and they are bad in opposite directions.
+      </p>
+      <p>
+        <strong>What makes the answer easy is the second dimension, which the question never
+        mentioned.</strong> The graph is 640 logical px tall, and the phone’s canvas region — the
+        panel’s body, after a two-row bar and a strip — is about 300. At 42 % the graph is
+        <strong>345 × 269</strong>: it fits the window <em>in both axes, whole, once</em>.
+      </p>
+    </div>
+
+    <div class="law">
+      <span class="law__h">the answer</span>
+      <p class="law__t">
+        <b>Fit is the opening state. Pan-and-zoom is the working state. And the reset target is
+        fit, not 100 %.</b>
+      </p>
+      <p class="law__n">
+        You open on the whole picture — every box, every run, unreadable as text and complete as a
+        drawing, which is what <em>“the picture of where the signal goes”</em> asked for. Then you
+        put a thumb on the part you came for. <b>The one control that changes is what tapping the
+        percentage does</b>: on a desk it resets to 100 %, because at a desk 100 % is where you can
+        read; in a hand 100 % is where you are lost, and <em>fit</em> is the way back.
+      </p>
+    </div>
+
+    <div class="prose">
+      <p>
+        Nothing shared moves for this. <code>graph/ZoomControl</code> already takes explicit
+        <code>onZoomIn</code> / <code>onZoomOut</code> / <code>onReset</code> — Wave 2 added them
+        so the stage plot could step ×1.25 over 0.05–20 while the audio canvases step ±0.1 over
+        0.5–1.5, and wrote down the split: <em>the component owns the look, the caller may own the
+        stepping</em>. The phone is the third caller and the second stepping. <strong>The desktop’s
+        two call sites are not touched.</strong>
+      </p>
+    </div>
+
+    <div class="verdict">
+      <span class="verdict__k">Range</span>
+      <span class="verdict__v"><b>fit → 1.0</b>, where <em>fit</em> is measured from the live viewport rather than assumed, because the bar is two rows in Flow and one in Sheet. <u>a fixed 0.42</u></span>
+      <span class="verdict__k">Step</span>
+      <span class="verdict__v"><b>×1.4</b>, so fit → 100 % is three taps. <u>±0.1, which is nine</u></span>
+      <span class="verdict__k">Reset</span>
+      <span class="verdict__v"><b>fit</b>. <u>100 %</u></span>
+      <span class="verdict__k">Pinch</span>
+      <span class="verdict__v"><b>yes</b> (§7f), over the same range, about the midpoint of the two fingers</span>
+      <span class="verdict__k">Pan</span>
+      <span class="verdict__v"><b>the platform’s.</b> The viewport is <code>overflow: auto</code> and the canvas is handed no gesture handlers at all, so one finger scrolls it — with momentum, both axes, unbounded. Nothing we would write is better than that, and §7g is what makes it available</span>
+    </div>
+
+    <p class="spec__cap" style="padding-top: 6px">
+      <b>live specimen</b> — drag it, pinch it, tap ✕/＋/the percentage. this is the actual arithmetic, at the actual width
+    </p>
+
+    <div class="phones">
+      <div class="phone">
+        <div class="phone__frame" id="ph1">
+          <div class="m-hd">
+            <span class="m-hd__ti"><span class="m-hd__ic">◆</span><span class="m-hd__nm">Sommarfesten 2026</span></span>
+            <span class="m-hd__av"></span>
+          </div>
+          <div class="m-bd">
+            <div class="m-swr">
+              <span class="m-back">‹</span>
+              <span class="m-sw"><span class="m-sw__t">Audio Inputs</span><span style="color:#a1a1aa">⌄</span></span>
+            </div>
+
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar">
+                <span class="m-pan__ti" style="display:flex;align-items:center;gap:6px">Audio Inputs <span class="m-info">i</span></span>
+                <span class="m-seg" data-view>
+                  <span data-v="sheet">Sheet</span>
+                  <span data-v="flow" class="on">Flow</span>
+                </span>
+                <span class="m-pan__ic">🔍</span>
+                <span class="m-pan__ic">⋯</span>
+              </div>
+
+              <div class="m-pan__bar2">
+                <span class="m-zoom">
+                  <button data-z="out">−</button>
+                  <button class="m-zoom__v" data-z="fit"><b id="z1">42%</b><s>fit</s></button>
+                  <button data-z="in">＋</button>
+                </span>
+              </div>
+
+              <div class="m-vp" data-vp>
+                <div class="m-vp__box" data-box>
+                  <div class="m-vp__c" data-c></div>
+                </div>
+                <span class="m-vp__hint">drag · pinch · tap a box</span>
+              </div>
+
+              <div class="m-strip">
+                <span style="color:#fbbf24">●</span>
+                <span>3 gaps</span>
+                <span class="mono">16 ch</span>
+                <span class="mono" style="color:#71717a">SD10 · 1 SB</span>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <span class="m-nav__i on"><span class="m-nav__g">▤</span>Events</span>
+            <span class="m-nav__i"><span class="m-nav__g">▦</span>Inventory</span>
+            <span class="m-nav__i"><span class="m-nav__g">◇</span>Gear</span>
+            <span class="m-nav__i"><span class="m-nav__g">⋯</span>More</span>
+          </div>
+        </div>
+        <span class="phone__cap"><b>Flow, as it opens.</b> the whole graph, once — 42 %, both axes</span>
+      </div>
+
+      <div class="phone">
+        <div class="phone__frame" id="ph2">
+          <div class="m-hd">
+            <span class="m-hd__ti"><span class="m-hd__ic">◆</span><span class="m-hd__nm">Sommarfesten 2026</span></span>
+            <span class="m-hd__av"></span>
+          </div>
+          <div class="m-bd">
+            <div class="m-swr">
+              <span class="m-back">‹</span>
+              <span class="m-sw"><span class="m-sw__t">Audio Inputs</span><span style="color:#a1a1aa">⌄</span></span>
+            </div>
+
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar">
+                <span class="m-pan__ti" style="display:flex;align-items:center;gap:6px">Audio Inputs <span class="m-info">i</span></span>
+                <span class="m-seg" data-view>
+                  <span data-v="sheet">Sheet</span>
+                  <span data-v="flow" class="on">Flow</span>
+                </span>
+                <span class="m-pan__ic">🔍</span>
+                <span class="m-pan__ic">⋯</span>
+              </div>
+
+              <div class="m-pan__bar2">
+                <span class="m-zoom">
+                  <button data-z="out">−</button>
+                  <button class="m-zoom__v" data-z="fit"><b id="z2">100%</b><s>fit</s></button>
+                  <button data-z="in">＋</button>
+                </span>
+              </div>
+
+              <div class="m-vp" data-vp>
+                <div class="m-vp__box" data-box>
+                  <div class="m-vp__c" data-c></div>
+                </div>
+                <span class="m-vp__hint">the working state</span>
+              </div>
+
+              <div class="m-strip">
+                <span style="color:#fbbf24">●</span>
+                <span>3 gaps</span>
+                <span class="mono">16 ch</span>
+                <span class="mono" style="color:#71717a">SD10 · 1 SB</span>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <span class="m-nav__i on"><span class="m-nav__g">▤</span>Events</span>
+            <span class="m-nav__i"><span class="m-nav__g">▦</span>Inventory</span>
+            <span class="m-nav__i"><span class="m-nav__g">◇</span>Gear</span>
+            <span class="m-nav__i"><span class="m-nav__g">⋯</span>More</span>
+          </div>
+        </div>
+        <span class="phone__cap"><b>the same canvas at 100 %.</b> 7 px ports, 18 px port rows, nothing re-sized — §7f</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 02 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">02 · the bar</span>
+      <h2>Flow brings two controls to a bar with 317 px, and one thing has to leave</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <code>patterns.md</code> §7b puts <code>Sheet │ Flow</code> in <code>actions</code> by
+        name — it changes <em>what you are looking at</em> — and §7f puts the
+        <code>ZoomControl</code> in the bar at a 44 px target. That is five targets and a title in
+        a bar that holds a title and three. The bar wraps to two rows before it scrolls, which is
+        §7b’s own escape, but two rows costs the canvas 52 px of a 350 px body, so it is worth
+        spending deliberately.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="rules">
+        <div class="rule">
+          <span class="rule__s" style="flex: 92">title 92</span>
+          <span class="rule__s rule__s--g" style="flex: 8"></span>
+          <span class="rule__s rule__s--t" style="flex: 104">Sheet │ Flow 104</span>
+          <span class="rule__s rule__s--g" style="flex: 8"></span>
+          <span class="rule__s rule__s--t" style="flex: 44">🔍</span>
+          <span class="rule__s rule__s--g" style="flex: 8"></span>
+          <span class="rule__s rule__s--t" style="flex: 44">⋯</span>
+          <span class="rule__s rule__s--g" style="flex: 9">9</span>
+        </div>
+        <div class="rule">
+          <span class="rule__s rule__s--t" style="flex: 132">zoom − 42% ＋ · 132</span>
+          <span class="rule__s rule__s--g" style="flex: 185">185 free</span>
+        </div>
+      </div>
+      <span class="spec__cap"><b>the two rows, at 317 px.</b> row 1 lands on 308 of 317. row 2 is the zoom alone, and the search field when it is open</span>
+    </div>
+
+    <div class="law">
+      <span class="law__h">what leaves, and why it is not a size judgement</span>
+      <p class="law__t"><b>In Flow the phone has no primary action.</b></p>
+      <p class="law__n">
+        The <code>＋</code> on this surface adds a <b>row</b> — a channel, an output — and Flow has
+        no rows. The desktop keeps it in both views because it can afford to and because the desk
+        can immediately cable what it just added; the phone <b>cannot cable at all</b> (§7g), so a
+        channel added in Flow is a channel that reaches nothing until someone is at a desk. The
+        Sheet view is one tap away and has the control. <b>This is the §7b rule applied, not
+        bent</b>: the toggle stays visible because it changes what you are looking at, and the
+        <code>＋</code> is absent because there is nothing on this view for it to act on — which
+        is the same reason a search box that filters nothing is absent.
+      </p>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <span class="led__k">Sheet │ Flow</span>
+        <span class="led__v">A 44 px segment, exactly the shape <code>StagePlotTab</code>’s <em>Top / Front / Side</em> already uses on the phone. Not a new idiom, and the second caller is what makes it one <span class="tag tag--new">new</span></span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">Zoom</span>
+        <span class="led__v"><code>graph/ZoomControl</code>, its existing explicit-stepping props, at 44 px instead of 28 <span class="tag tag--new">new</span></span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">Search</span>
+        <span class="led__v">Stays in <b>both</b> views, and means something different in each — see §03 <span class="tag tag--keep">kept</span></span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">⋯ overflow</span>
+        <span class="led__v">Unchanged from 6c: Open Rig, Groups &amp; DCAs, Print patch sheet. All three <em>do a thing and are finished</em> <span class="tag tag--keep">kept</span></span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">＋ Add channel</span>
+        <span class="led__v">Present in Sheet, <b>absent in Flow</b> <span class="tag tag--drop">absent</span></span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">The strip</span>
+        <span class="led__v">Present in both, and in Flow it is <b>not a control</b>: it reports <em>3 gaps</em> and has nothing to filter to, because the canvas does not filter. §7b already says a strip with nothing to filter to draws no chevron <span class="tag tag--keep">kept</span></span>
+      </div>
+      <div class="led__row">
+        <span class="led__k">The sentence</span>
+        <span class="led__v">§7g’s withheld-gesture note, as the <code>i</code> in the title’s own line — 6c’s <code>InfoNote</code>, so a read-and-closed sentence costs the panel no row. Wording in §05</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 03 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">03 · the design work of the slice</span>
+      <h2>On a phone, search is not a highlight. It is how you aim the window.</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        This came out of §01 rather than into it. Once the canvas is a 341 px window over an
+        820 px graph, <strong>the hardest thing on the surface is not reading a box — it is finding
+        one.</strong> Pinch to 100 %, and you are somewhere in a 2.4-screen-wide drawing with no
+        landmark; the desk lane is off to the right and the sources are off to the left and
+        nothing on screen says which.
+      </p>
+      <p>
+        The canvas already answers this and nobody noticed, because on a desk it is a nicety.
+        <strong>Both canvases already take the shell’s search term and dim every node and row that
+        does not match</strong> — deliberately dimming rather than hiding, because removing a node
+        removes edges that exist, so a partly-filtered patch would read as an unpatched one
+        (<code>research.md</code> R14). On a 1180 px desk that is a highlight. On a 341 px window
+        it is a <strong>direction</strong>, and it needs one addition to become one:
+      </p>
+    </div>
+
+    <div class="law">
+      <span class="law__h">the addition, and it is the whole of it</span>
+      <p class="law__t">
+        <b>The first match scrolls itself into the viewport.</b>
+      </p>
+      <p class="law__n">
+        <code>scrollIntoView({ block: 'nearest', inline: 'nearest' })</code> — the same call
+        <code>SourceRow</code> has made since Slice 25, for the same reason, stated there in the
+        same words: <em>a selection you cannot see is not a selection.</em> Type <b>kick</b>, and
+        the window moves to the box holding it and dims the rest. Nothing filters, nothing hides,
+        nothing new is derived, and the search field is the one the bar already has.
+      </p>
+    </div>
+
+    <p class="spec__cap" style="padding-top: 2px">
+      <b>live specimen</b> — type in the field. the drawing does not change; the window moves
+    </p>
+
+    <div class="phones">
+      <div class="phone">
+        <div class="phone__frame" id="ph3">
+          <div class="m-hd">
+            <span class="m-hd__ti"><span class="m-hd__ic">◆</span><span class="m-hd__nm">Sommarfesten 2026</span></span>
+            <span class="m-hd__av"></span>
+          </div>
+          <div class="m-bd">
+            <div class="m-swr">
+              <span class="m-back">‹</span>
+              <span class="m-sw"><span class="m-sw__t">Audio Inputs</span><span style="color:#a1a1aa">⌄</span></span>
+            </div>
+
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar">
+                <span class="m-pan__ti" style="display:flex;align-items:center;gap:6px">Audio Inputs <span class="m-info">i</span></span>
+                <span class="m-seg"><span>Sheet</span><span class="on">Flow</span></span>
+                <span class="m-pan__ic" style="border-color:#f59e0b;color:#fbbf24">🔍</span>
+                <span class="m-pan__ic">⋯</span>
+              </div>
+
+              <div class="m-pan__bar2">
+                <span class="m-zoom">
+                  <button data-z="out">−</button>
+                  <button class="m-zoom__v" data-z="fit"><b id="z3">100%</b><s>fit</s></button>
+                  <button data-z="in">＋</button>
+                </span>
+                <input class="m-fldi" data-q placeholder="Find a channel…" value="" />
+              </div>
+
+              <div class="m-vp" data-vp>
+                <div class="m-vp__box" data-box>
+                  <div class="m-vp__c" data-c></div>
+                </div>
+                <span class="m-vp__hint" data-hint>type: kick · gtr · sd10</span>
+              </div>
+
+              <div class="m-strip">
+                <span style="color:#fbbf24">●</span>
+                <span>3 gaps</span>
+                <span class="mono">16 ch</span>
+                <span class="mono" style="color:#71717a">SD10 · 1 SB</span>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <span class="m-nav__i on"><span class="m-nav__g">▤</span>Events</span>
+            <span class="m-nav__i"><span class="m-nav__g">▦</span>Inventory</span>
+            <span class="m-nav__i"><span class="m-nav__g">◇</span>Gear</span>
+            <span class="m-nav__i"><span class="m-nav__g">⋯</span>More</span>
+          </div>
+        </div>
+        <span class="phone__cap"><b>search aims the window.</b> the search row is the bar’s second row, beside the zoom</span>
+      </div>
+
+      <div class="phone" style="width: 375px">
+        <div class="spec" style="padding-top: 4px">
+          <table class="tbl">
+            <thead><tr><th>The same term</th><th>Desk</th><th>Hand</th></tr></thead>
+            <tbody>
+              <tr><td><b>Sheet view</b></td><td>filters rows</td><td>filters rows <em>— identical</em></td></tr>
+              <tr><td><b>Flow view</b></td><td>dims non-matches</td><td>dims non-matches <b>and moves the window to the first one</b></td></tr>
+            </tbody>
+          </table>
+          <p class="prose" style="font-size: 14.5px; padding-top: 10px">
+            The one delta is <em>a viewport that is smaller than its content</em>, which is a fact
+            about the screen and not about the person — so it does not need a role, a setting or a
+            second code path. It is also latent on a desk: a 60-channel graph on a 1180 px panel
+            scrolls too, and this makes the desktop’s search find things it currently only dims.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 04 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">04 · the tap</span>
+      <h2>The sheet that takes no scrim, wired at last</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <code>ui/Sheet</code> has had <code>scrim={false}</code> since Wave 6a, built for this and
+        left with no caller. It renders <strong>no backdrop element at all</strong> — not a
+        transparent one, which would satisfy the sentence and lose the point, because a transparent
+        layer still swallows every touch and would freeze the canvas the inspector is read against.
+        So the canvas behind stays live: you can pan it with the sheet open, and the sheet is
+        genuinely not modal.
+      </p>
+      <p>
+        <strong>The contents are the rail’s, unchanged.</strong> <code>Field</code>,
+        <code>Note</code> and <code>Legend</code> are already width-independent — including
+        <code>Field</code>’s <code>grid-cols-[44px_minmax(0,1fr)]</code> label-beside-control — and
+        every field already commits on change, because <code>components.md</code> §3 says the rail
+        holds no draft. <strong>So there is no footer and no Save</strong>, which is exactly what
+        the stage plot’s sheet does since 6c. What does not travel is the <code>w-60 shrink-0
+        border-l</code> frame, because a phone has no column to give up.
+      </p>
+    </div>
+
+    <div class="law">
+      <span class="law__h">one seam, and it is the only shared-code change in the slice</span>
+      <p class="law__t">
+        <b><code>InspectorRail</code> takes its header as a prop instead of as its first child.</b>
+      </p>
+      <p class="law__n">
+        Today both inspectors render <code>&lt;InspectorRail&gt;&lt;InspectorHeader label pill
+        onClose /&gt;…&lt;/InspectorRail&gt;</code>. On a phone those three things are exactly what
+        <code>ui/Sheet</code>’s own header carries — and <code>components.md</code> §5 already
+        anticipates it in writing: <em>“<code>title</code> (a node: the inspector puts a
+        <code>MicroLabel</code> and a <code>Pill</code> there)”</em>. So the rail branches on
+        <code>useIsMobile()</code> <b>inside itself</b> and returns a <code>Sheet</code>, and
+        <b>both inspectors get a phone form without either file deciding anything</b>. That is the
+        <code>ui/Drawer</code> move for the fourth time in this wave, and the fourth time it is the
+        cheapest thing in the phase.
+      </p>
+    </div>
+
+    <p class="spec__cap" style="padding-top: 2px">
+      <b>live specimen</b> — tap any box on the canvas. then drag the canvas <em>while the sheet is open</em>
+    </p>
+
+    <div class="phones">
+      <div class="phone">
+        <div class="phone__frame" id="ph4">
+          <div class="m-hd">
+            <span class="m-hd__ti"><span class="m-hd__ic">◆</span><span class="m-hd__nm">Sommarfesten 2026</span></span>
+            <span class="m-hd__av"></span>
+          </div>
+          <div class="m-bd">
+            <div class="m-swr">
+              <span class="m-back">‹</span>
+              <span class="m-sw"><span class="m-sw__t">Audio Inputs</span><span style="color:#a1a1aa">⌄</span></span>
+            </div>
+
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar">
+                <span class="m-pan__ti" style="display:flex;align-items:center;gap:6px">Audio Inputs <span class="m-info">i</span></span>
+                <span class="m-seg"><span>Sheet</span><span class="on">Flow</span></span>
+                <span class="m-pan__ic">🔍</span>
+                <span class="m-pan__ic">⋯</span>
+              </div>
+              <div class="m-pan__bar2">
+                <span class="m-zoom">
+                  <button data-z="out">−</button>
+                  <button class="m-zoom__v" data-z="fit"><b id="z4">100%</b><s>fit</s></button>
+                  <button data-z="in">＋</button>
+                </span>
+              </div>
+
+              <div class="m-vp" data-vp>
+                <div class="m-vp__box" data-box>
+                  <div class="m-vp__c" data-c></div>
+                </div>
+                <span class="m-vp__hint">tap a box</span>
+              </div>
+
+              <div class="m-strip">
+                <span style="color:#fbbf24">●</span>
+                <span>3 gaps</span>
+                <span class="mono">16 ch</span>
+                <span class="mono" style="color:#71717a">SD10 · 1 SB</span>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <span class="m-nav__i on"><span class="m-nav__g">▤</span>Events</span>
+            <span class="m-nav__i"><span class="m-nav__g">▦</span>Inventory</span>
+            <span class="m-nav__i"><span class="m-nav__g">◇</span>Gear</span>
+            <span class="m-nav__i"><span class="m-nav__g">⋯</span>More</span>
+          </div>
+
+          <!-- the un-scrimmed inspector -->
+          <div class="m-sheet m-sheet--noscrim" data-insp hidden>
+            <div class="m-sheet__p" style="pointer-events:auto">
+              <div class="m-sheet__hd">
+                <div style="min-width:0">
+                  <div class="m-sheet__ti" style="display:flex;align-items:center;gap:8px">
+                    <span style="font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#a1a1aa;font-weight:500" data-i-kind>Source</span>
+                    <span style="font-size:11px;border:1px solid rgba(52,211,153,.5);color:#6ee7b7;border-radius:4px;padding:1px 7px;background:rgba(52,211,153,.1)" data-i-pill>mic</span>
+                  </div>
+                </div>
+                <span class="m-sheet__x" data-i-close>✕</span>
+              </div>
+              <div class="m-sheet__bd">
+                <input class="m-fldi" style="height:40px;font-weight:600" data-i-name value="Kick In" />
+                <div class="m-insp"><span style="font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#a1a1aa">Kind</span><span class="m-fldi" style="display:flex;align-items:center">Mic</span></div>
+                <div class="m-insp"><span style="font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#a1a1aa">Mic</span><span class="m-fldi" style="display:flex;align-items:center">Beta 91A</span></div>
+                <div class="m-insp"><span style="font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#a1a1aa">Stand</span><span class="m-fldi" style="display:flex;align-items:center;border-color:#f59e0b">Short boom</span></div>
+                <div class="m-insp"><span style="font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#a1a1aa">48 V</span><span style="display:flex;align-items:center;gap:8px;font-size:12px;color:#a1a1aa"><span style="width:9px;height:3px;border-radius:2px;background:#ef4444;display:inline-block"></span>on</span></div>
+                <div style="display:flex;flex-direction:column;gap:4px;border:1px solid #27272a;border-radius:5px;background:rgba(9,9,11,.6);padding:8px 9px">
+                  <span style="font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#a1a1aa">Reaches</span>
+                  <span style="font-family:var(--mono);font-size:12px;color:#f472b6" data-i-reach>ch 1 Kick In</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <span class="phone__cap"><b>the inspector, un-scrimmed.</b> no footer, no Save — the rail commits per field, at every width</span>
+      </div>
+
+      <div class="phone" style="width: 375px">
+        <div class="led" style="border-top: 0">
+          <div class="led__row">
+            <span class="led__k">Selectable</span>
+            <span class="led__v">A <b>node</b> and a <b>source-rail row</b> — the label, never the 7 px dot (§7f). Both already have <code>onSelect</code>; the ports simply get no handlers, which also removes the gesture that would fight the pan</span>
+          </div>
+          <div class="led__row">
+            <span class="led__k">Tap vs pan</span>
+            <span class="led__v">The 3 px threshold Slice 35 already added to <code>StagePlotCanvas</code>, for exactly this defect: a thumb on a box panned the plot only from empty floor, so a box that cannot be dragged now enters the same <em>maybe-pan</em> state and the threshold decides which it was</span>
+          </div>
+          <div class="led__row">
+            <span class="led__k">Under the sheet</span>
+            <span class="led__v">The sheet covers the bottom of the window, so selecting scrolls the selected box into the part still visible — the same <code>scrollIntoView</code> call §03 uses</span>
+          </div>
+          <div class="led__row">
+            <span class="led__k">Reading role</span>
+            <span class="led__v">A viewer taps and reads (P9, and <code>audit.md</code> M4’s sharper half). The rail already takes <code>readOnly</code> and disables its fields; nothing new</span>
+          </div>
+          <div class="led__row">
+            <span class="led__k">Duplicate · Delete</span>
+            <span class="led__v">A source’s two destructive controls move to the <b>foot of the body</b>, left-aligned, ghost + <code>red-400</code> — §7d, which is where they already sit in the rail. The <code>window.confirm</code> behind Delete stays for now and is listed in §06</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 05 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">05 · what is withheld</span>
+      <h2>One gesture, one sentence, and it does not vary with role</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        §7g names exactly one desk job — <strong>direct manipulation of a spatial artifact</strong>
+        — and on this canvas that is <em>dragging a cable from one port to another</em>, plus
+        moving a box to a new position. Everything an element <em>is</em> stays editable: which mic
+        is on that source, which stand it is on, whether 48 V is up. <em>“The same flow canvas that
+        will not let you patch will let you change what is on the end of the cable that is already
+        there.”</em>
+      </p>
+      <p>
+        <strong>Withholding is done by wiring, not by a check.</strong> The canvas is handed no
+        <code>onPortPointerDown</code>, no <code>onDragStart</code> and no
+        <code>onPortClick</code> — the stage plot’s exact move — which is also what leaves the
+        platform’s pan gesture unobstructed. <code>!isMobile</code> never appears in a permission
+        expression, and the reason is in the sentence where someone can read it.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame" style="max-width: 375px; border-radius: 12px">
+        <div style="font-family: Inter, system-ui, sans-serif; font-size: 14px; color: #f4f4f5">
+          <div class="m-said">
+            <span class="m-said__i">ⓘ</span>
+            <span class="m-said__t">
+              <b>Patching is a desk job</b> — open this event on a computer. Tap any box to read or
+              edit what it is.
+            </span>
+          </div>
+        </div>
+      </div>
+      <span class="spec__cap"><b>open by default, once.</b> closing leaves the <code>i</code> in the title’s line, and the choice is remembered per note — <code>ui/InfoNote</code>, 6c</span>
+    </div>
+
+    <div class="prose">
+      <p>
+        Two words differ from the stage plot’s and both are load-bearing.
+        <strong>“this event”, not “this plot”</strong>, because the graph belongs to the event and
+        both audio tabs share the rig. And <strong>“any box”</strong> rather than “anything on it”,
+        because on this canvas the ports are drawn and are not targets — telling someone to tap
+        anything would be an invitation to press a 7 px dot.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ 06 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">06 · the seams, and what this slice must not do</span>
+      <h2>Two views, one frame; and the desktop is not coming with it</h2>
+    </div>
+
+    <table class="tbl">
+      <thead><tr><th>Where</th><th>Change</th><th>Why it is safe</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b><code>graph/InspectorRail</code></b></td>
+          <td>Header becomes a prop; branches on <code>useIsMobile()</code> and returns <code>Sheet scrim={false}</code> on a phone</td>
+          <td>The desktop return must be <b>byte-identical</b>, asserted by rendering every state of both inspectors before and after and diffing the markup — 6b’s method, which catches element order and <code>twMerge</code> comparison does not</td>
+        </tr>
+        <tr>
+          <td><b><code>graph/ZoomControl</code></b></td>
+          <td><b>None.</b> The phone is a third caller of the <code>onZoomIn</code>/<code>onZoomOut</code>/<code>onReset</code> props Wave 2 added</td>
+          <td>Asserted by <code>git diff</code> on the file being empty</td>
+        </tr>
+        <tr>
+          <td><b><code>graph/PortDot</code> · <code>NodeShell</code> · <code>PortRow</code> · <code>LaneBands</code></b></td>
+          <td><b>None.</b> Nothing on the canvas is re-sized for the phone (§7f)</td>
+          <td>Same assertion. This is the wave’s standing rule: a canvas value that changes for the phone is a canvas value with two definitions</td>
+        </tr>
+        <tr>
+          <td><b>The two canvases</b></td>
+          <td>The wrapper’s <code>height: CANVAS_HEIGHT</code> becomes a filled flex item on the phone; <code>readOnly</code> already withholds most handlers and the rest follow it</td>
+          <td>The <b>logical</b> height stays 640 — that is where nodes are placed. Only the box the window looks through changes, and the desktop keeps its fixed 640</td>
+        </tr>
+        <tr>
+          <td><b>The two tabs’ phone branches</b></td>
+          <td>One <code>MobilePanel</code>, two views. The bar, the strip and the overflow are built once and the <code>children</code> are either the rows or the canvas</td>
+          <td>Two panels would remount the bar on every toggle and give the search row two homes. One frame is also what makes the toggle mean <em>what you are looking at</em> rather than <em>where you are</em></td>
+        </tr>
+        <tr>
+          <td><b>Backend</b></td>
+          <td><b>None.</b> No endpoint, no migration, no Go file</td>
+          <td>Asserted, not assumed — the same claim 6a, 6b and 6c each made and each verified</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="prose" style="padding-top: 4px">
+      <p>
+        <strong>One thing this slice finds and does not fix.</strong> The Flow inspector’s Delete
+        still goes through <code>window.confirm</code>. Slice 32 removed the application’s only
+        <code>window.prompt</code> on the argument that a browser primitive is not this language;
+        the same argument applies here and applies harder on a phone. It is <b>not</b> in this
+        slice, because it is a desktop-visible change to a destructive path and 6d is a phone
+        phase — recorded in <code>ROADMAP.md</code>’s known-defects list instead, which is where
+        D1 already sits.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ 07 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">07 · what needs an answer before the spec is written</span>
+      <h2>Four questions</h2>
+    </div>
+
+    <div class="ask">
+      <h3>1 · Does the opening state answer §01?</h3>
+      <p>
+        <b>The proposal: open at fit, reset to fit, and let 100 % be somewhere you go rather than
+        where you land.</b> This is the field-test question the audit deferred to this phase — open
+        this page on the phone you would carry to a load-in, drag the first specimen, and say
+        whether the whole graph at 42 % is worth having or is just small.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>2 · Is the ＋ right to be absent in Flow?</h3>
+      <p>
+        The argument is that a channel added where it cannot be cabled is a channel that reaches
+        nothing. The counter-argument is that you are standing next to the source you just found
+        and the Sheet view is a tap away, so absence costs one tap and buys the zoom control its
+        row. <b>If you would rather keep it</b>, the zoom moves next to it and row 2 is the search
+        alone.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>3 · Should the Outputs canvas ship in the same slice?</h3>
+      <p>
+        Everything above is drawn for Audio Inputs. The Outputs canvas is the same component
+        family, the same rail and the same shell — <b>the proposal is both, together</b>, because
+        the one thing Wave 6 has learned four times is that a phone branch built at one call site
+        and copied to the second is how two of them end up different. It is perhaps 15 % more work
+        and it is the difference between one implementation and two.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>4 · Is the search behaviour worth putting on the desktop too?</h3>
+      <p>
+        §03’s <code>scrollIntoView</code> is not phone-specific — a 60-channel graph scrolls on a
+        1180 px panel as well, and today the desktop’s search dims a match it may have left off
+        screen. <b>The proposal is to make it unconditional</b>, which is a real (small) desktop
+        behaviour change in a phone phase, so it is asked rather than assumed. The alternative is
+        to guard it on <code>isMobile</code>, which would be the first time this wave put a reach
+        check on something that is not a composition.
+      </p>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function () {
+  // ---- the graph, once. 820 x 640 logical, the desktop's own coordinates ----
+  var CH = [
+    ['1','Kick In','#f472b6'], ['2','Snare Top','#f472b6'], ['3','Hat','#a78bfa'],
+    ['4','Tom 1','#a78bfa'], ['5','OH L','#38bdf8'], ['6','OH R','#38bdf8'],
+    ['7','Bass DI','#34d399'], ['8','Gtr L','#fbbf24'], ['9','Gtr R','#fbbf24'],
+    ['10','Keys L','#fb923c'], ['11','Keys R','#fb923c'], ['12','Vox Lead',''],
+    ['13','Vox 2',''], ['14','Talkback',''], ['15','Amb L',''], ['16','Amb R','']
+  ];
+  var SRC = [
+    ['Kick In','Beta 91A','#f472b6',1], ['Snare Top','e906','#f472b6',1],
+    ['Hat','KM184','#a78bfa',1], ['Tom 1','e904','#a78bfa',1],
+    ['OH L/R','KM184','#38bdf8',2], ['Bass DI','DI-box','#34d399',0],
+    ['Gtr L','SM57','#fbbf24',1], ['Gtr R','SM57','#fbbf24',1],
+    ['Keys','xlr','#fb923c',2], ['Vox Lead','SM58','',1],
+    ['Vox 2','SM58','',1], ['Talkback','xlr','',0]
+  ];
+
+  function el(tag, cls, css) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (css) n.setAttribute('style', css);
+    return n;
+  }
+
+  function buildGraph() {
+    var f = document.createDocumentFragment();
+
+    // lane bands — drawn in canvas space, exactly as LaneBands does
+    [[0, 248, 'Stage'], [264, 332, 'Rig'], [596, 224, 'Console']].forEach(function (l) {
+      var b = el('div', 'g-lane', 'left:' + l[0] + 'px;width:' + l[1] + 'px');
+      var t = document.createElement('b'); t.textContent = l[2]; b.appendChild(t);
+      f.appendChild(b);
+    });
+
+    // cables, behind everything
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', 820); svg.setAttribute('height', 640);
+    svg.setAttribute('style', 'position:absolute;inset:0;pointer-events:none');
+    var y = 0;
+    SRC.forEach(function (s, i) {
+      var sy = 44 + y * 20 + 10, ty = 68 + i * 18 + 9;
+      y += s[3] || 1;
+      var p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      p.setAttribute('d', 'M 220 ' + sy + ' C 320 ' + sy + ', 480 ' + ty + ', 596 ' + ty);
+      p.setAttribute('fill', 'none');
+      p.setAttribute('stroke', s[2] || '#71717a');
+      p.setAttribute('stroke-width', '1.5');
+      if (!s[2]) p.setAttribute('stroke-dasharray', '4 3');
+      svg.appendChild(p);
+    });
+    f.appendChild(svg);
+
+    // the sources rail — already in canvas space on the desktop, so it needs
+    // no phone decision at all: it pans and zooms with everything else
+    var rail = el('div', 'srail', 'left:24px;top:24px;width:200px');
+    var rh = el('div', 'srail__hd');
+    rh.innerHTML = '<b>Sources</b><span>' + SRC.length + '</span>';
+    rail.appendChild(rh);
+    SRC.forEach(function (s) {
+      var r = el('div', 'srow', 'height:' + (20 * (s[3] || 1)) + 'px');
+      r.dataset.hit = (s[0] + ' ' + s[1]).toLowerCase();
+      r.dataset.pick = 'Source|' + s[0] + '|' + s[1] + '|' + (s[2] || '');
+      r.innerHTML =
+        '<span class="srow__tape" style="background:' + (s[2] || '#3f3f46') + '"></span>' +
+        '<span class="srow__nm">' + s[0] + '</span>' +
+        '<span class="srow__md">' + s[1] + '</span>' +
+        '<span class="port' + (s[2] ? ' port--c' : '') + '" style="--c:' + (s[2] || '#71717a') + ';margin-right:6px"></span>';
+      rail.appendChild(r);
+    });
+    f.appendChild(rail);
+
+    // the stagebox, free in the rig lane
+    var sb = el('div', 'node', 'left:330px;top:150px;width:200px');
+    sb.dataset.hit = 'sb1 stagebox dl32';
+    sb.dataset.pick = 'Stagebox|SB1|DL32 · 32 in|';
+    var sbb = '<div class="node__hd">SB1<span class="node__bdg">SB</span></div><div class="node__body">';
+    for (var i = 0; i < 8; i++) {
+      var c = SRC[i] && SRC[i][2];
+      sbb += '<div class="prow"><span class="port' + (c ? ' port--c' : '') + '" style="--c:' + (c || '#71717a') + '"></span>' +
+             '<span style="flex:1">' + (i + 1) + '</span>' +
+             '<span class="port' + (c ? ' port--c' : '') + '" style="--c:' + (c || '#71717a') + '"></span></div>';
+    }
+    sb.innerHTML = sbb + '</div><div class="node__ft">32 in · 16 out</div>';
+    f.appendChild(sb);
+
+    // the desk
+    var desk = el('div', 'node', 'left:596px;top:24px;width:200px;border-color:rgba(245,158,11,.55)');
+    desk.dataset.hit = 'sd10 desk console';
+    desk.dataset.pick = 'Desk|SD10|16 / 96 in|';
+    var db = '<div class="node__hd">SD10<span class="node__bdg">DESK</span></div><div class="node__body">';
+    CH.forEach(function (ch) {
+      db += '<div class="prow" data-ch="' + (ch[0] + ' ' + ch[1]).toLowerCase() + '">' +
+            '<span class="port' + (ch[2] ? ' port--c' : '') + '" style="--c:' + (ch[2] || '#71717a') + '"></span>' +
+            '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + ch[0] + ' ' + ch[1] + '</span></div>';
+    });
+    desk.innerHTML = db + '</div><div class="node__ft">16 / 96 in · local 8</div>';
+    f.appendChild(desk);
+
+    return f;
+  }
+
+  var W = 820, H = 640;
+
+  document.querySelectorAll('[data-vp]').forEach(function (vp, idx) {
+    var box = vp.querySelector('[data-box]');
+    var c = vp.querySelector('[data-c]');
+    var frame = vp.closest('.phone__frame');
+    var readout = frame.querySelector('.m-zoom__v b');
+    var q = frame.querySelector('[data-q]');
+    var insp = frame.querySelector('[data-insp]');
+
+    c.style.width = W + 'px';
+    c.style.height = H + 'px';
+    c.appendChild(buildGraph());
+
+    var z = 1, fit = 0.42;
+
+    function measureFit() {
+      var w = vp.clientWidth, h = vp.clientHeight;
+      if (!w || !h) return;
+      fit = Math.min(w / W, h / H);
+      fit = Math.min(1, Math.floor(fit * 100) / 100);
+    }
+
+    function apply(next, focal) {
+      var before = { x: vp.scrollLeft, y: vp.scrollTop };
+      var fx = focal ? focal.x : vp.clientWidth / 2;
+      var fy = focal ? focal.y : vp.clientHeight / 2;
+      var lx = (before.x + fx) / z, ly = (before.y + fy) / z;
+      z = Math.max(fit, Math.min(1, next));
+      c.style.transform = 'scale(' + z + ')';
+      box.style.width = (W * z) + 'px';
+      box.style.height = (H * z) + 'px';
+      vp.scrollLeft = lx * z - fx;
+      vp.scrollTop = ly * z - fy;
+      if (readout) readout.textContent = Math.round(z * 100) + '%';
+    }
+
+    function centre() {
+      vp.scrollLeft = (W * z - vp.clientWidth) / 2;
+      vp.scrollTop = 0;
+    }
+
+    // --- zoom controls: three 44 px targets, the middle one resets to FIT ---
+    frame.querySelectorAll('[data-z]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var k = b.dataset.z;
+        if (k === 'fit') { apply(fit); centre(); }
+        else apply(k === 'in' ? z * 1.4 : z / 1.4);
+      });
+    });
+
+    // --- pinch, about the midpoint of the two fingers ---
+    var pts = new Map(), base = null;
+    vp.addEventListener('pointerdown', function (e) { pts.set(e.pointerId, e); });
+    vp.addEventListener('pointermove', function (e) {
+      if (!pts.has(e.pointerId)) return;
+      pts.set(e.pointerId, e);
+      if (pts.size !== 2) return;
+      var a = Array.from(pts.values());
+      var d = Math.hypot(a[0].clientX - a[1].clientX, a[0].clientY - a[1].clientY);
+      var r = vp.getBoundingClientRect();
+      var mid = { x: (a[0].clientX + a[1].clientX) / 2 - r.left, y: (a[0].clientY + a[1].clientY) / 2 - r.top };
+      if (!base) { base = { d: d, z: z }; return; }
+      e.preventDefault();
+      apply(base.z * (d / base.d), mid);
+    }, { passive: false });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (t) {
+      vp.addEventListener(t, function (e) { pts.delete(e.pointerId); if (pts.size < 2) base = null; });
+    });
+
+    // --- tap vs pan: the 3 px threshold Slice 35 already uses ---
+    var down = null;
+    vp.addEventListener('pointerdown', function (e) { down = { x: e.clientX, y: e.clientY, t: e.target }; });
+    vp.addEventListener('pointerup', function (e) {
+      if (!down) return;
+      var moved = Math.hypot(e.clientX - down.x, e.clientY - down.y) > 3;
+      var hit = down.t.closest && down.t.closest('[data-pick]');
+      down = null;
+      if (moved || !hit || !insp) return;
+      var p = hit.dataset.pick.split('|');
+      insp.hidden = false;
+      insp.querySelector('[data-i-kind]').textContent = p[0];
+      insp.querySelector('[data-i-name]').value = p[1];
+      insp.querySelector('[data-i-pill]').textContent = p[0] === 'Source' ? 'mic' : p[0].toLowerCase();
+      var reach = insp.querySelector('[data-i-reach]');
+      reach.textContent = p[0] === 'Source' ? ('reaches ' + p[2]) : p[2];
+      reach.style.color = p[3] || '#a1a1aa';
+      c.querySelectorAll('.node--sel, .srow--sel').forEach(function (n) { n.classList.remove('node--sel', 'srow--sel'); });
+      hit.classList.add(hit.classList.contains('srow') ? 'srow--sel' : 'node--sel');
+      hit.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
+    if (insp) insp.querySelector('[data-i-close]').addEventListener('click', function () { insp.hidden = true; });
+
+    // --- search dims, and moves the window to the first match ---
+    if (q) {
+      q.addEventListener('input', function () {
+        var t = q.value.trim().toLowerCase();
+        var first = null;
+        c.querySelectorAll('[data-hit], [data-ch]').forEach(function (n) {
+          var hay = n.dataset.hit || n.dataset.ch || '';
+          var on = !t || hay.indexOf(t) !== -1;
+          n.classList.toggle('g-dim', !!t && !on);
+          if (t && on && !first) first = n;
+        });
+        if (first) first.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      });
+    }
+
+    // --- open where the section says it opens ---
+    requestAnimationFrame(function () {
+      measureFit();
+      if (idx === 0) { apply(fit); centre(); }
+      else { apply(1); vp.scrollLeft = 0; vp.scrollTop = 0; }
+    });
+  });
+
+  // the view toggle is a specimen, not a mock of state: show it responds
+  document.querySelectorAll('[data-view] span').forEach(function (s) {
+    s.addEventListener('click', function () {
+      s.parentElement.querySelectorAll('span').forEach(function (o) { o.classList.remove('on'); });
+      s.classList.add('on');
+    });
+  });
+})();
+</script>
