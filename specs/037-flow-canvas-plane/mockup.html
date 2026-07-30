@@ -1,0 +1,1172 @@
+<!--
+  PatchPlanner — Slice 37: the flow canvas as a plane.
+  Redesign mockup, revision 1. For approval before the spec is written.
+
+  Reported from field use: "on desktop I place the nodes where I want them but
+  on mobile the rig (middle) section is tighter and the nodes bunch together and
+  overlap." Investigated against a COPY of the database — never the original.
+
+  The cause is not tightness. Both flow canvases derive their coordinate space
+  from the browser window (canvasWidth = panelWidth / zoom, pinned to 820 on a
+  phone by Slice 36), and the middle lane is whatever is left between two rails
+  that are pinned to that space's edges. On a phone that lane is 92 px wide for
+  nodes that are 200 px wide, so every node in it is clamped onto one pixel.
+
+  The same flaw has been writing window widths into the position columns for as
+  long as the canvases have existed. Four of them are in event 1 today.
+
+  The user has already chosen, before this document: the stage plot's model
+  (absolute plane, pan + zoom, rails unpinned) for both canvases, and a view
+  that is remembered per event rather than fitted on open. This mockup exists to
+  show the evidence, draw the consequence, and settle the four things those two
+  decisions do not.
+
+  The specimen in §05 is LIVE. Drag it.
+
+  The file is an HTML *fragment*: the Artifact publisher wraps it in
+  doctype/head/body, so there are deliberately no <html>, <head> or <body> tags.
+
+  Specimen CSS is shared with specs/036-phone-canvas/mockup.html, which shares it
+  with 035/034/033/032/030/029/028, which lifted it from
+  design/design-language.html. Everything below the ADDITIONS FOR SLICE 37 block
+  is new here.
+-->
+
+<title>Slice 37 · the flow canvas as a plane</title>
+<style>
+     DOCUMENT CHROME — theme-aware, tokens only.
+     ================================================================== */
+  :root {
+    --ground: #f2f2f4;
+    --raised: #ffffff;
+    --sunken: #e8e8ec;
+    --rule: #d7d7de;
+    --rule-soft: #e4e4ea;
+    --ink: #16171b;
+    --ink-2: #43444d;
+    --muted: #6c6d78;
+    --faint: #90919c;
+    --amber: #b45309;
+    --keep: #0e7490;
+    --drop: #9f1239;
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --measure: 68ch;
+    --wrap: 1180px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0a0b0d; --raised: #14151a; --sunken: #101014;
+      --rule: #26272e; --rule-soft: #1d1e24;
+      --ink: #f2f2f4; --ink-2: #b6b7c0; --muted: #8b8c96; --faint: #62636d;
+      --amber: #f59e0b; --keep: #22d3ee; --drop: #fb7185;
+    }
+  }
+
+  :root[data-theme="light"] {
+    --ground: #f2f2f4; --raised: #ffffff; --sunken: #e8e8ec;
+    --rule: #d7d7de; --rule-soft: #e4e4ea;
+    --ink: #16171b; --ink-2: #43444d; --muted: #6c6d78; --faint: #90919c;
+    --amber: #b45309; --keep: #0e7490; --drop: #9f1239;
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0a0b0d; --raised: #14151a; --sunken: #101014;
+    --rule: #26272e; --rule-soft: #1d1e24;
+    --ink: #f2f2f4; --ink-2: #b6b7c0; --muted: #8b8c96; --faint: #62636d;
+    --amber: #f59e0b; --keep: #22d3ee; --drop: #fb7185;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px 110px; }
+
+  h1, h2, h3 { margin: 0; font-family: var(--mono); font-weight: 500; }
+  h1 {
+    font-size: clamp(28px, 4.4vw, 46px);
+    line-height: 1.04; letter-spacing: -0.035em; text-wrap: balance;
+  }
+  h2 { font-size: clamp(19px, 2.3vw, 25px); letter-spacing: -0.02em; text-wrap: balance; }
+  h3 { font-size: 14px; letter-spacing: 0.02em; color: var(--ink-2); }
+
+  p { margin: 0; max-width: var(--measure); }
+  a { color: inherit; }
+
+  .head {
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 68px 0 30px; border-bottom: 1px solid var(--rule);
+  }
+  .head__eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--amber);
+  }
+  .head__lede { font-size: 18px; color: var(--ink-2); line-height: 1.5; }
+
+  section { display: flex; flex-direction: column; gap: 22px; padding: 56px 0 0; }
+  .sec__no {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  .sec__hd { display: flex; flex-direction: column; gap: 8px; }
+  .prose { display: flex; flex-direction: column; gap: 13px; color: var(--ink-2); font-size: 15.5px; }
+  .prose strong { color: var(--ink); font-weight: 600; }
+  .prose code, .k {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  .spec { display: flex; flex-direction: column; gap: 9px; }
+  .spec__frame {
+    overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px;
+    background: #09090b; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  }
+  .spec__cap {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-left: 2px;
+  }
+  .spec__cap b { color: var(--ink-2); font-weight: 500; }
+
+  .led { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .led__row {
+    display: grid; grid-template-columns: 148px minmax(0, 1fr);
+    gap: 18px; padding: 15px 2px; border-bottom: 1px solid var(--rule-soft);
+    align-items: start;
+  }
+  .led__k {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-top: 3px;
+  }
+  .led__v { font-size: 15px; color: var(--ink-2); line-height: 1.5; }
+  .led__v b { color: var(--ink); font-weight: 600; }
+  .led__v em { font-style: normal; color: var(--faint); }
+  .led__v code, .led__v .k {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  .tag {
+    display: inline-block; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase; padding: 1px 6px;
+    border-radius: 4px; vertical-align: 2px; margin-left: 7px;
+  }
+  .tag--keep { color: var(--keep); border: 1px solid currentColor; }
+  .tag--drop { color: var(--drop); border: 1px solid currentColor; }
+  .tag--new { color: var(--amber); border: 1px solid currentColor; }
+
+  .ask {
+    border: 1px solid var(--rule); border-left: 3px solid var(--amber);
+    border-radius: 0 8px 8px 0; padding: 16px 18px; background: var(--raised);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .ask h3 { color: var(--ink); }
+  .ask p { font-size: 15px; color: var(--ink-2); max-width: none; }
+
+  .tbl { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  .tbl th {
+    text-align: left; font-family: var(--mono); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint);
+    padding: 8px 12px 8px 2px; border-bottom: 1px solid var(--rule);
+  }
+  .tbl td {
+    padding: 11px 12px 11px 2px; border-bottom: 1px solid var(--rule-soft);
+    color: var(--ink-2); vertical-align: top;
+  }
+  .tbl td b { color: var(--ink); font-weight: 600; }
+  .tbl td .k { white-space: nowrap; }
+  .tbl td em { font-style: normal; color: var(--faint); }
+
+  @media (max-width: 720px) {
+    .led__row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  }
+
+  /* ==================================================================
+     SPECIMENS — the app's own faces and values.
+     ================================================================== */
+  .app {
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px; line-height: 1.45;
+    color: #f4f4f5; background: #09090b;
+    padding: 16px; min-width: 1040px;
+  }
+  .app--tight { padding: 16px; min-width: 0; }
+  .app *, .app *::before, .app *::after { box-sizing: border-box; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 28px; padding: 0 10px; border: 1px solid transparent; border-radius: 6px;
+    font-size: 12px; font-weight: 500; white-space: nowrap; font-family: inherit;
+  }
+  .btn--primary { background: #f59e0b; border-color: #f59e0b; color: #09090b; }
+  .btn--outline { background: #18181b; border-color: #3f3f46; color: #f4f4f5; }
+  .btn--ghost { background: transparent; color: #f4f4f5; }
+  .btn--sm { height: 24px; padding: 0 8px; font-size: 11px; }
+  .btn--md { height: 40px; padding: 0 16px; font-size: 14px; }
+  .btn--danger-ghost { background: transparent; color: #f87171; }
+  .seg { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; }
+
+  .fld {
+    height: 32px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b;
+    display: inline-flex; align-items: center; padding: 0 8px;
+    font-size: 12px; color: #e4e4e7; min-width: 0;
+  }
+  .fld--md { height: 40px; font-size: 14px; padding: 0 12px; }
+  .fld--ph { color: #71717a; }
+  .fld--sel::after { content: "▾"; margin-left: auto; padding-left: 8px; color: #71717a; font-size: 10px; }
+  .fld--foc { border-color: #f59e0b; }
+
+  .lbl {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #71717a; font-weight: 500;
+  }
+  .lbl--nav { font-family: inherit; font-size: 14px; letter-spacing: 0; text-transform: none; color: #d4d4d8; font-weight: 400; }
+
+  .pill {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 1px 6px; font-size: 10px; font-weight: 500; white-space: nowrap;
+  }
+  .t-drum { background: rgba(56, 189, 248, 0.15); color: #7dd3fc; }
+  .t-ok   { background: rgba(52, 211, 153, 0.15); color: #6ee7b7; }
+  .t-warn { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
+  .t-err  { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+  .t-def  { background: #3f3f46; color: #f4f4f5; }
+  .t-sky  { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .p48 { display: inline-block; width: 8px; height: 3px; border-radius: 2px; background: #ef4444; box-shadow: 0 0 5px rgba(239, 68, 68, 0.65); vertical-align: 2px; }
+  .tape { display: inline-block; width: 3px; height: 14px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+
+  .badge {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 2px 10px; font-size: 12px; font-weight: 500; white-space: nowrap;
+  }
+
+  /* the desktop drawer, for the side-by-side in §06 */
+  .dstack { position: relative; min-height: 400px; overflow: hidden; }
+  .scrim { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.7); }
+  .sd {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 420px;
+    background: #18181b; border-left: 1px solid #3f3f46;
+    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.5);
+    display: flex; flex-direction: column;
+  }
+  .sd__hd { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 14px 20px; border-bottom: 1px solid #27272a; }
+  .sd__ti { font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .sd__sub { font-size: 12px; color: #71717a; margin-top: 2px; }
+  .sd__x { color: #a1a1aa; font-size: 15px; line-height: 1.2; }
+  .sd__body { padding: 16px 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+  .sd__ft { margin-top: auto; padding: 12px 20px; border-top: 1px solid #27272a; font-size: 12px; color: #71717a; }
+  .sd__ft b { color: #a1a1aa; font-weight: 500; }
+  .dsec { display: flex; flex-direction: column; gap: 6px; }
+  .dsec__hd { display: flex; align-items: center; gap: 8px; }
+  .dsec__ct { font-family: var(--mono); font-size: 10px; color: #52525b; }
+  .gear {
+    border: 1px solid #27272a; border-radius: 6px; background: #18181b;
+    padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .gear__top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+  .gear__nm { font-size: 14px; font-weight: 500; color: #f4f4f5; }
+  .gear__ac { margin-left: auto; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; color: #a1a1aa; }
+  .gear__sp { display: flex; flex-wrap: wrap; gap: 2px 12px; font-family: var(--mono); font-size: 10px; color: #71717a; }
+  .gear__sp b { color: #d4d4d8; font-weight: 400; }
+  .insp__box { border: 1px solid #27272a; border-radius: 5px; background: rgba(9, 9, 11, 0.6); padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+  .insp__lg { display: flex; align-items: center; gap: 8px; font-size: 10px; color: #a1a1aa; }
+
+  /* ==================================================================
+     THE PHONE — lifted verbatim from design/design-language.html §8.
+     True 375 px width, 14 px base, 44 px targets.
+     ================================================================== */
+  .phones { display: flex; flex-wrap: wrap; gap: 22px; }
+  .phone { display: flex; flex-direction: column; gap: 9px; width: 375px; }
+  .phone__frame {
+    width: 375px; height: 690px; flex: none;
+    border: 1px solid #3f3f46; border-radius: 22px; background: #09090b;
+    overflow: hidden; position: relative;
+    display: flex; flex-direction: column;
+    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    font-size: 14px; line-height: 1.45; color: #f4f4f5;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  }
+  .phone__frame * { box-sizing: border-box; }
+  .phone__cap { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .phone__cap b { color: var(--ink-2); font-weight: 500; }
+  .phone__cap--bad b { color: var(--drop); }
+
+  .m-hd { display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 56px; padding: 0 16px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-hd__ti { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; min-width: 0; }
+  .m-hd__ic { width: 26px; height: 26px; border-radius: 6px; background: rgba(245, 158, 11, 0.15); color: #fbbf24; display: grid; place-items: center; flex: none; font-size: 13px; }
+  .m-hd__av { width: 28px; height: 28px; border-radius: 999px; background: #27272a; flex: none; }
+  .m-bd { flex: 1; overflow: hidden; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .m-nav { display: flex; height: 56px; border-top: 1px solid #27272a; background: #09090b; flex: none; }
+  .m-nav__i { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; color: #a1a1aa; }
+  .m-nav__i.on { color: #fbbf24; }
+  .m-nav__g { font-size: 18px; line-height: 1; }
+
+  .m-pan { border: 1px solid #3f3f46; border-radius: 12px; background: rgba(9, 9, 11, 0.4); overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+  .m-pan--fill { flex: 1; }
+  .m-pan__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-pan__ti { font-size: 14px; font-weight: 600; color: #f4f4f5; margin-right: auto; }
+  .m-pan__ic { width: 36px; height: 36px; border-radius: 6px; border: 1px solid #3f3f46; background: #18181b; display: grid; place-items: center; color: #a1a1aa; font-size: 14px; flex: none; }
+  .m-pan__ic--pri { background: #f59e0b; border-color: #f59e0b; color: #09090b; font-size: 17px; }
+  .m-pan__rows { flex: 1; min-height: 0; overflow: hidden; }
+
+  .m-row { display: flex; align-items: stretch; min-height: 44px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-row__e { width: 3px; flex: none; }
+  .m-row__c { flex: 1; min-width: 0; padding: 5px 12px; display: flex; flex-direction: column; justify-content: center; }
+  .m-row__t { font-size: 14px; font-weight: 500; line-height: 1.3; color: #f4f4f5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-row__s { font-size: 12px; line-height: 1.3; color: #a1a1aa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-row__n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #fbbf24; margin-right: 7px; }
+
+  .m-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 12px; padding: 10px 12px; border-top: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); font-size: 12px; color: #a1a1aa; flex: none; }
+  .m-strip .mono { color: #e4e4e7; }
+
+  .m-sw { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 44px; padding: 0 12px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; flex: none; }
+  .m-sw__t { font-size: 14px; font-weight: 600; }
+  .m-sw--old { border-color: rgba(245, 158, 11, 0.6); }
+
+  /* -- ui/Sheet, the phone's sibling of the drawer -- */
+  .m-sheet { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.8); display: flex; align-items: flex-end; }
+  .m-sheet--noscrim { background: transparent; pointer-events: none; }
+  .m-sheet__p { width: 100%; max-height: 85%; overflow: hidden; border-top: 1px solid #3f3f46; border-radius: 12px 12px 0 0; background: #18181b; display: flex; flex-direction: column; }
+  .m-sheet__hd { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-sheet__ti { font-size: 18px; font-weight: 600; }
+  .m-sheet__sub { font-size: 12px; color: #71717a; margin-top: 2px; }
+  .m-sheet__x { margin-left: auto; width: 44px; height: 44px; margin-right: -10px; display: grid; place-items: center; color: #a1a1aa; font-size: 18px; flex: none; }
+  .m-sheet__bd { padding: 16px; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+  .m-sheet__ft { display: flex; align-items: center; gap: 10px; padding: 12px 16px 20px; border-top: 1px solid #27272a; flex: none; }
+  .m-fld { display: flex; flex-direction: column; gap: 5px; }
+  .m-insp { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; align-items: center; }
+
+  .m-jump { display: flex; flex-direction: column; }
+  .m-jump__i { display: flex; align-items: center; gap: 11px; min-height: 52px; padding: 0 14px 0 12px; border-left: 2px solid transparent; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-jump__i.on { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.06); }
+  .m-jump__n { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; letter-spacing: 0.14em; color: #52525b; width: 16px; flex: none; }
+  .m-jump__i.on .m-jump__n { color: #f59e0b; }
+  .m-jump__l { font-size: 14px; color: #d4d4d8; flex: 1; min-width: 0; }
+  .m-jump__i.on .m-jump__l { color: #fcd34d; font-weight: 600; }
+  .m-jump__c { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 11px; color: #71717a; flex: none; }
+
+  .m-cvs { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #09090b; }
+  .cvs__band { position: absolute; top: 0; bottom: 0; }
+  .node { position: absolute; border: 1px solid #3f3f46; border-radius: 7px; background: #1f2028; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); overflow: hidden; }
+  .node__hd { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-bottom: 1px solid #27272a; font-size: 11px; font-weight: 600; color: #fafafa; }
+  .node__bdg { margin-left: auto; font-family: var(--mono); font-size: 9px; background: #27272a; border-radius: 3px; padding: 0 3px; color: #a1a1aa; }
+  .node__body { padding: 3px 0; }
+  .node__ft { padding: 3px 6px; border-top: 1px solid #27272a; font-family: var(--mono); font-size: 9px; color: #71717a; }
+  .prow { display: flex; align-items: center; gap: 6px; height: 18px; padding: 0 6px; font-size: 11px; color: #d4d4d8; }
+  .port { width: 7px; height: 7px; border-radius: 50%; border: 1px solid #71717a; background: #27272a; flex: none; }
+  .port--c { border-color: var(--c); background: color-mix(in srgb, var(--c) 75%, transparent); }
+  .srail { position: absolute; border: 1px solid #3f3f46; border-radius: 7px; background: #1f2028; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); overflow: hidden; }
+  .srail__hd { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 6px; border-bottom: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); }
+  .srail__hd b { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; font-weight: 500; }
+  .srail__hd span { font-family: var(--mono); font-size: 10px; color: #52525b; margin-left: auto; }
+  .srow { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 6px 0 0; border-bottom: 1px solid rgba(39, 39, 42, 0.6); font-size: 11px; color: #d4d4d8; }
+  .srow--sel { background: rgba(245, 158, 11, 0.1); }
+  .srow__tape { width: 3px; align-self: stretch; flex: none; }
+  .srow__nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 4px; }
+  .srow__md { font-family: var(--mono); font-size: 10px; color: #71717a; flex: none; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6a — the centred dialog as it stands today, the
+     virtual keyboard, the anatomy diagram, the safe area.
+     ================================================================== */
+
+  /* the centred dialog, at ui/Dialog's real values, inside a 375 px frame */
+  .m-dlg { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.8); display: flex; align-items: center; justify-content: center; padding: 0 16px; }
+  .m-dlg__p { width: 100%; border: 1px solid #3f3f46; border-radius: 12px; background: #18181b; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6); }
+  .m-dlg__hd { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #27272a; }
+  .m-dlg__ti { font-size: 18px; font-weight: 600; }
+  .m-dlg__x { color: #a1a1aa; font-size: 16px; }
+  .m-dlg__bd { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+  /* the two things that make it not a sheet: it is centred, and it does not
+     scroll — so anything past the frame is simply gone. */
+  .m-dlg--clip { overflow: hidden; }
+  .m-cut { position: absolute; left: 0; right: 0; height: 1px; background: repeating-linear-gradient(90deg, #f87171 0 6px, transparent 6px 12px); }
+  .m-cut__l {
+    position: absolute; right: 6px; transform: translateY(-100%);
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: #f87171; padding-bottom: 2px;
+  }
+
+  /* the virtual keyboard, drawn because it is half the finding */
+  .m-kbd { position: absolute; inset-inline: 0; bottom: 0; height: 268px; background: #1c1c1e; border-top: 1px solid #3f3f46; padding: 8px 4px 26px; display: flex; flex-direction: column; gap: 8px; }
+  .m-kbd__r { display: flex; gap: 5px; justify-content: center; flex: 1; }
+  .m-kbd__k { flex: 1; max-width: 32px; border-radius: 5px; background: #48484a; box-shadow: 0 1px 0 rgba(0,0,0,0.4); }
+  .m-kbd__k--w { max-width: 120px; }
+  .m-kbd__k--sp { max-width: 170px; }
+  .m-kbd__home { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 134px; height: 5px; border-radius: 3px; background: #f4f4f5; opacity: 0.85; }
+
+  /* the anatomy diagram — labelled parts down the right of a real sheet */
+  .anat { display: grid; grid-template-columns: 375px minmax(0, 1fr); gap: 26px; align-items: start; }
+  @media (max-width: 860px) { .anat { grid-template-columns: minmax(0, 1fr); } }
+  .anat__parts { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .anat__p { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--rule-soft); align-items: start; }
+  .anat__n { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); padding-top: 3px; }
+  .anat__v { font-size: 14.5px; color: var(--ink-2); line-height: 1.5; }
+  .anat__v b { color: var(--ink); font-weight: 600; }
+  .anat__v .k { font-size: 0.85em; }
+  .anat__v .cls { display: block; font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-top: 4px; word-break: break-word; }
+
+  /* the marker that pins a specimen part to its row in the anatomy list */
+  .mk {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; border-radius: 999px; flex: none;
+    background: #f59e0b; color: #09090b;
+    font-family: var(--mono); font-size: 9px; font-weight: 700;
+  }
+  .mk--doc { background: var(--amber); color: var(--ground); }
+  .mk--abs { position: absolute; z-index: 5; }
+
+  /* safe area, drawn */
+  .safe { position: absolute; inset-inline: 0; bottom: 0; height: 22px; background: repeating-linear-gradient(45deg, rgba(245,158,11,0.16) 0 5px, transparent 5px 10px); border-top: 1px dashed rgba(245,158,11,0.45); }
+  .safe__l { position: absolute; right: 8px; top: 3px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: #fbbf24; }
+
+  /* two-up comparison of one decision */
+  .vs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  @media (max-width: 860px) { .vs { grid-template-columns: minmax(0, 1fr); } }
+  .vs__c { display: flex; flex-direction: column; gap: 9px; }
+  .vs__hd { display: flex; align-items: baseline; gap: 9px; }
+  .vs__hd b { font-size: 15px; color: var(--ink); }
+  .vs__hd span { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+  .vs__note { font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+  .vs__note b { color: var(--ink-2); font-weight: 600; }
+
+  /* the thumb, drawn where the argument is about reach */
+  .thumb { position: absolute; border-radius: 999px; border: 1px dashed rgba(248, 113, 113, 0.55); background: rgba(248, 113, 113, 0.07); pointer-events: none; }
+  .thumb__l { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: #f87171; white-space: nowrap; }
+
+  .files { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .file { display: grid; grid-template-columns: 22px minmax(0, 260px) minmax(0, 1fr); gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--rule-soft); align-items: baseline; }
+  .file__s { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  .file__s--new { color: var(--amber); }
+  .file__s--del { color: var(--drop); }
+  .file__n { font-family: var(--mono); font-size: 13px; color: var(--ink); word-break: break-word; }
+  .file__w { font-size: 14px; color: var(--ink-2); line-height: 1.5; }
+  .file__w b { color: var(--ink); font-weight: 600; }
+
+  .code {
+    border: 1px solid var(--rule); border-radius: 8px; background: var(--sunken);
+    padding: 14px 16px; overflow-x: auto;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.65; color: var(--ink-2);
+    white-space: pre;
+  }
+  .code b { color: var(--ink); font-weight: 600; }
+  .code i { font-style: normal; color: var(--faint); }
+  .code u { text-decoration: none; color: var(--amber); }
+
+  .empty { padding: 34px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6b — the list as it ships today, the target
+     overlay, the bar's second row, the strip as its own control.
+     ================================================================== */
+
+  /* today: the row as a free-standing card on the page ground, at the real
+     values — px-2.5 py-1.5, 13px over 11px, its own border and bg-zinc-900 */
+  .m-card {
+    display: flex; align-items: center; gap: 8px;
+    border: 1px solid #27272a; border-radius: 6px; background: #18181b;
+    padding: 6px 10px;
+  }
+  .m-card + .m-card { margin-top: 4px; }
+  .m-card__c { flex: 1; min-width: 0; }
+  .m-card__t { font-size: 13px; font-weight: 500; line-height: 1.25; color: #f4f4f5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-card__s { font-size: 11px; line-height: 1.25; color: #a1a1aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-card__x { flex: none; color: #52525b; font-size: 12px; }
+  /* the h-9 search field and the h-9 w-9 add button, drawn at their real size */
+  .m-srch { display: flex; align-items: center; gap: 8px; flex: none; }
+  .m-srch__f { flex: 1; height: 36px; display: flex; align-items: center; gap: 7px; padding: 0 10px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; font-size: 14px; color: #71717a; }
+  .m-srch__b { width: 36px; height: 36px; border-radius: 6px; background: #f59e0b; color: #09090b; display: grid; place-items: center; font-size: 16px; flex: none; }
+
+  /* a control drawn with its true target bounds called out */
+  .tgt { position: relative; }
+  .tgt::after {
+    content: ""; position: absolute; inset: 50% auto auto 50%;
+    width: var(--tw); height: var(--th); transform: translate(-50%, -50%);
+    border: 1px dashed var(--tc); border-radius: 7px; pointer-events: none;
+  }
+  .tgt--bad { --tc: rgba(248, 113, 113, 0.75); }
+  .tgt--ok { --tc: rgba(52, 211, 153, 0.7); }
+  .szl { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .szl--bad { color: #f87171; }
+  .szl--ok { color: #34d399; }
+
+  /* the bar's second row, when search is open */
+  .m-pan__ic--44 { width: 44px; height: 44px; font-size: 16px; }
+  .m-pan__ic--44.m-pan__ic--pri { font-size: 20px; }
+  .m-pan__sr { display: flex; align-items: center; gap: 8px; padding: 0 12px 8px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-pan__sr .fld { flex: 1; }
+
+  /* a heading over a run of rows, inside the frame */
+  .m-hdr { display: flex; align-items: center; gap: 9px; padding: 9px 12px 5px; background: rgba(9, 9, 11, 0.35); }
+  .m-hdr b { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; }
+  .m-hdr i { font-style: normal; flex: 1; height: 1px; background: #27272a; }
+  .m-hdr--today b { color: #f59e0b; }
+  .m-hdr--today i { background: rgba(245, 158, 11, 0.45); }
+
+  /* the strip when it is the control that filters what it reports */
+  .m-strip__go { margin-left: auto; display: flex; align-items: center; gap: 5px; flex: none; color: #fcd34d; font-size: 12px; }
+  .m-strip--on { border-top-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.09); }
+
+  /* the row arithmetic, drawn as a stacked bar */
+  .stack { display: flex; flex-direction: column; width: 190px; flex: none; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em; }
+  .stack__b { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 7px; color: var(--muted); border-bottom: 1px solid var(--rule-soft); background: var(--sunken); }
+  .stack__b--rows { background: rgba(245, 158, 11, 0.12); color: var(--amber); }
+  .stack__b--chrome { background: transparent; }
+  .stacks { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+  .stacks__c { display: flex; flex-direction: column; gap: 8px; }
+  .stacks__t { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .stacks__t b { color: var(--ink-2); font-weight: 500; }
+
+  .empty { padding: 34px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+</style>
+<style>
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6c — the figures grid, the ribbon in the hand,
+     the bar's overflow, the withheld-gesture sentence, the plot canvas.
+     ================================================================== */
+
+  /* Overview's numbers band, at 375 px. Hairlines, never cards: five tiles
+     separated the way rows are separated, so the band is part of the frame.
+     The countdown spans, because it is the one figure that is about NOW. */
+  .m-figs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-fig { padding: 10px 12px 11px; border-top: 1px solid rgba(39, 39, 42, 0.6); border-left: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-fig:nth-child(odd) { border-left: 0; }
+  .m-fig--span { grid-column: 1 / -1; border-top: 0; padding-top: 12px; padding-bottom: 13px; }
+  .m-fig__v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 26px; line-height: 1.05; color: #f4f4f5; }
+  .m-fig--span .m-fig__v { font-size: 34px; }
+  .m-fig__v i { font-style: normal; font-size: 0.5em; color: #71717a; margin-left: 3px; }
+  .m-fig__v u { text-decoration: none; color: #52525b; }
+  .m-fig__l { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; margin-top: 7px; display: block; }
+
+  /* the rig ribbon: the flow canvas one row high, and on a phone it pans.
+     Drawn clipped at the right edge, because that is what it does. */
+  .m-rib { padding: 9px 0 10px 12px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-rib__l { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; display: block; margin-bottom: 7px; }
+  .m-rib__t { display: flex; align-items: center; gap: 0; overflow: hidden; }
+  .m-rib__n { flex: none; border: 1px solid #3f3f46; border-radius: 5px; background: #1f2028; padding: 4px 8px; text-align: center; min-width: 58px; }
+  .m-rib__n b { display: block; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 400; line-height: 1.2; color: #f4f4f5; }
+  .m-rib__n s { display: block; text-decoration: none; font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: #71717a; margin-top: 2px; }
+  .m-rib__n--desk { border-color: rgba(245, 158, 11, 0.5); background: rgba(245, 158, 11, 0.08); }
+  .m-rib__w { flex: none; width: 14px; height: 1px; background: #3f3f46; }
+  .m-rib__m { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-right: 12px; }
+  .m-rib__bar { flex: 1; height: 5px; border-radius: 3px; background: #27272a; overflow: hidden; }
+  .m-rib__bar i { display: block; height: 100%; background: #34d399; }
+  .m-rib__mv { font-family: var(--mono); font-size: 10px; color: #a1a1aa; flex: none; }
+
+  /* readiness, as rows: the phone's index of the show. Trailing pill, leading
+     edge in the verdict's own tone, and the tap opens that section. */
+  .m-rd { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px 0 0; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-rd__e { width: 3px; align-self: stretch; flex: none; }
+  .m-rd__a { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #d4d4d8; padding-left: 9px; width: 88px; flex: none; }
+  .m-rd__f { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: #71717a; flex: 1; min-width: 0; }
+  .m-rd__c { flex: none; color: #52525b; font-size: 13px; }
+
+  /* a quiet last row: the desktop card's meta footer */
+  .m-meta { display: flex; flex-wrap: wrap; gap: 3px 14px; padding: 9px 12px 10px; font-size: 12px; color: #71717a; }
+
+  /* the event's name, in the shell's own header — the one place on the phone
+     that is on screen in all nine sections and never scrolls */
+  .m-hd__nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+  /* the switcher row: the back target and the section switcher, one 44 px row,
+     because the block they replace was 48 px of a 490 px panel */
+  .m-swr { display: flex; align-items: center; gap: 8px; flex: none; }
+  .m-swr .m-sw { flex: 1; min-width: 0; }
+  .m-back { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; color: #a1a1aa; font-size: 16px; }
+
+  /* the event, stated once at the top of its own section */
+  .m-sub { padding: 9px 12px 10px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); font-size: 12px; color: #a1a1aa; }
+  .m-sub b { color: #d4d4d8; font-weight: 500; }
+  .m-sub s { text-decoration: none; color: #71717a; }
+
+  /* a bar control that names a selection and opens a sheet — the rail, and the
+     plot picker, collapsed to a target. It stays in the bar because it changes
+     WHAT YOU ARE LOOKING AT. */
+  .m-pick { display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 10px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; font-size: 13px; color: #f4f4f5; flex: none; max-width: 112px; }
+  .m-pick b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-pick s { text-decoration: none; color: #a1a1aa; flex: none; font-size: 11px; }
+
+  /* a segmented view toggle at a 44 px target — the plot's Top/Front/Side */
+  .m-seg { display: flex; height: 44px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; overflow: hidden; flex: none; }
+  .m-seg span { display: grid; place-items: center; min-width: 46px; padding: 0 8px; font-size: 13px; color: #a1a1aa; border-left: 1px solid #27272a; }
+  .m-seg span:first-child { border-left: 0; }
+  .m-seg span.on { background: #f59e0b; color: #09090b; font-weight: 500; }
+
+  /* the sentence that names a withheld gesture. Not a banner, not a dialog,
+     not a disabled control — it sits where the editor would be. */
+  .m-said { display: flex; gap: 9px; padding: 11px 12px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); background: rgba(9, 9, 11, 0.35); }
+  .m-said__i { flex: none; color: #71717a; font-size: 13px; line-height: 1.5; }
+  .m-said__t { font-size: 12.5px; line-height: 1.5; color: #a1a1aa; }
+  .m-said__t b { color: #d4d4d8; font-weight: 500; }
+
+  /* the stage plot canvas, in the frame */
+  .m-plot { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #09090b; }
+  .m-plot__g { position: absolute; inset: 0; background-image: linear-gradient(rgba(63,63,70,0.28) 1px, transparent 1px), linear-gradient(90deg, rgba(63,63,70,0.28) 1px, transparent 1px); background-size: 34px 34px; }
+  .m-el { position: absolute; border: 1px solid #52525b; border-radius: 4px; background: #27272a; display: grid; place-items: center; font-size: 10px; color: #d4d4d8; text-align: center; padding: 2px; }
+  .m-el--sel { border-color: #f59e0b; background: rgba(245, 158, 11, 0.16); color: #fcd34d; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25); }
+  .m-el--truss { border-color: #38bdf8; background: rgba(56, 189, 248, 0.1); color: #7dd3fc; }
+
+  /* the overflow sheet's rows — SectionSwitcher's shape, one labelled action each */
+  .m-act { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 4px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-act:last-child { border-bottom: 0; }
+  .m-act__i { width: 22px; flex: none; text-align: center; color: #a1a1aa; font-size: 14px; }
+  .m-act__l { font-size: 14px; color: #f4f4f5; flex: 1; min-width: 0; }
+  .m-act__h { font-size: 12px; color: #71717a; flex: none; }
+
+  /* the bar-width arithmetic, drawn as a ruler */
+  .rule { display: flex; align-items: stretch; width: 375px; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; font-family: var(--mono); font-size: 9px; letter-spacing: 0.04em; }
+  .rule__s { display: grid; place-items: center; min-height: 30px; border-left: 1px solid var(--rule-soft); color: var(--muted); background: var(--sunken); text-align: center; padding: 0 1px; }
+  .rule__s:first-child { border-left: 0; }
+  .rule__s--t { background: rgba(245, 158, 11, 0.14); color: var(--amber); }
+  .rule__s--o { background: rgba(159, 18, 57, 0.14); color: var(--drop); }
+  .rule__s--g { background: transparent; }
+  .rulel { display: flex; align-items: baseline; gap: 10px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+  .rulel b { color: var(--ink-2); font-weight: 500; }
+  .rulel u { text-decoration: none; color: var(--drop); }
+
+  /* a rule stated once, in a box, because it is the thing that stops nine
+     call sites making nine judgements */
+  .law { border: 1px solid var(--rule); border-left: 3px solid var(--amber); border-radius: 0 8px 8px 0; background: var(--raised); padding: 16px 18px; display: flex; flex-direction: column; gap: 9px; }
+  .law__h { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); }
+  .law__t { font-size: 16.5px; line-height: 1.45; color: var(--ink); }
+  .law__t b { font-weight: 600; }
+  .law__n { font-size: 14px; line-height: 1.55; color: var(--muted); }
+  .law__n b { color: var(--ink-2); font-weight: 600; }
+
+  /* two columns of examples under a rule */
+  .split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 26px; }
+  @media (max-width: 720px) { .split { grid-template-columns: minmax(0, 1fr); } }
+  .split__c { display: flex; flex-direction: column; gap: 7px; padding-top: 4px; }
+  .split__h { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); padding-bottom: 6px; border-bottom: 1px solid var(--rule); }
+  .split__i { display: flex; gap: 9px; font-size: 14px; color: var(--ink-2); line-height: 1.5; }
+  .split__i b { color: var(--ink); font-weight: 600; }
+  .split__i em { font-style: normal; color: var(--faint); }
+</style>
+
+<style>
+  /* ==================================================================
+     ADDITIONS FOR SLICE 37 — the coordinate space drawn three times, the
+     plane, and the evidence tables.
+     ================================================================== */
+
+  .spaces { display: grid; gap: 14px; }
+  .space { border: 1px solid var(--rule); border-radius: 8px; background: var(--raised); overflow: hidden; }
+  .space__hd { display: flex; align-items: baseline; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--rule-soft); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); }
+  .space__hd b { color: var(--ink); font-weight: 600; letter-spacing: 0.08em; }
+  .space__hd s { margin-left: auto; text-decoration: none; color: var(--faint); letter-spacing: 0.06em; }
+  /* the band diagram: regions drawn to scale against a 2200-wide plane */
+  .band { position: relative; height: 46px; background: var(--sunken); }
+  .band__z { position: absolute; top: 0; bottom: 0; }
+  .band__z--rail { background: rgba(180, 83, 9, 0.16); border-left: 1px solid rgba(180, 83, 9, 0.5); border-right: 1px solid rgba(180, 83, 9, 0.5); }
+  .band__z--rig { background: rgba(14, 116, 144, 0.14); }
+  .band__z--dead { background: repeating-linear-gradient(135deg, transparent 0 5px, rgba(159, 18, 57, 0.16) 5px 10px); }
+  .band__l { position: absolute; top: 5px; left: 5px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); white-space: nowrap; }
+  .band__w { position: absolute; bottom: 5px; left: 5px; font-family: var(--mono); font-size: 10px; font-variant-numeric: tabular-nums; color: var(--muted); }
+  /* one 200 px node, same scale, so its width reads against the lane */
+  .band__n { position: absolute; top: 13px; height: 20px; border: 1px solid var(--amber); border-radius: 3px; background: rgba(180, 83, 9, 0.22); }
+
+  .ev { width: 100%; border-collapse: collapse; font-size: 14px; margin: 4px 0 8px; }
+  .ev th { text-align: left; font-family: var(--mono); font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--faint); font-weight: 500; padding: 0 12px 7px 0; border-bottom: 1px solid var(--rule); }
+  .ev td { padding: 7px 12px 7px 0; border-bottom: 1px solid var(--rule-soft); color: var(--ink-2); vertical-align: baseline; }
+  .ev td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ev td.bad { color: var(--drop); font-weight: 600; }
+  .ev tr.ok td { color: var(--muted); }
+  .ev caption { caption-side: bottom; padding-top: 10px; font-size: 13.5px; color: var(--muted); text-align: left; line-height: 1.6; }
+  .ev-wrap { overflow-x: auto; }
+
+  /* the plane specimen */
+  .plane { position: relative; overflow: auto; background: #09090b; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-x pan-y; }
+  .plane__box { position: relative; }
+  .plane__c { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+  .plane__hint { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 3; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: #52525b; background: rgba(9, 9, 11, 0.86); border: 1px solid #27272a; border-radius: 999px; padding: 3px 9px; pointer-events: none; }
+  .zbar { display: flex; align-items: center; gap: 2px; padding: 7px 8px; border-top: 1px solid #27272a; background: #0c0c0e; }
+  .zbar button { width: 40px; height: 40px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; color: #a1a1aa; font-size: 16px; display: grid; place-items: center; padding: 0; font-family: inherit; cursor: pointer; }
+  .zbar .zv { width: 66px; height: 40px; border: 0; background: transparent; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: #d4d4d8; cursor: pointer; }
+  .zbar .zv s { display: block; text-decoration: none; font-size: 8.5px; letter-spacing: 0.13em; text-transform: uppercase; color: #52525b; }
+  .zbar em { margin-left: auto; font-style: normal; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: #3f3f46; }
+
+  /* a decision recorded as a strike-through of the alternative (from 6d) */
+  .verdict { display: grid; grid-template-columns: 152px minmax(0, 1fr); gap: 14px 18px; align-items: baseline; }
+  .verdict__k { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); }
+  .verdict__v { font-size: 15px; color: var(--ink-2); line-height: 1.55; }
+  .verdict__v b { color: var(--ink); font-weight: 600; }
+  .verdict__v u { text-decoration: line-through; text-decoration-color: var(--drop); color: var(--faint); }
+  @media (max-width: 720px) { .verdict { grid-template-columns: minmax(0, 1fr); gap: 4px 0; } }
+</style>
+
+<div class="wrap">
+
+  <header class="head">
+    <span class="head__eyebrow">slice 37 · the flow canvas as a plane · revision 2 · approved</span>
+    <h1>A position that means one place</h1>
+
+    <div class="verdict" style="margin:0 0 26px;padding:16px 18px;border:1px solid var(--rule);border-radius:8px;background:var(--raised)">
+      <div class="verdict__k">q1 · bands</div>
+      <div class="verdict__v"><b>Dropped.</b> No <em>Stage / Rig / Console</em> tinting, and no labels.</div>
+
+      <div class="verdict__k">q2 · the tidy</div>
+      <div class="verdict__v"><b>x = 1400</b> for the previously-pinned right-hand group, 24 for the left. One SQL migration, no schema change and no Go.</div>
+
+      <div class="verdict__k">q3 · placement</div>
+      <div class="verdict__v"><b>Shared</b>, as it is today — a node’s coordinates are event data and stay in the database.</div>
+
+      <div class="verdict__k">q4 · negative space</div>
+      <div class="verdict__v"><b>Allowed</b>, in both axes. <u>A floor at 0,0.</u> The plane’s origin is derived from the content’s bounding box rather than fixed, so a node dragged left of the sources simply extends the plane — no arbitrary limit, and native scroll’s momentum is kept.</div>
+
+      <div class="verdict__k">the view</div>
+      <div class="verdict__v"><b>Device-local, per event and per surface</b>, reversing §04. <u>Six columns on <span class="mono">events</span>, migration, Go handler.</u> Zoom and pan are one person’s view of one screen, exactly like the Sheet/Flow choice that <span class="mono">usePatchView</span> already keeps in <span class="mono">localStorage</span> for these same two tabs — and putting them in the database would let a phone move where a desk opens, for everyone sharing the event.</div>
+    </div>
+    <p class="head__lede">
+      The report was that the rig lane is tighter on a phone, so the nodes bunch together and
+      overlap. It is not tighter by a little. <b>It is 92 pixels wide, for nodes that are 200 pixels
+      wide</b> — and the cause is that both flow canvases derive their coordinate space from the
+      browser window, so a saved position means a different place on every screen it is opened on.
+    </p>
+    <p class="head__lede">
+      This is not a defect Wave 6d introduced. 6d pinned the phone’s space at 820, which made a
+      pre-existing flaw impossible to ignore: <b>the position columns have been recording the width
+      of whichever window last touched them.</b> Four different window widths are sitting in this
+      event right now, written down as node coordinates. §01 shows them.
+    </p>
+    <p class="head__lede">
+      The fix is the model the stage plot already uses: an absolute plane, with pan and zoom as the
+      only view state. The side rails are what makes that impossible today, so they stop being
+      pinned — which is the change this document asks approval for.
+    </p>
+  </header>
+
+  <!-- ============================================================ 01 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">01 · the defect, in your own data</span>
+      <h2>The rig lane is 92 px on every phone</h2>
+    </div>
+
+    <div class="prose">
+      <p>Both canvases compute the middle lane from the canvas width, and the canvas width from the panel:</p>
+      <p class="code">zoneProcessingBounds(w) = { min: 264, max: w − NODE_WIDTH − 264 }<br>
+      canvasWidth = isMobile ? 820 : max(820, panelWidth) / zoom</p>
+      <p>
+        On a phone that second line is a constant, so the first resolves to
+        <b>{ min: 264, max: 356 }</b> on every handset ever made. Every stagebox, stage multi,
+        outboard device and desk jack panel is clamped into <b>92 px of travel</b>. They are 200 px
+        wide. The lane cannot hold two of them side by side; it cannot hold one of them.
+      </p>
+      <p>
+        Your desk works in a space of at least 1672 — that is readable off the values it has
+        written — where the same lane is about <b>1144 px</b>. The two surfaces disagree by a factor
+        of twelve, and the clamp runs on every node, every render.
+      </p>
+    </div>
+
+    <div class="ev-wrap">
+      <table class="ev">
+        <thead>
+          <tr><th>node</th><th>saved x</th><th>on your desk</th><th>on a phone</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>M23R local inputs · 16 jacks, ~320 px tall</td><td class="n">1208</td><td class="n">1208</td><td class="n bad">356</td></tr>
+          <tr><td>LR Amplifier <span class="mono">(outputs)</span></td><td class="n">743</td><td class="n">743</td><td class="n bad">356</td></tr>
+          <tr><td>M23R local outputs <span class="mono">(outputs)</span></td><td class="n">369</td><td class="n">369</td><td class="n bad">356</td></tr>
+          <tr class="ok"><td>Trummor multi</td><td class="n">354</td><td class="n">354</td><td class="n">354</td></tr>
+          <tr class="ok"><td>Bass DI · GTR DI · Piano DI</td><td class="n">335 · 350 · 342</td><td class="n">335 · 350 · 342</td><td class="n">335 · 350 · 342</td></tr>
+        </tbody>
+        <caption>
+          The three that move all land on the same pixel. The desk’s 16-jack panel is ~320 px tall
+          starting at y&nbsp;51, so it covers y&nbsp;51–371, and the three DI boxes sit at
+          y&nbsp;167, 263 and 360 — inside it, and 200 px wide against its 200 px. That is the
+          overlap you are seeing: not a crowded lane, <b>one column with five boxes in it</b>.
+        </caption>
+      </table>
+    </div>
+
+    <div class="prose">
+      <h3>The position column has been storing the browser window</h3>
+      <p>
+        The rails are worse than the rig, because their x is not clamped — it is
+        <em>overwritten</em>. A destination device is drawn at
+        <span class="code">canvasWidth − 224</span> whatever it has saved, and the next drag saves
+        that number back. So these are not placements anybody chose. They are a record of which
+        window happened to be open:
+      </p>
+    </div>
+
+    <div class="ev-wrap">
+      <table class="ev">
+        <thead><tr><th>saved as</th><th>node</th><th>implies a canvas of</th></tr></thead>
+        <tbody>
+          <tr><td class="n">1086</td><td>Speaker L, Sub L 1</td><td class="n">1310</td></tr>
+          <tr><td class="n">1296</td><td>Sub L 2</td><td class="n">1520</td></tr>
+          <tr><td class="n">1338</td><td>Speaker R</td><td class="n">1562</td></tr>
+          <tr><td class="n">1978</td><td>M23R channel rail</td><td class="n">2202</td></tr>
+        </tbody>
+        <caption>
+          Four window widths, one event. This matters for the migration in §04: those numbers cannot
+          be adopted as placements, because they never were placements.
+        </caption>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============================================================ 02 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">02 · why it is the rails</span>
+      <h2>Two nodes are pinned to a moving edge, and everything else pays</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        The <span class="mono">Sources</span> rail sits at x&nbsp;=&nbsp;24 and the
+        <span class="mono">Channels</span> rail at <span class="code">canvasWidth − 224</span>. That
+        second term is the whole problem. Because one node must touch the right-hand edge, the
+        coordinate space has to know where the right-hand edge <em>is</em> — so the space is sized to
+        the window, and the lane between the rails is whatever is left over. Every
+        <span class="mono">canvasWidth</span> in the layout traces back to that one pin.
+      </p>
+      <p>Drawn to scale against a 2200-wide plane:</p>
+    </div>
+
+    <div class="spaces">
+      <div class="space">
+        <div class="space__hd"><b>your desk</b> · canvas 1672<s>rig lane 1144 px</s></div>
+        <div class="band">
+          <div class="band__z band__z--rail" style="left:0.6%;width:9.1%"><span class="band__l">Sources</span></div>
+          <div class="band__z band__z--rig" style="left:12%;width:52%"><span class="band__l">Rig</span><span class="band__w">264 → 1408</span></div>
+          <div class="band__z band__z--rail" style="left:65.8%;width:9.1%"><span class="band__l">Channels</span></div>
+          <div class="band__n" style="left:16.8%;width:9.1%"></div>
+          <div class="band__n" style="left:33.8%;width:9.1%"></div>
+        </div>
+      </div>
+      <div class="space">
+        <div class="space__hd"><b>a 1200 laptop</b> · canvas 1200<s>rig lane 736 px</s></div>
+        <div class="band">
+          <div class="band__z band__z--rail" style="left:0.6%;width:9.1%"><span class="band__l">Sources</span></div>
+          <div class="band__z band__z--rig" style="left:12%;width:21.5%"><span class="band__l">Rig</span><span class="band__w">264 → 736</span></div>
+          <div class="band__z band__z--rail" style="left:44.4%;width:9.1%"><span class="band__l">Channels</span></div>
+          <div class="band__z band__z--dead" style="left:54.5%;width:45.5%"><span class="band__l">nothing can be here</span></div>
+          <div class="band__n" style="left:24.2%;width:9.1%"></div>
+        </div>
+      </div>
+      <div class="space">
+        <div class="space__hd"><b>every phone</b> · canvas 820<s>rig lane 92 px</s></div>
+        <div class="band">
+          <div class="band__z band__z--rail" style="left:0.6%;width:9.1%"><span class="band__l">Sources</span></div>
+          <div class="band__z band__z--rig" style="left:12%;width:4.2%"><span class="band__w">264→356</span></div>
+          <div class="band__z band__z--rail" style="left:27.1%;width:9.1%"><span class="band__l">Channels</span></div>
+          <div class="band__z band__z--dead" style="left:37.3%;width:62.7%"><span class="band__l">nothing can be here</span></div>
+          <div class="band__n" style="left:12%;width:9.1%"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p style="margin-top:18px">
+        The amber outline in each strip is one 200 px node at the same scale. On the phone the node
+        is more than twice the lane it is allowed to move in — which is why five of them stack on
+        one pixel rather than spreading out.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ 03 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">03 · the model</span>
+      <h2>An absolute plane, with nothing pinned to anything</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        The stage plot has never had this problem, because its coordinates are centimetres of real
+        floor and its view is <span class="code">{ zoom, panX, panY }</span> over an unbounded
+        plane. Nothing in it is positioned relative to the window. That is the model to adopt, and
+        adopting it deletes code rather than adding it:
+      </p>
+    </div>
+
+    <div class="verdict">
+      <div class="verdict__k">the space</div>
+      <div class="verdict__v"><b>Unbounded, non-negative, sized to its content.</b> <u>Sized to the panel divided by zoom.</u> It grows as nodes are placed further out, the way a long document’s scroll area grows.</div>
+
+      <div class="verdict__k">a saved x</div>
+      <div class="verdict__v"><b>Means one place, on every screen.</b> <u>Means a fraction of whatever window is open.</u></div>
+
+      <div class="verdict__k">the rails</div>
+      <div class="verdict__v"><b>Ordinary nodes at their own coordinates, dragged like any other.</b> <u>Pinned to the canvas’s left and right edges.</u> They stay <em>consolidated</em> — one Sources node holding every source, not a card each; 32 sources as cards is 1,700 px of lane and that reasoning still holds. What goes is the pinning, not the rail.</div>
+
+      <div class="verdict__k">the clamp</div>
+      <div class="verdict__v"><b>Deleted, with no bound at all.</b> <u><span class="mono">clampProcessingX</span>, on every node, every render.</u> <u>A floor at x&nbsp;≥&nbsp;0.</u> Revision 2: the plane’s origin is the content’s own bounding box, so negative coordinates extend it rather than being refused. A scroll container has no negative side, but the origin it counts from is ours to choose.</div>
+
+      <div class="verdict__k">panning</div>
+      <div class="verdict__v"><b>The platform’s own scrolling, on both reaches.</b> <u>A pointer-drag handler like the stage plot’s.</u> The stage plot drags because it is one SVG with a <span class="mono">viewBox</span>; the flow canvas is real DOM with scrollable rails inside it, so native scroll is both easier and better — momentum on the phone, and it is what Wave 6d already built.</div>
+
+      <div class="verdict__k">the lane bands</div>
+      <div class="verdict__v"><b>Gone.</b> <u>Three tinted regions computed from the canvas width.</u> A band that says <em>Rig</em> is only true if something enforces it, and nothing will. Q1 asks whether you want them back as fixed regions instead.</div>
+    </div>
+
+    <div class="prose">
+      <h3>What this costs on the desk</h3>
+      <p>
+        One thing, and it is worth stating plainly: <b>the Channels rail stops hugging the right edge
+        of the window.</b> Today it is always there, at the edge, whatever your zoom. Under the plane
+        it sits at a coordinate, and on a narrow window you scroll or zoom out to reach it — the same
+        way you already reach the right-hand side of a stage plot. In exchange the rail becomes
+        <em>draggable</em>, and where you put it stays put.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ 04 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">04 · the view, remembered</span>
+      <h2>Each surface opens where you left it</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        With a real coordinate space, <em>fit</em> stops being a sensible opening state: a graph
+        1,600 px wide fitted into a 341 px phone is <b>21 %</b>, and a 200 px node at 21 % is 42 px —
+        narrower than a fingertip, with no legible text in it. So the canvas opens where it was last
+        left, per event and per surface, exactly as a stage plot does.
+      </p>
+      <p class="code">localStorage["patchplanner.flowView.{eventId}.{inputs|outputs}"]<br>
+      &nbsp;&nbsp;= { zoom, panX, panY }</p>
+      <p>
+        <b>Revision 2 replaced the six <span class="mono">events</span> columns this section
+        originally proposed.</b> Zoom and pan are one person’s view of one screen — the same class of
+        state as the Sheet/Flow choice that <span class="mono">usePatchView</span> already keeps in
+        <span class="mono">localStorage</span> for these two tabs, for the reason written at
+        <span class="mono">usePatchView.ts:19</span>: <em>“one user’s viewing preference with no
+        meaning to anyone else sharing the event.”</em> In the database it would let a phone decide
+        where a desk opens, for everyone with access. Pan is stored in <em>logical</em> units rather
+        than scroll pixels, so it survives a zoom change and a resize. The cost is that a new device
+        or a cleared cache opens at <em>fit</em>.
+      </p>
+
+      <h3>Fit becomes a button, and starts telling the truth</h3>
+      <p>
+        Today <em>fit</em> is computed from a nominal 820&nbsp;×&nbsp;640. Under the plane it is
+        computed from <b>the bounding box of the nodes that actually exist</b>, so it frames your
+        graph rather than a rectangle somebody guessed. It stays on the zoom cluster where 6d put it,
+        and it is how you get your bearings after panning into empty space.
+      </p>
+
+      <h3>The one-time tidy</h3>
+      <p>
+        §01 showed that the saved x of every pinned node is an artefact — 1086 and 1338 are two
+        different window widths, not two placements. Adopting them would open your outputs graph with
+        the speakers in a ragged diagonal. So migration 047 <b>normalises them once</b>: every node
+        whose x was previously ignored is set to a tidy column, and from then on it means what it
+        says. Q2 asks which column.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ 05 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">05 · the specimen</span>
+      <h2>Your outputs graph, both ways</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Both boxes hold the same five nodes with the same saved coordinates. The left clamps them the
+        way the code does today; the right puts them where they say they are. <b>Drag the right
+        one</b> — that is the pan, and on a phone it has momentum. The cluster below is 6d’s, with
+        <em>fit</em> now framing the content.
+      </p>
+    </div>
+
+    <div class="phones">
+      <div class="phone">
+        <div class="phone__frame" style="padding:0">
+          <div class="plane" style="height:300px">
+            <div class="plane__box" style="width:341px;height:280px">
+              <div class="plane__c" style="transform:scale(0.41)">
+                <div class="node" style="position:absolute;left:24px;top:24px;width:200px">
+                  <div class="node__hd">M23R buses <span class="node__bdg">16</span></div>
+                  <div class="node__body"><div class="prow"><span class="port"></span>Main L</div><div class="prow"><span class="port"></span>Main R</div><div class="prow"><span class="port"></span>Sub</div><div class="prow"><span class="port"></span>Mon 1</div></div>
+                </div>
+                <div class="node" style="position:absolute;left:356px;top:63px;width:200px">
+                  <div class="node__hd">M23R jacks <span class="node__bdg">8</span></div>
+                  <div class="node__body"><div class="prow"><span class="port"></span>Out 1</div><div class="prow"><span class="port"></span>Out 2</div><div class="prow"><span class="port"></span>Out 3</div><div class="prow"><span class="port"></span>Out 4</div><div class="prow"><span class="port"></span>Out 5</div></div>
+                </div>
+                <div class="node" style="position:absolute;left:356px;top:155px;width:200px">
+                  <div class="node__hd">LR Amplifier <span class="node__bdg">2</span></div>
+                  <div class="node__body"><div class="prow"><span class="port"></span>In L</div><div class="prow"><span class="port"></span>In R</div></div>
+                </div>
+                <div class="node" style="position:absolute;left:596px;top:33px;width:200px">
+                  <div class="node__hd">Speaker L</div><div class="node__body"><div class="prow"><span class="port"></span>NL4</div></div>
+                </div>
+                <div class="node" style="position:absolute;left:596px;top:221px;width:200px">
+                  <div class="node__hd">Sub L 1</div><div class="node__body"><div class="prow"><span class="port"></span>NL4</div></div>
+                </div>
+              </div>
+            </div>
+            <div class="plane__hint">today · three nodes on one pixel</div>
+          </div>
+        </div>
+        <div class="phone__cap phone__cap--bad">Today. The jack panel, the amplifier and the desk’s outputs are all clamped to x&nbsp;356 and sit on top of one another.</div>
+      </div>
+
+      <div class="phone">
+        <div class="phone__frame" style="padding:0">
+          <div class="plane" id="pl-new" style="height:300px">
+            <div class="plane__box" id="pb-new" style="width:672px;height:290px">
+              <div class="plane__c" id="pc-new" style="transform:scale(0.42)">
+                <div class="node" style="position:absolute;left:24px;top:24px;width:200px">
+                  <div class="node__hd">M23R buses <span class="node__bdg">16</span></div>
+                  <div class="node__body"><div class="prow"><span class="port"></span>Main L</div><div class="prow"><span class="port"></span>Main R</div><div class="prow"><span class="port"></span>Sub</div><div class="prow"><span class="port"></span>Mon 1</div></div>
+                </div>
+                <div class="node" style="position:absolute;left:369px;top:63px;width:200px">
+                  <div class="node__hd">M23R jacks <span class="node__bdg">8</span></div>
+                  <div class="node__body"><div class="prow"><span class="port"></span>Out 1</div><div class="prow"><span class="port"></span>Out 2</div><div class="prow"><span class="port"></span>Out 3</div><div class="prow"><span class="port"></span>Out 4</div><div class="prow"><span class="port"></span>Out 5</div></div>
+                </div>
+                <div class="node" style="position:absolute;left:743px;top:155px;width:200px">
+                  <div class="node__hd">LR Amplifier <span class="node__bdg">2</span></div>
+                  <div class="node__body"><div class="prow"><span class="port"></span>In L</div><div class="prow"><span class="port"></span>In R</div></div>
+                </div>
+                <div class="node" style="position:absolute;left:1100px;top:33px;width:200px">
+                  <div class="node__hd">Speaker L</div><div class="node__body"><div class="prow"><span class="port"></span>NL4</div></div>
+                </div>
+                <div class="node" style="position:absolute;left:1100px;top:221px;width:200px">
+                  <div class="node__hd">Sub L 1</div><div class="node__body"><div class="prow"><span class="port"></span>NL4</div></div>
+                </div>
+              </div>
+            </div>
+            <div class="plane__hint">drag to pan</div>
+          </div>
+        </div>
+        <div class="zbar">
+          <button type="button" id="z-out" aria-label="Zoom out">−</button>
+          <button type="button" class="zv" id="z-fit"><span id="z-val">42%</span><s>fit</s></button>
+          <button type="button" id="z-in" aria-label="Zoom in">+</button>
+          <em>pan is native scroll</em>
+        </div>
+        <div class="phone__cap">The plane. Every node at the coordinate it saved, the space sized to hold them, and the window moved rather than the graph.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 06 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">06 · what needs your answer</span>
+      <h2>Four questions</h2>
+    </div>
+
+    <div class="ask">
+      <h3>Q1 · Do the lane bands come back as fixed regions?</h3>
+      <p>
+        Slice 25 added <em>Stage / Rig / Console</em> as tinted bands to say which way signal flows.
+        Under the plane they cannot be computed any more. Three options: <b>drop them</b> (my
+        recommendation — the cables already say which way signal goes, and a band nothing enforces is
+        decoration); keep them as <b>fixed regions</b> at constant coordinates, honest but arbitrary
+        once nodes may sit anywhere; or keep only the three <b>labels</b> across the top as a legend.
+      </p>
+
+      <h3>Q2 · Where does the one-time tidy put the previously-pinned nodes?</h3>
+      <p>
+        Migration 047 has to choose a column for the Channels/Destinations rail and the destination
+        devices, because their saved values are window widths rather than placements. I propose
+        <b>x&nbsp;=&nbsp;1400</b> for the right-hand group, leaving the left-hand group at 24 — which
+        puts your amplifier at 743 comfortably between them, and matches roughly where you have been
+        working. Say if you would rather it were wider or tighter.
+      </p>
+
+      <h3>Q3 · Desk and phone share one saved view. Is that right?</h3>
+      <p>
+        The stage plot shares <span class="mono">zoom/pan_x/pan_y</span> across every screen, and you
+        have said that model works. But a flow graph genuinely wants a different zoom in a hand than
+        on a desk, so sharing means a phone session can leave the desk opening at 40 %. The
+        alternative is per-reach columns — twice the storage, each surface remembering its own place.
+        <b>I lean shared</b>, on the precedent, and would revisit after you have used it.
+      </p>
+
+      <h3>Q4 · Should a node be draggable into negative space?</h3>
+      <p>
+        Native scroll has no negative side, so the plane starts at 0,0 and nothing can go above or
+        left of it. <b>I recommend accepting that</b> — signal reads left to right and there is
+        nothing to the left of the sources. It is the one real difference from the stage plot, which
+        pans freely into negative floor.
+      </p>
+    </div>
+
+    <div class="prose">
+      <h3>Not in this slice</h3>
+      <p>
+        <b>D2</b> stays on the roadmap: the flow inspectors still delete through
+        <span class="mono">window.confirm</span>. And no node’s <em>appearance</em> changes here —
+        this is the coordinate space and the view, nothing about how a box is drawn.
+      </p>
+    </div>
+  </section>
+
+  <footer class="head" style="border-top:1px solid var(--rule);border-bottom:0;padding-top:22px;margin-top:8px">
+    <span class="head__eyebrow">approval</span>
+    <p class="head__lede">
+      Approving this means: the rails stop being pinned, <span class="mono">clampProcessingX</span>
+      and every <span class="mono">canvasWidth</span> term leave the layout, each canvas opens where
+      you left it, and the Channels rail no longer hugs the right edge of a desktop window. Answer
+      Q1–Q4 and I will write the spec.
+    </p>
+  </footer>
+</div>
+
+<script>
+  // The right-hand specimen is live: native scroll is the pan, and the cluster
+  // zooms about the viewport's centre — the arithmetic the slice will use.
+  (function () {
+    var vp = document.getElementById('pl-new')
+    var box = document.getElementById('pb-new')
+    var c = document.getElementById('pc-new')
+    var val = document.getElementById('z-val')
+    if (!vp || !box || !c || !val) return
+
+    var W = 1500, H = 660          // the content's bounding box, plus a margin
+    var zoom = 0.42
+    var FIT = 0.42
+
+    function apply(next, anchorX, anchorY) {
+      var before = zoom
+      var lx = (vp.scrollLeft + anchorX) / before
+      var ly = (vp.scrollTop + anchorY) / before
+      zoom = Math.min(1, Math.max(0.1, Math.round(next * 100) / 100))
+      box.style.width = Math.round(W * zoom) + 'px'
+      box.style.height = Math.round(H * zoom) + 'px'
+      c.style.transform = 'scale(' + zoom + ')'
+      vp.scrollLeft = lx * zoom - anchorX
+      vp.scrollTop = ly * zoom - anchorY
+      val.textContent = Math.round(zoom * 100) + '%'
+    }
+    function centred(next) { apply(next, vp.clientWidth / 2, vp.clientHeight / 2) }
+
+    document.getElementById('z-in').addEventListener('click', function () { centred(zoom * 1.4) })
+    document.getElementById('z-out').addEventListener('click', function () { centred(zoom / 1.4) })
+    document.getElementById('z-fit').addEventListener('click', function () {
+      centred(FIT); vp.scrollLeft = 0; vp.scrollTop = 0
+    })
+
+    // fit is measured, not assumed — the same call the slice makes
+    FIT = Math.min(1, Math.max(0.01, Math.floor(Math.min(vp.clientWidth / W, vp.clientHeight / H) * 100) / 100))
+    centred(FIT)
+    vp.scrollLeft = 0
+    vp.scrollTop = 0
+  })()
+</script>

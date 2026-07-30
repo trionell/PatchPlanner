@@ -59,6 +59,15 @@ func GetConsole(db *sql.DB, id int64) (domain.Console, error) {
 const (
 	localPanelDefaultX = 260.0
 	localPanelDefaultY = 320.0
+
+	// railDefaultX/Y start a desk's two rails where migration 047 put the existing
+	// ones. Before Slice 37 these columns were never read — both canvases pinned the
+	// rails to the coordinate space's edges — so a desk created with the zeroes the
+	// schema defaults to looked fine. It does not any more: the input canvas draws the
+	// channel rail at its stored x, and (0, 0) is on top of the Sources rail at (24, 24).
+	busRailDefaultX     = 24.0
+	channelRailDefaultX = 1400.0
+	railDefaultY        = 24.0
 )
 
 func CreateConsole(db *sql.DB, console domain.Console) (domain.Console, error) {
@@ -69,6 +78,14 @@ func CreateConsole(db *sql.DB, console domain.Console) (domain.Console, error) {
 	}
 	if console.LocalInputPositionX == 0 && console.LocalInputPositionY == 0 {
 		console.LocalInputPositionX, console.LocalInputPositionY = localPanelDefaultX, localPanelDefaultY
+	}
+	// The bus rail on the output canvas and the channel rail on the input canvas. Same
+	// rule, same reason: an all-zero pair is an unset pair, not a placement at the origin.
+	if console.PositionX == 0 && console.PositionY == 0 {
+		console.PositionX, console.PositionY = busRailDefaultX, railDefaultY
+	}
+	if console.InputPositionX == 0 && console.InputPositionY == 0 {
+		console.InputPositionX, console.InputPositionY = channelRailDefaultX, railDefaultY
 	}
 	result, err := db.Exec(`INSERT INTO event_consoles
 		(event_id, name, role, inventory_item_id, owned_item_id, input_count, output_count, local_input_count, local_output_count,

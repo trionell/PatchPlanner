@@ -898,7 +898,6 @@
               <tr><td class="n">Divider</td><td class="v">zinc-800</td><td>Every internal division</td></tr>
               <tr><td class="n">Row</td><td class="v">zinc-800/60</td><td>Between sheet rows</td></tr>
               <tr><td class="n">Stripe</td><td class="v">white/[0.014]</td><td>Alternate rows</td></tr>
-              <tr><td class="n">Lane band</td><td class="v">white/[0.022] · /[0.012]</td><td>Canvas lanes</td></tr>
             </tbody>
           </table>
         </div>
@@ -1201,10 +1200,12 @@
       <p class="sec__num">Five · the flow canvas <span class="sec__src">patterns.md §4 · components.md §2–3</span></p>
       <h2>The same data, seen sideways</h2>
       <p class="body">
-        Three lanes, boxes of ports at fixed pitch, and runs whose colour is derived from the graph
-        rather than stored anywhere. Colour and medium are separate encodings: a run's hue says which
-        channel it reaches, its dash pattern says whether it is a cable or a network hop — so neither
-        has to share a channel with the other.
+        Boxes of ports at fixed pitch on an unbounded plane, and runs whose colour is derived from
+        the graph rather than stored anywhere. Colour and medium are separate encodings: a run's hue
+        says which channel it reaches, its dash pattern says whether it is a cable or a network hop —
+        so neither has to share a channel with the other. <strong>The tinted lane bands and their
+        labels were removed in Slice 37</strong>: they were computed from the canvas width, and a
+        band saying <em>Rack</em> is a claim about where nodes are that nothing constrains.
       </p>
     </header>
 
@@ -1213,14 +1214,6 @@
         <div class="app app--tight" style="min-width: 1000px;">
           <div class="cvs">
             <div class="cvs__stage">
-              <div class="cvs__bands">
-                <div class="cvs__band" style="left: 0; width: 240px; background: rgba(255,255,255,0.022);"></div>
-                <div class="cvs__band" style="left: 260px; width: 240px; background: rgba(255,255,255,0.012);"></div>
-                <div class="cvs__band" style="left: 520px; width: 240px; background: rgba(255,255,255,0.022);"></div>
-              </div>
-              <span class="lbl lbl--lane" style="position: absolute; top: 7px; left: 12px;">Stage</span>
-              <span class="lbl lbl--lane" style="position: absolute; top: 7px; left: 272px;">Rack</span>
-              <span class="lbl lbl--lane" style="position: absolute; top: 7px; left: 532px;">Desk</span>
 
               <svg class="cvs__wires" viewBox="0 0 760 300" preserveAspectRatio="none" aria-hidden="true">
                 <path d="M196 64 C 236 64, 270 77, 310 77" stroke="#38bdf8" />
@@ -1830,10 +1823,6 @@
                 the sources rail is cut by the left edge because it lives in canvas space too.
               -->
               <div class="m-cvs">
-                <div class="cvs__band" style="left: 0; width: 168px; background: rgba(255,255,255,0.022);"></div>
-                <div class="cvs__band" style="left: 168px; right: 0; background: rgba(255,255,255,0.012);"></div>
-                <span class="lbl lbl--lane" style="position: absolute; left: 10px; top: 10px;">Stage</span>
-                <span class="lbl lbl--lane" style="position: absolute; left: 180px; top: 10px;">Rack</span>
 
                 <svg class="m-cvs__wires">
                   <path d="M137 70 C 160 70, 174 71, 195 71" stroke="#38bdf8" />
@@ -1904,7 +1893,7 @@
             </div>
           </div>
         </div>
-        <p class="phone__cap"><b>A canvas in the hand</b> · the working state, panned to the sources. it <em style="text-transform: none;">opens</em> at fit, where the whole graph fits both axes at once — and the stand is editable here</p>
+        <p class="phone__cap"><b>A canvas in the hand</b> · the working state, panned to the sources. it <em style="text-transform: none;">opens</em> where you last left it, per event and per surface — fit is the way back, not the way in — and the stand is editable here</p>
       </div>
 
       <!-- 5 · what stays a desk job -->
@@ -2080,8 +2069,12 @@
         <p class="find__b">All three tabs return their phone branch <em>before</em> the Rig, Buses and Universes drawers render. So the edit sheet's <em>Stagebox</em> select can only offer what a desktop session declared earlier, and a stagebox that arrives at load-in cannot be entered from the loading bay.</p>
       </div>
       <div class="find">
+      <div class="find">
+        <div class="find__hd"><span class="find__id">M13</span><span class="find__ti">A stored position meant a different place on every screen</span><span class="find__done">Slice 37</span><span class="find__p">P9</span></div>
+        <p class="find__b">Reported from use: <em>“on desktop I place the nodes where I want them but on mobile the rig (middle) section is tighter and the nodes bunch together and overlap.”</em> Not tighter by a little — <strong>92 px wide, for nodes that are 200 px wide</strong>. Both canvases defined the middle lane as what is left between two rails pinned to the coordinate space's <em>edges</em>, and that space was <span class="k">panelWidth / zoom</span>, pinned to 820 on a phone by Wave 6d. A desk's lane is ~1144 px: the two surfaces disagreed by a factor of twelve. → <strong>And a pin is not a clamp.</strong> A pinned node's x was <em>overwritten</em> and saved back by the next drag, so four position columns in one real event held four different browser-window widths — 1310, 1520, 1562, 2202 — recorded as coordinates, since Slice 23. → The fix is the model the stage plot always had, and the reporter named it: absolute coordinates, one plane as large as the graph on it, nothing pinned, negative coordinates allowed, and the view remembered per device rather than per event row. Every <span class="k">canvasWidth</span> term, <span class="k">clampProcessingX</span>, the <span class="k">'y-only'</span> drag mode, <span class="k">LaneBands</span> and the rail's internal scroll are deleted. <strong>Wave 6d had found the same line and fixed half of it</strong> — it asked what the space <em>was</em>, never what it was measured against. Half a coordinate system is not a smaller bug; it is a second one.</p>
+      </div>
         <div class="find__hd"><span class="find__id">M6</span><span class="find__ti">The Flow canvas is in the hand</span><span class="find__done">Wave 6d</span><span class="find__p">P9</span></div>
-        <p class="find__b">The rule both documents carried — <em>“a patch graph on a phone is unreadable at any density”</em> — is <strong>reversed</strong>, on the report that the picture of where the signal goes is exactly what is wanted on site. Both canvases mount; only the editing gesture is withheld. → The finding underneath it was a line neither document had looked at: the logical space is <span class="k">panelWidth / zoom</span>, so zooming <em>out</em> on a desk <strong>grows the coordinate space</strong> — right for a canvas being composed, and backwards in a hand, where the desk lane would slide out past <span class="k">x = 1730</span> as fast as you zoomed out. Patterns §7f had described the phone's behaviour correctly for four waves without anyone noticing the code said the opposite. <strong>On a phone the space is fixed and the window moves.</strong> The graph opens at the scale where it fits <em>both axes, whole, once</em>, and the readout resets there rather than to 100 %. And search stopped being a highlight: on a 341 px window over an 820 px graph, the first match is brought into view — at every width, because a 60-channel graph scrolls on a desk too.</p>
+        <p class="find__b">The rule both documents carried — <em>“a patch graph on a phone is unreadable at any density”</em> — is <strong>reversed</strong>, on the report that the picture of where the signal goes is exactly what is wanted on site. Both canvases mount; only the editing gesture is withheld. → The finding underneath it was a line neither document had looked at: the logical space is <span class="k">panelWidth / zoom</span>, so zooming <em>out</em> on a desk <strong>grows the coordinate space</strong> — right for a canvas being composed, and backwards in a hand, where the desk lane would slide out past <span class="k">x = 1730</span> as fast as you zoomed out. Patterns §7f had described the phone's behaviour correctly for four waves without anyone noticing the code said the opposite. <strong>On a phone the space is fixed and the window moves.</strong> <em>(Superseded in part by M13: there is one plane at both reaches now, as large as the graph placed on it, and fit is a control rather than the opening state.)</em> And search stopped being a highlight: on a 341 px window over an 820 px graph, the first match is brought into view — at every width, because a 60-channel graph scrolls on a desk too.</p>
       </div>
       <div class="find find--done">
         <div class="find__hd"><span class="find__id">M7</span><span class="find__ti">A phone-only vocabulary, in a reserved hue</span><span class="find__done">Wave 6a</span><span class="find__p">P3 · P4 · P9</span></div>
@@ -2168,7 +2161,7 @@
         <div class="wave wave--done"><span class="wave__n">Wave 3 ✓</span><span class="wave__t">Lighting</span><span class="wave__d">A8, and A6–A7 on this surface. The restyle was the smaller half: the rig had no DMX map at all, so nothing had ever noticed two fixtures sharing addresses. Sharing turned out to be <em>legitimate</em> — twenty pars on one address is how a room wash is rigged — which the audit had not considered, and which restructured the whole finding. Only <span class="k">RowEditor</span> changed in <span class="k">ui/</span>-adjacent code, by addition; the backend ended <em>smaller</em>.</span></div>
         <div class="wave wave--done"><span class="wave__n">Wave 4 ✓</span><span class="wave__t">The remaining event tabs</span><span class="wave__d">Rental, Equipment and Signal Flow were the conversion the audit predicted. <strong>Overview was not.</strong> Filed as “a form that needs the navigation tier applied consistently”, it became the screen that says what the whole event amounts to — five figures at 26 px, the rig drawn as the flow canvas one row high, and every panel's own verdict in one line. It also found that <span class="k">RowEditor</span>'s hand-off had never rendered: the desktop tab strip was uncontrolled, so no tab could open another.</span></div>
         <div class="wave wave--done"><span class="wave__n">Wave 5 ✓</span><span class="wave__t">Pages and residue</span><span class="wave__d">The audit's second miss: the 308-item inventory catalog, filed under pages. Categories became a filter column doing one job — they used to show four of twenty-seven, because each tile also carried a rename, a delete and a picker-role select. The dashboard was rebuilt rather than trimmed and lost cards entirely. The signed-out start page is <em>exempt</em>, in writing, rather than half-converted.</span></div>
-        <div class="wave wave--part"><span class="wave__n">Wave 6 · done</span><span class="wave__t">The phone</span><span class="wave__d">M1–M12, ordered last for the reason it was skipped: every wave before it was changing the thing the phone would have had to converge <em>onto</em>, and converging twice is how a value gets three definitions. Two primitives first — <span class="k">ui/Sheet</span> (6a) and <span class="k">MobilePanel</span> (6b) — then the nine surfaces (6c), then the canvases (6d), which are last because they are the only phase that adds a capability rather than converting one. <strong>6a</strong> (Slice 33) built <span class="k">ui/Sheet</span> and let <span class="k">Drawer</span> anchor itself, so six drawers got a phone form from one branch. <strong>6b</strong> (Slice 34) built <span class="k">MobilePanel</span> and the row that stops being a card. <strong>6c</strong> (Slice 35) put the nine sections in it and closed M4, M5, M9 and M11 — and found a <em>fifth</em> status rail outside the shared shell, on the one surface 6b's nine lists did not count. <strong>6d</strong> (Slice 36) mounted both Flow canvases and closed M6, the last finding in the wave — and took <span class="k">InspectorRail</span>'s contents into the un-scrimmed sheet through a <em>frame that renders the rail</em> rather than reimplementing it, so the desktop return is identical by construction. It also deleted <strong>two</strong> controls 6c had hand-built for want of a 44 px form the shared component now has, which is the fifth and sixth time in this wave that a branch inside a shared component gave several surfaces a phone form at once.</span></div>
+        <div class="wave wave--part"><span class="wave__n">Wave 6 · done</span><span class="wave__t">The phone</span><span class="wave__d">M1–M12, ordered last for the reason it was skipped: every wave before it was changing the thing the phone would have had to converge <em>onto</em>, and converging twice is how a value gets three definitions. Two primitives first — <span class="k">ui/Sheet</span> (6a) and <span class="k">MobilePanel</span> (6b) — then the nine surfaces (6c), then the canvases (6d), which are last because they are the only phase that adds a capability rather than converting one. <strong>6a</strong> (Slice 33) built <span class="k">ui/Sheet</span> and let <span class="k">Drawer</span> anchor itself, so six drawers got a phone form from one branch. <strong>6b</strong> (Slice 34) built <span class="k">MobilePanel</span> and the row that stops being a card. <strong>6c</strong> (Slice 35) put the nine sections in it and closed M4, M5, M9 and M11 — and found a <em>fifth</em> status rail outside the shared shell, on the one surface 6b's nine lists did not count. <strong>6d</strong> (Slice 36) mounted both Flow canvases and closed M6, the last finding in the wave — and took <span class="k">InspectorRail</span>'s contents into the un-scrimmed sheet through a <em>frame that renders the rail</em> rather than reimplementing it, so the desktop return is identical by construction. It also deleted <strong>two</strong> controls 6c had hand-built for want of a 44 px form the shared component now has, which is the fifth and sixth time in this wave that a branch inside a shared component gave several surfaces a phone form at once. <strong>Then using 6d found M13</strong>, closed by Slice 37 — the wave was complete and the audit empty, and the largest finding in it was still waiting to be noticed by somebody placing a node.</span></div>
       </div>
     </div>
   </section>
@@ -2191,16 +2184,19 @@
       now travelling the dashboard's ribbon.
     </p>
     <p class="body small">
-      The phone's last open question is closed, and it was not the kind of question it was filed
-      as. <em>Pan-and-zoom, or fit-to-width?</em> was deferred to a field test for four phases; it
-      turned out to be arithmetic, and both options were wrong. The graph is 820 × 640 logical px
-      and the phone's panel is 341 wide, so 100 % opens onto the Stage lane with no sign a desk
-      exists, and fitting the <em>width</em> alone needs a scale below the shared control's floor.
-      The axis the question never mentioned settles it: the canvas region is about 300 px tall, so
-      at ~42 % the graph fits <strong>both axes, whole, once</strong>. <strong>Fit is the opening
-      state, pan-and-zoom is the working state, and the reset target is fit.</strong> What still
-      needs a hand is smaller and sharper than what was deferred — whether the whole graph at 42 %
-      is worth having, or merely small.
+      The phone's last open question was closed by arithmetic in Wave 6d — <em>pan-and-zoom, or
+      fit-to-width?</em>, deferred to a field test for four phases, when both options were wrong and
+      the axis nobody mentioned settled it. <strong>Then using it found something better.</strong>
+      The rectangle that arithmetic was done against, 820 × 640, was nominal: the coordinate space
+      was measured from the browser window, and two rails were pinned to its edges, so the lane
+      between them came out <strong>92 px wide on a phone for nodes that are 200 px wide</strong>.
+      Slice 37's answer is the model the stage plot always had — one plane as large as the graph on
+      it, absolute coordinates, negative ones allowed, and the view remembered per device. So
+      <strong>fit is a control and not the opening state</strong>, measured from the content rather
+      than a guessed rectangle. The lesson worth keeping is not about canvases: a defect that had
+      been writing browser-window widths into position columns since Slice 23 was invisible to a
+      type checker, a linter, 520 tests and a review, because every one of them agrees that
+      <span class="k">canvasWidth − 224</span> is a number.
     </p>
   </footer>
 

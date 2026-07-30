@@ -349,7 +349,12 @@ export interface Console {
   output_count: number
   local_input_count: number
   local_output_count: number
-  /** The desk's own node — pinned to its lane on both graphs, so only y is used. */
+  /**
+   * The desk's bus rail on the output canvas (`position_*`) and its channel rail on the
+   * input canvas (`input_position_*`) — a pair each, placed freely since Slice 37. Both
+   * were pinned to the coordinate space's edges before that, so the x of each was
+   * computed, drawn, and saved back as whatever the browser window happened to be.
+   */
   position_x: number
   position_y: number
   input_position_x: number

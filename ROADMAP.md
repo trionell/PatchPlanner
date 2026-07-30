@@ -1286,6 +1286,38 @@ with it every finding in `design/audit.md`, desktop and phone.
   diffed after: `ZoomControl` and both flow inspectors, byte-identical in every state.
 - **Wave 6 is complete**, and `design/audit.md` Part 1 is empty for the first time.
 
+## Slice 37 — The flow canvas as a plane (spec: `flow-canvas-plane`)
+
+**Reported from use**, not from a field-test script: *"on desktop I place the nodes
+where I want them but on mobile the rig (middle) section is tighter and the nodes bunch
+together and overlap."*
+
+- The middle lane was **92 px wide on every phone**, for nodes that are 200 px wide,
+  because it was defined as what is left between two rails pinned to the coordinate
+  space's edges and that space was measured from the browser window. A desk's lane is
+  ~1144 px. See `design/audit.md` **M13**.
+- **A pin is not a clamp.** A pinned node's x was overwritten and then saved back by the
+  next drag, so four position columns in event 1 held four different window widths
+  (1310, 1520, 1562, 2202) recorded as coordinates. This had been true since Slice 23,
+  and a narrow window rewrote real placements permanently.
+- Adopts the stage plot's model at both reaches: absolute coordinates, one plane as large
+  as the graph on it, pan and zoom as the only view state. Deleted: every `canvasWidth`
+  term, `clampProcessingX`, the `'y-only'` drag mode, the `y ≥ 8` floor, `LaneBands`, and
+  the Sources rail's internal scroll with its cable re-attachment path.
+- **Negative coordinates in both axes.** A floor at zero is an arbitrary limit; the plane's
+  origin is derived from its content instead. The cost is `originShift` — the origin moves
+  when a node is dragged past an edge, and the scroll offset must be compensated in the
+  same frame or the graph lurches under the finger holding it.
+- *Fit* is measured from the content's bounding box and is a **control** at both reaches.
+  A surface opens **where it was last left**, per event and per surface, device-local in
+  `localStorage` — following `usePatchView`, not `stage_plots`. Six columns on `events`
+  were proposed and rejected: zoom and pan are one person's view of one screen.
+- Migration 047 normalises the columns that were never placements, and only those.
+  Rehearsed against a copy of the database. Its `down` is a documented no-op.
+- One desk cost, and it pays for itself: the Channels/Destinations rail no longer hugs the
+  window's right edge. Opening at *fit* — now true on the desktop too — is what puts it
+  back on screen.
+
 ## Known defects — found, reproduced, not yet scheduled
 
 Each of these has been traced to a specific line and is waiting for a slice to
@@ -1369,6 +1401,25 @@ both widths. Both inspectors, together, for the reason everything in these two f
 done together. The sentence should keep naming the consequence, which the current one
 already does: *any cable connected to it is removed with it.*
 
+### D3 — The stage plot's remembered view is shared across every device
+
+**Found:** 2026-07-30, while deciding where Slice 37's view should live. `stage_plots`
+holds `zoom`, `pan_x_cm` and `pan_y_cm`, and `StagePlotTab` writes them on an 800 ms
+debounce for anyone who is not read-only. They are **not user-scoped**.
+
+So a collaborator panning their phone decides where your desk opens next, and two of your
+own devices overwrite each other. It is milder than it sounds — a local override wins for
+the session, so the foreign view is adopted on next *load* rather than mid-work — but it
+is the same defect Slice 37 declined to introduce, and for the same reason: a view is one
+person's view of one screen.
+
+**What a fix has to cover.** Move it to `localStorage` keyed by plot, following
+`useFlowView`; leave `active_view` (Top/Front/Side) where it is, because that one is a
+shared plot setting and `StagePlotTab:126` already argues correctly that the phone's
+*local* view choice must not change what the next person opens on a desk. Dropping the
+three columns is a migration whose `down` cannot restore them, so it may be worth leaving
+them unread rather than removing them.
+
 ## Dependency graph
 
 ```
@@ -1382,6 +1433,6 @@ Slice 7 (lighting rig) + Slice 12 ──→ Slice 13 (stage plots; supersedes Sl
 Slice 7 (lighting rig) + Slice 25 (visual language) ──→ Slice 27 (Lighting becomes a sheet; design wave 3) ──→ Slice 28 (the remaining event tabs; design wave 4) ──→ Slice 29 (pages and residue; design wave 5 — convergence complete) ──→ Slice 30 (the Events timeline, and events that have length) ──→ Slice 31 (rental pricing by duration)
 
 Slice 16 (inventory ownership) + Slice 29 (pages and residue) + Slice 30 (the spine) ──→ Slice 32 (the inventory list — the last card list)
-Slice 21 (mobile redesign) + Slice 29 (the language it converges onto) ──→ Slice 33 (the phone's bottom sheet; design wave 6a) ──→ Slice 34 (the phone's panel; design wave 6b) ──→ Slice 35 (the nine surfaces; design wave 6c) ──→ Slice 36 (the canvases; design wave 6d — convergence complete) ✅
+Slice 21 (mobile redesign) + Slice 29 (the language it converges onto) ──→ Slice 33 (the phone's bottom sheet; design wave 6a) ──→ Slice 34 (the phone's panel; design wave 6b) ──→ Slice 35 (the nine surfaces; design wave 6c) ──→ Slice 36 (the canvases; design wave 6d — convergence complete) ✅ ──→ Slice 37 (the flow canvas as a plane; found by using 6d)
 Slice 14 (auth) ──→ Slice 15 (event ownership & sharing) ──→ Slice 16 (inventory ownership) ──→ Slice 17 (event settings) ──→ Slice 18 (deployment) ✅
 ```

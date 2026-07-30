@@ -17,9 +17,11 @@ import { listEventInventoryItems } from '../../api/inventory'
 import { listOwnedItems } from '../../api/owned'
 import { useDraftState } from '../../hooks/useDraftState'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { usePlaneView } from '../../hooks/usePlaneView'
 import { usePinchZoom } from '../../hooks/usePinchZoom'
 import { fitScale } from '../../lib/canvasFit'
 import { firstMatch, focusOffset } from '../../lib/canvasFocus'
+import { originShift, planeExtent, planeOrigin } from '../../lib/canvasPlane'
 import { usePatchView } from '../../hooks/usePatchView'
 import { buildMobileOutputList } from '../../lib/mobileOutputList'
 import { outputPatchStatus } from '../../lib/patchCapacity'
@@ -49,10 +51,10 @@ import { itemLabel } from '../../lib/utils'
 import type { AudioPatchOutput, Console, InventoryItem, OutputCable, OutputDevice, OwnedItem, StageMulti, Stagebox } from '../../types'
 import { AudioPatchShell } from './AudioPatchShell'
 import { OutputFlowInspector, type OutputFlowSelection } from './OutputFlowInspector'
-import { LaneBands } from './graph/LaneBands'
 import { NodeShell as SharedNodeShell } from './graph/NodeShell'
 import { PortRow as SharedPortRow, SplitPortRow, type PortWiring } from './graph/PortRow'
-import { ZoomControl } from './graph/ZoomControl'
+import { ZoomControl, ZOOM_MAX, ZOOM_STEP } from './graph/ZoomControl'
+import { stepZoomAdditive } from '../../lib/canvasFit'
 import { ConsoleSection } from './ConsoleSection'
 import { OutputSheet } from './OutputSheet'
 import { PatchStatusRail } from './PatchStatusRail'
@@ -103,21 +105,41 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
   const [zoom, setZoom] = useState<number | null>(null)
   const [fit, setFit] = useState(1)
   /*
-    A desk's fit is 1, and only a phone ever reports one — so this is **derived rather
-    than reset**. Widening a phone-width window past the breakpoint would otherwise leave
-    the bar reading *42 %* over a canvas drawn at 100 %, and step the desktop control
-    from 0.42 straight into its own floor.
+    The floor of the zoom range, and the scale a surface opens at before anybody chooses
+    one — **at both widths since Slice 37**.
+
+    It used to be `isMobile ? fit : 1`, because a desk's canvas was sized to its own panel
+    and therefore always fitted. The plane is not: it is as wide as the graph placed on it,
+    which can exceed a desk's window too. Opening a desk at *fit* is also what keeps the
+    Destinations rail visible now that it no longer hugs the window's right edge — the one
+    thing this slice was going to cost the desk, paid back by the same change.
+
+    Still derived rather than reset, for the reason it always was: a re-measurement must
+    clamp a chosen zoom into the new range, not throw it away.
   */
-  const fitFloor = isMobile ? fit : 1
+  const fitFloor = fit
   const zoomLevel = zoom ?? fitFloor
   /* A re-measurement clamps a chosen zoom into the new range rather than resetting it —
      turning the phone is what someone does to see more of the graph. */
   const adoptFit = useCallback((next: number) => {
     setFit(next)
-    setZoom((current) => (current == null ? null : Math.min(1, Math.max(next, current))))
+    /*
+      Raises the floor; imposes no ceiling. The `Math.min(1, …)` that used to be here was
+      right while only a phone reported a fit — the phone's range ends at 1. Since Slice 37
+      the desk reports one too, and `fit` moves on every content change, so the ceiling
+      snapped a desk's 130 % back to 100 % the moment any node was dragged.
+    */
+    setZoom((current) => (current == null ? null : Math.max(next, current)))
   }, [])
 
   const stepZoom = (factor: number) => setZoom((current) => Math.min(1, Math.max(fitFloor, (current ?? fitFloor) * factor)))
+  /*
+    The desk's stepper. `ZoomControl`'s own additive stepping is bounded by `ZOOM_MIN`,
+    which is 0.5 — and a plane's fit can be below that, in which case pressing **−** from
+    the opening state would zoom *in*. So the floor is the fit, and the ceiling stays the
+    desk's own `ZOOM_MAX`.
+  */
+  const stepDeskZoom = (delta: number) => setZoom((current) => stepZoomAdditive(current, delta, fitFloor, ZOOM_MAX))
   // Open the first time, and then only for as long as it has not been read.
   const patchingIsADeskJob = useInfoNote({ id: 'flow-desk-job', defaultOpen: true })
   // The phone's strip filter — the desktop's lives in `OutputSheet` (data-model.md §3).
@@ -282,6 +304,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
                 computer. Tap any box to read or edit what it is.
               </InfoPanel>
               <OutputGraphCanvas
+                ready={audioQuery.isSuccess}
                 cableItems={cableItems}
                 cables={outputCables}
                 consoles={consoles}
@@ -372,7 +395,17 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
         onSearchChange={setSearch}
         onOpenRig={readOnly ? undefined : () => setRigOpen(true)}
         onAdd={readOnly ? undefined : addOutputRow}
-        toolbarExtras={view === 'flow' ? <ZoomControl zoom={zoomLevel} onZoomChange={setZoom} /> : undefined}
+        toolbarExtras={
+          view === 'flow' ? (
+            <ZoomControl
+              zoom={zoomLevel}
+              onZoomChange={setZoom}
+              onZoomIn={() => stepDeskZoom(ZOOM_STEP)}
+              onZoomOut={() => stepDeskZoom(-ZOOM_STEP)}
+              onReset={() => setZoom(null)}
+            />
+          ) : undefined
+        }
         drawers={
           <RigDrawer
             open={rigOpen}
@@ -423,6 +456,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
           />
         ) : (
           <OutputGraphCanvas
+                ready={audioQuery.isSuccess}
             eventId={eventId}
             outputs={outputs}
             stageboxes={stageboxes}
@@ -460,16 +494,16 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
 
 const NODE_WIDTH = 200
 const CANVAS_HEIGHT = 640
-const CANVAS_MIN_WIDTH = 820
-const ZONE_SOURCES_X = 24
+/*
+  The one node with nowhere to store a position (Slice 37 A1): `mixer:0`, which exists
+  only so outputs belonging to no desk stay patchable. Every node that has columns of its
+  own is placed at the coordinates it holds.
 
-/** Right/middle-zone edges depend on the canvas's live width — the panel resizes with the browser, so these can't be fixed constants. */
-function zoneDestinationsX(canvasWidth: number): number {
-  return canvasWidth - NODE_WIDTH - 24
-}
-function zoneProcessingBounds(canvasWidth: number): { min: number; max: number } {
-  return { min: 264, max: canvasWidth - NODE_WIDTH - 264 }
-}
+  What was wrong before this slice was a coordinate derived from the *browser window* —
+  `canvasWidth - NODE_WIDTH - 24`, which is why every position column in this event
+  records a window width. A constant is a different thing: it is the same everywhere.
+*/
+const MIXER_RAIL_X = 24
 
 interface NodeLayout {
   kind: PortRef['kind']
@@ -515,6 +549,7 @@ function OutputGraphCanvas({
   onZoomChange,
   onChanged,
   readOnly = false,
+  ready = false,
 }: {
   eventId: number
   outputs: AudioPatchOutput[]
@@ -548,6 +583,8 @@ function OutputGraphCanvas({
   onZoomChange?: (zoom: number) => void
   onChanged: () => Promise<void>
   readOnly?: boolean
+  /** Whether the graph's own data has arrived — see `usePlaneView`. */
+  ready?: boolean
 }) {
   const isMobile = useIsMobile()
   /*
@@ -558,6 +595,8 @@ function OutputGraphCanvas({
   const spatial = !isMobile
   const wrapperRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
+  /** Holds only the nodes, so the plane's extent cannot be measured from its own answer. */
+  const nodesRef = useRef<HTMLDivElement>(null)
   const portEls = useRef(new Map<string, HTMLElement>())
   const [paths, setPaths] = useState<{ id: number; d: string; hasItem: boolean; network: boolean; color: string | undefined }[]>([])
   const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(new Map())
@@ -572,30 +611,26 @@ function OutputGraphCanvas({
   // a hardcoded canvas width drifting out of view on any screen narrower
   // than that constant.
   const [viewport, setViewport] = useState({ width: 1180, height: CANVAS_HEIGHT })
-
-  /* The scale at which the whole graph fits its window — the phone's opening state
-     (patterns.md §7f; Slice 36 R2). Measured, never assumed. */
-  const fit = useMemo(
-    () => (isMobile ? fitScale(viewport.width, viewport.height, CANVAS_MIN_WIDTH, CANVAS_HEIGHT) : 1),
-    [isMobile, viewport],
-  )
-  const zoom = zoomProp ?? fit
+  /*
+    The plane's own size in logical px, measured rather than computed — see the note on
+    the input canvas's copy. Absolutely positioned children contribute to a positioned
+    ancestor's scroll area, so this is exact without re-deriving how tall a node is.
+  */
+  const [content, setContent] = useState({ width: 0, height: 0 })
+  /*
+    The plane: the content plus the same margin the origin already puts on the other two
+    sides (FR-006). Without it a node against the right edge is against the edge of the
+    scrollable area too, with nowhere to drop the one beside it.
+  */
+  const plane = useMemo(() => planeExtent(content), [content])
 
   /*
-    The canvas's LOGICAL width/height — the coordinate space node positions and zone
-    bounds live in — and the one thing here that differs by reach.
-
-    On a desk it **grows as you zoom out**: the processing zone gets more logical room
-    inside the same panel, rather than the drawing shrinking and leaving empty space.
-
-    In a hand that is exactly wrong. The measured width is ~341, so at the fit scale the
-    space would become ~1950 and the destination lane would slide off to the right —
-    zooming out to see the whole graph would push the graph away as fast as you zoomed. A
-    phone's canvas is a **viewport**: the space is fixed and zoom moves the window onto
-    it (patterns.md §7f, Slice 36 R1).
+    The scale at which the whole graph fits its window (patterns.md §7f), measured on both
+    axes of both boxes since Slice 37 — the window, and the plane's real extent rather than
+    a nominal rectangle. A control, not the opening state (research.md R6).
   */
-  const canvasWidth = isMobile ? CANVAS_MIN_WIDTH : Math.max(CANVAS_MIN_WIDTH, viewport.width) / zoom
-  const canvasHeight = isMobile ? CANVAS_HEIGHT : CANVAS_HEIGHT / zoom
+  const fit = useMemo(() => fitScale(viewport.width, viewport.height, plane.width, plane.height), [viewport, plane])
+  const zoom = zoomProp ?? fit
 
   useLayoutEffect(() => {
     const el = wrapperRef.current
@@ -616,13 +651,8 @@ function OutputGraphCanvas({
   }, [])
 
   useEffect(() => {
-    if (isMobile) onFitChange?.(fit)
-  }, [fit, isMobile, onFitChange])
-
-  function clampProcessingX(x: number): number {
-    const { min, max } = zoneProcessingBounds(canvasWidth)
-    return Math.max(min, Math.min(max, x))
-  }
+    onFitChange?.(fit)
+  }, [fit, onFitChange])
 
   const portContext = { outputs, stageboxes, stageMultis, devices, consoles }
 
@@ -651,8 +681,11 @@ function OutputGraphCanvas({
     onSuccess: onChanged,
   })
   // The desk's bus list is pinned to the Sources lane, so only its y is stored.
+  // The desk's bus rail. Both axes since Slice 37 — it used to be pinned to the canvas's
+  // left edge, so an x would have been overwritten on the next render.
   const moveConsoleMutation = useMutation({
-    mutationFn: ({ id, y }: { id: number; y: number }) => updateConsole(eventId, id, { position_y: y }),
+    mutationFn: ({ id, x, y }: { id: number; x: number; y: number }) =>
+      updateConsole(eventId, id, { position_x: x, position_y: y }),
     onSuccess: onChanged,
   })
   // Its jack panel is free in both axes and stores its own pair — dragging it
@@ -700,9 +733,12 @@ function OutputGraphCanvas({
     for (const desk of consoles) {
       // The desk's bus list, keyed by the kind of port it carries. Console ids
       // start at 1, so this never collides with the `mixer:0` node below.
+      // Its x is the coordinate it holds, not the canvas's left edge — the pin that
+      // forced the whole coordinate space to be measured from the browser window
+      // (Slice 37 FR-004).
       const pos = positions.get(`mixer:${desk.id}`)
       const y = pos?.y ?? desk.position_y
-      nodes.push({ kind: 'mixer', id: desk.id, x: ZONE_SOURCES_X, y, zone: 'sources' })
+      nodes.push({ kind: 'mixer', id: desk.id, x: pos?.x ?? desk.position_x, y, zone: 'sources' })
       // Below the desk actually placed — see InputGraphCanvas (Slice 24 FR-007).
       nextY = Math.max(nextY + 220, y + 220)
 
@@ -715,7 +751,7 @@ function OutputGraphCanvas({
         nodes.push({
           kind: 'console_local',
           id: desk.id,
-          x: clampProcessingX(jackPos?.x ?? desk.local_position_x),
+          x: jackPos?.x ?? desk.local_position_x,
           y: jackPos?.y ?? desk.local_position_y,
           zone: 'processing',
         })
@@ -723,35 +759,88 @@ function OutputGraphCanvas({
     }
     if (orphanOutputs.length > 0 || consoles.length === 0) {
       const mixerPos = positions.get('mixer:0')
-      nodes.push({ kind: 'mixer', id: 0, x: ZONE_SOURCES_X, y: mixerPos?.y ?? nextY, zone: 'sources' })
+      nodes.push({ kind: 'mixer', id: 0, x: mixerPos?.x ?? MIXER_RAIL_X, y: mixerPos?.y ?? nextY, zone: 'sources' })
     }
 
+    /*
+      Every device now reads its own stored x, whatever zone it is in. Sources used to be
+      forced to the left edge and destinations to `canvasWidth - 224`, which is why their
+      position columns hold four different window widths in this event (research.md R2) —
+      the migration normalises those once, and from here they mean what they say.
+
+      `zone` survives because it still says which *way* a device faces, which decides its
+      ports. It no longer says where it is drawn.
+    */
     for (const device of sourceDevices) {
-      const pos = effectivePosition('device', device.id, ZONE_SOURCES_X, device.position_y)
-      nodes.push({ kind: 'device', id: device.id, x: ZONE_SOURCES_X, y: pos.y, zone: 'sources' })
+      const pos = effectivePosition('device', device.id, device.position_x, device.position_y)
+      nodes.push({ kind: 'device', id: device.id, x: pos.x, y: pos.y, zone: 'sources' })
     }
-
-    const destX = zoneDestinationsX(canvasWidth)
     for (const device of destinationDevices) {
-      const pos = effectivePosition('device', device.id, destX, device.position_y)
-      nodes.push({ kind: 'device', id: device.id, x: destX, y: pos.y, zone: 'destinations' })
+      const pos = effectivePosition('device', device.id, device.position_x, device.position_y)
+      nodes.push({ kind: 'device', id: device.id, x: pos.x, y: pos.y, zone: 'destinations' })
     }
-
     for (const sb of stageboxes) {
       const pos = effectivePosition('stagebox', sb.id, sb.position_x, sb.position_y)
-      nodes.push({ kind: 'stagebox', id: sb.id, x: clampProcessingX(pos.x), y: pos.y, zone: 'processing' })
+      nodes.push({ kind: 'stagebox', id: sb.id, x: pos.x, y: pos.y, zone: 'processing' })
     }
     for (const sm of stageMultis) {
       const pos = effectivePosition('stage_multi', sm.id, sm.position_x, sm.position_y)
-      nodes.push({ kind: 'stage_multi', id: sm.id, x: clampProcessingX(pos.x), y: pos.y, zone: 'processing' })
+      nodes.push({ kind: 'stage_multi', id: sm.id, x: pos.x, y: pos.y, zone: 'processing' })
     }
     for (const device of processingDevices) {
       const pos = effectivePosition('device', device.id, device.position_x, device.position_y)
-      nodes.push({ kind: 'device', id: device.id, x: clampProcessingX(pos.x), y: pos.y, zone: 'processing' })
+      nodes.push({ kind: 'device', id: device.id, x: pos.x, y: pos.y, zone: 'processing' })
     }
     return nodes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [consoles, orphanOutputs, sourceDevices, destinationDevices, stageboxes, stageMultis, processingDevices, positions, canvasWidth])
+  }, [consoles, orphanOutputs, sourceDevices, destinationDevices, stageboxes, stageMultis, processingDevices, positions])
+
+  /* Where the plane starts — see the input canvas's note (Slice 37 R4). */
+  const origin = useMemo(() => planeOrigin(layout), [layout])
+
+  /* Opening where it was last left on this device, and remembering where that is. */
+  const { onScroll: rememberView } = usePlaneView({
+    eventId,
+    tab: 'outputs',
+    wrapperRef,
+    zoom,
+    zoomProp,
+    origin,
+    content,
+    ready,
+    onZoom: onZoomChange,
+  })
+
+  /* The plane's extent, read off the DOM — see the input canvas's note. */
+  useLayoutEffect(() => {
+    const el = nodesRef.current
+    if (!el) return
+    const width = el.scrollWidth
+    const height = el.scrollHeight
+    setContent((current) => (current.width === width && current.height === height ? current : { width, height }))
+  }, [layout, outputs, consoles, stageboxes, stageMultis, devices])
+
+
+  /*
+    Keeping the view still while the plane grows under it (R4). The origin is derived from
+    the content, so dragging one node past an edge moves every other node's DOM offset by
+    the same delta — and without this the graph lurches under the finger holding it.
+
+    `lastOrigin` is seeded with the first origin and updated on every run including the
+    early return, so this can never compose with `usePlaneView`'s absolute restore in one
+    commit: by the time a restore happens the ref already agrees with the current origin.
+  */
+  const lastOrigin = useRef(origin)
+  useLayoutEffect(() => {
+    const el = wrapperRef.current
+    const before = lastOrigin.current
+    lastOrigin.current = origin
+    if (!el || (before.x === origin.x && before.y === origin.y)) return
+    const shift = originShift(before, origin, zoom)
+    el.scrollLeft += shift.x
+    el.scrollTop += shift.y
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [origin])
 
   useLayoutEffect(() => {
     const container = canvasRef.current
@@ -846,15 +935,15 @@ function OutputGraphCanvas({
     const key = `${target.kind}:${target.id}`
     if (key === lastFocused.current) return
     lastFocused.current = key
-    const { left, top } = focusOffset(target, {
+    const { left, top } = focusOffset({ x: target.x - origin.x, y: target.y - origin.y }, {
       zoom,
       viewportW: el.clientWidth,
       viewportH: el.clientHeight,
       scrollLeft: el.scrollLeft,
       scrollTop: el.scrollTop,
       nodeW: NODE_WIDTH,
-      contentW: canvasWidth * zoom,
-      contentH: canvasHeight * zoom,
+      contentW: plane.width * zoom,
+      contentH: plane.height * zoom,
     })
     el.scrollTo({ left, top, behavior: 'smooth' })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -875,7 +964,7 @@ function OutputGraphCanvas({
         : { kind: selection.kind, id: selection.id }
     const target = layout.find((node) => node.kind === owner.kind && node.id === owner.id)
     if (!target) return
-    const { left, top } = focusOffset(target, {
+    const { left, top } = focusOffset({ x: target.x - origin.x, y: target.y - origin.y }, {
       zoom,
       viewportW: el.clientWidth,
       viewportH: el.clientHeight,
@@ -883,8 +972,8 @@ function OutputGraphCanvas({
       scrollTop: el.scrollTop,
       nodeW: NODE_WIDTH,
       clearBottom: el.clientHeight / 2,
-      contentW: canvasWidth * zoom,
-      contentH: canvasHeight * zoom,
+      contentW: plane.width * zoom,
+      contentH: plane.height * zoom,
     })
     el.scrollTo({ left, top, behavior: 'smooth' })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -979,7 +1068,7 @@ function OutputGraphCanvas({
         // (Slice 24 FR-006, research.md R4).
         return
       }
-      moveConsoleMutation.mutate({ id, y }, { onError })
+      moveConsoleMutation.mutate({ id, x, y }, { onError })
       return
     }
     if (kind === 'stagebox') {
@@ -1016,15 +1105,22 @@ function OutputGraphCanvas({
   */
   const dragHandle = (handler: (event: ReactPointerEvent) => void) => (spatial && !readOnly ? handler : undefined)
 
-  function startNodeDrag(kind: PortRef['kind'], id: number, mode: 'y-only' | 'free', event: ReactPointerEvent) {
+  /*
+    No `mode` since Slice 37. It used to be `'y-only'` for every node pinned to a lane
+    edge — the rails and the source/destination devices — because their x was about to be
+    overwritten by the next render anyway. Nothing is pinned now, so every node is free in
+    both axes, and there is one drag rather than two (FR-004).
+  */
+  function startNodeDrag(kind: PortRef['kind'], id: number, event: ReactPointerEvent) {
     if (!spatial) return
     const node = layout.find((n) => n.kind === kind && n.id === id)
     if (!node) return
     event.currentTarget.setPointerCapture(event.pointerId)
     const startX = event.clientX
     const startY = event.clientY
-    const origin = { x: node.x, y: node.y }
-    let latest = origin
+    // `start`, not `origin`: the plane has an origin of its own now.
+    const start = { x: node.x, y: node.y }
+    let latest = start
     const key = `${kind}:${id}`
 
     function onMove(moveEvent: PointerEvent) {
@@ -1034,11 +1130,12 @@ function OutputGraphCanvas({
       // delta has to be divided by the current zoom to get the matching
       // logical delta (otherwise dragging at any zoom other than 100%
       // moves nodes faster or slower than the cursor).
-      const dx = mode === 'free' ? (moveEvent.clientX - startX) / zoom : 0
+      //
+      // Unclamped in both axes, with no floor at zero: a node dragged past an edge
+      // extends the plane instead (FR-005).
+      const dx = (moveEvent.clientX - startX) / zoom
       const dy = (moveEvent.clientY - startY) / zoom
-      const x = mode === 'free' ? clampProcessingX(origin.x + dx) : origin.x
-      const y = Math.max(8, origin.y + dy)
-      latest = { x, y }
+      latest = { x: start.x + dx, y: start.y + dy }
       setPositions((current) => new Map(current).set(key, latest))
     }
     function onUp() {
@@ -1196,19 +1293,28 @@ function OutputGraphCanvas({
         onPointerDown={isMobile ? beginPress : undefined}
         onPointerCancel={isMobile ? cancelPress : undefined}
         onPointerMove={isMobile ? trackPress : undefined}
+        onScroll={rememberView}
         style={isMobile ? { touchAction: 'pan-x pan-y' } : { height: CANVAS_HEIGHT }}
       >
-        <div style={{ width: canvasWidth * zoom, height: canvasHeight * zoom }}>
-          <div ref={canvasRef} className="relative" style={{ width: canvasWidth, height: canvasHeight, transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
-            <LaneBands
-              height={canvasHeight}
-              lanes={[
-                { label: 'Console', x: 0, width: ZONE_SOURCES_X + NODE_WIDTH + 24 },
-                { label: 'Rig', x: ZONE_SOURCES_X + NODE_WIDTH + 40, width: Math.max(0, zoneDestinationsX(canvasWidth) - (ZONE_SOURCES_X + NODE_WIDTH + 56)) },
-                { label: 'Stage', x: canvasWidth - (NODE_WIDTH + 48), width: NODE_WIDTH + 48 },
-              ]}
-            />
-            <svg className="pointer-events-none absolute inset-0" width={canvasWidth} height={canvasHeight}>
+        {/*
+          The scrolled box, sized to the plane at the current scale, and inside it the plane
+          itself at its logical size.
+
+          Both are sized, and the inner one **must** be. A block element with `width: auto`
+          lays out at its parent's width — already `plane.width * zoom` — and then paints
+          through `scale(zoom)` at `plane.width * zoom²`, so above 100 % the transformed box
+          overflows the sized one and the wrapper gains up to half a plane of empty scroll.
+          Stating the logical size makes the painted size exactly the parent's.
+
+          This element is **not** what the extent is measured from — that is `nodesRef`
+          below, for the reason given at its own site.
+
+          No lane bands: a band saying *Rig* is a claim about where nodes are, and nothing
+          constrains that now (FR-013, research.md R7).
+        */}
+        <div style={{ width: plane.width * zoom, height: plane.height * zoom }}>
+          <div ref={canvasRef} className="relative" style={{ width: plane.width, height: plane.height, transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
+            <svg className="pointer-events-none absolute left-0 top-0" width={plane.width} height={plane.height}>
               {/* Same two encodings as the input graph (Slice 23): hue is the
                   output this run carries, dash pattern is what kind of link it
                   is. Keeping them independent is what lets a network hop wear
@@ -1225,6 +1331,20 @@ function OutputGraphCanvas({
               ))}
               {ghostPath && <path d={ghostPath} fill="none" stroke="#f59e0b" strokeWidth={2 / zoom} strokeDasharray={`${5 / zoom} ${4 / zoom}`} opacity={0.85} />}
             </svg>
+            {/*
+              The measured element, and it holds **only the nodes** (Slice 37, review).
+
+              Two things would otherwise feed the measurement its own previous answer. The
+              `<svg>` above is sized to the plane, and a positioned child contributes its
+              own edge to `scrollWidth` — so the extent could grow and never shrink, and a
+              node dragged back from the far right would leave the space behind. And a
+              *block* element inherits its parent's width, so its `scrollWidth` has a floor
+              of the outer box's `plane.width * zoom`, which above 100 % inflates on every
+              remeasure. Absolutely positioned with no width, this element shrink-to-fits
+              over nothing — abs-positioned children do not contribute — so its scroll area
+              is exactly the nodes, and nothing derived from the previous answer.
+            */}
+            <div ref={nodesRef} className="absolute left-0 top-0">
             {layout.map((node) => {
               if (node.kind === 'console_local') {
                 const desk = consoles.find((c) => c.id === node.id)
@@ -1232,8 +1352,8 @@ function OutputGraphCanvas({
                 return (
                   <LocalJackNode
                     key={`jacks-${desk.id}`}
-                    x={node.x}
-                    y={node.y}
+                    x={node.x - origin.x}
+                    y={node.y - origin.y}
                     desk={desk}
                     cables={cables}
                     pendingPort={pendingPort}
@@ -1241,7 +1361,7 @@ function OutputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
-                    onDragStart={dragHandle((e) => startNodeDrag('console_local', desk.id, 'free', e))}
+                    onDragStart={dragHandle((e) => startNodeDrag('console_local', desk.id, e))}
                     selected={selection?.kind === 'console_local' && selection.id === desk.id}
                     onSelect={onTap(() => onSelectionChange({ kind: 'console_local', id: desk.id }))}
                     dimmed={!matchesNode(node)}
@@ -1256,8 +1376,8 @@ function OutputGraphCanvas({
                 return desk ? (
                   <ConsoleNode
                     key={`desk-${desk.id}`}
-                    x={node.x}
-                    y={node.y}
+                    x={node.x - origin.x}
+                    y={node.y - origin.y}
                     desk={desk}
                     outputs={outputs.filter((row) => row.console_id === desk.id)}
                     cables={cables}
@@ -1266,7 +1386,7 @@ function OutputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
-                    onDragStart={dragHandle((e) => startNodeDrag('mixer', desk.id, 'y-only', e))}
+                    onDragStart={dragHandle((e) => startNodeDrag('mixer', desk.id, e))}
                     selectedOutputId={selection?.kind === 'output' ? selection.id : undefined}
                     onSelectOutput={(id) => onTap(() => onSelectionChange({ kind: 'output', id }))()}
                     search={search}
@@ -1274,8 +1394,8 @@ function OutputGraphCanvas({
                 ) : (
                   <MixerNode
                     key="mixer"
-                    x={node.x}
-                    y={node.y}
+                    x={node.x - origin.x}
+                    y={node.y - origin.y}
                     outputs={orphanOutputs}
                     cables={cables}
                     pendingPort={pendingPort}
@@ -1283,7 +1403,7 @@ function OutputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
-                    onDragStart={dragHandle((e) => startNodeDrag('mixer', 0, 'y-only', e))}
+                    onDragStart={dragHandle((e) => startNodeDrag('mixer', 0, e))}
                     selectedOutputId={selection?.kind === 'output' ? selection.id : undefined}
                     onSelectOutput={(id) => onTap(() => onSelectionChange({ kind: 'output', id }))()}
                     search={search}
@@ -1296,8 +1416,8 @@ function OutputGraphCanvas({
                 return (
                   <StageboxNode
                     key={`sb-${sb.id}`}
-                    x={node.x}
-                    y={node.y}
+                    x={node.x - origin.x}
+                    y={node.y - origin.y}
                     stagebox={sb}
                     cables={cables}
                     pendingPort={pendingPort}
@@ -1305,7 +1425,7 @@ function OutputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
-                    onDragStart={dragHandle((e) => startNodeDrag('stagebox', sb.id, 'free', e))}
+                    onDragStart={dragHandle((e) => startNodeDrag('stagebox', sb.id, e))}
                     selected={selection?.kind === 'stagebox' && selection.id === sb.id}
                     onSelect={onTap(() => onSelectionChange({ kind: 'stagebox', id: sb.id }))}
                     dimmed={!matchesNode(node)}
@@ -1318,8 +1438,8 @@ function OutputGraphCanvas({
                 return (
                   <StageMultiNode
                     key={`sm-${sm.id}`}
-                    x={node.x}
-                    y={node.y}
+                    x={node.x - origin.x}
+                    y={node.y - origin.y}
                     stageMulti={sm}
                     cables={cables}
                     pendingPort={pendingPort}
@@ -1327,7 +1447,7 @@ function OutputGraphCanvas({
                     onPortPointerDown={handlePortPointerDown}
                     registerPort={registerPort}
                     colorContext={colorContext}
-                    onDragStart={dragHandle((e) => startNodeDrag('stage_multi', sm.id, 'free', e))}
+                    onDragStart={dragHandle((e) => startNodeDrag('stage_multi', sm.id, e))}
                     selected={selection?.kind === 'stage_multi' && selection.id === sm.id}
                     onSelect={onTap(() => onSelectionChange({ kind: 'stage_multi', id: sm.id }))}
                     dimmed={!matchesNode(node)}
@@ -1339,8 +1459,8 @@ function OutputGraphCanvas({
               return (
                 <DeviceNode
                   key={`dev-${device.id}`}
-                  x={node.x}
-                  y={node.y}
+                  x={node.x - origin.x}
+                  y={node.y - origin.y}
                   device={device}
                   cables={cables}
                   pendingPort={pendingPort}
@@ -1348,7 +1468,7 @@ function OutputGraphCanvas({
                   onPortPointerDown={handlePortPointerDown}
                   registerPort={registerPort}
                   colorContext={colorContext}
-                  onDragStart={dragHandle((e) => startNodeDrag('device', device.id, node.zone === 'processing' ? 'free' : 'y-only', e))}
+                  onDragStart={dragHandle((e) => startNodeDrag('device', device.id, e))}
                   selected={selection?.kind === 'device' && selection.id === device.id}
                   onSelect={onTap(() => onSelectionChange({ kind: 'device', id: device.id }))}
                   onDelete={readOnly ? undefined : () => deleteDeviceMutation.mutate(device.id)}
@@ -1356,6 +1476,7 @@ function OutputGraphCanvas({
                 />
               )
             })}
+            </div>
           </div>
         </div>
       </div>

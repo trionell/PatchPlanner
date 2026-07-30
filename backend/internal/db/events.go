@@ -115,7 +115,11 @@ func CreateEvent(db *sql.DB, event domain.Event, ownerUserID, inventoryID int64)
 	// no rental line and raises no capacity warning until a user fills it in,
 	// but it gives both graphs a desk node from the start and lets a channel
 	// know which desk it is a strip on without anyone picking.
-	if _, err := tx.Exec(`INSERT INTO event_consoles (event_id, name, role) VALUES (?, '', 'foh')`, id); err != nil {
+	// The rail positions are named rather than left to the schema's zeroes: since
+	// Slice 37 both canvases draw a rail where its columns say, and (0, 0) is on top of
+	// the node beside it. Same constants CreateConsole falls back to.
+	if _, err := tx.Exec(`INSERT INTO event_consoles (event_id, name, role, position_x, position_y, input_position_x, input_position_y)
+		VALUES (?, '', 'foh', ?, ?, ?, ?)`, id, busRailDefaultX, railDefaultY, channelRailDefaultX, railDefaultY); err != nil {
 		return domain.Event{}, fmt.Errorf("seed console: %w", err)
 	}
 	// The event's vocabulary starts as a one-time snapshot of the

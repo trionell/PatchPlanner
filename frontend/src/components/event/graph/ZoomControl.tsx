@@ -26,12 +26,13 @@ interface ZoomControlProps {
   onZoomOut?: () => void
   onReset?: () => void
   /**
-   * One word under the percentage, naming what tapping it does. **Phone only** — a desk
-   * shows a percentage that resets to 100 %, which needs no caption.
+   * One word under the percentage, naming what tapping it does. **Phone only** — the
+   * desktop return has no caption slot, so passing it there is inert.
    *
    * The flow canvases reset to *fit*, which is the first reset target in the application
    * that is not obvious, and a control whose reset target is not obvious has to say what
-   * it is (design/patterns.md §7f; Slice 36 research R8).
+   * it is (design/patterns.md §7f; Slice 36 research R8). Since Slice 37 they reset there
+   * at **both** reaches, because a plane can be wider than a desk's window too.
    */
   resetLabel?: string
 }
@@ -43,8 +44,9 @@ interface ZoomControlProps {
  * the selection is: this control lives in the bar, and the bar belongs to the shell.
  * The canvas reads the value for its geometry and never sets it.
  *
- * Clicking the percentage resets to 100%, which is the one thing a zoom control
- * always needs and a pair of steppers cannot do.
+ * Clicking the percentage resets — the one thing a zoom control always needs and a pair
+ * of steppers cannot do. The default target is 100 %; the flow canvases override it with
+ * `onReset` to mean *fit* (Slice 37), and the stage plot keeps 100 %.
  *
  * The component owns the **look**, the caller may own the **stepping** — the same
  * split as `Legend`, where the component owns the strokes and the caller owns the
