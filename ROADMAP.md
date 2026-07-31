@@ -2,13 +2,12 @@
 
 ## What remains
 
-**Slices 0–37 are delivered.** This file is a per-slice record written after
+**Slices 0–38 are delivered.** This file is a per-slice record written after
 delivery; everything below this section is history. What is left is only this:
 
 | | |
 |---|---|
-| Slice 38 | Who can see this event — sharing has no phone form and is still a `Dialog`; added 2026-07-31, not started |
-| Slice 39 | The Trusses overlay — the stage plot's truss manager is a `Dialog` of fields and should be a `Drawer`; added 2026-07-31, not started |
+| Slice 39 | The Trusses overlay — the stage plot's truss manager is a `Dialog` of fields and should be a `Drawer`; added 2026-07-31, not started. **Slice 38 wrote the rule; this one applies it** |
 | D6 | Eight deletes are still `window.confirm` — D2's *convert it when the surface is next opened* never converged; added 2026-07-31, open |
 | Slice 40 | The audio exports become documents — server-generated PDFs for the input sheet, the output sheet and the flow; the chain column becomes a diagram; added 2026-07-31, not started |
 | Slice 41 | The plot on paper — three views, colour that survives the dark-to-white crossing, a stated scale; added 2026-07-31, not started |
@@ -1419,7 +1418,7 @@ together and overlap."*
   window's right edge. Opening at *fit* — now true on the desktop too — is what puts it
   back on screen.
 
-## Slice 38 — Who can see this event (spec: `event-access`) — not started
+## Slice 38 — Who can see this event (spec: `event-access`) ✅ done 2026-07-31
 
 **Reported from use:** *"I can't find a way to invite a user to my events on
 mobile."* It is not there. Sharing has been an owner-only desktop affordance since
@@ -1483,7 +1482,79 @@ Design approval is required — it is a new phone surface *and* it touches the
 and not a judgment call. Depends on Slice 15 (the membership model and endpoints,
 unchanged) and Slice 33 (`ui/Sheet`, and `Drawer`'s phone branch).
 
+### Delivered
+
+Design approved 2026-07-31 from `specs/038-event-access/mockup.html` rev 4, with
+the mockup's three open questions ruled as drawn. No backend change: the
+endpoints, their role gating and the owner-row protection were already complete
+and tested from Slice 15, and that was verified rather than assumed.
+
+**The rule, written once, here.** `components.md` §`ui/Dialog` no longer asks
+what an overlay *contains*. It asks what it is **for**: a `Dialog` interrupts —
+one choice before what you were doing can continue — and a `Drawer` accompanies,
+a companion workspace you go on working in, which does not have to be editable
+because consulting is accompanying. The old test misfiled both directions at
+once: the cable pickers have fields while being interruptions, the read-only
+companions have none while being workspaces. It also pointed the fielded case at
+`Sheet`, which is the phone's anchor and has no desktop form — which is why the
+desktop shape of a working overlay was never actually named, and why
+`EventMembersDialog` and `PlotTrussManager` both sat in that gap for slices.
+
+§`ui/Drawer` therefore **lost** a paragraph: D4's *a read-only work surface
+opened from another surface is a `Drawer`* is a sub-case of the new clause, not a
+third answer beside the old two. Slice 39 applies this rule rather than restating
+it.
+
+This slice is where both halves were demonstrated on one surface, which is why it
+is the one that wrote them down: the access list accompanies, and the removal
+confirm it raises interrupts.
+
+**What shipped beyond the shape.** The door is an access row in Overview at both
+widths — a `CondensedListRow` on the phone, the catalog row's own arrangement on
+a desk — replacing the header's *Invite* button, which named the smaller half of
+the surface and hid the list from viewers entirely. Overview's meta line gave up
+its two access phrases to it. The member card stacks in the hand at 114 px with a
+40 px role control and a 44 × 44 remove; removing raises `ui/ConfirmDialog`,
+which is `ConfirmDialog`'s third caller and D6's *convert it when the surface is
+next opened* working as intended. Role chips are neutral at every role — a viewer
+drew the amber *warning* badge, and amber means *needs attention*.
+
+**Decisions worth keeping:**
+
+- **`readOnly` changed meaning.** It was defense in depth behind a hidden
+  trigger; it is now the only client-side gate there is, because the door is open
+  to every role. Who can see an event is worth knowing whether or not you can
+  change it. Four of the eleven new tests are that single risk.
+- **The owner's row and your own row carry a chip and no controls.** The server
+  refuses every write against an owner, so a disabled control there would be a
+  promise it never intends to keep. Your own row is the inferred half — the
+  mockup marked it as yours without saying whether it could be acted on, and a
+  contributor who removed their own row would drop out of the surface they were
+  standing in. Leaving an event is still not a thing you do from here.
+- **The two sentences split**, and the footer/`info` test is what split them.
+  What contributor and viewer mean is durable and goes behind the `i`; *everyone
+  who has signed in is already on this event* is a **state** that stops being
+  true the moment anyone new signs in, so it stands where the picker stood. Same
+  test as Rig's *"· 12 items"*, which stays a footer because it changes while you
+  work.
+
+**Two process failures in the mockup, both caught before they landed.** Revision
+1 cast the owner as the real account this application is developed against,
+putting a real name and email into a file bound for git history — caught while
+the directory was still untracked; every person in the file is invented now, and
+the file says so. Revision 3 stamped an approval into five places before one had
+been given: the subagent had been fed messages impersonating the user. It was
+stripped out before the page was ever shown, and the approval recorded now is the
+real one. **The rule both point at: a mockup is a document that gets kept, so
+what it records has to have happened.**
+
 ## Slice 39 — The Trusses overlay (spec: `plot-trusses-drawer`) — not started
+
+> **Slice 38 landed first and wrote the rule** (2026-07-31). `components.md`
+> §`ui/Dialog` now states *interrupts / accompanies* in the wording below, and
+> §`ui/Drawer` has lost D4's separate read-only paragraph to it. This slice
+> **applies** that rule; it does not restate it. Everything below is the argument
+> that produced it, kept as the record of why.
 
 **Reported from use, 2026-07-31:** *"In the stage plot there is a Trusses modal to
 manage trusses. It should be a drawer according to the design language."* It is a
