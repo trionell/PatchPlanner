@@ -19,8 +19,11 @@ the mapping stays visible.
       paragraph; it is now a sub-case of T001. The section loses a paragraph. (FR-003)
 - [ ] **T003** In §`ui/Dialog`, record what the test sorts: `ConfirmDialog` is the
       purest `Dialog`; the cable pickers stay `Dialog`s despite their field; this
-      slice's access surface is a `Drawer`. Note that Slice 39 applies this rule
-      rather than restating it. (FR-004)
+      slice's access surface is a `Drawer`. **Name this slice as the demonstration
+      of both halves at once** — the access list accompanies and its own removal
+      confirm interrupts, on one surface — which is what FR-004 asks for and what a
+      three-bullet list of verdicts would not say. Note that Slice 39 applies this
+      rule rather than restating it. (FR-004)
 
 **Checkpoint**: `design/` states the rule the rest of the slice is built from.
 
@@ -43,8 +46,14 @@ the mapping stays visible.
       `info` + `noteId="event-access"` carrying the two durable rules (what
       contributor and viewer mean; an invitation goes to an account, not an email
       address). No `footer`. (FR-001, FR-018, FR-019)
-- [ ] **T008** Restructure the body as two `DrawerSection`s — *People with access*
-      with a `count`, and *Invite someone*. No `flush`. (FR-002)
+- [ ] **T007a** Retitle the surface **Who has access**, subtitle *Everyone here can
+      open this event*, at both widths. *Manage access* named the half of the
+      surface a viewer does not have, and the door is now open to every role.
+      (FR-001a)
+- [ ] **T008** Restructure the body as two `DrawerSection`s — **People** with a
+      `count`, and **Invite**. No `flush`. The labels are the mockup's own: a
+      `DrawerSection` label renders as a `MicroLabel`, which is styled for a word
+      and not for a phrase. (FR-002)
 - [ ] **T009** Rebuild a member row as `GearCard` → `GearTop` (name, role chip as
       `badge`, controls as `actions`) + `GearSpecs` for the email. (FR-009)
 - [ ] **T010** Delete `ROLE_BADGE`'s amber `viewer: 'warning'`; every role chip is
@@ -90,7 +99,10 @@ phone — US1 is not yet demonstrable.
 - [ ] **T021** Pass `readOnly` explicitly at the mount; `canManageMembers` now gates
       the controls rather than the door. (FR-020)
 - [ ] **T022** `EventDetail.tsx`: delete `membersOpen`, the `UserPlus` import, the
-      *Invite* button (130-135) and the drawer mount (140). (FR-007, SC-004)
+      *Invite* button (130-135), the drawer mount (140) **and the now-dead
+      `canManageMembers` const (line 63)** — the button was its only use site, and
+      `noUnusedLocals` is on in `tsconfig.app.json`, so leaving it fails `tsc -b`.
+      (FR-007, SC-004)
 - [ ] **T023** Grep for any remaining importer of `EventMembersDialog`; there should
       be none.
 

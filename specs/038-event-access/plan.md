@@ -88,8 +88,11 @@ member list that has not loaded yet.
 the point: the file named the shape, and the shape is what was wrong.
 
 - `ui/Drawer`, `width="narrow"`, `info` + `noteId="event-access"`, **no `footer`**.
-- Two `DrawerSection`s: *People with access* (with a `count`) and *Invite someone*.
-  No `flush`.
+- Title **Who has access**, subtitle *Everyone here can open this event*, at both
+  widths. The current *Manage access* named what an owner does with the surface,
+  which is the half a viewer does not have; the drawer is now open to every role.
+- Two `DrawerSection`s: **People** (with a `count`) and **Invite**. No `flush`.
+  A `DrawerSection` label renders as a `MicroLabel`, which is a word, not a phrase.
 - A member is `GearCard` → `GearTop` (name, role chip as `badge`, controls as
   `actions`) + `GearSpecs` (the email, 10 px mono).
 - Role chips neutral at every role — `ROLE_BADGE`'s `viewer: 'warning'` goes. Amber

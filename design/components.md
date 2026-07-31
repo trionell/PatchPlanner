@@ -294,14 +294,15 @@ not the label. Same at both widths: this is one of the few places where the
 phone's ergonomics and the desktop's alignment want the same thing, so neither
 gets a branch.
 
-**A read-only work surface opened from another surface is a `Drawer`.** The third
-answer to the question §4's rule settles: an overlay with fields is a `Sheet`, an
-overlay that is a sentence and two buttons is a `Dialog`, and a catalog you are
-*consulting while working on something else* is neither. The reason is the one
-stated above — it opens over the surface being cross-referenced — and the event's
-read-only browse of someone else's inventory is the instance (ROADMAP D4). It was
-a `Dialog` for four slices, which is how it also came to have no phone form: a
-`Drawer` is a bottom sheet below 768 px and a `Dialog` stays centred.
+**A read-only work surface is not a special case.** It used to be written here as a
+third answer beside §`ui/Dialog`'s two, because *an overlay with fields is a
+`Sheet`; a sentence and two buttons is a `Dialog`* had no room for a catalog you
+are consulting while working on something else. The rule there is now *interrupts
+vs accompanies*, and consulting **is** accompanying — so this paragraph is a
+sub-case of that clause rather than a ruling of its own, and this section loses a
+paragraph instead of gaining one (Slice 38). The instance is unchanged: the event's
+read-only browse of someone else's inventory (ROADMAP D4), a `Dialog` for four
+slices, which is how it also came to have no phone form.
 
 ### `ui/Tabs`
 
@@ -325,12 +326,52 @@ gave it `Escape` and an internal scroll at the sheet's own `max-h-[85svh]`, both
 things `Drawer` already had, so a tall overlay behaves the same way whichever
 anchor it has.
 
-The rule it settled, stated once so it stops being decided per call site:
-**an overlay with fields is a `Sheet`; an overlay that is a sentence and two
-buttons is a `Dialog`.** [audit.md](audit.md) M8 was never *"`Dialog` is the
-wrong shape"* — it was *"`Dialog` is being used as the phone's edit form"*, and
-six conversions fixed that at the call sites rather than by making `Dialog` into
-something else.
+The rule, stated once so it stops being decided per call site. **It turns on what
+the overlay is _for_, not on what it contains:**
+
+> **A `Dialog` interrupts.** One choice has to be made before what you were doing
+> can continue — pick the cable, confirm the delete — so it takes the centre,
+> blocks the surface behind it, and leaves as soon as it is answered.
+>
+> **A `Drawer` accompanies.** It is a companion workspace beside the thing you are
+> working on: it opens over the surface without replacing it, and you go on working
+> in it rather than answering it.
+>
+> **A companion does not have to be editable.** A `Drawer` is equally the place to
+> *see more* — the detail, the breakdown, the list the surface behind it only
+> counts. Consulting is accompanying; it is the same shape with nothing to change.
+> **On a phone that is the common case**: the canvas or the row is the work, the
+> drawer is where its values are legible, and several are read-only outright.
+
+That sorts every overlay in the application without a second clause.
+**`ui/ConfirmDialog` is the purest `Dialog`** — a single choice, and nothing
+continues until it is made. **The cable pickers stay `Dialog`s**
+(`InputGraphCanvas.tsx`, `AudioOutputsTab.tsx`, and the two *Cable* dialogs beside
+them) even though they hold a field: they are one choice raised mid-patch, and
+centred is where the pointer already is — a right-anchored drawer would make a
+picker travel to the edge of the screen and back for every cable, which is
+`Drawer`'s own ergonomic argument read from the other end. **Trusses and the event
+access list are `Drawer`s**: nothing is waiting on either.
+
+**Slice 38 is where both halves were demonstrated at once**, which is why it is the
+slice that wrote this down. Its access list *accompanies* — you open it to work in
+it, and the surface behind it is untouched — while the removal confirm it raises
+*interrupts*, because a member is either removed or not and nothing proceeds until
+that is answered. One surface, both answers, and the test tells them apart without
+appeal to whether either one holds a field.
+
+**The rule this replaces asked the wrong question.** It read *an overlay with
+fields is a `Sheet`; an overlay that is a sentence and two buttons is a `Dialog`*,
+which asked what an overlay **contains** — and so misfiled both directions at once:
+the cable pickers have fields while being interruptions, and the read-only
+companions have none while being workspaces. It also left the fielded case pointing
+at `Sheet`, which is the phone's anchor and has no desktop form, so the desktop
+shape of a working overlay was never actually named. `EventMembersDialog` and
+`PlotTrussManager` both sat in that gap for slices.
+
+[audit.md](audit.md) M8 was never *"`Dialog` is the wrong shape"* — it was
+*"`Dialog` is being used as the phone's edit form"*, and six conversions fixed that
+at the call sites rather than by making `Dialog` into something else.
 
 The `Escape` handler now lives in `hooks/useEscapeToClose`, shared by `Drawer`,
 `Dialog` and `Sheet`. Three callers, in one commit — Principle V forbids
@@ -338,8 +379,10 @@ abstracting ahead of a second caller; it does not ask for a third copy.
 
 ### `ui/ConfirmDialog`
 
-The sentence-and-two-buttons `Dialog`, named: a destructive confirm, in this
-language rather than the browser's. **A `window.confirm` is not a component**
+**The purest `Dialog`**, named: a destructive confirm, in this language rather than
+the browser's. It is what §`ui/Dialog`'s rule describes with nothing else attached
+— one choice, and nothing continues until it is made. **A `window.confirm` is not a
+component**
 — the same argument Slice 32 used to remove the application's only
 `window.prompt`, and it applies harder on a phone, where the browser's dialog
 interrupts the sheet the user is reading.
@@ -354,9 +397,12 @@ Cancel is present here and absent from `ui/Sheet`'s footer
 close target abandons an edit you can re-open, while here the two buttons *are*
 the question, and a question with one answer is not one.
 
-Two callers so far — both flow inspectors, converted together
-(ROADMAP D2). The other `window.confirm` call sites are not yet converted; each
-should use this when its surface is next opened, not by a sweep.
+Three callers — the two flow inspectors, converted together (ROADMAP D2), and
+removing someone's access to an event (Slice 38), which had no confirm at all and
+fired on one tap of a bare icon. The remaining `window.confirm` call sites are
+ROADMAP D6; *convert it when the surface is next opened* is how they were meant to
+go, and Slice 38 is that rule working — the surface was opened, so the confirm came
+with it.
 
 `Badge` and `Pill` both read their tint from `lib/vocabularyTint.ts`, so the two
 sizes of one chip cannot disagree about what colour a `monitor` is. It takes any

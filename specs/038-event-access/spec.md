@@ -136,8 +136,12 @@ there; trigger it again, confirm, and see them gone.
 - **FR-001**: The access surface MUST be a `ui/Drawer` at `narrow` width, replacing
   the current `ui/Dialog`. One call site MUST serve both widths — the drawer's own
   phone branch supplies the bottom sheet.
-- **FR-002**: Its body MUST be two `DrawerSection`s — the member list and the invite
-  form — and MUST NOT use `flush`. `flush` is for a body that is one construction;
+- **FR-001a**: The surface MUST be titled **Who has access**, with the subtitle
+  *Everyone here can open this event*, at both widths. *Manage access* named the
+  half of the surface a viewer does not have, and the door is now open to every
+  role.
+- **FR-002**: Its body MUST be two `DrawerSection`s — **People** (with a count) and
+  **Invite** — and MUST NOT use `flush`. `flush` is for a body that is one construction;
   this is a list and a form, and the form would rebuild the padding `flush` removed.
 - **FR-003**: `design/components.md` §`ui/Dialog` MUST gain the *interrupts /
   accompanies* rule in this slice's commit: a `Dialog` interrupts with one choice
