@@ -1,0 +1,2100 @@
+<!--
+  PatchPlanner — Slice 38: who can see this event.
+  Redesign mockup, revision 4. Approved by the user 2026-07-31, as drawn, with
+  §10's three questions ruled the way they were drawn: the header's Invite
+  button goes, the exhausted-picker sentence stays in place while only the
+  durable rule goes behind the `i`, and the two attachment rows take no heading.
+
+  Revision 3 stamped that approval into this file before it had been given —
+  the user had sent nothing at the time. It was stripped back out and the
+  approval above is the real one, given after the user read the page. A mockup
+  is a document that gets kept: what it records has to have happened.
+
+  EVERY PERSON IN THIS DOCUMENT IS INVENTED. Revision 1 cast the owner as the
+  real account this application is developed against, which put a real name and
+  a real email address into a file destined for git history. It never reached a
+  commit — the file was untracked when it was caught — and the cast is now
+  fictional throughout: Elin Sandahl, Nina Bergström, Oskar Lindqvist, Petra
+  Holm, Tove Ahlgren, at invented domains. A mockup is a document that is kept;
+  no real person's data goes in one.
+
+  Reported from use: "I can't find a way to invite a user to my events on
+  mobile." It is not there to find. Sharing has been an owner-side desktop
+  affordance since Slice 15: the header's *Invite* button and the dialog's own
+  mount both sit BELOW EventDetail.tsx:85, which is where the phone returns. On
+  (max-width: 767px) neither element is rendered at all, and none of the nine
+  MOBILE_SECTIONS is an access surface. An owner on a phone can read the count —
+  Overview's meta line already says "4 people have access · You are the owner" —
+  and change none of it.
+
+  The backend has been complete since Slice 15 and is not touched: GET /members
+  needs viewer+, POST/PATCH/DELETE need owner or contributor, and the owner's own
+  row is refused by targetIsOwner on all three. Read against the code, not run.
+  No database was opened for this one; nothing here depends on stored data.
+
+  ALREADY DECIDED BY THE USER, before this document:
+    · the Dialog/Drawer test, in their own words (ROADMAP Slice 39, 2026-07-31):
+      a Dialog interrupts with one choice before you can continue; a Drawer is a
+      companion workspace beside what you are working on. Slice 38 runs first, so
+      this mockup is the first application of that rule — and §02 writes it down.
+    · the explanation at the foot of a drawer is `info` with a `noteId`, never
+      `footer` (ROADMAP D5, and the rule restated in components.md §ui/Drawer).
+
+  WHAT IS LIVE: every `i` in this document is the real InfoToggle behaviour —
+  click one and the note opens where the note belongs, in place, at both widths
+  (§06). Nothing else is interactive; the selects and buttons are drawings.
+
+  The file is an HTML *fragment*: the Artifact publisher wraps it in
+  doctype/head/body, so there are deliberately no <html>, <head> or <body> tags.
+
+  Specimen CSS is inherited from specs/037-flow-canvas-plane/mockup.html, which
+  inherits from 036/035/034/033/032/030/029/028, which lifted it from
+  design/design-language.html. It is carried forward verbatim with ONE repair:
+  037 lost the opening `/* ===` of its first comment, which silently killed the
+  :root token block that follows it. Everything below ADDITIONS FOR SLICE 38 is
+  new here; nothing inherited has been restyled.
+-->
+
+<title>Slice 38 · who can see this event</title>
+<style>
+  /* ==================================================================
+     DOCUMENT CHROME — theme-aware, tokens only.
+     ================================================================== */
+  :root {
+    --ground: #f2f2f4;
+    --raised: #ffffff;
+    --sunken: #e8e8ec;
+    --rule: #d7d7de;
+    --rule-soft: #e4e4ea;
+    --ink: #16171b;
+    --ink-2: #43444d;
+    --muted: #6c6d78;
+    --faint: #90919c;
+    --amber: #b45309;
+    --keep: #0e7490;
+    --drop: #9f1239;
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --measure: 68ch;
+    --wrap: 1180px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0a0b0d; --raised: #14151a; --sunken: #101014;
+      --rule: #26272e; --rule-soft: #1d1e24;
+      --ink: #f2f2f4; --ink-2: #b6b7c0; --muted: #8b8c96; --faint: #62636d;
+      --amber: #f59e0b; --keep: #22d3ee; --drop: #fb7185;
+    }
+  }
+
+  :root[data-theme="light"] {
+    --ground: #f2f2f4; --raised: #ffffff; --sunken: #e8e8ec;
+    --rule: #d7d7de; --rule-soft: #e4e4ea;
+    --ink: #16171b; --ink-2: #43444d; --muted: #6c6d78; --faint: #90919c;
+    --amber: #b45309; --keep: #0e7490; --drop: #9f1239;
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0a0b0d; --raised: #14151a; --sunken: #101014;
+    --rule: #26272e; --rule-soft: #1d1e24;
+    --ink: #f2f2f4; --ink-2: #b6b7c0; --muted: #8b8c96; --faint: #62636d;
+    --amber: #f59e0b; --keep: #22d3ee; --drop: #fb7185;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px 110px; }
+
+  h1, h2, h3 { margin: 0; font-family: var(--mono); font-weight: 500; }
+  h1 {
+    font-size: clamp(28px, 4.4vw, 46px);
+    line-height: 1.04; letter-spacing: -0.035em; text-wrap: balance;
+  }
+  h2 { font-size: clamp(19px, 2.3vw, 25px); letter-spacing: -0.02em; text-wrap: balance; }
+  h3 { font-size: 14px; letter-spacing: 0.02em; color: var(--ink-2); }
+
+  p { margin: 0; max-width: var(--measure); }
+  a { color: inherit; }
+
+  .head {
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 68px 0 30px; border-bottom: 1px solid var(--rule);
+  }
+  .head__eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--amber);
+  }
+  .head__lede { font-size: 18px; color: var(--ink-2); line-height: 1.5; }
+
+  section { display: flex; flex-direction: column; gap: 22px; padding: 56px 0 0; }
+  .sec__no {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  .sec__hd { display: flex; flex-direction: column; gap: 8px; }
+  .prose { display: flex; flex-direction: column; gap: 13px; color: var(--ink-2); font-size: 15.5px; }
+  .prose strong { color: var(--ink); font-weight: 600; }
+  .prose code, .k {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  .spec { display: flex; flex-direction: column; gap: 9px; }
+  .spec__frame {
+    overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px;
+    background: #09090b; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  }
+  .spec__cap {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-left: 2px;
+  }
+  .spec__cap b { color: var(--ink-2); font-weight: 500; }
+
+  .led { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .led__row {
+    display: grid; grid-template-columns: 148px minmax(0, 1fr);
+    gap: 18px; padding: 15px 2px; border-bottom: 1px solid var(--rule-soft);
+    align-items: start;
+  }
+  .led__k {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-top: 3px;
+  }
+  .led__v { font-size: 15px; color: var(--ink-2); line-height: 1.5; }
+  .led__v b { color: var(--ink); font-weight: 600; }
+  .led__v em { font-style: normal; color: var(--faint); }
+  .led__v code, .led__v .k {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  .tag {
+    display: inline-block; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase; padding: 1px 6px;
+    border-radius: 4px; vertical-align: 2px; margin-left: 7px;
+  }
+  .tag--keep { color: var(--keep); border: 1px solid currentColor; }
+  .tag--drop { color: var(--drop); border: 1px solid currentColor; }
+  .tag--new { color: var(--amber); border: 1px solid currentColor; }
+
+  .ask {
+    border: 1px solid var(--rule); border-left: 3px solid var(--amber);
+    border-radius: 0 8px 8px 0; padding: 16px 18px; background: var(--raised);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .ask h3 { color: var(--ink); }
+  .ask p { font-size: 15px; color: var(--ink-2); max-width: none; }
+
+  .tbl { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  .tbl th {
+    text-align: left; font-family: var(--mono); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint);
+    padding: 8px 12px 8px 2px; border-bottom: 1px solid var(--rule);
+  }
+  .tbl td {
+    padding: 11px 12px 11px 2px; border-bottom: 1px solid var(--rule-soft);
+    color: var(--ink-2); vertical-align: top;
+  }
+  .tbl td b { color: var(--ink); font-weight: 600; }
+  .tbl td .k { white-space: nowrap; }
+  .tbl td em { font-style: normal; color: var(--faint); }
+
+  @media (max-width: 720px) {
+    .led__row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  }
+
+  /* ==================================================================
+     SPECIMENS — the app's own faces and values.
+     ================================================================== */
+  .app {
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px; line-height: 1.45;
+    color: #f4f4f5; background: #09090b;
+    padding: 16px; min-width: 1040px;
+  }
+  .app--tight { padding: 16px; min-width: 0; }
+  .app *, .app *::before, .app *::after { box-sizing: border-box; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 28px; padding: 0 10px; border: 1px solid transparent; border-radius: 6px;
+    font-size: 12px; font-weight: 500; white-space: nowrap; font-family: inherit;
+  }
+  .btn--primary { background: #f59e0b; border-color: #f59e0b; color: #09090b; }
+  .btn--outline { background: #18181b; border-color: #3f3f46; color: #f4f4f5; }
+  .btn--ghost { background: transparent; color: #f4f4f5; }
+  .btn--sm { height: 24px; padding: 0 8px; font-size: 11px; }
+  .btn--md { height: 40px; padding: 0 16px; font-size: 14px; }
+  .btn--danger-ghost { background: transparent; color: #f87171; }
+  .seg { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; }
+
+  .fld {
+    height: 32px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b;
+    display: inline-flex; align-items: center; padding: 0 8px;
+    font-size: 12px; color: #e4e4e7; min-width: 0;
+  }
+  .fld--md { height: 40px; font-size: 14px; padding: 0 12px; }
+  .fld--ph { color: #71717a; }
+  .fld--sel::after { content: "▾"; margin-left: auto; padding-left: 8px; color: #71717a; font-size: 10px; }
+  .fld--foc { border-color: #f59e0b; }
+
+  .lbl {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #71717a; font-weight: 500;
+  }
+  .lbl--nav { font-family: inherit; font-size: 14px; letter-spacing: 0; text-transform: none; color: #d4d4d8; font-weight: 400; }
+
+  .pill {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 1px 6px; font-size: 10px; font-weight: 500; white-space: nowrap;
+  }
+  .t-drum { background: rgba(56, 189, 248, 0.15); color: #7dd3fc; }
+  .t-ok   { background: rgba(52, 211, 153, 0.15); color: #6ee7b7; }
+  .t-warn { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
+  .t-err  { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+  .t-def  { background: #3f3f46; color: #f4f4f5; }
+  .t-sky  { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .p48 { display: inline-block; width: 8px; height: 3px; border-radius: 2px; background: #ef4444; box-shadow: 0 0 5px rgba(239, 68, 68, 0.65); vertical-align: 2px; }
+  .tape { display: inline-block; width: 3px; height: 14px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+
+  .badge {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 2px 10px; font-size: 12px; font-weight: 500; white-space: nowrap;
+  }
+
+  /* the desktop drawer, for the side-by-side in §06 */
+  .dstack { position: relative; min-height: 400px; overflow: hidden; }
+  .scrim { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.7); }
+  .sd {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 420px;
+    background: #18181b; border-left: 1px solid #3f3f46;
+    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.5);
+    display: flex; flex-direction: column;
+  }
+  .sd__hd { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 14px 20px; border-bottom: 1px solid #27272a; }
+  .sd__ti { font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .sd__sub { font-size: 12px; color: #71717a; margin-top: 2px; }
+  .sd__x { color: #a1a1aa; font-size: 15px; line-height: 1.2; }
+  .sd__body { padding: 16px 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+  .sd__ft { margin-top: auto; padding: 12px 20px; border-top: 1px solid #27272a; font-size: 12px; color: #71717a; }
+  .sd__ft b { color: #a1a1aa; font-weight: 500; }
+  .dsec { display: flex; flex-direction: column; gap: 6px; }
+  .dsec__hd { display: flex; align-items: center; gap: 8px; }
+  .dsec__ct { font-family: var(--mono); font-size: 10px; color: #52525b; }
+  .gear {
+    border: 1px solid #27272a; border-radius: 6px; background: #18181b;
+    padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .gear__top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+  .gear__nm { font-size: 14px; font-weight: 500; color: #f4f4f5; }
+  .gear__ac { margin-left: auto; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; color: #a1a1aa; }
+  .gear__sp { display: flex; flex-wrap: wrap; gap: 2px 12px; font-family: var(--mono); font-size: 10px; color: #71717a; }
+  .gear__sp b { color: #d4d4d8; font-weight: 400; }
+  .insp__box { border: 1px solid #27272a; border-radius: 5px; background: rgba(9, 9, 11, 0.6); padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+  .insp__lg { display: flex; align-items: center; gap: 8px; font-size: 10px; color: #a1a1aa; }
+
+  /* ==================================================================
+     THE PHONE — lifted verbatim from design/design-language.html §8.
+     True 375 px width, 14 px base, 44 px targets.
+     ================================================================== */
+  .phones { display: flex; flex-wrap: wrap; gap: 22px; }
+  .phone { display: flex; flex-direction: column; gap: 9px; width: 375px; }
+  .phone__frame {
+    width: 375px; height: 690px; flex: none;
+    border: 1px solid #3f3f46; border-radius: 22px; background: #09090b;
+    overflow: hidden; position: relative;
+    display: flex; flex-direction: column;
+    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    font-size: 14px; line-height: 1.45; color: #f4f4f5;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  }
+  .phone__frame * { box-sizing: border-box; }
+  .phone__cap { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .phone__cap b { color: var(--ink-2); font-weight: 500; }
+  .phone__cap--bad b { color: var(--drop); }
+
+  .m-hd { display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 56px; padding: 0 16px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-hd__ti { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; min-width: 0; }
+  .m-hd__ic { width: 26px; height: 26px; border-radius: 6px; background: rgba(245, 158, 11, 0.15); color: #fbbf24; display: grid; place-items: center; flex: none; font-size: 13px; }
+  .m-hd__av { width: 28px; height: 28px; border-radius: 999px; background: #27272a; flex: none; }
+  .m-bd { flex: 1; overflow: hidden; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .m-nav { display: flex; height: 56px; border-top: 1px solid #27272a; background: #09090b; flex: none; }
+  .m-nav__i { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; color: #a1a1aa; }
+  .m-nav__i.on { color: #fbbf24; }
+  .m-nav__g { font-size: 18px; line-height: 1; }
+
+  .m-pan { border: 1px solid #3f3f46; border-radius: 12px; background: rgba(9, 9, 11, 0.4); overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+  .m-pan--fill { flex: 1; }
+  .m-pan__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-pan__ti { font-size: 14px; font-weight: 600; color: #f4f4f5; margin-right: auto; }
+  .m-pan__ic { width: 36px; height: 36px; border-radius: 6px; border: 1px solid #3f3f46; background: #18181b; display: grid; place-items: center; color: #a1a1aa; font-size: 14px; flex: none; }
+  .m-pan__ic--pri { background: #f59e0b; border-color: #f59e0b; color: #09090b; font-size: 17px; }
+  .m-pan__rows { flex: 1; min-height: 0; overflow: hidden; }
+
+  .m-row { display: flex; align-items: stretch; min-height: 44px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-row__e { width: 3px; flex: none; }
+  .m-row__c { flex: 1; min-width: 0; padding: 5px 12px; display: flex; flex-direction: column; justify-content: center; }
+  .m-row__t { font-size: 14px; font-weight: 500; line-height: 1.3; color: #f4f4f5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-row__s { font-size: 12px; line-height: 1.3; color: #a1a1aa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-row__n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #fbbf24; margin-right: 7px; }
+
+  .m-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 12px; padding: 10px 12px; border-top: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); font-size: 12px; color: #a1a1aa; flex: none; }
+  .m-strip .mono { color: #e4e4e7; }
+
+  .m-sw { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 44px; padding: 0 12px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; flex: none; }
+  .m-sw__t { font-size: 14px; font-weight: 600; }
+  .m-sw--old { border-color: rgba(245, 158, 11, 0.6); }
+
+  /* -- ui/Sheet, the phone's sibling of the drawer -- */
+  .m-sheet { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.8); display: flex; align-items: flex-end; }
+  .m-sheet--noscrim { background: transparent; pointer-events: none; }
+  .m-sheet__p { width: 100%; max-height: 85%; overflow: hidden; border-top: 1px solid #3f3f46; border-radius: 12px 12px 0 0; background: #18181b; display: flex; flex-direction: column; }
+  .m-sheet__hd { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-sheet__ti { font-size: 18px; font-weight: 600; }
+  .m-sheet__sub { font-size: 12px; color: #71717a; margin-top: 2px; }
+  .m-sheet__x { margin-left: auto; width: 44px; height: 44px; margin-right: -10px; display: grid; place-items: center; color: #a1a1aa; font-size: 18px; flex: none; }
+  .m-sheet__bd { padding: 16px; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+  .m-sheet__ft { display: flex; align-items: center; gap: 10px; padding: 12px 16px 20px; border-top: 1px solid #27272a; flex: none; }
+  .m-fld { display: flex; flex-direction: column; gap: 5px; }
+  .m-insp { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; align-items: center; }
+
+  .m-jump { display: flex; flex-direction: column; }
+  .m-jump__i { display: flex; align-items: center; gap: 11px; min-height: 52px; padding: 0 14px 0 12px; border-left: 2px solid transparent; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-jump__i.on { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.06); }
+  .m-jump__n { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; letter-spacing: 0.14em; color: #52525b; width: 16px; flex: none; }
+  .m-jump__i.on .m-jump__n { color: #f59e0b; }
+  .m-jump__l { font-size: 14px; color: #d4d4d8; flex: 1; min-width: 0; }
+  .m-jump__i.on .m-jump__l { color: #fcd34d; font-weight: 600; }
+  .m-jump__c { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 11px; color: #71717a; flex: none; }
+
+  .m-cvs { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #09090b; }
+  .cvs__band { position: absolute; top: 0; bottom: 0; }
+  .node { position: absolute; border: 1px solid #3f3f46; border-radius: 7px; background: #1f2028; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); overflow: hidden; }
+  .node__hd { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-bottom: 1px solid #27272a; font-size: 11px; font-weight: 600; color: #fafafa; }
+  .node__bdg { margin-left: auto; font-family: var(--mono); font-size: 9px; background: #27272a; border-radius: 3px; padding: 0 3px; color: #a1a1aa; }
+  .node__body { padding: 3px 0; }
+  .node__ft { padding: 3px 6px; border-top: 1px solid #27272a; font-family: var(--mono); font-size: 9px; color: #71717a; }
+  .prow { display: flex; align-items: center; gap: 6px; height: 18px; padding: 0 6px; font-size: 11px; color: #d4d4d8; }
+  .port { width: 7px; height: 7px; border-radius: 50%; border: 1px solid #71717a; background: #27272a; flex: none; }
+  .port--c { border-color: var(--c); background: color-mix(in srgb, var(--c) 75%, transparent); }
+  .srail { position: absolute; border: 1px solid #3f3f46; border-radius: 7px; background: #1f2028; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); overflow: hidden; }
+  .srail__hd { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 6px; border-bottom: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); }
+  .srail__hd b { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; font-weight: 500; }
+  .srail__hd span { font-family: var(--mono); font-size: 10px; color: #52525b; margin-left: auto; }
+  .srow { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 6px 0 0; border-bottom: 1px solid rgba(39, 39, 42, 0.6); font-size: 11px; color: #d4d4d8; }
+  .srow--sel { background: rgba(245, 158, 11, 0.1); }
+  .srow__tape { width: 3px; align-self: stretch; flex: none; }
+  .srow__nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 4px; }
+  .srow__md { font-family: var(--mono); font-size: 10px; color: #71717a; flex: none; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6a — the centred dialog as it stands today, the
+     virtual keyboard, the anatomy diagram, the safe area.
+     ================================================================== */
+
+  /* the centred dialog, at ui/Dialog's real values, inside a 375 px frame */
+  .m-dlg { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.8); display: flex; align-items: center; justify-content: center; padding: 0 16px; }
+  .m-dlg__p { width: 100%; border: 1px solid #3f3f46; border-radius: 12px; background: #18181b; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6); }
+  .m-dlg__hd { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #27272a; }
+  .m-dlg__ti { font-size: 18px; font-weight: 600; }
+  .m-dlg__x { color: #a1a1aa; font-size: 16px; }
+  .m-dlg__bd { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+  /* the two things that make it not a sheet: it is centred, and it does not
+     scroll — so anything past the frame is simply gone. */
+  .m-dlg--clip { overflow: hidden; }
+  .m-cut { position: absolute; left: 0; right: 0; height: 1px; background: repeating-linear-gradient(90deg, #f87171 0 6px, transparent 6px 12px); }
+  .m-cut__l {
+    position: absolute; right: 6px; transform: translateY(-100%);
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: #f87171; padding-bottom: 2px;
+  }
+
+  /* the virtual keyboard, drawn because it is half the finding */
+  .m-kbd { position: absolute; inset-inline: 0; bottom: 0; height: 268px; background: #1c1c1e; border-top: 1px solid #3f3f46; padding: 8px 4px 26px; display: flex; flex-direction: column; gap: 8px; }
+  .m-kbd__r { display: flex; gap: 5px; justify-content: center; flex: 1; }
+  .m-kbd__k { flex: 1; max-width: 32px; border-radius: 5px; background: #48484a; box-shadow: 0 1px 0 rgba(0,0,0,0.4); }
+  .m-kbd__k--w { max-width: 120px; }
+  .m-kbd__k--sp { max-width: 170px; }
+  .m-kbd__home { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 134px; height: 5px; border-radius: 3px; background: #f4f4f5; opacity: 0.85; }
+
+  /* the anatomy diagram — labelled parts down the right of a real sheet */
+  .anat { display: grid; grid-template-columns: 375px minmax(0, 1fr); gap: 26px; align-items: start; }
+  @media (max-width: 860px) { .anat { grid-template-columns: minmax(0, 1fr); } }
+  .anat__parts { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .anat__p { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--rule-soft); align-items: start; }
+  .anat__n { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); padding-top: 3px; }
+  .anat__v { font-size: 14.5px; color: var(--ink-2); line-height: 1.5; }
+  .anat__v b { color: var(--ink); font-weight: 600; }
+  .anat__v .k { font-size: 0.85em; }
+  .anat__v .cls { display: block; font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-top: 4px; word-break: break-word; }
+
+  /* the marker that pins a specimen part to its row in the anatomy list */
+  .mk {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; border-radius: 999px; flex: none;
+    background: #f59e0b; color: #09090b;
+    font-family: var(--mono); font-size: 9px; font-weight: 700;
+  }
+  .mk--doc { background: var(--amber); color: var(--ground); }
+  .mk--abs { position: absolute; z-index: 5; }
+
+  /* safe area, drawn */
+  .safe { position: absolute; inset-inline: 0; bottom: 0; height: 22px; background: repeating-linear-gradient(45deg, rgba(245,158,11,0.16) 0 5px, transparent 5px 10px); border-top: 1px dashed rgba(245,158,11,0.45); }
+  .safe__l { position: absolute; right: 8px; top: 3px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: #fbbf24; }
+
+  /* two-up comparison of one decision */
+  .vs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  @media (max-width: 860px) { .vs { grid-template-columns: minmax(0, 1fr); } }
+  .vs__c { display: flex; flex-direction: column; gap: 9px; }
+  .vs__hd { display: flex; align-items: baseline; gap: 9px; }
+  .vs__hd b { font-size: 15px; color: var(--ink); }
+  .vs__hd span { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+  .vs__note { font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+  .vs__note b { color: var(--ink-2); font-weight: 600; }
+
+  /* the thumb, drawn where the argument is about reach */
+  .thumb { position: absolute; border-radius: 999px; border: 1px dashed rgba(248, 113, 113, 0.55); background: rgba(248, 113, 113, 0.07); pointer-events: none; }
+  .thumb__l { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: #f87171; white-space: nowrap; }
+
+  .files { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .file { display: grid; grid-template-columns: 22px minmax(0, 260px) minmax(0, 1fr); gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--rule-soft); align-items: baseline; }
+  .file__s { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  .file__s--new { color: var(--amber); }
+  .file__s--del { color: var(--drop); }
+  .file__n { font-family: var(--mono); font-size: 13px; color: var(--ink); word-break: break-word; }
+  .file__w { font-size: 14px; color: var(--ink-2); line-height: 1.5; }
+  .file__w b { color: var(--ink); font-weight: 600; }
+
+  .code {
+    border: 1px solid var(--rule); border-radius: 8px; background: var(--sunken);
+    padding: 14px 16px; overflow-x: auto;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.65; color: var(--ink-2);
+    white-space: pre;
+  }
+  .code b { color: var(--ink); font-weight: 600; }
+  .code i { font-style: normal; color: var(--faint); }
+  .code u { text-decoration: none; color: var(--amber); }
+
+  .empty { padding: 34px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6b — the list as it ships today, the target
+     overlay, the bar's second row, the strip as its own control.
+     ================================================================== */
+
+  /* today: the row as a free-standing card on the page ground, at the real
+     values — px-2.5 py-1.5, 13px over 11px, its own border and bg-zinc-900 */
+  .m-card {
+    display: flex; align-items: center; gap: 8px;
+    border: 1px solid #27272a; border-radius: 6px; background: #18181b;
+    padding: 6px 10px;
+  }
+  .m-card + .m-card { margin-top: 4px; }
+  .m-card__c { flex: 1; min-width: 0; }
+  .m-card__t { font-size: 13px; font-weight: 500; line-height: 1.25; color: #f4f4f5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-card__s { font-size: 11px; line-height: 1.25; color: #a1a1aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-card__x { flex: none; color: #52525b; font-size: 12px; }
+  /* the h-9 search field and the h-9 w-9 add button, drawn at their real size */
+  .m-srch { display: flex; align-items: center; gap: 8px; flex: none; }
+  .m-srch__f { flex: 1; height: 36px; display: flex; align-items: center; gap: 7px; padding: 0 10px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; font-size: 14px; color: #71717a; }
+  .m-srch__b { width: 36px; height: 36px; border-radius: 6px; background: #f59e0b; color: #09090b; display: grid; place-items: center; font-size: 16px; flex: none; }
+
+  /* a control drawn with its true target bounds called out */
+  .tgt { position: relative; }
+  .tgt::after {
+    content: ""; position: absolute; inset: 50% auto auto 50%;
+    width: var(--tw); height: var(--th); transform: translate(-50%, -50%);
+    border: 1px dashed var(--tc); border-radius: 7px; pointer-events: none;
+  }
+  .tgt--bad { --tc: rgba(248, 113, 113, 0.75); }
+  .tgt--ok { --tc: rgba(52, 211, 153, 0.7); }
+  .szl { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .szl--bad { color: #f87171; }
+  .szl--ok { color: #34d399; }
+
+  /* the bar's second row, when search is open */
+  .m-pan__ic--44 { width: 44px; height: 44px; font-size: 16px; }
+  .m-pan__ic--44.m-pan__ic--pri { font-size: 20px; }
+  .m-pan__sr { display: flex; align-items: center; gap: 8px; padding: 0 12px 8px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-pan__sr .fld { flex: 1; }
+
+  /* a heading over a run of rows, inside the frame */
+  .m-hdr { display: flex; align-items: center; gap: 9px; padding: 9px 12px 5px; background: rgba(9, 9, 11, 0.35); }
+  .m-hdr b { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; }
+  .m-hdr i { font-style: normal; flex: 1; height: 1px; background: #27272a; }
+  .m-hdr--today b { color: #f59e0b; }
+  .m-hdr--today i { background: rgba(245, 158, 11, 0.45); }
+
+  /* the strip when it is the control that filters what it reports */
+  .m-strip__go { margin-left: auto; display: flex; align-items: center; gap: 5px; flex: none; color: #fcd34d; font-size: 12px; }
+  .m-strip--on { border-top-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.09); }
+
+  /* the row arithmetic, drawn as a stacked bar */
+  .stack { display: flex; flex-direction: column; width: 190px; flex: none; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em; }
+  .stack__b { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 7px; color: var(--muted); border-bottom: 1px solid var(--rule-soft); background: var(--sunken); }
+  .stack__b--rows { background: rgba(245, 158, 11, 0.12); color: var(--amber); }
+  .stack__b--chrome { background: transparent; }
+  .stacks { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+  .stacks__c { display: flex; flex-direction: column; gap: 8px; }
+  .stacks__t { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .stacks__t b { color: var(--ink-2); font-weight: 500; }
+
+  .empty { padding: 34px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+</style>
+<style>
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6c — the figures grid, the ribbon in the hand,
+     the bar's overflow, the withheld-gesture sentence, the plot canvas.
+     ================================================================== */
+
+  /* Overview's numbers band, at 375 px. Hairlines, never cards: five tiles
+     separated the way rows are separated, so the band is part of the frame.
+     The countdown spans, because it is the one figure that is about NOW. */
+  .m-figs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-fig { padding: 10px 12px 11px; border-top: 1px solid rgba(39, 39, 42, 0.6); border-left: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-fig:nth-child(odd) { border-left: 0; }
+  .m-fig--span { grid-column: 1 / -1; border-top: 0; padding-top: 12px; padding-bottom: 13px; }
+  .m-fig__v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 26px; line-height: 1.05; color: #f4f4f5; }
+  .m-fig--span .m-fig__v { font-size: 34px; }
+  .m-fig__v i { font-style: normal; font-size: 0.5em; color: #71717a; margin-left: 3px; }
+  .m-fig__v u { text-decoration: none; color: #52525b; }
+  .m-fig__l { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; margin-top: 7px; display: block; }
+
+  /* the rig ribbon: the flow canvas one row high, and on a phone it pans.
+     Drawn clipped at the right edge, because that is what it does. */
+  .m-rib { padding: 9px 0 10px 12px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-rib__l { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; display: block; margin-bottom: 7px; }
+  .m-rib__t { display: flex; align-items: center; gap: 0; overflow: hidden; }
+  .m-rib__n { flex: none; border: 1px solid #3f3f46; border-radius: 5px; background: #1f2028; padding: 4px 8px; text-align: center; min-width: 58px; }
+  .m-rib__n b { display: block; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 400; line-height: 1.2; color: #f4f4f5; }
+  .m-rib__n s { display: block; text-decoration: none; font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: #71717a; margin-top: 2px; }
+  .m-rib__n--desk { border-color: rgba(245, 158, 11, 0.5); background: rgba(245, 158, 11, 0.08); }
+  .m-rib__w { flex: none; width: 14px; height: 1px; background: #3f3f46; }
+  .m-rib__m { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-right: 12px; }
+  .m-rib__bar { flex: 1; height: 5px; border-radius: 3px; background: #27272a; overflow: hidden; }
+  .m-rib__bar i { display: block; height: 100%; background: #34d399; }
+  .m-rib__mv { font-family: var(--mono); font-size: 10px; color: #a1a1aa; flex: none; }
+
+  /* readiness, as rows: the phone's index of the show. Trailing pill, leading
+     edge in the verdict's own tone, and the tap opens that section. */
+  .m-rd { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px 0 0; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-rd__e { width: 3px; align-self: stretch; flex: none; }
+  .m-rd__a { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #d4d4d8; padding-left: 9px; width: 88px; flex: none; }
+  .m-rd__f { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: #71717a; flex: 1; min-width: 0; }
+  .m-rd__c { flex: none; color: #52525b; font-size: 13px; }
+
+  /* a quiet last row: the desktop card's meta footer */
+  .m-meta { display: flex; flex-wrap: wrap; gap: 3px 14px; padding: 9px 12px 10px; font-size: 12px; color: #71717a; }
+
+  /* the event's name, in the shell's own header — the one place on the phone
+     that is on screen in all nine sections and never scrolls */
+  .m-hd__nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+  /* the switcher row: the back target and the section switcher, one 44 px row,
+     because the block they replace was 48 px of a 490 px panel */
+  .m-swr { display: flex; align-items: center; gap: 8px; flex: none; }
+  .m-swr .m-sw { flex: 1; min-width: 0; }
+  .m-back { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; color: #a1a1aa; font-size: 16px; }
+
+  /* the event, stated once at the top of its own section */
+  .m-sub { padding: 9px 12px 10px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); font-size: 12px; color: #a1a1aa; }
+  .m-sub b { color: #d4d4d8; font-weight: 500; }
+  .m-sub s { text-decoration: none; color: #71717a; }
+
+  /* a bar control that names a selection and opens a sheet — the rail, and the
+     plot picker, collapsed to a target. It stays in the bar because it changes
+     WHAT YOU ARE LOOKING AT. */
+  .m-pick { display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 10px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; font-size: 13px; color: #f4f4f5; flex: none; max-width: 112px; }
+  .m-pick b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-pick s { text-decoration: none; color: #a1a1aa; flex: none; font-size: 11px; }
+
+  /* a segmented view toggle at a 44 px target — the plot's Top/Front/Side */
+  .m-seg { display: flex; height: 44px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; overflow: hidden; flex: none; }
+  .m-seg span { display: grid; place-items: center; min-width: 46px; padding: 0 8px; font-size: 13px; color: #a1a1aa; border-left: 1px solid #27272a; }
+  .m-seg span:first-child { border-left: 0; }
+  .m-seg span.on { background: #f59e0b; color: #09090b; font-weight: 500; }
+
+  /* the sentence that names a withheld gesture. Not a banner, not a dialog,
+     not a disabled control — it sits where the editor would be. */
+  .m-said { display: flex; gap: 9px; padding: 11px 12px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); background: rgba(9, 9, 11, 0.35); }
+  .m-said__i { flex: none; color: #71717a; font-size: 13px; line-height: 1.5; }
+  .m-said__t { font-size: 12.5px; line-height: 1.5; color: #a1a1aa; }
+  .m-said__t b { color: #d4d4d8; font-weight: 500; }
+
+  /* the stage plot canvas, in the frame */
+  .m-plot { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #09090b; }
+  .m-plot__g { position: absolute; inset: 0; background-image: linear-gradient(rgba(63,63,70,0.28) 1px, transparent 1px), linear-gradient(90deg, rgba(63,63,70,0.28) 1px, transparent 1px); background-size: 34px 34px; }
+  .m-el { position: absolute; border: 1px solid #52525b; border-radius: 4px; background: #27272a; display: grid; place-items: center; font-size: 10px; color: #d4d4d8; text-align: center; padding: 2px; }
+  .m-el--sel { border-color: #f59e0b; background: rgba(245, 158, 11, 0.16); color: #fcd34d; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25); }
+  .m-el--truss { border-color: #38bdf8; background: rgba(56, 189, 248, 0.1); color: #7dd3fc; }
+
+  /* the overflow sheet's rows — SectionSwitcher's shape, one labelled action each */
+  .m-act { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 4px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-act:last-child { border-bottom: 0; }
+  .m-act__i { width: 22px; flex: none; text-align: center; color: #a1a1aa; font-size: 14px; }
+  .m-act__l { font-size: 14px; color: #f4f4f5; flex: 1; min-width: 0; }
+  .m-act__h { font-size: 12px; color: #71717a; flex: none; }
+
+  /* the bar-width arithmetic, drawn as a ruler */
+  .rule { display: flex; align-items: stretch; width: 375px; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; font-family: var(--mono); font-size: 9px; letter-spacing: 0.04em; }
+  .rule__s { display: grid; place-items: center; min-height: 30px; border-left: 1px solid var(--rule-soft); color: var(--muted); background: var(--sunken); text-align: center; padding: 0 1px; }
+  .rule__s:first-child { border-left: 0; }
+  .rule__s--t { background: rgba(245, 158, 11, 0.14); color: var(--amber); }
+  .rule__s--o { background: rgba(159, 18, 57, 0.14); color: var(--drop); }
+  .rule__s--g { background: transparent; }
+  .rulel { display: flex; align-items: baseline; gap: 10px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+  .rulel b { color: var(--ink-2); font-weight: 500; }
+  .rulel u { text-decoration: none; color: var(--drop); }
+
+  /* a rule stated once, in a box, because it is the thing that stops nine
+     call sites making nine judgements */
+  .law { border: 1px solid var(--rule); border-left: 3px solid var(--amber); border-radius: 0 8px 8px 0; background: var(--raised); padding: 16px 18px; display: flex; flex-direction: column; gap: 9px; }
+  .law__h { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); }
+  .law__t { font-size: 16.5px; line-height: 1.45; color: var(--ink); }
+  .law__t b { font-weight: 600; }
+  .law__n { font-size: 14px; line-height: 1.55; color: var(--muted); }
+  .law__n b { color: var(--ink-2); font-weight: 600; }
+
+  /* two columns of examples under a rule */
+  .split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 26px; }
+  @media (max-width: 720px) { .split { grid-template-columns: minmax(0, 1fr); } }
+  .split__c { display: flex; flex-direction: column; gap: 7px; padding-top: 4px; }
+  .split__h { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); padding-bottom: 6px; border-bottom: 1px solid var(--rule); }
+  .split__i { display: flex; gap: 9px; font-size: 14px; color: var(--ink-2); line-height: 1.5; }
+  .split__i b { color: var(--ink); font-weight: 600; }
+  .split__i em { font-style: normal; color: var(--faint); }
+</style>
+
+<style>
+  /* ==================================================================
+     ADDITIONS FOR SLICE 37 — the coordinate space drawn three times, the
+     plane, and the evidence tables.
+     ================================================================== */
+
+  .spaces { display: grid; gap: 14px; }
+  .space { border: 1px solid var(--rule); border-radius: 8px; background: var(--raised); overflow: hidden; }
+  .space__hd { display: flex; align-items: baseline; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--rule-soft); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); }
+  .space__hd b { color: var(--ink); font-weight: 600; letter-spacing: 0.08em; }
+  .space__hd s { margin-left: auto; text-decoration: none; color: var(--faint); letter-spacing: 0.06em; }
+  /* the band diagram: regions drawn to scale against a 2200-wide plane */
+  .band { position: relative; height: 46px; background: var(--sunken); }
+  .band__z { position: absolute; top: 0; bottom: 0; }
+  .band__z--rail { background: rgba(180, 83, 9, 0.16); border-left: 1px solid rgba(180, 83, 9, 0.5); border-right: 1px solid rgba(180, 83, 9, 0.5); }
+  .band__z--rig { background: rgba(14, 116, 144, 0.14); }
+  .band__z--dead { background: repeating-linear-gradient(135deg, transparent 0 5px, rgba(159, 18, 57, 0.16) 5px 10px); }
+  .band__l { position: absolute; top: 5px; left: 5px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); white-space: nowrap; }
+  .band__w { position: absolute; bottom: 5px; left: 5px; font-family: var(--mono); font-size: 10px; font-variant-numeric: tabular-nums; color: var(--muted); }
+  /* one 200 px node, same scale, so its width reads against the lane */
+  .band__n { position: absolute; top: 13px; height: 20px; border: 1px solid var(--amber); border-radius: 3px; background: rgba(180, 83, 9, 0.22); }
+
+  .ev { width: 100%; border-collapse: collapse; font-size: 14px; margin: 4px 0 8px; }
+  .ev th { text-align: left; font-family: var(--mono); font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--faint); font-weight: 500; padding: 0 12px 7px 0; border-bottom: 1px solid var(--rule); }
+  .ev td { padding: 7px 12px 7px 0; border-bottom: 1px solid var(--rule-soft); color: var(--ink-2); vertical-align: baseline; }
+  .ev td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ev td.bad { color: var(--drop); font-weight: 600; }
+  .ev tr.ok td { color: var(--muted); }
+  .ev caption { caption-side: bottom; padding-top: 10px; font-size: 13.5px; color: var(--muted); text-align: left; line-height: 1.6; }
+  .ev-wrap { overflow-x: auto; }
+
+  /* the plane specimen */
+  .plane { position: relative; overflow: auto; background: #09090b; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-x pan-y; }
+  .plane__box { position: relative; }
+  .plane__c { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+  .plane__hint { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 3; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: #52525b; background: rgba(9, 9, 11, 0.86); border: 1px solid #27272a; border-radius: 999px; padding: 3px 9px; pointer-events: none; }
+  .zbar { display: flex; align-items: center; gap: 2px; padding: 7px 8px; border-top: 1px solid #27272a; background: #0c0c0e; }
+  .zbar button { width: 40px; height: 40px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; color: #a1a1aa; font-size: 16px; display: grid; place-items: center; padding: 0; font-family: inherit; cursor: pointer; }
+  .zbar .zv { width: 66px; height: 40px; border: 0; background: transparent; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: #d4d4d8; cursor: pointer; }
+  .zbar .zv s { display: block; text-decoration: none; font-size: 8.5px; letter-spacing: 0.13em; text-transform: uppercase; color: #52525b; }
+  .zbar em { margin-left: auto; font-style: normal; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: #3f3f46; }
+
+  /* a decision recorded as a strike-through of the alternative (from 6d) */
+  .verdict { display: grid; grid-template-columns: 152px minmax(0, 1fr); gap: 14px 18px; align-items: baseline; }
+  .verdict__k { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); }
+  .verdict__v { font-size: 15px; color: var(--ink-2); line-height: 1.55; }
+  .verdict__v b { color: var(--ink); font-weight: 600; }
+  .verdict__v u { text-decoration: line-through; text-decoration-color: var(--drop); color: var(--faint); }
+  @media (max-width: 720px) { .verdict { grid-template-columns: minmax(0, 1fr); gap: 4px 0; } }
+</style>
+<style>
+  /* ==================================================================
+     ADDITIONS FOR SLICE 38 — the narrow drawer, a person as a card, the
+     info note that is live, and the event's two attachment rows.
+     ================================================================== */
+
+  /* ui/Drawer at `narrow` — max-w-md, 448 px, against the Rig's max-w-3xl */
+  .sd--narrow { width: 448px; }
+  .sd__hdc { min-width: 0; flex: 1; }
+  .sd__tir { display: flex; align-items: center; gap: 8px; }
+
+  /* ui/Dialog on a desk: centred at every width. Drawn twice — once as what
+     Manage access is today (max-w-2xl), once as the confirm (max-w-md). */
+  .ddlg { position: absolute; inset: 0; display: grid; place-items: center; padding: 0 24px; background: rgba(9, 9, 11, 0.7); }
+  .ddlg__p { width: 100%; max-width: 672px; border: 1px solid #3f3f46; border-radius: 12px; background: #18181b; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); }
+  .ddlg__p--md { max-width: 448px; }
+  .ddlg__hd { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid #27272a; }
+  .ddlg__ti { font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .ddlg__x { color: #a1a1aa; font-size: 16px; }
+  .ddlg__bd { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+  .ddlg__s { font-size: 14px; line-height: 1.55; color: #a1a1aa; }
+  .ddlg__s b { color: #e4e4e7; font-weight: 600; }
+  .ddlg__ft { display: flex; justify-content: flex-end; gap: 8px; }
+
+  /* A person, as a GearCard. Identity first; controls after it — on one line at
+     448 px, on their own line at 375 px, where 44 px is what sets the height. */
+  .who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .who__av { width: 24px; height: 24px; border-radius: 999px; flex: none; }
+  .who__av--mono { display: grid; place-items: center; font-family: var(--mono); font-size: 9px; letter-spacing: 0.04em; color: #d4d4d8; background: #27272a; border: 1px solid #3f3f46; }
+  .who__nm { font-size: 14px; font-weight: 500; color: #f4f4f5; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .who__sp { font-family: var(--mono); font-size: 10px; color: #71717a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .who__pad { margin-left: auto; display: flex; align-items: center; gap: 8px; flex: none; }
+  .who__ctl { display: flex; align-items: center; gap: 8px; }
+  .who__ctl .fld { flex: 1; min-width: 0; }
+  /* the remove target: a Button ghost xs on a desk (h-7 around a 14 px icon),
+     44 px in the hand around a 16 px one (tokens.md §7, amendment 1) */
+  .who__rm { width: 34px; height: 28px; border-radius: 6px; display: grid; place-items: center; color: #a1a1aa; flex: none; }
+  .who__rm--44 { width: 44px; height: 44px; }
+  .who__rm svg { display: block; }
+
+  /* the info note — the `i` rides in a row that already exists, so a closed note
+     costs no space; the sentence opens where the sentence belongs. LIVE. */
+  .itog { border: 0; background: transparent; padding: 8px; margin: -8px; color: #71717a; font-family: inherit; line-height: 1; cursor: pointer; flex: none; }
+  .itog[aria-expanded="true"] { color: #fbbf24; }
+  .itog i { font-style: normal; display: grid; place-items: center; width: 16px; height: 16px; border: 1px solid currentColor; border-radius: 999px; font-family: var(--mono); font-size: 10px; }
+  .inote { font-size: 12px; line-height: 1.6; color: #a1a1aa; }
+  .inote[hidden] { display: none; }
+  .inote p + p { margin-top: 7px; }
+  .inote b { color: #e4e4e7; font-weight: 600; }
+
+  /* the state that stands where the picker was when there is nobody left */
+  .exh { font-size: 12px; line-height: 1.6; color: #71717a; }
+  .exh--ph { font-size: 14px; }
+
+  /* the event's attachment rows on a desk — the shape the catalog row has had
+     since D4, with a second instance beside it */
+  .ocard { border: 1px solid #3f3f46; border-radius: 8px; background: #18181b; overflow: hidden; }
+  .ohd { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 20px; }
+  .ohd h4 { margin: 0; font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .ohd p { margin: 2px 0 0; font-size: 14px; color: #a1a1aa; }
+  .orow { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 20px; border-top: 1px solid #27272a; }
+  .orow--new { background: rgba(245, 158, 11, 0.05); }
+  .orow__l { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #71717a; width: 72px; flex: none; }
+  .orow__c { flex: 1; min-width: 0; }
+  .orow__t { font-size: 14px; color: #f4f4f5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .orow__s { font-size: 12px; color: #71717a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ometa { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 10px 20px; border-top: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); font-size: 12px; color: #71717a; }
+  .ometa u { text-decoration: line-through; text-decoration-color: #fb7185; color: #52525b; }
+
+  /* the event header, drawn so a control leaving it can be seen leaving */
+  .ehd { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding-bottom: 14px; }
+  .ehd h4 { margin: 0; font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .ehd p { margin: 2px 0 0; font-size: 14px; color: #a1a1aa; }
+  .ehd__r { display: flex; align-items: center; gap: 16px; }
+  .ehd__lk { font-size: 14px; color: #fbbf24; }
+  .gone { position: relative; opacity: 0.4; }
+  .gone::after { content: ""; position: absolute; left: -3px; right: -3px; top: 50%; height: 1px; background: #fb7185; }
+
+  /* a desk specimen and a phone specimen, argued as one thing */
+  .pair { display: grid; grid-template-columns: minmax(0, 1fr) 375px; gap: 24px; align-items: start; }
+  @media (max-width: 1020px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+  .pair__c { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+
+  /* the surface a drawer opens over, drawn faintly — a drawer accompanies */
+  .behind { display: flex; flex-direction: column; gap: 12px; opacity: 0.9; }
+  .behind__b { height: 10px; border-radius: 3px; background: #27272a; }
+</style>
+
+<div class="wrap">
+
+  <header class="head">
+    <span class="head__eyebrow">slice 38 · who can see this event · revision 4 · approved 2026-07-31, q1–q3 as drawn</span>
+    <h1>The phone knows who can see this event. It cannot change it.</h1>
+
+    <p class="head__lede">
+      Overview already tells an owner standing in the room that <b>4 people have access</b> and that
+      <b>you are the owner</b>. Both of those are printed at 12 px in the panel's quiet last line,
+      and there is nothing to press. The <em>Invite</em> button and the whole members dialog are
+      rendered <b>after</b> <span class="mono">EventDetail.tsx:85</span>, which is where the phone
+      returns — so on a handset neither element exists at all.
+    </p>
+    <p class="head__lede">
+      The reason there is no phone form is the shape. <b>Manage access is a <span class="mono">Dialog</span>,
+      and a <span class="mono">Dialog</span> stays centred at every width.</b> A <span class="mono">Drawer</span>
+      <em>is</em> a bottom <span class="mono">Sheet</span> below 768 px. This is the fault D4 found in the
+      catalog browse, on the same rule, with the same consequence — so the fix is one component and not two,
+      and getting the desk right is what hands the phone its surface.
+    </p>
+    <p class="head__lede">
+      Slice 39 states the test in your words and Slice 38 runs first, so <b>this is the rule's first
+      application</b>: §02 sorts the slice's two overlays with it, and they land on opposite answers —
+      the access surface accompanies, the removal confirm interrupts. Both are drawn here.
+    </p>
+  </header>
+
+  <!-- ============================================================ 01 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">01 · the fault</span>
+      <h2>The count is on the phone. The door is not.</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Nothing is broken on the way to this surface, because there is no way to it. The nine
+        <span class="mono">MOBILE_SECTIONS</span> hold no access surface, <span class="mono">SettingsTab</span>
+        has no member UI, and <span class="mono">OverviewTab</span> fetches <span class="mono">listMembers</span>
+        only to fill a sentence. Left: what a phone shows today. Right: what a desk shows, which is where
+        every control lives.
+      </p>
+    </div>
+
+    <div class="pair">
+      <div class="pair__c">
+        <div class="spec__frame">
+          <div class="app app--tight">
+            <div class="ehd">
+              <div>
+                <h4>Vårgalan</h4>
+                <p>Kulturhuset · 14–15 March 2026</p>
+              </div>
+              <div class="ehd__r">
+                <span class="btn btn--outline">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
+                  Invite
+                </span>
+                <span class="ehd__lk">← Back to events</span>
+              </div>
+            </div>
+            <div class="ddlg" style="position:relative;padding:24px;border-radius:8px">
+              <div class="ddlg__p">
+                <div class="ddlg__hd">
+                  <span class="ddlg__ti">Manage access</span>
+                  <span class="ddlg__x">×</span>
+                </div>
+                <div class="ddlg__bd">
+                  <div>
+                    <div style="font-size:14px;font-weight:500;color:#d4d4d8;margin-bottom:8px">People with access</div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid #27272a;border-radius:6px;padding:8px 12px">
+                      <div class="who">
+                        <span class="who__av" style="background:linear-gradient(135deg,#4d7c0f,#84cc16)"></span>
+                        <div>
+                          <div style="font-size:14px;color:#f4f4f5">Nina Bergström</div>
+                          <div style="font-size:12px;color:#71717a">nina@ljudteknik.se</div>
+                        </div>
+                      </div>
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <span class="fld fld--sel tgt tgt--bad" style="width:128px;--tw:128px;--th:32px">Contributor</span>
+                        <span class="who__rm tgt tgt--bad" style="--tw:34px;--th:28px">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div style="border-top:1px solid #27272a;padding-top:16px">
+                    <div style="font-size:14px;font-weight:500;color:#d4d4d8;margin-bottom:8px">Invite someone</div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <span class="fld fld--md fld--sel fld--ph" style="flex:1">Choose a person...</span>
+                      <span class="fld fld--md fld--sel" style="width:144px">Contributor</span>
+                      <span class="btn btn--primary btn--md">Invite</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="spec__cap"><b>Today, on a desk.</b> <span class="mono">ui/Dialog</span> at
+          <span class="mono">max-w-2xl</span> — 672 px for one list of people. Three controls across
+          in the invite row; the two dashed controls are 32 px and 28 px.</div>
+      </div>
+
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">▦</span><span class="m-hd__nm">Vårgalan</span></div>
+            <span class="m-hd__av"></span>
+          </div>
+          <div class="m-bd">
+            <div class="m-swr">
+              <span class="m-back">←</span>
+              <div class="m-sw"><span class="m-sw__t">Overview</span><span style="color:#a1a1aa">▾</span></div>
+            </div>
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar"><span class="m-pan__ti">Overview</span><span class="m-pan__ic m-pan__ic--44">✎</span></div>
+              <div class="m-pan__rows">
+                <div class="m-sub"><b>Kulturhuset</b> · 14–15 March 2026 <s>(day 1 of 2)</s></div>
+                <div class="m-figs">
+                  <div class="m-fig m-fig--span"><div class="m-fig__v">12<i>days</i></div><span class="m-fig__l">Until load-in</span></div>
+                  <div class="m-fig"><div class="m-fig__v">34</div><span class="m-fig__l">Channels</span></div>
+                  <div class="m-fig"><div class="m-fig__v">61</div><span class="m-fig__l">Fixtures</span></div>
+                </div>
+                <div class="m-rd"><span class="m-rd__e" style="background:#34d399"></span><span class="m-rd__a">Audio</span><span class="m-rd__f">34 ch · 0 gaps</span><span class="pill t-ok">patched</span><span class="m-rd__c">›</span></div>
+                <div class="m-rd"><span class="m-rd__e" style="background:#f59e0b"></span><span class="m-rd__a">Lighting</span><span class="m-rd__f">61 fx · 3 unaddressed</span><span class="pill t-warn">gaps</span><span class="m-rd__c">›</span></div>
+                <div class="m-row">
+                  <div class="m-row__c"><div class="m-row__t">Krokodil AB · hyrlista</div><div class="m-row__s">Imported from prislista-2026.xlsx</div></div>
+                  <div style="display:flex;align-items:center;padding-right:12px;color:#52525b">›</div>
+                </div>
+                <div class="m-meta">
+                  <span>Created 2025-11-02</span>
+                  <span style="color:#fbbf24">4 people have access</span>
+                  <span style="color:#fbbf24">You are the owner</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Events</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▦</span>Event</div>
+            <div class="m-nav__i"><span class="m-nav__g">▧</span>Inventory</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+        </div>
+        <div class="phone__cap phone__cap--bad"><b>Today, at 375 px.</b> The two amber phrases are the
+          whole of the phone's access surface. Neither is a target; the meta line is a 12 px run of text.</div>
+      </div>
+    </div>
+
+    <div class="prose">
+      <h3>And one thing the desk does not do either</h3>
+      <p>
+        <span class="mono">EventMembersDialog</span> is mounted at
+        <span class="mono">EventDetail.tsx:140</span> <b>without <span class="mono">readOnly</span></b>, which
+        defaults to <span class="mono">false</span>. The only thing keeping a viewer out of the manage
+        controls today is the hidden trigger. That is fine while the trigger is the door and the door is
+        shut; it stops being fine in §05, where a viewer is given the door on purpose.
+      </p>
+      <p>
+        The backend is unchanged by any of this and was read rather than run: <span class="mono">GET /members</span>
+        needs viewer or better, <span class="mono">POST</span>/<span class="mono">PATCH</span>/<span class="mono">DELETE</span>
+        need owner or contributor, and all three refuse the owner's own row. So
+        <span class="mono">canManageMembers = yourRole !== 'viewer'</span> already matches the server exactly —
+        there is no hidden 403 waiting for a contributor.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ 02 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">02 · the shape</span>
+      <h2>Nothing is waiting on you, so this is not a dialog</h2>
+    </div>
+
+    <div class="law">
+      <span class="law__h">the test · your wording, 2026-07-31 · applied here first</span>
+      <p class="law__t"><b>A <span class="mono">Dialog</span> interrupts.</b> One choice has to be made before
+        what you were doing can continue, so it takes the centre, blocks the surface behind it, and leaves as
+        soon as it is answered.</p>
+      <p class="law__t"><b>A <span class="mono">Drawer</span> accompanies.</b> It is a companion workspace
+        beside the thing you are working on: it opens over the surface without replacing it, and you go on
+        working in it rather than answering it.</p>
+      <p class="law__n">The old test — <em>an overlay with fields is a Sheet; an overlay that is a sentence
+        and two buttons is a Dialog</em> — asked what an overlay <b>contains</b>. It misfiles this surface
+        twice over: manage access has fields, and the cable pickers have a field while being interruptions.
+        Whichever of Slice 38 and Slice 39 lands first writes the new wording into
+        <span class="mono">components.md</span> §<span class="mono">ui/Dialog</span>; this one is first.</p>
+    </div>
+
+    <div class="split">
+      <div class="split__c">
+        <div class="split__h">accompanies → Drawer</div>
+        <div class="split__i"><b>Who has access.</b> You open it to work in it — read the list, change a
+          role, invite the lighting op who just signed in — and the event is still there behind it. Nothing
+          is waiting on an answer, and there is no answer to give.</div>
+        <div class="split__i"><em>and the phone form arrives with it: <span class="mono">ui/Drawer</span> is
+          <span class="mono">ui/Sheet</span> below 768 px, which is the entire second half of this slice.</em></div>
+      </div>
+      <div class="split__c">
+        <div class="split__h">interrupts → Dialog</div>
+        <div class="split__i"><b>Removing someone.</b> One choice, nothing continues until it is made, and it
+          leaves the moment it is answered. <span class="mono">ui/ConfirmDialog</span> is the purest
+          <span class="mono">Dialog</span> there is — §07.</div>
+        <div class="split__i"><em>so this slice draws both halves of the rule on one surface, which is the
+          clearest evidence either slice will get that the test sorts things.</em></div>
+      </div>
+    </div>
+
+    <div class="verdict">
+      <div class="verdict__k">the shape</div>
+      <div class="verdict__v"><b><span class="mono">ui/Drawer</span></b>, replacing
+        <u><span class="mono">ui/Dialog</span></u>. One component: the desktop drawer and the phone sheet are
+        the same call site.</div>
+
+      <div class="verdict__k">the width</div>
+      <div class="verdict__v"><b><span class="mono">narrow</span> — <span class="mono">max-w-md</span>, 448 px</b>.
+        <u><span class="mono">wide</span>, max-w-3xl.</u> It is one list of people, not the Rig: a name, an
+        email, a role and a remove. At 448 px the body has 407, the card 387, and the fixed controls
+        (24 avatar + 128 role + 34 remove + three 8 px gaps) take 210 — leaving 177 px for a name that is
+        rarely half of it. <span class="mono">wide</span> would be 672 px of empty right-hand side, which is
+        what the <span class="mono">Dialog</span> is today.</div>
+
+      <div class="verdict__k">the body</div>
+      <div class="verdict__v"><b>Two <span class="mono">DrawerSection</span>s</b> — <em>People</em> and
+        <em>Invite</em>. <u><span class="mono">flush</span>.</u> <span class="mono">flush</span> is for a body
+        that is <b>one construction</b>: a <span class="mono">PanelCols</span>, or the run of full-bleed rows
+        that becomes on a phone. This body is two constructions — a list and a form — and the form would have
+        to re-invent the 20 px <span class="mono">flush</span> just took away.
+        <span class="mono">patterns.md</span> §7d settles what the phone does with that:
+        <em>a phone drawer looks like a drawer</em> — <span class="mono">MicroLabel</span> headings and
+        <span class="mono">GearCard</span>s, at 44 px instead of <span class="mono">h-7</span>.</div>
+
+      <div class="verdict__k">a member</div>
+      <div class="verdict__v">A <b><span class="mono">GearCard</span></b>: the name and a
+        <span class="mono">GearSpecs</span> line under it carrying the email, and the controls in the card's
+        own row. Not a <span class="mono">CondensedListRow</span> — that is the phone's <em>panel</em> row, and
+        this is inside a drawer, where the contents take the tier of the surface that references them
+        (<span class="mono">patterns.md</span> §3).</div>
+
+      <div class="verdict__k">the footer</div>
+      <div class="verdict__v"><b>Absent.</b> The one candidate sentence is an explanation of how inviting
+        works, and an explanation is <span class="mono">info</span> — §06. The
+        <span class="mono">footer</span>/<span class="mono">info</span> rule has now been got wrong three
+        times, and every time in the same direction.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 03 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">03 · the drawer, on a desk</span>
+      <h2>One list of people fits in 448 pixels</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Four members: you, two contributors and a viewer, one of them with no picture. The event is still
+        behind it — that is what <em>accompanies</em> looks like, and it is why the drawer is an overlay
+        rather than a flex sibling: the surface being referenced never shifts.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app app--tight" style="min-width:900px">
+          <div class="dstack" style="min-height:540px">
+            <div style="padding:20px 24px">
+              <div class="ehd">
+                <div><h4>Vårgalan</h4><p>Kulturhuset · 14–15 March 2026</p></div>
+                <div class="ehd__r"><span class="ehd__lk">← Back to events</span></div>
+              </div>
+              <div class="ocard">
+                <div class="ohd"><div><h4>Vårgalan</h4><p>Kulturhuset · 14–15 March 2026</p></div>
+                  <span class="btn btn--outline">✎ Edit details</span></div>
+                <div class="m-figs" style="grid-template-columns:repeat(5,minmax(0,1fr));border:0;border-top:1px solid #27272a">
+                  <div class="m-fig" style="border-left:0"><div class="m-fig__v">12<i>days</i></div><span class="m-fig__l">Load-in</span></div>
+                  <div class="m-fig"><div class="m-fig__v">34</div><span class="m-fig__l">Channels</span></div>
+                  <div class="m-fig"><div class="m-fig__v">61</div><span class="m-fig__l">Fixtures</span></div>
+                  <div class="m-fig"><div class="m-fig__v">18</div><span class="m-fig__l">Rental lines</span></div>
+                  <div class="m-fig"><div class="m-fig__v">3</div><span class="m-fig__l">Plots</span></div>
+                </div>
+                <div class="orow"><span class="orow__l">Inventory</span>
+                  <div class="orow__c"><div class="orow__t">Krokodil AB · hyrlista</div>
+                    <div class="orow__s">Imported from prislista-2026.xlsx</div></div>
+                  <span class="btn btn--outline">Browse</span></div>
+                <div class="orow orow--new"><span class="orow__l">Access</span>
+                  <div class="orow__c"><div class="orow__t">4 people</div>
+                    <div class="orow__s">You are the owner · 2 contributors, 1 viewer</div></div>
+                  <span class="btn btn--outline">Manage</span></div>
+              </div>
+            </div>
+
+            <div class="scrim"></div>
+
+            <div class="sd sd--narrow">
+              <div class="sd__hd">
+                <div class="sd__hdc">
+                  <div class="sd__tir">
+                    <span class="sd__ti">Who has access</span>
+                    <button aria-expanded="false" class="itog" data-note="note-desk" type="button"><i>i</i></button>
+                  </div>
+                  <div class="sd__sub">Everyone here can open this event</div>
+                  <div class="inote" hidden id="note-desk" style="margin-top:8px">
+                    <p>A <b>contributor</b> can change everything in this event. A <b>viewer</b> can read it
+                      and change nothing.</p>
+                    <p>An invitation goes to an account, not to an email address — people appear in the
+                      picker only after they have signed in at least once.</p>
+                  </div>
+                </div>
+                <span class="sd__x">×</span>
+              </div>
+
+              <div class="sd__body">
+                <div class="dsec">
+                  <div class="dsec__hd"><span class="lbl">People</span><span class="dsec__ct">4</span></div>
+
+                  <div class="gear">
+                    <div class="who">
+                      <span class="who__av" style="background:linear-gradient(135deg,#b45309,#f59e0b)"></span>
+                      <span class="who__nm">Elin Sandahl</span>
+                      <span class="pill t-def">You</span>
+                      <span class="who__pad"><span class="pill t-def">Owner</span></span>
+                    </div>
+                    <div class="who__sp">elin@sandahlljud.se</div>
+                  </div>
+
+                  <div class="gear">
+                    <div class="who">
+                      <span class="who__av" style="background:linear-gradient(135deg,#4d7c0f,#84cc16)"></span>
+                      <span class="who__nm">Nina Bergström</span>
+                      <span class="who__pad">
+                        <span class="fld fld--sel" style="width:128px">Contributor</span>
+                        <span class="who__rm">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+                        </span>
+                      </span>
+                    </div>
+                    <div class="who__sp">nina@ljudteknik.se</div>
+                  </div>
+
+                  <div class="gear">
+                    <div class="who">
+                      <span class="who__av who__av--mono">OL</span>
+                      <span class="who__nm">Oskar Lindqvist</span>
+                      <span class="who__pad">
+                        <span class="fld fld--sel" style="width:128px">Contributor</span>
+                        <span class="who__rm">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+                        </span>
+                      </span>
+                    </div>
+                    <div class="who__sp">oskar@krokodilbolaget.se</div>
+                  </div>
+
+                  <div class="gear">
+                    <div class="who">
+                      <span class="who__av" style="background:linear-gradient(135deg,#155e75,#0891b2)"></span>
+                      <span class="who__nm">Petra Holm</span>
+                      <span class="who__pad">
+                        <span class="fld fld--sel" style="width:128px">Viewer</span>
+                        <span class="who__rm">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+                        </span>
+                      </span>
+                    </div>
+                    <div class="who__sp">petra.holm@hovet.se</div>
+                  </div>
+                </div>
+
+                <div class="dsec">
+                  <div class="dsec__hd"><span class="lbl">Invite</span></div>
+                  <div class="m-fld"><span class="lbl">Person</span>
+                    <span class="fld fld--sel">Tove Ahlgren (tove@scenteknik.se)</span></div>
+                  <div class="m-fld" style="margin-top:8px"><span class="lbl">Role</span>
+                    <span class="fld fld--sel">Contributor</span></div>
+                  <span class="btn btn--primary" style="margin-top:10px;width:100%">Invite</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>Manage access</b> as <span class="mono">ui/Drawer</span>
+        <span class="mono">narrow</span>. Click the <b>i</b> — it is live, and it is where the two sentences
+        that used to be prose in the body now live.</div>
+    </div>
+
+    <div class="led">
+      <div class="led__row"><div class="led__k">frame</div>
+        <div class="led__v">Navigation tier — <code>text-lg</code> title over <code>px-5 py-4</code>, a
+          subtitle, the <code>i</code>, and the × the drawer already has.</div></div>
+      <div class="led__row"><div class="led__k">contents</div>
+        <div class="led__v">Work-surface tier, per <span class="mono">patterns.md</span> §3:
+          <code>MicroLabel</code> headings, <code>GearCard</code> at <code>px-2.5 py-2</code>,
+          <code>GearSpecs</code> at 10 px mono for the email, <code>Select size="sm"</code>,
+          <code>Button size="xs"</code>. Slice 32's mockup was drawn at the navigation tier twice and
+          rejected twice; this one is not.</div></div>
+      <div class="led__row"><div class="led__k">the owner</div>
+        <div class="led__v">A <code>Pill</code> reading <b>Owner</b>, and no controls at all — the server
+          refuses to re-role or remove an owner on every one of the three endpoints, so the row that cannot
+          be acted on carries no affordance to try (P7: absent, not disabled).</div></div>
+      <div class="led__row"><div class="led__k">you</div>
+        <div class="led__v">A neutral <b>You</b> chip after the name. It replaces the meta line's
+          <em>“You are the owner”</em>, which §05 removes, and it is the answer to the question a shared
+          event actually raises: <em>which of these am I?</em></div></div>
+      <div class="led__row"><div class="led__k">a role is not a verdict</div>
+        <div class="led__v">Today a viewer is drawn with the <b>warning</b> badge — amber, which in this
+          application means <em>something needs attention</em> (<span class="mono">tokens.md</span> §5). Being
+          a viewer is not a fault. Every role chip is neutral; <b>the word is the data</b>, exactly as a
+          missing link is red because it is missing and not because it is a link.</div></div>
+      <div class="led__row"><div class="led__k">no picture</div>
+        <div class="led__v">Initials in the same 24 px circle, mono, on <code>zinc-800</code> — derived from
+          the name, like every other derived mark in the app. Not a generic silhouette: a silhouette says
+          <em>person</em>, which the row beside it already said.</div></div>
+      <div class="led__row"><div class="led__k">no height of its own</div>
+        <div class="led__v">Neither section takes a <code>max-h</code>. The body is already
+          <code>flex-1 overflow-y-auto</code>, and a private scrollbar inside a scrolling overlay is
+          §3's stated failure. Forty people scroll the drawer.</div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 04 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">04 · the same drawer, in the hand</span>
+      <h2>A thumb has to hit the role, so the person's row becomes two</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Below 768 px the same call site is a bottom sheet. Two controls in it are under the minimum today —
+        the role <span class="mono">Select</span> is <span class="mono">h-8</span> (32 px) and remove is a
+        <span class="mono">ghost</span> button around an <span class="mono">h-3.5</span> icon (28 px around
+        14). <span class="mono">tokens.md</span> §7 amendment 1: <em>below 44 px, a control is a
+        suggestion.</em> Raising them is not a matter of nudging the row — at 375 px they do not fit beside
+        the name at all, so the card stacks. <b>Density on a phone comes from stacking, never from
+        shrinking.</b>
+      </p>
+    </div>
+
+    <div class="pair">
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">▦</span><span class="m-hd__nm">Vårgalan</span></div>
+            <span class="m-hd__av"></span>
+          </div>
+          <div class="m-bd">
+            <div class="m-swr"><span class="m-back">←</span>
+              <div class="m-sw"><span class="m-sw__t">Overview</span><span style="color:#a1a1aa">▾</span></div></div>
+            <div class="m-pan m-pan--fill"><div class="m-pan__bar"><span class="m-pan__ti">Overview</span></div></div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Events</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▦</span>Event</div>
+            <div class="m-nav__i"><span class="m-nav__g">▧</span>Inventory</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+
+          <div class="m-sheet">
+            <div class="m-sheet__p">
+              <div class="m-sheet__hd">
+                <div style="min-width:0">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span class="m-sheet__ti">Who has access</span>
+                    <button aria-expanded="false" class="itog" data-note="note-phone" type="button"><i>i</i></button>
+                  </div>
+                  <div class="m-sheet__sub">Everyone here can open this event</div>
+                </div>
+                <span class="m-sheet__x">×</span>
+              </div>
+              <div class="m-sheet__bd">
+                <div class="inote" hidden id="note-phone">
+                  <p>A <b>contributor</b> can change everything in this event. A <b>viewer</b> can read it and
+                    change nothing.</p>
+                  <p>An invitation goes to an account, not to an email address — people appear in the picker
+                    only after they have signed in at least once.</p>
+                </div>
+
+                <div class="dsec">
+                  <div class="dsec__hd"><span class="lbl">People</span><span class="dsec__ct">4</span></div>
+
+                  <div class="gear" style="padding:10px 12px">
+                    <div class="who">
+                      <span class="who__av" style="background:linear-gradient(135deg,#b45309,#f59e0b)"></span>
+                      <span class="who__nm">Elin Sandahl</span>
+                      <span class="pill t-def">You</span>
+                      <span class="who__pad"><span class="pill t-def">Owner</span></span>
+                    </div>
+                    <div class="who__sp">elin@sandahlljud.se</div>
+                  </div>
+
+                  <div class="gear" style="padding:10px 12px">
+                    <div class="who">
+                      <span class="who__av" style="background:linear-gradient(135deg,#4d7c0f,#84cc16)"></span>
+                      <span class="who__nm">Nina Bergström</span>
+                    </div>
+                    <div class="who__sp">nina@ljudteknik.se</div>
+                    <div class="who__ctl">
+                      <span class="fld fld--md fld--sel">Contributor</span>
+                      <span class="who__rm who__rm--44 tgt tgt--ok" style="--tw:44px;--th:44px">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="gear" style="padding:10px 12px">
+                    <div class="who">
+                      <span class="who__av who__av--mono">OL</span>
+                      <span class="who__nm">Oskar Lindqvist</span>
+                    </div>
+                    <div class="who__sp">oskar@krokodilbolaget.se</div>
+                    <div class="who__ctl">
+                      <span class="fld fld--md fld--sel">Contributor</span>
+                      <span class="who__rm who__rm--44">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="gear" style="padding:10px 12px">
+                    <div class="who">
+                      <span class="who__av" style="background:linear-gradient(135deg,#155e75,#0891b2)"></span>
+                      <span class="who__nm">Petra Holm</span>
+                    </div>
+                    <div class="who__sp">petra.holm@hovet.se</div>
+                    <div class="who__ctl">
+                      <span class="fld fld--md fld--sel">Viewer</span>
+                      <span class="who__rm who__rm--44">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="dsec">
+                  <div class="dsec__hd"><span class="lbl">Invite</span></div>
+                  <div class="m-fld"><span class="lbl">Person</span>
+                    <span class="fld fld--md fld--sel fld--ph">Choose a person…</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="phone__cap"><b>375 px.</b> The sheet scrolls inside itself; the invite section is below
+          the fold on purpose — you scroll <em>past</em> the people to add one. The <b>i</b> is live here too.</div>
+      </div>
+
+      <div class="pair__c">
+        <div class="stacks">
+          <div class="stacks__c">
+            <div class="stacks__t"><b>the member card</b> · 375 px</div>
+            <div class="stack">
+              <div class="stack__b stack__b--chrome" style="height:10px">py-2.5 · 10</div>
+              <div class="stack__b" style="height:24px">avatar / name · 24</div>
+              <div class="stack__b stack__b--chrome" style="height:6px">gap-1.5 · 6</div>
+              <div class="stack__b" style="height:14px">email, 10 px mono · 14</div>
+              <div class="stack__b stack__b--chrome" style="height:6px">gap-1.5 · 6</div>
+              <div class="stack__b stack__b--rows" style="height:44px">role + remove · 44</div>
+              <div class="stack__b stack__b--chrome" style="height:10px">py-2.5 · 10</div>
+            </div>
+            <div class="stacks__t"><b>114 px</b> · the remove target sets it</div>
+          </div>
+          <div class="stacks__c">
+            <div class="stacks__t"><b>on a desk</b> · 448 px</div>
+            <div class="stack">
+              <div class="stack__b stack__b--chrome" style="height:8px">py-2 · 8</div>
+              <div class="stack__b stack__b--rows" style="height:32px">name + role + remove · 32</div>
+              <div class="stack__b stack__b--chrome" style="height:6px">gap-1.5 · 6</div>
+              <div class="stack__b" style="height:14px">email, 10 px mono · 14</div>
+              <div class="stack__b stack__b--chrome" style="height:8px">py-2 · 8</div>
+            </div>
+            <div class="stacks__t"><b>68 px</b> · the h-8 Select sets it</div>
+          </div>
+        </div>
+
+        <div class="prose" style="padding-top:6px">
+          <p>
+            The arithmetic is stated because this project has shipped a value that was asserted and never
+            multiplied out: <span class="mono">tokens.md</span> claimed <span class="mono">px-3 py-2.5</span>
+            <em>and</em> 44 px for a row, which is a 56 px row, and two implementations disagreed with it for
+            five waves. So: <b>114 px per member on a phone, 68 px on a desk</b>. Four members and the invite
+            section come to roughly 700 px against a sheet's <span class="mono">max-h-[85svh]</span> — about
+            567 px on a 667 px handset — so the sheet scrolls, which is what a sheet does.
+          </p>
+          <p>
+            <b>Nothing shrinks to avoid that.</b> The email could be dropped to fit more people on a screen,
+            and it is the one thing that distinguishes two people with the same name — so it stays, and the
+            list scrolls instead.
+          </p>
+          <h3>What changes and what does not</h3>
+          <p>
+            The desk keeps <span class="mono">h-8</span> and <span class="mono">h-7</span>. Amendment 1 is the
+            <em>phone's</em> minimum, and amendment 2 is why: <b>a surface on a phone keeps its tier's type
+            and gives up its tier's geometry.</b> Same <span class="mono">MicroLabel</span>, same 10 px mono
+            spec line, same <span class="mono">Pill</span> — only the pressed things move, from 32 and 28 to
+            40 and 44.
+          </p>
+          <p>
+            The 44 px remove sits 8 px from a 40 px <span class="mono">Select</span>, which is close for a
+            destructive control. §07 is what makes that acceptable: a mis-tap now costs a sentence, not a
+            member.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 05 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">05 · the way in</span>
+      <h2>A statement of who has access is not a way to change it</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        The phone needs a door and none of the nine sections is one. Three candidates, and the argument
+        settles it rather than a preference:
+      </p>
+    </div>
+
+    <table class="tbl">
+      <thead><tr><th style="width:190px">candidate</th><th>verdict</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>A row in Overview</b><br><em>beside the catalog row</em></td>
+          <td><b>Chosen.</b> Overview already fetches <span class="mono">listMembers</span> and already states
+            the count, so nothing new is loaded. And it puts the event's <b>two attachments in one place</b>:
+            the catalog it prices against, and the people who can open it. They are the same kind of fact and
+            they get the same row.</td>
+        </tr>
+        <tr>
+          <td><b>A row in Settings</b></td>
+          <td>No. Event settings are a per-event snapshot of your defaults — sample rates, prefixes. Access is
+            not a preference, and Settings is two taps behind the switcher where Overview is the section the
+            phone opens on.</td>
+        </tr>
+        <tr>
+          <td><b>The meta line becomes a target</b></td>
+          <td>No. It is a 12 px run of text at the foot of the panel, with no geometry to press;
+            making it tappable is amendment 1 broken by the smallest thing on the surface. Its two access
+            phrases are <b>deleted</b> instead — the row states them, and a fact stated twice is a fact that
+            will disagree with itself.</td>
+        </tr>
+        <tr>
+          <td><b>A control in the panel bar's overflow</b></td>
+          <td>No. The overflow holds <em>a control that does a thing and is finished</em>, per §7b — and
+            access is not one section's action. It would need a copy in nine overflows to be findable.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="pair">
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">▦</span><span class="m-hd__nm">Vårgalan</span></div>
+            <span class="m-hd__av"></span>
+          </div>
+          <div class="m-bd">
+            <div class="m-swr"><span class="m-back">←</span>
+              <div class="m-sw"><span class="m-sw__t">Overview</span><span style="color:#a1a1aa">▾</span></div></div>
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar"><span class="m-pan__ti">Overview</span><span class="m-pan__ic m-pan__ic--44">✎</span></div>
+              <div class="m-pan__rows">
+                <div class="m-sub"><b>Kulturhuset</b> · 14–15 March 2026 <s>(day 1 of 2)</s></div>
+                <div class="m-figs">
+                  <div class="m-fig m-fig--span"><div class="m-fig__v">12<i>days</i></div><span class="m-fig__l">Until load-in</span></div>
+                  <div class="m-fig"><div class="m-fig__v">34</div><span class="m-fig__l">Channels</span></div>
+                  <div class="m-fig"><div class="m-fig__v">61</div><span class="m-fig__l">Fixtures</span></div>
+                </div>
+                <div class="m-rd"><span class="m-rd__e" style="background:#34d399"></span><span class="m-rd__a">Audio</span><span class="m-rd__f">34 ch · 0 gaps</span><span class="pill t-ok">patched</span><span class="m-rd__c">›</span></div>
+                <div class="m-rd"><span class="m-rd__e" style="background:#f59e0b"></span><span class="m-rd__a">Lighting</span><span class="m-rd__f">61 fx · 3 unaddressed</span><span class="pill t-warn">gaps</span><span class="m-rd__c">›</span></div>
+                <div class="m-row">
+                  <div class="m-row__c"><div class="m-row__t">Krokodil AB · hyrlista</div><div class="m-row__s">Imported from prislista-2026.xlsx</div></div>
+                  <div style="display:flex;align-items:center;padding-right:12px;color:#52525b">›</div>
+                </div>
+                <div class="m-row" style="background:rgba(245,158,11,0.05)">
+                  <div class="m-row__c"><div class="m-row__t">4 people have access</div>
+                    <div class="m-row__s">You are the owner · 2 contributors, 1 viewer</div></div>
+                  <div style="display:flex;align-items:center;padding-right:12px;color:#52525b">›</div>
+                </div>
+                <div class="m-meta"><span>Created 2025-11-02</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Events</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▦</span>Event</div>
+            <div class="m-nav__i"><span class="m-nav__g">▧</span>Inventory</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+        </div>
+        <div class="phone__cap"><b>The door.</b> A <span class="mono">CondensedListRow</span> under the
+          catalog row: 44 px, title, subtitle, one chevron. The meta line keeps <em>Created</em> and loses
+          the two phrases the row now carries.</div>
+      </div>
+
+      <div class="pair__c">
+        <div class="led" style="border-top:0">
+          <div class="led__row"><div class="led__k">it reads</div>
+            <div class="led__v"><b>4 people have access</b> over <b>You are the owner · 2 contributors,
+              1 viewer</b>. The title is the count because that is the glanceable fact; the subtitle carries
+              the two things §7c asks a subtitle for — <em>where you stand</em> and <em>what the list is made
+              of</em>. Both truncate.</div></div>
+          <div class="led__row"><div class="led__k">trailing</div>
+            <div class="led__v">One chevron, <code>h-4 w-4</code> in <code>zinc-600</code> — <em>one state or
+              one affordance, never both</em>, and the catalog row above it already made that choice.</div></div>
+          <div class="led__row"><div class="led__k">the tap</div>
+            <div class="led__v"><b>Always live, at every role.</b> A viewer taps to read (P9, and
+              <span class="mono">audit.md</span> M4: <em>a role that may not edit still opens the sheet,
+              because the values are the point of opening it</em>). What differs by role is what is
+              <em>inside</em> — §08.</div></div>
+          <div class="led__row"><div class="led__k">no tape edge</div>
+            <div class="led__v">Access has no derived colour, so the row takes no
+              <code>accentColor</code> — the same as the catalog row. A 3 px edge in an invented colour is a
+              decoration pretending to be data.</div></div>
+        </div>
+
+        <h3 style="padding-top:4px">And the desk gets the same row, not a second door</h3>
+        <div class="prose">
+          <p>
+            The desktop Overview card already has this row for the catalog — <code>MicroLabel</code>, value
+            and subtitle, an <span class="mono">outline</span> button on the right that reads
+            <b>Manage</b> or <b>Browse</b> by what you are allowed to do. <b>Access takes the row beside
+            it</b>, drawn in §03, with <b>Manage</b> for an owner or contributor and <b>View</b> for a
+            viewer.
+          </p>
+          <p>
+            <b>So the header's <em>Invite</em> button is deleted.</b> Three reasons, in order: it names the
+            smaller half of what the surface does; it is hidden from viewers, which is why a viewer on a desk
+            cannot see who else is on their event either; and keeping it would give one width two doors to one
+            drawer while the other width has one. The catalog has exactly one door and has had since D4.
+          </p>
+          <p class="mono" style="font-size:13px;color:var(--muted)">
+            The cost, stated: from the Audio tab, managing access is now Overview → Manage instead of one
+            click in the header. That is the cost the catalog already pays, and access is set up once and
+            read occasionally, not touched mid-patch.
+          </p>
+        </div>
+
+        <div class="spec">
+          <div class="spec__frame">
+            <div class="app app--tight" style="padding:18px 20px">
+              <div class="ehd" style="padding-bottom:0">
+                <div><h4>Vårgalan</h4><p>Kulturhuset · 14–15 March 2026</p></div>
+                <div class="ehd__r">
+                  <span class="btn btn--outline gone">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
+                    Invite
+                  </span>
+                  <span class="ehd__lk">← Back to events</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="spec__cap"><b>The header, after.</b> One control leaves it; the heading and the back
+            link stay.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 06 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">06 · inviting</span>
+      <h2>The role belongs to the person, not to the button</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Today the invite row is three things in one flex — person, role, <em>Invite</em> — and the role sits
+        <b>beside the button</b> rather than under the person it applies to. At 375 px that row is a stack
+        whatever anyone intends, so it is drawn as one: two labelled fields and then the action, at both
+        widths, one construction with no branch.
+      </p>
+    </div>
+
+    <div class="vs">
+      <div class="vs__c">
+        <div class="vs__hd"><b>Someone left to invite</b> <span>448 px · desk</span></div>
+        <div class="spec__frame">
+          <div class="app app--tight" style="width:448px;padding:16px 20px">
+            <div class="dsec">
+              <div class="dsec__hd"><span class="lbl">Invite</span></div>
+              <div class="m-fld"><span class="lbl">Person</span>
+                <span class="fld fld--sel">Tove Ahlgren (tove@scenteknik.se)</span></div>
+              <div class="m-fld" style="margin-top:8px"><span class="lbl">Role</span>
+                <span class="fld fld--sel">Contributor</span></div>
+              <span class="btn btn--primary" style="margin-top:10px;width:100%">Invite</span>
+            </div>
+          </div>
+        </div>
+        <div class="vs__note">The <b>same <span class="mono">Select</span></b> as the one on a member's card,
+          so setting a role and changing one look identical. One filled primary in the drawer, and it is
+          this.</div>
+      </div>
+      <div class="vs__c">
+        <div class="vs__hd"><b>Nobody left to invite</b> <span>375 px · hand</span></div>
+        <div class="spec__frame">
+          <div class="app app--tight" style="width:343px;padding:16px">
+            <div class="dsec">
+              <div class="dsec__hd"><span class="lbl">Invite</span></div>
+              <p class="exh exh--ph">Everyone who has signed in is already on this event.</p>
+            </div>
+            <div style="height:14px"></div>
+            <div class="dsec">
+              <div class="dsec__hd"><span class="lbl">Invite</span></div>
+              <div class="m-fld"><span class="lbl">Person</span>
+                <span class="fld fld--md fld--sel fld--ph">Choose a person…</span></div>
+              <div class="m-fld" style="margin-top:8px"><span class="lbl">Role</span>
+                <span class="fld fld--md fld--sel">Contributor</span></div>
+              <span class="btn btn--primary btn--md" style="margin-top:10px;width:100%">Invite</span>
+            </div>
+          </div>
+        </div>
+        <div class="vs__note">Exhausted above, populated below. <b>The fields are absent, not disabled</b> —
+          a picker with nothing in it is a control that lies. The section heading stays, so the sentence has
+          something to be the answer to.</div>
+      </div>
+    </div>
+
+    <div class="prose">
+      <h3>The two sentences are not the same kind of sentence</h3>
+      <p>
+        Lines 114–117 read: <em>“Everyone who has signed in is already on this event. New people must sign in
+        at least once before they can be invited.”</em> The brief sends both to <span class="mono">info</span>.
+        <b>They split</b>, and the <span class="mono">footer</span>/<span class="mono">info</span> test is what
+        splits them — <em>is it worth re-reading?</em>
+      </p>
+      <p>
+        The first is a <b>state</b>. It stops being true the moment anyone new signs in, and it is the reason
+        a field is missing from the place the field was. It is the same kind of thing as Rig's
+        <em>“· 12 items”</em>, which stays a footer because it changes while you work. So it stands where the
+        picker stood, and it is not something you can put away — putting it away would leave an empty
+        section.
+      </p>
+      <p>
+        The second is a <b>rule</b>. <em>An invitation goes to an account, not to an email address</em> never
+        changes, is read once, and costs its space forever after — which on a phone is a fifth of the screen.
+        That is <span class="mono">ui/InfoNote</span>, and on a drawer it is <span class="mono">info</span>,
+        <b>never <span class="mono">footer</span></b>. It carries the role vocabulary with it, because
+        <em>what does contributor mean</em> is the same kind of question and is asked at the same moment.
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>noteId</h3>
+      <p>
+        <span class="mono">event-access</span> — kebab-case, named after what the drawer <b>is</b>, never
+        after its title. The title here is a constant word and would work today, which is exactly the trap
+        D5 documented: two drawers called <em>Pricing</em> shared one remembered choice, and a drawer titled
+        with a catalog's name gave every catalog a private copy of one sentence. The stored key is
+        <span class="mono">drawer:event-access</span>.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ 07 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">07 · removing</span>
+      <h2>The one place in this slice that does interrupt you</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <span class="mono">removeM.mutate</span> fires on click. There is no confirm of any kind — not a
+        <span class="mono">ConfirmDialog</span>, not even the browser's own — behind a bare 14 px icon with
+        no label, next to the control that changes a role. This is the slice's other overlay, and the test
+        sends it the other way: <b>one choice, and nothing continues until it is made.</b>
+      </p>
+    </div>
+
+    <div class="pair">
+      <div class="pair__c">
+        <div class="spec__frame">
+          <div class="app app--tight" style="min-width:0">
+            <div class="dstack" style="min-height:300px">
+              <div style="padding:20px 24px" class="behind">
+                <div class="behind__b" style="width:180px"></div>
+                <div class="behind__b" style="width:100%"></div>
+                <div class="behind__b" style="width:82%"></div>
+                <div class="behind__b" style="width:64%"></div>
+              </div>
+              <div class="ddlg">
+                <div class="ddlg__p ddlg__p--md">
+                  <div class="ddlg__hd"><span class="ddlg__ti">Remove access</span><span class="ddlg__x">×</span></div>
+                  <div class="ddlg__bd">
+                    <p class="ddlg__s"><b>Nina Bergström</b> loses access to this event immediately. Nothing
+                      already changed is undone, and you can invite them again.</p>
+                    <div class="ddlg__ft">
+                      <span class="btn btn--ghost">Cancel</span>
+                      <span class="btn" style="background:#ef4444;border-color:#ef4444;color:#fafafa">Remove</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="spec__cap"><span class="mono">ui/ConfirmDialog</span> · <span class="mono">max-w-md</span> ·
+          a <span class="mono">ghost</span> Cancel beside a <span class="mono">destructive</span> confirm.</div>
+      </div>
+
+      <div class="pair__c">
+        <div class="led" style="border-top:0">
+          <div class="led__row"><div class="led__k">title</div>
+            <div class="led__v"><b>Remove access</b>. A noun phrase naming the operation, not a question —
+              and it is the drawer's own vocabulary, so the word you pressed and the word at the top of the
+              confirm are one word.</div></div>
+          <div class="led__row"><div class="led__k">the sentence</div>
+            <div class="led__v">Subject, then consequence, then what it does not cost:
+              <b>“Nina Bergström loses access to this event immediately. Nothing already changed is undone,
+              and you can invite them again.”</b> The name is in it because the control that was pressed is
+              one of four identical controls in a list.</div></div>
+          <div class="led__row"><div class="led__k">the button</div>
+            <div class="led__v"><b>Remove</b>, not <em>Delete</em> — the person is not deleted, and the app's
+              vocabulary keeps an operation's word from the control to the confirm to whatever it says
+              afterwards.</div></div>
+          <div class="led__row"><div class="led__k">escape hatches</div>
+            <div class="led__v"><code>Escape</code>, the scrim and the × all cancel: <em>the safe answer is
+              the one that costs nothing to repeat.</em></div></div>
+          <div class="led__row"><div class="led__k">changing a role</div>
+            <div class="led__v"><b>No confirm.</b> It is one <span class="mono">Select</span> away from being
+              undone and nothing is lost by it. A confirm on a reversible act is what teaches people to
+              dismiss confirms without reading them.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>
+        On a phone the confirm is a centred <span class="mono">Dialog</span> over the sheet — which is exactly
+        what the test predicts and worth drawing, because it is the one overlay in this slice that does
+        <b>not</b> rise from the thumb's edge. It is not a form; it is a question, and it is answered where
+        the eyes already are.
+      </p>
+    </div>
+
+    <div class="phones">
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">▦</span><span class="m-hd__nm">Vårgalan</span></div>
+            <span class="m-hd__av"></span>
+          </div>
+          <div class="m-bd"><div class="m-pan m-pan--fill"><div class="m-pan__bar"><span class="m-pan__ti">Overview</span></div></div></div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Events</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▦</span>Event</div>
+            <div class="m-nav__i"><span class="m-nav__g">▧</span>Inventory</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+          <div class="m-sheet" style="background:rgba(9,9,11,0.55)">
+            <div class="m-sheet__p" style="opacity:0.55">
+              <div class="m-sheet__hd">
+                <div style="min-width:0"><span class="m-sheet__ti">Who has access</span>
+                  <div class="m-sheet__sub">Everyone here can open this event</div></div>
+                <span class="m-sheet__x">×</span>
+              </div>
+              <div class="m-sheet__bd">
+                <div class="dsec">
+                  <div class="dsec__hd"><span class="lbl">People</span><span class="dsec__ct">4</span></div>
+                  <div class="gear" style="padding:10px 12px">
+                    <div class="who"><span class="who__av" style="background:linear-gradient(135deg,#4d7c0f,#84cc16)"></span><span class="who__nm">Nina Bergström</span></div>
+                    <div class="who__sp">nina@ljudteknik.se</div>
+                    <div class="who__ctl"><span class="fld fld--md fld--sel">Contributor</span>
+                      <span class="who__rm who__rm--44"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="m-dlg">
+            <div class="m-dlg__p">
+              <div class="m-dlg__hd"><span class="m-dlg__ti">Remove access</span><span class="m-dlg__x">×</span></div>
+              <div class="m-dlg__bd">
+                <p style="font-size:14px;line-height:1.55;color:#a1a1aa;margin:0">
+                  <b style="color:#e4e4e7;font-weight:600">Nina Bergström</b> loses access to this event
+                  immediately. Nothing already changed is undone, and you can invite them again.</p>
+                <div style="display:flex;justify-content:flex-end;gap:10px">
+                  <span class="btn btn--ghost btn--md">Cancel</span>
+                  <span class="btn btn--md" style="background:#ef4444;border-color:#ef4444;color:#fafafa">Remove</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="phone__cap"><b>A dialog over a sheet.</b> The sheet stays where it was and comes back
+          untouched; the question sits in the centre and leaves when it is answered.</div>
+      </div>
+
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">▦</span><span class="m-hd__nm">Vårgalan</span></div>
+            <span class="m-hd__av"></span>
+          </div>
+          <div class="m-bd">
+            <div class="m-swr"><span class="m-back">←</span>
+              <div class="m-sw"><span class="m-sw__t">Overview</span><span style="color:#a1a1aa">▾</span></div></div>
+            <div class="m-pan m-pan--fill"><div class="m-pan__bar"><span class="m-pan__ti">Overview</span></div></div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Events</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▦</span>Event</div>
+            <div class="m-nav__i"><span class="m-nav__g">▧</span>Inventory</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+          <div class="m-sheet">
+            <div class="m-sheet__p">
+              <div class="m-sheet__hd">
+                <div style="min-width:0">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span class="m-sheet__ti">Who has access</span>
+                    <button aria-expanded="true" class="itog" data-note="note-open" type="button"><i>i</i></button>
+                  </div>
+                  <div class="m-sheet__sub">Everyone here can open this event</div>
+                </div>
+                <span class="m-sheet__x">×</span>
+              </div>
+              <div class="m-sheet__bd">
+                <div class="inote" id="note-open">
+                  <p>A <b>contributor</b> can change everything in this event. A <b>viewer</b> can read it and
+                    change nothing.</p>
+                  <p>An invitation goes to an account, not to an email address — people appear in the picker
+                    only after they have signed in at least once.</p>
+                </div>
+                <div class="dsec">
+                  <div class="dsec__hd"><span class="lbl">People</span><span class="dsec__ct">4</span></div>
+                  <div class="gear" style="padding:10px 12px">
+                    <div class="who">
+                      <span class="who__av" style="background:linear-gradient(135deg,#b45309,#f59e0b)"></span>
+                      <span class="who__nm">Elin Sandahl</span><span class="pill t-def">You</span>
+                      <span class="who__pad"><span class="pill t-def">Owner</span></span>
+                    </div>
+                    <div class="who__sp">elin@sandahlljud.se</div>
+                  </div>
+                  <div class="gear" style="padding:10px 12px">
+                    <div class="who"><span class="who__av" style="background:linear-gradient(135deg,#4d7c0f,#84cc16)"></span><span class="who__nm">Nina Bergström</span></div>
+                    <div class="who__sp">nina@ljudteknik.se</div>
+                    <div class="who__ctl"><span class="fld fld--md fld--sel">Contributor</span>
+                      <span class="who__rm who__rm--44"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="phone__cap"><b>The note, open.</b> It costs 68 px while it is open and nothing at all when
+          it is not — the <b>i</b> rides in a row the sheet already has. Live: click it.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 08 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">08 · the viewer</span>
+      <h2>A viewer opens the same drawer and finds no controls in it</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <span class="mono">readOnly</span> and its defense-in-depth comment survive the move intact, and the
+        move gives them something to defend: the drawer's door is now open to every member, so the mount
+        <b>passes <span class="mono">readOnly</span></b> instead of leaving it at its default. The role
+        <span class="mono">Select</span>s become neutral <span class="mono">Pill</span>s, the remove targets
+        are gone, and the whole <em>Invite</em> section is <b>absent</b> — not present and disabled.
+      </p>
+    </div>
+
+    <div class="pair">
+      <div class="pair__c">
+        <div class="spec__frame">
+          <div class="app app--tight" style="min-width:0;padding:0">
+            <div class="dstack" style="min-height:400px">
+              <div class="behind" style="padding:20px 24px">
+                <div class="behind__b" style="width:180px"></div>
+                <div class="behind__b" style="width:100%"></div>
+                <div class="behind__b" style="width:76%"></div>
+              </div>
+              <div class="scrim"></div>
+              <div class="sd sd--narrow">
+                <div class="sd__hd">
+                  <div class="sd__hdc">
+                    <div class="sd__tir"><span class="sd__ti">Who has access</span>
+                      <button aria-expanded="false" class="itog" data-note="note-ro" type="button"><i>i</i></button></div>
+                    <div class="sd__sub">Everyone here can open this event</div>
+                    <div class="inote" hidden id="note-ro" style="margin-top:8px">
+                      <p>A <b>contributor</b> can change everything in this event. A <b>viewer</b> can read it
+                        and change nothing.</p>
+                    </div>
+                  </div>
+                  <span class="sd__x">×</span>
+                </div>
+                <div class="sd__body">
+                  <div class="dsec">
+                    <div class="dsec__hd"><span class="lbl">People</span><span class="dsec__ct">4</span></div>
+                    <div class="gear">
+                      <div class="who"><span class="who__av" style="background:linear-gradient(135deg,#b45309,#f59e0b)"></span>
+                        <span class="who__nm">Elin Sandahl</span>
+                        <span class="who__pad"><span class="pill t-def">Owner</span></span></div>
+                      <div class="who__sp">elin@sandahlljud.se</div>
+                    </div>
+                    <div class="gear">
+                      <div class="who"><span class="who__av" style="background:linear-gradient(135deg,#4d7c0f,#84cc16)"></span>
+                        <span class="who__nm">Nina Bergström</span>
+                        <span class="who__pad"><span class="pill t-def">Contributor</span></span></div>
+                      <div class="who__sp">nina@ljudteknik.se</div>
+                    </div>
+                    <div class="gear">
+                      <div class="who"><span class="who__av who__av--mono">OL</span>
+                        <span class="who__nm">Oskar Lindqvist</span>
+                        <span class="who__pad"><span class="pill t-def">Contributor</span></span></div>
+                      <div class="who__sp">oskar@krokodilbolaget.se</div>
+                    </div>
+                    <div class="gear">
+                      <div class="who"><span class="who__av" style="background:linear-gradient(135deg,#155e75,#0891b2)"></span>
+                        <span class="who__nm">Petra Holm</span><span class="pill t-def">You</span>
+                        <span class="who__pad"><span class="pill t-def">Viewer</span></span></div>
+                      <div class="who__sp">petra.holm@hovet.se</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="spec__cap"><b>Petra's view of the same drawer.</b> Four cards, no controls, no
+          <em>Invite</em> section — and the <b>You</b> chip has moved to her row.</div>
+      </div>
+
+      <div class="pair__c">
+        <div class="led" style="border-top:0">
+          <div class="led__row"><div class="led__k">the door</div>
+            <div class="led__v">Open. The Overview row is there at every role and its button reads
+              <b>View</b> instead of <b>Manage</b> — the catalog row's own <b>Browse</b>/<b>Manage</b> split,
+              one row later.</div></div>
+          <div class="led__row"><div class="led__k">why open</div>
+            <div class="led__v">Knowing who else can change your show is a fact about the show, not a
+              privilege. A viewer today cannot see it at any width, and that is not a rule anyone chose — it
+              is a consequence of the trigger being the only door.</div></div>
+          <div class="led__row"><div class="led__k">the gate</div>
+            <div class="led__v"><code>canManageMembers = yourRole !== 'viewer'</code> is unchanged and still
+              client-side; what it gates moves from <b>the door</b> to <b>the controls</b>. It matches the
+              server exactly — a contributor may invite, re-role and remove — so nothing here is drawn that
+              would 403.</div></div>
+          <div class="led__row"><div class="led__k">the same shape read-only</div>
+            <div class="led__v">A greyed-out <code>Select</code> is not a read view; §7g spent a slice
+              removing that shape. <b>A value reads as a value</b>: the role is a chip, and the only
+              44 px targets left on the surface are the way in and the way out.</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 09 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">09 · the edges</span>
+      <h2>What this slice deliberately leaves alone</h2>
+    </div>
+
+    <div class="led">
+      <div class="led__row"><div class="led__k">inviting by email</div>
+        <div class="led__v">Still impossible, and now <b>said out loud</b> in the note instead of being
+          inferred from an empty picker. Invitations to people who have never signed in are a membership
+          model change and a backend slice; this one is entirely frontend.</div></div>
+      <div class="led__row"><div class="led__k">transferring ownership</div>
+        <div class="led__v">Not offered. The server refuses every write against an owner's row, so a control
+          for it would be a control that cannot work. The owner's card carries a chip and nothing else.</div></div>
+      <div class="led__row"><div class="led__k">leaving an event</div>
+        <div class="led__v">Not here. <em>Remove someone else</em> and <em>remove myself</em> read
+          identically in a member list and mean very different things; if leaving is wanted it belongs beside
+          the event in the events list, not inside the drawer that manages other people.</div></div>
+      <div class="led__row"><div class="led__k">who invited whom, and when</div>
+        <div class="led__v">The database records <span class="mono">invited_by</span>. It is not drawn. A
+          second line under every name buys a fact nobody asked for and costs the email its place —
+          §7c's question, answered the same way it was for a channel.</div></div>
+      <div class="led__row"><div class="led__k">searching the picker</div>
+        <div class="led__v">The person picker stays a <span class="mono">Select</span>. It lists everyone who
+          has ever signed in, which for this application is a handful of people; a search over a handful is
+          §7b's <em>search box that filters nothing</em>.</div></div>
+      <div class="led__row"><div class="led__k">the other seven <span class="mono">window.confirm</span>s</div>
+        <div class="led__v">Untouched. This slice converts the one destructive control it owns — and that
+          one has no confirm at all today, so it is not even a conversion. D6 settles the rest as a set.</div></div>
+      <div class="led__row"><div class="led__k">the desktop's densities</div>
+        <div class="led__v"><code>h-8</code> and <code>h-7</code> stay on the desk. Amendment 1 is the phone's
+          minimum and raising every control in the application is a different change with a different
+          argument.</div></div>
+      <div class="led__row"><div class="led__k">a phone drawer that does not edit</div>
+        <div class="led__v">Slice 39 withholds editing on a phone because the canvas behind it cannot place
+          a truss. <b>Nothing is withheld here</b> — the reason is the surface, not the width, and inviting
+          someone from the loading bay is exactly the case that was reported missing.</div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 10 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">10 · open</span>
+      <h2>Three questions this mockup does not answer</h2>
+    </div>
+
+    <div class="law">
+      <span class="law__h">open · for the reviewer to settle</span>
+      <p class="law__t"><b>All three are drawn as assumed, and none is settled.</b> The header's <em>Invite</em>
+        button is drawn deleted, with the Overview row as the only door at both widths; the exhausted sentence
+        is drawn staying where the picker was, with only the durable rule behind the <b>i</b>; the two
+        attachment rows are drawn without a heading.</p>
+      <p class="law__n">Each alternative is kept visible beside its assumption below, because that is what a
+        reviewer needs to rule on it. The spec is written from the rulings, not from the assumptions.</p>
+    </div>
+
+    <div class="ask">
+      <h3>Q1 · Does the header's <em>Invite</em> button really go?</h3>
+      <p>
+        §05 deletes it and makes the Overview row the only door at both widths, which is the catalog's
+        arrangement and gives viewers the read they cannot get today. The alternative is keeping it —
+        renamed <b>Access</b>, shown to every role — so the drawer stays one click from any of the nine tabs,
+        and accepting that one width has two doors. <b>Assumed: deleted.</b>
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>Q2 · Does the exhausted sentence stay in place, or go in the note?</h3>
+      <p>
+        §06 splits the two sentences: the state stands where the picker was, the rule goes to
+        <span class="mono">info</span>. The brief said both go to <span class="mono">info</span>. If you want
+        the literal reading, the <em>Invite</em> section renders its heading and nothing under it when there
+        is nobody left, and the explanation is behind the <b>i</b>. <b>Assumed: split.</b>
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>Q3 · Do the two attachment rows get a heading?</h3>
+      <p>
+        On the phone, <em>Readiness</em> already sits over the five verdict rows as a
+        <span class="mono">MicroLabel</span> and a rule. The catalog row below it has never had one, and the
+        access row now joins it — two rows that are the event's attachments, unlabelled.
+        <span class="mono">tokens.md</span> §7 wants a heading over a <em>run</em> of rows, and two is a run.
+        <b>Assumed: no heading</b>, because adding one edits a shipped surface this slice did not come for.
+      </p>
+    </div>
+  </section>
+
+  <footer class="head" style="border-top:1px solid var(--rule);border-bottom:0;padding-top:22px;margin-top:8px">
+    <span class="head__eyebrow">approval</span>
+    <p class="head__lede">
+      Approving this means: <span class="mono">EventMembersDialog</span> becomes a
+      <span class="mono">Drawer</span> at <span class="mono">narrow</span> and acquires a phone form;
+      <span class="mono">components.md</span> §<span class="mono">ui/Dialog</span> gains the
+      <em>interrupts / accompanies</em> wording that Slice 39 will then apply rather than write; the Overview
+      row becomes the one door at both widths and the header's <em>Invite</em> button is deleted; removing a
+      member gets a <span class="mono">ConfirmDialog</span>; and the phone's role and remove controls become
+      40 and 44 px on a 114 px card. <b>Approved 2026-07-31, as drawn — Q1–Q3 ruled as assumed.</b>
+    </p>
+  </footer>
+</div>
+
+<script>
+  // The `i` is live at every width — one delegated handler, because InfoToggle
+  // and InfoPanel are two elements sharing one piece of state, which is the
+  // whole point of the split (a closed note costs the title's row no height).
+  document.addEventListener('click', function (event) {
+    var toggle = event.target.closest ? event.target.closest('.itog') : null
+    if (!toggle) return
+    var panel = document.getElementById(toggle.getAttribute('data-note'))
+    if (!panel) return
+    var open = toggle.getAttribute('aria-expanded') === 'true'
+    toggle.setAttribute('aria-expanded', open ? 'false' : 'true')
+    panel.hidden = open
+  })
+</script>
