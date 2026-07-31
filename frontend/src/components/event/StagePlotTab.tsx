@@ -48,6 +48,20 @@ import { Sheet } from '../ui/Sheet'
 import { StatusStrip } from './StatusStrip'
 import { Pill } from '../ui/SheetTable'
 
+/** A truss in elevation — two chords and the diagonals between them.
+ *
+ *  Drawn here rather than picked from `lucide-react`, which has no truss and no
+ *  near neighbour: the palette and the canvas already draw this rig's own shapes
+ *  inline for the same reason. It is the phone bar's only overflow entry, so it
+ *  renders alone, with the entry's label as its accessible name. */
+function TrussIcon() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+      <path d="M3 7h18M3 17h18M6 7l4 10M14 7l4 10M14 7 10 17" />
+    </svg>
+  )
+}
+
 /** The per-event Stage Plots section: plot tabs, toolbar, and the
  *  draw.io-style palette / canvas / inspector editor (Slice 13). */
 export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; readOnly?: boolean }) {
@@ -329,7 +343,7 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
   }
 
   const placedTrussIds = new Set((response?.elements ?? []).filter((element) => element.truss_id != null).map((element) => element.truss_id as number))
-  // Rotation lives on the placement, so the Trusses dialog can edit it.
+  // Rotation lives on the placement, so the Trusses drawer can edit it.
   const placedTrussElements = new Map(
     (response?.elements ?? [])
       .filter((element) => element.kind === 'truss' && element.truss_id != null)
@@ -395,6 +409,22 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
               onReset={() => zoomBy(1 / viewState.zoom)}
             />
           </>
+        }
+        /* Opening the truss list does not change what you are looking at, and it is
+           finished when it is done — which is `MobilePanel`'s own test for the
+           overflow rather than the bar (patterns.md §7b). As the only entry it
+           renders as its own 44 px target, so no menu of one is built. */
+        overflow={
+          response
+            ? [
+                {
+                  label: 'Trusses',
+                  icon: <TrussIcon />,
+                  hint: String(response.trusses.length),
+                  onClick: () => setTrussManagerOpen(true),
+                },
+              ]
+            : undefined
         }
         strip={
           response ? (
@@ -479,6 +509,35 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
                 />
               </Sheet>
             )}
+
+            {/*
+              The truss list, read-only — forced here rather than by role, and for the
+              canvas's reason rather than the reader's: you cannot move a truss on a
+              phone, so assembling one buys nothing. This is the *see more* case
+              (components.md §5, audit M4) — a truss's pieces, its total length, its
+              hang height and which fixture hangs where are exactly what the canvas
+              cannot draw. **Provisional**: if the phone ever gets placement, this
+              line is the decision that reverses.
+            */}
+            <PlotTrussManager
+              eventId={eventId}
+              trusses={response.trusses}
+              open={trussManagerOpen}
+              onClose={() => setTrussManagerOpen(false)}
+              readOnly
+              touch
+              onChanged={invalidatePlot}
+              onPlace={() => {}}
+              placedTrussIds={placedTrussIds}
+              placedElements={placedTrussElements}
+              onRotate={() => {}}
+              closingNote={
+                <>
+                  Assembling a truss and hanging fixtures are <span className="text-zinc-300">desk jobs</span> — here you can read
+                  what each one is.
+                </>
+              }
+            />
           </>
         )}
       </MobilePanel>
@@ -667,11 +726,12 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
                 Snap to objects
               </label>
 
-              {!readOnly && (
-                <Button size="xs" variant="outline" onClick={() => setTrussManagerOpen(true)}>
-                  Trusses…
-                </Button>
-              )}
+              {/* No role guard: a companion does not have to be editable
+                  (components.md §`ui/Dialog`), and a viewer opens this to read what
+                  the canvas cannot show. The drawer's own `readOnly` gates the inside. */}
+              <Button size="xs" variant="outline" onClick={() => setTrussManagerOpen(true)}>
+                Trusses…
+              </Button>
 
               <span className="flex-1" />
 
@@ -785,6 +845,13 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
               placedTrussIds={placedTrussIds}
               placedElements={placedTrussElements}
               onRotate={(elementId, patch) => updateElementMutation.mutate({ elementId, patch })}
+              closingNote={
+                <>
+                  You can also hang a fixture by dropping one from the palette's{' '}
+                  <span className="text-zinc-300">Rig fixtures</span> onto a truss bar, then dragging its marker along the bar.
+                  Attaching it here does the same thing.
+                </>
+              }
             />
           )
 
