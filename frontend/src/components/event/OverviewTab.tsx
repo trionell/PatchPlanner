@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ExternalLink, Eye, Pencil } from 'lucide-react'
+import { ExternalLink, Eye, Pencil, Users } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getAudioPatch } from '../../api/audioPatch'
 import { getEvent, updateEvent } from '../../api/events'
@@ -10,8 +10,10 @@ import { getEventInventory } from '../../api/inventory'
 import { getLightingRig } from '../../api/lighting'
 import { getRentalSummary } from '../../api/rentals'
 import { listPlotTrusses, listStagePlots } from '../../api/stagePlots'
+import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useEventTab } from '../../hooks/useEventTab'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { accessCountLine, accessRoleLine } from '../../lib/eventAccess'
 import { formatEventDates } from '../../lib/dashboard'
 import { eventSummary } from '../../lib/eventSummary'
 import { listEventOwnedEquipment } from '../../api/owned'
@@ -21,6 +23,7 @@ import { Drawer } from '../ui/Drawer'
 import { MicroLabel } from '../ui/Label'
 import { MobileOverviewPanel } from '../mobile/MobileOverviewPanel'
 import { EventInventoryBrowser } from './EventInventoryBrowser'
+import { EventMembersDrawer } from './EventMembersDrawer'
 import { type EventDraft, EventDetailsDrawer } from './EventDetailsDrawer'
 import { DmxMeter, NumbersBand, ReadinessRow, RigRibbon } from './OverviewBands'
 
@@ -49,6 +52,8 @@ export function OverviewTab({ eventId, readOnly = false }: { eventId: number; re
   const navigate = useNavigate()
   const [editing, setEditing] = useState(false)
   const [browsing, setBrowsing] = useState(false)
+  const [access, setAccess] = useState(false)
+  const { user } = useCurrentUser()
 
   const eventQuery = useQuery({ queryKey: ['event', eventId], queryFn: () => getEvent(eventId) })
   const patchQuery = useQuery({ queryKey: ['audio-patch', eventId], queryFn: ({ signal }) => getAudioPatch(eventId, signal) })
@@ -99,11 +104,12 @@ export function OverviewTab({ eventId, readOnly = false }: { eventId: number; re
   /*
     The catalog, read-only — a `Drawer` rather than a `Dialog` since ROADMAP D4.
     It opens over the surface the user is cross-referencing, which is `Drawer`'s
-    stated reason for being an overlay at all (components.md §4) and is exactly
-    what browsing someone else's catalog mid-event is; a centred dialog is *a
-    sentence and two buttons*, and this is neither. The phone form comes with it —
-    a `Drawer` is a bottom `ui/Sheet` below 768px — so the two branches below hold
-    one element rather than two call sites answering the same question twice.
+    stated reason for being an overlay at all, and browsing someone else's catalog
+    mid-event is exactly that: a companion you cannot edit, which components.md
+    §`ui/Dialog` now files as *accompanying* rather than as a case of its own
+    (Slice 38). The phone form comes with it — a `Drawer` is a bottom `ui/Sheet`
+    below 768px — so the two branches below hold one element rather than two call
+    sites answering the same question twice.
   */
   const catalog = (
     <Drawer
@@ -117,11 +123,32 @@ export function OverviewTab({ eventId, readOnly = false }: { eventId: number; re
     </Drawer>
   )
 
-  const meta = [
-    event?.created_at ? `Created ${event.created_at.slice(0, 10)}` : undefined,
-    summary.members != null ? `${summary.members} ${summary.members === 1 ? 'person has' : 'people have'} access` : undefined,
-    summary.yourRole ? `You are the ${summary.yourRole}` : undefined,
-  ].filter((entry): entry is string => entry != null)
+  /*
+    Created, and nothing else. The count and the reader's role used to stand here
+    too — and as of Slice 38 the access row states both, two rows up. A fact stated
+    twice on one surface is a fact that will eventually disagree with itself, and
+    this line is the copy that says less.
+  */
+  const meta = [event?.created_at ? `Created ${event.created_at.slice(0, 10)}` : undefined].filter(
+    (entry): entry is string => entry != null,
+  )
+
+  /*
+    Who can see this event (Slice 38). One `Drawer` built once and rendered in both
+    branches, exactly as `catalog` above is — the drawer is a bottom `ui/Sheet`
+    below 768px, so the phone's first access surface is this same element and not a
+    second call site answering the same question.
+
+    Open to every role. A viewer can see who else is on the event and change none
+    of it, which is what `readOnly` carries in: since this slice the door is no
+    longer what withholds the controls.
+  */
+  const membersList = membersQuery.data ?? []
+  const accessDrawer = (
+    <EventMembersDrawer eventId={eventId} onClose={() => setAccess(false)} open={access} readOnly={readOnly} />
+  )
+  const accessTitle = accessCountLine(membersList)
+  const accessSubtitle = accessRoleLine(membersList, user?.id ?? -1)
 
   /*
     The phone (Wave 6c, audit.md M9). Below the queries and the `eventSummary` memo, so
@@ -137,6 +164,8 @@ export function OverviewTab({ eventId, readOnly = false }: { eventId: number; re
     return (
       <>
         <MobileOverviewPanel
+          accessSubtitle={accessSubtitle}
+          accessTitle={accessTitle}
           inventoryName={inventoryQuery.data?.name}
           inventoryNote={
             inventoryQuery.data?.sourceFilename
@@ -148,6 +177,7 @@ export function OverviewTab({ eventId, readOnly = false }: { eventId: number; re
           onEdit={readOnly ? undefined : () => setEditing(true)}
           /* An owner manages the catalog; everyone else browses it read-only — the
              same split the desktop row makes, as one target instead of two. */
+          onOpenAccess={() => setAccess(true)}
           onOpenInventory={
             ownsInventory && inventoryQuery.data
               ? () => navigate(`/inventories/${inventoryQuery.data!.id}`)
@@ -173,6 +203,7 @@ export function OverviewTab({ eventId, readOnly = false }: { eventId: number; re
         />
 
         {catalog}
+        {accessDrawer}
       </>
     )
   }
@@ -259,14 +290,28 @@ export function OverviewTab({ eventId, readOnly = false }: { eventId: number; re
           )}
         </div>
 
+        {/* The catalog row's arrangement, one row later — the two rows answer the
+            same shape of question (*what is this event attached to, and who*) and
+            an owner reads them together. Its button is the only door to the access
+            surface at this width since Slice 38; the header's *Invite* is gone. */}
+        <div className="flex flex-wrap items-center gap-3 border-t border-zinc-800 px-5 py-3.5">
+          <MicroLabel className="w-[4.5rem] shrink-0">Access</MicroLabel>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm text-zinc-100">{accessTitle}</div>
+            <div className="truncate text-xs text-zinc-500">{accessSubtitle}</div>
+          </div>
+          {/* A viewer opens the same drawer and finds no control in it, so the word
+              on the button is what changes, not the destination. */}
+          <Button onClick={() => setAccess(true)} size="sm" variant="outline">
+            <Users className="mr-1.5 h-3.5 w-3.5" />
+            {readOnly ? 'View' : 'Manage'}
+          </Button>
+        </div>
+
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-zinc-800 bg-zinc-950/60 px-5 py-2.5 text-xs text-zinc-500">
-          {event?.created_at && <span>Created {event.created_at.slice(0, 10)}</span>}
-          {summary.members != null && (
-            <span>
-              {summary.members} {summary.members === 1 ? 'person has' : 'people have'} access
-            </span>
-          )}
-          {summary.yourRole && <span>You are the {summary.yourRole}</span>}
+          {meta.map((entry) => (
+            <span key={entry}>{entry}</span>
+          ))}
         </div>
       </Card>
 
@@ -279,6 +324,7 @@ export function OverviewTab({ eventId, readOnly = false }: { eventId: number; re
       />
 
       {catalog}
+      {accessDrawer}
     </>
   )
 }

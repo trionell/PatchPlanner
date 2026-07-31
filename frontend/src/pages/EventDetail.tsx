@@ -1,13 +1,11 @@
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, UserPlus } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { getEvent } from '../api/events'
 import { formatEventDates } from '../lib/dashboard'
 import { AudioInputsTab } from '../components/event/AudioInputsTab'
 import { AudioOutputsTab } from '../components/event/AudioOutputsTab'
 import { EquipmentTab } from '../components/event/EquipmentTab'
-import { EventMembersDialog } from '../components/event/EventMembersDialog'
 import { LightingTab } from '../components/event/LightingTab'
 import { OverviewTab } from '../components/event/OverviewTab'
 import { ReadOnlyBanner } from '../components/event/ReadOnlyBanner'
@@ -17,7 +15,6 @@ import { SignalFlowTab } from '../components/event/SignalFlowTab'
 import { StagePlotTab } from '../components/event/StagePlotTab'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { SectionSwitcher } from '../components/mobile/SectionSwitcher'
-import { Button } from '../components/ui/Button'
 import { Tab, TabList, TabPanel, Tabs } from '../components/ui/Tabs'
 import { DEFAULT_EVENT_TAB, useEventTab } from '../hooks/useEventTab'
 import { MOBILE_SECTIONS, type MobileSection } from '../types/mobile'
@@ -51,7 +48,6 @@ export function EventDetailPage() {
   const params = useParams()
   const eventId = Number(params.id)
   const eventQuery = useQuery({ queryKey: ['event', eventId], queryFn: () => getEvent(eventId), enabled: Number.isFinite(eventId) })
-  const [membersOpen, setMembersOpen] = useState(false)
   const isMobile = useIsMobile()
   const [searchParams, setSearchParams] = useSearchParams()
   const { tab, openTab } = useEventTab()
@@ -60,7 +56,6 @@ export function EventDetailPage() {
   if (eventQuery.isLoading) return <p className="text-sm text-zinc-400">Loading event...</p>
   if (eventQuery.isError || !eventQuery.data) return <p className="text-sm text-red-400">Failed to load event.</p>
 
-  const canManageMembers = eventQuery.data.yourRole !== 'viewer'
   const readOnly = eventQuery.data.yourRole === 'viewer'
 
   // Deep-link support (Slice 21 FR-016): a `?section=` param picks the section
@@ -126,18 +121,12 @@ export function EventDetailPage() {
           <h2 className="text-lg font-semibold">{eventQuery.data.name}</h2>
           <p className="text-sm text-zinc-400">{eventQuery.data.venue || 'Venue TBD'} · {formatEventDates(eventQuery.data).long ?? 'Date TBD'}</p>
         </div>
-        <div className="flex items-center gap-4">
-          {canManageMembers && (
-            <Button variant="outline" size="sm" onClick={() => setMembersOpen(true)}>
-              <UserPlus className="mr-1.5 h-3.5 w-3.5" />
-              Invite
-            </Button>
-          )}
-          <Link className="text-sm text-amber-400 hover:text-amber-300" to="/events">← Back to events</Link>
-        </div>
+        {/* The *Invite* button stood here from Slice 15 to Slice 38. It named the
+            smaller half of the surface it opened, it hid the list from viewers
+            entirely, and it was one of two doors to one drawer once Overview grew
+            its access row — which is the row that replaced it, at both widths. */}
+        <Link className="text-sm text-amber-400 hover:text-amber-300" to="/events">← Back to events</Link>
       </div>
-
-      <EventMembersDialog eventId={eventId} open={membersOpen} onClose={() => setMembersOpen(false)} />
 
       {eventQuery.data.yourRole === 'viewer' && <ReadOnlyBanner />}
 

@@ -33,10 +33,13 @@ function summaryOf(over: Partial<EventSummary> = {}): EventSummary {
 function render(summary: EventSummary, onEdit?: () => void): string {
   return renderToStaticMarkup(
     <MobileOverviewPanel
+      accessSubtitle="You are the owner · 2 contributors, 1 viewer"
+      accessTitle="4 people have access"
       inventoryNote="Imported from LL.xlsx"
       inventoryName="Bluebox 2026"
       meta={['Created 2026-07-01']}
       onEdit={onEdit}
+      onOpenAccess={() => {}}
       onOpenInventory={() => {}}
       onOpenTab={() => {}}
       subtitle="Kulturhuset · 12–14 Aug 2026"

@@ -104,6 +104,9 @@ export function MobileOverviewPanel({
   inventoryName,
   inventoryNote,
   onOpenInventory,
+  accessTitle,
+  accessSubtitle,
+  onOpenAccess,
   onOpenTab,
   onEdit,
   meta,
@@ -115,6 +118,13 @@ export function MobileOverviewPanel({
   inventoryName?: string
   inventoryNote: string
   onOpenInventory: () => void
+  /** "4 people have access" — `lib/eventAccess`, so both widths say it once. */
+  accessTitle: string
+  /** "You are the owner · 2 contributors, 1 viewer". */
+  accessSubtitle: string
+  /** Present at every role. A viewer opens the same drawer and finds no controls
+   *  in it — the door is not what withholds them (Slice 38). */
+  onOpenAccess: () => void
   onOpenTab: (tab: string) => void
   /** Absent for a role that cannot act (P7). */
   onEdit?: () => void
@@ -286,6 +296,22 @@ export function MobileOverviewPanel({
         onClick={onOpenInventory}
         subtitle={inventoryNote}
         title={inventoryName ?? '—'}
+        trailing={<ChevronRight className="h-4 w-4 text-zinc-600" />}
+      />
+
+      {/*
+        Who can see this event — the phone's first access surface, and the reported
+        defect (Slice 38). It is the catalog row's own shape because it is the same
+        kind of fact: what this event is attached to, and to whom.
+
+        No `accentColor`: the tape bar is an entity's derived colour, and access is
+        a relation rather than a thing on the plot. Present at every role — the
+        drawer withholds the controls, not the door.
+      */}
+      <CondensedListRow
+        onClick={onOpenAccess}
+        subtitle={accessSubtitle}
+        title={accessTitle}
         trailing={<ChevronRight className="h-4 w-4 text-zinc-600" />}
       />
 
