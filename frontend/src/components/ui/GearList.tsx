@@ -59,12 +59,29 @@ export function DrawerSection({
  * One declared piece of equipment. `accent` tints it, which the Consoles section
  * uses so the desks read as the thing the rest of the rig hangs off.
  */
-export function GearCard({ accent, children }: { accent?: boolean; children: ReactNode }) {
+export function GearCard({
+  accent,
+  className,
+  children,
+}: {
+  accent?: boolean
+  /**
+   * For the phone's own padding tier, and nothing else. `px-2.5 py-2` is the
+   * work surface's density and stays the default at both widths — ten drawers
+   * have shipped on it — but a card a thumb operates is `px-3 py-2.5`
+   * ([tokens.md](../../../design/tokens.md) §7 amendment 2), and before Slice 38
+   * there was no way to say so. `cn` is `tailwind-merge`, so the caller's padding
+   * replaces the default rather than racing it.
+   */
+  className?: string
+  children: ReactNode
+}) {
   return (
     <div
       className={cn(
         'flex flex-col gap-1.5 rounded-md border px-2.5 py-2',
         accent ? 'border-amber-500/35 bg-amber-500/[0.045]' : 'border-zinc-800 bg-zinc-900',
+        className,
       )}
     >
       {children}

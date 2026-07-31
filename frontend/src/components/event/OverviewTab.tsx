@@ -76,7 +76,6 @@ export function OverviewTab({ eventId, readOnly = false }: { eventId: number; re
         plots: plotsQuery.data,
         rental: rentalQuery.data,
         equipment: equipmentQuery.data,
-        members: membersQuery.data,
       }),
     [
       eventQuery.data,
@@ -86,7 +85,6 @@ export function OverviewTab({ eventId, readOnly = false }: { eventId: number; re
       plotsQuery.data,
       rentalQuery.data,
       equipmentQuery.data,
-      membersQuery.data,
     ],
   )
 
@@ -175,9 +173,9 @@ export function OverviewTab({ eventId, readOnly = false }: { eventId: number; re
           meta={meta}
           notes={event?.notes}
           onEdit={readOnly ? undefined : () => setEditing(true)}
+          onOpenAccess={() => setAccess(true)}
           /* An owner manages the catalog; everyone else browses it read-only — the
              same split the desktop row makes, as one target instead of two. */
-          onOpenAccess={() => setAccess(true)}
           onOpenInventory={
             ownsInventory && inventoryQuery.data
               ? () => navigate(`/inventories/${inventoryQuery.data!.id}`)

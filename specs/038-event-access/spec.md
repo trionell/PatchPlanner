@@ -178,9 +178,17 @@ there; trigger it again, confirm, and see them gone.
 - **FR-011**: The owner's row MUST carry a role chip and no controls, and the
   reader's own row MUST be marked as theirs and carry no controls.
 - **FR-012**: On a phone the card MUST stack to two lines, with the role control at
-  40 px and the remove control a 44 × 44 target around a 16 px icon. Desktop keeps
-  its denser controls. Both computed heights MUST match the approved mockup: 114 px
-  in the hand, 68 px on a desk.
+  40 px, the remove control a 44 × 44 target around a 16 px icon, and the card's own
+  padding at the phone tier (`px-3 py-2.5`, `tokens.md` §7 amendment 2) rather than
+  the work surface's `px-2.5 py-2`. Desktop keeps both its denser controls and the
+  default padding.
+- **FR-012a**: The resulting card is **117 px** in the hand and **71 px** on a desk,
+  measured border-box. The approved mockup's stack diagram says 114 and 68; both are
+  3 px light, for one reason each and the same two reasons in both cases — it models
+  the 10 px mono email line at 14 px where the framework's inherited `line-height:
+  1.5` gives 15, and it omits the card's two 1 px borders. The design is unchanged;
+  only the arithmetic printed beside it was. **The stated value is the height, and it
+  is stated once, here.**
 
 **Inviting**
 

@@ -69,7 +69,11 @@ export function EventMembersDrawer({ eventId, open, onClose, readOnly = false }:
   const isMobile = useIsMobile()
   const { user } = useCurrentUser()
   const membersQuery = useQuery({ queryKey: ['event-members', eventId], queryFn: () => listMembers(eventId), enabled: open })
-  const usersQuery = useQuery({ queryKey: ['users'], queryFn: listUsers, enabled: open })
+  // Not for a viewer: the only thing this list feeds is the invite picker, which a
+  // viewer never sees. `GET /users` is open to any signed-in caller by design, but
+  // before this slice a viewer could not open this surface at all, so an unguarded
+  // fetch here would be a request that did not exist yesterday.
+  const usersQuery = useQuery({ queryKey: ['users'], queryFn: listUsers, enabled: open && !readOnly })
 
   const [selectedUserId, setSelectedUserId] = useState<number | ''>('')
   const [selectedRole, setSelectedRole] = useState<'contributor' | 'viewer'>('contributor')
@@ -79,10 +83,11 @@ export function EventMembersDrawer({ eventId, open, onClose, readOnly = false }:
 
   const inviteM = useMutation({
     mutationFn: () => inviteMember(eventId, Number(selectedUserId), selectedRole),
-    onSuccess: () => {
-      invalidate()
-      setSelectedUserId('')
-    },
+    // `onSettled`, not `onSuccess`: an invite fails when the picker is stale —
+    // someone signed in and was invited from another session — and a stale picker
+    // that stays stale invites the same failure again.
+    onSettled: invalidate,
+    onSuccess: () => setSelectedUserId(''),
   })
   const updateRoleM = useMutation({
     mutationFn: ({ userId, role }: { userId: number; role: 'contributor' | 'viewer' }) => updateMemberRole(eventId, userId, role),
@@ -286,7 +291,9 @@ function MemberCard({
   )
 
   return (
-    <GearCard>
+    /* The phone's padding tier — `px-3 py-2.5` (tokens.md §7 amendment 2), not the
+       work surface's `px-2.5 py-2`, on a card whose bottom row is a 44px target. */
+    <GearCard className={isMobile ? 'px-3 py-2.5' : undefined}>
       <div className="flex items-center gap-2">
         {member.pictureUrl ? (
           <img alt="" className="h-6 w-6 flex-none rounded-full" referrerPolicy="no-referrer" src={member.pictureUrl} />

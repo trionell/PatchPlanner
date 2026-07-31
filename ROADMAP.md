@@ -1513,7 +1513,7 @@ confirm it raises interrupts.
 widths — a `CondensedListRow` on the phone, the catalog row's own arrangement on
 a desk — replacing the header's *Invite* button, which named the smaller half of
 the surface and hid the list from viewers entirely. Overview's meta line gave up
-its two access phrases to it. The member card stacks in the hand at 114 px with a
+its two access phrases to it. The member card stacks in the hand at 117 px with a
 40 px role control and a 44 × 44 remove; removing raises `ui/ConfirmDialog`,
 which is `ConfirmDialog`'s third caller and D6's *convert it when the surface is
 next opened* working as intended. Role chips are neutral at every role — a viewer
@@ -1537,6 +1537,17 @@ drew the amber *warning* badge, and amber means *needs attention*.
   true the moment anyone new signs in, so it stands where the picker stood. Same
   test as Rig's *"· 12 items"*, which stays a footer because it changes while you
   work.
+
+**And one value was asserted before it was multiplied out.** The card was built to
+the mockup's stated 114 px and 68 px, and the first cut shipped neither: `GearCard`
+had a fixed `px-2.5 py-2` and accepted no override, so the phone quietly got the
+desk's padding. It gained a `className` for the phone tier. The heights are **117
+px and 71 px** border-box — the mockup's two figures are each 3 px light, modelling
+the 10 px mono email line at 14 px where the framework's inherited `line-height:
+1.5` gives 15, and omitting the card's two 1 px borders. The design did not change;
+the arithmetic printed beside it did. *This is the third time a stated design value
+has been built to without being multiplied out first, and the second time the number
+reached this file before the code produced it.*
 
 **Two process failures in the mockup, both caught before they landed.** Revision
 1 cast the owner as the real account this application is developed against,

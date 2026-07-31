@@ -7,7 +7,6 @@ import { buildOutputChannelFlows } from './signalFlow'
 import type {
   AudioPatchResponse,
   Event,
-  EventMember,
   EventOwnedEquipment,
   LightingRigResponse,
   PlotTruss,
@@ -87,9 +86,6 @@ export interface EventSummary {
   equipmentLines?: number
   equipmentOverOwned?: number
 
-  members?: number
-  yourRole?: string
-
   /** One per area, always in this order, whatever is missing. */
   readiness: ReadinessVerdict[]
 }
@@ -167,7 +163,6 @@ export interface EventSummaryInput {
   plots?: StagePlot[]
   rental?: RentalSummary
   equipment?: EventOwnedEquipment[]
-  members?: EventMember[]
   /** Injectable so the day arithmetic is testable without freezing the clock. */
   today?: Date
 }
@@ -307,10 +302,6 @@ export function eventSummary(input: EventSummaryInput): EventSummary {
     summary.equipmentLines = input.equipment.length + rented
     summary.equipmentOverOwned = input.equipment.filter((line) => line.is_over_owned).length
   }
-
-  // ---- access ----
-  if (input.members) summary.members = input.members.length
-  if (input.event?.yourRole) summary.yourRole = input.event.yourRole
 
   summary.readiness = [
     audioVerdict(summary),

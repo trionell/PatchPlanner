@@ -152,6 +152,25 @@ describe('the invite section', () => {
   })
 })
 
+describe('the phone', () => {
+  it('gives the remove control a 44px target and the card the phone padding tier', () => {
+    const markup = render({ mobile: true })
+
+    // SC-002. The card is `GearCard` with the phone's own padding — the default
+    // `px-2.5 py-2` is the work surface's, and this card's bottom row is a thumb
+    // target (tokens.md §7 amendment 2).
+    expect(markup).toContain('h-11 w-11')
+    expect(markup).toContain('px-3 py-2.5')
+  })
+
+  it('keeps the work-surface density on a desk', () => {
+    const markup = render({ mobile: false })
+
+    expect(markup).not.toContain('h-11 w-11')
+    expect(markup).toContain('h-7 w-[34px]')
+  })
+})
+
 describe('the role chip', () => {
   it('is neutral at every role', () => {
     const markup = render({ readOnly: true })
