@@ -1,0 +1,2173 @@
+<!--
+  PatchPlanner — Slice 39: the Trusses overlay.
+  Redesign mockup, revision 1. FOR APPROVAL, before the spec is written.
+  Nobody has approved this. The reviewer is the user, and only a turn from the
+  user counts — Slice 38's revision 3 stamped an approval into a file before it
+  had been given, and that is the mistake this line exists to not repeat.
+
+  EVERY NAME IN THIS DOCUMENT IS INVENTED, and every value is drawn to the
+  application's own tiers: 14 px base, `h-8`/`h-7` on the desk, `h-10` and 44 px
+  in the hand.
+
+  REPORTED FROM USE, 2026-07-31: "In the stage plot there is a Trusses modal to
+  manage trusses. It should be a drawer according to the design language." It is
+  `ui/Dialog` at `max-w-2xl` (PlotTrussManager.tsx:78), opened from the desktop
+  toolbar (StagePlotTab.tsx:670) and mounted at StagePlotTab.tsx:776. Read
+  against the code, not run. No database was opened for this one — nothing here
+  depends on stored data.
+
+  ALREADY DECIDED BY THE USER, before this document:
+    · the rule, now written: components.md §`ui/Dialog` — a Dialog INTERRUPTS,
+      a Drawer ACCOMPANIES, and a companion does not have to be editable. Slice
+      38 wrote it. This slice APPLIES it and amends nothing.
+    · on a phone the drawer opens and edits nothing. `readOnly` is forced at the
+      mobile mount, because you cannot move a truss on a phone (Slice 36), so
+      adding one there buys nothing. Provisional, and tied to that one fact.
+    · the read view is NOT the edit view with its inputs disabled.
+    · the four-sentence explanation is `info` with a `noteId`, not `footer`.
+    · `readOnly` — the role gate — survives the move intact.
+
+  WHAT IS LIVE: every `i` in this document is the real InfoToggle behaviour —
+  click one and the note opens in place, at both widths (§03). Everything else
+  is a drawing: the selects, the buttons and the canvas are painted.
+
+  The file is an HTML *fragment*: the Artifact publisher wraps it in
+  doctype/head/body, so there are deliberately no <html>, <head> or <body> tags.
+
+  Specimen CSS is inherited from specs/038-event-access/mockup.html, which
+  inherits from 037/036/035/034/033/032/030/029/028, which lifted it from
+  design/design-language.html. The four blocks below are carried forward
+  VERBATIM — nothing inherited has been restyled. Everything new is in the fifth
+  block, ADDITIONS FOR SLICE 39: the wide drawer, the flush construction, the
+  truss band and its two runs of rows, and the plot canvas a drawer opens over.
+-->
+
+<title>Slice 39 · the Trusses overlay</title>
+<style>
+  /* ==================================================================
+     DOCUMENT CHROME — theme-aware, tokens only.
+     ================================================================== */
+  :root {
+    --ground: #f2f2f4;
+    --raised: #ffffff;
+    --sunken: #e8e8ec;
+    --rule: #d7d7de;
+    --rule-soft: #e4e4ea;
+    --ink: #16171b;
+    --ink-2: #43444d;
+    --muted: #6c6d78;
+    --faint: #90919c;
+    --amber: #b45309;
+    --keep: #0e7490;
+    --drop: #9f1239;
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --measure: 68ch;
+    --wrap: 1180px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0a0b0d; --raised: #14151a; --sunken: #101014;
+      --rule: #26272e; --rule-soft: #1d1e24;
+      --ink: #f2f2f4; --ink-2: #b6b7c0; --muted: #8b8c96; --faint: #62636d;
+      --amber: #f59e0b; --keep: #22d3ee; --drop: #fb7185;
+    }
+  }
+
+  :root[data-theme="light"] {
+    --ground: #f2f2f4; --raised: #ffffff; --sunken: #e8e8ec;
+    --rule: #d7d7de; --rule-soft: #e4e4ea;
+    --ink: #16171b; --ink-2: #43444d; --muted: #6c6d78; --faint: #90919c;
+    --amber: #b45309; --keep: #0e7490; --drop: #9f1239;
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0a0b0d; --raised: #14151a; --sunken: #101014;
+    --rule: #26272e; --rule-soft: #1d1e24;
+    --ink: #f2f2f4; --ink-2: #b6b7c0; --muted: #8b8c96; --faint: #62636d;
+    --amber: #f59e0b; --keep: #22d3ee; --drop: #fb7185;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px 110px; }
+
+  h1, h2, h3 { margin: 0; font-family: var(--mono); font-weight: 500; }
+  h1 {
+    font-size: clamp(28px, 4.4vw, 46px);
+    line-height: 1.04; letter-spacing: -0.035em; text-wrap: balance;
+  }
+  h2 { font-size: clamp(19px, 2.3vw, 25px); letter-spacing: -0.02em; text-wrap: balance; }
+  h3 { font-size: 14px; letter-spacing: 0.02em; color: var(--ink-2); }
+
+  p { margin: 0; max-width: var(--measure); }
+  a { color: inherit; }
+
+  .head {
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 68px 0 30px; border-bottom: 1px solid var(--rule);
+  }
+  .head__eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--amber);
+  }
+  .head__lede { font-size: 18px; color: var(--ink-2); line-height: 1.5; }
+
+  section { display: flex; flex-direction: column; gap: 22px; padding: 56px 0 0; }
+  .sec__no {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  .sec__hd { display: flex; flex-direction: column; gap: 8px; }
+  .prose { display: flex; flex-direction: column; gap: 13px; color: var(--ink-2); font-size: 15.5px; }
+  .prose strong { color: var(--ink); font-weight: 600; }
+  .prose code, .k {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  .spec { display: flex; flex-direction: column; gap: 9px; }
+  .spec__frame {
+    overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px;
+    background: #09090b; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  }
+  .spec__cap {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-left: 2px;
+  }
+  .spec__cap b { color: var(--ink-2); font-weight: 500; }
+
+  .led { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .led__row {
+    display: grid; grid-template-columns: 148px minmax(0, 1fr);
+    gap: 18px; padding: 15px 2px; border-bottom: 1px solid var(--rule-soft);
+    align-items: start;
+  }
+  .led__k {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-top: 3px;
+  }
+  .led__v { font-size: 15px; color: var(--ink-2); line-height: 1.5; }
+  .led__v b { color: var(--ink); font-weight: 600; }
+  .led__v em { font-style: normal; color: var(--faint); }
+  .led__v code, .led__v .k {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  .tag {
+    display: inline-block; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase; padding: 1px 6px;
+    border-radius: 4px; vertical-align: 2px; margin-left: 7px;
+  }
+  .tag--keep { color: var(--keep); border: 1px solid currentColor; }
+  .tag--drop { color: var(--drop); border: 1px solid currentColor; }
+  .tag--new { color: var(--amber); border: 1px solid currentColor; }
+
+  .ask {
+    border: 1px solid var(--rule); border-left: 3px solid var(--amber);
+    border-radius: 0 8px 8px 0; padding: 16px 18px; background: var(--raised);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .ask h3 { color: var(--ink); }
+  .ask p { font-size: 15px; color: var(--ink-2); max-width: none; }
+
+  .tbl { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  .tbl th {
+    text-align: left; font-family: var(--mono); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint);
+    padding: 8px 12px 8px 2px; border-bottom: 1px solid var(--rule);
+  }
+  .tbl td {
+    padding: 11px 12px 11px 2px; border-bottom: 1px solid var(--rule-soft);
+    color: var(--ink-2); vertical-align: top;
+  }
+  .tbl td b { color: var(--ink); font-weight: 600; }
+  .tbl td .k { white-space: nowrap; }
+  .tbl td em { font-style: normal; color: var(--faint); }
+
+  @media (max-width: 720px) {
+    .led__row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  }
+
+  /* ==================================================================
+     SPECIMENS — the app's own faces and values.
+     ================================================================== */
+  .app {
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px; line-height: 1.45;
+    color: #f4f4f5; background: #09090b;
+    padding: 16px; min-width: 1040px;
+  }
+  .app--tight { padding: 16px; min-width: 0; }
+  .app *, .app *::before, .app *::after { box-sizing: border-box; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 28px; padding: 0 10px; border: 1px solid transparent; border-radius: 6px;
+    font-size: 12px; font-weight: 500; white-space: nowrap; font-family: inherit;
+  }
+  .btn--primary { background: #f59e0b; border-color: #f59e0b; color: #09090b; }
+  .btn--outline { background: #18181b; border-color: #3f3f46; color: #f4f4f5; }
+  .btn--ghost { background: transparent; color: #f4f4f5; }
+  .btn--sm { height: 24px; padding: 0 8px; font-size: 11px; }
+  .btn--md { height: 40px; padding: 0 16px; font-size: 14px; }
+  .btn--danger-ghost { background: transparent; color: #f87171; }
+  .seg { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; }
+
+  .fld {
+    height: 32px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b;
+    display: inline-flex; align-items: center; padding: 0 8px;
+    font-size: 12px; color: #e4e4e7; min-width: 0;
+  }
+  .fld--md { height: 40px; font-size: 14px; padding: 0 12px; }
+  .fld--ph { color: #71717a; }
+  .fld--sel::after { content: "▾"; margin-left: auto; padding-left: 8px; color: #71717a; font-size: 10px; }
+  .fld--foc { border-color: #f59e0b; }
+
+  .lbl {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #71717a; font-weight: 500;
+  }
+  .lbl--nav { font-family: inherit; font-size: 14px; letter-spacing: 0; text-transform: none; color: #d4d4d8; font-weight: 400; }
+
+  .pill {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 1px 6px; font-size: 10px; font-weight: 500; white-space: nowrap;
+  }
+  .t-drum { background: rgba(56, 189, 248, 0.15); color: #7dd3fc; }
+  .t-ok   { background: rgba(52, 211, 153, 0.15); color: #6ee7b7; }
+  .t-warn { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
+  .t-err  { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+  .t-def  { background: #3f3f46; color: #f4f4f5; }
+  .t-sky  { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .p48 { display: inline-block; width: 8px; height: 3px; border-radius: 2px; background: #ef4444; box-shadow: 0 0 5px rgba(239, 68, 68, 0.65); vertical-align: 2px; }
+  .tape { display: inline-block; width: 3px; height: 14px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+
+  .badge {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 2px 10px; font-size: 12px; font-weight: 500; white-space: nowrap;
+  }
+
+  /* the desktop drawer, for the side-by-side in §06 */
+  .dstack { position: relative; min-height: 400px; overflow: hidden; }
+  .scrim { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.7); }
+  .sd {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 420px;
+    background: #18181b; border-left: 1px solid #3f3f46;
+    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.5);
+    display: flex; flex-direction: column;
+  }
+  .sd__hd { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 14px 20px; border-bottom: 1px solid #27272a; }
+  .sd__ti { font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .sd__sub { font-size: 12px; color: #71717a; margin-top: 2px; }
+  .sd__x { color: #a1a1aa; font-size: 15px; line-height: 1.2; }
+  .sd__body { padding: 16px 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+  .sd__ft { margin-top: auto; padding: 12px 20px; border-top: 1px solid #27272a; font-size: 12px; color: #71717a; }
+  .sd__ft b { color: #a1a1aa; font-weight: 500; }
+  .dsec { display: flex; flex-direction: column; gap: 6px; }
+  .dsec__hd { display: flex; align-items: center; gap: 8px; }
+  .dsec__ct { font-family: var(--mono); font-size: 10px; color: #52525b; }
+  .gear {
+    border: 1px solid #27272a; border-radius: 6px; background: #18181b;
+    padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .gear__top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+  .gear__nm { font-size: 14px; font-weight: 500; color: #f4f4f5; }
+  .gear__ac { margin-left: auto; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; color: #a1a1aa; }
+  .gear__sp { display: flex; flex-wrap: wrap; gap: 2px 12px; font-family: var(--mono); font-size: 10px; color: #71717a; }
+  .gear__sp b { color: #d4d4d8; font-weight: 400; }
+  .insp__box { border: 1px solid #27272a; border-radius: 5px; background: rgba(9, 9, 11, 0.6); padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+  .insp__lg { display: flex; align-items: center; gap: 8px; font-size: 10px; color: #a1a1aa; }
+
+  /* ==================================================================
+     THE PHONE — lifted verbatim from design/design-language.html §8.
+     True 375 px width, 14 px base, 44 px targets.
+     ================================================================== */
+  .phones { display: flex; flex-wrap: wrap; gap: 22px; }
+  .phone { display: flex; flex-direction: column; gap: 9px; width: 375px; }
+  .phone__frame {
+    width: 375px; height: 690px; flex: none;
+    border: 1px solid #3f3f46; border-radius: 22px; background: #09090b;
+    overflow: hidden; position: relative;
+    display: flex; flex-direction: column;
+    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    font-size: 14px; line-height: 1.45; color: #f4f4f5;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  }
+  .phone__frame * { box-sizing: border-box; }
+  .phone__cap { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .phone__cap b { color: var(--ink-2); font-weight: 500; }
+  .phone__cap--bad b { color: var(--drop); }
+
+  .m-hd { display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 56px; padding: 0 16px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-hd__ti { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; min-width: 0; }
+  .m-hd__ic { width: 26px; height: 26px; border-radius: 6px; background: rgba(245, 158, 11, 0.15); color: #fbbf24; display: grid; place-items: center; flex: none; font-size: 13px; }
+  .m-hd__av { width: 28px; height: 28px; border-radius: 999px; background: #27272a; flex: none; }
+  .m-bd { flex: 1; overflow: hidden; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .m-nav { display: flex; height: 56px; border-top: 1px solid #27272a; background: #09090b; flex: none; }
+  .m-nav__i { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; color: #a1a1aa; }
+  .m-nav__i.on { color: #fbbf24; }
+  .m-nav__g { font-size: 18px; line-height: 1; }
+
+  .m-pan { border: 1px solid #3f3f46; border-radius: 12px; background: rgba(9, 9, 11, 0.4); overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+  .m-pan--fill { flex: 1; }
+  .m-pan__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-pan__ti { font-size: 14px; font-weight: 600; color: #f4f4f5; margin-right: auto; }
+  .m-pan__ic { width: 36px; height: 36px; border-radius: 6px; border: 1px solid #3f3f46; background: #18181b; display: grid; place-items: center; color: #a1a1aa; font-size: 14px; flex: none; }
+  .m-pan__ic--pri { background: #f59e0b; border-color: #f59e0b; color: #09090b; font-size: 17px; }
+  .m-pan__rows { flex: 1; min-height: 0; overflow: hidden; }
+
+  .m-row { display: flex; align-items: stretch; min-height: 44px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-row__e { width: 3px; flex: none; }
+  .m-row__c { flex: 1; min-width: 0; padding: 5px 12px; display: flex; flex-direction: column; justify-content: center; }
+  .m-row__t { font-size: 14px; font-weight: 500; line-height: 1.3; color: #f4f4f5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-row__s { font-size: 12px; line-height: 1.3; color: #a1a1aa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-row__n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #fbbf24; margin-right: 7px; }
+
+  .m-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 12px; padding: 10px 12px; border-top: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); font-size: 12px; color: #a1a1aa; flex: none; }
+  .m-strip .mono { color: #e4e4e7; }
+
+  .m-sw { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 44px; padding: 0 12px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; flex: none; }
+  .m-sw__t { font-size: 14px; font-weight: 600; }
+  .m-sw--old { border-color: rgba(245, 158, 11, 0.6); }
+
+  /* -- ui/Sheet, the phone's sibling of the drawer -- */
+  .m-sheet { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.8); display: flex; align-items: flex-end; }
+  .m-sheet--noscrim { background: transparent; pointer-events: none; }
+  .m-sheet__p { width: 100%; max-height: 85%; overflow: hidden; border-top: 1px solid #3f3f46; border-radius: 12px 12px 0 0; background: #18181b; display: flex; flex-direction: column; }
+  .m-sheet__hd { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-sheet__ti { font-size: 18px; font-weight: 600; }
+  .m-sheet__sub { font-size: 12px; color: #71717a; margin-top: 2px; }
+  .m-sheet__x { margin-left: auto; width: 44px; height: 44px; margin-right: -10px; display: grid; place-items: center; color: #a1a1aa; font-size: 18px; flex: none; }
+  .m-sheet__bd { padding: 16px; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+  .m-sheet__ft { display: flex; align-items: center; gap: 10px; padding: 12px 16px 20px; border-top: 1px solid #27272a; flex: none; }
+  .m-fld { display: flex; flex-direction: column; gap: 5px; }
+  .m-insp { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; align-items: center; }
+
+  .m-jump { display: flex; flex-direction: column; }
+  .m-jump__i { display: flex; align-items: center; gap: 11px; min-height: 52px; padding: 0 14px 0 12px; border-left: 2px solid transparent; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-jump__i.on { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.06); }
+  .m-jump__n { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; letter-spacing: 0.14em; color: #52525b; width: 16px; flex: none; }
+  .m-jump__i.on .m-jump__n { color: #f59e0b; }
+  .m-jump__l { font-size: 14px; color: #d4d4d8; flex: 1; min-width: 0; }
+  .m-jump__i.on .m-jump__l { color: #fcd34d; font-weight: 600; }
+  .m-jump__c { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 11px; color: #71717a; flex: none; }
+
+  .m-cvs { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #09090b; }
+  .cvs__band { position: absolute; top: 0; bottom: 0; }
+  .node { position: absolute; border: 1px solid #3f3f46; border-radius: 7px; background: #1f2028; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); overflow: hidden; }
+  .node__hd { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-bottom: 1px solid #27272a; font-size: 11px; font-weight: 600; color: #fafafa; }
+  .node__bdg { margin-left: auto; font-family: var(--mono); font-size: 9px; background: #27272a; border-radius: 3px; padding: 0 3px; color: #a1a1aa; }
+  .node__body { padding: 3px 0; }
+  .node__ft { padding: 3px 6px; border-top: 1px solid #27272a; font-family: var(--mono); font-size: 9px; color: #71717a; }
+  .prow { display: flex; align-items: center; gap: 6px; height: 18px; padding: 0 6px; font-size: 11px; color: #d4d4d8; }
+  .port { width: 7px; height: 7px; border-radius: 50%; border: 1px solid #71717a; background: #27272a; flex: none; }
+  .port--c { border-color: var(--c); background: color-mix(in srgb, var(--c) 75%, transparent); }
+  .srail { position: absolute; border: 1px solid #3f3f46; border-radius: 7px; background: #1f2028; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); overflow: hidden; }
+  .srail__hd { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 6px; border-bottom: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); }
+  .srail__hd b { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; font-weight: 500; }
+  .srail__hd span { font-family: var(--mono); font-size: 10px; color: #52525b; margin-left: auto; }
+  .srow { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 6px 0 0; border-bottom: 1px solid rgba(39, 39, 42, 0.6); font-size: 11px; color: #d4d4d8; }
+  .srow--sel { background: rgba(245, 158, 11, 0.1); }
+  .srow__tape { width: 3px; align-self: stretch; flex: none; }
+  .srow__nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 4px; }
+  .srow__md { font-family: var(--mono); font-size: 10px; color: #71717a; flex: none; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6a — the centred dialog as it stands today, the
+     virtual keyboard, the anatomy diagram, the safe area.
+     ================================================================== */
+
+  /* the centred dialog, at ui/Dialog's real values, inside a 375 px frame */
+  .m-dlg { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.8); display: flex; align-items: center; justify-content: center; padding: 0 16px; }
+  .m-dlg__p { width: 100%; border: 1px solid #3f3f46; border-radius: 12px; background: #18181b; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6); }
+  .m-dlg__hd { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #27272a; }
+  .m-dlg__ti { font-size: 18px; font-weight: 600; }
+  .m-dlg__x { color: #a1a1aa; font-size: 16px; }
+  .m-dlg__bd { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+  /* the two things that make it not a sheet: it is centred, and it does not
+     scroll — so anything past the frame is simply gone. */
+  .m-dlg--clip { overflow: hidden; }
+  .m-cut { position: absolute; left: 0; right: 0; height: 1px; background: repeating-linear-gradient(90deg, #f87171 0 6px, transparent 6px 12px); }
+  .m-cut__l {
+    position: absolute; right: 6px; transform: translateY(-100%);
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: #f87171; padding-bottom: 2px;
+  }
+
+  /* the virtual keyboard, drawn because it is half the finding */
+  .m-kbd { position: absolute; inset-inline: 0; bottom: 0; height: 268px; background: #1c1c1e; border-top: 1px solid #3f3f46; padding: 8px 4px 26px; display: flex; flex-direction: column; gap: 8px; }
+  .m-kbd__r { display: flex; gap: 5px; justify-content: center; flex: 1; }
+  .m-kbd__k { flex: 1; max-width: 32px; border-radius: 5px; background: #48484a; box-shadow: 0 1px 0 rgba(0,0,0,0.4); }
+  .m-kbd__k--w { max-width: 120px; }
+  .m-kbd__k--sp { max-width: 170px; }
+  .m-kbd__home { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 134px; height: 5px; border-radius: 3px; background: #f4f4f5; opacity: 0.85; }
+
+  /* the anatomy diagram — labelled parts down the right of a real sheet */
+  .anat { display: grid; grid-template-columns: 375px minmax(0, 1fr); gap: 26px; align-items: start; }
+  @media (max-width: 860px) { .anat { grid-template-columns: minmax(0, 1fr); } }
+  .anat__parts { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .anat__p { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--rule-soft); align-items: start; }
+  .anat__n { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); padding-top: 3px; }
+  .anat__v { font-size: 14.5px; color: var(--ink-2); line-height: 1.5; }
+  .anat__v b { color: var(--ink); font-weight: 600; }
+  .anat__v .k { font-size: 0.85em; }
+  .anat__v .cls { display: block; font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-top: 4px; word-break: break-word; }
+
+  /* the marker that pins a specimen part to its row in the anatomy list */
+  .mk {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; border-radius: 999px; flex: none;
+    background: #f59e0b; color: #09090b;
+    font-family: var(--mono); font-size: 9px; font-weight: 700;
+  }
+  .mk--doc { background: var(--amber); color: var(--ground); }
+  .mk--abs { position: absolute; z-index: 5; }
+
+  /* safe area, drawn */
+  .safe { position: absolute; inset-inline: 0; bottom: 0; height: 22px; background: repeating-linear-gradient(45deg, rgba(245,158,11,0.16) 0 5px, transparent 5px 10px); border-top: 1px dashed rgba(245,158,11,0.45); }
+  .safe__l { position: absolute; right: 8px; top: 3px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: #fbbf24; }
+
+  /* two-up comparison of one decision */
+  .vs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  @media (max-width: 860px) { .vs { grid-template-columns: minmax(0, 1fr); } }
+  .vs__c { display: flex; flex-direction: column; gap: 9px; }
+  .vs__hd { display: flex; align-items: baseline; gap: 9px; }
+  .vs__hd b { font-size: 15px; color: var(--ink); }
+  .vs__hd span { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+  .vs__note { font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+  .vs__note b { color: var(--ink-2); font-weight: 600; }
+
+  /* the thumb, drawn where the argument is about reach */
+  .thumb { position: absolute; border-radius: 999px; border: 1px dashed rgba(248, 113, 113, 0.55); background: rgba(248, 113, 113, 0.07); pointer-events: none; }
+  .thumb__l { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: #f87171; white-space: nowrap; }
+
+  .files { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .file { display: grid; grid-template-columns: 22px minmax(0, 260px) minmax(0, 1fr); gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--rule-soft); align-items: baseline; }
+  .file__s { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  .file__s--new { color: var(--amber); }
+  .file__s--del { color: var(--drop); }
+  .file__n { font-family: var(--mono); font-size: 13px; color: var(--ink); word-break: break-word; }
+  .file__w { font-size: 14px; color: var(--ink-2); line-height: 1.5; }
+  .file__w b { color: var(--ink); font-weight: 600; }
+
+  .code {
+    border: 1px solid var(--rule); border-radius: 8px; background: var(--sunken);
+    padding: 14px 16px; overflow-x: auto;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.65; color: var(--ink-2);
+    white-space: pre;
+  }
+  .code b { color: var(--ink); font-weight: 600; }
+  .code i { font-style: normal; color: var(--faint); }
+  .code u { text-decoration: none; color: var(--amber); }
+
+  .empty { padding: 34px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6b — the list as it ships today, the target
+     overlay, the bar's second row, the strip as its own control.
+     ================================================================== */
+
+  /* today: the row as a free-standing card on the page ground, at the real
+     values — px-2.5 py-1.5, 13px over 11px, its own border and bg-zinc-900 */
+  .m-card {
+    display: flex; align-items: center; gap: 8px;
+    border: 1px solid #27272a; border-radius: 6px; background: #18181b;
+    padding: 6px 10px;
+  }
+  .m-card + .m-card { margin-top: 4px; }
+  .m-card__c { flex: 1; min-width: 0; }
+  .m-card__t { font-size: 13px; font-weight: 500; line-height: 1.25; color: #f4f4f5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-card__s { font-size: 11px; line-height: 1.25; color: #a1a1aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-card__x { flex: none; color: #52525b; font-size: 12px; }
+  /* the h-9 search field and the h-9 w-9 add button, drawn at their real size */
+  .m-srch { display: flex; align-items: center; gap: 8px; flex: none; }
+  .m-srch__f { flex: 1; height: 36px; display: flex; align-items: center; gap: 7px; padding: 0 10px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; font-size: 14px; color: #71717a; }
+  .m-srch__b { width: 36px; height: 36px; border-radius: 6px; background: #f59e0b; color: #09090b; display: grid; place-items: center; font-size: 16px; flex: none; }
+
+  /* a control drawn with its true target bounds called out */
+  .tgt { position: relative; }
+  .tgt::after {
+    content: ""; position: absolute; inset: 50% auto auto 50%;
+    width: var(--tw); height: var(--th); transform: translate(-50%, -50%);
+    border: 1px dashed var(--tc); border-radius: 7px; pointer-events: none;
+  }
+  .tgt--bad { --tc: rgba(248, 113, 113, 0.75); }
+  .tgt--ok { --tc: rgba(52, 211, 153, 0.7); }
+  .szl { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .szl--bad { color: #f87171; }
+  .szl--ok { color: #34d399; }
+
+  /* the bar's second row, when search is open */
+  .m-pan__ic--44 { width: 44px; height: 44px; font-size: 16px; }
+  .m-pan__ic--44.m-pan__ic--pri { font-size: 20px; }
+  .m-pan__sr { display: flex; align-items: center; gap: 8px; padding: 0 12px 8px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-pan__sr .fld { flex: 1; }
+
+  /* a heading over a run of rows, inside the frame */
+  .m-hdr { display: flex; align-items: center; gap: 9px; padding: 9px 12px 5px; background: rgba(9, 9, 11, 0.35); }
+  .m-hdr b { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; }
+  .m-hdr i { font-style: normal; flex: 1; height: 1px; background: #27272a; }
+  .m-hdr--today b { color: #f59e0b; }
+  .m-hdr--today i { background: rgba(245, 158, 11, 0.45); }
+
+  /* the strip when it is the control that filters what it reports */
+  .m-strip__go { margin-left: auto; display: flex; align-items: center; gap: 5px; flex: none; color: #fcd34d; font-size: 12px; }
+  .m-strip--on { border-top-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.09); }
+
+  /* the row arithmetic, drawn as a stacked bar */
+  .stack { display: flex; flex-direction: column; width: 190px; flex: none; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em; }
+  .stack__b { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 7px; color: var(--muted); border-bottom: 1px solid var(--rule-soft); background: var(--sunken); }
+  .stack__b--rows { background: rgba(245, 158, 11, 0.12); color: var(--amber); }
+  .stack__b--chrome { background: transparent; }
+  .stacks { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+  .stacks__c { display: flex; flex-direction: column; gap: 8px; }
+  .stacks__t { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .stacks__t b { color: var(--ink-2); font-weight: 500; }
+
+  .empty { padding: 34px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+</style>
+<style>
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6c — the figures grid, the ribbon in the hand,
+     the bar's overflow, the withheld-gesture sentence, the plot canvas.
+     ================================================================== */
+
+  /* Overview's numbers band, at 375 px. Hairlines, never cards: five tiles
+     separated the way rows are separated, so the band is part of the frame.
+     The countdown spans, because it is the one figure that is about NOW. */
+  .m-figs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-fig { padding: 10px 12px 11px; border-top: 1px solid rgba(39, 39, 42, 0.6); border-left: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-fig:nth-child(odd) { border-left: 0; }
+  .m-fig--span { grid-column: 1 / -1; border-top: 0; padding-top: 12px; padding-bottom: 13px; }
+  .m-fig__v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 26px; line-height: 1.05; color: #f4f4f5; }
+  .m-fig--span .m-fig__v { font-size: 34px; }
+  .m-fig__v i { font-style: normal; font-size: 0.5em; color: #71717a; margin-left: 3px; }
+  .m-fig__v u { text-decoration: none; color: #52525b; }
+  .m-fig__l { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; margin-top: 7px; display: block; }
+
+  /* the rig ribbon: the flow canvas one row high, and on a phone it pans.
+     Drawn clipped at the right edge, because that is what it does. */
+  .m-rib { padding: 9px 0 10px 12px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-rib__l { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; display: block; margin-bottom: 7px; }
+  .m-rib__t { display: flex; align-items: center; gap: 0; overflow: hidden; }
+  .m-rib__n { flex: none; border: 1px solid #3f3f46; border-radius: 5px; background: #1f2028; padding: 4px 8px; text-align: center; min-width: 58px; }
+  .m-rib__n b { display: block; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 400; line-height: 1.2; color: #f4f4f5; }
+  .m-rib__n s { display: block; text-decoration: none; font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: #71717a; margin-top: 2px; }
+  .m-rib__n--desk { border-color: rgba(245, 158, 11, 0.5); background: rgba(245, 158, 11, 0.08); }
+  .m-rib__w { flex: none; width: 14px; height: 1px; background: #3f3f46; }
+  .m-rib__m { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-right: 12px; }
+  .m-rib__bar { flex: 1; height: 5px; border-radius: 3px; background: #27272a; overflow: hidden; }
+  .m-rib__bar i { display: block; height: 100%; background: #34d399; }
+  .m-rib__mv { font-family: var(--mono); font-size: 10px; color: #a1a1aa; flex: none; }
+
+  /* readiness, as rows: the phone's index of the show. Trailing pill, leading
+     edge in the verdict's own tone, and the tap opens that section. */
+  .m-rd { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px 0 0; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-rd__e { width: 3px; align-self: stretch; flex: none; }
+  .m-rd__a { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #d4d4d8; padding-left: 9px; width: 88px; flex: none; }
+  .m-rd__f { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: #71717a; flex: 1; min-width: 0; }
+  .m-rd__c { flex: none; color: #52525b; font-size: 13px; }
+
+  /* a quiet last row: the desktop card's meta footer */
+  .m-meta { display: flex; flex-wrap: wrap; gap: 3px 14px; padding: 9px 12px 10px; font-size: 12px; color: #71717a; }
+
+  /* the event's name, in the shell's own header — the one place on the phone
+     that is on screen in all nine sections and never scrolls */
+  .m-hd__nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+  /* the switcher row: the back target and the section switcher, one 44 px row,
+     because the block they replace was 48 px of a 490 px panel */
+  .m-swr { display: flex; align-items: center; gap: 8px; flex: none; }
+  .m-swr .m-sw { flex: 1; min-width: 0; }
+  .m-back { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; color: #a1a1aa; font-size: 16px; }
+
+  /* the event, stated once at the top of its own section */
+  .m-sub { padding: 9px 12px 10px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); font-size: 12px; color: #a1a1aa; }
+  .m-sub b { color: #d4d4d8; font-weight: 500; }
+  .m-sub s { text-decoration: none; color: #71717a; }
+
+  /* a bar control that names a selection and opens a sheet — the rail, and the
+     plot picker, collapsed to a target. It stays in the bar because it changes
+     WHAT YOU ARE LOOKING AT. */
+  .m-pick { display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 10px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; font-size: 13px; color: #f4f4f5; flex: none; max-width: 112px; }
+  .m-pick b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-pick s { text-decoration: none; color: #a1a1aa; flex: none; font-size: 11px; }
+
+  /* a segmented view toggle at a 44 px target — the plot's Top/Front/Side */
+  .m-seg { display: flex; height: 44px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; overflow: hidden; flex: none; }
+  .m-seg span { display: grid; place-items: center; min-width: 46px; padding: 0 8px; font-size: 13px; color: #a1a1aa; border-left: 1px solid #27272a; }
+  .m-seg span:first-child { border-left: 0; }
+  .m-seg span.on { background: #f59e0b; color: #09090b; font-weight: 500; }
+
+  /* the sentence that names a withheld gesture. Not a banner, not a dialog,
+     not a disabled control — it sits where the editor would be. */
+  .m-said { display: flex; gap: 9px; padding: 11px 12px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); background: rgba(9, 9, 11, 0.35); }
+  .m-said__i { flex: none; color: #71717a; font-size: 13px; line-height: 1.5; }
+  .m-said__t { font-size: 12.5px; line-height: 1.5; color: #a1a1aa; }
+  .m-said__t b { color: #d4d4d8; font-weight: 500; }
+
+  /* the stage plot canvas, in the frame */
+  .m-plot { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #09090b; }
+  .m-plot__g { position: absolute; inset: 0; background-image: linear-gradient(rgba(63,63,70,0.28) 1px, transparent 1px), linear-gradient(90deg, rgba(63,63,70,0.28) 1px, transparent 1px); background-size: 34px 34px; }
+  .m-el { position: absolute; border: 1px solid #52525b; border-radius: 4px; background: #27272a; display: grid; place-items: center; font-size: 10px; color: #d4d4d8; text-align: center; padding: 2px; }
+  .m-el--sel { border-color: #f59e0b; background: rgba(245, 158, 11, 0.16); color: #fcd34d; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25); }
+  .m-el--truss { border-color: #38bdf8; background: rgba(56, 189, 248, 0.1); color: #7dd3fc; }
+
+  /* the overflow sheet's rows — SectionSwitcher's shape, one labelled action each */
+  .m-act { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 4px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-act:last-child { border-bottom: 0; }
+  .m-act__i { width: 22px; flex: none; text-align: center; color: #a1a1aa; font-size: 14px; }
+  .m-act__l { font-size: 14px; color: #f4f4f5; flex: 1; min-width: 0; }
+  .m-act__h { font-size: 12px; color: #71717a; flex: none; }
+
+  /* the bar-width arithmetic, drawn as a ruler */
+  .rule { display: flex; align-items: stretch; width: 375px; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; font-family: var(--mono); font-size: 9px; letter-spacing: 0.04em; }
+  .rule__s { display: grid; place-items: center; min-height: 30px; border-left: 1px solid var(--rule-soft); color: var(--muted); background: var(--sunken); text-align: center; padding: 0 1px; }
+  .rule__s:first-child { border-left: 0; }
+  .rule__s--t { background: rgba(245, 158, 11, 0.14); color: var(--amber); }
+  .rule__s--o { background: rgba(159, 18, 57, 0.14); color: var(--drop); }
+  .rule__s--g { background: transparent; }
+  .rulel { display: flex; align-items: baseline; gap: 10px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+  .rulel b { color: var(--ink-2); font-weight: 500; }
+  .rulel u { text-decoration: none; color: var(--drop); }
+
+  /* a rule stated once, in a box, because it is the thing that stops nine
+     call sites making nine judgements */
+  .law { border: 1px solid var(--rule); border-left: 3px solid var(--amber); border-radius: 0 8px 8px 0; background: var(--raised); padding: 16px 18px; display: flex; flex-direction: column; gap: 9px; }
+  .law__h { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); }
+  .law__t { font-size: 16.5px; line-height: 1.45; color: var(--ink); }
+  .law__t b { font-weight: 600; }
+  .law__n { font-size: 14px; line-height: 1.55; color: var(--muted); }
+  .law__n b { color: var(--ink-2); font-weight: 600; }
+
+  /* two columns of examples under a rule */
+  .split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 26px; }
+  @media (max-width: 720px) { .split { grid-template-columns: minmax(0, 1fr); } }
+  .split__c { display: flex; flex-direction: column; gap: 7px; padding-top: 4px; }
+  .split__h { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); padding-bottom: 6px; border-bottom: 1px solid var(--rule); }
+  .split__i { display: flex; gap: 9px; font-size: 14px; color: var(--ink-2); line-height: 1.5; }
+  .split__i b { color: var(--ink); font-weight: 600; }
+  .split__i em { font-style: normal; color: var(--faint); }
+</style>
+
+<style>
+  /* ==================================================================
+     ADDITIONS FOR SLICE 37 — the coordinate space drawn three times, the
+     plane, and the evidence tables.
+     ================================================================== */
+
+  .spaces { display: grid; gap: 14px; }
+  .space { border: 1px solid var(--rule); border-radius: 8px; background: var(--raised); overflow: hidden; }
+  .space__hd { display: flex; align-items: baseline; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--rule-soft); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); }
+  .space__hd b { color: var(--ink); font-weight: 600; letter-spacing: 0.08em; }
+  .space__hd s { margin-left: auto; text-decoration: none; color: var(--faint); letter-spacing: 0.06em; }
+  /* the band diagram: regions drawn to scale against a 2200-wide plane */
+  .band { position: relative; height: 46px; background: var(--sunken); }
+  .band__z { position: absolute; top: 0; bottom: 0; }
+  .band__z--rail { background: rgba(180, 83, 9, 0.16); border-left: 1px solid rgba(180, 83, 9, 0.5); border-right: 1px solid rgba(180, 83, 9, 0.5); }
+  .band__z--rig { background: rgba(14, 116, 144, 0.14); }
+  .band__z--dead { background: repeating-linear-gradient(135deg, transparent 0 5px, rgba(159, 18, 57, 0.16) 5px 10px); }
+  .band__l { position: absolute; top: 5px; left: 5px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); white-space: nowrap; }
+  .band__w { position: absolute; bottom: 5px; left: 5px; font-family: var(--mono); font-size: 10px; font-variant-numeric: tabular-nums; color: var(--muted); }
+  /* one 200 px node, same scale, so its width reads against the lane */
+  .band__n { position: absolute; top: 13px; height: 20px; border: 1px solid var(--amber); border-radius: 3px; background: rgba(180, 83, 9, 0.22); }
+
+  .ev { width: 100%; border-collapse: collapse; font-size: 14px; margin: 4px 0 8px; }
+  .ev th { text-align: left; font-family: var(--mono); font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--faint); font-weight: 500; padding: 0 12px 7px 0; border-bottom: 1px solid var(--rule); }
+  .ev td { padding: 7px 12px 7px 0; border-bottom: 1px solid var(--rule-soft); color: var(--ink-2); vertical-align: baseline; }
+  .ev td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ev td.bad { color: var(--drop); font-weight: 600; }
+  .ev tr.ok td { color: var(--muted); }
+  .ev caption { caption-side: bottom; padding-top: 10px; font-size: 13.5px; color: var(--muted); text-align: left; line-height: 1.6; }
+  .ev-wrap { overflow-x: auto; }
+
+  /* the plane specimen */
+  .plane { position: relative; overflow: auto; background: #09090b; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-x pan-y; }
+  .plane__box { position: relative; }
+  .plane__c { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+  .plane__hint { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 3; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: #52525b; background: rgba(9, 9, 11, 0.86); border: 1px solid #27272a; border-radius: 999px; padding: 3px 9px; pointer-events: none; }
+  .zbar { display: flex; align-items: center; gap: 2px; padding: 7px 8px; border-top: 1px solid #27272a; background: #0c0c0e; }
+  .zbar button { width: 40px; height: 40px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; color: #a1a1aa; font-size: 16px; display: grid; place-items: center; padding: 0; font-family: inherit; cursor: pointer; }
+  .zbar .zv { width: 66px; height: 40px; border: 0; background: transparent; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: #d4d4d8; cursor: pointer; }
+  .zbar .zv s { display: block; text-decoration: none; font-size: 8.5px; letter-spacing: 0.13em; text-transform: uppercase; color: #52525b; }
+  .zbar em { margin-left: auto; font-style: normal; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: #3f3f46; }
+
+  /* a decision recorded as a strike-through of the alternative (from 6d) */
+  .verdict { display: grid; grid-template-columns: 152px minmax(0, 1fr); gap: 14px 18px; align-items: baseline; }
+  .verdict__k { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); }
+  .verdict__v { font-size: 15px; color: var(--ink-2); line-height: 1.55; }
+  .verdict__v b { color: var(--ink); font-weight: 600; }
+  .verdict__v u { text-decoration: line-through; text-decoration-color: var(--drop); color: var(--faint); }
+  @media (max-width: 720px) { .verdict { grid-template-columns: minmax(0, 1fr); gap: 4px 0; } }
+</style>
+<style>
+  /* ==================================================================
+     ADDITIONS FOR SLICE 38 — the narrow drawer, a person as a card, the
+     info note that is live, and the event's two attachment rows.
+     ================================================================== */
+
+  /* ui/Drawer at `narrow` — max-w-md, 448 px, against the Rig's max-w-3xl */
+  .sd--narrow { width: 448px; }
+  .sd__hdc { min-width: 0; flex: 1; }
+  .sd__tir { display: flex; align-items: center; gap: 8px; }
+
+  /* ui/Dialog on a desk: centred at every width. Drawn twice — once as what
+     Manage access is today (max-w-2xl), once as the confirm (max-w-md). */
+  .ddlg { position: absolute; inset: 0; display: grid; place-items: center; padding: 0 24px; background: rgba(9, 9, 11, 0.7); }
+  .ddlg__p { width: 100%; max-width: 672px; border: 1px solid #3f3f46; border-radius: 12px; background: #18181b; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); }
+  .ddlg__p--md { max-width: 448px; }
+  .ddlg__hd { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid #27272a; }
+  .ddlg__ti { font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .ddlg__x { color: #a1a1aa; font-size: 16px; }
+  .ddlg__bd { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+  .ddlg__s { font-size: 14px; line-height: 1.55; color: #a1a1aa; }
+  .ddlg__s b { color: #e4e4e7; font-weight: 600; }
+  .ddlg__ft { display: flex; justify-content: flex-end; gap: 8px; }
+
+  /* A person, as a GearCard. Identity first; controls after it — on one line at
+     448 px, on their own line at 375 px, where 44 px is what sets the height. */
+  .who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .who__av { width: 24px; height: 24px; border-radius: 999px; flex: none; }
+  .who__av--mono { display: grid; place-items: center; font-family: var(--mono); font-size: 9px; letter-spacing: 0.04em; color: #d4d4d8; background: #27272a; border: 1px solid #3f3f46; }
+  .who__nm { font-size: 14px; font-weight: 500; color: #f4f4f5; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .who__sp { font-family: var(--mono); font-size: 10px; color: #71717a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .who__pad { margin-left: auto; display: flex; align-items: center; gap: 8px; flex: none; }
+  .who__ctl { display: flex; align-items: center; gap: 8px; }
+  .who__ctl .fld { flex: 1; min-width: 0; }
+  /* the remove target: a Button ghost xs on a desk (h-7 around a 14 px icon),
+     44 px in the hand around a 16 px one (tokens.md §7, amendment 1) */
+  .who__rm { width: 34px; height: 28px; border-radius: 6px; display: grid; place-items: center; color: #a1a1aa; flex: none; }
+  .who__rm--44 { width: 44px; height: 44px; }
+  .who__rm svg { display: block; }
+
+  /* the info note — the `i` rides in a row that already exists, so a closed note
+     costs no space; the sentence opens where the sentence belongs. LIVE. */
+  .itog { border: 0; background: transparent; padding: 8px; margin: -8px; color: #71717a; font-family: inherit; line-height: 1; cursor: pointer; flex: none; }
+  .itog[aria-expanded="true"] { color: #fbbf24; }
+  .itog i { font-style: normal; display: grid; place-items: center; width: 16px; height: 16px; border: 1px solid currentColor; border-radius: 999px; font-family: var(--mono); font-size: 10px; }
+  .inote { font-size: 12px; line-height: 1.6; color: #a1a1aa; }
+  .inote[hidden] { display: none; }
+  .inote p + p { margin-top: 7px; }
+  .inote b { color: #e4e4e7; font-weight: 600; }
+
+  /* the state that stands where the picker was when there is nobody left */
+  .exh { font-size: 12px; line-height: 1.6; color: #71717a; }
+  .exh--ph { font-size: 14px; }
+
+  /* the event's attachment rows on a desk — the shape the catalog row has had
+     since D4, with a second instance beside it */
+  .ocard { border: 1px solid #3f3f46; border-radius: 8px; background: #18181b; overflow: hidden; }
+  .ohd { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 20px; }
+  .ohd h4 { margin: 0; font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .ohd p { margin: 2px 0 0; font-size: 14px; color: #a1a1aa; }
+  .orow { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 20px; border-top: 1px solid #27272a; }
+  .orow--new { background: rgba(245, 158, 11, 0.05); }
+  .orow__l { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #71717a; width: 72px; flex: none; }
+  .orow__c { flex: 1; min-width: 0; }
+  .orow__t { font-size: 14px; color: #f4f4f5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .orow__s { font-size: 12px; color: #71717a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ometa { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 10px 20px; border-top: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); font-size: 12px; color: #71717a; }
+  .ometa u { text-decoration: line-through; text-decoration-color: #fb7185; color: #52525b; }
+
+  /* the event header, drawn so a control leaving it can be seen leaving */
+  .ehd { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding-bottom: 14px; }
+  .ehd h4 { margin: 0; font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .ehd p { margin: 2px 0 0; font-size: 14px; color: #a1a1aa; }
+  .ehd__r { display: flex; align-items: center; gap: 16px; }
+  .ehd__lk { font-size: 14px; color: #fbbf24; }
+  .gone { position: relative; opacity: 0.4; }
+  .gone::after { content: ""; position: absolute; left: -3px; right: -3px; top: 50%; height: 1px; background: #fb7185; }
+
+  /* a desk specimen and a phone specimen, argued as one thing */
+  .pair { display: grid; grid-template-columns: minmax(0, 1fr) 375px; gap: 24px; align-items: start; }
+  @media (max-width: 1020px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+  .pair__c { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+
+  /* the surface a drawer opens over, drawn faintly — a drawer accompanies */
+  .behind { display: flex; flex-direction: column; gap: 12px; opacity: 0.9; }
+  .behind__b { height: 10px; border-radius: 3px; background: #27272a; }
+</style>
+<style>
+  /* ==================================================================
+     ADDITIONS FOR SLICE 39 — the wide drawer, the flush construction,
+     the truss band with its two runs of rows, and the plot canvas a
+     drawer opens over. Nothing above this block has been restyled.
+     ================================================================== */
+
+  /* ui/Drawer at `wide` — max-w-3xl, 768 px, against Slice 38's max-w-md */
+  .sd--wide { width: 768px; }
+  /* `flush`: the body gives up its px-5 py-4 and its gap-5, at BOTH widths */
+  .sd__body--flush { padding: 0; gap: 0; flex: 1; }
+  .m-sheet__bd--flush { padding: 0; gap: 0; }
+
+  /* one truss = one block of the single construction. Not a card: it has no
+     radius, no ground of its own and no inset — the rule between two trusses is
+     the same rule that separates two rows, one shade stronger. */
+  .tblk { border-top: 1px solid #3f3f46; }
+  .tblk:first-child { border-top: 0; }
+  .tblk__hd { padding: 9px 20px 10px; background: rgba(9, 9, 11, 0.45); border-bottom: 1px solid #27272a; display: flex; flex-direction: column; gap: 7px; }
+  .tblk__r { display: flex; align-items: center; gap: 10px; }
+  .tblk__nm { font-size: 14px; font-weight: 500; color: #f4f4f5; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tblk__len { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: #a1a1aa; flex: none; }
+  .tblk__u { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #a1a1aa; flex: none; }
+  .tblk__sp { display: flex; flex-wrap: wrap; gap: 2px 12px; font-family: var(--mono); font-size: 10px; color: #71717a; }
+  .tblk__sp b { color: #d4d4d8; font-weight: 400; }
+  .tblk__geo { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #71717a; }
+  .tblk__geo .lbl { flex: none; }
+
+  /* a MicroLabel heading over a run of rows, full width — tokens.md §7's last
+     table row, in a construction that owns no padding */
+  .tband { display: flex; align-items: center; gap: 9px; padding: 9px 20px 5px; }
+  .tband b { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; }
+  .tband s { text-decoration: none; font-family: var(--mono); font-size: 10px; color: #52525b; }
+  .tband i { font-style: normal; flex: 1; height: 1px; background: #27272a; }
+
+  /* the row. Full-bleed, hairline-separated, no border of its own. */
+  .trow { display: flex; align-items: center; gap: 10px; min-height: 30px; padding: 3px 20px; border-bottom: 1px solid rgba(39, 39, 42, 0.7); font-size: 12px; color: #d4d4d8; }
+  .trow:last-child { border-bottom: 0; }
+  .trow__c { min-width: 0; flex: 1; }
+  .trow__nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .trow__sp { font-family: var(--mono); font-size: 10px; color: #71717a; }
+  .trow__sp--warn { color: #fcd34d; }
+  .trow__v { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #a1a1aa; flex: none; }
+  .trow__fid { font-family: var(--mono); font-size: 10px; color: #52525b; }
+  /* the destructive icon target: a Button ghost xs on the desk (h-7 around an
+     h-4 icon), never the bare h-3.5 glyph it is today */
+  .trow__x { width: 28px; height: 28px; border-radius: 6px; display: grid; place-items: center; color: #71717a; flex: none; }
+  .trow__x svg { display: block; }
+  .trow--empty { color: #52525b; font-style: normal; min-height: 34px; }
+
+  /* the desk's own add rows, inside the construction rather than in a box */
+  .tform { display: flex; align-items: center; gap: 8px; padding: 7px 20px 9px; border-bottom: 1px solid rgba(39, 39, 42, 0.7); }
+  .tform--last { border-bottom: 0; }
+  .tnew { padding: 10px 20px 14px; display: flex; align-items: center; gap: 8px; }
+
+  /* the same rows in the hand: 44 px, two lines, nothing tappable in them */
+  .trow--ph { min-height: 44px; padding: 6px 12px; gap: 8px; font-size: 14px; color: #f4f4f5; }
+  .trow--ph .trow__sp { font-size: 12px; }
+  .trow--ph .trow__v { font-size: 12px; }
+  .tband--ph { padding: 9px 12px 5px; }
+  .tblk__hd--ph { padding: 10px 12px 11px; }
+
+  /* the plot canvas the drawer opens over — a drawer ACCOMPANIES, so the thing
+     it accompanies has to be in the picture */
+  .dcvs { position: absolute; inset: 0; background: #09090b; overflow: hidden; }
+  .dcvs__g { position: absolute; inset: 0; background-image: linear-gradient(rgba(63,63,70,0.22) 1px, transparent 1px), linear-gradient(90deg, rgba(63,63,70,0.22) 1px, transparent 1px); background-size: 40px 40px; }
+  .dcvs__bar { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-bottom: 1px solid #27272a; background: #0c0c0e; }
+  .d-el { position: absolute; border: 1px solid #52525b; border-radius: 4px; background: #27272a; display: grid; place-items: center; font-size: 11px; color: #d4d4d8; text-align: center; padding: 2px; }
+  /* a truss, as the canvas draws it: a bar with three lanes and a marker per
+     hung fixture. 7 px markers — drawing, not targeting (P9). */
+  .tbar { position: absolute; height: 16px; border: 1px solid #38bdf8; border-radius: 3px; background: rgba(56, 189, 248, 0.12); }
+  .tbar__l { position: absolute; left: 0; top: -14px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: #7dd3fc; white-space: nowrap; }
+  .fx { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: #fbbf24; box-shadow: 0 0 4px rgba(251, 191, 36, 0.6); }
+
+  /* a decision recorded per action, with the reason in the row */
+  .peract { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  .peract th { text-align: left; font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); padding: 0 14px 8px 0; border-bottom: 1px solid var(--rule); }
+  .peract td { padding: 11px 14px 11px 0; border-bottom: 1px solid var(--rule-soft); color: var(--ink-2); vertical-align: top; line-height: 1.5; }
+  .peract td b { color: var(--ink); font-weight: 600; }
+  .peract td.y { color: var(--drop); font-weight: 600; white-space: nowrap; }
+  .peract td.n { color: var(--muted); white-space: nowrap; }
+
+  /* the phone bar, drawn as three rows of arithmetic */
+  .rules { display: flex; flex-direction: column; gap: 6px; }
+
+  /* the desk-job sentence is a real InfoPanel in the panel, so it has to be
+     able to close — its own `display: flex` outranks the UA's [hidden] rule */
+  .m-said[hidden] { display: none; }
+</style>
+
+<div class="wrap">
+
+  <header class="head">
+    <span class="head__eyebrow">slice 39 · the trusses overlay · revision 1 · for approval, before the spec</span>
+    <h1>The plot is the work. The truss list is the bench beside it.</h1>
+
+    <p class="head__lede">
+      You assemble a truss out of pieces, hang a fixture on it, go back to the canvas, come back and
+      move the fixture 40 cm. <b>Nothing is waiting on you while that happens</b> — which is the whole
+      of the test <span class="mono">components.md</span> §<span class="mono">ui/Dialog</span> now
+      states, and it sends this surface to <span class="mono">Drawer</span>. This slice applies that
+      rule. It does not amend it and it adds nothing to <span class="mono">design/</span>.
+    </p>
+    <p class="head__lede">
+      The move is worth more than an anchor. A <span class="mono">Drawer</span> <em>is</em> a bottom
+      <span class="mono">Sheet</span> below 768 px, so the surface acquires a phone form for free — and
+      the phone form is the interesting half, because <b>it edits nothing</b>. You cannot move a truss
+      on a phone, so building one there buys nothing. What the phone gets is the <em>see more</em> case:
+      the pieces, the total length, the hang height and which fixture hangs at which offset, on which
+      lane. The canvas cannot show any of it.
+    </p>
+    <p class="head__lede">
+      Two things change shape on the way. <b>The read view stops being the edit view with its inputs
+      greyed out</b> — six <span class="mono">disabled</span> props leave this file and values are
+      stated as values. And <b>two destructive controls get an answer each</b>, decided separately:
+      one gets a confirm, one gets a label and a target it does not have today.
+    </p>
+  </header>
+
+  <!-- ============================================================ 01 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">01 · the shape</span>
+      <h2>A modal that takes the centre for twenty minutes is not interrupting you</h2>
+    </div>
+
+    <div class="law">
+      <span class="law__h">components.md §ui/Dialog · written by Slice 38 · applied here</span>
+      <p class="law__t"><b>A <span class="mono">Dialog</span> interrupts.</b> One choice has to be made
+        before what you were doing can continue, so it takes the centre, blocks the surface behind it,
+        and leaves as soon as it is answered.</p>
+      <p class="law__t"><b>A <span class="mono">Drawer</span> accompanies.</b> It is a companion
+        workspace beside the thing you are working on: it opens over the surface without replacing it,
+        and you go on working in it rather than answering it.</p>
+      <p class="law__n">This mockup does not restate that rule and does not extend it. Everything below
+        is what falls out of applying it to <span class="mono">PlotTrussManager</span>.</p>
+    </div>
+
+    <div class="prose">
+      <p>
+        Today the truss manager is a <span class="mono">ui/Dialog</span> at
+        <span class="mono">max-w-2xl</span>, centred over the plot, holding — per truss — an
+        inline-committing name, a hang height, a rotation and a rake, a piece picker with a length and
+        an <em>Add</em>, a fixture picker with an offset and an <em>Attach</em>, plus a control on every
+        piece row and every fixture row. Below all of it, a form that makes another truss. It is a
+        workspace, and it blocks the drawing it is a workspace <em>for</em>.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app" style="min-width:1180px;padding:0">
+          <div class="dstack" style="min-height:560px">
+            <div class="dcvs">
+              <div class="dcvs__g"></div>
+              <div class="dcvs__bar">
+                <span class="lbl">Vårgalan · Main stage</span>
+                <span class="btn btn--outline btn--sm">Trusses…</span>
+                <span style="flex:1"></span>
+                <span class="mono" style="font-size:11px;color:#71717a">1 sq = 50 cm · true to scale</span>
+              </div>
+              <div class="tbar" style="left:150px;top:120px;width:400px">
+                <span class="tbar__l">Front truss · 1100 cm · 620 high</span>
+                <span class="fx" style="left:36px;top:-3px"></span>
+                <span class="fx" style="left:127px;top:5px"></span>
+                <span class="fx" style="left:200px;top:5px"></span>
+                <span class="fx" style="left:291px;top:-3px"></span>
+                <span class="fx" style="left:364px;top:13px"></span>
+              </div>
+              <div class="tbar" style="left:190px;top:330px;width:218px">
+                <span class="tbar__l">Back truss · 600 cm</span>
+              </div>
+              <div class="d-el" style="left:250px;top:200px;width:110px;height:70px">Drum riser</div>
+              <div class="d-el" style="left:400px;top:225px;width:90px;height:45px">Keys</div>
+              <div class="d-el" style="left:160px;top:250px;width:60px;height:34px">Bass</div>
+            </div>
+            <div class="ddlg">
+              <div class="ddlg__p">
+                <div class="ddlg__hd"><span class="ddlg__ti">Trusses</span><span class="ddlg__x">×</span></div>
+                <div class="ddlg__bd">
+                  <p style="font-size:14px;line-height:1.55;color:#a1a1aa;margin:0">
+                    Trusses belong to the event and are counted once on the rental order no matter how
+                    many plots show them. Assemble each truss from the inventory's truss pieces — its
+                    drawn length is exactly the sum of the pieces. Fixtures can also be hung by
+                    drag-and-drop: place one from the palette's Rig fixtures and drop it onto a truss
+                    bar, then drag its marker along the bar.
+                  </p>
+                  <div style="border:1px solid #27272a;border-radius:12px;background:rgba(24,24,27,0.6);padding:12px">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                      <span class="fld" style="flex:1">Front truss</span>
+                      <span style="font-size:12px;color:#a1a1aa">Height</span>
+                      <span class="fld mono" style="width:80px;justify-content:flex-end">620</span>
+                      <span style="font-size:12px;color:#a1a1aa">cm</span>
+                      <span class="btn btn--outline">On plot</span>
+                      <span class="btn btn--ghost" style="width:32px;padding:0">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+                      </span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;font-size:12px;color:#a1a1aa">
+                      <span>Rotation (top) <span class="fld mono" style="width:64px;height:28px;justify-content:flex-end">0</span> °</span>
+                      <span>Rotation (front) <span class="fld mono" style="width:64px;height:28px;justify-content:flex-end">8</span> °</span>
+                      <span style="color:#71717a">on this plot</span>
+                    </div>
+                    <span class="lbl">Pieces — total 1100 cm</span>
+                    <div class="m-card" style="margin-top:5px;padding:3px 8px">
+                      <span class="m-card__c" style="font-size:12px">Prolyte H30V 300</span>
+                      <span class="mono" style="font-size:12px;color:#a1a1aa">300 cm</span>
+                      <span class="tgt tgt--bad" style="--tw:14px;--th:14px;color:#52525b;font-size:12px;line-height:1">✕</span>
+                    </div>
+                    <div class="m-card" style="padding:3px 8px">
+                      <span class="m-card__c" style="font-size:12px">Prolyte H30V 200 <span style="color:#fbbf24">(legacy)</span></span>
+                      <span class="mono" style="font-size:12px;color:#a1a1aa">200 cm</span>
+                      <span style="color:#52525b;font-size:12px;line-height:1">✕</span>
+                    </div>
+                    <div style="display:flex;gap:8px;margin-top:8px">
+                      <span class="fld fld--sel fld--ph" style="flex:1">Pick truss piece…</span>
+                      <span class="fld fld--ph" style="width:80px">cm</span>
+                      <span class="btn btn--primary">Add</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>Today.</b> <span class="mono">ui/Dialog</span> ·
+        <span class="mono">max-w-2xl</span> · centred at every width · the plot it is about is behind
+        the scrim. The dashed target is the piece-remove control at its true size:
+        <span class="mono">h-3.5</span>, 14 px, no label and no confirm.</div>
+    </div>
+
+    <div class="verdict">
+      <div class="verdict__k">what waits on it</div>
+      <div class="verdict__v"><b>Nothing.</b> No canvas gesture is blocked on a truss existing, no save is
+        pending, no question is open. Every mutation in the file commits on its own — on blur, on
+        <em>Add</em>, on <em>Attach</em>.</div>
+      <div class="verdict__k">how long it is open</div>
+      <div class="verdict__v">As long as the rig takes. That is the tell: <u>an overlay you answer</u> is
+        an overlay you are out of in four seconds.</div>
+      <div class="verdict__k">what it is for</div>
+      <div class="verdict__v">Reading and changing what a truss <b>is</b>, beside the drawing it is on.
+        <b>A companion workspace</b> — which is what the word <span class="mono">Drawer</span> names.</div>
+      <div class="verdict__k">the answer</div>
+      <div class="verdict__v"><span class="mono">ui/Drawer</span>, <b><span class="mono">wide</span></b>,
+        <b><span class="mono">flush</span></b>, with <span class="mono">info</span> and a
+        <span class="mono">noteId</span>. <em>§02 argues each of those three.</em></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 02 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">02 · the drawer, on a desk</span>
+      <h2>A truss is a record with two runs of rows inside it, not a card in a stack of cards</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <b>Width: <span class="mono">wide</span>.</b> The fixture row runs four things across — a name,
+        an offset, a lane and a detach — and the piece form runs three. At
+        <span class="mono">max-w-2xl</span> (672 px) the truss name field is 190 px and a fixture name
+        truncates at the third word. <span class="mono">wide</span> is
+        <span class="mono">max-w-3xl</span>, 768 px: 96 px more, all of it going to the two names that
+        are doing the identifying. <span class="mono">narrow</span> was never in it.
+      </p>
+      <p>
+        <b>Structure: <span class="mono">flush</span>, one construction.</b> Three answers were possible
+        and two are wrong. A <span class="mono">DrawerSection</span> per truss puts a
+        <em>record's name</em> into a <span class="mono">MicroLabel</span> heading — the label voice is
+        a category voice (<em>Consoles</em>, <em>Stageboxes</em>), and a heading that is data is the
+        same mistake <span class="mono">noteId</span> exists to stop. A
+        <span class="mono">GearCard</span> per truss keeps today's boxes-inside-boxes: a bordered card
+        holding two runs of bordered rows, inset 20 px from a drawer that is already inset.
+        <span class="mono">flush</span> is the third: <b>the drawer gives up its padding and its gap,
+        and the trusses become one construction</b> — a header band per truss, then its pieces, then its
+        fixtures, full-bleed and separated by a hairline. Which is exactly what
+        <span class="mono">components.md</span> §<span class="mono">ui/Drawer</span> says
+        <span class="mono">flush</span> is for, and it holds at <b>both</b> widths, which is the
+        property that matters in §05.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app" style="min-width:1280px;padding:0">
+          <div class="dstack" style="min-height:1430px">
+            <div class="dcvs">
+              <div class="dcvs__g"></div>
+              <div class="dcvs__bar">
+                <span class="lbl">Vårgalan · Main stage</span>
+                <span class="btn btn--outline btn--sm">Trusses…</span>
+                <span style="flex:1"></span>
+                <span class="mono" style="font-size:11px;color:#71717a">1 sq = 50 cm · true to scale</span>
+              </div>
+              <div class="tbar" style="left:70px;top:150px;width:400px">
+                <span class="tbar__l">Front truss</span>
+                <span class="fx" style="left:36px;top:-3px"></span>
+                <span class="fx" style="left:127px;top:5px"></span>
+                <span class="fx" style="left:200px;top:5px"></span>
+                <span class="fx" style="left:291px;top:-3px"></span>
+                <span class="fx" style="left:364px;top:13px"></span>
+              </div>
+              <div class="tbar" style="left:110px;top:420px;width:218px">
+                <span class="tbar__l">Back truss</span>
+              </div>
+              <div class="d-el" style="left:170px;top:250px;width:110px;height:70px">Drum riser</div>
+              <div class="d-el" style="left:330px;top:275px;width:90px;height:45px">Keys</div>
+              <div class="d-el" style="left:80px;top:300px;width:60px;height:34px">Bass</div>
+              <div class="d-el" style="left:120px;top:520px;width:150px;height:40px">Front fill L</div>
+            </div>
+            <div class="scrim"></div>
+            <div class="sd sd--wide">
+              <div class="sd__hd">
+                <div class="sd__hdc">
+                  <div class="sd__tir">
+                    <span class="sd__ti">Trusses</span>
+                    <button aria-expanded="false" class="itog" data-note="note-desk" type="button"><i>i</i></button>
+                  </div>
+                  <div class="sd__sub">3 trusses, shared by every plot in this event</div>
+                  <div class="inote" id="note-desk" hidden style="margin-top:8px">
+                    <p>A truss belongs to the <b>event</b>, not to a plot — the same truss shown on three
+                      plots is one truss and one line on the rental order.</p>
+                    <p>Its drawn length is exactly the <b>sum of its pieces</b>, so removing one shortens
+                      it on every plot at once.</p>
+                    <p>You can also hang a fixture by dropping one from the palette's <b>Rig fixtures</b>
+                      onto a truss bar, then dragging its marker along the bar. Attaching it here does
+                      the same thing.</p>
+                  </div>
+                </div>
+                <span class="sd__x">×</span>
+              </div>
+
+              <div class="sd__body sd__body--flush">
+
+                <!-- truss 1 · placed -->
+                <div class="tblk">
+                  <div class="tblk__hd">
+                    <div class="tblk__r">
+                      <span class="fld" style="flex:1;max-width:280px">Front truss</span>
+                      <span class="tblk__len">1100 cm</span>
+                      <span class="tblk__u">Hangs at <span class="fld mono" style="width:74px;justify-content:flex-end">620</span> cm</span>
+                      <span style="flex:1"></span>
+                      <span class="pill t-sky">On this plot</span>
+                      <span class="trow__x tgt tgt--ok" style="--tw:28px;--th:28px">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+                      </span>
+                    </div>
+                    <div class="tblk__geo">
+                      <span class="lbl">On this plot</span>
+                      <span>Rotation <span class="fld mono" style="width:58px;height:28px;justify-content:flex-end">0</span> °</span>
+                      <span>Rake <span class="fld mono" style="width:58px;height:28px;justify-content:flex-end">8</span> °</span>
+                      <span style="color:#52525b;font-size:11px">top view · front view</span>
+                    </div>
+                  </div>
+
+                  <div class="tband"><b>Pieces</b><s>4</s><i></i></div>
+                  <div class="trow"><span class="trow__c trow__nm">Prolyte H30V 300</span><span class="trow__v">300 cm</span>
+                    <span class="trow__x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span></div>
+                  <div class="trow"><span class="trow__c trow__nm">Prolyte H30V 300</span><span class="trow__v">300 cm</span>
+                    <span class="trow__x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span></div>
+                  <div class="trow"><span class="trow__c trow__nm">Prolyte H30V 300</span><span class="trow__v">300 cm</span>
+                    <span class="trow__x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span></div>
+                  <div class="trow"><span class="trow__c trow__nm">Prolyte H30V 200</span><span class="trow__v">200 cm</span>
+                    <span class="trow__x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span></div>
+                  <div class="tform">
+                    <span class="fld fld--sel fld--ph" style="flex:1">Pick truss piece…</span>
+                    <span class="fld fld--ph mono" style="width:80px">cm</span>
+                    <span class="btn btn--primary">Add piece</span>
+                  </div>
+
+                  <div class="tband"><b>Fixtures</b><s>5</s><i></i></div>
+                  <div class="trow">
+                    <span class="trow__c"><span class="trow__nm">Robe Spiikie <span class="trow__fid">FID 12</span></span></span>
+                    <span class="fld mono" style="width:74px;justify-content:flex-end">100</span>
+                    <span style="color:#71717a">cm</span>
+                    <span class="fld fld--sel" style="width:96px">Top</span>
+                    <span class="trow__x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
+                  </div>
+                  <div class="trow">
+                    <span class="trow__c"><span class="trow__nm">Martin MAC Aura <span class="trow__fid">FID 13</span></span></span>
+                    <span class="fld mono" style="width:74px;justify-content:flex-end">350</span>
+                    <span style="color:#71717a">cm</span>
+                    <span class="fld fld--sel" style="width:96px">Middle</span>
+                    <span class="trow__x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
+                  </div>
+                  <div class="trow">
+                    <span class="trow__c"><span class="trow__nm">Martin MAC Aura <span class="trow__fid">FID 14</span></span></span>
+                    <span class="fld mono" style="width:74px;justify-content:flex-end">550</span>
+                    <span style="color:#71717a">cm</span>
+                    <span class="fld fld--sel" style="width:96px">Middle</span>
+                    <span class="trow__x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
+                  </div>
+                  <div class="trow">
+                    <span class="trow__c"><span class="trow__nm">Robe Spiikie <span class="trow__fid">FID 15</span></span></span>
+                    <span class="fld mono" style="width:74px;justify-content:flex-end">800</span>
+                    <span style="color:#71717a">cm</span>
+                    <span class="fld fld--sel" style="width:96px">Top</span>
+                    <span class="trow__x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
+                  </div>
+                  <div class="trow">
+                    <span class="trow__c"><span class="trow__nm">Chauvet COLORdash <span class="trow__fid">FID 21</span></span></span>
+                    <span class="fld mono" style="width:74px;justify-content:flex-end">1000</span>
+                    <span style="color:#71717a">cm</span>
+                    <span class="fld fld--sel" style="width:96px">Bottom</span>
+                    <span class="trow__x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
+                  </div>
+                  <div class="tform tform--last">
+                    <span class="fld fld--sel fld--ph" style="flex:1">Attach fixture…</span>
+                    <span class="fld fld--ph mono" style="width:80px">offset cm</span>
+                    <span class="btn btn--primary">Attach</span>
+                  </div>
+                </div>
+
+                <!-- truss 2 · not placed, and it carries the legacy piece -->
+                <div class="tblk">
+                  <div class="tblk__hd">
+                    <div class="tblk__r">
+                      <span class="fld" style="flex:1;max-width:280px">Side truss L</span>
+                      <span class="tblk__len">500 cm</span>
+                      <span class="tblk__u">Hangs at <span class="fld mono" style="width:74px;justify-content:flex-end">450</span> cm</span>
+                      <span style="flex:1"></span>
+                      <span class="btn btn--outline">Place on this plot</span>
+                      <span class="trow__x">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="tband"><b>Pieces</b><s>3</s><i></i></div>
+                  <div class="trow"><span class="trow__c trow__nm">Prolyte H30V 200</span><span class="trow__v">200 cm</span>
+                    <span class="trow__x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span></div>
+                  <div class="trow"><span class="trow__c trow__nm">Prolyte H30V 200</span><span class="trow__v">200 cm</span>
+                    <span class="trow__x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span></div>
+                  <div class="trow">
+                    <span class="trow__c"><span class="trow__nm">Ladder 1 m</span>
+                      <span class="trow__sp trow__sp--warn">not from the catalog · not on the rental order — re-pick it to count</span></span>
+                    <span class="trow__v">100 cm</span>
+                    <span class="trow__x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
+                  </div>
+                  <div class="tform">
+                    <span class="fld fld--sel fld--ph" style="flex:1">Pick truss piece…</span>
+                    <span class="fld fld--ph mono" style="width:80px">cm</span>
+                    <span class="btn btn--primary">Add piece</span>
+                  </div>
+
+                  <div class="tband"><b>Fixtures</b><s>2</s><i></i></div>
+                  <div class="trow">
+                    <span class="trow__c"><span class="trow__nm">Robe Spiikie <span class="trow__fid">FID 16</span></span></span>
+                    <span class="fld mono" style="width:74px;justify-content:flex-end">120</span>
+                    <span style="color:#71717a">cm</span>
+                    <span class="fld fld--sel" style="width:96px">Top</span>
+                    <span class="trow__x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
+                  </div>
+                  <div class="trow">
+                    <span class="trow__c"><span class="trow__nm">Robe Spiikie <span class="trow__fid">FID 17</span></span>
+                      <span class="trow__sp">no offset — it hangs where the marker was dropped</span></span>
+                    <span class="fld fld--ph mono" style="width:74px;justify-content:flex-end">cm</span>
+                    <span style="color:#71717a">cm</span>
+                    <span class="fld fld--sel" style="width:96px">Middle</span>
+                    <span class="trow__x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
+                  </div>
+                  <div class="tform tform--last">
+                    <span class="fld fld--sel fld--ph" style="flex:1">Attach fixture…</span>
+                    <span class="fld fld--ph mono" style="width:80px">offset cm</span>
+                    <span class="btn btn--primary">Attach</span>
+                  </div>
+                </div>
+
+                <!-- truss 3 · placed, nothing hung on it yet -->
+                <div class="tblk">
+                  <div class="tblk__hd">
+                    <div class="tblk__r">
+                      <span class="fld" style="flex:1;max-width:280px">Back truss</span>
+                      <span class="tblk__len">600 cm</span>
+                      <span class="tblk__u">Hangs at <span class="fld mono" style="width:74px;justify-content:flex-end">500</span> cm</span>
+                      <span style="flex:1"></span>
+                      <span class="pill t-sky">On this plot</span>
+                      <span class="trow__x">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+                      </span>
+                    </div>
+                    <div class="tblk__geo">
+                      <span class="lbl">On this plot</span>
+                      <span>Rotation <span class="fld mono" style="width:58px;height:28px;justify-content:flex-end">0</span> °</span>
+                      <span>Rake <span class="fld mono" style="width:58px;height:28px;justify-content:flex-end">0</span> °</span>
+                    </div>
+                  </div>
+                  <div class="tband"><b>Pieces</b><s>2</s><i></i></div>
+                  <div class="trow"><span class="trow__c trow__nm">Prolyte H30V 300</span><span class="trow__v">300 cm</span>
+                    <span class="trow__x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span></div>
+                  <div class="trow"><span class="trow__c trow__nm">Prolyte H30V 300</span><span class="trow__v">300 cm</span>
+                    <span class="trow__x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span></div>
+                  <div class="tform">
+                    <span class="fld fld--sel fld--ph" style="flex:1">Pick truss piece…</span>
+                    <span class="fld fld--ph mono" style="width:80px">cm</span>
+                    <span class="btn btn--primary">Add piece</span>
+                  </div>
+                  <div class="tband"><b>Fixtures</b><s>0</s><i></i></div>
+                  <div class="trow trow--empty">Nothing hung on it yet.</div>
+                  <div class="tform tform--last">
+                    <span class="fld fld--sel fld--ph" style="flex:1">Attach fixture…</span>
+                    <span class="fld fld--ph mono" style="width:80px">offset cm</span>
+                    <span class="btn btn--primary">Attach</span>
+                  </div>
+                </div>
+
+                <div class="tband" style="border-top:1px solid #3f3f46;padding-top:12px"><b>New truss</b><i></i></div>
+                <div class="tnew">
+                  <span class="fld fld--ph" style="flex:1;max-width:320px">Name it — Front truss, Side truss L…</span>
+                  <span class="btn btn--primary">Add truss</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>The drawer, over the plot it is about.</b>
+        <span class="mono">wide</span> · <span class="mono">flush</span> · the canvas keeps its left
+        512 px and never reflows. Scroll the frame sideways to see the whole desk. The
+        <b>i</b> is live.</div>
+    </div>
+
+    <div class="led">
+      <div class="led__row"><div class="led__k">the truss band</div>
+        <div class="led__v">Name (inline, commits on blur — unchanged), the derived <b>total length</b>
+          stated in mono, the <b>hang height</b> as the editable number, then the state or the
+          affordance and the delete. <em>State or affordance, never both</em>: a placed truss draws the
+          <span class="mono">Pill</span>, an unplaced one draws <b>Place on this plot</b>. Today it
+          draws a <span class="mono">disabled</span> button reading <em>On plot</em>, which is a control
+          that cannot be pressed pretending to be a fact.</div></div>
+      <div class="led__row"><div class="led__k">rotation and rake</div>
+        <div class="led__v">A second line inside the band, present only when the truss is on
+          <em>this</em> plot — because that is where the placement lives.
+          <b><em>Rotation (top)</em> and <em>Rotation (front)</em> become <em>Rotation</em> and
+          <em>Rake</em></b>: two labels differing by one parenthesised word is one label doing two jobs,
+          and the plot's own <em>Top · Front · Side</em> already names the views. The
+          <span class="mono">title</span> attributes that carried the meaning are gone; the line under
+          them says it.</div></div>
+      <div class="led__row"><div class="led__k">the two runs</div>
+        <div class="led__v"><span class="mono">MicroLabel</span> + count + a rule — the app's one label
+          voice over a run of rows (<span class="mono">tokens.md</span> §7). The total moved out of the
+          heading (<em>Pieces — total 1100 cm</em>) and up into the band, so a number has one
+          home.</div></div>
+      <div class="led__row"><div class="led__k">the add rows</div>
+        <div class="led__v">Full-bleed at the foot of each run, inside the construction rather than in a
+          box: <em>Add piece</em> and <em>Attach</em> instead of two buttons both saying <em>Add</em>.
+          Absent for a viewer, never disabled.</div></div>
+      <div class="led__row"><div class="led__k">the new-truss form</div>
+        <div class="led__v">Last, under its own band, where it is today. Not a
+          <span class="mono">DrawerSection</span> action and not a bar button: making a truss is a
+          field and a verb, and it belongs after the trusses it joins.</div></div>
+      <div class="led__row"><div class="led__k">no <span class="mono">footer</span></div>
+        <div class="led__v">The two things a footer could say are said elsewhere — what a truss
+          <em>is</em> is <span class="mono">info</span>, read once; the count is the
+          <span class="mono">subtitle</span>, which is what <em>“what the contents are shared by”</em>
+          means. And on a phone a <span class="mono">Drawer</span>'s footer is the
+          <span class="mono">Sheet</span>'s footer, which §7d reserves for a confirm this drawer does
+          not have.</div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 03 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">03 · the explanation</span>
+      <h2>Four sentences you have read once are furniture on every visit after that</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <span class="mono">PlotTrussManager.tsx:79–84</span> opens the body with four sentences of
+        14 px prose. They are correct and they are the reason anyone understands what this surface
+        <em>counts</em> — and after the first read they are 96 px of the drawer, forever. That is
+        <span class="mono">info</span> with a <span class="mono">noteId</span>, per the rule D5 restated:
+        not the body's first paragraph, and not <span class="mono">footer</span>.
+      </p>
+    </div>
+
+    <div class="led" style="border-top:0">
+      <div class="led__row"><div class="led__k"><span class="mono">noteId</span></div>
+        <div class="led__v"><b><span class="mono">event-trusses</span></b>. Kebab-case, after what the
+          drawer <em>is</em> — and what it is, is the event's trusses, which is also the first thing the
+          note says. The title <em>Trusses</em> cannot serve: a title is a label, it repeats, and since
+          Slice 32 it is sometimes a record's name (ROADMAP D5). Namespaced by
+          <span class="mono">ui/Drawer</span> to <span class="mono">drawer:event-trusses</span>.</div></div>
+      <div class="led__row"><div class="led__k">four become three</div>
+        <div class="led__v">The <em>drag-and-drop</em> sentence and the <em>drag its marker</em> sentence
+          are one thing and now one sentence. What survives is the model — <b>belongs to the event</b>,
+          <b>length is the sum of the pieces</b> — and the gesture.</div></div>
+      <div class="led__row"><div class="led__k">and the phone reads a different third sentence</div>
+        <div class="led__v">Dragging a marker along a bar is a desk job (<span class="mono">patterns.md</span>
+          §7g), so telling a phone reader to do it is telling them to do something the surface withholds.
+          The mobile mount passes its own last sentence: <b>“Assembling a truss and hanging fixtures are
+          desk jobs — here you can read what each one is.”</b> That is composition, not permission:
+          <span class="mono">!isMobile</span> never appears in a permission expression, and this is the
+          same branch that already hands the plot inspector <span class="mono">spatial={false}</span>.</div></div>
+      <div class="led__row"><div class="led__k">what it costs closed</div>
+        <div class="led__v"><b>Nothing.</b> The <b>i</b> rides in the title's own row at both widths, and
+          the choice is remembered per note. Open it in §02 and in §05 — both are live.</div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 04 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">04 · the read view</span>
+      <h2>A greyed-out select is not a value, it is a control apologising</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <span class="mono">readOnly</span> already gates every control in this file and survives the
+        move intact — a viewer keeps the read of the list, the pieces and the attached fixtures, at both
+        widths. What it does <em>today</em> is set <span class="mono">disabled</span> on six inputs and
+        selects. That is the shape wave 6c spent a slice removing, and it is the same shape the phone
+        will be in if nothing changes, because the phone is <span class="mono">readOnly</span> by
+        decision. So <b>the read view states values</b>, and
+        <span class="mono">disabled</span> leaves this file entirely.
+      </p>
+    </div>
+
+    <div class="vs">
+      <div class="vs__c">
+        <div class="vs__hd"><b>Today</b><span>readOnly ⇒ disabled</span></div>
+        <div class="spec__frame">
+          <div class="app app--tight" style="min-width:0">
+            <div style="opacity:0.72">
+              <div class="tblk__hd" style="border:1px solid #27272a;border-radius:8px;margin-bottom:6px">
+                <div class="tblk__r">
+                  <span class="fld" style="flex:1;color:#71717a;background:#0f0f11">Front truss</span>
+                  <span class="tblk__u">Height <span class="fld mono" style="width:74px;justify-content:flex-end;color:#71717a;background:#0f0f11">620</span> cm</span>
+                </div>
+                <div class="tblk__geo">
+                  <span>Rotation (top) <span class="fld mono" style="width:58px;height:28px;justify-content:flex-end;color:#71717a;background:#0f0f11">0</span> °</span>
+                  <span>Rotation (front) <span class="fld mono" style="width:58px;height:28px;justify-content:flex-end;color:#71717a;background:#0f0f11">8</span> °</span>
+                </div>
+              </div>
+              <div class="trow" style="padding-left:0;padding-right:0">
+                <span class="trow__c trow__nm">Robe Spiikie <span class="trow__fid">FID 12</span></span>
+                <span class="fld mono" style="width:74px;justify-content:flex-end;color:#71717a;background:#0f0f11">100</span>
+                <span class="fld fld--sel" style="width:96px;color:#71717a;background:#0f0f11">Top</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="vs__note">Five controls a viewer cannot use, drawn at full size, each one still
+          announcing itself as a field. The values are in there — set in the ink the language uses for
+          <b>placeholder</b>.</p>
+      </div>
+
+      <div class="vs__c">
+        <div class="vs__hd"><b>This slice</b><span>readOnly ⇒ values</span></div>
+        <div class="spec__frame">
+          <div class="app app--tight" style="min-width:0">
+            <div class="tblk__hd" style="border:1px solid #27272a;border-radius:8px;margin-bottom:6px">
+              <div class="tblk__r">
+                <span class="tblk__nm">Front truss</span>
+                <span class="pill t-sky">On this plot</span>
+                <span style="flex:1"></span>
+                <span class="tblk__len">1100 cm</span>
+              </div>
+              <div class="tblk__sp">
+                <span>Hangs at <b>620 cm</b></span><span>Rotation <b>0°</b></span><span>Rake <b>8°</b></span>
+                <span>4 pieces</span><span>5 fixtures</span>
+              </div>
+            </div>
+            <div class="trow" style="padding-left:0;padding-right:0">
+              <span class="trow__c"><span class="trow__nm">Robe Spiikie <span class="trow__fid">FID 12</span></span></span>
+              <span class="trow__v">100 cm · top lane</span>
+            </div>
+          </div>
+        </div>
+        <p class="vs__note">The same five facts, as facts. Mono where the number is a measurement, the
+          <span class="mono">Pill</span> where the state is a state, and <b>nothing in the block is a
+          target</b> — which is what makes the phone's 44 px minimum bind only the way in and the way
+          out.</p>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>
+        One consequence at the door. The desktop trigger is
+        <span class="mono">{!readOnly &amp;&amp; &lt;Button&gt;Trusses…&lt;/Button&gt;}</span>
+        (<span class="mono">StagePlotTab.tsx:670</span>), so <b>a viewer cannot open it at all</b> — the
+        drawer's own <span class="mono">readOnly</span> has never had anyone to serve. Under
+        <em>a companion does not have to be editable</em> that guard is the wrong one: the button loses
+        it and every role gets the door, exactly as D4's catalog browse and Slice 38's access list
+        do. <span class="mono">readOnly</span> keeps gating what is <em>inside</em>.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ 05 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">05 · the same drawer, in the hand</span>
+      <h2>The canvas cannot show you a truss's pieces. This is where they become legible.</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <span class="mono">ui/Drawer</span> is <span class="mono">ui/Sheet</span> below 768 px, so the
+        phone form arrives with the component and the question is only whether it edits. It does not:
+        the plot is read-only on a phone by decision, you cannot move a truss there, and a truss you
+        assemble but cannot place is an object with nowhere to go. What is left is the whole reason to
+        open it — <b>the pieces, the total length, the hang height, and which fixture hangs at which
+        offset on which lane</b>. None of that is on the canvas at any zoom.
+      </p>
+      <p>
+        <span class="mono">flush</span> holds at both widths, and this is where it pays: the desk's
+        construction is already a run of full-bleed rows separated by a hairline, which is the phone's
+        own idiom (<span class="mono">patterns.md</span> §7c). Nothing is re-composed. The type stays
+        the work surface's, the geometry becomes the hand's — 44 px rows, a 44 px close — which is
+        <span class="mono">tokens.md</span> §7 amendment 2 with nothing added.
+      </p>
+    </div>
+
+    <div class="phones">
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">▦</span><span class="m-hd__nm">Vårgalan</span></div>
+            <span class="m-hd__av"></span>
+          </div>
+          <div class="m-bd">
+            <div class="m-pan m-pan--fill"><div class="m-pan__bar"><span class="m-pan__ti">Stage Plots</span></div></div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Events</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▦</span>Event</div>
+            <div class="m-nav__i"><span class="m-nav__g">▧</span>Inventory</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+          <div class="m-sheet">
+            <div class="m-sheet__p" style="max-height:88%">
+              <div class="m-sheet__hd">
+                <div style="min-width:0">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span class="m-sheet__ti">Trusses</span>
+                    <button aria-expanded="false" class="itog" data-note="note-ph" type="button"><i>i</i></button>
+                  </div>
+                  <div class="m-sheet__sub">3 trusses, shared by every plot in this event</div>
+                </div>
+                <span class="m-sheet__x tgt tgt--ok" style="--tw:44px;--th:44px">×</span>
+              </div>
+              <div class="m-sheet__bd m-sheet__bd--flush">
+                <div class="inote" id="note-ph" hidden style="padding:12px">
+                  <p>A truss belongs to the <b>event</b>, not to a plot — the same truss shown on three
+                    plots is one truss and one line on the rental order.</p>
+                  <p>Its drawn length is exactly the <b>sum of its pieces</b>.</p>
+                  <p>Assembling a truss and hanging fixtures are <b>desk jobs</b> — here you can read
+                    what each one is.</p>
+                </div>
+
+                <div class="tblk">
+                  <div class="tblk__hd tblk__hd--ph">
+                    <div class="tblk__r">
+                      <span class="tblk__nm">Front truss</span>
+                      <span class="pill t-sky">On this plot</span>
+                    </div>
+                    <div class="tblk__sp">
+                      <span>Hangs at <b>620 cm</b></span><span>Long <b>1100 cm</b></span>
+                      <span>Rotation <b>0°</b></span><span>Rake <b>8°</b></span>
+                    </div>
+                  </div>
+                  <div class="tband tband--ph"><b>Pieces</b><s>4 · 1100 cm</s><i></i></div>
+                  <div class="trow trow--ph"><span class="trow__c trow__nm">Prolyte H30V 300</span><span class="trow__v">300 cm</span></div>
+                  <div class="trow trow--ph"><span class="trow__c trow__nm">Prolyte H30V 300</span><span class="trow__v">300 cm</span></div>
+                  <div class="trow trow--ph"><span class="trow__c trow__nm">Prolyte H30V 300</span><span class="trow__v">300 cm</span></div>
+                  <div class="trow trow--ph"><span class="trow__c trow__nm">Prolyte H30V 200</span><span class="trow__v">200 cm</span></div>
+                  <div class="tband tband--ph"><b>Fixtures</b><s>5</s><i></i></div>
+                  <div class="trow trow--ph">
+                    <span class="trow__c"><span class="trow__nm">Robe Spiikie</span>
+                      <span class="trow__sp">FID 12 · top lane</span></span>
+                    <span class="trow__v">100 cm</span>
+                  </div>
+                  <div class="trow trow--ph">
+                    <span class="trow__c"><span class="trow__nm">Martin MAC Aura</span>
+                      <span class="trow__sp">FID 13 · middle lane</span></span>
+                    <span class="trow__v">350 cm</span>
+                  </div>
+                  <div class="trow trow--ph">
+                    <span class="trow__c"><span class="trow__nm">Martin MAC Aura</span>
+                      <span class="trow__sp">FID 14 · middle lane</span></span>
+                    <span class="trow__v">550 cm</span>
+                  </div>
+                  <div class="trow trow--ph">
+                    <span class="trow__c"><span class="trow__nm">Robe Spiikie</span>
+                      <span class="trow__sp">FID 15 · top lane</span></span>
+                    <span class="trow__v">800 cm</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="phone__cap"><b>The sheet, scrolled to the first truss.</b> Nothing in it is a target
+          except the close and the <b>i</b> — which is what a 44 px minimum is <em>for</em>, rather than
+          44 px of disabled select. The <b>i</b> is live.</div>
+      </div>
+
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">▦</span><span class="m-hd__nm">Vårgalan</span></div>
+            <span class="m-hd__av"></span>
+          </div>
+          <div class="m-bd">
+            <div class="m-pan m-pan--fill"><div class="m-pan__bar"><span class="m-pan__ti">Stage Plots</span></div></div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Events</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▦</span>Event</div>
+            <div class="m-nav__i"><span class="m-nav__g">▧</span>Inventory</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+          <div class="m-sheet">
+            <div class="m-sheet__p" style="max-height:88%">
+              <div class="m-sheet__hd">
+                <div style="min-width:0">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span class="m-sheet__ti">Trusses</span>
+                    <button aria-expanded="false" class="itog" data-note="note-ph2" type="button"><i>i</i></button>
+                  </div>
+                  <div class="m-sheet__sub">3 trusses, shared by every plot in this event</div>
+                </div>
+                <span class="m-sheet__x">×</span>
+              </div>
+              <div class="m-sheet__bd m-sheet__bd--flush">
+                <div class="inote" id="note-ph2" hidden style="padding:12px">
+                  <p>A truss belongs to the <b>event</b>, not to a plot — the same truss shown on three
+                    plots is one truss and one line on the rental order.</p>
+                  <p>Its drawn length is exactly the <b>sum of its pieces</b>.</p>
+                  <p>Assembling a truss and hanging fixtures are <b>desk jobs</b> — here you can read
+                    what each one is.</p>
+                </div>
+                <div class="tblk">
+                  <div class="tblk__hd tblk__hd--ph">
+                    <div class="tblk__r"><span class="tblk__nm">Side truss L</span></div>
+                    <div class="tblk__sp">
+                      <span>Hangs at <b>450 cm</b></span><span>Long <b>500 cm</b></span>
+                      <span style="color:#52525b">not on this plot</span>
+                    </div>
+                  </div>
+                  <div class="tband tband--ph"><b>Pieces</b><s>3 · 500 cm</s><i></i></div>
+                  <div class="trow trow--ph"><span class="trow__c trow__nm">Prolyte H30V 200</span><span class="trow__v">200 cm</span></div>
+                  <div class="trow trow--ph"><span class="trow__c trow__nm">Prolyte H30V 200</span><span class="trow__v">200 cm</span></div>
+                  <div class="trow trow--ph">
+                    <span class="trow__c"><span class="trow__nm">Ladder 1 m</span>
+                      <span class="trow__sp trow__sp--warn">not on the rental order</span></span>
+                    <span class="trow__v">100 cm</span>
+                  </div>
+                  <div class="tband tband--ph"><b>Fixtures</b><s>2</s><i></i></div>
+                  <div class="trow trow--ph">
+                    <span class="trow__c"><span class="trow__nm">Robe Spiikie</span>
+                      <span class="trow__sp">FID 16 · top lane</span></span>
+                    <span class="trow__v">120 cm</span>
+                  </div>
+                  <div class="trow trow--ph">
+                    <span class="trow__c"><span class="trow__nm">Robe Spiikie</span>
+                      <span class="trow__sp">FID 17 · middle lane</span></span>
+                    <span class="trow__v" style="color:#52525b">no offset</span>
+                  </div>
+                  <div class="tblk" style="border-top:1px solid #3f3f46">
+                    <div class="tblk__hd tblk__hd--ph">
+                      <div class="tblk__r"><span class="tblk__nm">Back truss</span>
+                        <span class="pill t-sky">On this plot</span></div>
+                      <div class="tblk__sp"><span>Hangs at <b>500 cm</b></span><span>Long <b>600 cm</b></span></div>
+                    </div>
+                    <div class="tband tband--ph"><b>Pieces</b><s>2 · 600 cm</s><i></i></div>
+                    <div class="trow trow--ph"><span class="trow__c trow__nm">Prolyte H30V 300</span><span class="trow__v">300 cm</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="phone__cap"><b>Scrolled on.</b> A truss that is not on this plot says so and shows no
+          rotation — there is no placement to have one. The legacy piece states itself; the fixture with
+          no offset states that too, rather than drawing an empty box.</div>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>
+        <b>This is provisional and the reason is one fact:</b> a phone cannot move a plot element. If the
+        phone ever gets placement, this is the decision that reverses — and it reverses as a decision,
+        not as a leftover.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ 06 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">06 · the way in</span>
+      <h2>A count is a thing the panel says. It is not a door.</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        The desktop's <em>Trusses…</em> button lives in a toolbar the phone does not render. The mobile
+        panel's status strip already counts <b>3 trusses</b> — and that is the tempting answer and the
+        wrong one. <span class="mono">patterns.md</span> §7b makes the strip a control only when it
+        <em>filters to exactly what it just reported</em>, and it says a strip with nothing to filter to
+        draws no chevron and is not a control. The plot's strip reports three different facts and can
+        filter to none of them; hanging one drawer off one of the three makes the other two decoration
+        that happens to be inside a button.
+      </p>
+      <p>
+        The rule that does answer it is the same section's split, and it has already ruled on this exact
+        case: <b>Open Rig, Open Buses and Open Universes are in the overflow.</b> Opening a drawer is not
+        a change of what you are looking at; the canvas is still there when you close it. So
+        <em>Trusses</em> is an <span class="mono">overflow</span> entry — and because it is the only one,
+        <span class="mono">MobilePanel</span> renders it as <b>its own 44 px target</b> rather than
+        behind a <span class="mono">⋯</span>. One action does not earn a menu, and no caller decides
+        that.
+      </p>
+      <p>
+        <b>The cost is a third row in the bar, and it is arithmetic rather than a judgement.</b> The bar
+        has 317 px at 375, it wraps rather than scrolls, and the plot's four targets do not fit in two
+        rows:
+      </p>
+    </div>
+
+    <div class="rules">
+      <div class="rule">
+        <div class="rule__s rule__s--g" style="flex:29">29</div>
+        <div class="rule__s rule__s--t" style="flex:106">title + i · 106</div>
+        <div class="rule__s rule__s--g" style="flex:91">free 91</div>
+        <div class="rule__s rule__s--t" style="flex:112">Plot picker · 112</div>
+        <div class="rule__s rule__s--g" style="flex:29">29</div>
+      </div>
+      <div class="rule">
+        <div class="rule__s rule__s--g" style="flex:29">29</div>
+        <div class="rule__s rule__s--t" style="flex:140">Top · Front · Side · 140</div>
+        <div class="rule__s rule__s--t" style="flex:148">Zoom · 148</div>
+        <div class="rule__s rule__s--g" style="flex:21">21</div>
+        <div class="rule__s rule__s--g" style="flex:29">29</div>
+      </div>
+      <div class="rule">
+        <div class="rule__s rule__s--g" style="flex:29">29</div>
+        <div class="rule__s rule__s--o" style="flex:44">44</div>
+        <div class="rule__s rule__s--g" style="flex:273">free 273 — the row this slice adds</div>
+        <div class="rule__s rule__s--g" style="flex:29">29</div>
+      </div>
+    </div>
+
+    <div class="rulel"><b>375 px</b> · body <span class="mono">px-4</span> + the panel's border +
+      the bar's <span class="mono">px-3</span> = <b>29 each side</b> · <u>the third row costs 52 px of
+      the panel</u>, and the canvas is a fixed <span class="mono">60svh</span> above it.</div>
+
+    <div class="phones">
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">▦</span><span class="m-hd__nm">Vårgalan</span></div>
+            <span class="m-hd__av"></span>
+          </div>
+          <div class="m-bd">
+            <div class="m-swr"><span class="m-back">←</span>
+              <div class="m-sw"><span class="m-sw__t">Stage Plots</span><span style="color:#a1a1aa">▾</span></div></div>
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar">
+                <span class="m-pan__ti">Stage Plots</span>
+                <button aria-expanded="true" class="itog" data-note="note-desk-job" type="button"><i>i</i></button>
+                <span style="flex:1"></span>
+                <span class="m-pick"><s>Plot</s><b>Main stage</b><s>▾</s></span>
+                <span class="m-seg"><span class="on">Top</span><span>Front</span><span>Side</span></span>
+                <span style="display:flex;align-items:center;gap:2px">
+                  <span class="m-pan__ic m-pan__ic--44">−</span>
+                  <span style="width:56px;text-align:center;font-family:var(--mono);font-size:12px;color:#d4d4d8">100 %</span>
+                  <span class="m-pan__ic m-pan__ic--44">+</span>
+                </span>
+                <span class="m-pan__ic m-pan__ic--44 tgt tgt--ok" style="--tw:44px;--th:44px" aria-label="Trusses">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 7h18M3 17h18M6 7l4 10M14 7l4 10M14 7 10 17"/></svg>
+                </span>
+              </div>
+              <div class="m-pan__rows">
+                <div class="m-said" id="note-desk-job">
+                  <span class="m-said__i">i</span>
+                  <span class="m-said__t"><b>Placing elements is a desk job</b> — open this plot on a
+                    computer. Tap anything on it to read or edit what it is.</span>
+                </div>
+                <div class="m-plot" style="height:230px">
+                  <div class="m-plot__g"></div>
+                  <div class="tbar" style="left:40px;top:40px;width:180px">
+                    <span class="fx" style="left:16px;top:-3px"></span>
+                    <span class="fx" style="left:57px;top:5px"></span>
+                    <span class="fx" style="left:90px;top:5px"></span>
+                    <span class="fx" style="left:131px;top:-3px"></span>
+                    <span class="fx" style="left:164px;top:13px"></span>
+                  </div>
+                  <div class="m-el" style="left:96px;top:100px;width:80px;height:44px">Drum riser</div>
+                  <div class="m-el" style="left:190px;top:112px;width:60px;height:32px">Keys</div>
+                  <div class="tbar" style="left:60px;top:180px;width:120px"></div>
+                </div>
+              </div>
+              <div class="m-strip">
+                <span class="pill t-ok">2 plots</span>
+                <span class="mono">24 elements</span>
+                <span class="mono" style="color:#71717a">3 trusses</span>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Events</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▦</span>Event</div>
+            <div class="m-nav__i"><span class="m-nav__g">▧</span>Inventory</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+        </div>
+        <div class="phone__cap"><b>The way in.</b> One <span class="mono">overflow</span> entry, so it
+          renders as its own 44 px target, last in the bar after the two selectors and the zoom. The
+          strip below still <em>says</em> 3 trusses and is still not a control.</div>
+      </div>
+
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd">
+            <div class="m-hd__ti"><span class="m-hd__ic">▦</span><span class="m-hd__nm">Vårgalan</span></div>
+            <span class="m-hd__av"></span>
+          </div>
+          <div class="m-bd">
+            <div class="m-swr"><span class="m-back">←</span>
+              <div class="m-sw"><span class="m-sw__t">Stage Plots</span><span style="color:#a1a1aa">▾</span></div></div>
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar">
+                <span class="m-pan__ti">Stage Plots</span>
+                <span style="flex:1"></span>
+                <span class="m-pick"><s>Plot</s><b>Main stage</b><s>▾</s></span>
+                <span class="m-seg"><span class="on">Top</span><span>Front</span><span>Side</span></span>
+              </div>
+              <div class="m-pan__rows">
+                <div class="m-plot" style="height:300px">
+                  <div class="m-plot__g"></div>
+                  <div class="tbar" style="left:40px;top:60px;width:180px"></div>
+                  <div class="m-el" style="left:96px;top:130px;width:80px;height:44px">Drum riser</div>
+                </div>
+              </div>
+              <div class="m-strip m-strip--on">
+                <span class="pill t-ok">2 plots</span>
+                <span class="mono">24 elements</span>
+                <span class="mono" style="color:#fcd34d">3 trusses</span>
+                <span class="m-strip__go">›</span>
+              </div>
+            </div>
+          </div>
+          <div class="m-nav">
+            <div class="m-nav__i"><span class="m-nav__g">▤</span>Events</div>
+            <div class="m-nav__i on"><span class="m-nav__g">▦</span>Event</div>
+            <div class="m-nav__i"><span class="m-nav__g">▧</span>Inventory</div>
+            <div class="m-nav__i"><span class="m-nav__g">⋯</span>More</div>
+          </div>
+        </div>
+        <div class="phone__cap phone__cap--bad"><b>Rejected.</b> The strip as the trigger. It costs no
+          row and it reads as a statistic that happens to be tappable: two of its three facts open
+          something about the third, and §7b's chevron already means <em>filter to what I just
+          said</em>.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 07 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">07 · the destructive three</span>
+      <h2>Three controls that destroy something, and they do not all deserve the same answer</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        One is the browser's own dialog. Two are a bare <span class="mono">✕</span> at
+        <span class="mono">h-3.5</span> with no label and no confirm. Converting all three by reflex is
+        how a confirm becomes something people dismiss without reading, so each is decided on what it
+        costs to be wrong.
+      </p>
+    </div>
+
+    <table class="peract">
+      <thead><tr><th style="width:170px">the control</th><th style="width:110px">confirm</th><th>why</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>Delete truss</b><br><span class="mono" style="font-size:12px;color:var(--faint)">line 227</span></td>
+          <td class="y">ConfirmDialog</td>
+          <td>It removes the truss, every piece in it and every placement on every plot in the event.
+            Today it is a <span class="mono">window.confirm</span> — the right sentence in the wrong
+            component. <b>This slice converts this one and no others</b>; the remaining seven are D6,
+            and this is its worked example.</td>
+        </tr>
+        <tr>
+          <td><b>Remove piece</b><br><span class="mono" style="font-size:12px;color:var(--faint)">line 288</span></td>
+          <td class="y">ConfirmDialog</td>
+          <td>It has no confirm at all today, and it is the one control here whose damage is
+            <em>silent and elsewhere</em>: the truss's drawn length is the sum of its pieces, so the bar
+            gets shorter on every plot that shows it, while you are looking at a list of four
+            near-identical rows. Re-adding is not undo — a <b>legacy</b> piece cannot be re-added as
+            one at all. <em>The confirm names the new length, because that is the actual
+            consequence.</em></td>
+        </tr>
+        <tr>
+          <td><b>Detach fixture</b><br><span class="mono" style="font-size:12px;color:var(--faint)">line 413</span></td>
+          <td class="n">no confirm</td>
+          <td>The fixture stays in the rig and the picker in the same row puts it back — one tap to
+            undo, nothing lost, nothing redrawn anywhere else. <b>A confirm on a reversible act is what
+            teaches people to dismiss confirms.</b> What it does get is what it is missing: an
+            accessible name (<em>Detach Robe Spiikie</em>) and an <span class="mono">h-4</span> icon in
+            a <span class="mono">Button ghost xs</span> — 28 px, not a 14 px glyph.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="pair">
+      <div class="pair__c">
+        <div class="spec__frame">
+          <div class="app app--tight" style="min-width:0">
+            <div class="dstack" style="min-height:320px">
+              <div style="position:absolute;inset:0;right:34%;padding:18px" class="behind">
+                <div class="behind__b" style="width:140px"></div>
+                <div class="behind__b" style="width:100%"></div>
+                <div class="behind__b" style="width:76%"></div>
+              </div>
+              <div style="position:absolute;top:0;right:0;bottom:0;width:34%;background:#18181b;border-left:1px solid #3f3f46">
+                <div class="sd__hd" style="padding:12px 14px"><div class="sd__hdc"><span class="sd__ti" style="font-size:15px">Trusses</span></div><span class="sd__x">×</span></div>
+                <div class="tband"><b>Pieces</b><s>4</s><i></i></div>
+                <div class="trow"><span class="trow__c trow__nm">Prolyte H30V 300</span><span class="trow__v">300 cm</span></div>
+                <div class="trow"><span class="trow__c trow__nm">Prolyte H30V 200</span><span class="trow__v">200 cm</span></div>
+              </div>
+              <div class="ddlg">
+                <div class="ddlg__p ddlg__p--md">
+                  <div class="ddlg__hd"><span class="ddlg__ti">Remove piece</span><span class="ddlg__x">×</span></div>
+                  <div class="ddlg__bd">
+                    <p class="ddlg__s"><b>Front truss</b> becomes <b>800 cm</b> instead of 1100 cm, and
+                      every plot that shows it redraws at the new length.</p>
+                    <div class="ddlg__ft">
+                      <span class="btn btn--ghost">Cancel</span>
+                      <span class="btn" style="background:#ef4444;border-color:#ef4444;color:#fafafa">Remove</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="spec__cap"><b>A dialog raised from inside a drawer.</b> Both are
+          <span class="mono">z-50</span>, so <b>DOM order decides</b>: the confirm is rendered as a
+          sibling <em>after</em> the <span class="mono">&lt;Drawer&gt;</span>, never inside its
+          scrolling body. The drawer stays exactly where it was and comes back untouched — which is the
+          two rules working together rather than fighting.</div>
+      </div>
+
+      <div class="pair__c">
+        <div class="led" style="border-top:0">
+          <div class="led__row"><div class="led__k">delete · title</div>
+            <div class="led__v"><b>Delete truss</b> — a noun phrase naming the operation, in the same
+              word as the control that was pressed.</div></div>
+          <div class="led__row"><div class="led__k">delete · sentence</div>
+            <div class="led__v">Today's sentence, kept, minus the question the title now carries:
+              <b>“Front truss is removed from the event, with its 4 pieces and its placement on every
+              plot. The 5 fixtures hung on it stay in the rig.”</b> Subject, consequence, then what it
+              does <em>not</em> cost.</div></div>
+          <div class="led__row"><div class="led__k">delete · button</div>
+            <div class="led__v"><b>Delete</b>, on <span class="mono">variant="destructive"</span>, beside
+              a <span class="mono">ghost</span> Cancel. <code>Escape</code>, the scrim and the × all
+              cancel.</div></div>
+          <div class="led__row"><div class="led__k">the name is in it</div>
+            <div class="led__v">Both sentences name the truss, because the control that was pressed is
+              one of three identical controls in a list — the same reason Slice 38's confirm names the
+              person.</div></div>
+          <div class="led__row"><div class="led__k">not on a phone</div>
+            <div class="led__v">Neither confirm can be raised there: the phone drawer has no destructive
+              control to raise it from. The stacking rule still holds for the desk, and for whatever
+              raises one over a <span class="mono">Sheet</span> next.</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 08 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">08 · the legacy piece</span>
+      <h2>A state whose meaning lives in a hover has no meaning on a phone</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        A piece with no <span class="mono">inventory_item_id</span> renders an amber
+        <em>(legacy)</em> whose explanation is a <span class="mono">title</span> attribute:
+        <em>“Legacy piece — not on the rental order until re-picked from the catalog.”</em> A tooltip has
+        no target on a touch screen (<span class="mono">patterns.md</span> §7g's own reasoning), and
+        this one is carrying the only thing that makes the marker actionable: <b>this piece is not being
+        hired</b>.
+      </p>
+      <p>
+        A drawer has room to say it. The row keeps its name and its length and gains a spec line in the
+        warning tone — <span class="mono">Spec tone="warning"</span>, which is
+        <span class="mono">amber-300</span> over the row's own 10 px mono, the language's existing
+        answer for <em>a value that needs attention</em> (<span class="mono">tokens.md</span> §5). The
+        parenthesis and the <span class="mono">title</span> both go.
+      </p>
+    </div>
+
+    <div class="vs">
+      <div class="vs__c">
+        <div class="vs__hd"><b>Today</b><span>a word, and a hover</span></div>
+        <div class="spec__frame">
+          <div class="app app--tight" style="min-width:0">
+            <div class="m-card" style="padding:4px 8px">
+              <span class="m-card__c" style="font-size:12px">Ladder 1 m <span style="color:#fbbf24">(legacy)</span></span>
+              <span class="mono" style="font-size:12px;color:#a1a1aa">100 cm</span>
+              <span style="color:#52525b;font-size:12px;line-height:1">✕</span>
+            </div>
+          </div>
+        </div>
+        <p class="vs__note">Amber, so it is a warning; a word nobody outside this codebase has a
+          definition for; and the definition itself only reachable with a mouse that stops moving.</p>
+      </div>
+      <div class="vs__c">
+        <div class="vs__hd"><b>This slice</b><span>the row states it</span></div>
+        <div class="spec__frame">
+          <div class="app app--tight" style="min-width:0">
+            <div class="trow" style="padding-left:0;padding-right:0">
+              <span class="trow__c"><span class="trow__nm">Ladder 1 m</span>
+                <span class="trow__sp trow__sp--warn">not from the catalog · not on the rental order — re-pick it to count</span></span>
+              <span class="trow__v">100 cm</span>
+              <span class="trow__x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
+            </div>
+          </div>
+        </div>
+        <p class="vs__note">The consequence and the fix, in the row, at both widths. On a phone it
+          shortens to <b>not on the rental order</b> — the fix needs the catalog, which is a desk
+          job.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 09 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">09 · the edges</span>
+      <h2>What this slice deliberately does not do</h2>
+    </div>
+
+    <div class="led">
+      <div class="led__row"><div class="led__k">edit on a phone</div>
+        <div class="led__v"><b>Withheld, and provisional.</b> The reason is the canvas behind it, not the
+          width and not the role: you cannot place a truss on a phone, so assembling one there produces
+          an object with nowhere to go. If the phone ever gets placement this reverses.</div></div>
+      <div class="led__row"><div class="led__k">the other seven <span class="mono">window.confirm</span>s</div>
+        <div class="led__v">Untouched. D6 settles them as a set, and this slice converts only the one it
+          opened the file for.</div></div>
+      <div class="led__row"><div class="led__k">grouping the list</div>
+        <div class="led__v">No <em>On this plot</em> / <em>Not on this plot</em> sections. A card that
+          jumps between two groups the moment you press <em>Place</em> is a list that reorders under
+          the hand; the state is on the truss's own band instead, where it is read beside the
+          rotation it explains.</div></div>
+      <div class="led__row"><div class="led__k">reordering pieces</div>
+        <div class="led__v">Not offered, at either width. <span class="mono">sort_order</span> exists and
+          nothing edits it today; the drawn length is a sum, so the order of the summands changes
+          nothing visible. A drag handle would be a control that moves a number nobody reads.</div></div>
+      <div class="led__row"><div class="led__k">a search over the trusses</div>
+        <div class="led__v">Absent. An event has a handful of trusses;
+          <span class="mono">patterns.md</span> §7b's <em>search box that filters nothing</em> applies
+          to a drawer as much as to a bar.</div></div>
+      <div class="led__row"><div class="led__k">the plot's own phone Print</div>
+        <div class="led__v">Not added here. The desktop toolbar has one and the phone branch does not
+          render it; if it is ever added the overflow holds two entries, becomes a
+          <span class="mono">⋯</span>, and <em>Trusses</em> moves inside it with no other change.
+          <em>Named, not fixed — it is not this slice's.</em></div></div>
+      <div class="led__row"><div class="led__k">the desk's densities</div>
+        <div class="led__v"><code>h-8</code> and <code>h-7</code> stay on the desk;
+          <code>h-3.5</code> does not, because §7's icon row already forbids it and the two controls
+          that use it are exactly the two this slice is rewriting.</div></div>
+      <div class="led__row"><div class="led__k">the rental order</div>
+        <div class="led__v">Untouched. What a truss <em>costs</em> is Slice 31's surface; this drawer
+          only says that a truss is counted once, and says it in the note.</div></div>
+      <div class="led__row"><div class="led__k"><span class="mono">design/</span></div>
+        <div class="led__v"><b>No edit.</b> Every rule used here is already written — the
+          interrupts/accompanies test, <span class="mono">flush</span>, the
+          <span class="mono">noteId</span>, amendment 2, the overflow split, the 44 px minimum. If
+          implementation finds a rule that is <em>not</em> written, that is a stop-and-ask, not a
+          quiet addition.</div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 10 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">10 · open</span>
+      <h2>Three questions this mockup could not settle</h2>
+    </div>
+
+    <div class="law">
+      <span class="law__h">open · for the reviewer to settle</span>
+      <p class="law__t"><b>All three are drawn as assumed, and none is settled.</b> The spec is written
+        from the rulings, not from the assumptions.</p>
+    </div>
+
+    <div class="ask">
+      <h3>Q1 · Is the third bar row acceptable, or does <em>Trusses</em> ride in the bar instead?</h3>
+      <p>
+        §06 files the drawer-opener in <span class="mono">overflow</span>, which is where
+        <em>Open Rig</em>, <em>Buses</em> and <em>Universes</em> already are, and the bar wraps to three
+        rows — 52 px off a panel whose canvas is a fixed 60svh. The alternative is putting it in
+        <span class="mono">actions</span> immediately after the plot picker, where it fits two rows
+        exactly, at the cost of calling a drawer-opener a control that changes <em>what you are looking
+        at</em>. <b>Assumed: the overflow, and the third row.</b>
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>Q2 · Does an unlabelled truss glyph read as <em>trusses</em>?</h3>
+      <p>
+        A lone overflow entry renders as its own icon target with an <span class="mono">aria-label</span>
+        and no visible word. That works for Signal Flow's printer, which everyone can read. The mark
+        drawn in §06 is a truss in elevation — two chords and their diagonals. If it does not read, the
+        honest fix is a second overflow entry so the <span class="mono">⋯</span> sheet's labelled row
+        does the naming, and that means finding a second action rather than inventing one.
+        <b>Assumed: the glyph.</b>
+      </p>
+    </div>
+
+    <div class="ask">
+      <h3>Q3 · <em>Rotation</em> and <em>Rake</em>, or the two <em>Rotation (…)</em> labels as they are?</h3>
+      <p>
+        §02 renames them. It reads better in the drawer and much better on the phone's spec line
+        (<em>Rotation 0° · Rake 8°</em> against <em>Rotation (top) 0° · Rotation (front) 8°</em>), and
+        the field it renames is called <span class="mono">tilt_deg</span> in the database with a comment
+        that already says <em>rakes the truss</em>. It is still a vocabulary change on a shipped
+        surface. <b>Assumed: renamed.</b>
+      </p>
+    </div>
+  </section>
+
+  <footer class="head" style="border-top:1px solid var(--rule);border-bottom:0;padding-top:22px;margin-top:8px">
+    <span class="head__eyebrow">approval</span>
+    <p class="head__lede">
+      Approving this means: <span class="mono">PlotTrussManager</span> becomes a
+      <span class="mono">Drawer</span> at <span class="mono">wide</span> and
+      <span class="mono">flush</span>, with <span class="mono">info</span> and
+      <span class="mono">noteId="event-trusses"</span>; its read view states values and
+      <span class="mono">disabled</span> leaves the file; the desktop trigger loses its
+      <span class="mono">!readOnly</span> guard; the phone mount forces
+      <span class="mono">readOnly</span> and is reached from one 44 px overflow target; deleting a truss
+      and removing a piece each get a <span class="mono">ConfirmDialog</span>, detaching a fixture gets a
+      label and a 28 px target instead; and the legacy marker becomes a warning spec line.
+      <b>No file in <span class="mono">design/</span> changes.</b>
+    </p>
+  </footer>
+</div>
+
+<script>
+  // The `i` is live at every width — one delegated handler, because InfoToggle
+  // and InfoPanel are two elements sharing one piece of state, which is the
+  // whole point of the split (a closed note costs the title's row no height).
+  document.addEventListener('click', function (event) {
+    var toggle = event.target.closest ? event.target.closest('.itog') : null
+    if (!toggle) return
+    var panel = document.getElementById(toggle.getAttribute('data-note'))
+    if (!panel) return
+    var open = toggle.getAttribute('aria-expanded') === 'true'
+    toggle.setAttribute('aria-expanded', open ? 'false' : 'true')
+    panel.hidden = open
+  })
+</script>
