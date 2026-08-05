@@ -133,7 +133,7 @@ describe('PlotTrussManager · the read view (FR-011)', () => {
     expect(html).not.toContain('(legacy)')
     expect(html).not.toContain('title=')
     // The fix needs the catalog, which is a desk job — so the phone is not sent on it.
-    expect(html).not.toContain('re-pick it from the catalog')
+    expect(html).not.toContain('re-pick it to count')
   })
 })
 
@@ -181,6 +181,55 @@ describe('PlotTrussManager · the edit view', () => {
   })
 
   it('offers the legacy piece its fix, which is a desk job', () => {
-    expect(markup()).toContain('re-pick it from the catalog')
+    const html = markup()
+    expect(html).toContain('not from the catalog')
+    expect(html).toContain('re-pick it to count')
+  })
+
+  it('names the create button for what it creates, among two other adds', () => {
+    const html = markup()
+    expect(html).toContain('Add truss')
+    expect(html).toContain('Add piece')
+    expect(html).toContain('New truss')
+  })
+})
+
+/**
+ * The desktop viewer — the combination this slice created.
+ *
+ * FR-016 removed the `!readOnly` guard from the toolbar's *Trusses…* button, so a
+ * viewer can now open this drawer at full width for the first time. That makes
+ * `readOnly` the only client-side gate on a surface that previously had two, and
+ * `readOnly && !touch` the one render nothing else in this file exercises.
+ */
+describe('PlotTrussManager · a viewer at a desk (FR-016, FR-024)', () => {
+  const markup = () => render({ readOnly: true, touch: false })
+
+  it('opens, and offers nothing that would change anything', () => {
+    const html = markup()
+    expect(html).not.toContain('<input')
+    expect(html).not.toContain('<select')
+    expect(html).not.toContain('Add truss')
+    expect(html).not.toContain('Add piece')
+    expect(html).not.toContain('Attach')
+    expect(html).not.toContain('Place on this plot')
+    expect(html).not.toContain('Delete truss')
+    expect(html).not.toContain('Remove piece')
+    expect(html).not.toContain('Detach')
+  })
+
+  it('is still the whole read — role withholds the controls, not the values', () => {
+    const html = markup()
+    expect(html).toContain('Front truss')
+    expect(html).toContain('620 cm')
+    expect(html).toContain('800 cm')
+    expect(html).toContain('Prolyte H30V 300')
+    expect(html).toContain('Robe Spiikie')
+    expect(html).toContain('top lane')
+    expect(html).toContain('On this plot')
+  })
+
+  it('keeps the desk its fix, which a phone is not given', () => {
+    expect(markup()).toContain('re-pick it to count')
   })
 })

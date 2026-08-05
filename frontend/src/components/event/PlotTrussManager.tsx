@@ -42,16 +42,23 @@ interface PlotTrussManagerProps {
   onRotate: (elementId: number, patch: { rotation_deg?: number; tilt_deg?: number }) => void
   readOnly?: boolean
   /**
-   * The phone's padding tier ([tokens.md](../../../design/tokens.md) §7
-   * amendment 2) — 44 px rows at the sheet's own inset, in place of the work
-   * surface's 30 px rows at the drawer's.
+   * The phone's tier ([tokens.md](../../../design/tokens.md) §7 amendment 2) —
+   * 44 px rows at the sheet's own inset, in place of the work surface's 30 px
+   * rows at the drawer's.
    *
-   * **Geometry, and only geometry.** It arrives from the mount, which is the
-   * one place that knows the width, for the same reason `GearCard` takes its
-   * phone padding as a class from its caller. This file never asks how wide the
-   * window is, so a reach check can never end up spelled as a permission
-   * (P9 / patterns.md §7g) — what a role may do is `readOnly`, which is a
-   * separate prop and arrives from a separate answer.
+   * Mostly geometry, and in two places a **sentence composed by width**: the
+   * legacy piece's line drops its fix on a phone, because re-picking from the
+   * catalog is a desk job, and the Pieces band carries the total the phone's
+   * header has no room for. Both are the surface saying a different true thing
+   * to a reader who can do different things — which is composition.
+   *
+   * **What it is never is a permission.** It arrives from the mount, the one
+   * place that knows the width, for the same reason `GearCard` takes its phone
+   * padding as a class from its caller; this file never asks how wide the window
+   * is. What a *role* may do is `readOnly` — a separate prop, from a separate
+   * answer — and the two must not be spelled with one branch (P9 / patterns.md
+   * §7g). If a future change wants `touch` to decide whether something can be
+   * *changed*, that is the line it must not cross.
    */
   touch?: boolean
   /**
@@ -105,7 +112,13 @@ export function PlotTrussManager({
     queryFn: () => listEventInventoryItems(eventId, { role: 'truss' }),
     enabled: open && !readOnly,
   })
-  const lightingQuery = useQuery({ queryKey: ['lighting-rig', eventId], queryFn: () => getLightingRig(eventId), enabled: open })
+  // Only the attach picker reads the rig, and only the edit view has one — so a
+  // phone read and a desktop viewer do not fetch it to display nothing.
+  const lightingQuery = useQuery({
+    queryKey: ['lighting-rig', eventId],
+    queryFn: () => getLightingRig(eventId),
+    enabled: open && !readOnly,
+  })
 
   const [newName, setNewName] = useState('')
 
@@ -199,19 +212,31 @@ export function PlotTrussManager({
           />
         ))}
         {!readOnly && (
-          <form
-            className={cn('flex items-center gap-2 border-t border-zinc-700 py-3', pad)}
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (newName.trim()) createMutation.mutate(newName.trim())
-            }}
-          >
-            <Input className="h-9" placeholder="New truss name (e.g. Front truss)" value={newName} onChange={(e) => setNewName(e.target.value)} />
-            <Button type="submit" size="sm" disabled={!newName.trim() || createMutation.isPending}>
-              <Plus className="mr-1 h-4 w-4" />
-              Add
-            </Button>
-          </form>
+          <>
+            <Band className="border-t border-zinc-700 pt-3" label="New truss" pad={pad} />
+            <form
+              className={cn('flex items-center gap-2 pb-3.5 pt-1', pad)}
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (newName.trim()) createMutation.mutate(newName.trim())
+              }}
+            >
+              <Input
+                className="h-9 max-w-[320px] flex-1"
+                placeholder="Name it — Front truss, Side truss L…"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                aria-label="New truss name"
+              />
+              {/* "Add truss", not "Add": this drawer already has an *Add piece* and an
+                  *Attach*, and three submits where two say the same word is the
+                  ambiguity the design was drawn to remove. */}
+              <Button type="submit" size="sm" disabled={!newName.trim() || createMutation.isPending}>
+                <Plus className="mr-1 h-4 w-4" />
+                Add truss
+              </Button>
+            </form>
+          </>
         )}
       </Drawer>
 
@@ -345,7 +370,7 @@ function TrussEditor({
           <>
             <div className="flex items-center gap-2.5">
               <span className="min-w-0 truncate text-sm font-medium text-zinc-100">{truss.name}</span>
-              {placed && <Pill className="bg-sky-500/15 text-sky-400">On this plot</Pill>}
+              {placed && <Pill className="bg-sky-500/15 text-sky-300">On this plot</Pill>}
             </div>
             <GearSpecs>
               <Spec label="Hangs at" value={`${truss.height_cm} cm`} />
@@ -388,7 +413,7 @@ function TrussEditor({
               <span className="flex-1" />
               {/* A fact, not a control that cannot be pressed. */}
               {placed ? (
-                <Pill className="bg-sky-500/15 text-sky-400">On this plot</Pill>
+                <Pill className="bg-sky-500/15 text-sky-300">On this plot</Pill>
               ) : (
                 <Button size="xs" variant="outline" onClick={onPlace}>
                   Place on this plot
@@ -449,7 +474,10 @@ function TrussEditor({
         )}
       </div>
 
-      <Band label="Pieces" hint={`${truss.pieces.length} · ${truss.total_length_cm} cm`} pad={pad} />
+      {/* Count only at the desk, where the total is already in the header row — a
+          number has one home. The phone's header has no room for it, so there the
+          band carries it. */}
+      <Band label="Pieces" hint={touch ? `${truss.pieces.length} · ${truss.total_length_cm} cm` : String(truss.pieces.length)} pad={pad} />
       {truss.pieces.length === 0 && <EmptyRow pad={pad} touch={touch}>No pieces yet — this truss draws at 0 cm.</EmptyRow>}
       {truss.pieces.map((piece) => (
         <Row key={piece.id} pad={pad} touch={touch}>
@@ -464,7 +492,7 @@ function TrussEditor({
                      is told the consequence and not an errand it cannot run. */
                   <span className="text-amber-300">not on the rental order</span>
                 ) : (
-                  <Spec tone="warning" label="not on the rental order —" value="re-pick it from the catalog" />
+                  <Spec tone="warning" label="not from the catalog · not on the rental order —" value="re-pick it to count" />
                 )}
               </GearSpecs>
             )}
@@ -518,7 +546,7 @@ function TrussEditor({
       )}
 
       <Band label="Fixtures" hint={String(truss.fixtures.length)} pad={pad} />
-      {truss.fixtures.length === 0 && <EmptyRow pad={pad} touch={touch}>Nothing hung on this truss.</EmptyRow>}
+      {truss.fixtures.length === 0 && <EmptyRow pad={pad} touch={touch}>Nothing hung on it yet.</EmptyRow>}
       {truss.fixtures.map((fixture) => (
         <AttachedFixtureRow
           key={fixture.id}
@@ -564,11 +592,11 @@ function TrussEditor({
 
 /** A micro-label over a run of rows, ruled to the edge — `flush`'s own heading
  *  (patterns.md §4). The count rides in the label, not in a row of its own. */
-function Band({ label, hint, pad }: { label: string; hint: string; pad: string }) {
+function Band({ label, hint, pad, className }: { label: string; hint?: string; pad: string; className?: string }) {
   return (
-    <div className={cn('flex items-center gap-2.5 pb-1.5 pt-2.5', pad)}>
+    <div className={cn('flex items-center gap-2.5 pb-1.5 pt-2.5', pad, className)}>
       <MicroLabel>{label}</MicroLabel>
-      <span className="font-mono text-[10px] text-zinc-600">{hint}</span>
+      {hint && <span className="font-mono text-[10px] text-zinc-600">{hint}</span>}
       <span className="h-px flex-1 bg-zinc-800" />
     </div>
   )
@@ -641,9 +669,18 @@ function AttachedFixtureRow({
 
   return (
     <Row pad={pad} touch={touch}>
-      <span className="min-w-0 flex-1 truncate">
-        {fixture.fixture_name}
-        {fixture.fixture_number != null && <span className="font-mono text-[10px] text-zinc-600"> FID {fixture.fixture_number}</span>}
+      <span className="min-w-0 flex-1">
+        <span className="block truncate">
+          {fixture.fixture_name}
+          {fixture.fixture_number != null && <span className="font-mono text-[10px] text-zinc-600"> FID {fixture.fixture_number}</span>}
+        </span>
+        {/* An empty offset box is not the same as an offset of nothing: the fixture
+            hangs where its marker was dropped, and the row says which. */}
+        {fixture.offset_cm == null && (
+          <GearSpecs>
+            <span>no offset — it hangs where the marker was dropped</span>
+          </GearSpecs>
+        )}
       </span>
       <Input
         className="h-7 w-16 flex-none text-right text-xs tabular-nums"

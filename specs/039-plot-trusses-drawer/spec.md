@@ -152,8 +152,10 @@ changed.
 **The shape**
 
 - **FR-001**: `PlotTrussManager` MUST render a `ui/Drawer` in place of its
-  `ui/Dialog`. One call site MUST serve both widths — the drawer's own phone branch
-  supplies the bottom sheet.
+  `ui/Dialog`. **One component** MUST serve both widths, not a second overlay — the
+  drawer's own phone branch supplies the bottom sheet. (The stage plot's mobile early
+  return means two *mounts* of that one component, as the canvas and the inspector
+  already are; what must not exist is a second surface.)
 - **FR-002**: The drawer MUST be `wide` (`max-w-3xl`). The fixture row runs four
   controls across and the piece form three; at the dialog's `max-w-2xl` the truss
   name field is 190 px and fixture names truncate.
@@ -174,7 +176,7 @@ changed.
 
 **The explanation**
 
-- **FR-007**: The four sentences currently opening the body (`PlotTrussManager.tsx:79-84`)
+- **FR-007**: The sentences currently opening the body (`PlotTrussManager.tsx:79-84`)
   MUST become the drawer's `info`, with `noteId="event-trusses"` — kebab-case, named
   after what the drawer is. The title *Trusses* MUST NOT be the identity (ROADMAP D5).
 - **FR-008**: The desktop explanation MUST be three sentences: that a truss belongs
@@ -220,7 +222,9 @@ changed.
   `window.confirm` (`PlotTrussManager.tsx:227`). It MUST name the truss, state that
   its pieces and its placement on every plot go with it, and state that the fixtures
   hung on it stay in the rig. **This slice converts this call site and no others** —
-  the remaining seven are defect D6, and this is its worked example.
+  every other call site is defect D6, and this is its worked example. (D6's own
+  section counts eight; the live count is **fifteen** — see the note under Out of
+  Scope.)
 - **FR-018**: Removing a piece MUST gain a `ui/ConfirmDialog` it does not have today.
   Its damage is silent and elsewhere: the truss's drawn length is the sum of its
   pieces, so every plot showing it redraws while the user is looking at a list of
@@ -276,7 +280,12 @@ No schema change. The slice touches `PlotTruss`, `PlotTrussPiece` and
 - **Editing trusses on a phone.** Withheld, and **provisional**: it is tied to the
   single fact that a phone cannot place a plot element. If the phone ever gets
   placement, this is the decision that reverses.
-- **The other seven `window.confirm` call sites** — defect D6.
+- **Every other `window.confirm` call site** — defect D6. Its roadmap section names
+  eight; the live count after this slice is **fifteen**, verified 2026-08-05. The
+  seven it does not list are `StagePlotTab.tsx` (delete a stage plot),
+  `LightingSheet.tsx`, `LightingTab.tsx`, `InputSheet.tsx`, `InputDeviceSection.tsx`,
+  `TrueOutputDeviceSection.tsx` and `StageMultiSection.tsx`. Correcting D6's brief is
+  the user's call, not this slice's — it is reported, not amended.
 - **Grouping the list by placement.** A card that jumps when you press *Place* is a
   list reordering under the hand.
 - **Reordering pieces** (the length is a sum), **searching the list** (a handful of
