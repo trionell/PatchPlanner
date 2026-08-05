@@ -113,8 +113,8 @@ same four moves, so they are stated once here and not repeated per task:
 - [x] 6.3 Write D6's **Fixed** section — mark the heading ✅ with the date, record the three
       decisions the brief asked to be settled (per-site state, sibling-last mounting, one
       commit per surface), and drop D6's row from the **What remains** index.
-- [ ] 6.4 **Report to the user, do not record:** the two `window.alert` calls in
+- [x] 6.4 **Reported 2026-08-05; user chose not to record it.** the two `window.alert` calls in
       `LightingTab.tsx` are the last browser-native modals left in the application. Give the
       reproduction and what a fix would cover, and **stop and ask** before writing anything
       into `ROADMAP.md` — `CLAUDE.md` forbids adding a defect unasked.
-- [ ] 6.5 `openspec validate d6-confirm-dialogs --strict`, then `/opsx:archive`.
+- [x] 6.5 `openspec validate d6-confirm-dialogs --strict`, then `/opsx:archive`.
