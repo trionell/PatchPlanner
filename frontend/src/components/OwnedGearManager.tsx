@@ -7,6 +7,7 @@ import { matchesSearch } from '../lib/patchSearch'
 import type { OwnedItem } from '../types'
 import { RowEditor } from './event/RowEditor'
 import { Button } from './ui/Button'
+import { ConfirmDialog } from './ui/ConfirmDialog'
 import { FieldStack } from './ui/GearList'
 import { Input } from './ui/Input'
 import { PatchPanel } from './ui/PatchPanel'
@@ -36,6 +37,9 @@ export function OwnedGearManager() {
   const itemsQuery = useQuery({ queryKey: ['owned-items'], queryFn: listOwnedItems })
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
+  /* The item, never a boolean: the sentence counts the events that plan it, so the
+     confirm has to know which row it was raised for and read that row's own count. */
+  const [pendingItem, setPendingItem] = useState<OwnedItem | null>(null)
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['owned-items'] })
   const save = useMutation({
@@ -79,6 +83,7 @@ export function OwnedGearManager() {
   const planned = items.filter((item) => item.planned_on_events > 0).length
 
   return (
+    <>
     <PatchPanel
       bar={
         <>
@@ -150,19 +155,7 @@ export function OwnedGearManager() {
                           onSave={editor.save}
                           onCancel={editor.close}
                           onKeyDown={editor.onKeyDown}
-                          onDelete={() => {
-                            // Deleting takes the item off other people's plans,
-                            // so the confirm says how many rather than asking
-                            // the generic question.
-                            const warning =
-                              item.planned_on_events > 0
-                                ? `"${item.name}" is planned on ${item.planned_on_events} event${item.planned_on_events > 1 ? 's' : ''}. Deleting it removes it from those plans too. Continue?`
-                                : `Delete "${item.name}" from your owned gear?`
-                            if (window.confirm(warning)) {
-                              remove.mutate(item.id)
-                              editor.close()
-                            }
-                          }}
+                          onDelete={() => setPendingItem(item)}
                         >
                           <OwnedFields draft={editor.draft} setDraft={editor.setDraft} />
                         </RowEditor>
@@ -209,6 +202,34 @@ export function OwnedGearManager() {
         {planned > 0 && <span className="text-zinc-500">{planned} planned on an event</span>}
       </div>
     </PatchPanel>
+
+    {/* Last sibling, outside the panel. This is raised from a `RowEditor` inside a
+        `<tr>`; a dialog rendered there would be inside the table's own stacking. */}
+    <ConfirmDialog
+      open={pendingItem != null}
+      title="Delete owned item"
+      onCancel={() => setPendingItem(null)}
+      onConfirm={() => {
+        if (pendingItem) remove.mutate(pendingItem.id)
+        setPendingItem(null)
+        editor.close()
+      }}
+    >
+      {pendingItem &&
+        /* Deleting takes the item off other people's plans, so the sentence says how
+           many rather than asking the generic question. */
+        (pendingItem.planned_on_events > 0 ? (
+          <>
+            <span className="text-zinc-200">{pendingItem.name}</span> is planned on {pendingItem.planned_on_events}{' '}
+            {pendingItem.planned_on_events === 1 ? 'event' : 'events'}. Deleting it removes it from those plans too.
+          </>
+        ) : (
+          <>
+            <span className="text-zinc-200">{pendingItem.name}</span> is removed from your owned gear.
+          </>
+        ))}
+    </ConfirmDialog>
+    </>
   )
 }
 

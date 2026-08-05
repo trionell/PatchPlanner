@@ -90,7 +90,13 @@ export interface LayersPanelProps {
   onSetActive: (id: number) => void
   onCreate: (name: string) => void
   onUpdate: (id: number, patch: Partial<Omit<StagePlotLayer, 'id' | 'plot_id'>>) => void
-  onDelete: (id: number) => void
+  /**
+   * Raises the delete; it does **not** confirm. The confirm belongs to
+   * `StagePlotTab`, because in fullscreen this panel renders inside a
+   * `backdrop-blur` box, and `backdrop-filter` makes a containing block that a
+   * `position: fixed` dialog cannot escape (ROADMAP D6).
+   */
+  onDelete: (layer: StagePlotLayer) => void
   readOnly?: boolean
 }
 
@@ -177,9 +183,7 @@ export function StagePlotLayersPanel({ layers, activeLayerId, onSetActive, onCre
               type="button"
               className="text-zinc-500 hover:text-red-400 disabled:opacity-30"
               disabled={ordered.length <= 1}
-              onClick={() => {
-                if (window.confirm(`Delete layer "${layer.name}" and every element on it?`)) onDelete(layer.id)
-              }}
+              onClick={() => onDelete(layer)}
               title={ordered.length <= 1 ? 'A plot always keeps at least one layer' : 'Delete layer and its elements'}
             >
               <Trash2 className="h-3.5 w-3.5" />

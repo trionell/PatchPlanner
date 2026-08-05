@@ -10,6 +10,7 @@ import { vocabularyTint } from '../../lib/vocabularyTint'
 import { outputChainSegments, type ChainCellModel, type SegmentNode } from '../../lib/patchSheet'
 import type { OutputFlowContext } from '../../lib/signalFlow'
 import type { AudioPatchOutput, Console, InventoryItem, OutputCable, OutputDevice, StageMulti, Stagebox } from '../../types'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { FieldStack } from '../ui/GearList'
 import { Input } from '../ui/Input'
 import { MicroLabel } from '../ui/Label'
@@ -157,6 +158,8 @@ export function OutputSheet({
   const columns = columnsFor(multiDesk)
   const deskLabel = (output: AudioPatchOutput) => consoleName(output) ?? 'no desk'
   const [deskFilter, setDeskFilter] = useState<number | null>(null)
+  /* The output, never a boolean — a list of near-identical numbered rows. */
+  const [pendingOutput, setPendingOutput] = useState<AudioPatchOutput | null>(null)
   const shown = multiDesk && deskFilter != null ? visible.filter((row) => row.output.console_id === deskFilter) : visible
 
   return (
@@ -219,11 +222,7 @@ export function OutputSheet({
                         saveLabel="Save output"
                         onSave={editor.save}
                         onCancel={editor.close}
-                        onDelete={() => {
-                          if (window.confirm(`Delete output ${output.output_number}${output.output_name ? ` ${output.output_name}` : ''}? Any cable leaving it is removed with it.`)) {
-                            removeOutput.mutate(output.id)
-                          }
-                        }}
+                        onDelete={() => setPendingOutput(output)}
                         handoff={
                           onEditOutputInFlow
                             ? { label: 'Routing', text: 'Edit in Flow', onSelect: () => onEditOutputInFlow(output) }
@@ -322,6 +321,29 @@ export function OutputSheet({
           {(saveOutput.error ?? removeOutput.error ?? setCableItem.error ?? removeCable.error)?.message}
         </p>
       )}
+
+      {/* Last sibling, for the same reason as the input sheet: the row editor that
+          raises this lives in a `<tr>`. */}
+      <ConfirmDialog
+        open={pendingOutput != null}
+        title="Delete output"
+        onCancel={() => setPendingOutput(null)}
+        onConfirm={() => {
+          if (pendingOutput) removeOutput.mutate(pendingOutput.id)
+          setPendingOutput(null)
+        }}
+      >
+        {pendingOutput && (
+          <>
+            Output{' '}
+            <span className="text-zinc-200">
+              {pendingOutput.output_number}
+              {pendingOutput.output_name ? ` ${pendingOutput.output_name}` : ''}
+            </span>{' '}
+            is removed from the patch. Any cable leaving it is removed with it.
+          </>
+        )}
+      </ConfirmDialog>
     </>
   )
 }

@@ -6,6 +6,7 @@ import { itemLabel } from '../../lib/utils'
 import type { AudioPatchOutput, Console, InputChannel, InventoryItem, OwnedItem } from '../../types'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { DrawerSection, FieldStack, FormActions, GearCard, GearForm, GearSpecs, GearTop, Meter, Spec } from '../ui/GearList'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
@@ -48,6 +49,8 @@ export function ConsoleSection({ eventId, consoles, channels, outputs, audioItem
   const queryClient = useQueryClient()
   const [editingId, setEditingId] = useState<number | null>(null)
   const [adding, setAdding] = useState(false)
+  /* The desk, never a boolean — one confirm serves the whole list. */
+  const [pendingDesk, setPendingDesk] = useState<Console | null>(null)
   const [draftName, setDraftName] = useState('')
   const [draftRole, setDraftRole] = useState<Console['role']>('foh')
   const [draftItem, setDraftItem] = useState('')
@@ -90,6 +93,7 @@ export function ConsoleSection({ eventId, consoles, channels, outputs, audioItem
   }
 
   return (
+    <>
     <DrawerSection
       label="Consoles"
       count={consoles.length}
@@ -224,11 +228,7 @@ export function ConsoleSection({ eventId, consoles, channels, outputs, audioItem
                     size="sm"
                     variant="ghost"
                     className="h-8 px-3 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-300"
-                    onClick={() => {
-                      if (window.confirm(`Delete ${desk.name || 'this console'}? Cables patched to its local jacks are cleared; channels and outputs are kept.`)) {
-                        remove.mutate(desk.id)
-                      }
-                    }}
+                    onClick={() => setPendingDesk(desk)}
                   >
                     Delete
                   </Button>
@@ -288,5 +288,24 @@ export function ConsoleSection({ eventId, consoles, channels, outputs, audioItem
         <p className="text-xs text-red-400">{(create.error ?? update.error ?? remove.error)?.message}</p>
       )}
     </DrawerSection>
+
+    {/* Sibling, after the section: this renders inside a Drawer, and both are z-50. */}
+    <ConfirmDialog
+      open={pendingDesk != null}
+      title="Delete console"
+      onCancel={() => setPendingDesk(null)}
+      onConfirm={() => {
+        if (pendingDesk) remove.mutate(pendingDesk.id)
+        setPendingDesk(null)
+      }}
+    >
+      {pendingDesk && (
+        <>
+          <span className="text-zinc-200">{pendingDesk.name || 'This console'}</span> is removed from the event. Cables patched
+          to its local jacks are cleared; channels and outputs are kept.
+        </>
+      )}
+    </ConfirmDialog>
+    </>
   )
 }

@@ -56,9 +56,7 @@ export function InputDeviceSection({
       withOutputs
       onCreate={(data: DeviceDraftData) => createM.mutate(data)}
       onUpdate={(id, data) => updateM.mutate({ id, data })}
-      onDelete={(device) => {
-        if (window.confirm(`Delete "${device.name}"? Any cable connected to it is removed with it.`)) deleteM.mutate(device.id)
-      }}
+      onDelete={(device) => deleteM.mutate(device.id)}
       error={createM.error ?? updateM.error ?? deleteM.error}
       readOnly={readOnly}
     />

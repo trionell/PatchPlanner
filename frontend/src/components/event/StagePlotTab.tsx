@@ -21,12 +21,13 @@ import {
   type StagePlotElementCreate,
   type StagePlotElementPatch,
 } from '../../api/stagePlots'
-import type { PlotTruss, StagePlotResponse, StagePlotView, TrussSide } from '../../types'
+import type { PlotTruss, StagePlotLayer, StagePlotResponse, StagePlotView, TrussSide } from '../../types'
 import { useDraftState } from '../../hooks/useDraftState'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { usePlotView } from '../../hooks/usePlotView'
 import { clampPlotZoom, roundCm } from '../../lib/stagePlot'
 import { Button } from '../ui/Button'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Input } from '../ui/Input'
 import { MicroLabel } from '../ui/Label'
 import { PatchPanel } from '../ui/PatchPanel'
@@ -107,6 +108,15 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
   const [selectedElementId, setSelectedElementId] = useState<number | null>(null)
   const [creatingName, setCreatingName] = useState<string | null>(null)
   const [renamingName, setRenamingName] = useState<string | null>(null)
+  /* The plot, not a boolean. `window.confirm` blocked the thread, so the active plot
+     could not change under it; a dialog does not, and the tabs above are one click away.
+     The id travels with the confirm and into the mutation for the same reason. */
+  const [pendingPlot, setPendingPlot] = useState<{ id: number; name: string } | null>(null)
+  /* The layer delete confirms *here*, not in `StagePlotLayersPanel` that raises it.
+     In fullscreen the panel renders inside a `backdrop-blur-sm` box, and
+     `backdrop-filter` creates a containing block — a `position: fixed` dialog inside
+     it is positioned and clipped against that box instead of the viewport. */
+  const [pendingLayer, setPendingLayer] = useState<StagePlotLayer | null>(null)
   const [gridSizeDraft, setGridSizeDraft] = useDraftState(response?.plot.grid_size_cm, String, '25')
   const [trussManagerOpen, setTrussManagerOpen] = useState(false)
   // Fullscreen editor: the canvas fills the browser window and the
@@ -163,8 +173,7 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
     },
   })
   const deletePlotMutation = useMutation({
-    mutationFn: async () => {
-      const doomed = activePlotId as number
+    mutationFn: async (doomed: number) => {
       await deleteStagePlot(eventId, doomed)
       return doomed
     },
@@ -606,9 +615,7 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
                   variant="ghost"
                   size="sm"
                   title="Delete plot"
-                  onClick={() => {
-                    if (window.confirm(`Delete stage plot "${response.plot.name}" and everything on it?`)) deletePlotMutation.mutate()
-                  }}
+                  onClick={() => setPendingPlot({ id: response.plot.id, name: response.plot.name })}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -810,7 +817,7 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
                 onSetActive={setChosenLayerId}
                 onCreate={(name) => createLayerMutation.mutate(name)}
                 onUpdate={(layerId, patch) => updateLayerMutation.mutate({ layerId, patch })}
-                onDelete={(layerId) => deleteLayerMutation.mutate(layerId)}
+                onDelete={(layer) => setPendingLayer(layer)}
                 readOnly={readOnly}
               />
               <section className="flex flex-col gap-1.5">
@@ -895,6 +902,40 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
       )}
     </div>
     {response && <StagePlotSheet eventId={eventId} response={response} />}
+
+    {/* Last siblings, outside the fullscreen shell entirely — see `pendingLayer`. */}
+    <ConfirmDialog
+      open={pendingLayer != null}
+      title="Delete layer"
+      onCancel={() => setPendingLayer(null)}
+      onConfirm={() => {
+        if (pendingLayer) deleteLayerMutation.mutate(pendingLayer.id)
+        setPendingLayer(null)
+      }}
+    >
+      {pendingLayer && (
+        <>
+          Layer <span className="text-zinc-200">{pendingLayer.name}</span> and every element on it are removed from this plot.
+        </>
+      )}
+    </ConfirmDialog>
+
+    <ConfirmDialog
+      open={pendingPlot != null}
+      title="Delete stage plot"
+      onCancel={() => setPendingPlot(null)}
+      onConfirm={() => {
+        if (pendingPlot) deletePlotMutation.mutate(pendingPlot.id)
+        setPendingPlot(null)
+      }}
+    >
+      {pendingPlot && (
+        <>
+          <span className="text-zinc-200">{pendingPlot.name}</span> and everything on it — every layer, every element and every
+          truss placement — are removed from this event.
+        </>
+      )}
+    </ConfirmDialog>
     </>
   )
 }
