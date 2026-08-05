@@ -50,33 +50,33 @@
 
 ## 4. Drawing the flow — `flow_draw.go`
 
-- [ ] 4.1 Draw a node: border, header with name and kind badge, port rows with a filled or
+- [x] 4.1 Draw a node: border, header with name and kind badge, port rows with a filled or
       hollow jack mark, footer with its counts. Jack state legible without colour.
-- [ ] 4.2 Draw a cable line from its routed segments, with a vector arrowhead at the
+- [x] 4.2 Draw a cable line from its routed segments, with a vector arrowhead at the
       destination. No character is used for any mark.
-- [ ] 4.3 Draw the colour swatch on a port from the derived channel/output colour, carrying
+- [x] 4.3 Draw the colour swatch on a port from the derived channel/output colour, carrying
       no meaning colour alone carries.
-- [ ] 4.4 The page's title line and key — section number, name, stated scale, counts, and the
+- [x] 4.4 The page's title line and key — section number, name, stated scale, counts, and the
       legend for colour and jack state.
 
 ## 5. The document — `audio_pdf.go`
 
-- [ ] 5.1 Page furniture: masthead (event, venue, dates, inventory, generated date, counts),
+- [x] 5.1 Page furniture: masthead (event, venue, dates, inventory, generated date, counts),
       running head on later pages, footer with `page / total`, and a `SetHeaderFunc` that
       repeats the current section's column header after an automatic break — the rental
       order's mechanism.
-- [ ] 5.2 Section 1, the input patch: nine columns at
+- [x] 5.2 Section 1, the input patch: nine columns at
       `Ch 9 · Name 33 · W 6 · Source 27 · Microphone/DI 40 · Stand 23 · 48 V 9 · Conn 16 · Buses 23`,
       groups upright and DCAs italic, colour stripe, phantom drawn as a square.
-- [ ] 5.3 The continuation line — a note, or a statement that a channel has no source, as an
+- [x] 5.3 The continuation line — a note, or a statement that a channel has no source, as an
       italic second line spanning the text block. A row without one costs no height.
-- [ ] 5.4 Section 2, the output patch: seven columns at
+- [x] 5.4 Section 2, the output patch: seven columns at
       `Out 9 · Name 33 · Type 21 · W 6 · Destination 57 · Via 43 · Conn 17`, with the same
       continuation line for notes and for an output that reaches nothing.
-- [ ] 5.5 Section 3, the stage rig: seven columns, the local-panel line, and the totals line.
-- [ ] 5.6 Sections 4 and 5 — the two flow drawings, each starting a landscape page, inputs
+- [x] 5.5 Section 3, the stage rig: seven columns, the local-panel line, and the totals line.
+- [x] 5.6 Sections 4 and 5 — the two flow drawings, each starting a landscape page, inputs
       then outputs.
-- [ ] 5.7 Empty sections state that they hold nothing rather than being omitted; an event
+- [x] 5.7 Empty sections state that they hold nothing rather than being omitted; an event
       with nothing planned still produces a document.
 - [ ] 5.8 Correct `rental_pdf.go`'s cp1252 comment: `–` and `·` *are* representable
       (`96`, `B7`); what is not is `→`, and it substitutes silently to `.` rather than
@@ -84,12 +84,12 @@
 
 ## 6. The endpoint
 
-- [ ] 6.1 `GET /api/v1/events/{id}/audio-export/pdf` on the existing event router, so
+- [x] 6.1 `GET /api/v1/events/{id}/audio-export/pdf` on the existing event router, so
       `RequireEventAccess` applies without new code. Content type and disposition as
       `exportPDF` does.
-- [ ] 6.2 `httptest` cases: a member gets a PDF, a non-member is refused, an unknown event
+- [x] 6.2 `httptest` cases: a member gets a PDF, a non-member is refused, an unknown event
       404s, an event with nothing planned still returns a document.
-- [ ] 6.3 Assert the document is identical whichever surface asked — one endpoint, so this is
+- [x] 6.3 Assert the document is identical whichever surface asked — one endpoint, so this is
       a test that the response depends only on event and data.
 
 ## 7. The frontend

@@ -37,8 +37,8 @@ func seedAudioEvent(t *testing.T) (*sql.DB, int64, int64) {
 	desk, err := db.CreateConsole(database, domain.Console{
 		EventID: event.ID, Name: "SD12", Role: "foh",
 		InputCount: 96, OutputCount: 48, LocalInputCount: 8, LocalOutputCount: 8,
-		InputPositionX: 1200, InputPositionY: 40,
-		LocalInputPositionX: 700, LocalInputPositionY: 400,
+		InputPositionX: 1500, InputPositionY: 40,
+		LocalInputPositionX: 900, LocalInputPositionY: 560,
 	})
 	if err != nil {
 		t.Fatalf("create console: %v", err)
@@ -46,7 +46,9 @@ func seedAudioEvent(t *testing.T) (*sql.DB, int64, int64) {
 
 	box, err := db.CreateStagebox(database, domain.Stagebox{
 		EventID: event.ID, Name: "Rio3224-D #1", InputCount: 32, OutputCount: 24,
-		ConnectionType: "Dante", InputPositionX: 500, InputPositionY: 40,
+		ConnectionType: "Dante",
+		InputPositionX: 500, InputPositionY: 40,
+		PositionX: 900, PositionY: 40,
 	})
 	if err != nil {
 		t.Fatalf("create stagebox: %v", err)
@@ -54,7 +56,9 @@ func seedAudioEvent(t *testing.T) (*sql.DB, int64, int64) {
 
 	multi, err := db.CreateStageMulti(database, domain.StageMulti{
 		EventID: event.ID, Name: "Stage multi A", LengthM: 30, Channels: 16,
-		ConnectorType: "XLR-3", InputPositionX: 850, InputPositionY: 200,
+		ConnectorType:  "XLR-3",
+		InputPositionX: 950, InputPositionY: 60,
+		PositionX: 500, PositionY: 60,
 	})
 	if err != nil {
 		t.Fatalf("create stage multi: %v", err)
@@ -135,7 +139,7 @@ func seedAudioEvent(t *testing.T) (*sql.DB, int64, int64) {
 	}
 	speaker, err := db.CreateOutputDevice(database, domain.OutputDevice{
 		EventID: event.ID, Name: "d&b V-Series SL",
-		InputPortCount: 2, OutputPortCount: 0, PositionX: 1200, PositionY: 300,
+		InputPortCount: 2, OutputPortCount: 0, PositionX: 1500, PositionY: 300,
 	})
 	if err != nil {
 		t.Fatalf("create output device: %v", err)
@@ -252,8 +256,8 @@ func TestBuildInputGraphMirrorsTheCanvas(t *testing.T) {
 	if deskNode.Key == "" {
 		t.Fatal("no SD12 rail")
 	}
-	if deskNode.X != 1200 || deskNode.Y != 40 {
-		t.Errorf("desk rail at (%v,%v), want its stored (1200,40)", deskNode.X, deskNode.Y)
+	if deskNode.X != 1500 || deskNode.Y != 40 {
+		t.Errorf("desk rail at (%v,%v), want its stored (1500,40)", deskNode.X, deskNode.Y)
 	}
 	// Ch1 mono + Ch2 stereo + Ch3 mono = 4 ports.
 	if len(deskNode.Inputs) != 4 {

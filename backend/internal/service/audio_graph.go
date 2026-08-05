@@ -154,6 +154,8 @@ type audioGraphData struct {
 	consoles    []domain.Console
 	inCables    []domain.InputCable
 	outCables   []domain.OutputCable
+	groups      []domain.MixerGroup
+	dcas        []domain.MixerDCA
 	itemLabel   map[int64]string
 }
 
@@ -193,6 +195,12 @@ func loadAudioGraphData(database *sql.DB, eventID int64, inventoryID int64) (aud
 	}
 	if data.outCables, err = db.ListOutputCables(database, eventID); err != nil {
 		return data, fmt.Errorf("list output cables: %w", err)
+	}
+	if data.groups, err = db.ListMixerGroups(database, eventID); err != nil {
+		return data, fmt.Errorf("list groups: %w", err)
+	}
+	if data.dcas, err = db.ListMixerDCAs(database, eventID); err != nil {
+		return data, fmt.Errorf("list dcas: %w", err)
 	}
 
 	data.itemLabel = map[int64]string{}
@@ -295,7 +303,13 @@ func buildInputGraph(data audioGraphData) FlowGraph {
 			}
 		}
 		node.Footer = fmt.Sprintf("%d / %d patched", countPatched(node.Inputs), desk.InputCount)
-		graph.Nodes = append(graph.Nodes, node)
+		// A desk with no channels on it is not drawn. Every event is born with
+		// an unnamed placeholder desk, and drawing its rail put an empty box
+		// on every graph — the canvas keeps it because it is somewhere to
+		// patch to, and paper has nothing to patch.
+		if len(node.Inputs) > 0 {
+			graph.Nodes = append(graph.Nodes, node)
+		}
 		if y+deskRailStepY > nextY+deskRailStepY {
 			nextY = y + deskRailStepY
 		} else {
@@ -425,7 +439,9 @@ func buildOutputGraph(data audioGraphData) FlowGraph {
 			}
 		}
 		node.Footer = fmt.Sprintf("%d / %d patched", countPatched(node.Outputs), len(node.Outputs))
-		graph.Nodes = append(graph.Nodes, node)
+		if len(node.Outputs) > 0 {
+			graph.Nodes = append(graph.Nodes, node)
+		}
 	}
 
 	graph.Nodes = append(graph.Nodes, passThroughNodes(data, patched, colors, false)...)
