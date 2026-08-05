@@ -268,6 +268,30 @@ export function trussLength(pieces: Array<{ length_cm: number }>): number {
   return pieces.reduce((sum, piece) => sum + piece.length_cm, 0)
 }
 
+/**
+ * What the truss will measure once `pieceId` is gone (Slice 39 FR-018).
+ *
+ * The confirm asks about the piece, but the consequence is the *truss* — the bar
+ * gets shorter on every plot that shows it, and the user is looking at a list of
+ * near-identical rows while it happens. So the sentence states the new length,
+ * which means the length has to be derivable without a render.
+ *
+ * A piece id that is not in the truss returns the length unchanged: the row is
+ * gone already, and a confirm is not the place to discover it.
+ */
+export function lengthWithoutPiece(pieces: Array<{ id: number; length_cm: number }>, pieceId: number): number {
+  return trussLength(pieces.filter((piece) => piece.id !== pieceId))
+}
+
+/**
+ * The drawer's subtitle — what its contents are shared by, which is the one
+ * thing about a truss that is not visible on the plot it is drawn on.
+ */
+export function trussSubtitle(count: number): string {
+  if (count === 0) return 'Trusses are shared by every plot in this event'
+  return `${count} ${count === 1 ? 'truss' : 'trusses'}, shared by every plot in this event`
+}
+
 export interface FixtureLabelSettings {
   show_fixture_name: boolean
   show_fixture_fid: boolean

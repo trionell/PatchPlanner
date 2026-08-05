@@ -12,12 +12,14 @@ import {
   projectedOutline,
   projectElement,
   pxPerCm,
+  lengthWithoutPiece,
   rectLocalPoint,
   roundCm,
   snapPosition,
   trussLaneLocalV,
   trussLength,
   trussSideForLocalV,
+  trussSubtitle,
   viewAxisFields,
   type SnapSettings,
 } from './stagePlot'
@@ -318,6 +320,36 @@ describe('trussLength', () => {
     expect(trussLength([{ length_cm: 200 }, { length_cm: 200 }, { length_cm: 200 }])).toBe(600)
     expect(trussLength([])).toBe(0)
     expect(trussLength([{ length_cm: 250 }, { length_cm: 50 }])).toBe(300)
+  })
+})
+
+describe('lengthWithoutPiece (Slice 39 FR-018)', () => {
+  const pieces = [
+    { id: 1, length_cm: 300 },
+    { id: 2, length_cm: 300 },
+    { id: 3, length_cm: 200 },
+  ]
+
+  it('is what the truss will measure once the piece is gone', () => {
+    expect(lengthWithoutPiece(pieces, 3)).toBe(600)
+    expect(lengthWithoutPiece(pieces, 1)).toBe(500)
+  })
+
+  it('leaves the length alone for a piece that is not in the truss', () => {
+    expect(lengthWithoutPiece(pieces, 99)).toBe(800)
+  })
+
+  it('is 0 for the last piece, and for a truss with none', () => {
+    expect(lengthWithoutPiece([{ id: 1, length_cm: 200 }], 1)).toBe(0)
+    expect(lengthWithoutPiece([], 1)).toBe(0)
+  })
+})
+
+describe('trussSubtitle (Slice 39 FR-005)', () => {
+  it('counts, and reads as a sentence at one and at none', () => {
+    expect(trussSubtitle(3)).toBe('3 trusses, shared by every plot in this event')
+    expect(trussSubtitle(1)).toBe('1 truss, shared by every plot in this event')
+    expect(trussSubtitle(0)).toBe('Trusses are shared by every plot in this event')
   })
 })
 
