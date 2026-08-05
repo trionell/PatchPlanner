@@ -8,6 +8,9 @@
       "enabled": true,
       "priority": 10,
       "registered_commands": {
+        "claude": [
+          "speckit.agent-context.update"
+        ],
         "copilot": [
           "speckit.agent-context.update"
         ]

@@ -2,15 +2,17 @@
 
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan:
-`specs/037-flow-canvas-plane/plan.md`
-
-The overall implementation roadmap (all feature slices, their order, and
-dependencies) is in `ROADMAP.md` at the repository root.
+shell commands, and other important information, read the current plan
+at specs/039-plot-trusses-drawer/plan.md
 <!-- SPECKIT END -->
 
 Everything below the marker is durable and survives the block's regeneration.
 Read it first; it answers most of what a slice needs without opening another file.
+
+The block above is generated — it names the current plan and nothing else. Never
+write into it by hand; anything put there is deleted the next time it regenerates.
+The overall implementation roadmap (all feature slices, their order, and
+dependencies) is in `ROADMAP.md` at the repository root.
 
 ## Stack
 
@@ -83,6 +85,32 @@ one whole.
 above `design/`. Where a rule and a constitutional principle appear to conflict,
 the constitution wins. Any deviation is justified in that slice's `plan.md` under
 Complexity Tracking.
+
+## Which workflow
+
+Two spec-driven workflows are installed. **Ask the user which one to use, and wait
+for the answer.** Do this at the start of every slice and every defect, before any
+spec, proposal or branch exists. Never choose for them, and never carry the previous
+answer over to the next piece of work — the choice is per slice, per defect.
+
+| | Owns | Invoked by |
+|---|---|---|
+| Spec Kit | `.specify/`, `specs/`, `.claude/skills/speckit-*` | `/speckit-*` |
+| OpenSpec | `openspec/`, `.claude/skills/openspec-*` | `/opsx:*` |
+
+They share no files, so both can be installed without interfering. What they must
+not share is one piece of work: whichever is chosen carries that slice or defect to
+the end, and the other is left alone.
+
+Everything outside the two tools is common to both and is not optional in either —
+the constitution and its Constitution Check, `design/` as the sole design authority,
+the Frontend Design Workflow approval gate, the Gates, and the `ROADMAP.md` record.
+OpenSpec has no built-in step for any of these; `openspec/config.yaml` carries them
+into its prompts, and closing a piece of work out in `ROADMAP.md` stays manual.
+
+OpenSpec's generated files under `.claude/commands/opsx/` and
+`.claude/skills/openspec-*/` are the tool's to own — `openspec update` overwrites
+hand edits. Project instruction belongs here or in `openspec/config.yaml`.
 
 ## Workflow
 
