@@ -13,7 +13,7 @@ same four moves, so they are stated once here and not repeated per task:
 
 ## 1. Ordered simplest-first — flat lists, no enclosing overlay
 
-- [ ] 1.1 `event/StagePlotInspector.tsx:181` — layer delete. Sentence today: *"Delete layer
+- [x] 1.1 `event/StagePlotInspector.tsx:181` — layer delete. Sentence today: *"Delete layer
       "{name}" and every element on it?"* Raised from a `.map()` over layers inside the
       inspector; state goes on the inspector, not the row.
 - [ ] 1.2 `event/StagePlotTab.tsx:610` — plot delete. Sentence today: *"Delete stage plot
