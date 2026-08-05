@@ -27,6 +27,7 @@ import { useIsMobile } from '../../hooks/useIsMobile'
 import { usePlotView } from '../../hooks/usePlotView'
 import { clampPlotZoom, roundCm } from '../../lib/stagePlot'
 import { Button } from '../ui/Button'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Input } from '../ui/Input'
 import { MicroLabel } from '../ui/Label'
 import { PatchPanel } from '../ui/PatchPanel'
@@ -107,6 +108,10 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
   const [selectedElementId, setSelectedElementId] = useState<number | null>(null)
   const [creatingName, setCreatingName] = useState<string | null>(null)
   const [renamingName, setRenamingName] = useState<string | null>(null)
+  /* The plot, not a boolean. `window.confirm` blocked the thread, so the active plot
+     could not change under it; a dialog does not, and the tabs above are one click away.
+     The id travels with the confirm and into the mutation for the same reason. */
+  const [pendingPlot, setPendingPlot] = useState<{ id: number; name: string } | null>(null)
   const [gridSizeDraft, setGridSizeDraft] = useDraftState(response?.plot.grid_size_cm, String, '25')
   const [trussManagerOpen, setTrussManagerOpen] = useState(false)
   // Fullscreen editor: the canvas fills the browser window and the
@@ -163,8 +168,7 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
     },
   })
   const deletePlotMutation = useMutation({
-    mutationFn: async () => {
-      const doomed = activePlotId as number
+    mutationFn: async (doomed: number) => {
       await deleteStagePlot(eventId, doomed)
       return doomed
     },
@@ -606,9 +610,7 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
                   variant="ghost"
                   size="sm"
                   title="Delete plot"
-                  onClick={() => {
-                    if (window.confirm(`Delete stage plot "${response.plot.name}" and everything on it?`)) deletePlotMutation.mutate()
-                  }}
+                  onClick={() => setPendingPlot({ id: response.plot.id, name: response.plot.name })}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -895,6 +897,25 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
       )}
     </div>
     {response && <StagePlotSheet eventId={eventId} response={response} />}
+
+    {/* Last sibling. The fullscreen shell is z-40 and the sheet is z-50; a confirm
+        rendered inside either would sit under the surface that raised it. */}
+    <ConfirmDialog
+      open={pendingPlot != null}
+      title="Delete stage plot"
+      onCancel={() => setPendingPlot(null)}
+      onConfirm={() => {
+        if (pendingPlot) deletePlotMutation.mutate(pendingPlot.id)
+        setPendingPlot(null)
+      }}
+    >
+      {pendingPlot && (
+        <>
+          <span className="text-zinc-200">{pendingPlot.name}</span> and everything on it — every layer, every element and every
+          truss placement — are removed from this event.
+        </>
+      )}
+    </ConfirmDialog>
     </>
   )
 }
