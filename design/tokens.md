@@ -109,8 +109,10 @@ mono   ui-monospace, SFMono-Regular, Menlo, Consolas, monospace     (font-mono)
 1. **Micro-labels** — uppercase, `tracking-[0.14em]`, quiet.
 2. **Numbers that line up** — always with `tabular-nums`. Channel numbers, port
    counts, capacities, DMX addresses, the zoom percentage.
-3. **Signal chains** — `ChainCell`, `ChainText`, the "lands on" note. A chain is a
-   fixed-pitch string a technician reads hop by hop.
+3. **Signal chains** — `ChainCell` and the "lands on" note. A chain is a
+   fixed-pitch string a technician reads hop by hop. (`ChainText` was the printed
+   half of this until Slice 40, which took the chain column off paper entirely and
+   drew the path instead — see patterns.md §8a.)
 4. **Equipment identifiers** — model names and spec values in `GearSpecs`.
 
 Everything else is sans. Prose in mono is the single fastest way to make a planning

@@ -1,13 +1,15 @@
 import type { ReactNode } from 'react'
 import { LayoutGrid, Plus, Search, Table2 } from 'lucide-react'
 import type { PatchTab, PatchView } from '../../hooks/usePatchView'
-import { PrintButton } from '../print/PrintButton'
+import { ExportPdfButton } from '../print/ExportPdfButton'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { PatchPanel } from '../ui/PatchPanel'
 
 interface AudioPatchShellProps {
   tab: PatchTab
+  /** The event whose audio documentation the export downloads. */
+  eventId: number
   view: PatchView
   onViewChange: (view: PatchView) => void
   search: string
@@ -48,6 +50,7 @@ const NOUNS: Record<PatchTab, { title: string; search: string; add: string }> = 
  */
 export function AudioPatchShell({
   tab,
+  eventId,
   view,
   onViewChange,
   search,
@@ -106,7 +109,7 @@ export function AudioPatchShell({
 
             <span className="flex-1" />
 
-            <PrintButton />
+            <ExportPdfButton eventId={eventId} />
             {onAdd && (
               <Button size="xs" onClick={onAdd}>
                 <Plus className="mr-1.5 h-3.5 w-3.5" />{nouns.add}

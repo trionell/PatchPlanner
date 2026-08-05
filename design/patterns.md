@@ -767,16 +767,72 @@ branch renders it exactly as the desktop branch does (§8).
 Every phone surface reaches the export it has: PDF and `.xlsx` are downloads, and
 downloads are the one thing a phone does as well as a desk.
 
-## 8 · Print
+## 8 · Paper
 
-Print sheets (`components/print/`) are a separate visual language and stay that
-way: black on white, `9pt` tables, `break-inside: avoid` on rows.
+Paper is a separate visual language and stays that way: black on white, small
+tables, nothing that depends on a hue.
 
-The rules that carry across are the structural ones, not the visual ones. A chain
-prints as `ChainText` — the same derivation as `ChainCell`, without the colour
-encodings, because colour cannot be relied on from a printer.
+**Two mechanisms, and which surface uses which.** A surface reaches paper either
+through the browser's own print path or through a document the server writes. The
+test is what the paper has to do:
 
-App chrome and editing UI are removed with `print:hidden`; the forced black-on-white
-rules in `index.css` are `!important` because the elements underneath carry
-dark-theme utility classes. Any new print surface follows the same two mechanisms —
-`print:hidden` on chrome, `.print-sheet` on the paper.
+| The paper must | Mechanism |
+|---|---|
+| repeat a column header across a page break | server-written |
+| change orientation part-way through | server-written |
+| state a scale, or hold a drawing | server-written |
+| show one screen's worth of rows, as they are on screen | browser print |
+
+Browser print cannot do any of the first three, whatever the stylesheet says. The
+audio plan needs all of them, so it is one generated PDF — masthead, running head
+naming the section, repeated column headers, footer with page over total. Lighting
+and the stage plot need none of them and stay on browser print.
+
+**Browser print.** Sheets live in `components/print/`, hidden on screen and revealed
+by `@media print`. App chrome and editing UI are removed with `print:hidden`; the
+forced black-on-white rules in `index.css` are `!important` because the elements
+underneath carry dark-theme utility classes. A new browser-print surface follows the
+same two mechanisms — `print:hidden` on chrome, `.print-sheet` on the paper.
+
+**Server-written documents.** Built with `go-pdf/fpdf` in `internal/service/`, served
+as an attachment from a `GET` under the event's routes, so the document is
+reproducible from a URL and testable without a browser. The constraint that runs
+through all of them: built-in Helvetica with a cp1252 translator, no embedded font
+file. A character cp1252 cannot represent does not render as garbage — it renders as
+`.`, which reads as punctuation. So **anything carrying meaning is drawn, not
+typed**: an arrowhead is a filled triangle, a jack is a circle, phantom power is a
+filled square. `→` in particular is unavailable.
+
+A row that needs more than its columns can hold grows a continuation line beneath
+it, spanning the text block, rather than gaining a column that is empty on every
+other row. That is also where a document states a gap: *"Nothing patched into this
+channel"* is a sentence, where a row of blank cells is not.
+
+**Colour on paper** is carried and never load-bearing, on either mechanism. Where a
+document shows a colour it is repeating a value the planner chose, and every fact it
+states is also written. The document is complete in monochrome, which is what it
+will usually be printed in.
+
+### 8a · A drawn signal path
+
+A graph on paper is drawn from the same stored node positions the canvas reads, at
+the document's own metrics — it is a second rendering of one model, as a table is,
+not a copy of the screen. The arrangement is scaled to fit and the scale is stated;
+below the legibility floor for a jack label the drawing divides across pages instead,
+cut between boxes and never through one.
+
+Every cable is the same hairline, so two parallel runs that touch stop being two
+runs. **Lines may cross; lines may never share a line.**
+
+- **R1** Orthogonal only — horizontal and vertical runs, right-angle corners.
+- **R2** Every vertical run owns a lane inside the channel it crosses.
+- **R3** A lane is reused only when the two runs cannot touch.
+- **R4** A horizontal run sits at its own jack's height.
+- **R5** Two cables meeting at one jack share only the stub, and it is staggered so
+  the split is visible. Nothing else shares anything.
+- **R6** A line never passes beneath a box; it routes to the gutter and back.
+- **R7** Crossings are drawn plain — no hop arcs, no gap breaks. A second convention
+  to learn is worse than a clean intersection.
+
+The invariant these hold is checkable, and is checked: `CollinearOverlaps` reports
+any two runs sharing a line, and every routing test calls it.

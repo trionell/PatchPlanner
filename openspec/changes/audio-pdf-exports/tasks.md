@@ -78,7 +78,7 @@
       then outputs.
 - [x] 5.7 Empty sections state that they hold nothing rather than being omitted; an event
       with nothing planned still produces a document.
-- [ ] 5.8 Correct `rental_pdf.go`'s cp1252 comment: `–` and `·` *are* representable
+- [x] 5.8 Correct `rental_pdf.go`'s cp1252 comment: `–` and `·` *are* representable
       (`96`, `B7`); what is not is `→`, and it substitutes silently to `.` rather than
       rendering as garbage.
 
@@ -94,26 +94,26 @@
 
 ## 7. The frontend
 
-- [ ] 7.1 A download action beside `PrintButton` that hits the new endpoint and saves the
+- [x] 7.1 A download action beside `PrintButton` that hits the new endpoint and saves the
       file. `PrintButton` itself is untouched — Lighting and the stage plot still use it.
-- [ ] 7.2 Point `AudioPatchShell` and `SignalFlowTab`'s desktop bar at it.
-- [ ] 7.3 The phone: `SignalFlowTab`'s `MobilePanel` overflow item becomes *Export PDF* in
+- [x] 7.2 Point `AudioPatchShell` and `SignalFlowTab`'s desktop bar at it.
+- [x] 7.3 The phone: `SignalFlowTab`'s `MobilePanel` overflow item becomes *Export PDF* in
       place of *Print signal flow*, with a ≥ 44 px target.
-- [ ] 7.4 Vitest cover the new action's render on both branches.
+- [x] 7.4 Vitest cover the new action's render on both branches.
 
 ## 8. Design and close-out
 
-- [ ] 8.1 Amend `design/patterns.md` §8: two print mechanisms, which surface uses which and
+- [x] 8.1 Amend `design/patterns.md` §8: two print mechanisms, which surface uses which and
       why, and the routing rules R1–R7 as the language for a drawn signal path. Same commit
       as the code it describes.
 - [ ] 8.2 Run the document against a copy of real data (`/tmp` copy, `PATCHPLANNER_DB` —
       never `backend/patchplanner.db`) and confirm the 5 pt floor and the tiling cut against
       a real patch. Record what the numbers turned out to be.
-- [ ] 8.3 Delete `print/InputPatchSheet.tsx`, `print/OutputPatchSheet.tsx`,
+- [x] 8.3 Delete `print/InputPatchSheet.tsx`, `print/OutputPatchSheet.tsx`,
       `print/ChainText.tsx` and their call sites, and remove the cases in
       `printSheets.test.tsx` that covered them. Last, after 5–7 are green.
-- [ ] 8.4 Run the Gates: `cd backend && gofmt -l . && go vet ./... && go test ./...`;
+- [x] 8.4 Run the Gates: `cd backend && gofmt -l . && go vet ./... && go test ./...`;
       `cd frontend && npx tsc -b && npx eslint src && npx vitest run && npx vite build`.
 - [ ] 8.5 Review against `specs/audio-document-export/spec.md` and fix what review finds.
-- [ ] 8.6 Write the outcome into `ROADMAP.md`'s Slice 40 section — manual, `openspec archive`
+- [x] 8.6 Write the outcome into `ROADMAP.md`'s Slice 40 section — manual, `openspec archive`
       does not know about it.

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Printer, Search } from 'lucide-react'
+import { FileDown, Search } from 'lucide-react'
+import { audioExportPdfUrl } from '../../api/audio'
 import { getAudioPatch } from '../../api/audioPatch'
 import { listEventInventoryItems } from '../../api/inventory'
 import { useEventTab } from '../../hooks/useEventTab'
@@ -10,7 +11,7 @@ import { matchesSearch } from '../../lib/patchSearch'
 import { buildOutputChannelFlows, type OutputChannelFlow } from '../../lib/signalFlow'
 import { busTint, itemLabel } from '../../lib/utils'
 import type { MixerDCA, MixerGroup } from '../../types'
-import { PrintButton } from '../print/PrintButton'
+import { ExportPdfButton } from '../print/ExportPdfButton'
 import { PrintSheet } from '../print/PrintSheet'
 import { Input } from '../ui/Input'
 import { MicroLabel } from '../ui/Label'
@@ -130,8 +131,17 @@ export function SignalFlowTab({ eventId }: { eventId: number }) {
         */
         <MobilePanel
           onSearch={setSearch}
-          /* One action, so the panel renders it as its own target rather than a menu. */
-          overflow={[{ label: 'Print signal flow', icon: <Printer className="h-4 w-4" />, onClick: () => window.print() }]}
+          /*
+            One action, so the panel renders it as its own target rather than a menu.
+            It downloads the audio document rather than opening the browser's print
+            dialog (Slice 40): §7h asks every phone surface to reach the export it
+            has, and a download is a download.
+          */
+          overflow={[{
+            label: 'Export PDF',
+            icon: <FileDown className="h-4 w-4" />,
+            onClick: () => window.location.assign(audioExportPdfUrl(eventId)),
+          }]}
           search={search}
           searchPlaceholder="Find a channel or a device…"
           strip={
@@ -201,7 +211,7 @@ export function SignalFlowTab({ eventId }: { eventId: number }) {
 
               <span className="flex-1" />
 
-              <PrintButton />
+              <ExportPdfButton eventId={eventId} />
             </>
           }
         >

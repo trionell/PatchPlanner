@@ -14,7 +14,6 @@ import { MobileChannelEditSheet } from '../mobile/MobileChannelEditSheet'
 import { Boxes, Layers, Printer } from 'lucide-react'
 import { MobileEntityList } from '../mobile/MobileEntityList'
 import { MobileSegmented } from '../mobile/MobileSegmented'
-import { InputPatchSheet } from '../print/InputPatchSheet'
 import { AudioPatchShell } from './AudioPatchShell'
 import { ZoomControl, ZOOM_MAX, ZOOM_STEP } from './graph/ZoomControl'
 import { stepZoomAdditive } from '../../lib/canvasFit'
@@ -352,26 +351,6 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
         />
       </div>
 
-      {/*
-        A sibling of the `print:hidden` wrapper, not inside it (audit.md M11).
-
-        The wrapper is doing its job — a panel must not print — and the bug was that it
-        was the *only* thing in this branch, so printing from a phone produced a blank
-        page. This is exactly the desktop return's shape (patterns.md §7h).
-      */}
-      <InputPatchSheet
-        cables={cables}
-        channels={channels}
-        consoles={consoles}
-        dcas={dcas}
-        devices={devices}
-        eventId={eventId}
-        groups={groups}
-        itemLabelById={itemLabelById}
-        sources={sources}
-        stageMultis={stageMultis}
-        stageboxes={stageboxes}
-      />
       </>
     )
   }
@@ -413,6 +392,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
   return (
     <>
       <AudioPatchShell
+        eventId={eventId}
         tab="inputs"
         view={view}
         onViewChange={setView}
@@ -516,19 +496,6 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
           />
         )}
       </AudioPatchShell>
-      <InputPatchSheet
-        eventId={eventId}
-        channels={channels}
-        sources={sources}
-        devices={devices}
-        stageboxes={stageboxes}
-        stageMultis={stageMultis}
-        cables={cables}
-        groups={groups}
-        dcas={dcas}
-        consoles={consoles}
-        itemLabelById={itemLabelById}
-      />
     </>
   )
 }

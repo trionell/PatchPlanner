@@ -37,10 +37,18 @@ var pdfColumns = []float64{52, 50, 14, 14, 14, 20, 22}
 //
 // A hard constraint runs through this file: the document uses built-in
 // Helvetica with a cp1252 translator, so no font file is embedded and the
-// binary stays small. Every string drawn therefore passes through tr() and
-// must be cp1252-representable. "å ä ö é &" are fine; "▲", "–" (en dash)
-// and "·" are NOT and would render as garbage. That is why the status
-// markers and rules below are plain ASCII.
+// binary stays small. Every string drawn therefore passes through tr().
+//
+// Slice 40 probed the translator rather than trusting this comment, and it
+// was wrong in both directions. "-" (en dash, 0x96) and "·" (middle dot,
+// 0xB7) ARE representable, along with "å ä ö é & × ° •". What is not is
+// "→" — and it does not render as garbage, it renders as "." That is the
+// worse failure: a plausible-looking full stop rather than a visible defect.
+//
+// So the rule is not "avoid these characters" but "draw anything that carries
+// meaning". The status markers below stay plain ASCII because ASCII is what
+// they need to be; see service/flow_draw.go for the marks that had to become
+// vectors.
 func (s ExportService) BuildRentalPDF(eventID int64) ([]byte, string, error) {
 	event, err := db.GetEvent(s.DB, eventID)
 	if err != nil {
