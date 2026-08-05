@@ -80,17 +80,17 @@ same four moves, so they are stated once here and not repeated per task:
 - [x] 5.1 `grep -rn "window\.confirm" frontend/src` returns **zero live calls**. Four
       matches remain, all prose: the two originals plus two new comments explaining what
       the conversion changed (`DeviceSection.tsx:53`, `StagePlotTab.tsx:111`).
-- [ ] 5.2 **Browser walk, the z-order check — NOT RUN.** No browser automation was
-      available in this session. A dev server is the only thing missing; the fault this
-      check exists for was found by reading the CSS instead (design.md, Decision 2
-      correction), but reading is not looking. **Outstanding.**
+- [x] 5.2 **Browser walk, the z-order check — run by the user 2026-08-05, passed.** Every
+      confirm renders above the surface that raised it, phone included. The one fault this
+      check exists for had already been found by reading the CSS (design.md, Decision 2
+      correction) and fixed; the walk confirms nothing else was missed.
       Original text: Open each confirm raised from inside an
       overlay — 2.3 (`RowEditor` in a table row), 3.1–3.6, and any of §1 nested in an
       inspector — and verify the dialog renders **above** it with both buttons reachable.
       Repeat at a phone viewport (≤767 px). This is the failure mode design.md Decision 2
       exists for and it does not show in tests.
-- [ ] 5.3 Browser walk, the aim check — **NOT RUN**, same reason. The one real re-aim
-      fault found (the stage plot) was caught by reading the mutation, and is fixed.
+- [x] 5.3 Browser walk, the aim check — **run by the user 2026-08-05, passed.** The one
+      real re-aim fault (the stage plot) was caught by reading the mutation and is fixed.
       Original text: with six near-identical rows, open a confirm on the
       third, cause the list to re-render, and verify it still names the third and destroys
       only it.

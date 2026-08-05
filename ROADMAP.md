@@ -2505,12 +2505,13 @@ set than the sentence counted. `run` gained a `confirmLabel` because `ConfirmDia
 a button word and `window.confirm` only ever had *OK*; the sentence verb *"Close the gaps
 around"* does not stand up as one.
 
-**Not done: the browser walk.** The z-order and re-aim checks are the two verifications
-that cannot show in tests — `renderToStaticMarkup` has no DOM and paints nothing — and
-this session had no browser automation available to run them. The containing-block fault
-above was caught by reading the CSS, not by looking at the screen. **The walk is
-outstanding**, and it is the fullscreen plot editor, the four `RowEditor`-in-a-`<tr>`
-sites and the drawer-nested sections that want looking at, on a phone too.
+**The browser walk was run by hand and passed.** The z-order and re-aim checks are the
+two verifications that cannot show in tests — `renderToStaticMarkup` has no DOM and paints
+nothing — so they were walked manually across the fullscreen plot editor, the four
+`RowEditor`-in-a-`<tr>` sites and the drawer-nested sections, on a phone too. Every confirm
+renders above the surface that raised it. Worth noting which way round it went: the one
+fault the walk existed to catch was found by *reading the CSS* first, and the walk
+confirmed nothing else had been missed.
 
 **Still browser-native: two `window.alert` calls** in `LightingTab.tsx:90,100`. Out of
 scope here — an alert is a notification, not a question, and replacing it needs a decision
