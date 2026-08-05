@@ -106,7 +106,7 @@
 - [x] 8.1 Amend `design/patterns.md` §8: two print mechanisms, which surface uses which and
       why, and the routing rules R1–R7 as the language for a drawn signal path. Same commit
       as the code it describes.
-- [ ] 8.2 Run the document against a copy of real data (`/tmp` copy, `PATCHPLANNER_DB` —
+- [x] 8.2 Run the document against a copy of real data (`/tmp` copy, `PATCHPLANNER_DB` —
       never `backend/patchplanner.db`) and confirm the 5 pt floor and the tiling cut against
       a real patch. Record what the numbers turned out to be.
 - [x] 8.3 Delete `print/InputPatchSheet.tsx`, `print/OutputPatchSheet.tsx`,
@@ -114,6 +114,6 @@
       `printSheets.test.tsx` that covered them. Last, after 5–7 are green.
 - [x] 8.4 Run the Gates: `cd backend && gofmt -l . && go vet ./... && go test ./...`;
       `cd frontend && npx tsc -b && npx eslint src && npx vitest run && npx vite build`.
-- [ ] 8.5 Review against `specs/audio-document-export/spec.md` and fix what review finds.
+- [x] 8.5 Review against `specs/audio-document-export/spec.md` and fix what review finds.
 - [x] 8.6 Write the outcome into `ROADMAP.md`'s Slice 40 section — manual, `openspec archive`
       does not know about it.

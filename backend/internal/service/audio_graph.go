@@ -444,6 +444,31 @@ func buildOutputGraph(data audioGraphData) FlowGraph {
 		}
 	}
 
+	// The desk's local jack panel is a node on this graph too, mirrored: an
+	// output arrives on the in side from the desk's own routing, and a real
+	// cable leaves the out side. Leaving it out dropped every run that goes
+	// straight out of the desk's own sockets — six of eight cables on the
+	// first real event this was run against.
+	for _, desk := range consoles {
+		if desk.LocalOutputCount == 0 {
+			continue
+		}
+		key := "console_local:" + itoa(desk.ID)
+		local := FlowNode{
+			Key:   key,
+			Title: desk.Name + " local",
+			Badge: "JACKS",
+			X:     desk.LocalPositionX,
+			Y:     desk.LocalPositionY,
+		}
+		for i := 0; i < desk.LocalOutputCount; i++ {
+			local.Inputs = append(local.Inputs, portAt(key, SideIn, i, fmt.Sprintf("From desk %d", i+1), patched, colors))
+			local.Outputs = append(local.Outputs, portAt(key, SideOut, i, fmt.Sprintf("Local out %d", i+1), patched, colors))
+		}
+		local.Footer = fmt.Sprintf("%d local jacks - %d used", desk.LocalOutputCount, countPatched(local.Outputs))
+		graph.Nodes = append(graph.Nodes, local)
+	}
+
 	graph.Nodes = append(graph.Nodes, passThroughNodes(data, patched, colors, false)...)
 
 	for _, device := range data.outDevices {
@@ -470,7 +495,22 @@ func buildOutputGraph(data audioGraphData) FlowGraph {
 				Color:   colors[key],
 			})
 		}
+		// Link-out ports daisy-chain one destination device to the next
+		// (sub -> sub -> top). They are their own from_kind and are never
+		// counted toward OutputPortCount, so they follow the ordinary
+		// outputs on the same side of the box.
+		for i := 0; i < device.LinkPortCount; i++ {
+			key := portKey{"device_link:" + itoa(device.ID), SideOut, i}
+			node.Outputs = append(node.Outputs, FlowPort{
+				Label:   fmt.Sprintf("Link %d", i+1),
+				Patched: patched[key],
+				Color:   colors[key],
+			})
+		}
 		node.Footer = fmt.Sprintf("%d in / %d out", device.InputPortCount, device.OutputPortCount)
+		if device.LinkPortCount > 0 {
+			node.Footer += fmt.Sprintf(" / %d link", device.LinkPortCount)
+		}
 		graph.Nodes = append(graph.Nodes, node)
 	}
 
@@ -598,6 +638,13 @@ func outputEdges(data audioGraphData, colors map[portKey]string) []FlowEdge {
 	}
 	offset := outputPortOffsets(data.outputs)
 
+	// A device's link-out ports live on the same box as its ordinary outputs,
+	// after them.
+	linkOffset := map[int64]int{}
+	for _, device := range data.outDevices {
+		linkOffset[device.ID] = device.OutputPortCount
+	}
+
 	var edges []FlowEdge
 	for _, cable := range data.outCables {
 		from := FlowEndpoint{Side: SideOut, Port: cable.FromPort}
@@ -605,6 +652,9 @@ func outputEdges(data audioGraphData, colors map[portKey]string) []FlowEdge {
 		case "mixer":
 			from.NodeKey = outputNode[cable.FromID]
 			from.Port = offset[cable.FromID] + cable.FromPort
+		case "device_link":
+			from.NodeKey = "device:" + itoa(cable.FromID)
+			from.Port = linkOffset[cable.FromID] + cable.FromPort
 		default:
 			from.NodeKey = fmt.Sprintf("%s:%d", cable.FromKind, cable.FromID)
 		}

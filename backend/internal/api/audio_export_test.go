@@ -7,6 +7,9 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/trionell/patchplanner/internal/db"
 )
 
 // The audio export sits on the event router, behind the same
@@ -66,6 +69,38 @@ func TestAudioExportPDFEmptyEvent(t *testing.T) {
 	body, _ := io.ReadAll(response.Body)
 	if !bytes.HasPrefix(body, []byte("%PDF-")) {
 		t.Error("no document for an event with nothing planned")
+	}
+}
+
+// The export is a read, and it is behind the event router's access check like
+// every other read. Someone who is not a member of the event gets no part of
+// the document.
+func TestAudioExportPDFStranger(t *testing.T) {
+	server, database := newTestServer(t)
+	eventID := seedEvent(t, server.URL)
+
+	stranger, err := db.UpsertUserByGoogleSub(database, "audio-stranger-sub", "audio-stranger@example.com", "Stranger", "")
+	if err != nil {
+		t.Fatalf("seed stranger: %v", err)
+	}
+	strangerToken, err := db.CreateSession(database, stranger.ID, time.Hour)
+	if err != nil {
+		t.Fatalf("create stranger session: %v", err)
+	}
+
+	response, err := clientForSession(t, server.URL, strangerToken).
+		Get(fmt.Sprintf("%s/events/%d/audio-export/pdf", server.URL, eventID))
+	if err != nil {
+		t.Fatalf("request: %v", err)
+	}
+	defer func() { _ = response.Body.Close() }()
+
+	if response.StatusCode == http.StatusOK {
+		t.Errorf("status = %d, a non-member was given the document", response.StatusCode)
+	}
+	body, _ := io.ReadAll(response.Body)
+	if bytes.HasPrefix(body, []byte("%PDF-")) {
+		t.Error("a non-member received part of the document")
 	}
 }
 

@@ -1933,9 +1933,20 @@ line, colour as carried-never-load-bearing, and §8a for a drawn signal path. Sl
 inherits this wording rather than writing its own. `tokens.md` §3's mono list loses
 `ChainText`.
 
-**Open, and honest about it:** the 5 pt legibility floor below which a drawing tiles
-is one named constant and still a guess — it has not been run against a real festival
-patch. The fixture and the random sweep are the only arrangements it has seen.
+**Run against the real database** (copied to `/tmp`, never touched in place), and it
+found the one defect the tests could not: on *Jonas och Emelies bröllop*, six of eight
+output cables were being silently dropped. Two node kinds were missing from
+`buildOutputGraph` — the desk's **local jack panel**, which is a pass-through on that
+graph exactly as it is on the input one, and a device's **link-out ports**, which
+daisy-chain sub to sub to top under their own `device_link` from_kind and are never
+counted toward `output_port_count`. Both are drawn now, and every cable on every real
+event routes with zero overlaps.
+
+**The floor was reached on real data.** That event's output graph tiles across two
+pages at shrink 0.83, which puts its jack labels at exactly the 5 pt floor; its input
+graph fits one page at 0.95. So the tiling path is exercised by a real patch rather
+than only by a fixture — but the floor itself is still a judgment, one named constant,
+and no festival-sized patch has been through it.
 
 ## Slice 41 — The plot on paper, in three views and in colour (spec: `stage-plot-pdf`) — not started
 
