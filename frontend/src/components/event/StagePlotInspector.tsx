@@ -9,7 +9,6 @@ import { useDraftState } from '../../hooks/useDraftState'
 import { clampDimension, roundCm } from '../../lib/stagePlot'
 import { STAGE_PLOT_ICONS } from '../../lib/stagePlotIcons'
 import { Button } from '../ui/Button'
-import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Input } from '../ui/Input'
 import { MicroLabel } from '../ui/Label'
 import { Select } from '../ui/Select'
@@ -91,7 +90,13 @@ export interface LayersPanelProps {
   onSetActive: (id: number) => void
   onCreate: (name: string) => void
   onUpdate: (id: number, patch: Partial<Omit<StagePlotLayer, 'id' | 'plot_id'>>) => void
-  onDelete: (id: number) => void
+  /**
+   * Raises the delete; it does **not** confirm. The confirm belongs to
+   * `StagePlotTab`, because in fullscreen this panel renders inside a
+   * `backdrop-blur` box, and `backdrop-filter` makes a containing block that a
+   * `position: fixed` dialog cannot escape (ROADMAP D6).
+   */
+  onDelete: (layer: StagePlotLayer) => void
   readOnly?: boolean
 }
 
@@ -101,9 +106,6 @@ export function StagePlotLayersPanel({ layers, activeLayerId, onSetActive, onCre
   const [newName, setNewName] = useState<string | null>(null)
   const [renamingId, setRenamingId] = useState<number | null>(null)
   const [renameValue, setRenameValue] = useState('')
-  /* The pending state is the layer, never a boolean: these rows are near-identical
-     and a confirm that silently re-aims at another one is what a confirm prevents. */
-  const [pendingLayer, setPendingLayer] = useState<StagePlotLayer | null>(null)
   const ordered = [...layers].sort((a, b) => a.sort_order - b.sort_order || a.id - b.id)
 
   const swapOrder = (index: number, direction: -1 | 1) => {
@@ -115,118 +117,98 @@ export function StagePlotLayersPanel({ layers, activeLayerId, onSetActive, onCre
   }
 
   return (
-    <>
-      <section className="flex flex-col gap-1.5">
-        <MicroLabel>Layers</MicroLabel>
-        {ordered.map((layer, index) => (
-          <div
-            key={layer.id}
-            className={
-              layer.id === activeLayerId
-                ? 'flex items-center gap-1.5 rounded-md bg-zinc-800 px-1.5 py-1 text-sm text-zinc-100'
-                : 'flex items-center gap-1.5 rounded-md px-1.5 py-1 text-sm text-zinc-400 hover:bg-zinc-800/50'
-            }
-          >
-            <input
-              type="color"
-              value={layer.color || '#a1a1aa'}
-              onChange={(e) => onUpdate(layer.id, { color: e.target.value })}
-              disabled={readOnly}
-              className="h-4 w-4 flex-none cursor-pointer appearance-none rounded border-0 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-40"
-              title="Layer color"
-            />
-            {renamingId === layer.id ? (
-              <form
-                className="flex-1"
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  if (renameValue.trim()) onUpdate(layer.id, { name: renameValue.trim() })
-                  setRenamingId(null)
-                }}
-              >
-                <Input autoFocus disabled={readOnly} className="h-6 px-1.5 text-sm" value={renameValue} onChange={(e) => setRenameValue(e.target.value)} onBlur={() => setRenamingId(null)} />
-              </form>
-            ) : (
-              <button
-                type="button"
-                className="min-w-0 flex-1 truncate text-left"
-                onClick={() => onSetActive(layer.id)}
-                onDoubleClick={() => {
-                  if (readOnly) return
-                  setRenamingId(layer.id)
-                  setRenameValue(layer.name)
-                }}
-                title={readOnly ? layer.name : 'Click to activate, double-click to rename'}
-              >
-                {layer.name}
-              </button>
-            )}
-            {!readOnly && (
-              <>
-                <button type="button" className="text-zinc-500 hover:text-zinc-200 disabled:opacity-30" disabled={index === 0} onClick={() => swapOrder(index, -1)} title="Move up">
-                  <ArrowUp className="h-3.5 w-3.5" />
-                </button>
-                <button type="button" className="text-zinc-500 hover:text-zinc-200 disabled:opacity-30" disabled={index === ordered.length - 1} onClick={() => swapOrder(index, 1)} title="Move down">
-                  <ArrowDown className="h-3.5 w-3.5" />
-                </button>
-              </>
-            )}
-            <button type="button" className="text-zinc-500 hover:text-zinc-200 disabled:opacity-30" disabled={readOnly} onClick={() => onUpdate(layer.id, { visible: !layer.visible })} title={layer.visible ? 'Hide layer' : 'Show layer'}>
-              {layer.visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+    <section className="flex flex-col gap-1.5">
+      <MicroLabel>Layers</MicroLabel>
+      {ordered.map((layer, index) => (
+        <div
+          key={layer.id}
+          className={
+            layer.id === activeLayerId
+              ? 'flex items-center gap-1.5 rounded-md bg-zinc-800 px-1.5 py-1 text-sm text-zinc-100'
+              : 'flex items-center gap-1.5 rounded-md px-1.5 py-1 text-sm text-zinc-400 hover:bg-zinc-800/50'
+          }
+        >
+          <input
+            type="color"
+            value={layer.color || '#a1a1aa'}
+            onChange={(e) => onUpdate(layer.id, { color: e.target.value })}
+            disabled={readOnly}
+            className="h-4 w-4 flex-none cursor-pointer appearance-none rounded border-0 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-40"
+            title="Layer color"
+          />
+          {renamingId === layer.id ? (
+            <form
+              className="flex-1"
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (renameValue.trim()) onUpdate(layer.id, { name: renameValue.trim() })
+                setRenamingId(null)
+              }}
+            >
+              <Input autoFocus disabled={readOnly} className="h-6 px-1.5 text-sm" value={renameValue} onChange={(e) => setRenameValue(e.target.value)} onBlur={() => setRenamingId(null)} />
+            </form>
+          ) : (
+            <button
+              type="button"
+              className="min-w-0 flex-1 truncate text-left"
+              onClick={() => onSetActive(layer.id)}
+              onDoubleClick={() => {
+                if (readOnly) return
+                setRenamingId(layer.id)
+                setRenameValue(layer.name)
+              }}
+              title={readOnly ? layer.name : 'Click to activate, double-click to rename'}
+            >
+              {layer.name}
             </button>
-            <button type="button" className="text-zinc-500 hover:text-zinc-200 disabled:opacity-30" disabled={readOnly} onClick={() => onUpdate(layer.id, { locked: !layer.locked })} title={layer.locked ? 'Unlock layer' : 'Lock layer'}>
-              {layer.locked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
-            </button>
-            {!readOnly && (
-              <button
-                type="button"
-                className="text-zinc-500 hover:text-red-400 disabled:opacity-30"
-                disabled={ordered.length <= 1}
-                onClick={() => setPendingLayer(layer)}
-                title={ordered.length <= 1 ? 'A plot always keeps at least one layer' : 'Delete layer and its elements'}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
+          )}
+          {!readOnly && (
+            <>
+              <button type="button" className="text-zinc-500 hover:text-zinc-200 disabled:opacity-30" disabled={index === 0} onClick={() => swapOrder(index, -1)} title="Move up">
+                <ArrowUp className="h-3.5 w-3.5" />
               </button>
-            )}
-          </div>
-        ))}
-        {!readOnly && (newName == null ? (
-          <button type="button" className="mt-0.5 self-start text-xs text-amber-400 hover:text-amber-300" onClick={() => setNewName('')}>
-            <Plus className="mr-0.5 inline h-3 w-3" />
-            Add layer
+              <button type="button" className="text-zinc-500 hover:text-zinc-200 disabled:opacity-30" disabled={index === ordered.length - 1} onClick={() => swapOrder(index, 1)} title="Move down">
+                <ArrowDown className="h-3.5 w-3.5" />
+              </button>
+            </>
+          )}
+          <button type="button" className="text-zinc-500 hover:text-zinc-200 disabled:opacity-30" disabled={readOnly} onClick={() => onUpdate(layer.id, { visible: !layer.visible })} title={layer.visible ? 'Hide layer' : 'Show layer'}>
+            {layer.visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
           </button>
-        ) : (
-          <form
-            className="flex items-center gap-1"
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (newName.trim()) onCreate(newName.trim())
-              setNewName(null)
-            }}
-          >
-            <Input autoFocus className="h-7 text-sm" placeholder="Layer name" value={newName} onChange={(e) => setNewName(e.target.value)} onBlur={() => setNewName(null)} />
-          </form>
-        ))}
-      </section>
-
-      {/* Sibling, after the panel: Dialog and the inspector's own surfaces are both
-          z-50, so among siblings DOM order is what puts the confirm on top. */}
-      <ConfirmDialog
-        open={pendingLayer != null}
-        title="Delete layer"
-        onCancel={() => setPendingLayer(null)}
-        onConfirm={() => {
-          if (pendingLayer) onDelete(pendingLayer.id)
-          setPendingLayer(null)
-        }}
-      >
-        {pendingLayer && (
-          <>
-            Layer <span className="text-zinc-200">{pendingLayer.name}</span> and every element on it are removed from this plot.
-          </>
-        )}
-      </ConfirmDialog>
-    </>
+          <button type="button" className="text-zinc-500 hover:text-zinc-200 disabled:opacity-30" disabled={readOnly} onClick={() => onUpdate(layer.id, { locked: !layer.locked })} title={layer.locked ? 'Unlock layer' : 'Lock layer'}>
+            {layer.locked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
+          </button>
+          {!readOnly && (
+            <button
+              type="button"
+              className="text-zinc-500 hover:text-red-400 disabled:opacity-30"
+              disabled={ordered.length <= 1}
+              onClick={() => onDelete(layer)}
+              title={ordered.length <= 1 ? 'A plot always keeps at least one layer' : 'Delete layer and its elements'}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      ))}
+      {!readOnly && (newName == null ? (
+        <button type="button" className="mt-0.5 self-start text-xs text-amber-400 hover:text-amber-300" onClick={() => setNewName('')}>
+          <Plus className="mr-0.5 inline h-3 w-3" />
+          Add layer
+        </button>
+      ) : (
+        <form
+          className="flex items-center gap-1"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (newName.trim()) onCreate(newName.trim())
+            setNewName(null)
+          }}
+        >
+          <Input autoFocus className="h-7 text-sm" placeholder="Layer name" value={newName} onChange={(e) => setNewName(e.target.value)} onBlur={() => setNewName(null)} />
+        </form>
+      ))}
+    </section>
   )
 }
 

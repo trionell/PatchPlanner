@@ -21,7 +21,7 @@ import {
   type StagePlotElementCreate,
   type StagePlotElementPatch,
 } from '../../api/stagePlots'
-import type { PlotTruss, StagePlotResponse, StagePlotView, TrussSide } from '../../types'
+import type { PlotTruss, StagePlotLayer, StagePlotResponse, StagePlotView, TrussSide } from '../../types'
 import { useDraftState } from '../../hooks/useDraftState'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { usePlotView } from '../../hooks/usePlotView'
@@ -112,6 +112,11 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
      could not change under it; a dialog does not, and the tabs above are one click away.
      The id travels with the confirm and into the mutation for the same reason. */
   const [pendingPlot, setPendingPlot] = useState<{ id: number; name: string } | null>(null)
+  /* The layer delete confirms *here*, not in `StagePlotLayersPanel` that raises it.
+     In fullscreen the panel renders inside a `backdrop-blur-sm` box, and
+     `backdrop-filter` creates a containing block — a `position: fixed` dialog inside
+     it is positioned and clipped against that box instead of the viewport. */
+  const [pendingLayer, setPendingLayer] = useState<StagePlotLayer | null>(null)
   const [gridSizeDraft, setGridSizeDraft] = useDraftState(response?.plot.grid_size_cm, String, '25')
   const [trussManagerOpen, setTrussManagerOpen] = useState(false)
   // Fullscreen editor: the canvas fills the browser window and the
@@ -812,7 +817,7 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
                 onSetActive={setChosenLayerId}
                 onCreate={(name) => createLayerMutation.mutate(name)}
                 onUpdate={(layerId, patch) => updateLayerMutation.mutate({ layerId, patch })}
-                onDelete={(layerId) => deleteLayerMutation.mutate(layerId)}
+                onDelete={(layer) => setPendingLayer(layer)}
                 readOnly={readOnly}
               />
               <section className="flex flex-col gap-1.5">
@@ -898,8 +903,23 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
     </div>
     {response && <StagePlotSheet eventId={eventId} response={response} />}
 
-    {/* Last sibling. The fullscreen shell is z-40 and the sheet is z-50; a confirm
-        rendered inside either would sit under the surface that raised it. */}
+    {/* Last siblings, outside the fullscreen shell entirely — see `pendingLayer`. */}
+    <ConfirmDialog
+      open={pendingLayer != null}
+      title="Delete layer"
+      onCancel={() => setPendingLayer(null)}
+      onConfirm={() => {
+        if (pendingLayer) deleteLayerMutation.mutate(pendingLayer.id)
+        setPendingLayer(null)
+      }}
+    >
+      {pendingLayer && (
+        <>
+          Layer <span className="text-zinc-200">{pendingLayer.name}</span> and every element on it are removed from this plot.
+        </>
+      )}
+    </ConfirmDialog>
+
     <ConfirmDialog
       open={pendingPlot != null}
       title="Delete stage plot"
