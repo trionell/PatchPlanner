@@ -7,7 +7,6 @@ delivery; everything below this section is history. What is left is only this:
 
 | | |
 |---|---|
-| D6 | Eight deletes are still `window.confirm` — D2's *convert it when the surface is next opened* never converged; added 2026-07-31, open |
 | Slice 40 | The audio exports become documents — server-generated PDFs for the input sheet, the output sheet and the flow; the chain column becomes a diagram; added 2026-07-31, not started |
 | Slice 41 | The plot on paper — three views, colour that survives the dark-to-white crossing, a stated scale; added 2026-07-31, not started |
 
@@ -2383,7 +2382,7 @@ names this case; `audit.md` M-drawer records the old wording as superseded.
 contents are and carries a count that changes while you work, which is the thing
 a footer is for. It is the application's last prose footer.
 
-### D6 — Eight deletes are still the browser's own dialog
+### D6 — Fifteen deletes were still the browser's own dialog ✅ fixed 2026-08-05
 
 **Found:** 2026-07-31, while writing Slice 39, and **approved for recording the same
 day.** D2 converted the two flow inspectors and deliberately left the rest, with a
@@ -2392,8 +2391,12 @@ does not converge. Nothing schedules these eight surfaces — the two open slice
 **What remains** open none of them — so *next opened* means *not scheduled*, and the
 browser's dialog stays the confirm most of the application actually uses.
 
-Verified today, live calls only (`InventoryDrawer.tsx:21` and `ConfirmDialog.tsx:19`
-name it in prose and are not calls):
+**The count in this table was wrong, and was corrected on 2026-08-05 to fifteen** — on
+the user's call, since amending a defect's brief is theirs to make. Slice 39 found the
+undercount while delivering and deliberately left it (see that slice's section). The
+eight below are the ones this brief originally named; the seven it omitted are listed
+after the table. Verified live calls only (`InventoryDrawer.tsx:21` and
+`ConfirmDialog.tsx:19` name it in prose and are not calls):
 
 | File | Line | What it confirms |
 |---|---|---|
@@ -2406,9 +2409,14 @@ name it in prose and are not calls):
 | `inventory/InventoryDrawers.tsx` | 174 | delete a category |
 | `OwnedGearManager.tsx` | 161 | delete owned gear, *naming how many events plan it* |
 
+**The seven this table omitted**, all deletes except the last, which is a bulk move:
+`StagePlotTab.tsx:610` (a whole plot and everything on it), `LightingSheet.tsx:344`,
+`InputSheet.tsx:229`, `InputDeviceSection.tsx:60`, `TrueOutputDeviceSection.tsx:70`,
+`StageMultiSection.tsx:191` and `LightingTab.tsx:96`.
+
 D2's own count of *"the other sixteen"* was overstated; no commit since has removed one
-(`git log -S` finds only `a41bf38`, D2's own). Nine remain in total — these eight plus
-the truss delete, which Slice 39 owns because it is rebuilding that surface anyway.
+(`git log -S` finds only `a41bf38`, D2's own). Sixteen remained in total — these fifteen
+plus the truss delete, which Slice 39 owned because it was rebuilding that surface anyway.
 
 **What a fix has to cover.** `ui/ConfirmDialog` at each site, keeping the sentence:
 every one of them already names the subject and then the consequence, which is the
@@ -2441,6 +2449,72 @@ edits no `design/` and needs no migration, so it stays a defect on that test, an
 substitution is mechanical. If the first two surfaces show it is not mechanical — if
 the state shape genuinely differs per site rather than differing in the row it carries
 — stop and convert it to a slice rather than improvising across the remaining six.
+
+**Fixed** on branch `d6-confirm-dialogs`, one commit per surface, planned under OpenSpec
+as change `d6-confirm-dialogs` — the first piece of work either workflow has carried
+since both were installed. `grep -rn "window.confirm" frontend/src` now returns four
+matches and **zero live calls**; all four are prose. `design/` is untouched, as predicted,
+and `ConfirmDialog` gained no props.
+
+The three decisions, as settled:
+
+1. **Per-site `useState` holding the record, and no hook.** Constitution Principle V
+   names this case directly — *dialog open/close state MUST use React's built-in state* —
+   and a promise-returning `useConfirm` would re-create `window.confirm`'s own call
+   shape, which is the thing being removed. **The trip-wire fired once and the answer was
+   still not a hook.** `InputDeviceSection`, `ProcessingDeviceSection` and
+   `TrueOutputDeviceSection` passed one byte-identical sentence each into the same shared
+   `DeviceSection`, extracted by Slice 24. The confirm went *there*, once, and `onDelete`
+   became the callback fired after confirmation. So the rule is sharper than "per site":
+   **the confirm belongs to whatever component owns the list.** Fifteen call sites,
+   thirteen files.
+2. **Mount after the surface — and outside any ancestor that redefines `fixed`.** The
+   second half was not in the brief and is the thing worth keeping. `Dialog` does **not**
+   portal (`Dialog.tsx:32-49`); it renders `fixed inset-0 z-50` where it is written, so
+   DOM order really is the mechanism. But `position: fixed` resolves against the viewport
+   only while no ancestor creates a containing block, and `transform`, `filter`,
+   `perspective`, `will-change` and **`backdrop-filter`** all create one. One site tripped
+   it: in the fullscreen plot editor `StagePlotLayersPanel` renders inside a
+   `backdrop-blur-sm` box (`StagePlotTab.tsx:873`), so a confirm written correctly *after*
+   the panel was still positioned and clipped against that box. It moved up to
+   `StagePlotTab`, outside the fullscreen shell, and the panel now raises the delete
+   rather than confirming it. Audited across the codebase: the only other `backdrop-filter`
+   users are `Layout.tsx`'s two headers, and the only `filter` is on the `.pp-pulse-dot`
+   SVG leaf. No other site is affected.
+3. **One commit per surface.** Kept. Eight commits, each bisectable to its own surface.
+
+**Two things found on the way, both worth more than the substitution.**
+
+- **A confirm that does not block can re-aim, and one did.** `deletePlotMutation` read
+  `activePlotId` inside its own `mutationFn` — safe only because `window.confirm` froze
+  the thread, so nothing could change the active plot under it. A dialog does not freeze
+  anything and the plot tabs are one click away, so confirming could have deleted a plot
+  other than the one the sentence named. The mutation now takes the doomed id and the
+  confirm carries it. **Every conversion of a blocking primitive to a non-blocking one
+  should be read for this**; it is not specific to plots.
+- **The counted sentences recompute rather than capture.** `StageboxSection`,
+  `StageMultiSection` and `OwnedGearManager` hold the row, not the number, so the count
+  is derived while the confirm is open. A number captured at click time can be read after
+  the truth has moved.
+
+**`LightingTab` needed a fourth argument, not an escalation.** Its record is
+`{ plan, verb, confirmLabel }` — larger than a row, but still the subject the sentence is
+about, so the escape hatch was not taken. Holding the *plan* matters: the fixture list can
+change while the confirm is open, and a plan re-derived on confirm would move a different
+set than the sentence counted. `run` gained a `confirmLabel` because `ConfirmDialog` needs
+a button word and `window.confirm` only ever had *OK*; the sentence verb *"Close the gaps
+around"* does not stand up as one.
+
+**Not done: the browser walk.** The z-order and re-aim checks are the two verifications
+that cannot show in tests — `renderToStaticMarkup` has no DOM and paints nothing — and
+this session had no browser automation available to run them. The containing-block fault
+above was caught by reading the CSS, not by looking at the screen. **The walk is
+outstanding**, and it is the fullscreen plot editor, the four `RowEditor`-in-a-`<tr>`
+sites and the drawer-nested sections that want looking at, on a phone too.
+
+**Still browser-native: two `window.alert` calls** in `LightingTab.tsx:90,100`. Out of
+scope here — an alert is a notification, not a question, and replacing it needs a decision
+this defect had no mandate for. Reported, not recorded.
 
 ## Dependency graph
 

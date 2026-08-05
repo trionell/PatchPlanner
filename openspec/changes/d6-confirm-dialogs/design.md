@@ -86,9 +86,26 @@ Where the raising control is deep inside a `.map()` — a row's `✕`, a `RowEdi
 that there is one dialog per surface rather than one per row.
 
 *Alternative considered and rejected:* a React portal to `document.body`. It would make
-order irrelevant, but `Dialog` already portals as it sees fit and adding a second
-mechanism to solve an ordering problem that one line of JSX placement solves is exactly
-the speculative layer Principle V rules out.
+order irrelevant, but adding a second mechanism to solve an ordering problem that one
+line of JSX placement solves is the speculative layer Principle V rules out.
+
+**Correction, found while verifying rather than assuming.** `Dialog` does **not** portal —
+`Dialog.tsx:32-49` renders `fixed inset-0 z-50` exactly where it is written. That
+confirms DOM order is the mechanism, and it also means the rule above is *necessary but
+not sufficient*: `position: fixed` resolves against the viewport only while no ancestor
+creates a containing block. `transform`, `filter`, `perspective`, `will-change` and
+**`backdrop-filter`** all do.
+
+One site tripped it. `StagePlotLayersPanel` renders inside a `backdrop-blur-sm` box in
+the fullscreen plot editor (`StagePlotTab.tsx:873`), so a confirm written correctly *after*
+the panel's section was still positioned and clipped against that box. The fix is to
+hoist the confirm to `StagePlotTab`, outside the fullscreen shell, and let the panel
+raise the delete instead — `onDelete` carries the layer so the parent writes the sentence.
+
+So the rule has two parts, and both were checked at every site: **mount after the surface,
+and outside any ancestor that redefines `fixed`.** Audited across the codebase — the only
+`backdrop-filter` users are `Layout.tsx`'s two headers and the fullscreen plot shell, and
+the only `filter` is on the `.pp-pulse-dot` SVG leaf. No other site is affected.
 
 ### 3 · The sentence moves across unchanged in meaning, and gains typography
 

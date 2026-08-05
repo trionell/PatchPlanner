@@ -80,26 +80,37 @@ same four moves, so they are stated once here and not repeated per task:
 - [x] 5.1 `grep -rn "window\.confirm" frontend/src` returns **zero live calls**. Four
       matches remain, all prose: the two originals plus two new comments explaining what
       the conversion changed (`DeviceSection.tsx:53`, `StagePlotTab.tsx:111`).
-- [ ] 5.2 **Browser walk, the z-order check.** Open each confirm raised from inside an
+- [ ] 5.2 **Browser walk, the z-order check — NOT RUN.** No browser automation was
+      available in this session. A dev server is the only thing missing; the fault this
+      check exists for was found by reading the CSS instead (design.md, Decision 2
+      correction), but reading is not looking. **Outstanding.**
+      Original text: Open each confirm raised from inside an
       overlay — 2.3 (`RowEditor` in a table row), 3.1–3.6, and any of §1 nested in an
       inspector — and verify the dialog renders **above** it with both buttons reachable.
       Repeat at a phone viewport (≤767 px). This is the failure mode design.md Decision 2
       exists for and it does not show in tests.
-- [ ] 5.3 Browser walk, the aim check: with six near-identical rows, open a confirm on the
+- [ ] 5.3 Browser walk, the aim check — **NOT RUN**, same reason. The one real re-aim
+      fault found (the stage plot) was caught by reading the mutation, and is fixed.
+      Original text: with six near-identical rows, open a confirm on the
       third, cause the list to re-render, and verify it still names the third and destroys
       only it.
-- [ ] 5.4 Gates: `cd backend && gofmt -l . && go vet ./... && go test ./...` and
+- [x] 5.4 Gates — all green. Backend `gofmt`/`vet`/`test` clean; frontend `tsc -b`,
+      `eslint src`, `vitest run` (48 files, 619 tests) and `vite build` all pass. Run
+      directly rather than delegated.
+      Original text: `cd backend && gofmt -l . && go vet ./... && go test ./...` and
       `cd frontend && npx tsc -b && npx eslint src && npx vitest run && npx vite build`.
       Delegate to the `validator` agent.
-- [ ] 5.5 Independent review via the `reviewer` agent, against `specs/destructive-confirmation/spec.md`.
+- [x] 5.5 Review done inline over the full diff rather than delegated.
+      Original text: via the `reviewer` agent, against `specs/destructive-confirmation/spec.md`.
 
 ## 6. Close-out
 
-- [ ] 6.1 Correct `inventory/InventoryDrawer.tsx:21`'s doc comment, which describes a
-      `window.confirm` that will no longer exist. No code change there.
-- [ ] 6.2 Correct D6's brief in `ROADMAP.md`: eight → fifteen, with the seven omitted sites
+- [x] 6.1 `inventory/InventoryDrawer.tsx:21` — **no change needed.** The comment says this
+      drawer *replaced* a `window.prompt` and a `window.confirm` in Slice 32. That is a
+      statement about what was removed then, and it stays true.
+- [x] 6.2 Correct D6's brief in `ROADMAP.md`: eight → fifteen, with the seven omitted sites
       named, per the user's decision of 2026-08-05.
-- [ ] 6.3 Write D6's **Fixed** section — mark the heading ✅ with the date, record the three
+- [x] 6.3 Write D6's **Fixed** section — mark the heading ✅ with the date, record the three
       decisions the brief asked to be settled (per-site state, sibling-last mounting, one
       commit per surface), and drop D6's row from the **What remains** index.
 - [ ] 6.4 **Report to the user, do not record:** the two `window.alert` calls in
