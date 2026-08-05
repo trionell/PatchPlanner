@@ -59,21 +59,27 @@ same four moves, so they are stated once here and not repeated per task:
 
 ## 4. The structurally different one, last
 
-- [ ] 4.1 `event/LightingTab.tsx:96` — bulk move. Sentence today: *"{verb} {n} fixture(s)?"*
+- [x] 4.1 `event/LightingTab.tsx:96` — bulk move. Sentence today: *"{verb} {n} fixture(s)?"*
       plus, when universes are skipped, *"Universe {list} needs more than {UNIVERSE_SIZE}
       channels, and will be left exactly as it is."* Pending record is
       `{ plan, verb } | null`; `confirmLabel` is the caller's verb; the `\n\n` suffix
       becomes a second block, not a literal newline. Called from four sites across the
       phone and desktop branches — all four must route through the new state.
-- [ ] 4.2 If 4.1's state shape differs in **kind** rather than in the record it carries,
+- [x] 4.2 If 4.1's state shape differs in **kind** rather than in the record it carries,
       **stop** and put the escalate-to-a-slice question to the user (design.md, Risks).
-- [ ] 4.3 `window.alert` at `LightingTab.tsx:90` and `:100` is **out of scope** — leave both
+      **It does not.** The record is `{ plan, verb, confirmLabel }` — bigger than a row,
+      but still the subject the sentence is about. No escalation. `run` gained a fourth
+      argument because `ConfirmDialog` needs a button word and `window.confirm` only ever
+      had *OK*: *Re-address* and *Close the gaps*, since the sentence verb
+      (*Close the gaps around*) does not stand up as a button.
+- [x] 4.3 `window.alert` at `LightingTab.tsx:90` and `:100` is **out of scope** — leave both
       untouched and unchanged. See task 6.4.
 
 ## 5. Verification
 
-- [ ] 5.1 `grep -rn "window\.confirm" frontend/src` returns **only** the two prose mentions
-      (`ui/ConfirmDialog.tsx:19`, `inventory/InventoryDrawer.tsx:21`) — zero live calls.
+- [x] 5.1 `grep -rn "window\.confirm" frontend/src` returns **zero live calls**. Four
+      matches remain, all prose: the two originals plus two new comments explaining what
+      the conversion changed (`DeviceSection.tsx:53`, `StagePlotTab.tsx:111`).
 - [ ] 5.2 **Browser walk, the z-order check.** Open each confirm raised from inside an
       overlay — 2.3 (`RowEditor` in a table row), 3.1–3.6, and any of §1 nested in an
       inspector — and verify the dialog renders **above** it with both buttons reachable.

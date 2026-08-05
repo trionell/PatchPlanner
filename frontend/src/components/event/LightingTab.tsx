@@ -16,6 +16,7 @@ import { type LightingFilter, LightingStatusRail } from './LightingStatusRail'
 import { LightingRigSheet } from '../print/LightingRigSheet'
 import { PrintButton } from '../print/PrintButton'
 import { Button } from '../ui/Button'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Input } from '../ui/Input'
 import { PatchPanel } from '../ui/PatchPanel'
 import { LightingSheet } from './LightingSheet'
@@ -51,6 +52,7 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
   const [editingFixtureId, setEditingFixtureId] = useState<number | 'new' | null>(null)
   const [adding, setAdding] = useState(false)
   const [universesOpen, setUniversesOpen] = useState(false)
+  const [pendingPlan, setPendingPlan] = useState<{ plan: Plan; verb: string; confirmLabel: string } | null>(null)
   // The phone's strip filter — the desktop's lives in `LightingSheet` (data-model.md §3).
   const [mobileFilter, setMobileFilter] = useState<LightingFilter>(null)
 
@@ -85,15 +87,15 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
    * The packing is `lib/dmxPlan`; this confirms and applies. It confirms because
    * one press can move thirty fixtures and none of it can be undone (FR-041).
    */
-  function run(plan: Plan, verb: string, nothingToDo: string) {
+  function run(plan: Plan, verb: string, confirmLabel: string, nothingToDo: string) {
     if (plan.changes.length === 0 && plan.skippedUniverses.length === 0) {
       window.alert(nothingToDo)
       return
     }
-    const skipped = plan.skippedUniverses.length
-      ? `\n\nUniverse ${plan.skippedUniverses.join(', ')} needs more than ${UNIVERSE_SIZE} channels, and will be left exactly as it is.`
-      : ''
-    if (!window.confirm(`${verb} ${plan.movedFixtureCount} ${plan.movedFixtureCount === 1 ? 'fixture' : 'fixtures'}?${skipped}`)) return
+    setPendingPlan({ plan, verb, confirmLabel })
+  }
+
+  function apply(plan: Plan) {
     applyAddresses.mutate(plan.changes, {
       onSuccess: () => {
         if (plan.skippedUniverses.length) {
@@ -102,6 +104,43 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
       },
     })
   }
+
+  /*
+    Rendered in both branches below, which is why it is built once here.
+
+    The pending state is the **plan**, not a flag: the fixture list under it can
+    change while the confirm is open, and a plan re-derived on confirm would move a
+    different set than the sentence counted. This is the same rule the row deletes
+    follow — the record, never a boolean (ROADMAP D6).
+  */
+  const confirmPlan = (
+    <ConfirmDialog
+      open={pendingPlan != null}
+      title="Re-address fixtures"
+      confirmLabel={pendingPlan?.confirmLabel ?? 'Apply'}
+      onCancel={() => setPendingPlan(null)}
+      onConfirm={() => {
+        if (pendingPlan) apply(pendingPlan.plan)
+        setPendingPlan(null)
+      }}
+    >
+      {pendingPlan && (
+        <>
+          {pendingPlan.verb}{' '}
+          <span className="text-zinc-200">
+            {pendingPlan.plan.movedFixtureCount} {pendingPlan.plan.movedFixtureCount === 1 ? 'fixture' : 'fixtures'}
+          </span>
+          . This cannot be undone.
+          {pendingPlan.plan.skippedUniverses.length > 0 && (
+            <span className="mt-2 block">
+              Universe {pendingPlan.plan.skippedUniverses.join(', ')} needs more than {UNIVERSE_SIZE} channels, and will be left
+              exactly as it is.
+            </span>
+          )}
+        </>
+      )}
+    </ConfirmDialog>
+  )
 
   if (isMobile) {
     /* The strip reports either errors or unaddressed fixtures, and the filter shows
@@ -187,12 +226,13 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
                   run(
                     planAutoAssign(fixtures),
                     'Re-address',
+                    'Re-address',
                     'Every fixture is already packed from address 1 in rig order.',
                   )
           }
           onClose={() => setUniversesOpen(false)}
           onOptimise={
-            readOnly ? undefined : () => run(planOptimise(fixtures), 'Close the gaps around', 'There are no gaps to close.')
+            readOnly ? undefined : () => run(planOptimise(fixtures), 'Close the gaps around', 'Close the gaps', 'There are no gaps to close.')
           }
           open={universesOpen}
         />
@@ -200,6 +240,7 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
 
       {/* A sibling of the wrapper, not inside it — the desktop return's shape (M11). */}
       <LightingRigSheet eventId={eventId} fixtures={fixtures} />
+      {confirmPlan}
       </>
     )
   }
@@ -271,17 +312,19 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
                   run(
                     planAutoAssign(fixtures),
                     'Re-address',
+                    'Re-address',
                     'Every fixture is already packed from address 1 in rig order.',
                   )
           }
           onOptimise={
             readOnly
               ? undefined
-              : () => run(planOptimise(fixtures), 'Close the gaps around', 'There are no gaps to close.')
+              : () => run(planOptimise(fixtures), 'Close the gaps around', 'Close the gaps', 'There are no gaps to close.')
           }
         />
       </div>
       <LightingRigSheet eventId={eventId} fixtures={fixtures} />
+      {confirmPlan}
     </>
   )
 }
