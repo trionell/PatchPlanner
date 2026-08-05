@@ -1,51 +1,51 @@
 ## 1. Reading the graph server-side
 
-- [ ] 1.1 Add `db` queries that load one event's input graph whole — sources, channels, input
+- [x] 1.1 Add `db` queries that load one event's input graph whole — sources, channels, input
       devices, stageboxes, stage-multis, consoles and every `input_cable` — in the shape the
       renderer needs, using the input-graph position columns (`input_position_*` where a node
       has both). Table test against a seeded event.
-- [ ] 1.2 The same for the output graph — outputs, output devices, stageboxes, stage-multis,
+- [x] 1.2 The same for the output graph — outputs, output devices, stageboxes, stage-multis,
       consoles, `output_cables` — using the output-graph position columns.
-- [ ] 1.3 Derive each node's port list (count, order, and which ports a cable reaches) from
+- [x] 1.3 Derive each node's port list (count, order, and which ports a cable reaches) from
       the loaded graph, so a jack can be drawn as patched or free. Assert the port counts
       match the boxes' installed counts.
-- [ ] 1.4 Derive the rig figures: per box, installed and patched jacks in and out, spare by
+- [x] 1.4 Derive the rig figures: per box, installed and patched jacks in and out, spare by
       subtraction, and a console's local panel separately. Test a partly-patched stagebox and
       a desk with a local panel.
 
 ## 2. The flow layout — `flow_layout.go`
 
-- [ ] 2.1 Node paper geometry: box size from port count using the mockup's metrics (52 mm
+- [x] 2.1 Node paper geometry: box size from port count using the mockup's metrics (52 mm
       wide, 5 mm header, 4 mm port row, 3 mm footer), and a port's centre y from its index.
       Table test that height is `header + rows × rowHeight + footer` for 0, 1 and 32 ports.
-- [ ] 2.2 Stage 1 fit — scale node positions by the largest `s` for which every scaled origin
+- [x] 2.2 Stage 1 fit — scale node positions by the largest `s` for which every scaled origin
       plus its box fits the text block, with channel widths reserving room for lane demand.
       Test that the arrangement is preserved: a node left of another stays left of it.
-- [ ] 2.3 Stage 2 shrink — a uniform factor on sizes and fonts when boxes would collide,
+- [x] 2.3 Stage 2 shrink — a uniform factor on sizes and fonts when boxes would collide,
       recomputing the fit, down to the 5 pt label floor. The floor is one named constant.
-- [ ] 2.4 Stage 3 tile — at the floor and still not fitting, cut the plane into page-sized
+- [x] 2.4 Stage 3 tile — at the floor and still not fitting, cut the plane into page-sized
       tiles along gaps between boxes. Test that no box is cut and that the tiles cover the
       whole plane.
-- [ ] 2.5 Report the scale reached, for the page to state.
+- [x] 2.5 Report the scale reached, for the page to state.
 
 ## 3. The routing — `flow_route.go`
 
-- [ ] 3.1 Write the invariant check first: given a segment list, report any two segments
+- [x] 3.1 Write the invariant check first: given a segment list, report any two segments
       collinear over a shared length, allowing only the shared stub of two edges leaving one
       port. This is the function every later test calls.
-- [ ] 3.2 Group nodes into columns by overlapping x-extent and derive the channels between
+- [x] 3.2 Group nodes into columns by overlapping x-extent and derive the channels between
       them.
-- [ ] 3.3 Assign each vertical run a lane by greedy interval colouring over y-spans (R2, R3).
-- [ ] 3.4 Horizontal runs at their own port's y, with R5's staggered stub for two edges off
+- [x] 3.3 Assign each vertical run a lane by greedy interval colouring over y-spans (R2, R3).
+- [x] 3.4 Horizontal runs at their own port's y, with R5's staggered stub for two edges off
       one jack.
-- [ ] 3.5 Bypass routing (R6) — an edge whose route would cross a box goes to the nearer
+- [x] 3.5 Bypass routing (R6) — an edge whose route would cross a box goes to the nearer
       gutter, its gutter run taking a lane by the same colouring on x-spans.
-- [ ] 3.6 Fixture tests: the mockup's own graph, a single cable, a full 32-in stagebox fan,
+- [x] 3.6 Fixture tests: the mockup's own graph, a single cable, a full 32-in stagebox fan,
       one jack feeding two destinations, and a cable that must bypass a box. Each asserts the
       3.1 invariant.
-- [ ] 3.7 A generated sweep over randomly placed graphs asserting the same invariant, aimed
+- [x] 3.7 A generated sweep over randomly placed graphs asserting the same invariant, aimed
       at the dense-channel case named in design.md Risks.
-- [ ] 3.8 Assert edge-count parity — every cable the graph query returns is drawn exactly
+- [x] 3.8 Assert edge-count parity — every cable the graph query returns is drawn exactly
       once — so a dropped cable fails a test rather than being noticed by eye.
 
 ## 4. Drawing the flow — `flow_draw.go`
