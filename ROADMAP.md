@@ -7,7 +7,6 @@ delivery; everything below this section is history. What is left is only this:
 
 | | |
 |---|---|
-| Slice 39 | The Trusses overlay — the stage plot's truss manager is a `Dialog` of fields and should be a `Drawer`; added 2026-07-31, not started. **Slice 38 wrote the rule; this one applies it** |
 | D6 | Eight deletes are still `window.confirm` — D2's *convert it when the surface is next opened* never converged; added 2026-07-31, open |
 | Slice 40 | The audio exports become documents — server-generated PDFs for the input sheet, the output sheet and the flow; the chain column becomes a diagram; added 2026-07-31, not started |
 | Slice 41 | The plot on paper — three views, colour that survives the dark-to-white crossing, a stated scale; added 2026-07-31, not started |
@@ -1559,7 +1558,7 @@ stripped out before the page was ever shown, and the approval recorded now is th
 real one. **The rule both point at: a mockup is a document that gets kept, so
 what it records has to have happened.**
 
-## Slice 39 — The Trusses overlay (spec: `plot-trusses-drawer`) — not started
+## Slice 39 — The Trusses overlay (spec: `plot-trusses-drawer`) ✅ done 2026-08-05
 
 > **Slice 38 landed first and wrote the rule** (2026-07-31). `components.md`
 > §`ui/Dialog` now states *interrupts / accompanies* in the wording below, and
@@ -1708,6 +1707,66 @@ does not currently state in the form the change needs (trigger 2, which is not a
 judgment call). Depends on Slice 13 (trusses and their pieces/attachments, unchanged),
 Slice 33 (`ui/Sheet` and `Drawer`'s phone branch) and Slice 36 (the plot's read-only
 phone decision, which the first call above rests on). Shares its rule with Slice 38.
+
+### Delivered
+
+Design approved 2026-08-05 from `specs/039-plot-trusses-drawer/mockup.html`, with its
+three open questions ruled as drawn: the phone bar takes a third row so *Trusses* can
+ride in the `overflow` rather than among the view controls; the truss glyph goes
+unlabelled; and *Rotation (top)* / *Rotation (front)* become **Rotation** / **Rake**.
+No backend change and **no `design/` change** — the whole slice is Slice 38's rule
+applied, and nothing it needed was missing from the language. That was the claim the
+spec made (FR-006/SC-005) and it held: `git diff main -- design/` was empty at merge.
+
+**The shape.** `wide` + `flush`: one construction of truss bands over hairlines, not a
+stack of `DrawerSection`s and not the cards-inside-cards it had. A section per truss
+would have put a record's name into a `MicroLabel`, which is a category's voice. Each
+truss is a header band over `Pieces` and `Fixtures`, each a micro-label over full-bleed
+rows; the new-truss form is last under its own band. The four-sentence preamble became
+`info` + `noteId="event-trusses"` — read once, then costing nothing.
+
+**The phone is a read, and the read is not the edit view greyed out.** `readOnly` is
+forced at the mobile mount, for the canvas's reason rather than the reader's: you cannot
+place a truss on a phone, so assembling one buys nothing. What it gains is what the
+canvas cannot draw — a truss's pieces, its total, its hang height, and which fixture
+hangs at which offset on which lane. Read-only renders *different nodes*; `disabled` no
+longer expresses read-only anywhere in the file. The way in is a lone `overflow` entry,
+which `MobilePanel` already renders as its own 44 px target — the status strip's truss
+count stays a count, because it can filter to none of its three facts and §7b's chevron
+already means something else.
+
+**Decisions worth keeping:**
+
+- **`touch` is geometry plus two width-composed sentences, and never a permission.**
+  The phone drops the legacy piece's *re-pick it from the catalog* (the fix is a desk
+  job) and moves the total into the Pieces band (its header has no room). Both say a
+  different true thing to a reader who can do different things. `PlotTrussManager` never
+  imports `useIsMobile`; what a *role* may do is `readOnly`, a separate prop from a
+  separate answer. The prop's own doc names the line it must not cross, because this
+  file is the worked example.
+- **The desktop trigger lost its `!readOnly` guard.** A companion does not have to be
+  editable, so a viewer opens the drawer at either width — which makes `readOnly` the
+  only client-side gate on it, the same shift Slice 38 recorded.
+- **Removing a piece gained a confirm it never had; detaching deliberately did not.**
+  A piece's damage is silent and elsewhere — the drawn length is the sum of the pieces,
+  so every plot redraws while you are looking at a list of near-identical rows, and a
+  legacy piece cannot be re-added as one. Detaching is undone by the picker in the same
+  row, and a confirm on a reversible act is what teaches people to dismiss confirms.
+  Both `✕` controls got names and 28 px targets either way.
+- **A placed truss states itself.** It was a `disabled` button reading *On plot* — a
+  control that cannot be pressed pretending to be a fact. It is a `Pill`, at the chip
+  formula's own ink (`tokens.md` §5): review caught it at `sky-400`, which would have
+  made this slice a `design/` edit by accident.
+- **The truss delete converted and no other.** This is D6's worked example, and D6's
+  count is wrong — see its section.
+
+**Found while delivering: D6 undercounts by seven.** Its table names eight remaining
+`window.confirm` sites; the live count after this slice is **fifteen**. Verified by grep
+on 2026-08-05, not taken from the record. The seven it omits are `StagePlotTab.tsx:610`
+(delete a stage plot and everything on it), `LightingSheet.tsx:344`, `LightingTab.tsx:96`,
+`InputSheet.tsx:229`, `InputDeviceSection.tsx:60`, `TrueOutputDeviceSection.tsx:70` and
+`StageMultiSection.tsx:191`. **Left uncorrected on purpose** — amending a defect's brief
+is the user's call, and D6 is scheduled off a figure roughly half the real work.
 
 ## Slice 40 — The audio exports become documents (spec: `audio-pdf-exports`) — not started
 

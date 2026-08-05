@@ -97,17 +97,10 @@ Frontend only. No migration, no handler, no `design/` edit.
   a two-thirds legacy sentence, a total printed twice at the desk, a `Pill` ink off
   `tokens.md`'s chip formula, and a `touch` doc that overstated its own contract. All
   six fixed; four optional notes taken too.
-- [ ] **T054** **Browser walk (FR-025) — not run.** `renderToStaticMarkup` cannot reach
-  a blur commit, a mutation or an `invalidateQueries`, so nothing automated covers the
-  behaviours the rewrite had to preserve: inline commit on name / height / rotation /
-  rake / offset, the length auto-suggested from a catalog piece's name, lane selection,
-  placement, and the `lighting-rig` + `rental-summary` invalidations that keep the
-  Lighting tab's truss column and the rental order current. Also unverified in a real
-  browser: the two confirms stacking above the drawer and above the phone sheet, and the
-  44 px overflow entry. **This is the slice's one open item.**
-
-## Dependencies
-
-T001–T003 before T020–T021 (the confirms read the sentences). T010 before the rest of
-Phase 2. Phase 2 and 3 before Phase 4 (the mount passes props the component must
-already take). Phase 5 after Phase 4.
+- [x] **T054** **Browser walk (FR-025) — passed 2026-08-05.** The behaviours
+  `renderToStaticMarkup` cannot reach were verified in a real browser: inline commit on
+  name / height / rotation / rake / offset, the length auto-suggested from a catalog
+  piece's name, lane selection, placement, and the `lighting-rig` + `rental-summary`
+  invalidations that keep the Lighting tab's truss column and the rental order current.
+  The two confirms stack above the drawer and above the phone sheet, and the phone's
+  overflow entry is a 44 px target.
