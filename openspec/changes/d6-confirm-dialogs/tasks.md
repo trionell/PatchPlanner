@@ -31,10 +31,10 @@ same four moves, so they are stated once here and not repeated per task:
 
 ## 2. Counted sentences — the count must survive
 
-- [ ] 2.1 `event/StageboxSection.tsx:197` — *"Delete {name}? Every cable patched to it is
+- [x] 2.1 `event/StageboxSection.tsx:197` — *"Delete {name}? Every cable patched to it is
       removed with it ({n} {jack|jacks} in use)."* The pending record carries the box so
       `used` is recomputed for **that** box.
-- [ ] 2.2 `event/StageMultiSection.tsx:191` — *"Delete {name}? Every cable patched to it is
+- [x] 2.2 `event/StageMultiSection.tsx:191` — *"Delete {name}? Every cable patched to it is
       removed with it ({n} {channel|channels} in use)."* Same shape as 2.1.
 - [ ] 2.3 `OwnedGearManager.tsx:161` — two sentences, chosen on `planned_on_events > 0`:
       *""{name}" is planned on {n} event(s). Deleting it removes it from those plans too."*

@@ -6,6 +6,7 @@ import { usedPorts } from '../../lib/patchCapacity'
 import { itemLabel, parseInOut } from '../../lib/utils'
 import type { InputCable, InventoryItem, OutputCable, Stagebox } from '../../types'
 import { Button } from '../ui/Button'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { DrawerSection, FieldStack, FormActions, GearCard, GearForm, GearSpecs, GearTop, Spec } from '../ui/GearList'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
@@ -34,6 +35,9 @@ export function StageboxSection({ eventId, stageboxes, audioItems, cables, readO
   const queryClient = useQueryClient()
   const [editingId, setEditingId] = useState<number | null>(null)
   const [adding, setAdding] = useState(false)
+  /* The box, never a boolean — the count in the sentence is this box's, and it is
+     recomputed from `cables` at render so an open confirm cannot state a stale one. */
+  const [pendingBox, setPendingBox] = useState<Stagebox | null>(null)
   const [draft, setDraft] = useState({ name: '', inventory_item_id: '', input_count: '', output_count: '', connection_type: 'analog' })
 
   const invalidate = async () => {
@@ -73,6 +77,7 @@ export function StageboxSection({ eventId, stageboxes, audioItems, cables, readO
   })
 
   return (
+    <>
     <DrawerSection
       label="Stageboxes"
       count={stageboxes.length}
@@ -193,11 +198,7 @@ export function StageboxSection({ eventId, stageboxes, audioItems, cables, readO
                     size="sm"
                     variant="ghost"
                     className="h-8 px-3 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-300"
-                    onClick={() => {
-                      if (window.confirm(`Delete ${box.name || 'this stagebox'}? Every cable patched to it is removed with it (${used} ${used === 1 ? 'jack' : 'jacks'} in use).`)) {
-                        remove.mutate(box.id)
-                      }
-                    }}
+                    onClick={() => setPendingBox(box)}
                   >
                     Delete
                   </Button>
@@ -282,5 +283,28 @@ export function StageboxSection({ eventId, stageboxes, audioItems, cables, readO
         <p className="text-xs text-red-400">{(create.error ?? update.error ?? remove.error)?.message}</p>
       )}
     </DrawerSection>
+
+    {/* Sibling, after the section: this renders inside a Drawer, and both are z-50. */}
+    <ConfirmDialog
+      open={pendingBox != null}
+      title="Delete stagebox"
+      onCancel={() => setPendingBox(null)}
+      onConfirm={() => {
+        if (pendingBox) remove.mutate(pendingBox.id)
+        setPendingBox(null)
+      }}
+    >
+      {pendingBox &&
+        (() => {
+          const used = usedPorts('stagebox', pendingBox.id, cables)
+          return (
+            <>
+              <span className="text-zinc-200">{pendingBox.name || 'This stagebox'}</span> is removed from the event, and every
+              cable patched to it goes with it — {used} {used === 1 ? 'jack' : 'jacks'} in use.
+            </>
+          )
+        })()}
+    </ConfirmDialog>
+    </>
   )
 }

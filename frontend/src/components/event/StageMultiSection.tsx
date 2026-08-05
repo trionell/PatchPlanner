@@ -6,6 +6,7 @@ import { usedPorts } from '../../lib/patchCapacity'
 import { itemLabel, parseChannels } from '../../lib/utils'
 import type { InputCable, InventoryItem, OutputCable, StageMulti } from '../../types'
 import { Button } from '../ui/Button'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { DrawerSection, FieldStack, FormActions, GearCard, GearForm, GearSpecs, GearTop, Spec } from '../ui/GearList'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
@@ -31,6 +32,9 @@ export function StageMultiSection({ eventId, stageMultis, stageboxCount, audioIt
   const queryClient = useQueryClient()
   const [editingId, setEditingId] = useState<number | null>(null)
   const [adding, setAdding] = useState(false)
+  /* The multi, never a boolean — the count in the sentence is this multi's, and it is
+     recomputed from `cables` at render so an open confirm cannot state a stale one. */
+  const [pendingMulti, setPendingMulti] = useState<StageMulti | null>(null)
   const [draft, setDraft] = useState({ name: '', inventory_item_id: '', channels: '24', connector_type: 'xlr', length_m: '' })
 
   const invalidate = async () => {
@@ -73,6 +77,7 @@ export function StageMultiSection({ eventId, stageMultis, stageboxCount, audioIt
   })
 
   return (
+    <>
     <DrawerSection
       label="Stage multis"
       count={stageMultis.length}
@@ -187,11 +192,7 @@ export function StageMultiSection({ eventId, stageMultis, stageboxCount, audioIt
                     size="sm"
                     variant="ghost"
                     className="h-8 px-3 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-300"
-                    onClick={() => {
-                      if (window.confirm(`Delete ${multi.name || 'this stage multi'}? Every cable patched to it is removed with it (${used} ${used === 1 ? 'channel' : 'channels'} in use).`)) {
-                        remove.mutate(multi.id)
-                      }
-                    }}
+                    onClick={() => setPendingMulti(multi)}
                   >
                     Delete
                   </Button>
@@ -276,5 +277,28 @@ export function StageMultiSection({ eventId, stageMultis, stageboxCount, audioIt
         <p className="text-xs text-red-400">{(create.error ?? update.error ?? remove.error)?.message}</p>
       )}
     </DrawerSection>
+
+    {/* Sibling, after the section: this renders inside a Drawer, and both are z-50. */}
+    <ConfirmDialog
+      open={pendingMulti != null}
+      title="Delete stage multi"
+      onCancel={() => setPendingMulti(null)}
+      onConfirm={() => {
+        if (pendingMulti) remove.mutate(pendingMulti.id)
+        setPendingMulti(null)
+      }}
+    >
+      {pendingMulti &&
+        (() => {
+          const used = usedPorts('stage_multi', pendingMulti.id, cables)
+          return (
+            <>
+              <span className="text-zinc-200">{pendingMulti.name || 'This stage multi'}</span> is removed from the event, and
+              every cable patched to it goes with it — {used} {used === 1 ? 'channel' : 'channels'} in use.
+            </>
+          )
+        })()}
+    </ConfirmDialog>
+    </>
   )
 }
