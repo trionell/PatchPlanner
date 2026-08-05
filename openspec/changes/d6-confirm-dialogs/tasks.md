@@ -36,7 +36,7 @@ same four moves, so they are stated once here and not repeated per task:
       `used` is recomputed for **that** box.
 - [x] 2.2 `event/StageMultiSection.tsx:191` — *"Delete {name}? Every cable patched to it is
       removed with it ({n} {channel|channels} in use)."* Same shape as 2.1.
-- [ ] 2.3 `OwnedGearManager.tsx:161` — two sentences, chosen on `planned_on_events > 0`:
+- [x] 2.3 `OwnedGearManager.tsx:161` — two sentences, chosen on `planned_on_events > 0`:
       *""{name}" is planned on {n} event(s). Deleting it removes it from those plans too."*
       / *"Delete "{name}" from your owned gear?"* The branch moves into the children.
       Raised from inside a `RowEditor` inside a `<tr>` — check z-order (task 5.2), and keep
