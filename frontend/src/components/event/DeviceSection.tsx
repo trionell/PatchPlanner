@@ -4,6 +4,7 @@ import { useReferenceData } from '../../hooks/useReferenceData'
 import { itemLabel, toOptionalNumber } from '../../lib/utils'
 import type { InventoryItem, OwnedItem } from '../../types'
 import { Button } from '../ui/Button'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { DrawerSection, FieldStack, FormActions, GearCard, GearForm, GearSpecs, GearTop, Spec } from '../ui/GearList'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
@@ -47,6 +48,11 @@ interface DeviceSectionProps<T extends DeviceRow> {
   withOutputs: boolean
   onCreate: (data: DeviceDraftData) => void
   onUpdate: (id: number, data: DeviceDraftData) => void
+  /**
+   * Called once the user has confirmed. The confirm itself lives here, not in the
+   * three callers: they had one identical `window.confirm` each, and this is the
+   * component that owns the list the row belongs to (ROADMAP D6).
+   */
   onDelete: (device: T) => void
   error?: Error | null
   readOnly?: boolean
@@ -85,6 +91,9 @@ export function DeviceSection<T extends DeviceRow>({
   const { options } = useReferenceData(eventId)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [adding, setAdding] = useState(false)
+  /* The device, never a boolean: these rows are near-identical gear and the open
+     confirm must keep naming the one it was raised for. */
+  const [pendingDevice, setPendingDevice] = useState<T | null>(null)
   const [draft, setDraft] = useState({
     name: '',
     source: 'inventory' as 'inventory' | 'owned',
@@ -152,6 +161,7 @@ export function DeviceSection<T extends DeviceRow>({
   const linkOptions = (current?: string) => (linkVocabulary ? options(linkVocabulary, current) : [])
 
   return (
+    <>
     <DrawerSection
       label={label}
       count={devices.length}
@@ -312,7 +322,7 @@ export function DeviceSection<T extends DeviceRow>({
                     size="sm"
                     variant="ghost"
                     className="h-8 px-3 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-300"
-                    onClick={() => onDelete(device)}
+                    onClick={() => setPendingDevice(device)}
                   >
                     Delete
                   </Button>
@@ -427,5 +437,25 @@ export function DeviceSection<T extends DeviceRow>({
 
       {error && <p className="text-xs text-red-400">{error.message}</p>}
     </DrawerSection>
+
+    {/* Sibling, after the section — this renders inside a Drawer, and Drawer and
+        Dialog are both z-50, so a confirm nested in the section would sit under it. */}
+    <ConfirmDialog
+      open={pendingDevice != null}
+      title={`Delete ${addNoun.toLowerCase()}`}
+      onCancel={() => setPendingDevice(null)}
+      onConfirm={() => {
+        if (pendingDevice) onDelete(pendingDevice)
+        setPendingDevice(null)
+      }}
+    >
+      {pendingDevice && (
+        <>
+          <span className="text-zinc-200">{pendingDevice.name}</span> is removed from this event. Any cable connected to it is
+          removed with it.
+        </>
+      )}
+    </ConfirmDialog>
+    </>
   )
 }

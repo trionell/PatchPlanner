@@ -18,14 +18,16 @@ same four moves, so they are stated once here and not repeated per task:
       inspector; state goes on the inspector, not the row.
 - [x] 1.2 `event/StagePlotTab.tsx:610` — plot delete. Sentence today: *"Delete stage plot
       "{name}" and everything on it?"* Single subject, no `.map()`.
-- [ ] 1.3 `event/InputDeviceSection.tsx:60` — device delete. Sentence today: *"Delete
+- [x] 1.3 `event/InputDeviceSection.tsx:60` — device delete. Sentence today: *"Delete
       "{name}"? Any cable connected to it is removed with it."*
-- [ ] 1.4 `event/ProcessingDeviceSection.tsx:71` — same sentence, same shape. Named in D6's
+- [x] 1.4 `event/ProcessingDeviceSection.tsx:71` — same sentence, same shape. Named in D6's
       original eight.
-- [ ] 1.5 `event/TrueOutputDeviceSection.tsx:70` — same sentence, same shape.
-- [ ] 1.6 After 1.3–1.5: confirm the three are **not** byte-identical apart from a type
-      parameter (design.md, Decision 1 *revisit if*). If they are, stop and raise the
-      shared-hook question before continuing.
+- [x] 1.5 `event/TrueOutputDeviceSection.tsx:70` — same sentence, same shape.
+- [x] 1.6 After 1.3–1.5: confirm the three are **not** byte-identical apart from a type
+      parameter (design.md, Decision 1 *revisit if*). **They were.** The answer is not a
+      hook: all three delegate to `DeviceSection`, which already owns the list, so the
+      confirm lives there once and `onDelete` becomes the post-confirmation callback.
+      Recorded in design.md, Decision 1. Fifteen call sites, thirteen files.
 
 ## 2. Counted sentences — the count must survive
 

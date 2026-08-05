@@ -57,6 +57,16 @@ identical to each other, which is the evidence the brief asked for.
 *Revisit if:* six of the fifteen turn out byte-identical apart from the type parameter.
 They are not expected to — see the sentence table in `tasks.md`.
 
+**Found while implementing: three of them were byte-identical, and the answer was not a
+hook.** `InputDeviceSection`, `ProcessingDeviceSection` and `TrueOutputDeviceSection`
+each passed the same `window.confirm` sentence into the same shared `DeviceSection`,
+which Slice 24 already extracted as the component that owns those lists. The confirm went
+*there*, once, and `onDelete` became the post-confirmation callback. That is this
+decision's own rule applied — *state lives in the component that owns the list* — not a
+departure from it, and it is why the change converts fifteen call sites in thirteen
+files rather than fifteen. The `title` varies correctly on its own, from the existing
+`addNoun` prop: *Delete device* for two lists, *Delete destination* for the third.
+
 ### 2 · The dialog mounts as a sibling, after the surface that raised it
 
 The brief's second open decision, and the one with a real failure mode. The dialog is
