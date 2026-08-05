@@ -2513,9 +2513,22 @@ renders above the surface that raised it. Worth noting which way round it went: 
 fault the walk existed to catch was found by *reading the CSS* first, and the walk
 confirmed nothing else had been missed.
 
-**Still browser-native: two `window.alert` calls** in `LightingTab.tsx:90,100`. Out of
-scope here — an alert is a notification, not a question, and replacing it needs a decision
-this defect had no mandate for. Reported, not recorded.
+**The two `window.alert` calls** in `LightingTab.tsx:90,100` were out of scope here — an
+alert is a notification, not a question, and replacing one needed a decision this defect
+had no mandate for. Reported rather than recorded, and then **handled directly on the
+user's instruction the same day**, which is why no defect was ever opened for them. The
+application now has zero live `window.alert`, `window.confirm` and `window.prompt` calls.
+
+Neither needed the notification pattern `design/` lacks. *"There are no gaps to close"*
+became the button stating its own applicability in `UniversesDrawer` — asked before the
+press instead of apologised for after it, and not a P7 case, since P7 is about a
+restricted *role* losing a control outright while this is reversible state that `busy`
+already disables the same two buttons for. *"Done. Universe 2 was left untouched"* was
+deleted: the confirm states the skipped universes **before** the act, in the sentence the
+user agrees to, and what is still true afterwards is the rig's state, which
+`LightingStatusRail` reports. **The open question, if it is ever wanted, is a way to say
+what just happened** — `Dialog` is defined as an interruption you answer, so a one-button
+dialog contradicts it, and that would need a design decision and an approved mockup.
 
 ## Dependency graph
 

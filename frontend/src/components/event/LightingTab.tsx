@@ -86,23 +86,23 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
    *
    * The packing is `lib/dmxPlan`; this confirms and applies. It confirms because
    * one press can move thirty fixtures and none of it can be undone (FR-041).
+   *
+   * It no longer guards against a plan with nothing in it, and takes no
+   * `nothingToDo` sentence, because the buttons in `UniversesDrawer` now state
+   * their own applicability rather than accepting a press and apologising for it.
    */
-  function run(plan: Plan, verb: string, confirmLabel: string, nothingToDo: string) {
-    if (plan.changes.length === 0 && plan.skippedUniverses.length === 0) {
-      window.alert(nothingToDo)
-      return
-    }
+  function run(plan: Plan, verb: string, confirmLabel: string) {
     setPendingPlan({ plan, verb, confirmLabel })
   }
 
+  /*
+    No completion notice. The confirm states the skipped universes *before* the act,
+    in the sentence the user agrees to — repeating it afterwards tells them something
+    they have just been told and accepted. What remains true after the act is the
+    rig's own state, and `LightingStatusRail` is the surface that reports that.
+  */
   function apply(plan: Plan) {
-    applyAddresses.mutate(plan.changes, {
-      onSuccess: () => {
-        if (plan.skippedUniverses.length) {
-          window.alert(`Done. Universe ${plan.skippedUniverses.join(', ')} was left untouched — it needs more than ${UNIVERSE_SIZE} channels.`)
-        }
-      },
-    })
+    applyAddresses.mutate(plan.changes)
   }
 
   /*
@@ -227,12 +227,11 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
                     planAutoAssign(fixtures),
                     'Re-address',
                     'Re-address',
-                    'Every fixture is already packed from address 1 in rig order.',
                   )
           }
           onClose={() => setUniversesOpen(false)}
           onOptimise={
-            readOnly ? undefined : () => run(planOptimise(fixtures), 'Close the gaps around', 'Close the gaps', 'There are no gaps to close.')
+            readOnly ? undefined : () => run(planOptimise(fixtures), 'Close the gaps around', 'Close the gaps')
           }
           open={universesOpen}
         />
@@ -313,13 +312,12 @@ export function LightingTab({ eventId, readOnly = false }: { eventId: number; re
                     planAutoAssign(fixtures),
                     'Re-address',
                     'Re-address',
-                    'Every fixture is already packed from address 1 in rig order.',
                   )
           }
           onOptimise={
             readOnly
               ? undefined
-              : () => run(planOptimise(fixtures), 'Close the gaps around', 'Close the gaps', 'There are no gaps to close.')
+              : () => run(planOptimise(fixtures), 'Close the gaps around', 'Close the gaps')
           }
         />
       </div>
