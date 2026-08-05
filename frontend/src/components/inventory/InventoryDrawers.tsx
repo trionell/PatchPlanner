@@ -17,6 +17,7 @@ import {
 } from '../../api/inventories'
 import type { Inventory, InventoryCategory, InventoryImportResult, InventoryPricing } from '../../types'
 import { Button } from '../ui/Button'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Drawer } from '../ui/Drawer'
 import { DrawerSection, GearCard, GearTop } from '../ui/GearList'
 import { Input } from '../ui/Input'
@@ -60,6 +61,8 @@ interface CategoriesDrawerProps {
 export function CategoriesDrawer({ open, onClose, inventoryId, categories, onError, editable }: CategoriesDrawerProps) {
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState<CategoryDraft>({ name: '', category_type: 'audio' })
+  /* The category, never a boolean — one confirm serves the whole list. */
+  const [pendingCategory, setPendingCategory] = useState<InventoryCategory | null>(null)
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['inventory-categories', inventoryId] })
@@ -93,6 +96,7 @@ export function CategoriesDrawer({ open, onClose, inventoryId, categories, onErr
   })
 
   return (
+    <>
     <Drawer
       open={open}
       onClose={onClose}
@@ -170,9 +174,7 @@ export function CategoriesDrawer({ open, onClose, inventoryId, categories, onErr
                   variant="ghost"
                   className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
                   title="Delete category"
-                  onClick={() => {
-                    if (window.confirm(`Delete the category "${category.name}"?`)) remove.mutate(category.id)
-                  }}
+                  onClick={() => setPendingCategory(category)}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
@@ -219,6 +221,26 @@ export function CategoriesDrawer({ open, onClose, inventoryId, categories, onErr
         )}
       </DrawerSection>
     </Drawer>
+
+    {/* Sibling, after the drawer, and this is the site the rule matters most on:
+        Drawer and Dialog are both z-50, so a confirm inside the drawer's scrolling
+        body renders under it. */}
+    <ConfirmDialog
+      open={pendingCategory != null}
+      title="Delete category"
+      onCancel={() => setPendingCategory(null)}
+      onConfirm={() => {
+        if (pendingCategory) remove.mutate(pendingCategory.id)
+        setPendingCategory(null)
+      }}
+    >
+      {pendingCategory && (
+        <>
+          The category <span className="text-zinc-200">{pendingCategory.name}</span> is removed from this catalog.
+        </>
+      )}
+    </ConfirmDialog>
+    </>
   )
 }
 

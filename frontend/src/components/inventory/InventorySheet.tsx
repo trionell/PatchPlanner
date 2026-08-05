@@ -6,6 +6,7 @@ import { matchesSearch } from '../../lib/patchSearch'
 import type { InventoryCategory, InventoryItem } from '../../types'
 import { FixtureModeManager } from '../FixtureModeManager'
 import { RowEditor } from '../event/RowEditor'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { FieldStack } from '../ui/GearList'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
@@ -78,6 +79,8 @@ export function InventorySheet({
 
   const visible = items.filter((item) => matchesSearch(search, item.name, item.description, item.category_name))
 
+  /* The item, never a boolean — a catalog is a long list of similar rows. */
+  const [pendingItem, setPendingItem] = useState<InventoryItem | null>(null)
   const editor = useRowEditor<InventoryItem, ItemDraft>({
     rows: visible,
     idOf: (item) => item.id,
@@ -101,6 +104,7 @@ export function InventorySheet({
   })
 
   return (
+    <>
     <div className="overflow-x-auto">
       <SheetTable>
         <SheetHead>
@@ -147,12 +151,7 @@ export function InventorySheet({
                         onSave={editor.save}
                         onCancel={editor.close}
                         onKeyDown={editor.onKeyDown}
-                        onDelete={() => {
-                          if (window.confirm(`Delete "${item.name}" from this inventory?`)) {
-                            remove.mutate(item.id)
-                            editor.close()
-                          }
-                        }}
+                        onDelete={() => setPendingItem(item)}
                         notice={
                           // A mode belongs to an item, so it is edited with the
                           // item — never in a dialog opened from its own row.
@@ -195,6 +194,26 @@ export function InventorySheet({
         </SheetBody>
       </SheetTable>
     </div>
+
+    {/* Last sibling, outside the scrolling table: the row editor that raises this
+        sits in a `<tr>`, inside the table's own stacking. */}
+    <ConfirmDialog
+      open={pendingItem != null}
+      title="Delete item"
+      onCancel={() => setPendingItem(null)}
+      onConfirm={() => {
+        if (pendingItem) remove.mutate(pendingItem.id)
+        setPendingItem(null)
+        editor.close()
+      }}
+    >
+      {pendingItem && (
+        <>
+          <span className="text-zinc-200">{pendingItem.name}</span> is removed from this inventory.
+        </>
+      )}
+    </ConfirmDialog>
+    </>
   )
 }
 

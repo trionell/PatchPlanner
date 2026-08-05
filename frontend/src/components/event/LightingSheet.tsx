@@ -20,6 +20,7 @@ import { nextFixtureNumber } from '../../lib/lightingRig'
 import { matchesSearch } from '../../lib/patchSearch'
 import { cn } from '../../lib/utils'
 import type { AddressChange, BulkFixtureRequest, LightingFixture } from '../../types'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { FieldStack } from '../ui/GearList'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
@@ -197,6 +198,8 @@ export function LightingSheet({
   }
 
   const [rowCollision, setRowCollision] = useState<Collision | null>(null)
+  /* The fixture, never a boolean — the rig is a list of near-identical rows. */
+  const [pendingFixture, setPendingFixture] = useState<LightingFixture | null>(null)
   const [applying, setApplying] = useState(false)
 
   /** Shift first, then save: the reverse saves a fixture into a collision. */
@@ -340,11 +343,7 @@ export function LightingSheet({
                             setRowCollision(null)
                             editor.close()
                           }}
-                          onDelete={() => {
-                            if (window.confirm(`Delete ${labelOf(fixture)}? This cannot be undone.`)) {
-                              removeFixture.mutate(fixture.id)
-                            }
-                          }}
+                          onDelete={() => setPendingFixture(fixture)}
                           handoff={onOpenPlot ? { label: 'Truss', text: 'Hang in plot', onSelect: onOpenPlot } : undefined}
                           onKeyDown={(event) => {
                             // While the prompt is up there is a question
@@ -452,6 +451,25 @@ export function LightingSheet({
       {(updateFixture.error ?? removeFixture.error) && (
         <p className="px-3 pb-2 text-xs text-red-400">{(updateFixture.error ?? removeFixture.error)?.message}</p>
       )}
+
+      {/* Last sibling: the row editor that raises this lives in a `<tr>`. */}
+      <ConfirmDialog
+        open={pendingFixture != null}
+        title="Delete fixture"
+        onCancel={() => setPendingFixture(null)}
+        onConfirm={() => {
+          if (pendingFixture) removeFixture.mutate(pendingFixture.id)
+          setPendingFixture(null)
+        }}
+      >
+        {/* The consequence stays generic. Naming what a fixture takes with it is a
+            product question this substitution has no mandate to answer. */}
+        {pendingFixture && (
+          <>
+            <span className="text-zinc-200">{labelOf(pendingFixture)}</span> is removed from the rig. This cannot be undone.
+          </>
+        )}
+      </ConfirmDialog>
     </>
   )
 }

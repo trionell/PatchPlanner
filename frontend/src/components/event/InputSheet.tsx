@@ -9,6 +9,7 @@ import { chainSourceNode, inputChainSegments, type ChainCellModel, type SegmentN
 import type { InputFlowContext } from '../../lib/inputSignalFlow'
 import { busTint } from '../../lib/utils'
 import type { Console, InputCable, InputChannel, InputDevice, InputSource, InventoryItem, MixerDCA, MixerGroup, StageMulti, Stagebox } from '../../types'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { FieldStack } from '../ui/GearList'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
@@ -88,6 +89,9 @@ export function InputSheet({
 }: InputSheetProps) {
   const queryClient = useQueryClient()
   const [gapsOnly, setGapsOnly] = useState(false)
+  /* The channel, never a boolean — the sheet is a list of near-identical numbered
+     rows, which is exactly the case a boolean gets wrong. */
+  const [pendingChannel, setPendingChannel] = useState<InputChannel | null>(null)
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['audio-patch', eventId] })
@@ -225,11 +229,7 @@ export function InputSheet({
                         saveLabel="Save channel"
                         onSave={editor.save}
                         onCancel={editor.close}
-                        onDelete={() => {
-                          if (window.confirm(`Delete channel ${channel.channel_number}${channel.channel_name ? ` ${channel.channel_name}` : ''}? Any cable landing on it is removed with it.`)) {
-                            removeChannel.mutate(channel.id)
-                          }
-                        }}
+                        onDelete={() => setPendingChannel(channel)}
                         handoff={
                           onEditInFlow && chainSourceNode(chain)
                             ? { label: 'Source', text: 'Edit in Flow', onSelect: () => onEditInFlow(chainSourceNode(chain)!) }
@@ -329,6 +329,29 @@ export function InputSheet({
           {(updateChannel.error ?? removeChannel.error ?? setCableItem.error ?? removeCable.error)?.message}
         </p>
       )}
+
+      {/* Last sibling. The row editor that raises this sits in a `<tr>`, inside the
+          table's own stacking; a dialog rendered there would be under the sheet. */}
+      <ConfirmDialog
+        open={pendingChannel != null}
+        title="Delete channel"
+        onCancel={() => setPendingChannel(null)}
+        onConfirm={() => {
+          if (pendingChannel) removeChannel.mutate(pendingChannel.id)
+          setPendingChannel(null)
+        }}
+      >
+        {pendingChannel && (
+          <>
+            Channel{' '}
+            <span className="text-zinc-200">
+              {pendingChannel.channel_number}
+              {pendingChannel.channel_name ? ` ${pendingChannel.channel_name}` : ''}
+            </span>{' '}
+            is removed from the patch. Any cable landing on it is removed with it.
+          </>
+        )}
+      </ConfirmDialog>
     </>
   )
 }

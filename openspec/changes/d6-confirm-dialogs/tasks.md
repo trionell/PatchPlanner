@@ -44,17 +44,17 @@ same four moves, so they are stated once here and not repeated per task:
 
 ## 3. Sheets and sections with an enclosing surface
 
-- [ ] 3.1 `event/ConsoleSection.tsx:228` — *"Delete {name}? Cables patched to its local jacks
+- [x] 3.1 `event/ConsoleSection.tsx:228` — *"Delete {name}? Cables patched to its local jacks
       are cleared; channels and outputs are kept."*
-- [ ] 3.2 `event/InputSheet.tsx:229` — *"Delete channel {n} {name}? Any cable landing on it is
+- [x] 3.2 `event/InputSheet.tsx:229` — *"Delete channel {n} {name}? Any cable landing on it is
       removed with it."*
-- [ ] 3.3 `event/OutputSheet.tsx:223` — *"Delete output {n} {name}? Any cable leaving it is
+- [x] 3.3 `event/OutputSheet.tsx:223` — *"Delete output {n} {name}? Any cable leaving it is
       removed with it."*
-- [ ] 3.4 `event/LightingSheet.tsx:344` — *"Delete {label}? This cannot be undone."* The
+- [x] 3.4 `event/LightingSheet.tsx:344` — *"Delete {label}? This cannot be undone."* The
       consequence here is generic; leave it as it is — rewriting it is a product change,
       not this substitution.
-- [ ] 3.5 `inventory/InventorySheet.tsx:151` — *"Delete "{name}" from this inventory?"*
-- [ ] 3.6 `inventory/InventoryDrawers.tsx:174` — *"Delete the category "{name}"?"* Raised
+- [x] 3.5 `inventory/InventorySheet.tsx:151` — *"Delete "{name}" from this inventory?"*
+- [x] 3.6 `inventory/InventoryDrawers.tsx:174` — *"Delete the category "{name}"?"* Raised
       from inside a `Drawer`; the z-order check (task 5.2) applies hardest here.
 
 ## 4. The structurally different one, last
