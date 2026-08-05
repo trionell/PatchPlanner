@@ -1,5 +1,7 @@
 context_file: .github/copilot-instructions.md
-context_files: []
+context_files:
+- CLAUDE.md
+- .github/copilot-instructions.md
 context_markers:
   start: <!-- SPECKIT START -->
   end: <!-- SPECKIT END -->

@@ -1,0 +1,77 @@
+schema: spec-driven
+
+context: |
+  PatchPlanner — AVL (audio/video/lighting) event planning. Go 1.25 + chi + SQLite
+  (modernc.org/sqlite, golang-migrate) behind `backend/`; React 18 + TypeScript 5 +
+  Vite + Tailwind + TanStack React Query behind `frontend/`. One Go binary in
+  production — `make build` embeds the frontend via `go:embed`.
+
+  READ `CLAUDE.md` FIRST. It is the working brief for this repository and it
+  outranks anything inferred from the code. The rules below are the ones that are
+  most often got wrong; CLAUDE.md carries the rest.
+
+  AUTHORITY. `.specify/memory/constitution.md` is the one authority above every
+  other document, including this file. Where a rule and a constitutional principle
+  conflict, the constitution wins. Every proposal states a Constitution Check
+  against Principles I–V, and justifies any deviation explicitly. OpenSpec has no
+  gate of its own for this, so the proposal is where it happens.
+
+  DESIGN. `design/` is the sole authority for the visual language — tokens,
+  components, patterns, principles. Look values up there; never restate or
+  duplicate a design value in `openspec/specs/`, which would create a second
+  source of truth. A change that alters a design value edits `design/` in the same
+  commit. Editing `design/` — or deleting a component from `frontend/src/components/ui/` —
+  requires a mockup approved by the user BEFORE implementation, as does any change
+  that introduces or substantially reshapes a user-facing surface. That approval is
+  a real user turn and nothing else counts for it.
+
+  GATES. All must pass before any change is done:
+    cd backend  && gofmt -l . && go vet ./... && go test ./...
+    cd frontend && npx tsc -b && npx eslint src && npx vitest run && npx vite build
+  Use `tsc -b`, NEVER `tsc --noEmit` — the root tsconfig is references-only, so
+  `--noEmit` type-checks nothing and passes unconditionally.
+
+  DATABASE. Never touch `backend/patchplanner.db`. To verify against real data,
+  copy it to /tmp and point `PATCHPLANNER_DB` at the copy. A schema change means a
+  migration file in `backend/migrations/` — never `ALTER TABLE` in application code.
+
+  TESTS. Backend: Go `testing` + `httptest`. Frontend: Vitest with
+  `renderToStaticMarkup` from `react-dom/server` — no DOM, no React Testing Library.
+
+  PHONE. The branch is `useIsMobile()` — `(max-width: 767px)`. Tap targets ≥ 44 px.
+
+  SCOPE. `openspec/specs/` describes behaviour this tool owns. `ROADMAP.md` remains
+  the delivery record and `specs/NNN-*/` the Spec Kit history — do not rewrite,
+  migrate or duplicate either into `openspec/`. Closing out a change in ROADMAP.md
+  is a manual step; `openspec archive` knows nothing about it.
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+# Example:
+#   context: |
+#     Tech stack: TypeScript, React, Node.js
+#     We use conventional commits
+#     Domain: e-commerce platform
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
