@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { type DmxMap, UNIVERSE_SIZE } from '../../lib/dmxMap'
+import { planAutoAssign, planOptimise } from '../../lib/dmxPlan'
 import type { LightingFixture } from '../../types'
 import { Button } from '../ui/Button'
 import { Drawer } from '../ui/Drawer'
@@ -28,6 +29,31 @@ interface UniversesDrawerProps {
 }
 
 export function UniversesDrawer({ open, onClose, map, fixtures, onAutoAssign, onOptimise, busy }: UniversesDrawerProps) {
+  /*
+    Whether each operation has anything to do, asked *before* it is pressed.
+
+    It used to be asked after: both handlers ran the packer, found no changes, and
+    said so in a `window.alert`. A control that can always be pressed and sometimes
+    does nothing but apologise is worse than one that states its own applicability,
+    and this drawer is the place the 512-channel ceiling is explained rather than
+    reported after the fact — which is the same argument that moved both operations
+    in here.
+
+    Not a P7 case: that principle is about a restricted *role*, which loses the
+    control outright. This is state, and reversible — add one fixture and the button
+    is live again. `busy` already disables these two for the same kind of reason.
+
+    The packer is pure and cheap over a rig's worth of fixtures; `fixtures` is the
+    only input, so this recomputes exactly when the answer can have changed.
+  */
+  const nothingToOptimise = useMemo(() => {
+    const plan = planOptimise(fixtures)
+    return plan.changes.length === 0 && plan.skippedUniverses.length === 0
+  }, [fixtures])
+  const nothingToAutoAssign = useMemo(() => {
+    const plan = planAutoAssign(fixtures)
+    return plan.changes.length === 0 && plan.skippedUniverses.length === 0
+  }, [fixtures])
   /** Each catalog model in the rig, once, with what it costs the map. */
   const models = useMemo(() => {
     const byName = new Map<string, { name: string; quantity: number; mode: string; channels: number }>()
@@ -69,12 +95,24 @@ export function UniversesDrawer({ open, onClose, map, fixtures, onAutoAssign, on
           (onAutoAssign || onOptimise) && (
             <div className="flex gap-1.5">
               {onOptimise && (
-                <Button size="xs" variant="outline" onClick={onOptimise} disabled={busy}>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={onOptimise}
+                  disabled={busy || nothingToOptimise}
+                  title={nothingToOptimise ? 'There are no gaps to close.' : undefined}
+                >
                   Optimise channels
                 </Button>
               )}
               {onAutoAssign && (
-                <Button size="xs" variant="outline" onClick={onAutoAssign} disabled={busy}>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={onAutoAssign}
+                  disabled={busy || nothingToAutoAssign}
+                  title={nothingToAutoAssign ? 'Every fixture is already packed from address 1 in rig order.' : undefined}
+                >
                   Auto-assign DMX
                 </Button>
               )}
