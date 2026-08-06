@@ -162,38 +162,77 @@ func (d *plotDoc) drawAxisNames(view PlotView) {
 	d.setInk(17, 17, 17)
 }
 
+// plotElementFrame is where one element sits on the page and how it is turned.
+//
+// It exists so that "where does this point end up on the sheet" is a single
+// computation the drawing and its tests can both call, rather than something
+// each of them works out for itself. A test that re-derives the placement
+// agrees with a placement bug instead of catching it — which is exactly how a
+// reversed rake reached a printed sheet.
+type plotElementFrame struct {
+	// CX, CY is the element's centre on the page, in millimetres.
+	CX, CY float64
+	// Rotation is the turn the view draws with, in degrees clockwise on the
+	// page — SVG's sense, which is what the canvas uses.
+	Rotation float64
+	perCm    float64
+}
+
+// toPage maps a point in the element's own drawn frame (centimetres from its
+// centre, v pointing down the page) to page millimetres.
+func (f plotElementFrame) toPage(u, v float64) (float64, float64) {
+	return rotateAbout(f.CX+u*f.perCm, f.CY+v*f.perCm, f.CX, f.CY, f.Rotation)
+}
+
+// elementFrame places an element on the page.
+//
+// The rotation is the same in every view. An elevation does NOT flip it: what an
+// elevation flips is where the element's CENTRE lands, because height grows up
+// the sheet, and that is the mapper's job. The body is drawn in the element's own
+// frame, whose v already points down the page in every view — a projected height
+// arrives as -z. Flipping the body as well is a second reflection, and it
+// silently reverses the slope of anything raked.
+//
+// This matches StagePlotCanvas, which places the centre at `svgY = -rect.v` for
+// elevations and still draws the body inside a plain `rotate(rect.rotationDeg)`.
+func (d *plotDoc) elementFrame(element domain.StagePlotElement, view PlotView, m plotMapper) plotElementFrame {
+	rect := ProjectElement(element, view)
+	return plotElementFrame{
+		CX:       m.X(rect.U),
+		CY:       m.Y(rect.V),
+		Rotation: rect.RotationDeg,
+		perCm:    d.perCm,
+	}
+}
+
 func (d *plotDoc) drawElement(element domain.StagePlotElement, view PlotView, m plotMapper) {
 	rect := ProjectElement(element, view)
-	cx, cy := m.X(rect.U), m.Y(rect.V)
+	frame := d.elementFrame(element, view, m)
+	cx, cy := frame.CX, frame.CY
 	width, height := rect.Width*d.perCm, rect.Height*d.perCm
-	// An elevation flips the vertical axis, so a drawn rotation flips with it.
-	rotation := rect.RotationDeg
-	if !m.vDown {
-		rotation = -rotation
-	}
+	rotation := frame.Rotation
 	red, green, blue := d.ink(element.LayerID)
 	d.setInk(red, green, blue)
 	d.pdf.SetLineWidth(plotElementWeight)
 
-	d.pdf.TransformBegin()
-	if rotation != 0 {
-		d.pdf.TransformRotate(-rotation, cx, cy)
+	// The truss carries its own turn — its geometry is computed straight into
+	// page coordinates so a test can read it back — so it is drawn outside the
+	// transform. Everything else is a shape or a glyph in an upright local box
+	// and takes the turn from the page.
+	//
+	// fpdf's TransformRotate is counter-clockwise in PDF space, where y grows
+	// up; SVG's rotate is clockwise in a y-down frame. So the same visual turn
+	// is TransformRotate(-rotation).
+	if element.Kind == "truss" && element.TrussID != nil {
+		d.drawTruss(element, view, m)
+	} else {
+		d.pdf.TransformBegin()
+		if rotation != 0 {
+			d.pdf.TransformRotate(-rotation, cx, cy)
+		}
+		d.drawElementBody(element, view, cx, cy, width, height)
+		d.pdf.TransformEnd()
 	}
-
-	switch {
-	case element.Kind == "shape":
-		d.drawShape(element, view, cx, cy, width, height)
-	case element.Kind == "truss" && element.TrussID != nil:
-		d.drawTruss(element, view, m, cx, cy)
-	case element.Icon != "" || element.Kind == "fixture":
-		d.drawIcon(element, view, cx, cy, width, height)
-	default:
-		d.pdf.SetDashPattern([]float64{1.2, 0.8}, 0)
-		d.pdf.Rect(cx-width/2, cy-height/2, width, math.Max(height, 1), "D")
-		d.pdf.SetDashPattern(nil, 0)
-	}
-
-	d.pdf.TransformEnd()
 
 	// The plan is where a thing is identified; an elevation is where its height
 	// is read. Labelling every element in both piles the whole floor-standing
@@ -204,11 +243,24 @@ func (d *plotDoc) drawElement(element domain.StagePlotElement, view PlotView, m 
 	// it names; its ORIENTATION does not, because a drawing is read one way up.
 	if element.Name != "" && (m.vDown || element.ZCm > 0) &&
 		!(element.Kind == "shape" && element.ShapeKind == "text") {
-		labelX, labelY := rotateAbout(cx, cy+height/2+2.1, cx, cy, -rotation)
+		labelX, labelY := frame.toPage(0, rect.Height/2+2.1/d.perCm)
 		d.setInk(red, green, blue)
 		d.text(labelX, labelY, 5.5, "", "C", element.Name)
 	}
 	d.setInk(17, 17, 17)
+}
+
+func (d *plotDoc) drawElementBody(element domain.StagePlotElement, view PlotView, cx, cy, width, height float64) {
+	switch {
+	case element.Kind == "shape":
+		d.drawShape(element, view, cx, cy, width, height)
+	case element.Icon != "" || element.Kind == "fixture":
+		d.drawIcon(element, view, cx, cy, width, height)
+	default:
+		d.pdf.SetDashPattern([]float64{1.2, 0.8}, 0)
+		d.pdf.Rect(cx-width/2, cy-height/2, width, math.Max(height, 1), "D")
+		d.pdf.SetDashPattern(nil, 0)
+	}
 }
 
 func (d *plotDoc) drawShape(element domain.StagePlotElement, view PlotView, cx, cy, width, height float64) {
@@ -256,31 +308,46 @@ func (d *plotDoc) drawIcon(element domain.StagePlotElement, view PlotView, cx, c
 // The balloon carries a number, not a name: at the scales a stage is drawn at a
 // fixture is about 3 mm across and "ADJ, ULTRA LB18 · FID 1101 · 2.001" is
 // 22 mm of type. The number is resolved in the title block and the schedule.
-func (d *plotDoc) drawTruss(element domain.StagePlotElement, view PlotView, m plotMapper, cx, cy float64) {
-	outline := ProjectedOutline(element, view)
-	flip := 1.0
-	if !m.vDown {
-		flip = -1
-	}
-	if len(outline) >= 3 {
-		points := make([]fpdfPoint, 0, len(outline))
-		for _, corner := range outline {
-			points = append(points, fpdfPoint{
-				X: cx + corner.U*d.perCm,
-				Y: cy + corner.V*d.perCm*flip,
-			})
-		}
-		d.polygon(points)
+// trussBalloon is one fixture's numbered mark, in page millimetres: where it
+// sits on the bar, and where its balloon hangs.
+type trussBalloon struct {
+	Number         int
+	FixtureID      int64
+	OnBarX, OnBarY float64
+	X, Y           float64
+}
+
+// trussPageGeometry is the whole of a truss's placement, in page millimetres.
+//
+// It is separated from the drawing because it is the part that can be wrong in a
+// way that still looks plausible — a reversed rake reads as a truss leaning the
+// other way, which only the person who built the rig notices. Returning page
+// coordinates lets a test read back what will actually be inked, instead of
+// re-deriving the placement and agreeing with itself.
+//
+// No vertical flip anywhere: ProjectedOutline and ProjectAxes already give the
+// element's own frame with v down the page in every view, and the frame's
+// rotation is applied through toPage. Mirroring on top of that reversed the rake
+// of every raked bar in both elevations.
+func (d *plotDoc) trussPageGeometry(element domain.StagePlotElement, view PlotView, m plotMapper) ([]fpdfPoint, []trussBalloon) {
+	frame := d.elementFrame(element, view, m)
+
+	var points []fpdfPoint
+	for _, corner := range ProjectedOutline(element, view) {
+		x, y := frame.toPage(corner.U, corner.V)
+		points = append(points, fpdfPoint{X: x, Y: y})
 	}
 
 	truss, ok := d.trusses[*element.TrussID]
 	if !ok {
-		return
+		return points, nil
 	}
 	axes := ProjectAxes(element, view)
 	barLength := math.Max(truss.TotalLengthCm, 20)
+	// How far below the bar's centre its underside is, in the drawn frame.
 	hangV := (element.HeightCm / 2) * math.Abs(axes.Az.V)
 
+	var balloons []trussBalloon
 	for index, fixture := range truss.Fixtures {
 		if fixture.OffsetCm == nil {
 			continue
@@ -291,17 +358,41 @@ func (d *plotDoc) drawTruss(element domain.StagePlotElement, view PlotView, m pl
 		u := along*axes.Ax.U + laneV*axes.Ay.U
 		v := along*axes.Ax.V + laneV*axes.Ay.V
 
-		x := cx + u*d.perCm
-		y := cy + v*d.perCm*flip
+		onBarX, onBarY := frame.toPage(u, v)
+		markX, markY := onBarX, onBarY
 		if !m.vDown {
-			// The elevations hang the marker below the bar's underside, on a
-			// short leader so it is visibly attached to the bar.
-			hung := y + hangV*d.perCm*flip*-1
-			d.pdf.SetLineWidth(plotHairWeight)
-			d.pdf.Line(x, y, x, hung)
-			y = hung
+			// An elevation hangs the marker below the bar's underside. hangV is
+			// positive down the element's frame, which is down the page, so it
+			// is simply added — before the frame's rotation, so the leader stays
+			// perpendicular to the bar.
+			markX, markY = frame.toPage(u, v+hangV)
 		}
-		d.drawBalloon(x, y, index+1)
+		balloons = append(balloons, trussBalloon{
+			Number: index + 1, FixtureID: fixture.FixtureID,
+			OnBarX: onBarX, OnBarY: onBarY, X: markX, Y: markY,
+		})
+	}
+	return points, balloons
+}
+
+// A truss is drawn as the true silhouette of its oriented box — up to six
+// corners once yaw and rake combine, which a rectangle cannot represent — with
+// a numbered balloon at each fixture's real point on the bar.
+//
+// The balloon carries a number, not a name: at the scales a stage is drawn at a
+// fixture is about 3 mm across and "ADJ, ULTRA LB18 · FID 1101 · 2.001" is
+// 22 mm of type. The number is resolved in the title block and the schedule.
+func (d *plotDoc) drawTruss(element domain.StagePlotElement, view PlotView, m plotMapper) {
+	outline, balloons := d.trussPageGeometry(element, view, m)
+	if len(outline) >= 3 {
+		d.polygon(outline)
+	}
+	for _, balloon := range balloons {
+		if balloon.X != balloon.OnBarX || balloon.Y != balloon.OnBarY {
+			d.pdf.SetLineWidth(plotHairWeight)
+			d.pdf.Line(balloon.OnBarX, balloon.OnBarY, balloon.X, balloon.Y)
+		}
+		d.drawBalloon(balloon.X, balloon.Y, balloon.Number)
 	}
 }
 

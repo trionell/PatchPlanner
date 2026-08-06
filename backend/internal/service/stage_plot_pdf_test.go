@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"database/sql"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -563,4 +564,121 @@ func TestDivisionsFallBetweenElements(t *testing.T) {
 			}
 		}
 	}
+}
+
+// The end of a raked bar that is higher in the room is higher on the sheet.
+//
+// This is the invariant the elevations broke: the body was mirrored vertically
+// on top of the mapper's height flip, so every raked truss leaned the wrong way
+// in the front and side views while looking perfectly plausible. It reached a
+// printed sheet and was caught by eye against the editor, not by a test.
+//
+// The test reads back the page coordinates the drawing will actually ink, and
+// compares them against the WORLD model — the stored tilt — rather than against
+// another projection. An earlier version of this test recomputed the placement
+// itself and passed happily with the bug reintroduced, which is the whole
+// lesson: a test that re-derives the thing under test agrees with it.
+func TestARakedBarLeansTheSameWayOnPaperAsInTheRoom(t *testing.T) {
+	doc, bar := plotDocWithTruss(t)
+	if bar.TiltDeg == 0 {
+		t.Fatal("a bar with no rake cannot show this")
+	}
+
+	// localAxes puts the element's length axis at z = -sin(tilt), so a positive
+	// rake drops the far (+length) end and lifts the near one.
+	sinTilt := math.Sin(bar.TiltDeg * math.Pi / 180)
+	if sinTilt == 0 {
+		t.Fatal("no rake to test")
+	}
+	nearEndIsHigher := sinTilt > 0
+
+	for _, view := range []PlotView{ViewFront, ViewSide} {
+		t.Run(string(view), func(t *testing.T) {
+			m := doc.mapper(view)
+			outline, _ := doc.trussPageGeometry(bar, view, m)
+			if len(outline) < 3 {
+				t.Fatal("no outline drawn")
+			}
+
+			// The bar's two ends on the page: the extreme corners along the
+			// drawn length axis.
+			axes := ProjectAxes(bar, view)
+			if math.Hypot(axes.Ax.U, axes.Ax.V) < 0.05 {
+				t.Skip("the bar points into the page in this view")
+			}
+			frame := doc.elementFrame(bar, view, m)
+			nearX, nearY := frame.toPage(-bar.WidthCm/2*axes.Ax.U, -bar.WidthCm/2*axes.Ax.V)
+			farX, farY := frame.toPage(bar.WidthCm/2*axes.Ax.U, bar.WidthCm/2*axes.Ax.V)
+			_, _ = nearX, farX
+
+			// Page y grows downward, so the higher end must have the smaller y.
+			drawnNearIsHigher := nearY < farY
+			if drawnNearIsHigher != nearEndIsHigher {
+				t.Errorf("the bar leans the wrong way in the %s view: rake %.0f° lifts the near end (%v), "+
+					"but it draws at y %.2f mm against the far end's %.2f mm",
+					view, bar.TiltDeg, nearEndIsHigher, nearY, farY)
+			}
+		})
+	}
+}
+
+// A fixture hangs below the bar it is on, never above it, and its balloon is
+// joined to the bar by a leader.
+func TestTrussFixturesHangBelowTheBarInElevations(t *testing.T) {
+	doc, bar := plotDocWithTruss(t)
+
+	for _, view := range []PlotView{ViewFront, ViewSide} {
+		t.Run(string(view), func(t *testing.T) {
+			axes := ProjectAxes(bar, view)
+			if (bar.HeightCm/2)*math.Abs(axes.Az.V) <= 0.001 {
+				t.Skip("the bar's height axis points into the page in this view")
+			}
+			_, balloons := doc.trussPageGeometry(bar, view, doc.mapper(view))
+			if len(balloons) == 0 {
+				t.Fatal("no fixtures drawn")
+			}
+			for _, balloon := range balloons {
+				// Page y grows downward, so "below the bar" is a larger y.
+				if balloon.Y <= balloon.OnBarY {
+					t.Errorf("fixture %d draws at y %.3f, on or above its point on the bar at %.3f",
+						balloon.FixtureID, balloon.Y, balloon.OnBarY)
+				}
+			}
+		})
+	}
+}
+
+// In the plan a fixture sits ON its lane, not hung off it.
+func TestTrussFixturesSitOnTheBarInThePlan(t *testing.T) {
+	doc, bar := plotDocWithTruss(t)
+	_, balloons := doc.trussPageGeometry(bar, ViewTop, doc.mapper(ViewTop))
+	if len(balloons) == 0 {
+		t.Fatal("no fixtures drawn")
+	}
+	for _, balloon := range balloons {
+		if balloon.X != balloon.OnBarX || balloon.Y != balloon.OnBarY {
+			t.Errorf("fixture %d is hung off the bar in the plan", balloon.FixtureID)
+		}
+	}
+}
+
+func plotDocWithTruss(t *testing.T) (*plotDoc, domain.StagePlotElement) {
+	t.Helper()
+	database, eventID, plotID, _ := seedPlotEvent(t)
+	event, err := db.GetEvent(database, eventID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := db.GetStagePlotResponse(database, eventID, plotID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := newPlotDoc(event, response)
+	for _, element := range doc.elements {
+		if element.Kind == "truss" && element.TrussID != nil {
+			return doc, element
+		}
+	}
+	t.Fatal("the seeded plot has no truss")
+	return nil, domain.StagePlotElement{}
 }

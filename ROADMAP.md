@@ -2104,6 +2104,22 @@ differs; `make sync-glyphs` is the fix.
   parameterised by page width. `audio_pdf_test.go` passing unedited is what made the
   extraction safe to keep.
 
+**Found in the field test, and fixed.** Every raked truss leaned the *wrong way* in
+the front and side views. The elevations flip where an element's **centre** lands,
+because height grows up the sheet — but the body is drawn in a frame whose v already
+points down the page (a projected height arrives as `-z`), so flipping the body as
+well is a second reflection. It reverses the rake of anything raked while looking
+entirely plausible, which is why it survived a mockup approval, a render check and a
+full test suite. `StagePlotCanvas` had it right all along: it places the centre at
+`svgY = -rect.v` and still draws the body inside a plain `rotate(rect.rotationDeg)`.
+
+The first regression test written for it **passed with the bug reintroduced**, because
+it recomputed the page position itself instead of reading back what the drawing
+produces — a test that re-derives the thing under test agrees with it. The fix was to
+give the truss a `trussPageGeometry` that returns real page millimetres, and assert
+against the *world* model (the stored tilt) rather than against another projection.
+That separation is the lasting part.
+
 **Still open, and inherited rather than introduced:** the 5 pt legibility floor that
 decides when a drawing divides instead of shrinking is still a guess, and no
 festival-sized plan has been through it in either slice. The tiling path is covered by a

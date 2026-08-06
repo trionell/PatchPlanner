@@ -701,8 +701,12 @@ function drawElement(el, view, ink) {
   const cx = m.X(rect.u), cy = m.Y(rect.v);
   const w = rect.width * K, h = rect.height * K;
   const hw = w / 2, hh = h / 2;
-  // Elevations flip the vertical axis, so a drawn rotation flips with it.
-  const rot = VIEWS[view].vDown ? rect.rotationDeg : -rect.rotationDeg;
+  // The rotation is the same in every view. An elevation flips where the
+  // element's CENTRE lands, not how the element is turned — the body is drawn in
+  // a frame whose v already points down the page (a height arrives as -z), so
+  // flipping it again reverses the rake of anything raked. Corrected after the
+  // first field test: every raked truss leaned the wrong way in both elevations.
+  const rot = rect.rotationDeg;
   let body = "";
 
   if (el.kind === "shape") {
@@ -745,9 +749,8 @@ function drawElement(el, view, ink) {
    at 1:100 a fixture is 3 mm across and its label is 22 mm of type. */
 function drawTruss(el, view, ink) {
   const axes = projectedAxes(el, view);
-  const flip = VIEWS[view].vDown ? 1 : -1;
   const outline = projectedOutline(el, view)
-    .map((p) => `${n(p.u * K)},${n(p.v * K * flip)}`).join(" ");
+    .map((p) => `${n(p.u * K)},${n(p.v * K)}`).join(" ");
   let out = `<polygon points="${outline}" fill="none" stroke="${ink}" stroke-width="${W.element}"/>`;
 
   const barLength = Math.max(TRUSS.total_length_cm, 20);
@@ -759,9 +762,9 @@ function drawTruss(el, view, ink) {
     const along = offset - barLength / 2;
     const pos = { u: along * axes.ax.u + laneV * axes.ay.u, v: along * axes.ax.v + laneV * axes.ay.v };
     const px = pos.u * K;
-    const py = (VIEWS[view].vDown ? pos.v : pos.v + hangV) * K * flip;
+    const py = (VIEWS[view].vDown ? pos.v : pos.v + hangV) * K;
     out += `<g transform="translate(${n(px)} ${n(py)})">
-      ${VIEWS[view].vDown ? "" : `<line x1="0" y1="${n(-hangV * K * flip)}" x2="0" y2="0" stroke="${ink}" stroke-width="${W.hair}"/>`}
+      ${VIEWS[view].vDown ? "" : `<line x1="0" y1="${n(-hangV * K)}" x2="0" y2="0" stroke="${ink}" stroke-width="${W.hair}"/>`}
       <circle r="${r}" fill="#ffffff" stroke="${ink}" stroke-width="${W.element}"/>
       ${text(0, 0.62, String(index + 1), { size: 5, anchor: "middle", fill: ink, weight: "bold" })}
     </g>`;
