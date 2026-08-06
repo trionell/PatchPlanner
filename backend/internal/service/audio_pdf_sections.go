@@ -244,8 +244,9 @@ func (d *audioDoc) writeFlowSection(number int, title string, graph FlowGraph) {
 	// The drawing changes orientation, which is the one reason a section starts
 	// a fresh page anywhere in this document.
 	blockH := 210.0 - audioMarginTop - audioMarginBottom - 14
-	layout := LayoutFlow(graph, audioLandscapeBlockW, blockH)
-	routing := RouteFlow(graph, layout)
+	// Placed, routed, then measured with its cables included — see
+	// LayoutAndRouteFlow.
+	layout, routing := LayoutAndRouteFlow(graph, audioLandscapeBlockW, blockH)
 
 	for index, tile := range layout.Tiles {
 		// The size is given portrait-first whatever the orientation: fpdf

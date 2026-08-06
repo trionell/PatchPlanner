@@ -54,9 +54,10 @@ func assertOrthogonal(t *testing.T, routing FlowRouting) {
 	}
 }
 
+// The path the document actually takes: placed, routed, then framed with its
+// cables included.
 func routeGraph(graph FlowGraph) (FlowLayout, FlowRouting) {
-	layout := LayoutFlow(graph, testBlockW, testBlockH)
-	return layout, RouteFlow(graph, layout)
+	return LayoutAndRouteFlow(graph, testBlockW, testBlockH)
 }
 
 func TestOneCableIsTwoCornersAndNoOverlap(t *testing.T) {

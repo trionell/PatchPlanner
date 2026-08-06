@@ -1942,6 +1942,39 @@ daisy-chain sub to sub to top under their own `device_link` from_kind and are ne
 counted toward `output_port_count`. Both are drawn now, and every cable on every real
 event routes with zero overlaps.
 
+### Field test — 2026-08-06
+
+Three defects the field test found, all in the flow drawings; the tables were right.
+
+**The frame measured the boxes and not the cables.** A cable routed into the gutter
+above the topmost box runs at a *negative* height — on the reported event, 2.5 mm above
+the drawing origin — and one leaving past the rightmost box ran 5 mm off the side. Both
+were then cut by the tile clip, so the Trumpet source's run to `Local in 9` climbed into
+the section title and reappeared near its destination. The plane is now measured after
+routing, from boxes and segments together (`FlowLayout.Frame`), and the drawing shifted
+so nothing sits outside it. Since framing can then push a graph over the page,
+`LayoutAndRouteFlow` re-fits once into a block reduced by exactly the overflow before
+reaching for a second sheet.
+
+**Boxes appeared on both sheets of a tiled drawing, as text with no borders.** The
+cause is in fpdf: `SetX` reads a *negative* abscissa as measured from the right edge of
+the page (`fpdf.go:3610`). A box belonging to another tile was therefore drawn at a
+negative x, its rectangle placed off-page and clipped away while its labels wrapped back
+onto the sheet — a borderless table of someone else's content. Clipping alone can never
+fix that; off-tile boxes are now skipped outright.
+
+**The output graph tiled for a reason tiling cannot fix.** Four output devices sit
+stacked at one spot on that event's canvas, which the fit loop read as failure and so
+walked all the way down to the tiling fallback — where they are still stacked, just
+dealt across pages. Overlap that exists at the canvas's own density is now excluded from
+the check: only overlap the *scaling* introduced counts. Boxes the planner left on top
+of each other are drawn on top of each other, which is what the canvas shows; boxes at
+exactly the same coordinates hide each other entirely, and the stage rig section is what
+still lists all of them.
+
+The missing `M23R local` node and the six dropped output cables in that report were the
+`console_local`/`device_link` defect already fixed above — the tested file predated it.
+
 **The floor was reached on real data.** That event's output graph tiles across two
 pages at shrink 0.83, which puts its jack labels at exactly the 5 pt floor; its input
 graph fits one page at 0.95. So the tiling path is exercised by a real patch rather

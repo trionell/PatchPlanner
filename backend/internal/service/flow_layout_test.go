@@ -208,3 +208,107 @@ func TestAnEmptyGraphStillLaysOut(t *testing.T) {
 		t.Errorf("tiles = %d, want one empty page", len(layout.Tiles))
 	}
 }
+
+// The drawing is the boxes *and* the cables. A cable routed into the gutter
+// above the topmost box runs at a negative height, and one leaving past the
+// rightmost box runs off the side; measuring the plane from the boxes alone put
+// both outside the frame, where the page clip cut them off and a signal path
+// disappeared for part of its length.
+func TestTheFrameHoldsTheCablesToo(t *testing.T) {
+	// A cable that has to leave its column, cross a box and come back — the
+	// shape that produces a gutter run above everything.
+	graph := FlowGraph{
+		Nodes: []FlowNode{
+			testNode("left", 0, 300, 0, 2),
+			testNode("middle", 500, 0, 6, 6),
+			testNode("right", 1000, 300, 2, 0),
+		},
+		Edges: []FlowEdge{
+			edge("left", 0, "right", 0),
+			edge("left", 1, "right", 1),
+		},
+	}
+	layout, routing := routeGraph(graph)
+
+	for _, segment := range routing.Segments() {
+		for _, point := range [][2]float64{{segment.X1, segment.Y1}, {segment.X2, segment.Y2}} {
+			if point[0] < -epsilon || point[1] < -epsilon {
+				t.Errorf("a cable runs to (%.2f,%.2f), outside the top-left of the frame", point[0], point[1])
+			}
+			if point[0] > layout.PlaneW+epsilon || point[1] > layout.PlaneH+epsilon {
+				t.Errorf("a cable runs to (%.2f,%.2f), past the plane at %.2fx%.2f",
+					point[0], point[1], layout.PlaneW, layout.PlaneH)
+			}
+		}
+	}
+	for _, box := range layout.Boxes {
+		if box.X < -epsilon || box.Y < -epsilon {
+			t.Errorf("%s is placed at (%.2f,%.2f), outside the frame", box.Node.Key, box.X, box.Y)
+		}
+	}
+}
+
+// Overlap the planner already has is not a reason to shrink or to tile. Four
+// output devices stacked at one spot on the canvas overlap at every scale, and
+// tiling does not separate them — it deals them across pages.
+func TestBoxesTheCanvasAlreadyStacksDoNotForceTiling(t *testing.T) {
+	graph := FlowGraph{
+		Nodes: []FlowNode{
+			testNode("desk", 0, 100, 0, 4),
+			// Four destinations the planner never dragged apart. They overlap
+			// each other at every scale.
+			testNode("spk1", 900, 150, 1, 0),
+			testNode("spk2", 900, 153, 1, 0),
+			testNode("spk3", 900, 156, 1, 0),
+			testNode("spk4", 900, 159, 1, 0),
+		},
+		Edges: []FlowEdge{
+			edge("desk", 0, "spk1", 0),
+			edge("desk", 1, "spk2", 0),
+			edge("desk", 2, "spk3", 0),
+			edge("desk", 3, "spk4", 0),
+		},
+	}
+	layout, routing := routeGraph(graph)
+
+	if layout.Tiled() {
+		t.Errorf("a five-box graph was tiled across %d pages because its destinations "+
+			"were stacked on the canvas — no scale separates them and no page does either",
+			len(layout.Tiles))
+	}
+	// Every cable is still drawn. What the routing cannot promise here is the
+	// no-shared-ink invariant: boxes the planner left on top of each other have
+	// jacks at the same point, and two cables arriving at the same point share
+	// ink by definition. That is a property of the arrangement, not of the
+	// router, and the document reproduces the arrangement.
+	if len(routing.Edges) != len(graph.Edges) {
+		t.Errorf("routed %d of %d cables", len(routing.Edges), len(graph.Edges))
+	}
+}
+
+// A box belongs to one sheet. Clipping alone does not achieve that: fpdf reads a
+// negative abscissa as measured from the right edge of the page, so an off-tile
+// box has its rectangle clipped away while its labels wrap back onto the sheet.
+func TestABoxBelongsToOneSheet(t *testing.T) {
+	graph := FlowGraph{}
+	for i := 0; i < 12; i++ {
+		graph.Nodes = append(graph.Nodes, testNode(
+			fmt.Sprintf("n%d", i), float64(i*700), float64((i%2)*400), 20, 20))
+	}
+	layout, _ := routeGraph(graph)
+	if !layout.Tiled() {
+		t.Skip("this graph fitted one page; the question does not arise")
+	}
+
+	for _, box := range layout.Boxes {
+		sheets := 0
+		for _, tile := range layout.Tiles {
+			if boxOnTile(box, tile) {
+				sheets++
+			}
+		}
+		if sheets != 1 {
+			t.Errorf("%s is drawn on %d sheets, want exactly 1", box.Node.Key, sheets)
+		}
+	}
+}

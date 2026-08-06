@@ -85,6 +85,100 @@ type FlowTile struct {
 	Col, Row int
 }
 
+// Frame re-measures a drawn graph once its cables are routed, and shifts it so
+// that nothing sits outside the plane.
+//
+// The plane used to be measured from the boxes alone, which is wrong in both
+// directions: a cable routed into the gutter above the topmost box runs at a
+// negative height and was drawn over the section title, and one leaving past the
+// rightmost box ran off the page. Both were then cut off by the tile clip, so a
+// signal path simply disappeared for part of its length.
+//
+// Routing depends on the layout and the frame depends on the routing, so this is
+// a pass after both rather than a term inside either.
+func (l *FlowLayout) Frame(routing FlowRouting, availW, availH float64) FlowRouting {
+	minX, minY := 0.0, 0.0
+	maxX, maxY := 0.0, 0.0
+	for _, box := range l.Boxes {
+		minX, minY = math.Min(minX, box.X), math.Min(minY, box.Y)
+		maxX, maxY = math.Max(maxX, box.X+box.W), math.Max(maxY, box.Y+box.H)
+	}
+	for _, edge := range routing.Edges {
+		for _, segment := range edge.Segments {
+			minX = math.Min(minX, math.Min(segment.X1, segment.X2))
+			minY = math.Min(minY, math.Min(segment.Y1, segment.Y2))
+			maxX = math.Max(maxX, math.Max(segment.X1, segment.X2))
+			maxY = math.Max(maxY, math.Max(segment.Y1, segment.Y2))
+		}
+	}
+	// A little room for the arrowheads, which are drawn past the last segment.
+	maxX += arrowLength
+	maxY += arrowLength
+
+	shiftX, shiftY := -minX, -minY
+	for index := range l.Boxes {
+		l.Boxes[index].X += shiftX
+		l.Boxes[index].Y += shiftY
+	}
+	shifted := FlowRouting{Edges: make([]RoutedEdge, len(routing.Edges))}
+	for index, edge := range routing.Edges {
+		moved := RoutedEdge{Edge: edge.Edge, TipX: edge.TipX + shiftX, TipY: edge.TipY + shiftY}
+		moved.Segments = make([]Segment, len(edge.Segments))
+		for i, segment := range edge.Segments {
+			segment.X1 += shiftX
+			segment.X2 += shiftX
+			segment.Y1 += shiftY
+			segment.Y2 += shiftY
+			moved.Segments[i] = segment
+		}
+		shifted.Edges[index] = moved
+	}
+
+	l.PlaneW, l.PlaneH = maxX+shiftX, maxY+shiftY
+	if l.PlaneW > availW+epsilon || l.PlaneH > availH+epsilon {
+		l.Tiles = cutTiles(l.Boxes, l.PlaneW, l.PlaneH, availW, availH)
+	} else {
+		l.Tiles = []FlowTile{{W: availW, H: availH}}
+	}
+	return shifted
+}
+
+// LayoutAndRouteFlow places a graph, routes its cables and frames the result.
+//
+// The two passes need each other: the cables cannot be routed until the boxes
+// are placed, and the drawing cannot be measured until the cables exist. So a
+// graph that fitted the page on its boxes alone can overflow it once its cables
+// are drawn — and the honest response is to fit again into a block reduced by
+// exactly what it overflowed by, rather than to reach for a second page.
+//
+// One retry, and only when the overflow is small enough to be about cables. A
+// drawing that is genuinely too big is still tiled.
+func LayoutAndRouteFlow(graph FlowGraph, availW, availH float64) (FlowLayout, FlowRouting) {
+	layout := LayoutFlow(graph, availW, availH)
+	routing := layout.Frame(RouteFlow(graph, layout), availW, availH)
+	if !layout.Tiled() {
+		return layout, routing
+	}
+
+	overflowW := math.Max(0, layout.PlaneW-availW)
+	overflowH := math.Max(0, layout.PlaneH-availH)
+	if overflowW > availW/3 || overflowH > availH/3 {
+		return layout, routing
+	}
+
+	retryW := availW - overflowW - 1
+	retryH := availH - overflowH - 1
+	if retryW <= nodeWidthMM || retryH <= nodeHeaderMM {
+		return layout, routing
+	}
+	retry := LayoutFlow(graph, retryW, retryH)
+	retryRouting := retry.Frame(RouteFlow(graph, retry), availW, availH)
+	if retry.Tiled() {
+		return layout, routing
+	}
+	return retry, retryRouting
+}
+
 // Tiled is whether the drawing needed more than one page.
 func (l FlowLayout) Tiled() bool { return len(l.Tiles) > 1 }
 
@@ -122,17 +216,28 @@ func nodeSize(node FlowNode, shrink float64) (float64, float64) {
 //
 // A graph whose boxes the planner has already dragged on top of each other is
 // drawn overlapping. That is what the canvas shows too, and moving them would
-// be the document inventing an arrangement.
+// be the document inventing an arrangement. It is also the one case the routing
+// invariant cannot hold: boxes at the same place have jacks at the same point,
+// and two cables arriving at one point share ink by definition. Boxes at
+// *exactly* the same coordinates hide each other entirely — the stage rig
+// section still lists every one of them.
 func LayoutFlow(graph FlowGraph, availW, availH float64) FlowLayout {
 	if len(graph.Nodes) == 0 {
 		return FlowLayout{Scale: 1, Shrink: 1, Tiles: []FlowTile{{W: availW, H: availH}}}
 	}
 
+	// Overlap the planner already has is not a reason to shrink or to tile.
+	// Four output devices stacked at one spot on the canvas overlap at every
+	// scale, so a fit loop that treats any overlap as failure walks all the way
+	// down to tiling — and tiling does not separate them either, it just deals
+	// them across pages. What matters is overlap the *scaling* introduced.
+	inherent := inherentOverlaps(graph)
+
 	floor := minPortLabelPt / portLabelPt
 	for _, shrink := range shrinkSteps(floor) {
 		scale := fitScale(graph, availW, availH, shrink)
 		boxes := placeBoxes(graph, scale, shrink)
-		if !anyOverlap(boxes) && channelsFit(graph, boxes) {
+		if !anyOverlap(boxes, inherent) && channelsFit(graph, boxes) {
 			w, h := planeExtent(boxes)
 			return FlowLayout{
 				Boxes:  boxes,
@@ -150,6 +255,7 @@ func LayoutFlow(graph FlowGraph, availW, availH float64) FlowLayout {
 	shrink := floor
 	scale := nodeWidthMM * shrink / canvasNodePx
 	boxes := placeBoxes(graph, scale, shrink)
+	_ = inherent
 	planeW, planeH := planeExtent(boxes)
 	return FlowLayout{
 		Boxes:  boxes,
@@ -221,22 +327,42 @@ func placeBoxes(graph FlowGraph, scale, shrink float64) []NodeBox {
 	return boxes
 }
 
-// anyOverlap reports whether two boxes as placed would sit on top of each other.
-// Boxes the planner already overlapped on the canvas are excluded — the document
-// reproduces that arrangement rather than arguing with it.
-func anyOverlap(boxes []NodeBox) bool {
+// inherentOverlaps is the set of box pairs that already sit on top of each other
+// at the density the canvas itself uses. No scale separates them, so no scale
+// choice should be blamed for them.
+func inherentOverlaps(graph FlowGraph) map[[2]int]bool {
+	natural := nodeWidthMM / canvasNodePx
+	boxes := placeBoxes(graph, natural, 1)
+	pairs := map[[2]int]bool{}
 	for i := 0; i < len(boxes); i++ {
 		for j := i + 1; j < len(boxes); j++ {
-			a, b := boxes[i], boxes[j]
-			if a.Node.X == b.Node.X && a.Node.Y == b.Node.Y {
+			if boxesOverlap(boxes[i], boxes[j]) {
+				pairs[[2]int{i, j}] = true
+			}
+		}
+	}
+	return pairs
+}
+
+// anyOverlap reports whether scaling has pushed two boxes on top of each other
+// that were not already. Boxes the planner overlapped on the canvas are excluded
+// — the document reproduces that arrangement rather than arguing with it.
+func anyOverlap(boxes []NodeBox, inherent map[[2]int]bool) bool {
+	for i := 0; i < len(boxes); i++ {
+		for j := i + 1; j < len(boxes); j++ {
+			if inherent[[2]int{i, j}] {
 				continue
 			}
-			if a.X < b.X+b.W && b.X < a.X+a.W && a.Y < b.Y+b.H && b.Y < a.Y+a.H {
+			if boxesOverlap(boxes[i], boxes[j]) {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+func boxesOverlap(a, b NodeBox) bool {
+	return a.X < b.X+b.W && b.X < a.X+a.W && a.Y < b.Y+b.H && b.Y < a.Y+a.H
 }
 
 // channelsFit is the layout's half of R2: a gap between two columns of boxes has

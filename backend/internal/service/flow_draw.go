@@ -44,9 +44,26 @@ func drawFlowTile(pdf *fpdf.Fpdf, tr func(string) string, graph FlowGraph, layou
 		drawArrowhead(pdf, routed, offsetX, offsetY)
 	}
 
+	// A box belonging to another sheet is not drawn at all.
+	//
+	// Clipping alone does not do this. fpdf's SetX treats a negative abscissa
+	// as measured from the *right* edge of the page (fpdf.go:3610), so a box
+	// placed off the left of the tile has its rectangle drawn off-page and
+	// clipped away while its labels wrap back onto the sheet — which is a
+	// borderless table of text belonging to a different page.
 	for _, box := range layout.Boxes {
+		if !boxOnTile(box, tile) {
+			continue
+		}
 		drawFlowNode(pdf, tr, box, offsetX, offsetY)
 	}
+}
+
+// boxOnTile is whether any part of this box falls on this sheet. Tiles are cut
+// between boxes, so in practice a box belongs to exactly one.
+func boxOnTile(box NodeBox, tile FlowTile) bool {
+	return box.X < tile.X+tile.W-epsilon && box.X+box.W > tile.X+epsilon &&
+		box.Y < tile.Y+tile.H-epsilon && box.Y+box.H > tile.Y+epsilon
 }
 
 // drawArrowhead points a filled triangle at the jack the cable lands on. Its
