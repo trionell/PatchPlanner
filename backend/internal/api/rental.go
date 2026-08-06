@@ -27,6 +27,30 @@ func (h RentalHandler) Register(r chi.Router) {
 	// what guarantee no inventory is a dead end (Slice 22).
 	r.Get("/rental-export/pdf", h.exportPDF)
 	r.Get("/rental-export/xlsx", h.exportGenericXLSX)
+	// The audio plan as one document — input patch, output patch, stage rig
+	// and both signal-flow drawings (Slice 40). Registered on the same event
+	// router as the rest, so RequireEventAccess already covers it: an export
+	// reads, and a viewer may read.
+	r.Get("/audio-export/pdf", h.exportAudioPDF)
+}
+
+func (h RentalHandler) exportAudioPDF(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseID(w, chi.URLParam(r, "eventID"))
+	if !ok {
+		return
+	}
+	data, filename, err := service.ExportService{DB: h.DB}.BuildAudioPDF(eventID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "event not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", pdfContentType)
+	w.Header().Set("Content-Disposition", contentDisposition(filename))
+	_, _ = w.Write(data)
 }
 
 func (h RentalHandler) exportPDF(w http.ResponseWriter, r *http.Request) {

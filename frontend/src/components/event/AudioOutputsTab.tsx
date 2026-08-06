@@ -63,7 +63,6 @@ import { RigDrawer } from './RigDrawer'
 import { useInfoNote } from '../../hooks/useInfoNote'
 import { InfoPanel, InfoToggle } from '../ui/InfoNote'
 import { TrueOutputDeviceSection } from './TrueOutputDeviceSection'
-import { OutputPatchSheet } from '../print/OutputPatchSheet'
 import { Button } from '../ui/Button'
 import { Dialog } from '../ui/Dialog'
 import { Select } from '../ui/Select'
@@ -370,17 +369,6 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
         />
       </div>
 
-      {/* A sibling of the wrapper, not inside it — the desktop return's shape (M11). */}
-      <OutputPatchSheet
-        eventId={eventId}
-        outputs={outputs}
-        stageboxes={stageboxes}
-        stageMultis={stageMultis}
-        outputDevices={outputDevices}
-        outputCables={outputCables}
-        consoles={consoles}
-        itemLabelById={itemLabelById}
-      />
       </>
     )
   }
@@ -388,6 +376,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
   return (
     <>
       <AudioPatchShell
+        eventId={eventId}
         tab="outputs"
         view={view}
         onViewChange={setView}
@@ -477,16 +466,6 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
           />
         )}
       </AudioPatchShell>
-      <OutputPatchSheet
-        eventId={eventId}
-        outputs={outputs}
-        stageboxes={stageboxes}
-        stageMultis={stageMultis}
-        outputDevices={outputDevices}
-        outputCables={outputCables}
-        consoles={consoles}
-        itemLabelById={itemLabelById}
-      />
     </>
   )
 }

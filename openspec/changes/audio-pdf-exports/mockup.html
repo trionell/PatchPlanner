@@ -1,0 +1,1328 @@
+<title>Slice 40 · the audio documentation PDF</title>
+
+<style>
+  /* ───────────────────────────────────────────────────────────────
+     Two languages on this page, deliberately.
+
+     THE PAPER is the deliverable. It is white, Helvetica, hairline
+     rules, sizes in mm and pt — the same units the Go writer takes,
+     so a column width read off this mockup is the number that goes
+     into the code. It has no dark theme, because paper does not.
+
+     THE BOARD is the review surface the paper is laid on: a drawing
+     board, annotated in red like a marked-up sheet at a production
+     meeting. It follows the viewer's theme.
+     ─────────────────────────────────────────────────────────────── */
+
+  :root {
+    --board:      #d9dee3;
+    --board-deep: #c7ced5;
+    --ink:        #1c2129;
+    --ink-soft:   #545e6b;
+    --ink-faint:  #7c8794;
+    --mark:       #a62f14;
+    --rule:       #aab3bc;
+    --shadow:     0 1px 2px rgba(20,28,38,.18), 0 10px 26px rgba(20,28,38,.22);
+
+    --display: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --prose:   Georgia, "Iowan Old Style", "Times New Roman", serif;
+    --data:    ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+    --z: 0.68;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --board:      #191d23;
+      --board-deep: #12151a;
+      --ink:        #e2e7ed;
+      --ink-soft:   #a3adb9;
+      --ink-faint:  #78828f;
+      --mark:       #f4795f;
+      --rule:       #333b45;
+      --shadow:     0 1px 2px rgba(0,0,0,.5), 0 14px 34px rgba(0,0,0,.55);
+    }
+  }
+
+  :root[data-theme="light"] {
+    --board: #d9dee3; --board-deep: #c7ced5; --ink: #1c2129; --ink-soft: #545e6b;
+    --ink-faint: #7c8794; --mark: #a62f14; --rule: #aab3bc;
+    --shadow: 0 1px 2px rgba(20,28,38,.18), 0 10px 26px rgba(20,28,38,.22);
+  }
+  :root[data-theme="dark"] {
+    --board: #191d23; --board-deep: #12151a; --ink: #e2e7ed; --ink-soft: #a3adb9;
+    --ink-faint: #78828f; --mark: #f4795f; --rule: #333b45;
+    --shadow: 0 1px 2px rgba(0,0,0,.5), 0 14px 34px rgba(0,0,0,.55);
+  }
+
+  @media (max-width: 1000px) { :root { --z: 0.5; } }
+  @media (max-width: 620px)  { :root { --z: 0.34; } }
+
+  body {
+    background: var(--board);
+    color: var(--ink);
+    font-family: var(--prose);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 24px 120px;
+    display: flex;
+    flex-direction: column;
+    gap: 72px;
+  }
+
+  /* ── board typography ─────────────────────────────────────────── */
+
+  .eyebrow {
+    font-family: var(--display);
+    font-size: 11px; font-weight: 700;
+    letter-spacing: .18em; text-transform: uppercase;
+    color: var(--mark);
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-size: clamp(30px, 5.2vw, 52px);
+    font-weight: 800; letter-spacing: -.025em; line-height: 1.04;
+    text-wrap: balance; margin: 0;
+  }
+  h2 {
+    font-family: var(--display);
+    font-size: clamp(20px, 2.6vw, 27px);
+    font-weight: 700; letter-spacing: -.018em; line-height: 1.18;
+    text-wrap: balance; margin: 0;
+  }
+  h3 {
+    font-family: var(--display);
+    font-size: 15px; font-weight: 700; letter-spacing: -.008em; margin: 0;
+  }
+
+  p { margin: 0; max-width: 66ch; }
+  .lede { font-size: 19px; line-height: 1.55; color: var(--ink-soft); max-width: 62ch; }
+  .num { font-family: var(--data); font-variant-numeric: tabular-nums; font-size: .92em; }
+  em.term { font-style: normal; font-weight: 700; color: var(--ink); }
+
+  header.top {
+    padding: 72px 0 48px;
+    display: flex; flex-direction: column; gap: 20px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .top-meta {
+    display: flex; flex-wrap: wrap; gap: 8px 28px;
+    font-family: var(--data); font-size: 12px; color: var(--ink-faint);
+  }
+
+  /* ── plates: a sheet with its annotations ─────────────────────── */
+
+  .plate {
+    display: grid;
+    grid-template-columns: auto minmax(260px, 1fr);
+    gap: 40px; align-items: start;
+  }
+  @media (max-width: 1000px) { .plate { grid-template-columns: 1fr; gap: 28px; } }
+
+  .frame {
+    position: relative;
+    width: calc(210mm * var(--z));
+    height: calc(297mm * var(--z));
+    flex: none;
+  }
+  .frame.landscape {
+    width: calc(297mm * var(--z));
+    height: calc(210mm * var(--z));
+  }
+  .frame-scroll { overflow-x: auto; overflow-y: hidden; padding-bottom: 4px; }
+
+  .scaler {
+    transform: scale(var(--z));
+    transform-origin: top left;
+    box-shadow: var(--shadow);
+  }
+
+  .cal {
+    position: absolute; z-index: 3;
+    width: 21px; height: 21px; border-radius: 50%;
+    background: var(--mark); color: #fff;
+    font-family: var(--display); font-size: 11px; font-weight: 700;
+    display: grid; place-items: center;
+    box-shadow: 0 1px 5px rgba(0,0,0,.35);
+  }
+
+  .notes { display: flex; flex-direction: column; gap: 26px; }
+  .note { display: grid; grid-template-columns: 21px 1fr; gap: 12px; align-items: start; }
+  .note-n {
+    width: 21px; height: 21px; border-radius: 50%;
+    border: 1.5px solid var(--mark); color: var(--mark);
+    font-family: var(--display); font-size: 11px; font-weight: 700;
+    display: grid; place-items: center; margin-top: 2px;
+  }
+  .note-b { display: flex; flex-direction: column; gap: 6px; }
+  .note-b p { font-size: 15px; line-height: 1.55; }
+
+  .plate-head { display: flex; flex-direction: column; gap: 10px; margin-bottom: 22px; }
+  .plate-head .eyebrow { color: var(--ink-faint); }
+
+  section.essay { display: flex; flex-direction: column; gap: 18px; }
+  section.essay p { font-size: 17px; }
+
+  .cols {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 28px;
+  }
+  .card {
+    border: 1px solid var(--rule); background: var(--board-deep);
+    padding: 22px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .card p { font-size: 15px; }
+  .card.picked { border-color: var(--mark); border-width: 1.5px; }
+  .verdict {
+    font-family: var(--display); font-size: 10px; font-weight: 700;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--mark);
+  }
+  .verdict.no { color: var(--ink-faint); }
+
+  .ledger { border-top: 1.5px solid var(--ink); }
+  .ledger-row {
+    display: grid; grid-template-columns: 42px 1fr; gap: 16px;
+    padding: 20px 0; border-bottom: 1px solid var(--rule); align-items: baseline;
+  }
+  .ledger-row > .k {
+    font-family: var(--display); font-weight: 800; font-size: 13px;
+    color: var(--mark); letter-spacing: .04em;
+  }
+  .ledger-row .v { display: flex; flex-direction: column; gap: 7px; }
+  .ledger-row .v p { font-size: 15px; }
+
+  .specs {
+    font-family: var(--data); font-size: 13px; line-height: 1.9;
+    color: var(--ink-soft);
+    border-left: 2px solid var(--mark); padding-left: 18px;
+    display: flex; flex-direction: column; gap: 2px;
+    max-width: none;
+  }
+  .specs b { color: var(--ink); font-weight: 600; }
+  .specs .sn { color: var(--mark); font-weight: 700; }
+
+  /* ═══════════════════════════════════════════════════════════════
+     THE PAPER. Real mm and pt below this line.
+     ═══════════════════════════════════════════════════════════════ */
+
+  .sheet {
+    width: 210mm; height: 297mm;
+    background: #fff; color: #111;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 7.5pt; line-height: 1.25;
+    padding: 12mm 12mm 16mm;
+    position: relative; overflow: hidden;
+  }
+  .sheet.landscape { width: 297mm; height: 210mm; }
+  .sheet * { box-sizing: border-box; }
+
+  .mast { border-bottom: .5mm solid #111; padding-bottom: 3mm; margin-bottom: 5mm; }
+  .mast-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8mm; }
+  .mast h1.doc {
+    font-family: Helvetica, Arial, sans-serif; font-size: 17pt; font-weight: 700;
+    letter-spacing: -.01em; line-height: 1.1; margin: 0; color: #111;
+  }
+  .mast .kind {
+    font-size: 8pt; font-weight: 700; letter-spacing: .22em;
+    text-transform: uppercase; color: #666; white-space: nowrap;
+  }
+  .mast .sub { font-size: 9pt; color: #333; margin-top: 1.4mm; }
+  .mast .gen { font-size: 7pt; color: #777; margin-top: 2.6mm; display: flex; justify-content: space-between; }
+
+  .runhead {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 7pt; color: #666;
+    border-bottom: .2mm solid #bbb; padding-bottom: 1.6mm; margin-bottom: 4mm;
+  }
+  .runhead b { color: #111; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; font-size: 6.5pt; }
+
+  .sec-head { display: flex; align-items: baseline; gap: 3mm; margin-bottom: 2.6mm; }
+  .sec-head .n { font-size: 8pt; font-weight: 700; color: #111; }
+  .sec-head .t { font-size: 11pt; font-weight: 700; letter-spacing: -.01em; }
+  .sec-head .c { font-size: 7pt; color: #777; margin-left: auto; }
+
+  table.pt { width: 186mm; border-collapse: collapse; table-layout: fixed; }
+  table.pt th {
+    font-size: 7pt; font-weight: 700; text-align: left; color: #444;
+    border-bottom: .35mm solid #111; padding: 1mm .8mm; vertical-align: bottom;
+  }
+  table.pt td { padding: .9mm .8mm; vertical-align: top; border-bottom: .1mm solid #d4d4d4; }
+  table.pt tr.cont td { padding-top: 0; }
+  table.pt td.r, table.pt th.r { text-align: right; }
+  table.pt td.c, table.pt th.c { text-align: center; }
+  .dca { font-style: italic; }
+  .nil { color: #aaa; }
+
+  td.chcell { position: relative; padding-left: 2.6mm; font-weight: 700; }
+  td.chcell .stripe { position: absolute; left: 0; top: .4mm; bottom: .4mm; width: 1.2mm; }
+
+  .ph { display: inline-block; width: 1.6mm; height: 1.6mm; background: #111; }
+  .contnote { font-size: 6.8pt; color: #555; font-style: italic; padding-left: 2.6mm; }
+
+  .legend {
+    margin-top: 3mm; padding-top: 1.6mm; border-top: .2mm solid #bbb;
+    font-size: 6.6pt; color: #777; display: flex; gap: 6mm; flex-wrap: wrap;
+  }
+  .sumline {
+    margin-top: 2.4mm; font-size: 7pt; color: #333;
+    border-top: .35mm solid #111; padding-top: 1.4mm;
+  }
+
+  .foot {
+    position: absolute; left: 12mm; right: 12mm; bottom: 8mm;
+    display: flex; justify-content: space-between;
+    font-size: 6.6pt; color: #888;
+    border-top: .2mm solid #ddd; padding-top: 1.4mm;
+  }
+
+  /* ── the diagram page ─────────────────────────────────────────── */
+
+  .diagram { position: relative; width: 273mm; height: 140mm; }
+  .diagram svg { position: absolute; inset: 0; width: 273mm; height: 140mm; }
+
+  .gnode { position: absolute; border: .25mm solid #111; background: #fff; z-index: 2; }
+  .gnode .gh {
+    font-size: 6.4pt; font-weight: 700; height: 5mm;
+    padding: 0 1.2mm; border-bottom: .2mm solid #111;
+    display: flex; align-items: center; justify-content: space-between; gap: 2mm;
+  }
+  .gnode .gh span.badge { font-size: 5.6pt; font-weight: 400; color: #666; letter-spacing: .1em; }
+  .gnode .gp {
+    font-size: 6pt; height: 4mm; display: flex; align-items: center; gap: 1.1mm;
+    padding: 0 1.2mm; line-height: 1;
+  }
+  .gnode .gp.rt { flex-direction: row-reverse; }
+  .gnode .gp.sp { justify-content: space-between; gap: 2mm; padding: 0 1.2mm; }
+  .gnode .gp .half { display: flex; align-items: center; gap: 1.1mm; min-width: 0; }
+  .gnode .gp .half.rt { flex-direction: row-reverse; }
+  .gnode .gp .d { width: 1.3mm; height: 1.3mm; border: .2mm solid #111; border-radius: 50%; background: #fff; flex: none; }
+  .gnode .gp .d.on { background: #111; }
+  .gnode .gp .lbl { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .gnode .gp .sw { width: 1.1mm; height: 2.6mm; flex: none; }
+  .gnode .gf { font-size: 5.6pt; color: #666; height: 3mm; display: flex; align-items: center; padding: 0 1.2mm; border-top: .2mm solid #bbb; }
+  .gnode.desk { border-width: .5mm; }
+
+  .dia-title { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3mm; }
+  .dia-title .t { font-size: 11pt; font-weight: 700; }
+  .dia-title .s { font-size: 7pt; color: #666; }
+
+  .dia-key {
+    position: absolute; right: 0; bottom: 0;
+    border: .2mm solid #bbb; padding: 1.6mm 2mm;
+    font-size: 6pt; color: #444; background: #fff; z-index: 4;
+    display: flex; flex-direction: column; gap: .8mm;
+  }
+  .dia-key i { font-style: normal; display: flex; align-items: center; gap: 1.4mm; }
+  .dia-key .sw { width: 4mm; height: 1.4mm; }
+  .dia-key .dot { width: 1.3mm; height: 1.3mm; border: .2mm solid #111; border-radius: 50%; background: #111; }
+  .dia-key .dot.off { background: #fff; }
+
+  a { color: var(--mark); }
+  :focus-visible { outline: 2px solid var(--mark); outline-offset: 3px; }
+</style>
+
+<div class="wrap">
+
+  <header class="top">
+    <div class="eyebrow">Slice 40 · design review · revision 2 · not yet approved</div>
+    <h1>One column was carrying a graph.<br>Take it out and give the graph a page.</h1>
+    <p class="lede">
+      The audio exports stop being whatever the browser makes of a hidden React sheet and
+      become one generated document, written by Go the way the rental order already is.
+      Everything below is drawn at true A4 — the millimetres and points on these sheets are
+      the numbers that go into the writer.
+    </p>
+    <div class="top-meta">
+      <span>A4 · 12 mm margins · 186 mm text block</span>
+      <span>Helvetica, cp1252</span>
+      <span>one file · five sections · two orientations</span>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+
+  <section class="essay">
+    <div class="eyebrow">What the request actually said</div>
+    <h2>Three things were wrong, and only one of them was the table</h2>
+    <p>
+      <em class="term">The chain column.</em> Eight columns on the input sheet, six on the output,
+      and in both of them one column held an entire signal path as an arrow-joined string. It
+      squeezed every other column to do it, and it still wasn't readable. That column is gone.
+    </p>
+    <p>
+      <em class="term">The information it was hiding.</em> A source already knows its kind, its
+      microphone, its stand, its phantom state and its connector. None of that reached paper —
+      a crew read it out of the chain string or not at all. The space the chain column gives up
+      is exactly the space those fields need.
+    </p>
+    <p>
+      <em class="term">The document.</em> <span class="num">window.print()</span> cannot repeat a
+      column header across a page break, cannot state a scale, cannot put a landscape page in the
+      middle of a portrait one, and cannot be told how to route a line. All four are needed here,
+      so this follows the rental order: one endpoint, one <span class="num">.pdf</span>, one file
+      that arrives whole.
+    </p>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+
+  <div class="plate">
+    <div class="frame-scroll">
+      <div class="frame">
+        <div class="cal" style="left: 3%;  top: 3.5%;">1</div>
+        <div class="cal" style="left: 3%;  top: 24%;">2</div>
+        <div class="cal" style="left: 40%; top: 24%;">3</div>
+        <div class="cal" style="left: 3%;  top: 52%;">4</div>
+        <div class="cal" style="left: 3%;  top: 88%;">5</div>
+        <div class="scaler">
+          <div class="sheet">
+
+            <div class="mast">
+              <div class="mast-row">
+                <h1 class="doc">Vårfest 2026</h1>
+                <div class="kind">Audio</div>
+              </div>
+              <div class="sub">Stora Scenen, Kulturhuset Stockholm &nbsp;&mdash;&nbsp; 14&ndash;16 August 2026</div>
+              <div class="gen">
+                <span>Inventory: Trionell Ljud &amp; Ljus AB</span>
+                <span>Generated 2026-08-05 &nbsp;&mdash;&nbsp; 24 inputs, 14 outputs, 6 boxes, 61 cables</span>
+              </div>
+            </div>
+
+            <div class="sec-head">
+              <span class="n">1</span>
+              <span class="t">Input patch</span>
+              <span class="c">24 channels</span>
+            </div>
+
+            <table class="pt">
+              <colgroup>
+                <col style="width:9mm"><col style="width:33mm"><col style="width:6mm">
+                <col style="width:27mm"><col style="width:40mm"><col style="width:23mm">
+                <col style="width:9mm"><col style="width:16mm"><col style="width:23mm">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th class="r">Ch</th><th>Name</th><th class="c">W</th>
+                  <th>Source</th><th>Microphone / DI</th><th>Stand</th>
+                  <th class="c">48 V</th><th>Conn</th><th>Buses</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="chcell r"><span class="stripe" style="background:#ef4444"></span>1</td>
+                  <td>Kick In</td><td class="c">M</td>
+                  <td>Kick inside</td><td>Shure Beta 91A</td><td class="nil">&mdash;</td>
+                  <td class="c"><span class="ph"></span></td><td>XLR-3</td>
+                  <td>Drums, <span class="dca">DRM</span></td>
+                </tr>
+                <tr>
+                  <td class="chcell r"><span class="stripe" style="background:#ef4444"></span>2</td>
+                  <td>Kick Out</td><td class="c">M</td>
+                  <td>Kick front</td><td>Shure Beta 52A</td><td>K&amp;M 259</td>
+                  <td class="c"><span class="ph"></span></td><td>XLR-3</td>
+                  <td>Drums, <span class="dca">DRM</span></td>
+                </tr>
+                <tr>
+                  <td class="chcell r"><span class="stripe" style="background:#ef4444"></span>3</td>
+                  <td>Snare Top</td><td class="c">M</td>
+                  <td>Snare top</td><td>Shure SM57</td><td>K&amp;M 259</td>
+                  <td class="c"><span class="ph"></span></td><td>XLR-3</td>
+                  <td>Drums, <span class="dca">DRM</span></td>
+                </tr>
+                <tr>
+                  <td class="chcell r"><span class="stripe" style="background:#ef4444"></span>4</td>
+                  <td>Snare Btm</td><td class="c">M</td>
+                  <td>Snare bottom</td><td>Shure SM57</td><td>K&amp;M 259</td>
+                  <td class="c"><span class="ph"></span></td><td>XLR-3</td>
+                  <td>Drums, <span class="dca">DRM</span></td>
+                </tr>
+                <tr>
+                  <td class="chcell r"><span class="stripe" style="background:#ef4444"></span>5</td>
+                  <td>Hi-Hat</td><td class="c">M</td>
+                  <td>Hi-hat</td><td>Neumann KM 184</td><td>K&amp;M 210/9</td>
+                  <td class="c"><span class="ph"></span></td><td>XLR-3</td>
+                  <td>Drums, <span class="dca">DRM</span></td>
+                </tr>
+                <tr>
+                  <td class="chcell r"><span class="stripe" style="background:#ef4444"></span>6</td>
+                  <td>Rack Tom</td><td class="c">M</td>
+                  <td>Tom 1</td><td>Sennheiser e904</td><td>rim clip</td>
+                  <td class="c"><span class="ph"></span></td><td>XLR-3</td>
+                  <td>Drums, <span class="dca">DRM</span></td>
+                </tr>
+                <tr>
+                  <td class="chcell r"><span class="stripe" style="background:#ef4444"></span>7</td>
+                  <td>Floor Tom</td><td class="c">M</td>
+                  <td>Tom 2</td><td>Sennheiser e904</td><td>rim clip</td>
+                  <td class="c"><span class="ph"></span></td><td>XLR-3</td>
+                  <td>Drums, <span class="dca">DRM</span></td>
+                </tr>
+                <tr>
+                  <td class="chcell r"><span class="stripe" style="background:#ef4444"></span>8</td>
+                  <td>Overheads</td><td class="c">S</td>
+                  <td>OH pair</td><td>Neumann KM 184 (2)</td><td>K&amp;M 210/9 (2)</td>
+                  <td class="c"><span class="ph"></span></td><td>XLR-3</td>
+                  <td>Drums, <span class="dca">DRM</span></td>
+                </tr>
+                <tr>
+                  <td class="chcell r"><span class="stripe" style="background:#f59e0b"></span>10</td>
+                  <td>Bass DI</td><td class="c">M</td>
+                  <td>Bass DI</td><td>Radial J48</td><td class="nil">&mdash;</td>
+                  <td class="c"><span class="ph"></span></td><td>XLR-3</td>
+                  <td>Band, <span class="dca">BND</span></td>
+                </tr>
+                <tr>
+                  <td class="chcell r"><span class="stripe" style="background:#f59e0b"></span>11</td>
+                  <td>Bass Cab</td><td class="c">M</td>
+                  <td>Bass cabinet</td><td>Sennheiser e906</td><td>K&amp;M 259</td>
+                  <td class="c nil">&mdash;</td><td>XLR-3</td>
+                  <td>Band, <span class="dca">BND</span></td>
+                </tr>
+                <tr>
+                  <td class="chcell r"><span class="stripe" style="background:#f59e0b"></span>12</td>
+                  <td>Gtr SR</td><td class="c">M</td>
+                  <td>Guitar amp SR</td><td>Sennheiser e906</td><td>K&amp;M 259</td>
+                  <td class="c nil">&mdash;</td><td>XLR-3</td>
+                  <td>Band, <span class="dca">BND</span></td>
+                </tr>
+                <tr>
+                  <td class="chcell r"><span class="stripe" style="background:#f59e0b"></span>13</td>
+                  <td>Gtr SL</td><td class="c">M</td>
+                  <td>Guitar amp SL</td><td>Sennheiser e906</td><td>K&amp;M 259</td>
+                  <td class="c nil">&mdash;</td><td>XLR-3</td>
+                  <td>Band, <span class="dca">BND</span></td>
+                </tr>
+                <tr>
+                  <td class="chcell r"><span class="stripe" style="background:#f59e0b"></span>14</td>
+                  <td>Keys</td><td class="c">S</td>
+                  <td>Keys L/R</td><td>Radial ProD2</td><td class="nil">&mdash;</td>
+                  <td class="c nil">&mdash;</td><td>XLR-3</td>
+                  <td>Band, <span class="dca">BND</span></td>
+                </tr>
+                <tr>
+                  <td class="chcell r"><span class="stripe" style="background:#22d3ee"></span>16</td>
+                  <td>Lead Vox</td><td class="c">M</td>
+                  <td>Lead vocal</td><td>Shure Beta 58A</td><td>K&amp;M 210/9</td>
+                  <td class="c"><span class="ph"></span></td><td>XLR-3</td>
+                  <td>Vox, <span class="dca">VOX</span></td>
+                </tr>
+                <tr class="cont">
+                  <td></td>
+                  <td colspan="8" class="contnote">Splits to the monitor desk and to the broadcast feed &mdash; spare Beta 58A taped to the stand base.</td>
+                </tr>
+                <tr>
+                  <td class="chcell r"><span class="stripe" style="background:#22d3ee"></span>17</td>
+                  <td>BV 1 (SR)</td><td class="c">M</td>
+                  <td>Backing vocal SR</td><td>Shure SM58</td><td>K&amp;M 210/9</td>
+                  <td class="c"><span class="ph"></span></td><td>XLR-3</td>
+                  <td>Vox, <span class="dca">VOX</span></td>
+                </tr>
+                <tr>
+                  <td class="chcell r"><span class="stripe" style="background:#22d3ee"></span>18</td>
+                  <td>BV 2 (SL)</td><td class="c">M</td>
+                  <td>Backing vocal SL</td><td>Shure SM58</td><td>K&amp;M 210/9</td>
+                  <td class="c"><span class="ph"></span></td><td>XLR-3</td>
+                  <td>Vox, <span class="dca">VOX</span></td>
+                </tr>
+                <tr>
+                  <td class="chcell r"><span class="stripe" style="background:#a3a3a3"></span>19</td>
+                  <td>Talkback</td><td class="c">M</td>
+                  <td class="nil">&mdash; no source</td><td class="nil">&mdash;</td><td class="nil">&mdash;</td>
+                  <td class="c nil">&mdash;</td><td class="nil">&mdash;</td>
+                  <td class="nil">&mdash;</td>
+                </tr>
+                <tr class="cont">
+                  <td></td>
+                  <td colspan="8" class="contnote">Nothing patched into this channel.</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="legend">
+              <span>W &mdash; M mono, S stereo</span>
+              <span>Buses &mdash; groups upright, <span class="dca">DCAs italic</span></span>
+              <span><span class="ph"></span> phantom power on</span>
+              <span>Colour stripe repeats the channel strip colour</span>
+            </div>
+
+            <div class="foot">
+              <span>Vårfest 2026 &mdash; Audio documentation</span>
+              <span>1 / 8</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="plate-head">
+        <div class="eyebrow">Page 1 &mdash; portrait</div>
+        <h2>The sheet a stage tech reads at load-in</h2>
+      </div>
+      <div class="notes">
+        <div class="note">
+          <div class="note-n">1</div>
+          <div class="note-b">
+            <h3>The masthead is the document's only large type</h3>
+            <p>
+              Event name at 17 pt, venue and dates at 9 pt, provenance at 7 pt. <em class="term">Audio</em>
+              sits opposite it as a standing word, so the same block serves Slice 41's plot document
+              with one word changed. Below it, a 0.5 mm rule &mdash; the heaviest line in the document,
+              used exactly once.
+            </p>
+          </div>
+        </div>
+        <div class="note">
+          <div class="note-n">2</div>
+          <div class="note-b">
+            <h3>Nine columns, 186 mm, and the source finally on paper</h3>
+            <p>
+              <span class="num">Ch 9 · Name 33 · W 6 · Source 27 · Microphone/DI 40 · Stand 23 · 48 V 9 · Conn 16 · Buses 23</span>.
+              Six of those nine are what the chain column was standing on top of. The widest column is
+              the catalogue item, because that is the string a tech carries to the case.
+            </p>
+          </div>
+        </div>
+        <div class="note">
+          <div class="note-n">3</div>
+          <div class="note-b">
+            <h3>A note is a second line, not a tenth column</h3>
+            <p>
+              Notes are rare and long &mdash; the two things a fixed-width column handles worst. So a
+              row with a note grows a 6.8 pt italic line beneath it, spanning the full text block,
+              and a row without one costs nothing. The same line states the gap on channel 19: a
+              channel with no source says so in words rather than by nine empty cells.
+            </p>
+          </div>
+        </div>
+        <div class="note">
+          <div class="note-n">4</div>
+          <div class="note-b">
+            <h3>Colour is carried, and nothing is carried only by colour</h3>
+            <p>
+              The channel strip colour returns as a 1.2 mm stripe at the row's left edge. It survives
+              a mono laser printer as a grey bar and a colour one as itself, and no fact on the sheet
+              is legible only through it. Phantom power is a drawn 1.6 mm square, not a bullet
+              character &mdash; see the font rule below.
+            </p>
+          </div>
+        </div>
+        <div class="note">
+          <div class="note-n">5</div>
+          <div class="note-b">
+            <h3>Legend once, footer every page</h3>
+            <p>
+              The legend prints at the end of its section, not on every page &mdash; it is read once.
+              The footer is on all eight: document title left, <span class="num">page / total</span> right,
+              which is the rental order's footer with the centred variant dropped.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+
+  <div class="plate">
+    <div class="frame-scroll">
+      <div class="frame">
+        <div class="cal" style="left: 3%; top: 3%;">6</div>
+        <div class="cal" style="left: 3%; top: 27%;">7</div>
+        <div class="cal" style="left: 3%; top: 62%;">8</div>
+        <div class="cal" style="left: 40%; top: 88%;">9</div>
+        <div class="scaler">
+          <div class="sheet">
+
+            <div class="runhead">
+              <b>Vårfest 2026 &mdash; Output patch</b>
+              <span>continued from page 3</span>
+            </div>
+
+            <table class="pt">
+              <colgroup>
+                <col style="width:9mm"><col style="width:33mm"><col style="width:21mm">
+                <col style="width:6mm"><col style="width:57mm"><col style="width:43mm">
+                <col style="width:17mm">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th class="r">Out</th><th>Name</th><th>Type</th><th class="c">W</th>
+                  <th>Destination</th><th>Via</th><th>Conn</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="chcell r"><span class="stripe" style="background:#a78bfa"></span>10</td>
+                  <td>Mon 3 &mdash; Keys</td><td>Wedge</td><td class="c">M</td>
+                  <td>d&amp;b M4 wedge, SL</td><td>Rio3224-D #2, out 5</td><td>XLR-3</td>
+                </tr>
+                <tr>
+                  <td class="chcell r"><span class="stripe" style="background:#a78bfa"></span>11</td>
+                  <td>Drum Fill</td><td>Wedge</td><td class="c">M</td>
+                  <td>d&amp;b M4 wedge, upstage</td><td>Rio3224-D #2, out 6</td><td>XLR-3</td>
+                </tr>
+                <tr>
+                  <td class="chcell r"><span class="stripe" style="background:#a3a3a3"></span>13</td>
+                  <td>Broadcast L/R</td><td>Feed</td><td class="c">S</td>
+                  <td class="nil">&mdash; reaches nothing</td><td class="nil">&mdash;</td><td class="nil">&mdash;</td>
+                </tr>
+                <tr class="cont">
+                  <td></td>
+                  <td colspan="6" class="contnote">Patched at the desk but no cable leaves it &mdash; confirm with the OB truck on site.</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="legend">
+              <span>W &mdash; M mono, S stereo</span>
+              <span>Destination is the far end of the chain; Via is the box it leaves the desk through</span>
+              <span>Colour stripe repeats the output strip colour</span>
+            </div>
+
+            <div style="height:8mm"></div>
+
+            <div class="sec-head">
+              <span class="n">3</span>
+              <span class="t">Stage rig</span>
+              <span class="c">6 boxes</span>
+            </div>
+
+            <table class="pt">
+              <colgroup>
+                <col style="width:38mm"><col style="width:46mm"><col style="width:20mm">
+                <col style="width:24mm"><col style="width:16mm"><col style="width:16mm">
+                <col style="width:26mm">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Box</th><th>Catalogue item</th><th>Kind</th><th>Connection</th>
+                  <th class="r">In</th><th class="r">Out</th><th class="r">Spare</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="font-weight:700">SD12</td><td>DiGiCo SD12</td><td>Console &mdash; FOH</td>
+                  <td>Optocore</td><td class="r">24 / 96</td><td class="r">14 / 48</td>
+                  <td class="r">72 in, 34 out</td>
+                </tr>
+                <tr class="cont">
+                  <td></td>
+                  <td colspan="6" class="contnote">Local panel 8 in / 8 out &mdash; 2 in, 0 out used.</td>
+                </tr>
+                <tr>
+                  <td style="font-weight:700">Rio3224-D #1</td><td>Yamaha Rio3224-D</td><td>Stagebox</td>
+                  <td>Dante</td><td class="r">8 / 32</td><td class="r">4 / 24</td>
+                  <td class="r">24 in, 20 out</td>
+                </tr>
+                <tr>
+                  <td style="font-weight:700">Rio3224-D #2</td><td>Yamaha Rio3224-D</td><td>Stagebox</td>
+                  <td>Dante</td><td class="r">0 / 32</td><td class="r">6 / 24</td>
+                  <td class="r">32 in, 18 out</td>
+                </tr>
+                <tr>
+                  <td style="font-weight:700">Rio1608-D #3</td><td>Yamaha Rio1608-D</td><td>Stagebox</td>
+                  <td>Dante</td><td class="r">5 / 16</td><td class="r">3 / 8</td>
+                  <td class="r">11 in, 5 out</td>
+                </tr>
+                <tr>
+                  <td style="font-weight:700">Stage multi A</td><td>30 m 16-pair analogue loom</td><td>Stage multi</td>
+                  <td>XLR-3</td><td class="r">7 / 16</td><td class="r">7 / 16</td>
+                  <td class="r">9 pairs</td>
+                </tr>
+                <tr>
+                  <td style="font-weight:700">Lake LM 44</td><td>Lab.gruppen Lake LM 44</td><td>Output device</td>
+                  <td>AES3 / analogue</td><td class="r">4 / 4</td><td class="r">4 / 8</td>
+                  <td class="r">0 in, 4 out</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="sumline">
+              6 boxes &mdash; 48 of 196 input jacks and 38 of 128 output jacks in use.
+            </div>
+
+            <div class="legend">
+              <span>In and Out are patched jacks over installed jacks</span>
+              <span>A console's figures exclude its local panel, which is stated beneath it</span>
+            </div>
+
+            <div class="foot">
+              <span>Vårfest 2026 &mdash; Audio documentation</span>
+              <span>4 / 8</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="plate-head">
+        <div class="eyebrow">Page 4 &mdash; portrait</div>
+        <h2>The section that explains the other four</h2>
+      </div>
+      <div class="notes">
+        <div class="note">
+          <div class="note-n">6</div>
+          <div class="note-b">
+            <h3>The running head names the section, not the document</h3>
+            <p>
+              Page 1 gets the masthead; every page after it gets a 7 pt line saying which section
+              you are inside and that it is a continuation. The column header repeats under it on
+              every page &mdash; the one thing browser print could never be made to do, and the
+              reason a 24-channel patch was unreadable past the fold.
+            </p>
+          </div>
+        </div>
+        <div class="note">
+          <div class="note-n">7</div>
+          <div class="note-b">
+            <h3>Sections flow; they do not each claim a fresh page</h3>
+            <p>
+              Stage rig starts 8 mm below where the output patch ended. Paper is the scarce thing at
+              a production desk, and a section break that costs half a sheet is a break nobody asked
+              for. The only exception is the diagram, which changes orientation and therefore must
+              start a page.
+            </p>
+          </div>
+        </div>
+        <div class="note">
+          <div class="note-n">8</div>
+          <div class="note-b">
+            <h3>The rig list, and the one thing it deliberately does not claim</h3>
+            <p>
+              <span class="num">Box 38 · Catalogue item 46 · Kind 20 · Connection 24 · In 16 · Out 16 · Spare 26</span>.
+              Every figure is derived from what is already stored: installed counts from the box,
+              patched counts from the cable graph, spare by subtraction.
+            </p>
+            <p>
+              There is no <em class="term">Location</em> column, and there cannot be one.
+              <span class="num">position_x/position_y</span> on a stagebox is canvas placement in the
+              flow graph, not where the box physically stands &mdash; a column headed
+              <em class="term">Stage right</em> filled from that number would be a confident lie.
+              Adding a real field is a schema change and a different slice.
+            </p>
+          </div>
+        </div>
+        <div class="note">
+          <div class="note-n">9</div>
+          <div class="note-b">
+            <h3>The summary line is the answer to the question the list provokes</h3>
+            <p>
+              Anyone reading a rig list is deciding whether one more input fits. The rule above it is
+              0.35 mm — the same weight as a column header, because it is a total and not a total of
+              money. It is the only arithmetic in the document.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+
+  <section class="essay">
+    <div class="eyebrow">The rule that decides whether the diagram works at all</div>
+    <h2>Lines may cross. Lines may never share a line.</h2>
+    <p>
+      Every cable on paper is the same black hairline. Two parallel runs that touch stop being two
+      runs — a reader following one down the page has no way to know which one they are still on,
+      and the drawing quietly lies about a patch. A crossing is different: two lines meeting at a
+      right angle and separating is unambiguous at a glance, and always has been.
+    </p>
+    <p>
+      That makes routing a stated constraint on the writer rather than a matter of taste, so here it
+      is in the form the code takes:
+    </p>
+    <div class="specs">
+      <span><span class="sn">R1</span> &nbsp;<b>Orthogonal only.</b> Horizontal and vertical runs, right-angle corners. No diagonals, no curves.</span>
+      <span><span class="sn">R2</span> &nbsp;<b>Every vertical run owns a lane.</b> The gap between two columns of boxes is divided into lanes; each edge crossing it takes one.</span>
+      <span><span class="sn">R3</span> &nbsp;<b>A lane is reused only when the two runs cannot touch</b> — interval colouring on the y-spans, so a lane serves twice when the second run starts below where the first one ended.</span>
+      <span><span class="sn">R4</span> &nbsp;<b>A horizontal run sits at its own port's y.</b> Two horizontals may share a y only if their x-spans are disjoint.</span>
+      <span><span class="sn">R5</span> &nbsp;<b>Two edges leaving the same jack</b> share only the stub before they diverge, and the stubs are staggered so the split is visible.</span>
+      <span><span class="sn">R6</span> &nbsp;<b>A line never passes beneath a box.</b> It routes to the gutter above or below and comes back.</span>
+      <span><span class="sn">R7</span> &nbsp;<b>Crossings are drawn plain</b> — no hop arcs, no gap breaks. A second convention to learn is worse than a clean intersection.</span>
+    </div>
+    <p>
+      R2 and R3 together are what a browser print could never have given, whatever the stylesheet
+      said: the routing has to know about every other edge on the page before it can draw one.
+    </p>
+  </section>
+
+  <div class="plate">
+    <div class="frame-scroll">
+      <div class="frame landscape">
+        <div class="cal" style="left: 2.5%; top: 3%;">10</div>
+        <div class="cal" style="left: 21%;  top: 24%;">11</div>
+        <div class="cal" style="left: 51%;  top: 60%;">12</div>
+        <div class="cal" style="left: 14%;  top: 71%;">13</div>
+        <div class="cal" style="left: 2.5%; top: 88%;">14</div>
+        <div class="scaler">
+          <div class="sheet landscape">
+
+            <div class="runhead">
+              <b>Vårfest 2026 &mdash; Signal flow, inputs</b>
+              <span>section 4 of 5 &mdash; outputs follow on page 7</span>
+            </div>
+
+            <div class="dia-title">
+              <span class="t">4 &nbsp; Signal flow &mdash; inputs</span>
+              <span class="s">fitted to page &nbsp;&mdash;&nbsp; 1 mm = 5.4 canvas units &nbsp;&mdash;&nbsp; 6 boxes, 24 cables, 1 unpatched jack</span>
+            </div>
+
+            <div class="diagram">
+              <svg viewBox="0 0 273 140" preserveAspectRatio="none" aria-hidden="true">
+                <defs>
+                  <marker id="ah" markerUnits="userSpaceOnUse" markerWidth="2.6" markerHeight="2.6"
+                          refX="2.4" refY="1.3" orient="auto">
+                    <path d="M0,0 L2.6,1.3 L0,2.6 z" fill="#111"></path>
+                  </marker>
+                </defs>
+
+                <g fill="none" stroke="#111" stroke-width="0.35" marker-end="url(#ah)">
+                  <!-- Sources → Rio3224-D #1 : eight edges, eight lanes -->
+                  <path d="M52,27 H56 V21 H86"></path>
+                  <path d="M52,31 H59 V25 H86"></path>
+                  <path d="M52,35 H62 V29 H86"></path>
+                  <path d="M52,39 H65 V33 H86"></path>
+                  <path d="M52,43 H68 V37 H86"></path>
+                  <path d="M52,47 H71 V41 H86"></path>
+                  <path d="M52,51 H74 V45 H86"></path>
+                  <path d="M52,55 H77 V49 H86"></path>
+
+                  <!-- Sources (bass pair) → Rio1608-D #3 -->
+                  <path d="M52,59 H80 V105 H86"></path>
+                  <path d="M52,63 H83 V109 H86"></path>
+
+                  <!-- Vocal sources → Rio1608-D #3 : lanes reused, spans cannot touch -->
+                  <path d="M52,91 H56 V113 H86"></path>
+                  <path d="M52,95 H59 V117 H86"></path>
+                  <path d="M52,99 H62 V121 H86"></path>
+
+                  <!-- Lead vocal splits: same jack, staggered stub, then away -->
+                  <path d="M52,91 H68 V76 H155 V57 H166"></path>
+
+                  <!-- Rio3224-D #1 → Stage multi A -->
+                  <path d="M138,21 H144 V41 H166"></path>
+                  <path d="M138,25 H148 V45 H166"></path>
+                  <path d="M138,29 H152 V49 H166"></path>
+                  <path d="M138,33 H156 V53 H166"></path>
+
+                  <!-- Rio1608-D #3 → Stage multi A : same three lanes, lower spans -->
+                  <path d="M138,105 H144 V61 H166"></path>
+                  <path d="M138,109 H148 V65 H166"></path>
+                  <path d="M138,113 H152 V69 H166"></path>
+
+                  <!-- Rio3224-D #1 → desk direct, routed under the multi, never beneath it -->
+                  <path d="M138,49 H141 V78 H234 V41 H244"></path>
+
+                  <!-- Stage multi A → SD12 -->
+                  <path d="M218,41 H222 V29 H244"></path>
+                  <path d="M218,45 H226 V33 H244"></path>
+                  <path d="M218,49 H230 V37 H244"></path>
+                </g>
+              </svg>
+
+              <!-- sources rail -->
+              <div class="gnode" style="left:0mm; top:20mm; width:52mm;">
+                <div class="gh"><span>Sources</span><span class="badge">10</span></div>
+                <div class="gp rt"><span class="d on"></span><span class="lbl">Kick inside</span><span class="sw" style="background:#ef4444"></span></div>
+                <div class="gp rt"><span class="d on"></span><span class="lbl">Kick front</span><span class="sw" style="background:#ef4444"></span></div>
+                <div class="gp rt"><span class="d on"></span><span class="lbl">Snare top</span><span class="sw" style="background:#ef4444"></span></div>
+                <div class="gp rt"><span class="d on"></span><span class="lbl">Snare bottom</span><span class="sw" style="background:#ef4444"></span></div>
+                <div class="gp rt"><span class="d on"></span><span class="lbl">Hi-hat</span><span class="sw" style="background:#ef4444"></span></div>
+                <div class="gp rt"><span class="d on"></span><span class="lbl">Tom 1</span><span class="sw" style="background:#ef4444"></span></div>
+                <div class="gp rt"><span class="d on"></span><span class="lbl">Tom 2</span><span class="sw" style="background:#ef4444"></span></div>
+                <div class="gp rt"><span class="d on"></span><span class="lbl">OH pair</span><span class="sw" style="background:#ef4444"></span></div>
+                <div class="gp rt"><span class="d on"></span><span class="lbl">Bass DI</span><span class="sw" style="background:#f59e0b"></span></div>
+                <div class="gp rt"><span class="d on"></span><span class="lbl">Bass cabinet</span><span class="sw" style="background:#f59e0b"></span></div>
+                <div class="gf">10 sources &mdash; 8 with 48 V</div>
+              </div>
+
+              <div class="gnode" style="left:0mm; top:84mm; width:52mm;">
+                <div class="gh"><span>Vocal sources</span><span class="badge">4</span></div>
+                <div class="gp rt"><span class="d on"></span><span class="lbl">Lead vocal</span><span class="sw" style="background:#22d3ee"></span></div>
+                <div class="gp rt"><span class="d on"></span><span class="lbl">Backing vocal SR</span><span class="sw" style="background:#22d3ee"></span></div>
+                <div class="gp rt"><span class="d on"></span><span class="lbl">Backing vocal SL</span><span class="sw" style="background:#22d3ee"></span></div>
+                <div class="gp rt"><span class="d"></span><span class="lbl">FOH announce</span></div>
+                <div class="gf">4 sources &mdash; 1 unpatched</div>
+              </div>
+
+              <!-- stageboxes -->
+              <div class="gnode" style="left:86mm; top:14mm; width:52mm;">
+                <div class="gh"><span>Rio3224-D #1</span><span class="badge">SB</span></div>
+                <div class="gp sp"><span class="half"><span class="d on"></span><span class="lbl">In 1</span></span><span class="half rt"><span class="d on"></span><span class="lbl">Out 1</span></span></div>
+                <div class="gp sp"><span class="half"><span class="d on"></span><span class="lbl">In 2</span></span><span class="half rt"><span class="d on"></span><span class="lbl">Out 2</span></span></div>
+                <div class="gp sp"><span class="half"><span class="d on"></span><span class="lbl">In 3</span></span><span class="half rt"><span class="d on"></span><span class="lbl">Out 3</span></span></div>
+                <div class="gp sp"><span class="half"><span class="d on"></span><span class="lbl">In 4</span></span><span class="half rt"><span class="d on"></span><span class="lbl">Out 4</span></span></div>
+                <div class="gp sp"><span class="half"><span class="d on"></span><span class="lbl">In 5</span></span><span class="half rt"><span class="d"></span><span class="lbl">Out 5</span></span></div>
+                <div class="gp sp"><span class="half"><span class="d on"></span><span class="lbl">In 6</span></span><span class="half rt"><span class="d"></span><span class="lbl">Out 6</span></span></div>
+                <div class="gp sp"><span class="half"><span class="d on"></span><span class="lbl">In 7</span></span><span class="half rt"><span class="d"></span><span class="lbl">Out 7</span></span></div>
+                <div class="gp sp"><span class="half"><span class="d on"></span><span class="lbl">In 8</span></span><span class="half rt"><span class="d on"></span><span class="lbl">Out 8</span></span></div>
+                <div class="gf">32 in / 24 out &mdash; 8 in, 5 out used</div>
+              </div>
+
+              <div class="gnode" style="left:86mm; top:98mm; width:52mm;">
+                <div class="gh"><span>Rio1608-D #3</span><span class="badge">SB</span></div>
+                <div class="gp sp"><span class="half"><span class="d on"></span><span class="lbl">In 1</span></span><span class="half rt"><span class="d on"></span><span class="lbl">Out 1</span></span></div>
+                <div class="gp sp"><span class="half"><span class="d on"></span><span class="lbl">In 2</span></span><span class="half rt"><span class="d on"></span><span class="lbl">Out 2</span></span></div>
+                <div class="gp sp"><span class="half"><span class="d on"></span><span class="lbl">In 3</span></span><span class="half rt"><span class="d on"></span><span class="lbl">Out 3</span></span></div>
+                <div class="gp sp"><span class="half"><span class="d on"></span><span class="lbl">In 4</span></span><span class="half rt"><span class="d"></span><span class="lbl">Out 4</span></span></div>
+                <div class="gp sp"><span class="half"><span class="d on"></span><span class="lbl">In 5</span></span><span class="half rt"><span class="d"></span><span class="lbl">Out 5</span></span></div>
+                <div class="gf">16 in / 8 out &mdash; 5 in, 3 out used</div>
+              </div>
+
+              <!-- stage multi -->
+              <div class="gnode" style="left:166mm; top:34mm; width:52mm;">
+                <div class="gh"><span>Stage multi A</span><span class="badge">SM</span></div>
+                <div class="gp sp"><span class="half"><span class="d on"></span><span class="lbl">1</span></span><span class="half rt"><span class="d on"></span><span class="lbl">1</span></span></div>
+                <div class="gp sp"><span class="half"><span class="d on"></span><span class="lbl">2</span></span><span class="half rt"><span class="d on"></span><span class="lbl">2</span></span></div>
+                <div class="gp sp"><span class="half"><span class="d on"></span><span class="lbl">3</span></span><span class="half rt"><span class="d on"></span><span class="lbl">3</span></span></div>
+                <div class="gp sp"><span class="half"><span class="d on"></span><span class="lbl">4</span></span><span class="half rt"><span class="d"></span><span class="lbl">4</span></span></div>
+                <div class="gp sp"><span class="half"><span class="d on"></span><span class="lbl">5</span></span><span class="half rt"><span class="d"></span><span class="lbl">5</span></span></div>
+                <div class="gp sp"><span class="half"><span class="d on"></span><span class="lbl">6</span></span><span class="half rt"><span class="d"></span><span class="lbl">6</span></span></div>
+                <div class="gp sp"><span class="half"><span class="d on"></span><span class="lbl">7</span></span><span class="half rt"><span class="d"></span><span class="lbl">7</span></span></div>
+                <div class="gp sp"><span class="half"><span class="d"></span><span class="lbl">8</span></span><span class="half rt"><span class="d"></span><span class="lbl">8</span></span></div>
+                <div class="gf">16 pairs &mdash; 7 used</div>
+              </div>
+
+              <!-- desk -->
+              <div class="gnode desk" style="left:244mm; top:22mm; width:29mm;">
+                <div class="gh"><span>SD12</span><span class="badge">DESK</span></div>
+                <div class="gp"><span class="d on"></span><span class="lbl">Ch 1&ndash;8</span></div>
+                <div class="gp"><span class="d on"></span><span class="lbl">Ch 9&ndash;16</span></div>
+                <div class="gp"><span class="d on"></span><span class="lbl">Ch 17&ndash;24</span></div>
+                <div class="gp"><span class="d on"></span><span class="lbl">Local 1&ndash;8</span></div>
+                <div class="gp"><span class="d"></span><span class="lbl">Ch 25&ndash;32</span></div>
+                <div class="gf">24 / 96 patched</div>
+              </div>
+
+              <div class="dia-key">
+                <i><span class="sw" style="background:#ef4444"></span> Drums</i>
+                <i><span class="sw" style="background:#f59e0b"></span> Band</i>
+                <i><span class="sw" style="background:#22d3ee"></span> Vox</i>
+                <i><span class="dot"></span> patched jack</i>
+                <i><span class="dot off"></span> free jack</i>
+              </div>
+            </div>
+
+            <div class="foot">
+              <span>Vårfest 2026 &mdash; Audio documentation</span>
+              <span>6 / 8</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="plate-head">
+        <div class="eyebrow">Page 6 &mdash; landscape</div>
+        <h2>Twenty-four cables, and you can follow every one</h2>
+      </div>
+      <div class="notes">
+        <div class="note">
+          <div class="note-n">10</div>
+          <div class="note-b">
+            <h3>The orientation changes; the furniture does not</h3>
+            <p>
+              Same running head, same footer, same page numbering &mdash; the reader turns the sheet,
+              not the document. <span class="num">fpdf</span> takes orientation per page, so this costs
+              one argument, and it is the only reason a section starts a fresh page anywhere here.
+            </p>
+          </div>
+        </div>
+        <div class="note">
+          <div class="note-n">11</div>
+          <div class="note-b">
+            <h3>Eight edges, eight lanes &mdash; R2 doing its work</h3>
+            <p>
+              The eight drum sources fan into the stagebox across a 34 mm channel divided into eight
+              3 mm lanes. Every vertical run has the channel to itself, every horizontal run sits at
+              its own jack's height, and the result reads as eight cables because it is eight cables.
+              Drawn the obvious way &mdash; straight across, then down &mdash; six of them would have
+              shared ink.
+            </p>
+          </div>
+        </div>
+        <div class="note">
+          <div class="note-n">12</div>
+          <div class="note-b">
+            <h3>Under the multi, not through it &mdash; R6, and a legal crossing</h3>
+            <p>
+              Stagebox out 8 goes straight to the desk and the stage multi is in the way. It drops to
+              the gutter below the box and crosses back up, passing over three lanes on the way. Each
+              of those is a plain right-angle crossing: unambiguous, and left alone rather than
+              decorated with a hop.
+            </p>
+          </div>
+        </div>
+        <div class="note">
+          <div class="note-n">13</div>
+          <div class="note-b">
+            <h3>One jack, two cables &mdash; R5, and R3 above it</h3>
+            <p>
+              Lead vocal feeds the stagebox and splits to the stage multi. Both leave the same dot, so
+              they share 4 mm of stub and then separate visibly. Meanwhile the three vocal runs reuse
+              lanes 56, 59 and 62 from the drum fan forty millimetres higher &mdash; legal under R3,
+              because the two runs on each lane cannot touch.
+            </p>
+          </div>
+        </div>
+        <div class="note">
+          <div class="note-n">14</div>
+          <div class="note-b">
+            <h3>Paper metrics, and when it will not fit</h3>
+            <p>
+              <span class="num">52 mm box · 5 mm header · 4 mm port row · 6 pt labels · 3 mm footer</span>.
+              On screen those are <span class="num">200 px / 18 px</span>; box height is
+              <span class="num">header + rows × rowHeight + footer</span> in both places.
+            </p>
+            <p>
+              The graph is scaled to the text block and the scale is stated. If that scale would put a
+              port label below 5 pt, it tiles instead &mdash; sheet 1 of N, cut on whitespace between
+              boxes, never through one. An unreadable single page is not a smaller version of a
+              readable one.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+
+  <section class="essay">
+    <div class="eyebrow">The decision the plan makes first</div>
+    <h2>Three ways to get the drawing into Go, and why the roadmap's hardest one is the cheap one</h2>
+    <p>
+      The roadmap warned that only the node origin is in the database &mdash; box size, port rows, edge
+      routing and colour all live in TypeScript the backend cannot call. That is true. What it could not
+      know is that none of it is browser layout.
+    </p>
+    <div class="cols">
+      <div class="card picked">
+        <span class="verdict">Chosen</span>
+        <h3>Draw it in Go from the data</h3>
+        <p>
+          <span class="num">NODE_WIDTH = 200</span>, <span class="num">PORT_ROW = h-[18px]</span>,
+          <span class="num">SOURCE_ROW_HEIGHT = 20</span> &mdash; the canvas's geometry is constants and
+          multiplication. The <span class="num">getBoundingClientRect()</span> calls in
+          <span class="num">InputGraphCanvas.tsx</span> serve dragging, not a layout the browser
+          computed. Go can do the same arithmetic in mm.
+        </p>
+        <p>
+          It does not have to match the canvas pixel for pixel to be right: this is a second rendering
+          of one model, like the table. And the routing rules above have no counterpart on screen at
+          all &mdash; the canvas draws one curve per cable in the cable's own colour, which paper cannot
+          do. The export stays a plain <span class="num">GET</span>, reproducible from a URL and
+          testable without a browser.
+        </p>
+      </div>
+      <div class="card">
+        <span class="verdict no">Rejected</span>
+        <h3>The client posts its geometry</h3>
+        <p>
+          Buys one layout implementation at the price of an export that cannot be produced from a URL,
+          and it fails outright when the export is triggered from the Inputs tab, where the canvas is
+          not mounted and there is no geometry to send. It also would not have solved routing, which is
+          the part that actually needed writing.
+        </p>
+      </div>
+      <div class="card">
+        <span class="verdict no">Rejected</span>
+        <h3>Split it &mdash; sizes derived, routing sent</h3>
+        <p>
+          Inherits the second option's mounting problem for the half it sends, and adds a seam between
+          two halves of one drawing. Splits are where drift hides.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+
+  <section class="essay">
+    <div class="eyebrow">Every decision on one page</div>
+    <h2>What this mockup commits to</h2>
+    <div class="ledger">
+      <div class="ledger-row">
+        <span class="k">D1</span>
+        <div class="v">
+          <h3>One document, one endpoint, five sections</h3>
+          <p>
+            <span class="num">GET /api/v1/events/{id}/audio-export/pdf</span> returns
+            <em class="term">Audio documentation</em> &mdash; input patch, output patch, stage rig,
+            signal flow inputs, signal flow outputs, in that order, in one file. Every audio surface
+            offers the same <em class="term">Export PDF</em> action and downloads the same document;
+            there is one audio document and it does not matter where you asked for it.
+          </p>
+        </div>
+      </div>
+      <div class="ledger-row">
+        <span class="k">D2</span>
+        <div class="v">
+          <h3>The chain column is deleted from both sheets</h3>
+          <p>
+            Its 186 mm go to the source columns on the input sheet and the destination columns on the
+            output sheet. The path itself is sections 4 and 5's job, drawn rather than spelled.
+          </p>
+        </div>
+      </div>
+      <div class="ledger-row">
+        <span class="k">D3</span>
+        <div class="v">
+          <h3>One table per sheet, with a continuation line for notes</h3>
+          <p>
+            The roadmap allowed a second table if one would not fit. It fits: nine columns in 186 mm on
+            the input side, seven on the output side, seven on the rig. Notes and gap statements live on
+            an optional second row rather than a tenth column.
+          </p>
+        </div>
+      </div>
+      <div class="ledger-row">
+        <span class="k">D4</span>
+        <div class="v">
+          <h3>A stage rig section, between the tables and the diagrams</h3>
+          <p>
+            Six boxes with installed and patched jack counts, spare capacity by subtraction, and a total
+            line. Every figure derived from data already stored. No location column &mdash; the
+            application does not know where a box physically stands, and this document will not pretend
+            it does.
+          </p>
+        </div>
+      </div>
+      <div class="ledger-row">
+        <span class="k">D5</span>
+        <div class="v">
+          <h3>The flow is two sections, not one</h3>
+          <p>
+            Inputs on one landscape sheet, outputs on the next. They are two graphs in the code with two
+            independent coordinate spaces, and a joint layout would have to be invented here and would
+            exist nowhere else in the application.
+          </p>
+        </div>
+      </div>
+      <div class="ledger-row">
+        <span class="k">D6</span>
+        <div class="v">
+          <h3>No two lines ever share a line</h3>
+          <p>
+            R1&ndash;R7 above, in full, as acceptance criteria. Crossings are legal and drawn plain;
+            collinear overlap is a defect, and the only permitted case is the stub two cables share
+            leaving one jack. This is the rule the section stands or falls on: every cable is the same
+            black hairline, so overlap is indistinguishable from a single cable.
+          </p>
+        </div>
+      </div>
+      <div class="ledger-row">
+        <span class="k">D7</span>
+        <div class="v">
+          <h3>Helvetica and cp1252 stay; every mark becomes a vector</h3>
+          <p>
+            No embedded font, and the binary stays the size the rental order left it. Arrowheads, port
+            dots, phantom squares and colour stripes are drawn primitives &mdash;
+            <span class="num">&rarr;</span> is not representable in cp1252 and the diagram needed
+            vectors regardless. Slice 41 inherits this decision.
+          </p>
+        </div>
+      </div>
+      <div class="ledger-row">
+        <span class="k">D8</span>
+        <div class="v">
+          <h3>Colour is carried and never load-bearing</h3>
+          <p>
+            Channel colours reach paper as row stripes and port swatches. Every fact they express is
+            also written &mdash; the document is complete in monochrome, which is what it will usually
+            be printed in.
+          </p>
+        </div>
+      </div>
+      <div class="ledger-row">
+        <span class="k">D9</span>
+        <div class="v">
+          <h3>The diagram fits or tiles, and states which</h3>
+          <p>
+            Scaled to the text block with the scale printed in the title line. Below a 5 pt label floor
+            it becomes <em class="term">sheet 1 of N</em>, cut between boxes, with a grid key.
+          </p>
+        </div>
+      </div>
+      <div class="ledger-row">
+        <span class="k">D10</span>
+        <div class="v">
+          <h3>The phone gets the same export</h3>
+          <p>
+            <span class="num">MobilePanel</span>'s overflow item stops saying <em class="term">Print
+            signal flow</em> and calling <span class="num">window.print()</span>; it becomes
+            <em class="term">Export PDF</em> and downloads the same file. §7h asked for every phone
+            surface to reach the export it has, and a download is a download.
+          </p>
+        </div>
+      </div>
+      <div class="ledger-row">
+        <span class="k">D11</span>
+        <div class="v">
+          <h3>Lighting stays on browser print, and §8 says so</h3>
+          <p>
+            <span class="num">LightingRigSheet.tsx</span> was not in the request. Two mechanisms coexist
+            afterwards, so <span class="num">design/patterns.md</span> §8 &mdash; which currently
+            describes browser print as though it were the only one &mdash; gains the rule for which
+            surface uses which and why, and the routing rules gain a home. That amendment is why this
+            needs approval before anything is written.
+          </p>
+        </div>
+      </div>
+      <div class="ledger-row">
+        <span class="k">D12</span>
+        <div class="v">
+          <h3>The three converted React sheets are deleted</h3>
+          <p>
+            <span class="num">InputPatchSheet</span>, <span class="num">OutputPatchSheet</span> and
+            <span class="num">ChainText</span> lose their last caller. A zero-caller component is a
+            second answer sitting where the first one goes. Their Vitest coverage moves to Go table
+            tests against the generated document; <span class="num">PrintSheet</span> and
+            <span class="num">StagePlotSheet</span> stay until Slice 41 takes them.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+
+  <section class="essay">
+    <div class="eyebrow">Not settled here</div>
+    <h2>Two things the mockup cannot answer without a real event</h2>
+    <div class="cols">
+      <div class="card">
+        <h3>The 5 pt tiling floor is a guess</h3>
+        <p>
+          Six boxes and twenty-four cables fit one landscape page comfortably. A 48-channel festival
+          patch with eight boxes will not, and the point at which fitting becomes tiling has to be found
+          against a real event rather than argued. The threshold is a constant in one place for exactly
+          that reason.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Lanes are finite; very dense channels are not yet proven</h3>
+        <p>
+          R2 divides a channel into as many lanes as it has edges. If two boxes sit 8 mm apart with
+          thirty cables between them, the lanes are a quarter of a millimetre and the rule defeats
+          itself. The likely answer is that the fit scale accounts for lane demand, not just bounding
+          box &mdash; but that is a number to find, and the tiling path is the fallback.
+        </p>
+      </div>
+    </div>
+  </section>
+
+</div>

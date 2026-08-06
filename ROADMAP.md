@@ -7,7 +7,7 @@ delivery; everything below this section is history. What is left is only this:
 
 | | |
 |---|---|
-| Slice 40 | The audio exports become documents — server-generated PDFs for the input sheet, the output sheet and the flow; the chain column becomes a diagram; added 2026-07-31, not started |
+| Slice 40 | ✅ The audio exports became one document — five sections, two orientations, one endpoint; merged 2026-08-06 |
 | Slice 41 | The plot on paper — three views, colour that survives the dark-to-white crossing, a stated scale; added 2026-07-31, not started |
 
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
@@ -1767,7 +1767,7 @@ on 2026-08-05, not taken from the record. The seven it omits are `StagePlotTab.t
 `StageMultiSection.tsx:191`. **Left uncorrected on purpose** — amending a defect's brief
 is the user's call, and D6 is scheduled off a figure roughly half the real work.
 
-## Slice 40 — The audio exports become documents (spec: `audio-pdf-exports`) — not started
+## Slice 40 — The audio exports become documents (spec: `audio-pdf-exports`) — ✅ 2026-08-06
 
 **Asked for 2026-07-31:** *"redesign some of the print/pdf exports… Audio input and
 output sheets, stage plots and signal flow. I want to improve the signal flow parts in
@@ -1853,6 +1853,133 @@ breaks — and should be drawn as the PDF's own language rather than as the scre
 Depends on Slice 22 (the PDF writer and its cp1252 constraint), Slice 37 (positions that
 mean something), and Slices 11/12 (the graphs themselves). Shares its §8 amendment with
 Slice 41, and whichever lands second inherits the other's wording.
+
+### Fixed — 2026-08-06
+
+Run under **OpenSpec**, not Spec Kit: `openspec/changes/audio-pdf-exports/`. The mockup
+was built inline and approved before the proposal, and its D1-D12 and R1-R7 became the
+requirements verbatim.
+
+**The user changed the shape at the first question.** The roadmap read the request as
+three documents — a diagram at the end of each sheet plus a complete flow PDF. Asked
+directly, the answer was **one combined document**. So it is one endpoint,
+`GET /events/{id}/audio-export/pdf`, returning five sections in order: input patch,
+output patch, stage rig, signal flow inputs, signal flow outputs. Every audio surface
+offers the same *Export PDF* and gets the same file.
+
+**A stage rig section was added on request** — the fourth thing the ask did not
+mention. Per box: installed and patched jacks in and out, spare by subtraction, a
+console's local panel on its own line, and a total line. It has **no location column
+and cannot have one**: `position_x/position_y` is canvas placement in a flow graph, not
+where a box stands on stage, and a column filled from it would be a confident lie. A
+real field is a schema change and a different slice.
+
+**The geometry decision went the other way from the roadmap's fear.** It warned that
+box size, port rows and edge routing live in TypeScript the backend cannot call. But
+`graph/tokens.ts:41` is `PORT_ROW = 'flex h-[18px]'`, `NODE_WIDTH = 200`,
+`SOURCE_ROW_HEIGHT = 20` — constants and multiplication. The `getBoundingClientRect()`
+calls in `InputGraphCanvas.tsx` serve dragging and the ghost cable, not the box
+geometry. **Porting to Go was the cheap option**, and it is not a copy that can drift:
+the paper drawing has requirements with no on-screen counterpart at all, because the
+canvas draws one coloured bezier per cable onto a plane that scrolls, and paper has
+neither colour to spare nor room to scroll.
+
+**The user's routing rule is what the flow section stands on:** *lines may cross,
+parallel lines may never overlap — they are all black, so you cannot follow one.* It
+became R1-R7 in `design/patterns.md` §8a, and an invariant a function checks rather
+than a reviewer: `CollinearOverlaps` reports any two runs sharing a line, every routing
+test calls it, and the router itself calls it — a cable caught sharing ink is upgraded
+to a five-segment carrier route and the channel re-routed. 1,440 random arrangements
+run in the suite; 7,200 were run while building it.
+
+**Six routing defects, every one found by the checker rather than by eye.** A swap
+cannot be drawn with one corner each — whichever lane order suits one cable is wrong
+for the other, and equal lanes put both verticals on one line. A backward cable ran a
+long horizontal at jack height straight through everything, because the router assumed
+left-to-right. Two cables arriving at one jack converge as truly as two leaving it, so
+R5's exception had to be symmetric. Carrier heights are reached by repeated addition,
+and a map keyed on the float let two cables on one visible line pass as two.
+`groupColumns` chain-merged every box into a single column, so the channel-width check
+never ran and accepted a 12 mm gap that needed 13.6. And a carrier row three
+hundredths of a millimetre from a jack is drawn on top of that jack's own run-in.
+
+**Four more the sample document showed that no test would have.** `fpdf` swaps `Wd`
+and `Ht` for a landscape page, so `AddPageFormat("L", 297x210)` produced a 210 mm wide
+page and every box past that fell off the edge. `SetHeaderFunc` runs on `AddPage` too,
+so the section title printed straight through the running head it had just drawn. A
+tile is a window onto the plane and has to be clipped, or every page draws the whole
+graph and boxes from other sheets bleed in. And the unnamed placeholder desk every
+event is born with (`db/events.go:174`) was drawn as an empty box on every graph — the
+canvas keeps it because it is somewhere to patch to, and paper has nothing to patch.
+It is excluded from the rig list for the same reason.
+
+**The cp1252 constraint was probed, not trusted, and `rental_pdf.go:36-43` was wrong.**
+En dash (0x96) and middle dot (0xB7) *are* representable, along with `a-ring a-umlaut
+o-umlaut e-acute & x-times degree bullet`. What is not is the right arrow — and it does
+not render as garbage, it renders as `.`, a plausible-looking full stop rather than a
+visible defect. That is the real argument for drawing every mark that carries meaning:
+arrowheads are filled triangles, jacks are circles, phantom power is a filled square.
+Slice 22's comment is corrected in this change, since Slice 41 would have inherited it
+next.
+
+**Deleted:** `print/InputPatchSheet.tsx`, `print/OutputPatchSheet.tsx`,
+`print/ChainText.tsx` and their call sites, once the endpoint replaced them. Their
+cases in `printSheets.test.tsx` moved to Go table tests against the generated document
+rather than being dropped. `PrintSheet` and `StagePlotSheet` stay; Slice 41 takes them.
+
+**`design/patterns.md` §8 rewritten** as *Paper*: two mechanisms with a table saying
+which surface uses which and why, the cp1252 draw-don't-type rule, the continuation
+line, colour as carried-never-load-bearing, and §8a for a drawn signal path. Slice 41
+inherits this wording rather than writing its own. `tokens.md` §3's mono list loses
+`ChainText`.
+
+**Run against the real database** (copied to `/tmp`, never touched in place), and it
+found the one defect the tests could not: on *Jonas och Emelies bröllop*, six of eight
+output cables were being silently dropped. Two node kinds were missing from
+`buildOutputGraph` — the desk's **local jack panel**, which is a pass-through on that
+graph exactly as it is on the input one, and a device's **link-out ports**, which
+daisy-chain sub to sub to top under their own `device_link` from_kind and are never
+counted toward `output_port_count`. Both are drawn now, and every cable on every real
+event routes with zero overlaps.
+
+### Field test — 2026-08-06
+
+Three defects the field test found, all in the flow drawings; the tables were right.
+
+**The frame measured the boxes and not the cables.** A cable routed into the gutter
+above the topmost box runs at a *negative* height — on the reported event, 2.5 mm above
+the drawing origin — and one leaving past the rightmost box ran 5 mm off the side. Both
+were then cut by the tile clip, so the Trumpet source's run to `Local in 9` climbed into
+the section title and reappeared near its destination. The plane is now measured after
+routing, from boxes and segments together (`FlowLayout.Frame`), and the drawing shifted
+so nothing sits outside it. Since framing can then push a graph over the page,
+`LayoutAndRouteFlow` re-fits once into a block reduced by exactly the overflow before
+reaching for a second sheet.
+
+**Boxes appeared on both sheets of a tiled drawing, as text with no borders.** The
+cause is in fpdf: `SetX` reads a *negative* abscissa as measured from the right edge of
+the page (`fpdf.go:3610`). A box belonging to another tile was therefore drawn at a
+negative x, its rectangle placed off-page and clipped away while its labels wrapped back
+onto the sheet — a borderless table of someone else's content. Clipping alone can never
+fix that; off-tile boxes are now skipped outright.
+
+**The output graph tiled for a reason tiling cannot fix.** Four output devices sit
+stacked at one spot on that event's canvas, which the fit loop read as failure and so
+walked all the way down to the tiling fallback — where they are still stacked, just
+dealt across pages. Overlap that exists at the canvas's own density is now excluded from
+the check: only overlap the *scaling* introduced counts. Boxes the planner left on top
+of each other are drawn on top of each other, which is what the canvas shows; boxes at
+exactly the same coordinates hide each other entirely, and the stage rig section is what
+still lists all of them.
+
+The missing `M23R local` node and the six dropped output cables in that report were the
+`console_local`/`device_link` defect already fixed above — the tested file predated it.
+
+**The floor was reached on real data.** That event's output graph tiles across two
+pages at shrink 0.83, which puts its jack labels at exactly the 5 pt floor; its input
+graph fits one page at 0.95. So the tiling path is exercised by a real patch rather
+than only by a fixture — but the floor itself is still a judgment, one named constant,
+and no festival-sized patch has been through it.
 
 ## Slice 41 — The plot on paper, in three views and in colour (spec: `stage-plot-pdf`) — not started
 
