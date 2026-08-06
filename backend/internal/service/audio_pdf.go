@@ -25,10 +25,12 @@ import (
 // could not state a scale, and could not be told how to route a line.
 
 const (
-	audioMarginLeft   = 12.0
-	audioMarginTop    = 12.0
-	audioMarginRight  = 12.0
-	audioMarginBottom = 16.0
+	// The margins are the shared page furniture's — see paperdoc.go, which
+	// this document and the stage plot both wear.
+	audioMarginLeft   = paperMarginLeft
+	audioMarginTop    = paperMarginTop
+	audioMarginRight  = paperMarginRight
+	audioMarginBottom = paperMarginBottom
 
 	// The text block: A4 less both margins, portrait and landscape.
 	audioBlockW          = 210.0 - audioMarginLeft - audioMarginRight
@@ -52,6 +54,7 @@ var (
 type audioDoc struct {
 	pdf   *fpdf.Fpdf
 	tr    func(string) string
+	paper paperDoc
 	event domain.Event
 
 	// section is what the running head names, updated as the document walks.
@@ -82,7 +85,13 @@ func (s ExportService) BuildAudioPDF(eventID int64) ([]byte, string, error) {
 	pdf := fpdf.New("P", "mm", "A4", "")
 	pdf.SetMargins(audioMarginLeft, audioMarginTop, audioMarginRight)
 	pdf.SetAutoPageBreak(true, audioMarginBottom)
-	doc := &audioDoc{pdf: pdf, tr: pdf.UnicodeTranslatorFromDescriptor("cp1252"), event: event}
+	translate := pdf.UnicodeTranslatorFromDescriptor("cp1252")
+	doc := &audioDoc{
+		pdf:   pdf,
+		tr:    translate,
+		paper: paperDoc{pdf: pdf, tr: translate, width: 210},
+		event: event,
+	}
 
 	// The running head and the repeated column header are the two things
 	// browser print could never give. fpdf calls this after every automatic
@@ -97,15 +106,7 @@ func (s ExportService) BuildAudioPDF(eventID int64) ([]byte, string, error) {
 			doc.repeatHeader()
 		}
 	})
-	pdf.SetFooterFunc(func() {
-		pdf.SetY(-11)
-		pdf.SetFont("Helvetica", "", 6.6)
-		pdf.SetTextColor(140, 140, 140)
-		pdf.CellFormat(120, 4, doc.tr(event.Name+" - Audio documentation"), "T", 0, "L", false, 0, "")
-		pdf.CellFormat(0, 4, doc.tr(fmt.Sprintf("%d / {nb}", pdf.PageNo())), "T", 0, "R", false, 0, "")
-		pdf.SetTextColor(17, 17, 17)
-	})
-	pdf.AliasNbPages("{nb}")
+	doc.paper.installFooter(event.Name + " - Audio documentation")
 	pdf.AddPage()
 
 	doc.writeMasthead(inventory, data)
@@ -130,37 +131,13 @@ func audioExportFilename(event domain.Event) string {
 // type. "Audio" stands opposite the event name so the same block serves a plot
 // document with one word changed.
 func (d *audioDoc) writeMasthead(inventory domain.Inventory, data audioGraphData) {
-	d.pdf.SetFont("Helvetica", "B", 17)
-	d.pdf.SetTextColor(17, 17, 17)
-	d.pdf.CellFormat(150, 8, d.tr(d.event.Name), "", 0, "L", false, 0, "")
-	d.pdf.SetFont("Helvetica", "B", 8)
-	d.pdf.SetTextColor(102, 102, 102)
-	d.pdf.CellFormat(0, 8, d.tr("AUDIO"), "", 1, "R", false, 0, "")
-
-	d.pdf.SetFont("Helvetica", "", 9)
-	d.pdf.SetTextColor(51, 51, 51)
-	d.pdf.CellFormat(0, 4.6, d.tr(eventSubtitle(d.event)), "", 1, "L", false, 0, "")
-
-	d.pdf.SetFont("Helvetica", "", 7)
-	d.pdf.SetTextColor(119, 119, 119)
-	left := "Inventory: " + inventory.Name
 	right := fmt.Sprintf("Generated %s   -   %s, %s, %s, %s",
 		time.Now().Format("2006-01-02"),
 		plural(len(data.channels), "input", "inputs"),
 		plural(len(data.outputs), "output", "outputs"),
 		plural(len(buildRig(data).Rows), "box", "boxes"),
 		plural(len(data.inCables)+len(data.outCables), "cable", "cables"))
-	d.pdf.CellFormat(70, 4, d.tr(left), "", 0, "L", false, 0, "")
-	d.pdf.CellFormat(0, 4, d.tr(right), "", 1, "R", false, 0, "")
-
-	// The heaviest rule in the document, used exactly once.
-	d.pdf.Ln(1)
-	d.pdf.SetLineWidth(0.5)
-	y := d.pdf.GetY()
-	d.pdf.Line(audioMarginLeft, y, 210-audioMarginRight, y)
-	d.pdf.SetLineWidth(0.2)
-	d.pdf.SetTextColor(17, 17, 17)
-	d.pdf.Ln(4)
+	d.paper.masthead(d.event.Name, "AUDIO", eventSubtitle(d.event), "Inventory: "+inventory.Name, right)
 }
 
 func eventSubtitle(event domain.Event) string {
@@ -181,19 +158,7 @@ func eventSubtitle(event domain.Event) string {
 // writeRunningHead names the section the reader is inside, on every page after
 // the first.
 func (d *audioDoc) writeRunningHead() {
-	d.pdf.SetY(audioMarginTop)
-	d.pdf.SetFont("Helvetica", "B", 6.5)
-	d.pdf.SetTextColor(17, 17, 17)
-	d.pdf.CellFormat(120, 4, d.tr(strings.ToUpper(d.event.Name+" - "+d.section)), "", 0, "L", false, 0, "")
-	d.pdf.SetFont("Helvetica", "", 7)
-	d.pdf.SetTextColor(102, 102, 102)
-	d.pdf.CellFormat(0, 4, d.tr("continued"), "", 1, "R", false, 0, "")
-	d.pdf.SetDrawColor(187, 187, 187)
-	y := d.pdf.GetY()
-	d.pdf.Line(audioMarginLeft, y, 210-audioMarginRight, y)
-	d.pdf.SetDrawColor(17, 17, 17)
-	d.pdf.SetTextColor(17, 17, 17)
-	d.pdf.Ln(2)
+	d.paper.runningHead(d.event.Name+" - "+d.section, "continued")
 }
 
 // writeSectionHead opens a section. Sections flow one after another rather than

@@ -9,7 +9,7 @@ import type {
   StagePlotResponse,
   TrussSide,
 } from '../types'
-import { get, request } from './client'
+import { API_BASE, get, request } from './client'
 
 // ---- Plots ----
 
@@ -118,3 +118,14 @@ export const attachPlotTrussFixture = (
   })
 export const detachPlotTrussFixture = (eventId: number, trussId: number, fixtureId: number) =>
   request<void>(`/events/${eventId}/plot-trusses/${trussId}/fixtures/${fixtureId}`, { method: 'DELETE' })
+
+/**
+ * One stage plot as a scale drawing: top, front and side views at one stated
+ * scale, plus the element schedule (Slice 41).
+ *
+ * Per plot, not per event — an event holds several plots and they are drawings
+ * of different rooms. A plain URL rather than a `request()` call: downloads are
+ * navigations, which is how every other export in the application is taken.
+ */
+export const stagePlotExportPdfUrl = (eventId: number, plotId: number) =>
+  `${API_BASE}/events/${eventId}/stage-plots/${plotId}/export/pdf`

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { LayoutGrid, Plus, Search, Table2 } from 'lucide-react'
 import type { PatchTab, PatchView } from '../../hooks/usePatchView'
+import { audioExportPdfUrl } from '../../api/audio'
 import { ExportPdfButton } from '../print/ExportPdfButton'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
@@ -109,7 +110,7 @@ export function AudioPatchShell({
 
             <span className="flex-1" />
 
-            <ExportPdfButton eventId={eventId} />
+            <ExportPdfButton href={audioExportPdfUrl(eventId)} />
             {onAdd && (
               <Button size="xs" onClick={onAdd}>
                 <Plus className="mr-1.5 h-3.5 w-3.5" />{nouns.add}
