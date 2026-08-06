@@ -469,3 +469,98 @@ func TestScheduleNamesEveryElementIncludingTheUnnamed(t *testing.T) {
 		}
 	}
 }
+
+// seedWidePlot builds a festival-sized plan: a line of speakers 20 m apart
+// across 300 m of stage. No plot in this developer's database comes close, so
+// this is built rather than found — and the legibility floor the division
+// protects is still a guess inherited from Slice 40.
+func seedWidePlot(t *testing.T) (*plotDoc, *sql.DB, int64, int64) {
+	t.Helper()
+	database, eventID, plotID, _ := seedPlotEvent(t)
+	layers, err := db.ListStagePlotLayers(database, plotID)
+	if err != nil || len(layers) == 0 {
+		t.Fatalf("layers: %v", err)
+	}
+	for x := 0.0; x <= 30000; x += 2000 {
+		if _, err := db.CreateStagePlotElement(database, domain.StagePlotElement{
+			PlotID: plotID, LayerID: layers[0].ID, Kind: "resource", Icon: "speaker",
+			XCm: x, YCm: 0, WidthCm: 40, DepthCm: 35, HeightCm: 70,
+		}); err != nil {
+			t.Fatalf("create element at %v: %v", x, err)
+		}
+	}
+	event, err := db.GetEvent(database, eventID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := db.GetStagePlotResponse(database, eventID, plotID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return newPlotDoc(event, response), database, eventID, plotID
+}
+
+// A plot wider than the smallest scale on the ladder can hold divides across
+// sheets rather than shrinking past what can be read, and the scale does not
+// change — which is what lets the parts be laid side by side and read as one.
+func TestAPlotTooLargeForTheLadderDividesAcrossSheets(t *testing.T) {
+	doc, database, eventID, plotID := seedWidePlot(t)
+
+	smallest := plotScaleLadder[len(plotScaleLadder)-1]
+	if doc.denom != smallest {
+		t.Fatalf("scale = 1:%v, want the ladder's smallest 1:%v before tiling", doc.denom, smallest)
+	}
+
+	sheets := doc.planSheets()
+	if len(sheets) <= 4 {
+		t.Fatalf("a 300 m plot produced %d sheets; it has to divide", len(sheets))
+	}
+
+	// Every part of a divided view states its place in the set.
+	parts := map[PlotView]int{}
+	for _, sheet := range sheets {
+		if sheet.schedule {
+			continue
+		}
+		if sheet.parts > 1 {
+			parts[sheet.view]++
+			if sheet.part < 1 || sheet.part > sheet.parts {
+				t.Errorf("%s part %d of %d is not a place in the set", sheet.view, sheet.part, sheet.parts)
+			}
+		}
+	}
+	if parts[ViewTop] < 2 {
+		t.Errorf("the plan was divided into %d parts, want at least 2", parts[ViewTop])
+	}
+
+	data, _, err := ExportService{DB: database}.BuildStagePlotPDF(eventID, plotID)
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if got := pdfPageCount(t, data); got != len(sheets) {
+		t.Errorf("planned %d sheets, wrote %d pages", len(sheets), got)
+	}
+}
+
+// A cut falls between elements, never through one.
+//
+// This is only achievable where a gap exists. Elements that overlap into a run
+// wider than a whole frame cannot all be kept whole by any division, and the
+// document draws them rather than refusing — so the case tested here is the one
+// the rule is about: a plan with room to cut.
+func TestDivisionsFallBetweenElements(t *testing.T) {
+	doc, _, _, _ := seedWidePlot(t)
+	edges := doc.elementEdges(ViewTop, true)
+	span := (doc.windows.X[1] - doc.windows.X[0]) * doc.perCm
+	cuts := doc.cutPositions(ViewTop, span, plotFrameW, true)
+	if len(cuts) < 2 {
+		t.Fatalf("a 300 m plan produced %d part(s)", len(cuts))
+	}
+	for _, cut := range cuts[1:] {
+		for _, edge := range edges {
+			if cut > edge[0] && cut < edge[1] {
+				t.Errorf("a cut at %.2f mm falls inside an element spanning %.2f-%.2f", cut, edge[0], edge[1])
+			}
+		}
+	}
+}

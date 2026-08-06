@@ -8,7 +8,7 @@ delivery; everything below this section is history. What is left is only this:
 | | |
 |---|---|
 | Slice 40 | ✅ The audio exports became one document — five sections, two orientations, one endpoint; merged 2026-08-06 |
-| Slice 41 | The plot on paper — three views, colour that survives the dark-to-white crossing, a stated scale; added 2026-07-31, not started |
+| Slice 41 | ✅ The plot on paper — four sheets at one stated scale, registered views, and the dark-to-white colour rule; merged 2026-08-06 |
 
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
 multi-event/tour planning (§3.11).
@@ -1981,7 +1981,7 @@ graph fits one page at 0.95. So the tiling path is exercised by a real patch rat
 than only by a fixture — but the floor itself is still a judgment, one named constant,
 and no festival-sized patch has been through it.
 
-## Slice 41 — The plot on paper, in three views and in colour (spec: `stage-plot-pdf`) — not started
+## Slice 41 — The plot on paper, in four sheets and in colour (spec: `stage-plot-pdf`) ✅ merged 2026-08-06
 
 **Asked for 2026-07-31, in the same breath as Slice 40:** *"Stage plots I just want to
 make prettier with layout and color and have all three angles."* Same delivery decision
@@ -2039,6 +2039,77 @@ Design approval is required on both triggers. Depends on Slice 13 (plots, layers
 trusses), Slice 22 (the PDF writer), and Slice 40 if it lands first — the renderer, the
 font decision and the §8 wording are shared, and doing it second is meaningfully
 cheaper.
+
+### Delivered
+
+Run under OpenSpec (`openspec/changes/stage-plot-pdf/`). The mockup was drawn from the
+live `Kyrkan` plot with `lib/stagePlot.ts` ported verbatim into it, so the design was
+reviewed against real geometry rather than a sketch; the user approved it and settled
+the three open questions (one glyph data file, a fourth schedule sheet, tiling rather
+than refusing).
+
+**`GET /events/{id}/stage-plots/{plotId}/export/pdf`** returns four A4 landscape
+sheets for **one plot**: top view, front view, side view, element schedule. The plot's
+stored `active_view` is no longer read by anything — the trap this slice was partly
+about is gone rather than worked around.
+
+**The three properties that carry it.**
+
+- **One scale**, the largest on the ladder 1:20 … 1:500 at which every view fits,
+  stated in figures *and* drawn as a graduated bar. A copier resizes the sheet and the
+  bar with it; the figures quietly become a lie.
+- **Three shared world windows** — width, depth, height — so two views drawing the same
+  axis place it identically. A vertical dropped from the plan meets its element in the
+  elevation, and the elevations stand on one floor. Asserted, not assumed.
+- **The colour crossing**, now `design/patterns.md` §8, applying wherever a
+  dark-ground value has to appear on white.
+
+**The roadmap's stated colour mechanism was wrong, and real data is what showed it.**
+Inverting a near-grey's lightness fixes the pale end by breaking the dark one: the
+`Kyrkan` plot's Venue layer is `#5e5c64`, already legible on paper at 6.58:1, and
+inverting it gives `#9d9ba3` at **2.74:1** — the one layer needing no help would have
+been the only one damaged. The rule that shipped keeps hue and saturation and lowers
+lightness only, to a 4.5:1 floor, stopping there; a colour already dark enough is
+untouched. It gained a clause the brief did not have: **an unset layer prints as ink**,
+because the canvas default is a consequence of the black ground and not a decision, and
+carrying it over would collide with a layer whose colour genuinely is a grey.
+
+**The icon question was answered with the middle option.** The 17 icons × 3 views moved
+out of `lib/stagePlotIcons.tsx` into `stagePlotGlyphs.json`; the TSX became a renderer
+of it and Go grew a second renderer (`internal/service/plotglyph`) that flattens each
+mark to a device-space path. The refactor was verified by diffing
+`renderToStaticMarkup` across all 51 glyphs before and after — byte-for-byte identical —
+and the frontend's 615 tests passed unedited. A Go test fails while the mirrored copy
+differs; `make sync-glyphs` is the fix.
+
+**Decisions worth keeping.**
+
+- **Flatten glyphs in Go rather than using fpdf's transform stack.** An icon is
+  stretched non-uniformly into its element's footprint, and a PDF transform scales the
+  pen with the geometry — a wide, short element would get a fat horizontal stroke and a
+  thin vertical one. The canvas escapes this with `non-scaling-stroke`; paper's escape
+  is to transform the points and leave the pen alone.
+- **`setInk` sets draw, fill *and* text.** fpdf's `SetTextColor` emits nothing on its
+  own — it records the colour and a flag saying whether it differs from the fill, and
+  text only writes a colour operator when it does. `ClipEnd` emits `Q`, restoring the
+  PDF's graphics state while fpdf's tracking still points at whatever was set inside the
+  clip. Between them, black text came out in the last element's layer colour. Setting
+  all three puts a real operator in the stream every time.
+- **An elevation names only what is off the floor.** Labelling every element in both
+  the plan and the elevations piled the whole floor-standing rig into one illegible line
+  along the datum. The plan identifies; the elevation reports height.
+- **A label's position turns with its element; its orientation does not.** A drawing is
+  read one way up.
+- **The audio document's furniture was extracted, not copied**, into `paperdoc.go`
+  parameterised by page width. `audio_pdf_test.go` passing unedited is what made the
+  extraction safe to keep.
+
+**Still open, and inherited rather than introduced:** the 5 pt legibility floor that
+decides when a drawing divides instead of shrinking is still a guess, and no
+festival-sized plan has been through it in either slice. The tiling path is covered by a
+synthetic 300 m plot, not by real data. Where elements overlap into a run wider than one
+frame, no division can keep them all whole; the document draws them rather than
+refusing, and says so in a comment.
 
 ## Known defects — found, reproduced, not yet scheduled
 

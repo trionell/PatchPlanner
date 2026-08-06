@@ -761,8 +761,10 @@ surface, and it belongs in the sentence above — where the user can read it.
 ### 7h · Printing from a phone
 
 A phone branch that renders `print:hidden` and nothing else prints a blank page.
-The print sheet is not chrome — it belongs to the tab, at every width, and the
-branch renders it exactly as the desktop branch does (§8).
+Where a tab still has a print sheet it is not chrome — it belongs to the tab, at
+every width, and the branch renders it exactly as the desktop branch does (§8).
+Only Lighting still has one; every other surface's paper is a download, which is
+the easier answer on a phone anyway.
 
 Every phone surface reaches the export it has: PDF and `.xlsx` are downloads, and
 downloads are the one thing a phone does as well as a desk.
@@ -770,7 +772,11 @@ downloads are the one thing a phone does as well as a desk.
 ## 8 · Paper
 
 Paper is a separate visual language and stays that way: black on white, small
-tables, nothing that depends on a hue.
+tables, and — with one stated exception — nothing that depends on a hue. The
+exception is a scale drawing whose objects are grouped into layers, where colour
+is how one layer is told from another and no amount of lettering replaces it. It
+is an exception because it is declared, not because it is convenient: everything
+colour says on such a drawing is also said in words.
 
 **Two mechanisms, and which surface uses which.** A surface reaches paper either
 through the browser's own print path or through a document the server writes. The
@@ -785,8 +791,14 @@ test is what the paper has to do:
 
 Browser print cannot do any of the first three, whatever the stylesheet says. The
 audio plan needs all of them, so it is one generated PDF — masthead, running head
-naming the section, repeated column headers, footer with page over total. Lighting
-and the stage plot need none of them and stay on browser print.
+naming the section, repeated column headers, footer with page over total. The
+stage plot needs the third absolutely, since a drawing that cannot state its scale
+cannot be measured off, so it is a generated document too. **Lighting is the one
+surface left on browser print**: it is a table of rows, read as they are on screen.
+
+The two documents wear the same furniture — masthead, running head, footer — with
+one word changed opposite the title, and that word is what tells them apart at
+arm's length.
 
 **Browser print.** Sheets live in `components/print/`, hidden on screen and revealed
 by `@media print`. App chrome and editing UI are removed with `print:hidden`; the
@@ -808,10 +820,44 @@ it, spanning the text block, rather than gaining a column that is empty on every
 other row. That is also where a document states a gap: *"Nothing patched into this
 channel"* is a sentence, where a row of blank cells is not.
 
-**Colour on paper** is carried and never load-bearing, on either mechanism. Where a
-document shows a colour it is repeating a value the planner chose, and every fact it
-states is also written. The document is complete in monochrome, which is what it
-will usually be printed in.
+**Colour on paper is carried, not load-bearing — except where the drawing has no
+other way to group.** On a table, a colour repeats a value the planner already
+chose and every fact is also written; the document is complete in monochrome,
+which is what it will usually be printed in. On a scale drawing whose elements
+belong to layers, colour *is* the grouping, because a plan has no column to put it
+in. Even then the completeness rule holds by other means: every layer is named in
+the sheet's key and every element is listed under its layer in a schedule, so a
+monochrome copy loses the speed of reading and nothing else.
+
+### Crossing a dark-ground colour onto paper
+
+Every colour a planner picks is picked against a near-black canvas, so its
+lightness is the ground's doing rather than the planner's. Paper is the opposite
+ground and the value cannot simply be reused: the application's own default layer
+colour reads at 2.6:1 on white, and a mid-blue and a mid-orange chosen on screen
+come out at 2.7:1 and 2.0:1 — present on the sheet and unreadable.
+
+**Keep the hue and the saturation. Move only the lightness, and only downward.**
+
+- A colour that already clears **4.5:1 against white** is used exactly as stored.
+- A colour that does not has its lightness lowered — at constant hue and
+  saturation — until it does, and no further.
+- Lightness never goes below **12%**, so a coloured line is never reduced to the
+  same ink as the frame and the lettering.
+- **A value nobody chose is not crossed at all.** Where no colour is set, the
+  canvas draws its own default so that something reads on black; paper prints the
+  document's ink instead. Carrying the canvas default over would dress an absent
+  decision as a real one, and would collide with a layer whose colour genuinely is
+  a grey.
+
+**Do not invert.** Inverting a near-grey's lightness looks like the same idea and
+is not: it fixes the pale end by breaking the dark one. A layer at `#5e5c64` reads
+on paper at 6.58:1 already; inverted it becomes `#9d9ba3` at 2.74:1. The clamp does
+what inversion was reaching for at the light end and correctly does nothing at the
+dark end.
+
+The rule is not about one surface. Anywhere a value chosen for the dark ground has
+to appear on white, this is the crossing.
 
 ### 8a · A drawn signal path
 
@@ -836,3 +882,43 @@ runs. **Lines may cross; lines may never share a line.**
 
 The invariant these hold is checkable, and is checked: `CollinearOverlaps` reports
 any two runs sharing a line, and every routing test calls it.
+
+### 8b · A drawn plan
+
+A plan on paper is a *measured* drawing, not a picture of the canvas. Someone
+marks a floor out from it, so what it promises about size it has to keep.
+
+**One scale for the whole document, stated twice.** The scale is chosen from a
+ladder — 1:20, 1:25, 1:50, 1:100, 1:200, 1:250, 1:500 — as the largest at which
+every view fits its frame, and it is both written in figures and drawn as a
+graduated bar. The bar exists because a copier resizes the sheet and resizes the
+bar with it, while the figures quietly become a lie. Fitting each view to its own
+content instead would give the same drawing three scales and no comparability.
+
+**The views are registered.** One window per world axis — width, depth, height —
+computed once and shared by the views that draw that axis, so a vertical dropped
+from the plan meets its element in the elevation, and the elevations stand on one
+floor. That registration is the reason a fixed scale is worth its white space.
+
+- **P1** The document draws every view, always, in a fixed order. It never depends
+  on which view an editor was left showing.
+- **P2** The grid is drawn at the smallest whole multiple of the plot's own grid
+  that measures at least 8 mm on the sheet, and the sheet states both numbers. A
+  finer mesh is not a grid, it is a tint.
+- **P3** The floor is a datum: a solid rule with hatching beneath it, labelled
+  zero. Dashes stay reserved for what is unresolved.
+- **P4** The plan labels every named element; an elevation labels only what is off
+  the floor. Naming floor-standing things twice piles the whole rig into one line
+  along the datum, and the plan has already identified them.
+- **P5** A mark too small to carry its own label carries a number instead, and the
+  number is resolved in the sheet's key and in a schedule. At the scales a stage is
+  drawn at, a fixture is about 3 mm across and its label is 22 mm of type.
+- **P6** Every drawing sheet carries its own key — scale, grid, layers, and the
+  conventions used. A sheet is pulled out of the set and has to still read.
+- **P7** A drawing too large for the smallest scale on the ladder divides across
+  sheets rather than shrinking further. Cuts fall between elements, each part states
+  its place in the set, and the scale does not change — so the parts can be laid out
+  side by side and read as one drawing.
+
+P7 is §8a's rule for a graph, restated for a plan: **divide rather than shrink**,
+and never cut through the thing being drawn.

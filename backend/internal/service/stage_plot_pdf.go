@@ -428,13 +428,22 @@ func (d *plotDoc) cutPositions(view PlotView, span, frame float64, horizontal bo
 	for at+frame < span {
 		nominal := at + frame
 		cut := nominal
-		for _, edge := range edges {
-			// An element straddling the nominal cut moves the cut to its start.
-			if edge[0] < nominal && edge[1] > nominal && edge[0] > at {
-				cut = math.Min(cut, edge[0])
+		// Pulling the cut back to clear one element can land it inside another,
+		// so this repeats until nothing straddles it. It terminates because the
+		// cut only ever moves earlier and is bounded below by the last one.
+		for moved := true; moved; {
+			moved = false
+			for _, edge := range edges {
+				if edge[0] < cut && edge[1] > cut && edge[0] > at {
+					cut = edge[0]
+					moved = true
+				}
 			}
 		}
-		if cut <= at+1 { // no progress possible; take the nominal cut
+		if cut <= at+1 {
+			// Nowhere to cut: something here is wider than a whole frame, and
+			// no division can keep it whole. Taking the nominal cut splits it,
+			// which is worse than ideal and better than emitting no sheet.
 			cut = nominal
 		}
 		positions = append(positions, cut)

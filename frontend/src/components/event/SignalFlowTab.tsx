@@ -211,7 +211,7 @@ export function SignalFlowTab({ eventId }: { eventId: number }) {
 
               <span className="flex-1" />
 
-              <ExportPdfButton eventId={eventId} />
+              <ExportPdfButton href={audioExportPdfUrl(eventId)} />
             </>
           }
         >

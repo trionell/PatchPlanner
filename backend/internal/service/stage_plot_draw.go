@@ -489,28 +489,28 @@ func metres(cm float64) string {
 // photocopier resizes the sheet and the bar resizes with it, while "1:100"
 // quietly becomes a lie.
 func (d *plotDoc) drawScaleBar(x, y, available float64) {
-	segment := 100 * d.perCm // one metre
-	if segment <= 0 {
+	if d.perCm <= 0 || available <= 0 {
 		return
 	}
-	count := int(available / segment)
-	if count < 1 {
-		// At a very small scale a metre is too short to draw; step up to a
-		// length that is, so the bar always measures something round.
-		for _, step := range []float64{5, 10, 25, 50, 100} {
-			if step*100*d.perCm <= available {
-				segment = step * 100 * d.perCm
-				count = int(available / segment)
-			}
-		}
-		if count < 1 {
-			return
+	// A bar with one division is not a graduated bar, it is a line with a
+	// number at each end. Take the largest round unit that still divides the
+	// space at least twice, so the reader can step along it.
+	units := []float64{5, 10, 25, 50, 100, 200, 500, 1000, 2000, 5000}
+	unitCm := 0.0
+	for _, candidate := range units {
+		if candidate*d.perCm*2 <= available {
+			unitCm = candidate
 		}
 	}
+	if unitCm == 0 {
+		return
+	}
+	segment := unitCm * d.perCm
+	count := int(available / segment)
 	if count > 6 {
 		count = 6
 	}
-	unitMetres := segment / (100 * d.perCm)
+	unitMetres := unitCm / 100
 	d.pdf.SetDrawColor(17, 17, 17)
 	d.pdf.SetLineWidth(0.12)
 	for i := 0; i < count; i++ {

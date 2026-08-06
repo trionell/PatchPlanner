@@ -18,6 +18,7 @@ import {
   updateStagePlotElement,
   updateStagePlotLayer,
   updateStagePlotLink,
+  stagePlotExportPdfUrl,
   type StagePlotElementCreate,
   type StagePlotElementPatch,
 } from '../../api/stagePlots'
@@ -32,8 +33,7 @@ import { Input } from '../ui/Input'
 import { MicroLabel } from '../ui/Label'
 import { PatchPanel } from '../ui/PatchPanel'
 import { Tab } from '../ui/Tabs'
-import { PrintButton } from '../print/PrintButton'
-import { StagePlotSheet } from '../print/StagePlotSheet'
+import { ExportPdfButton } from '../print/ExportPdfButton'
 import { PlotTrussManager } from './PlotTrussManager'
 import { InspectorRail } from './graph/InspectorRail'
 import { ZoomControl } from './graph/ZoomControl'
@@ -745,7 +745,7 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
               <span className="shrink-0 font-mono text-[11px] tabular-nums text-zinc-500">
                 1 sq = {response.plot.grid_size_cm} cm · true to scale
               </span>
-              <PrintButton />
+              <ExportPdfButton href={stagePlotExportPdfUrl(eventId, activePlotId as number)} label="Export PDF" />
               <Button
                 size="xs"
                 variant="ghost"
@@ -901,7 +901,6 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
         })()
       )}
     </div>
-    {response && <StagePlotSheet eventId={eventId} response={response} />}
 
     {/* Last siblings, outside the fullscreen shell entirely — see `pendingLayer`. */}
     <ConfirmDialog
