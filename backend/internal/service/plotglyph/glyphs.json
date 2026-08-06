@@ -1,0 +1,1248 @@
+{
+  "version": 1,
+  "icons": [
+    {
+      "id": "person",
+      "label": "Person",
+      "group": "resource",
+      "defaults": {
+        "width_cm": 60,
+        "depth_cm": 40,
+        "height_cm": 180
+      },
+      "glyphs": {
+        "top": [
+          {
+            "kind": "path",
+            "d": "M6 16 C6 8 16 6 30 6 C44 6 54 8 54 16 C54 22 48 25 44 25 L16 25 C12 25 6 22 6 16 Z",
+            "fill": false
+          },
+          {
+            "kind": "circle",
+            "cx": 30,
+            "cy": 22,
+            "r": 8,
+            "fill": true
+          },
+          {
+            "kind": "path",
+            "d": "M27 31 L30 36 L33 31",
+            "fill": false
+          }
+        ],
+        "front": [
+          {
+            "kind": "circle",
+            "cx": 30,
+            "cy": 16,
+            "r": 11,
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M30 27 L30 95 M30 44 L8 72 M30 44 L52 72 M30 95 L16 172 M30 95 L44 172",
+            "fill": false
+          }
+        ],
+        "side": [
+          {
+            "kind": "circle",
+            "cx": 24,
+            "cy": 16,
+            "r": 11,
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M22 27 C20 50 20 70 20 95 M21 46 L32 74 M20 95 L13 172 M20 95 L28 172",
+            "fill": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "mic",
+      "label": "Mic",
+      "group": "resource",
+      "defaults": {
+        "width_cm": 30,
+        "depth_cm": 30,
+        "height_cm": 160
+      },
+      "glyphs": {
+        "top": [
+          {
+            "kind": "circle",
+            "cx": 15,
+            "cy": 15,
+            "r": 7,
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M15 15 L4 27 M15 15 L26 27 M15 15 L15 2",
+            "fill": false
+          }
+        ],
+        "front": [
+          {
+            "kind": "rect",
+            "x": 11,
+            "y": 2,
+            "w": 8,
+            "h": 16,
+            "fill": false,
+            "rx": 4
+          },
+          {
+            "kind": "path",
+            "d": "M15 18 L15 138 M15 138 L4 156 M15 138 L26 156 M15 138 L15 158",
+            "fill": false
+          }
+        ],
+        "side": [
+          {
+            "kind": "rect",
+            "x": 19,
+            "y": 4,
+            "w": 8,
+            "h": 14,
+            "fill": false,
+            "rx": 4,
+            "rotate": [
+              35,
+              23,
+              11
+            ]
+          },
+          {
+            "kind": "path",
+            "d": "M13 40 L24 16 M13 40 L13 138 M13 138 L3 156 M13 138 L23 156",
+            "fill": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "speaker",
+      "label": "Speaker",
+      "group": "resource",
+      "defaults": {
+        "width_cm": 40,
+        "depth_cm": 35,
+        "height_cm": 70
+      },
+      "glyphs": {
+        "top": [
+          {
+            "kind": "rect",
+            "x": 2,
+            "y": 2,
+            "w": 36,
+            "h": 31,
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M2 2 L38 33 M38 2 L2 33",
+            "fill": false
+          }
+        ],
+        "front": [
+          {
+            "kind": "rect",
+            "x": 2,
+            "y": 2,
+            "w": 36,
+            "h": 66,
+            "fill": false
+          },
+          {
+            "kind": "circle",
+            "cx": 20,
+            "cy": 46,
+            "r": 13,
+            "fill": false
+          },
+          {
+            "kind": "circle",
+            "cx": 20,
+            "cy": 16,
+            "r": 6,
+            "fill": false
+          }
+        ],
+        "side": [
+          {
+            "kind": "rect",
+            "x": 3,
+            "y": 2,
+            "w": 29,
+            "h": 66,
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M9 2 L9 68",
+            "fill": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "monitor",
+      "label": "Monitor",
+      "group": "resource",
+      "defaults": {
+        "width_cm": 50,
+        "depth_cm": 40,
+        "height_cm": 35
+      },
+      "glyphs": {
+        "top": [
+          {
+            "kind": "path",
+            "d": "M4 6 L46 6 L38 36 L12 36 Z",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M11 14 L39 14",
+            "fill": false
+          }
+        ],
+        "front": [
+          {
+            "kind": "path",
+            "d": "M2 33 L48 33 L41 10 L9 10 Z",
+            "fill": false
+          },
+          {
+            "kind": "circle",
+            "cx": 25,
+            "cy": 23,
+            "r": 7,
+            "fill": false
+          }
+        ],
+        "side": [
+          {
+            "kind": "path",
+            "d": "M3 33 L37 33 L37 20 L10 4 Z",
+            "fill": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "rack",
+      "label": "Rack",
+      "group": "resource",
+      "defaults": {
+        "width_cm": 60,
+        "depth_cm": 60,
+        "height_cm": 100
+      },
+      "glyphs": {
+        "top": [
+          {
+            "kind": "rect",
+            "x": 3,
+            "y": 3,
+            "w": 54,
+            "h": 54,
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M12 3 L12 57 M48 3 L48 57",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M12 21 L48 21 M12 39 L48 39",
+            "fill": false
+          }
+        ],
+        "front": [
+          {
+            "kind": "rect",
+            "x": 3,
+            "y": 2,
+            "w": 54,
+            "h": 96,
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M3 22 L57 22 M3 42 L57 42 M3 62 L57 62 M3 82 L57 82",
+            "fill": false
+          },
+          {
+            "kind": "circle",
+            "cx": 10,
+            "cy": 12,
+            "r": 1.6,
+            "fill": true
+          },
+          {
+            "kind": "circle",
+            "cx": 50,
+            "cy": 12,
+            "r": 1.6,
+            "fill": true
+          },
+          {
+            "kind": "circle",
+            "cx": 10,
+            "cy": 32,
+            "r": 1.6,
+            "fill": true
+          },
+          {
+            "kind": "circle",
+            "cx": 50,
+            "cy": 32,
+            "r": 1.6,
+            "fill": true
+          }
+        ],
+        "side": [
+          {
+            "kind": "rect",
+            "x": 6,
+            "y": 2,
+            "w": 48,
+            "h": 96,
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M22 14 L38 14",
+            "fill": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "truss",
+      "label": "Truss",
+      "group": "lighting",
+      "defaults": {
+        "width_cm": 200,
+        "depth_cm": 30,
+        "height_cm": 30
+      },
+      "glyphs": {
+        "top": [
+          {
+            "kind": "path",
+            "d": "M2 5 L198 5 M2 25 L198 25",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M2 5 L22 25 L42 5 L62 25 L82 5 L102 25 L122 5 L142 25 L162 5 L182 25 L198 9",
+            "fill": false
+          }
+        ],
+        "front": [
+          {
+            "kind": "path",
+            "d": "M2 5 L198 5 M2 25 L198 25",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M2 5 L22 25 L42 5 L62 25 L82 5 L102 25 L122 5 L142 25 L162 5 L182 25 L198 9",
+            "fill": false
+          }
+        ],
+        "side": [
+          {
+            "kind": "rect",
+            "x": 3,
+            "y": 3,
+            "w": 24,
+            "h": 24,
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M3 3 L27 27 M27 3 L3 27",
+            "fill": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "fixture",
+      "label": "Fixture",
+      "group": "lighting",
+      "defaults": {
+        "width_cm": 30,
+        "depth_cm": 25,
+        "height_cm": 35
+      },
+      "glyphs": {
+        "top": [
+          {
+            "kind": "rect",
+            "x": 7,
+            "y": 3,
+            "w": 16,
+            "h": 13,
+            "fill": false,
+            "rx": 2
+          },
+          {
+            "kind": "path",
+            "d": "M7 22 A11 5 0 0 1 23 22",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M2 3 L2 13 M28 3 L28 13",
+            "fill": false
+          }
+        ],
+        "front": [
+          {
+            "kind": "path",
+            "d": "M9 2 L21 2 M15 2 L15 7",
+            "fill": false
+          },
+          {
+            "kind": "rect",
+            "x": 8,
+            "y": 7,
+            "w": 14,
+            "h": 18,
+            "fill": false,
+            "rx": 3
+          },
+          {
+            "kind": "path",
+            "d": "M8 31 A9 5 0 0 1 22 31",
+            "fill": false
+          }
+        ],
+        "side": [
+          {
+            "kind": "path",
+            "d": "M6 2 L18 2 M12 2 L12 6",
+            "fill": false
+          },
+          {
+            "kind": "rect",
+            "x": 6,
+            "y": 6,
+            "w": 11,
+            "h": 17,
+            "fill": false,
+            "rx": 3,
+            "rotate": [
+              22,
+              11.5,
+              14.5
+            ]
+          },
+          {
+            "kind": "path",
+            "d": "M6 27 L19 33",
+            "fill": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "drums",
+      "label": "Drums",
+      "group": "instrument",
+      "defaults": {
+        "width_cm": 200,
+        "depth_cm": 150,
+        "height_cm": 120
+      },
+      "glyphs": {
+        "top": [
+          {
+            "kind": "circle",
+            "cx": 100,
+            "cy": 96,
+            "r": 36,
+            "fill": false
+          },
+          {
+            "kind": "circle",
+            "cx": 46,
+            "cy": 62,
+            "r": 23,
+            "fill": false
+          },
+          {
+            "kind": "circle",
+            "cx": 79,
+            "cy": 36,
+            "r": 19,
+            "fill": false
+          },
+          {
+            "kind": "circle",
+            "cx": 121,
+            "cy": 36,
+            "r": 19,
+            "fill": false
+          },
+          {
+            "kind": "circle",
+            "cx": 153,
+            "cy": 64,
+            "r": 25,
+            "fill": false
+          },
+          {
+            "kind": "circle",
+            "cx": 19,
+            "cy": 102,
+            "r": 15,
+            "fill": false
+          },
+          {
+            "kind": "circle",
+            "cx": 180,
+            "cy": 102,
+            "r": 18,
+            "fill": false
+          }
+        ],
+        "front": [
+          {
+            "kind": "circle",
+            "cx": 100,
+            "cy": 78,
+            "r": 34,
+            "fill": false
+          },
+          {
+            "kind": "circle",
+            "cx": 100,
+            "cy": 78,
+            "r": 6,
+            "fill": false
+          },
+          {
+            "kind": "rect",
+            "x": 48,
+            "y": 20,
+            "w": 38,
+            "h": 24,
+            "fill": false,
+            "rx": 4
+          },
+          {
+            "kind": "rect",
+            "x": 114,
+            "y": 20,
+            "w": 38,
+            "h": 24,
+            "fill": false,
+            "rx": 4
+          },
+          {
+            "kind": "path",
+            "d": "M8 8 L48 16 M28 12 L28 112 M192 8 L152 16 M172 12 L172 112",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M74 104 L60 116 M126 104 L140 116",
+            "fill": false
+          }
+        ],
+        "side": [
+          {
+            "kind": "rect",
+            "x": 94,
+            "y": 44,
+            "w": 34,
+            "h": 70,
+            "fill": false,
+            "rx": 8
+          },
+          {
+            "kind": "rect",
+            "x": 38,
+            "y": 58,
+            "w": 34,
+            "h": 14,
+            "fill": false,
+            "rx": 3
+          },
+          {
+            "kind": "path",
+            "d": "M55 72 L55 114",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M14 28 L58 28 M36 28 L36 114",
+            "fill": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "piano_grand",
+      "label": "Grand piano",
+      "group": "instrument",
+      "defaults": {
+        "width_cm": 150,
+        "depth_cm": 250,
+        "height_cm": 100
+      },
+      "glyphs": {
+        "top": [
+          {
+            "kind": "path",
+            "d": "M12 6 L138 6 L138 120 C138 200 104 242 58 242 L12 242 Z",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M12 30 L138 30",
+            "fill": false
+          }
+        ],
+        "front": [
+          {
+            "kind": "rect",
+            "x": 6,
+            "y": 10,
+            "w": 138,
+            "h": 28,
+            "fill": false
+          },
+          {
+            "kind": "rect",
+            "x": 6,
+            "y": 38,
+            "w": 138,
+            "h": 16,
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M20 54 L20 94 M75 54 L75 94 M130 54 L130 94",
+            "fill": false
+          }
+        ],
+        "side": [
+          {
+            "kind": "path",
+            "d": "M12 36 L160 36 L238 8 L238 52 L12 52 Z",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M28 52 L28 94 M215 52 L215 94 M110 52 L110 78 L130 78",
+            "fill": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "piano_upright",
+      "label": "Upright piano",
+      "group": "instrument",
+      "defaults": {
+        "width_cm": 150,
+        "depth_cm": 60,
+        "height_cm": 125
+      },
+      "glyphs": {
+        "top": [
+          {
+            "kind": "rect",
+            "x": 4,
+            "y": 4,
+            "w": 142,
+            "h": 34,
+            "fill": false
+          },
+          {
+            "kind": "rect",
+            "x": 14,
+            "y": 38,
+            "w": 122,
+            "h": 16,
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M38 38 L38 54 M63 38 L63 54 M87 38 L87 54 M112 38 L112 54",
+            "fill": false
+          }
+        ],
+        "front": [
+          {
+            "kind": "rect",
+            "x": 4,
+            "y": 4,
+            "w": 142,
+            "h": 68,
+            "fill": false
+          },
+          {
+            "kind": "rect",
+            "x": 4,
+            "y": 72,
+            "w": 142,
+            "h": 16,
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M30 72 L30 88 M60 72 L60 88 M90 72 L90 88 M120 72 L120 88",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M14 88 L14 121 M136 88 L136 121",
+            "fill": false
+          }
+        ],
+        "side": [
+          {
+            "kind": "rect",
+            "x": 14,
+            "y": 4,
+            "w": 30,
+            "h": 70,
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M44 60 L54 60 L54 74 L44 74",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M20 74 L20 121 M48 74 L48 121",
+            "fill": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "keyboard",
+      "label": "Keyboard",
+      "group": "instrument",
+      "defaults": {
+        "width_cm": 130,
+        "depth_cm": 40,
+        "height_cm": 95
+      },
+      "glyphs": {
+        "top": [
+          {
+            "kind": "rect",
+            "x": 3,
+            "y": 4,
+            "w": 124,
+            "h": 32,
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M3 17 L127 17",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M19 17 L19 36 M35 17 L35 36 M51 17 L51 36 M67 17 L67 36 M83 17 L83 36 M99 17 L99 36 M115 17 L115 36",
+            "fill": false
+          }
+        ],
+        "front": [
+          {
+            "kind": "rect",
+            "x": 8,
+            "y": 34,
+            "w": 114,
+            "h": 12,
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M26 46 L26 34 M46 46 L46 34 M66 46 L66 34 M86 46 L86 34 M106 46 L106 34",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M35 46 L95 90 M95 46 L35 90 M24 90 L46 90 M84 90 L106 90",
+            "fill": false
+          }
+        ],
+        "side": [
+          {
+            "kind": "rect",
+            "x": 7,
+            "y": 36,
+            "w": 26,
+            "h": 8,
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M11 44 L29 88 M29 44 L11 88",
+            "fill": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "guitar_acoustic",
+      "label": "Acoustic guitar",
+      "group": "instrument",
+      "defaults": {
+        "width_cm": 45,
+        "depth_cm": 40,
+        "height_cm": 110
+      },
+      "glyphs": {
+        "top": [
+          {
+            "kind": "circle",
+            "cx": 16,
+            "cy": 26,
+            "r": 12,
+            "fill": false
+          },
+          {
+            "kind": "circle",
+            "cx": 23,
+            "cy": 17,
+            "r": 8,
+            "fill": false
+          },
+          {
+            "kind": "circle",
+            "cx": 19,
+            "cy": 22,
+            "r": 3.5,
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M29 11 L43 2",
+            "fill": false
+          }
+        ],
+        "front": [
+          {
+            "kind": "circle",
+            "cx": 22,
+            "cy": 82,
+            "r": 19,
+            "fill": false
+          },
+          {
+            "kind": "circle",
+            "cx": 22,
+            "cy": 57,
+            "r": 13,
+            "fill": false
+          },
+          {
+            "kind": "circle",
+            "cx": 22,
+            "cy": 68,
+            "r": 5,
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M19 4 L19 44 M25 4 L25 44 M16 4 L28 4",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M8 106 L17 94 M36 106 L27 94",
+            "fill": false
+          }
+        ],
+        "side": [
+          {
+            "kind": "path",
+            "d": "M17 50 L26 50 L28 100 L14 100 Z",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M21 4 L20 50",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M8 106 L15 96 M32 106 L27 98",
+            "fill": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "guitar_electric",
+      "label": "Electric guitar",
+      "group": "instrument",
+      "defaults": {
+        "width_cm": 40,
+        "depth_cm": 35,
+        "height_cm": 100
+      },
+      "glyphs": {
+        "top": [
+          {
+            "kind": "path",
+            "d": "M8 30 C3 30 2 24 6 21 C2 18 4 12 9 13 C12 13 14 15 15 17 L18 22 C19 26 15 30 8 30 Z",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M17 18 L38 3",
+            "fill": false
+          }
+        ],
+        "front": [
+          {
+            "kind": "path",
+            "d": "M20 50 C29 50 33 58 29 64 C36 68 34 82 26 87 C22 91 18 91 14 87 C6 82 4 68 11 64 C7 58 11 50 20 50 Z",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M17 4 L17 50 M23 4 L23 50 M14 4 L26 4",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M7 96 L14 88 M33 96 L26 88",
+            "fill": false
+          }
+        ],
+        "side": [
+          {
+            "kind": "path",
+            "d": "M15 52 L22 52 L24 88 L13 88 Z",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M18 4 L17 52",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M8 96 L14 89 M28 96 L23 90",
+            "fill": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "bass",
+      "label": "Bass",
+      "group": "instrument",
+      "defaults": {
+        "width_cm": 45,
+        "depth_cm": 35,
+        "height_cm": 120
+      },
+      "glyphs": {
+        "top": [
+          {
+            "kind": "path",
+            "d": "M8 30 C3 30 2 24 6 21 C3 18 5 13 10 14 C13 14 15 16 16 18 L18 23 C19 27 14 30 8 30 Z",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M17 19 L43 2",
+            "fill": false
+          }
+        ],
+        "front": [
+          {
+            "kind": "path",
+            "d": "M22 66 C30 66 34 73 31 79 C37 83 35 95 27 100 C24 103 20 103 17 100 C9 95 7 83 13 79 C10 73 14 66 22 66 Z",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M19 4 L19 66 M25 4 L25 66 M16 4 L28 4",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M9 114 L16 102 M35 114 L28 102",
+            "fill": false
+          }
+        ],
+        "side": [
+          {
+            "kind": "path",
+            "d": "M15 68 L22 68 L24 102 L13 102 Z",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M18 4 L17 68",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M8 114 L14 104 M28 114 L23 104",
+            "fill": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "cello",
+      "label": "Cello",
+      "group": "instrument",
+      "defaults": {
+        "width_cm": 50,
+        "depth_cm": 45,
+        "height_cm": 130
+      },
+      "glyphs": {
+        "top": [
+          {
+            "kind": "path",
+            "d": "M25 12 C33 12 37 16 37 21 C37 24 35 26 35 29 C35 34 40 36 40 40 C40 43 33 43 25 43 C17 43 10 43 10 40 C10 36 15 34 15 29 C15 26 13 24 13 21 C13 16 17 12 25 12 Z",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M25 12 L25 2",
+            "fill": false
+          }
+        ],
+        "front": [
+          {
+            "kind": "path",
+            "d": "M25 34 C36 34 41 41 41 48 C41 53 37 56 37 61 C37 68 44 71 44 79 C44 92 35 100 25 100 C15 100 6 92 6 79 C6 71 13 68 13 61 C13 56 9 53 9 48 C9 41 14 34 25 34 Z",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M25 34 L25 8 M20 8 L30 8",
+            "fill": false
+          },
+          {
+            "kind": "circle",
+            "cx": 25,
+            "cy": 5,
+            "r": 2.5,
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M25 100 L25 126 M20 126 L30 126",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M19 58 L19 72 M31 58 L31 72",
+            "fill": false
+          }
+        ],
+        "side": [
+          {
+            "kind": "path",
+            "d": "M19 36 L27 36 L31 98 L15 98 Z",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M23 36 L23 8",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M23 98 L24 126",
+            "fill": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "trumpet",
+      "label": "Trumpet",
+      "group": "instrument",
+      "defaults": {
+        "width_cm": 55,
+        "depth_cm": 20,
+        "height_cm": 15
+      },
+      "glyphs": {
+        "top": [
+          {
+            "kind": "path",
+            "d": "M3 7 L36 7 M3 13 L36 13 M3 7 L3 13",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M36 7 C45 7 46 2 53 2 L53 18 C46 18 45 13 36 13",
+            "fill": false
+          },
+          {
+            "kind": "circle",
+            "cx": 15,
+            "cy": 10,
+            "r": 1.8,
+            "fill": true
+          },
+          {
+            "kind": "circle",
+            "cx": 21,
+            "cy": 10,
+            "r": 1.8,
+            "fill": true
+          },
+          {
+            "kind": "circle",
+            "cx": 27,
+            "cy": 10,
+            "r": 1.8,
+            "fill": true
+          }
+        ],
+        "front": [
+          {
+            "kind": "path",
+            "d": "M3 8 L39 8",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M15 8 L15 3 M21 8 L21 3 M27 8 L27 3",
+            "fill": false
+          },
+          {
+            "kind": "circle",
+            "cx": 47,
+            "cy": 8,
+            "r": 6,
+            "fill": false
+          }
+        ],
+        "side": [
+          {
+            "kind": "circle",
+            "cx": 10,
+            "cy": 7.5,
+            "r": 6,
+            "fill": false
+          },
+          {
+            "kind": "circle",
+            "cx": 10,
+            "cy": 7.5,
+            "r": 2,
+            "fill": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "saxophone",
+      "label": "Saxophone",
+      "group": "instrument",
+      "defaults": {
+        "width_cm": 30,
+        "depth_cm": 40,
+        "height_cm": 80
+      },
+      "glyphs": {
+        "top": [
+          {
+            "kind": "circle",
+            "cx": 13,
+            "cy": 28,
+            "r": 9,
+            "fill": false
+          },
+          {
+            "kind": "circle",
+            "cx": 13,
+            "cy": 28,
+            "r": 3,
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M13 19 C13 10 18 6 24 3",
+            "fill": false
+          }
+        ],
+        "front": [
+          {
+            "kind": "path",
+            "d": "M19 6 L26 2",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M19 6 C17 20 17 34 17 46 C17 62 13 70 9 68 C4 66 4 58 8 54 C10 52 13 53 14 56",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M17 20 L13 20 M17 30 L13 30 M17 40 L13 40",
+            "fill": false
+          }
+        ],
+        "side": [
+          {
+            "kind": "path",
+            "d": "M22 6 L30 2",
+            "fill": false
+          },
+          {
+            "kind": "path",
+            "d": "M22 6 C20 22 20 36 20 46 C20 62 15 70 10 68 C4 66 4 56 10 53 C14 51 17 54 17 58",
+            "fill": false
+          }
+        ]
+      }
+    }
+  ],
+  "placeholder": {
+    "box": [
+      100,
+      100
+    ],
+    "marks": [
+      {
+        "kind": "rect",
+        "x": 6,
+        "y": 6,
+        "w": 88,
+        "h": 88,
+        "fill": false,
+        "dash": [
+          8,
+          6
+        ]
+      },
+      {
+        "kind": "path",
+        "d": "M30 70 L50 30 L70 70 M38 56 L62 56",
+        "fill": false
+      }
+    ]
+  }
+}
