@@ -2,13 +2,16 @@
 
 ## What remains
 
-**Slices 0–38 are delivered.** This file is a per-slice record written after
-delivery; everything below this section is history. What is left is only this:
+**Slices 0–41 are delivered, and every recorded defect is fixed.** This file is a
+per-slice record written after delivery; everything below this section is history.
 
 | | |
 |---|---|
-| Slice 40 | ✅ The audio exports became one document — five sections, two orientations, one endpoint; merged 2026-08-06 |
-| Slice 41 | ✅ The plot on paper — four sheets at one stated scale, registered views, and the dark-to-white colour rule; merged 2026-08-06 |
+| *(nothing scheduled)* | |
+
+The table is empty because the roadmap is **asking**, not because the tool is
+finished. Slices 40 and 41 — the audio plan and the stage plot as generated
+documents — both merged 2026-08-06 and left it that way.
 
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
 multi-event/tour planning (§3.11).
@@ -2042,7 +2045,9 @@ cheaper.
 
 ### Delivered
 
-Run under OpenSpec (`openspec/changes/stage-plot-pdf/`). The mockup was drawn from the
+Run under OpenSpec; archived as `openspec/changes/archive/2026-08-06-stage-plot-pdf/`, and its
+requirements now stand as the `stage-plot-document-export` capability in `openspec/specs/`.
+The mockup was drawn from the
 live `Kyrkan` plot with `lib/stagePlot.ts` ported verbatim into it, so the design was
 reviewed against real geometry rather than a sketch; the user approved it and settled
 the three open questions (one glyph data file, a fourth schedule sheet, tiling rather
@@ -2777,5 +2782,5 @@ Slice 14 (auth) ──→ Slice 15 (event ownership & sharing) ──→ Slice 1
 Slice 15 (sharing, the model it exposes) + Slice 33 (ui/Sheet, and Drawer's phone branch) ──→ Slice 38 (who can see this event)
 Slice 13 (stage plots, the trusses) + Slice 33 (ui/Drawer) + Slice 36 (the plot is read-only on a phone) ──→ Slice 39 (the Trusses overlay) — shares components.md's Dialog/Sheet rule with Slice 38
 Slice 22 (the Go PDF writer) + Slice 11 + Slice 12 (the graphs) + Slice 37 (positions that mean something) ──→ Slice 40 (the audio exports become documents)
-Slice 13 (plots, layers, trusses) + Slice 22 (the Go PDF writer) ──→ Slice 41 (the plot on paper) — shares patterns.md §8, the renderer and the font decision with Slice 40; cheaper second
+Slice 13 (plots, layers, trusses) + Slice 22 (the Go PDF writer) + Slice 40 (the page furniture, the cp1252 decision) ──→ Slice 41 (the plot on paper) ✅ — landing second was cheaper, as predicted: it inherited §8, the masthead and the tiling rule
 ```
