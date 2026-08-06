@@ -2120,6 +2120,21 @@ give the truss a `trussPageGeometry` that returns real page millimetres, and ass
 against the *world* model (the stored tilt) rather than against another projection.
 That separation is the lasting part.
 
+**Reported in the field test, checked, and deliberately not changed.** The icons read
+smaller on paper than on the canvas. They are not: the glyph box maps onto the element's
+footprint identically in both, and a test pins it. What differs is ink. The canvas draws
+every glyph with `vector-effect: non-scaling-stroke` at 3.5 **screen pixels**, so a 40 cm
+speaker at a zoomed-out view gets a stroke a third of its own width and reads as a bold
+blob; on paper the same speaker is a true 4 mm outline in a 0.3 mm hairline, 7.5%. The
+smaller the object, the wider the gap — 32% against 7.5% for a speaker, 6% against 1.4%
+for a drum kit.
+
+Three fixes were offered — scale the glyph stroke with the icon, give small icons a
+minimum symbol size, or both — and the user chose **none of them**. The sheet stays
+geometrically honest, a uniform hairline stays the drawing convention, and the canvas is
+the surface exaggerating. Recorded here so it is not re-investigated: this is a
+difference in line weight, not in scale, and it is intended.
+
 **Still open, and inherited rather than introduced:** the 5 pt legibility floor that
 decides when a drawing divides instead of shrinking is still a guess, and no
 festival-sized plan has been through it in either slice. The tiling path is covered by a
