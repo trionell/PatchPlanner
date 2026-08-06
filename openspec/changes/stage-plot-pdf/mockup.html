@@ -1,0 +1,1107 @@
+<title>Slice 41 — The plot on paper</title>
+<style>
+  :root {
+    --ground: #131418;
+    --panel: #1b1d24;
+    --edge: #2b2e38;
+    --ink: #dcdee4;
+    --muted: #8d93a1;
+    --faint: #626878;
+    --accent: #ffa348;
+    --accent-quiet: #c97a2a;
+    --paper: #ffffff;
+    --shadow: 0 24px 60px -20px rgba(0,0,0,.75), 0 2px 8px rgba(0,0,0,.4);
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --ground: #e6e4de;
+      --panel: #f4f3f0;
+      --edge: #d2cfc7;
+      --ink: #23241f;
+      --muted: #5f6058;
+      --faint: #8b8c83;
+      --accent: #a85c00;
+      --accent-quiet: #a85c00;
+      --shadow: 0 18px 40px -18px rgba(60,55,45,.45), 0 1px 4px rgba(60,55,45,.2);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #131418; --panel: #1b1d24; --edge: #2b2e38; --ink: #dcdee4;
+    --muted: #8d93a1; --faint: #626878; --accent: #ffa348; --accent-quiet: #c97a2a;
+    --shadow: 0 24px 60px -20px rgba(0,0,0,.75), 0 2px 8px rgba(0,0,0,.4);
+  }
+  :root[data-theme="light"] {
+    --ground: #e6e4de; --panel: #f4f3f0; --edge: #d2cfc7; --ink: #23241f;
+    --muted: #5f6058; --faint: #8b8c83; --accent: #a85c00; --accent-quiet: #a85c00;
+    --shadow: 0 18px 40px -18px rgba(60,55,45,.45), 0 1px 4px rgba(60,55,45,.2);
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 3rem 1.25rem 6rem; }
+
+  /* Drawing-office lettering for every label the studio writes.
+     The paper itself is set in Helvetica, because that is the face the
+     PDF is actually built in. Nothing on a sheet uses this family. */
+  .mono {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    text-transform: uppercase;
+    letter-spacing: .11em;
+    font-size: .68rem;
+    color: var(--faint);
+  }
+
+  header.masthead { border-bottom: 1px solid var(--edge); padding-bottom: 1.75rem; margin-bottom: 2.5rem; }
+  header.masthead h1 {
+    font-size: clamp(1.7rem, 4vw, 2.6rem);
+    font-weight: 600;
+    letter-spacing: -.02em;
+    text-wrap: balance;
+    margin: .5rem 0 .6rem;
+  }
+  header.masthead p { color: var(--muted); max-width: 62ch; margin: 0; }
+
+  section { margin-top: 3.5rem; }
+  h2 {
+    font-size: 1.15rem; font-weight: 600; letter-spacing: -.01em;
+    margin: 0 0 .35rem; padding-top: 1.5rem; border-top: 1px solid var(--edge);
+  }
+  h2 + p.lede { color: var(--muted); max-width: 68ch; margin: 0 0 1.5rem; }
+  h3 { font-size: .95rem; font-weight: 600; margin: 1.75rem 0 .4rem; }
+
+  /* A sheet: true 297 × 210 proportion, floating over the studio ground. */
+  .sheet {
+    background: var(--paper);
+    box-shadow: var(--shadow);
+    border-radius: 1px;
+    overflow: hidden;
+    margin: 0;
+  }
+  .sheet svg { display: block; width: 100%; height: auto; }
+  figure { margin: 0 0 2.75rem; display: flex; flex-direction: column; gap: .75rem; }
+  figcaption { color: var(--muted); font-size: .9rem; max-width: 74ch; }
+  figcaption b { color: var(--ink); font-weight: 600; }
+
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--edge); border-radius: 3px;
+    padding: 1.1rem 1.2rem;
+  }
+  .card h4 { margin: 0 0 .5rem; font-size: .92rem; font-weight: 600; }
+  .card p { margin: 0; color: var(--muted); font-size: .88rem; }
+
+  table.data { width: 100%; border-collapse: collapse; font-size: .86rem; font-variant-numeric: tabular-nums; }
+  .scroll { overflow-x: auto; }
+  table.data th, table.data td { text-align: left; padding: .5rem .7rem; border-bottom: 1px solid var(--edge); vertical-align: top; }
+  table.data th {
+    font-family: ui-monospace, Menlo, monospace; text-transform: uppercase;
+    letter-spacing: .09em; font-size: .66rem; font-weight: 500; color: var(--faint);
+  }
+  table.data td.num { text-align: right; }
+  .swatch { display: inline-block; width: 2.4rem; height: .8rem; border-radius: 1px; vertical-align: -1px; }
+  .chip {
+    font-family: ui-monospace, Menlo, monospace; font-size: .72rem;
+    padding: .05rem .35rem; border-radius: 2px; background: var(--edge); color: var(--ink);
+  }
+
+  ol.decisions { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 1.1rem; counter-reset: d; }
+  ol.decisions li { display: grid; grid-template-columns: auto 1fr; gap: .9rem; align-items: start; }
+  ol.decisions li::before {
+    counter-increment: d; content: "D" counter(d);
+    font-family: ui-monospace, Menlo, monospace; font-size: .7rem; letter-spacing: .06em;
+    color: var(--ground); background: var(--accent); padding: .12rem .4rem; border-radius: 2px;
+    margin-top: .2rem; font-weight: 600;
+  }
+  ol.decisions b { display: block; font-weight: 600; margin-bottom: .1rem; }
+  ol.decisions span { color: var(--muted); font-size: .9rem; }
+
+  ul.open { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 1rem; }
+  ul.open li { border-left: 2px solid var(--accent-quiet); padding-left: .9rem; }
+  ul.open b { display: block; font-weight: 600; }
+  ul.open span { color: var(--muted); font-size: .9rem; }
+
+  .contrast-strip { display: grid; gap: 0; border: 1px solid var(--edge); border-radius: 3px; overflow: hidden; }
+  .cs-row { display: grid; grid-template-columns: minmax(120px,1fr) 1fr 1fr; align-items: stretch; border-top: 1px solid var(--edge); }
+  .cs-row:first-child { border-top: 0; }
+  .cs-name { padding: .7rem .9rem; background: var(--panel); font-size: .85rem; }
+  .cs-name code { display: block; font-size: .72rem; color: var(--faint); font-family: ui-monospace, Menlo, monospace; }
+  .cs-cell { padding: .7rem .9rem; display: flex; flex-direction: column; gap: .45rem; justify-content: center; }
+  .cs-canvas { background: #18181b; }
+  .cs-paper { background: #fff; }
+  .cs-cell svg { display: block; width: 100%; height: 26px; }
+  .cs-ratio { font-family: ui-monospace, Menlo, monospace; font-size: .68rem; letter-spacing: .05em; }
+  .cs-head { display: grid; grid-template-columns: minmax(120px,1fr) 1fr 1fr; background: var(--panel); }
+  .cs-head div { padding: .45rem .9rem; }
+
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: no-preference) {
+    .sheet { transition: transform .25s ease; }
+  }
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <div class="mono">PatchPlanner &middot; Slice 41 &middot; design review</div>
+  <h1>The plot on paper</h1>
+  <p>One stage plot, three orthographic views, one page each, at one stated scale. Drawn below from
+  the <b>Kyrkan</b> plot in the live database &mdash; the real elements, the real layer colours, the
+  real 600&nbsp;cm truss yawed 32&deg; and raked 31&deg;, run through the same projection the editor uses.
+  Nothing here is sketched.</p>
+</header>
+
+<section>
+  <h2>The three sheets</h2>
+  <p class="lede">A4 landscape. The drawing frame sits at the same place on all three, so the views are
+  registered: a vertical dropped from the plan lands on the same element in the front elevation, and the
+  front and side elevations share a floor datum. That registration is the argument for one fixed scale
+  &mdash; it is worth more than filling each page.</p>
+  <div id="sheets"></div>
+</section>
+
+<section>
+  <h2>Crossing from the dark canvas onto white paper</h2>
+  <p class="lede">Layer colour is the plot's whole palette &mdash; elements carry none of their own. Every
+  one of these values was picked to glow on a near-black canvas, and that is exactly what makes them fail
+  on paper. The rule below is what this slice writes into <code>design/</code>, and it is wider than this
+  one document.</p>
+
+  <div class="contrast-strip" id="contrast"></div>
+
+  <div class="card" style="margin-top:1.5rem; border-left:2px solid var(--accent)">
+    <h4>Inverting the lightness is the wrong mechanism, and this plot proves it</h4>
+    <p>The roadmap says a near-grey gets its lightness inverted. <b>Venue</b> is a near-grey
+    &mdash; <code>#5e5c64</code>, 4% saturation &mdash; sitting at L&nbsp;37.6%. It is one of the two layers on this
+    plot that already reads perfectly well on paper, at 6.58:1. Inverting it gives L&nbsp;62.4%,
+    <code>#9d9ba3</code>, and <b>2.74:1</b>: the rule would take the only layer that needed no help and be the
+    single thing that broke it. Lowering lightness to a contrast floor does what inversion was reaching for
+    &mdash; a light grey still comes out dark, which is what the wording was describing &mdash; and it correctly
+    does nothing at all to a colour that is already dark enough.</p>
+  </div>
+
+  <div class="grid2" style="margin-top:1.5rem">
+    <div class="card">
+      <h4>Keep the hue, lower the lightness</h4>
+      <p>Hue and saturation are what the planner chose and what tells one layer from another. Lightness is
+      what the ground dictated. So crossing to paper preserves H and S and lowers L until the ink clears
+      <b>4.5:1</b> against white &mdash; and stops there. A colour already dark enough is left untouched.</p>
+    </div>
+    <div class="card">
+      <h4>No colour chosen prints as ink</h4>
+      <p>An unset layer is drawn <code>#a1a1aa</code> on screen because something had to read on black. That
+      is not a decision, so paper does not honour it as one: an unset layer prints in the document's own ink.
+      This is also what stops the mapped grey from colliding with a real grey layer.</p>
+    </div>
+    <div class="card">
+      <h4>A floor at L&nbsp;12%</h4>
+      <p>Lowering lightness without a floor turns a deep blue into the same black as the frame and the
+      lettering. The clamp keeps a coloured line legible <em>as</em> a coloured line.</p>
+    </div>
+    <div class="card">
+      <h4>Complete in monochrome</h4>
+      <p>&sect;8's standing rule survives: every layer is named in the key, every fixture is numbered into a
+      schedule. Photocopy the sheet and nothing is lost but the speed of reading it.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>What the mockup decides</h2>
+  <p class="lede">Each of these is a call this drawing makes. They become the change's requirements once
+  approved.</p>
+  <ol class="decisions">
+    <li><div><b>One document is one plot, not one event.</b><span>An event holds several plots
+      (<code>Kyrkan</code> and <code>Festlokal</code> here). The export hangs off the plot:
+      <code>GET /events/{id}/stage-plots/{plotId}/export/pdf</code>, filename <code>&lt;event&gt;-&lt;plot&gt;-plot.pdf</code>.
+      That also removes today's trap, where the printed sheet silently depends on which view the editor was left on.</span></div></li>
+
+    <li><div><b>A4 landscape, three pages, in the order top &rarr; front &rarr; side.</b><span>A stage is wider
+      than it is deep and much wider than it is tall; portrait wastes the axis the drawing needs. Page one carries the
+      masthead &mdash; the same block the audio document uses, with <code>PLOT</code> where it says <code>AUDIO</code>.
+      Pages two and three carry the running head.</span></div></li>
+
+    <li><div><b>One scale for all three views, chosen from a ladder and stated in figures.</b><span>The largest
+      of 1:20, 1:25, 1:50, 1:100, 1:200, 1:250, 1:500 at which every view fits the common frame. This plot lands on
+      <b>1:100</b>, set by the top view. A scale bar is drawn beside the figure, because a photocopier resizes the
+      sheet and the bar resizes with it while the words do not.</span></div></li>
+
+    <li><div><b>Three shared windows, so the views register.</b><span>The X window (stage width) is shared by the
+      top and front pages; the Z window (height) by front and side; the Y window (depth) is the top page's vertical
+      and the side page's horizontal. One projection set, not three independent drawings.</span></div></li>
+
+    <li><div><b>The grid is drawn at a stepped-up multiple, and says so.</b><span>25&nbsp;cm at 1:100 is a
+      2.5&nbsp;mm mesh &mdash; noise. The sheet draws the smallest multiple of the plot's grid that measures at least
+      8&nbsp;mm on paper and states both: <em>Grid 25 cm &middot; drawn every 4th (100 cm)</em>.</span></div></li>
+
+    <li><div><b>A title block, not a caption.</b><span>Right-hand column, full height: scale and bar, grid, the
+      layer key, the truss schedule, and the conventions. It is a key to that page, so it repeats on all three &mdash;
+      a rigger pulls out one sheet and it still reads.</span></div></li>
+
+    <li><div><b>The floor is a datum, not a dashed line.</b><span>Elevations get a solid 0.4&nbsp;mm rule at
+      z&nbsp;=&nbsp;0 with hatch ticks beneath it, which is how every trade draws ground. Dashes stay reserved for
+      what is unresolved.</span></div></li>
+
+    <li><div><b>A truss fixture is a numbered balloon; its name lives in the schedule.</b><span>At 1:100 a fixture
+      is 3&nbsp;mm across and <em>ADJ, ULTRA LB18 &middot; FID 1101 &middot; 2.001</em> is 22&nbsp;mm of type. So the drawing
+      carries a numbered circle at the fixture's true point on the bar, and the title block carries the number against
+      the name, FID, DMX and offset. The number is the join.</span></div></li>
+
+    <li><div><b>Nothing that carries meaning is typed.</b><span>Inherited from Slice 40 and non-negotiable: the
+      document is built-in Helvetica through a cp1252 translator, and an unrepresentable character comes out as a full
+      stop rather than as visible damage. The scale bar, the hatching, the balloons and the north/stage-front arrow
+      are all vectors.</span></div></li>
+
+    <li><div><b>The glyphs move to one data file both sides read.</b><span>
+      <code>lib/stagePlotIcons.tsx</code> is 627 lines of SVG for 17 icons &times; 3 views, and the backend cannot call
+      TypeScript. The path data becomes a single embedded data file; the TSX becomes a renderer of it, and Go grows a
+      small renderer of the same subset (<code>M</code>, <code>L</code>, <code>C</code>, <code>A</code>, <code>Z</code>,
+      plus <code>rect</code> and <code>circle</code>) onto the page. It is a real refactor and the only option where a
+      glyph edited for the screen cannot silently stop matching the paper.</span></div></li>
+
+    <li><div><b>A fourth sheet carries the element schedule.</b><span>Grouped by layer, under the layer's own paper
+      ink, with the truss's bar and fixtures as continuation lines. It is what somebody marking out a floor carries,
+      and it is where the numbered balloons on sheets 1&ndash;3 resolve to names.</span></div></li>
+
+    <li><div><b>A plot too large for 1:500 tiles rather than refuses.</b><span>The ladder bottoms out at 1:500; past
+      that the drawing divides across pages the way Slice 40's flow drawing does &mdash; cut between elements and never
+      through one, with each tile stating its position in the set. The scale stays fixed and stated, which is the whole
+      point: tiles of one drawing at one scale can be laid side by side on a floor and read as one plot.</span></div></li>
+  </ol>
+</section>
+
+<section>
+  <h2>Carried forward, not settled here</h2>
+  <ul class="open">
+    <li><b>The legibility floor is still a guess.</b><span>Slice 40 set 5&nbsp;pt as the size below which a drawing
+      tiles instead of shrinking, and no festival-sized plan has been through it in either slice. Tiling now has two
+      callers and one untested threshold.</span></li>
+  </ul>
+</section>
+
+<section>
+  <h2>What the plot on the sheets actually contains</h2>
+  <p class="lede">For reference while reading the drawings &mdash; this is the live <code>Kyrkan</code> plot.</p>
+  <div class="scroll"><table class="data" id="datatable"></table></div>
+</section>
+
+</div>
+
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ *
+ * The live plot, straight out of the database.
+ * ------------------------------------------------------------------ */
+
+const PLOT = { name: "Kyrkan", grid_size_cm: 25, show_fixture_name: true, show_fixture_fid: true, show_fixture_dmx: true };
+const EVENT = { name: "Jonas och Emelies bröllop", venue: "", start: "2026-08-22", end: "" };
+
+const LAYERS = [
+  { id: 1, name: "Band",            color: "",        visible: true },
+  { id: 2, name: "Venue",           color: "#5e5c64", visible: true },
+  { id: 3, name: "Audio Equipment", color: "#62a0ea", visible: true },
+  { id: 4, name: "Lightning",       color: "#ffa348", visible: true },
+];
+
+const TRUSS = {
+  id: 1, name: "Bakre truss", height_cm: 600, total_length_cm: 600,
+  fixtures: [
+    { id: 3, offset_cm: 50,     side: "middle", fixture_name: "ADJ RXONE",       fixture_number: 1001, dmx_universe: 1, dmx_start_address: 1 },
+    { id: 5, offset_cm: 302.82, side: "top",    fixture_name: "ADJ, ULTRA LB18", fixture_number: 1101, dmx_universe: 2, dmx_start_address: 1 },
+    { id: 4, offset_cm: 550,    side: "bottom", fixture_name: "ADJ RXONE",       fixture_number: 1002, dmx_universe: 1, dmx_start_address: 16 },
+  ],
+};
+
+const RAW_ELEMENTS = [
+  { id: 2,  layer_id: 1, kind: "resource", icon: "drums",    name: "",               x_cm: 433.12, y_cm: 100.01, z_cm: 0,  width_cm: 215.4, depth_cm: 160.57, height_cm: 120, rotation_deg: 151, tilt_deg: 0 },
+  { id: 3,  layer_id: 1, kind: "resource", icon: "bass",     name: "",               x_cm: 736.24, y_cm: 550,    z_cm: 0,  width_cm: 100,   depth_cm: 100,    height_cm: 120, rotation_deg: 0,   tilt_deg: 0 },
+  { id: 4,  layer_id: 1, kind: "resource", icon: "keyboard", name: "",               x_cm: 327.67, y_cm: 365.9,  z_cm: 0,  width_cm: 130,   depth_cm: 40,     height_cm: 95,  rotation_deg: 297, tilt_deg: 0 },
+  { id: 5,  layer_id: 1, kind: "resource", icon: "person",   name: "",               x_cm: 0,      y_cm: 432.9,  z_cm: 0,  width_cm: 60,    depth_cm: 40,     height_cm: 180, rotation_deg: 0,   tilt_deg: 0 },
+  { id: 6,  layer_id: 1, kind: "resource", icon: "person",   name: "",               x_cm: 536.24, y_cm: 365.9,  z_cm: 0,  width_cm: 60,    depth_cm: 40,     height_cm: 180, rotation_deg: 0,   tilt_deg: 0 },
+  { id: 7,  layer_id: 2, kind: "shape", shape_kind: "ellipse", name: "",             x_cm: 900,    y_cm: 195.9,  z_cm: 0,  width_cm: 400,   depth_cm: 300,    height_cm: 180, rotation_deg: 0,   tilt_deg: 0 },
+  { id: 23, layer_id: 1, kind: "shape", shape_kind: "rect",    name: "",             x_cm: 900,    y_cm: 202.55, z_cm: 10, width_cm: 200,   depth_cm: 100,    height_cm: 50,  rotation_deg: 0,   tilt_deg: 0 },
+  { id: 9,  layer_id: 3, kind: "resource", icon: "rack",     name: "",               x_cm: 170,    y_cm: 142.44, z_cm: 0,  width_cm: 60,    depth_cm: 60,     height_cm: 100, rotation_deg: 0,   tilt_deg: 0 },
+  { id: 10, layer_id: 3, kind: "resource", icon: "speaker",  name: "Speaker L",      x_cm: 140,    y_cm: 395.4,  z_cm: 0,  width_cm: 40,    depth_cm: 35,     height_cm: 70,  rotation_deg: 0,   tilt_deg: 0 },
+  { id: 11, layer_id: 3, kind: "resource", icon: "speaker",  name: "Speaker R",      x_cm: 1180,   y_cm: 395.4,  z_cm: 0,  width_cm: 40,    depth_cm: 35,     height_cm: 70,  rotation_deg: 0,   tilt_deg: 0 },
+  { id: 12, layer_id: 3, kind: "resource", icon: "monitor",  name: "Vox Mon",        x_cm: 550,    y_cm: 482.3,  z_cm: 0,  width_cm: 50,    depth_cm: 40,     height_cm: 35,  rotation_deg: 332, tilt_deg: 0 },
+  { id: 13, layer_id: 3, kind: "resource", icon: "monitor",  name: "Drums Mon",      x_cm: 250,    y_cm: 80.01,  z_cm: 0,  width_cm: 50,    depth_cm: 40,     height_cm: 35,  rotation_deg: 77,  tilt_deg: 0 },
+  { id: 14, layer_id: 3, kind: "resource", icon: "monitor",  name: "Instrument Mon", x_cm: 185.11, y_cm: 270.05, z_cm: 0,  width_cm: 50,    depth_cm: 40,     height_cm: 35,  rotation_deg: 92,  tilt_deg: 0 },
+  { id: 19, layer_id: 4, kind: "truss", truss_id: 1, name: "",                       x_cm: 647.69, y_cm: -297.82, z_cm: 0, width_cm: 0,     depth_cm: 27.11,  height_cm: 0,   rotation_deg: 32,  tilt_deg: 31 },
+];
+
+/* The editor's derived truss geometry, applied exactly as StagePlotSheet does. */
+const ELEMENTS = RAW_ELEMENTS.map((e) => {
+  if (e.kind === "truss" && e.truss_id === TRUSS.id) {
+    return { ...e, width_cm: Math.max(TRUSS.total_length_cm, 20), height_cm: 30, z_cm: TRUSS.height_cm, name: e.name || TRUSS.name };
+  }
+  return e;
+});
+
+/* ------------------------------------------------------------------ *
+ * lib/stagePlot.ts, ported verbatim. The projection is what makes this
+ * a drawing of the plot rather than a picture of one.
+ * ------------------------------------------------------------------ */
+
+const roundCm = (v) => Math.round(v * 100) / 100;
+
+function localAxes(rotationDeg, tiltDeg) {
+  const yaw = (rotationDeg * Math.PI) / 180, tilt = (tiltDeg * Math.PI) / 180;
+  const cy = Math.cos(yaw), sy = Math.sin(yaw), ct = Math.cos(tilt), st = Math.sin(tilt);
+  return {
+    ax: { x: cy * ct, y: sy * ct, z: -st },
+    ay: { x: -sy, y: cy, z: 0 },
+    az: { x: cy * st, y: sy * st, z: ct },
+  };
+}
+function screenDirection(a, view) {
+  if (view === "top") return { u: a.x, v: a.y };
+  if (view === "front") return { u: a.x, v: -a.z };
+  return { u: a.y, v: -a.z };
+}
+const dot = (a, b) => a.u * b.u + a.v * b.v;
+const drawnRotation = (el, view) => (view === "top" ? el.rotation_deg : view === "front" ? el.tilt_deg : 0);
+
+function projectElement(el, view) {
+  const rotationDeg = drawnRotation(el, view);
+  const axes = localAxes(el.rotation_deg, el.tilt_deg);
+  const r = (rotationDeg * Math.PI) / 180;
+  const along = { u: Math.cos(r), v: Math.sin(r) };
+  const across = { u: -Math.sin(r), v: Math.cos(r) };
+  const pX = screenDirection(axes.ax, view), pY = screenDirection(axes.ay, view), pZ = screenDirection(axes.az, view);
+  const width = roundCm(el.width_cm * Math.abs(dot(pX, along)) + el.depth_cm * Math.abs(dot(pY, along)) + el.height_cm * Math.abs(dot(pZ, along)));
+  const height = roundCm(el.width_cm * Math.abs(dot(pX, across)) + el.depth_cm * Math.abs(dot(pY, across)) + el.height_cm * Math.abs(dot(pZ, across)));
+  if (view === "top") return { u: el.x_cm, v: el.y_cm, width, height, rotationDeg };
+  if (view === "front") return { u: el.x_cm, v: el.z_cm + el.height_cm / 2, width, height, rotationDeg };
+  return { u: el.y_cm, v: el.z_cm + el.height_cm / 2, width, height, rotationDeg };
+}
+
+function projectedAxes(el, view) {
+  const axes = localAxes(el.rotation_deg, el.tilt_deg);
+  const r = (drawnRotation(el, view) * Math.PI) / 180;
+  const along = { u: Math.cos(r), v: Math.sin(r) };
+  const across = { u: -Math.sin(r), v: Math.cos(r) };
+  const toDrawn = (a) => { const p = screenDirection(a, view); return { u: dot(p, along), v: dot(p, across) }; };
+  return { ax: toDrawn(axes.ax), ay: toDrawn(axes.ay), az: toDrawn(axes.az) };
+}
+
+function convexHull(points) {
+  const pts = [...points].sort((a, b) => a.u - b.u || a.v - b.v);
+  const cross = (o, a, b) => (a.u - o.u) * (b.v - o.v) - (a.v - o.v) * (b.u - o.u);
+  const build = (list) => {
+    const hull = [];
+    for (const p of list) {
+      while (hull.length >= 2 && cross(hull[hull.length - 2], hull[hull.length - 1], p) <= 0) hull.pop();
+      hull.push(p);
+    }
+    return hull;
+  };
+  return [...build(pts).slice(0, -1), ...build([...pts].reverse()).slice(0, -1)];
+}
+
+function projectedOutline(el, view) {
+  const { ax, ay, az } = projectedAxes(el, view);
+  const hw = el.width_cm / 2, hd = el.depth_cm / 2, hh = el.height_cm / 2;
+  const corners = [];
+  for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) {
+    corners.push({
+      u: roundCm(sx * hw * ax.u + sy * hd * ay.u + sz * hh * az.u),
+      v: roundCm(sx * hw * ax.v + sy * hd * ay.v + sz * hh * az.v),
+    });
+  }
+  return convexHull(corners);
+}
+
+function projectedBounds(el, view) {
+  const rect = projectElement(el, view);
+  const r = (rect.rotationDeg * Math.PI) / 180;
+  const cos = Math.abs(Math.cos(r)), sin = Math.abs(Math.sin(r));
+  const halfW = (rect.width * cos + rect.height * sin) / 2;
+  const halfH = (rect.width * sin + rect.height * cos) / 2;
+  return { minU: rect.u - halfW, maxU: rect.u + halfW, minV: rect.v - halfH, maxV: rect.v + halfH };
+}
+
+const trussLaneLocalV = (side, halfDepth) => (side === "top" ? -halfDepth : side === "bottom" ? halfDepth : 0);
+
+/* ------------------------------------------------------------------ *
+ * The rule this slice is really about: a colour chosen for a near-black
+ * canvas, crossed onto white paper.
+ * ------------------------------------------------------------------ */
+
+const PAPER_CONTRAST_FLOOR = 4.5;   // against white
+const PAPER_LIGHTNESS_FLOOR = 0.12; // never collapses into the frame's ink
+const DOC_INK = "#111111";
+
+function hexToRgb(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+const toHex = (rgb) => "#" + rgb.map((c) => Math.round(c).toString(16).padStart(2, "0")).join("");
+
+function relativeLuminance(rgb) {
+  const f = rgb.map((c) => { const s = c / 255; return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4); });
+  return 0.2126 * f[0] + 0.7152 * f[1] + 0.0722 * f[2];
+}
+function contrast(a, b) {
+  const la = relativeLuminance(a), lb = relativeLuminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+function rgbToHsl([r, g, b]) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  const l = (max + min) / 2;
+  let h = 0, s = 0;
+  if (d !== 0) {
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0));
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h /= 6;
+  }
+  return [h, s, l];
+}
+function hslToRgb([h, s, l]) {
+  if (s === 0) return [l * 255, l * 255, l * 255];
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+  const hue = (t) => {
+    if (t < 0) t += 1; if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  return [hue(h + 1 / 3) * 255, hue(h) * 255, hue(h - 1 / 3) * 255];
+}
+
+/**
+ * The crossing. Hue and saturation are the planner's choice and survive
+ * untouched; lightness was dictated by the dark ground, so it is lowered
+ * until the ink clears the contrast floor on white — and no further.
+ * An unset colour is not a choice, so paper does not honour it as one.
+ */
+function paperInk(color) {
+  const rgb = hexToRgb(color || "");
+  if (!rgb) return { hex: DOC_INK, unset: true, changed: false };
+  const white = [255, 255, 255];
+  if (contrast(rgb, white) >= PAPER_CONTRAST_FLOOR) return { hex: toHex(rgb), unset: false, changed: false };
+  const [h, s] = rgbToHsl(rgb);
+  let lo = PAPER_LIGHTNESS_FLOOR, hi = rgbToHsl(rgb)[2], best = hslToRgb([h, s, lo]);
+  for (let i = 0; i < 24; i++) {
+    const mid = (lo + hi) / 2;
+    const candidate = hslToRgb([h, s, mid]);
+    if (contrast(candidate, white) >= PAPER_CONTRAST_FLOOR) { best = candidate; lo = mid; } else { hi = mid; }
+  }
+  return { hex: toHex(best), unset: false, changed: true };
+}
+
+/* ------------------------------------------------------------------ *
+ * Sheet geometry. Everything below is in millimetres on A4 landscape.
+ * ------------------------------------------------------------------ */
+
+const PAGE_W = 297, PAGE_H = 210;
+const M_LEFT = 12, M_RIGHT = 12, M_BOTTOM = 16;
+
+const FRAME = { x: 12, y: 40, w: 218, h: 150 };            // the drawing, identical on all three
+const BLOCK = { x: 234, y: 40, w: 51, h: 150 };            // the title block
+const FLOOR_PAD = 9;                                        // room under the floor datum for its hatching
+/* The height the drawing itself gets: the scale is chosen against this, so
+   the frame the ladder was measured in is the frame the drawing lands in. */
+const USABLE_H = FRAME.h - FLOOR_PAD;
+const SCALE_LADDER = [10, 20, 25, 50, 100, 200, 250, 500];
+const CONTENT_MARGIN_CM = 100;                              // breathing room around the content
+const GRID_FLOOR_MM = 8;                                    // below this a drawn grid square is noise
+const PT = 0.3528;                                          // 1 pt in mm
+
+const VISIBLE = ELEMENTS.filter((e) => LAYERS.find((l) => l.id === e.layer_id)?.visible);
+
+/* Three windows, one per world axis, shared between the views that use them.
+   This is what makes the three sheets one projection set. */
+function worldWindows() {
+  const w = { x: [Infinity, -Infinity], y: [Infinity, -Infinity], z: [0, -Infinity] };
+  for (const el of VISIBLE) {
+    const top = projectedBounds(el, "top");     // u = x, v = y
+    const front = projectedBounds(el, "front"); // v = z
+    w.x[0] = Math.min(w.x[0], top.minU); w.x[1] = Math.max(w.x[1], top.maxU);
+    w.y[0] = Math.min(w.y[0], top.minV); w.y[1] = Math.max(w.y[1], top.maxV);
+    w.z[0] = Math.min(w.z[0], front.minV); w.z[1] = Math.max(w.z[1], front.maxV);
+  }
+  const pad = (a) => [a[0] - CONTENT_MARGIN_CM, a[1] + CONTENT_MARGIN_CM];
+  // The floor is a datum, not content: nothing is drawn below it, so the
+  // height window starts exactly at zero and only gets headroom.
+  return { x: pad(w.x), y: pad(w.y), z: [0, Math.max(w.z[1], 0) + CONTENT_MARGIN_CM] };
+}
+
+const WIN = worldWindows();
+const spanX = WIN.x[1] - WIN.x[0], spanY = WIN.y[1] - WIN.y[0], spanZ = WIN.z[1] - WIN.z[0];
+
+/* The largest drawing that fits every view in the common frame. */
+function chooseScale() {
+  for (const denom of SCALE_LADDER) {
+    const k = 10 / denom; // mm per cm
+    const fits =
+      spanX * k <= FRAME.w && spanY * k <= USABLE_H &&  // top
+      spanX * k <= FRAME.w && spanZ * k <= USABLE_H &&  // front
+      spanY * k <= FRAME.w && spanZ * k <= USABLE_H;    // side
+    if (fits) return denom;
+  }
+  return SCALE_LADDER[SCALE_LADDER.length - 1];
+}
+const DENOM = chooseScale();
+const K = 10 / DENOM;                     // millimetres per centimetre
+
+/* The grid steps up until a square is worth drawing. */
+const GRID_STEP = (() => {
+  let n = 1;
+  while (PLOT.grid_size_cm * n * K < GRID_FLOOR_MM) n++;
+  return n;
+})();
+const GRID_CM = PLOT.grid_size_cm * GRID_STEP;
+
+/* Each view's placement inside the shared frame: horizontal windows are
+   left-aligned, the top view hangs from the frame top, and the elevations
+   stand on the frame bottom so their floor datum is the same line. */
+const VIEWS = {
+  top:   { title: "Top view",   uWin: WIN.x, vWin: WIN.y, vDown: true,  uLabel: "stage width", vLabel: "stage depth" },
+  front: { title: "Front view", uWin: WIN.x, vWin: WIN.z, vDown: false, uLabel: "stage width", vLabel: "height" },
+  side:  { title: "Side view",  uWin: WIN.y, vWin: WIN.z, vDown: false, uLabel: "stage depth", vLabel: "height" },
+};
+
+/**
+ * A view's window placed inside the shared frame.
+ *
+ * Centred, not corner-aligned — and centring costs nothing, because two views
+ * that share a world window share its span and therefore land on the same
+ * offset. The top and front sheets both centre the X window, so a vertical
+ * dropped from the plan still meets its element in the elevation; the front
+ * and side sheets both stand the Z window on the floor pad, so they share a
+ * datum line.
+ */
+function mapper(view) {
+  const v = VIEWS[view];
+  const spanU = v.uWin[1] - v.uWin[0];
+  const spanV = v.vWin[1] - v.vWin[0];
+  const x0 = FRAME.x + (FRAME.w - spanU * K) / 2;
+  const yTop = FRAME.y + (USABLE_H - spanV * K) / 2;
+  const yBottom = FRAME.y + FRAME.h - FLOOR_PAD;
+  return {
+    X: (u) => x0 + (u - v.uWin[0]) * K,
+    // Top view: v grows downstage, which grows down the sheet.
+    // Elevations: v is height, so the sheet grows upward off the floor.
+    Y: (val) => (v.vDown ? yTop + (val - v.vWin[0]) * K : yBottom - (val - v.vWin[0]) * K),
+    yTop, yBottom, x0, spanU, spanV,
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * The icon registry, the glyphs this plot actually uses, lifted from
+ * lib/stagePlotIcons.tsx unchanged. Paper draws what the screen draws.
+ * ------------------------------------------------------------------ */
+
+const ICONS = {
+  person: { defaults: [60, 40, 180], glyphs: {
+    top: '<path d="M6 16 C6 8 16 6 30 6 C44 6 54 8 54 16 C54 22 48 25 44 25 L16 25 C12 25 6 22 6 16 Z"/><circle class="fill" cx="30" cy="22" r="8"/><path d="M27 31 L30 36 L33 31"/>',
+    front: '<circle cx="30" cy="16" r="11"/><path d="M30 27 L30 95 M30 44 L8 72 M30 44 L52 72 M30 95 L16 172 M30 95 L44 172"/>',
+    side: '<circle cx="24" cy="16" r="11"/><path d="M22 27 C20 50 20 70 20 95 M21 46 L32 74 M20 95 L13 172 M20 95 L28 172"/>' } },
+  speaker: { defaults: [40, 35, 70], glyphs: {
+    top: '<rect x="2" y="2" width="36" height="31"/><path d="M2 2 L38 33 M38 2 L2 33"/>',
+    front: '<rect x="2" y="2" width="36" height="66"/><circle cx="20" cy="46" r="13"/><circle cx="20" cy="16" r="6"/>',
+    side: '<rect x="3" y="2" width="29" height="66"/><path d="M9 2 L9 68"/>' } },
+  monitor: { defaults: [50, 40, 35], glyphs: {
+    top: '<path d="M4 6 L46 6 L38 36 L12 36 Z"/><path d="M11 14 L39 14"/>',
+    front: '<path d="M2 33 L48 33 L41 10 L9 10 Z"/><circle cx="25" cy="23" r="7"/>',
+    side: '<path d="M3 33 L37 33 L37 20 L10 4 Z"/>' } },
+  rack: { defaults: [60, 60, 100], glyphs: {
+    top: '<rect x="3" y="3" width="54" height="54"/><path d="M12 3 L12 57 M48 3 L48 57"/><path d="M12 21 L48 21 M12 39 L48 39"/>',
+    front: '<rect x="3" y="2" width="54" height="96"/><path d="M3 22 L57 22 M3 42 L57 42 M3 62 L57 62 M3 82 L57 82"/>',
+    side: '<rect x="6" y="2" width="48" height="96"/><path d="M22 14 L38 14"/>' } },
+  drums: { defaults: [200, 150, 120], glyphs: {
+    top: '<circle cx="100" cy="96" r="36"/><circle cx="46" cy="62" r="23"/><circle cx="79" cy="36" r="19"/><circle cx="121" cy="36" r="19"/><circle cx="153" cy="64" r="25"/><circle cx="19" cy="102" r="15"/><circle cx="180" cy="102" r="18"/>',
+    front: '<circle cx="100" cy="78" r="34"/><circle cx="100" cy="78" r="6"/><rect x="48" y="20" width="38" height="24" rx="4"/><rect x="114" y="20" width="38" height="24" rx="4"/><path d="M8 8 L48 16 M28 12 L28 112 M192 8 L152 16 M172 12 L172 112"/><path d="M74 104 L60 116 M126 104 L140 116"/>',
+    side: '<rect x="94" y="44" width="34" height="70" rx="8"/><rect x="38" y="58" width="34" height="14" rx="3"/><path d="M55 72 L55 114"/><path d="M14 28 L58 28 M36 28 L36 114"/>' } },
+  keyboard: { defaults: [130, 40, 95], glyphs: {
+    top: '<rect x="3" y="4" width="124" height="32"/><path d="M3 17 L127 17"/><path d="M19 17 L19 36 M35 17 L35 36 M51 17 L51 36 M67 17 L67 36 M83 17 L83 36 M99 17 L99 36 M115 17 L115 36"/>',
+    front: '<rect x="8" y="34" width="114" height="12"/><path d="M26 46 L26 34 M46 46 L46 34 M66 46 L66 34 M86 46 L86 34 M106 46 L106 34"/><path d="M35 46 L95 90 M95 46 L35 90 M24 90 L46 90 M84 90 L106 90"/>',
+    side: '<rect x="7" y="36" width="26" height="8"/><path d="M11 44 L29 88 M29 44 L11 88"/>' } },
+  bass: { defaults: [45, 35, 120], glyphs: {
+    top: '<path d="M8 30 C3 30 2 24 6 21 C3 18 5 13 10 14 C13 14 15 16 16 18 L18 23 C19 27 14 30 8 30 Z"/><path d="M17 19 L43 2"/>',
+    front: '<path d="M22 66 C30 66 34 73 31 79 C37 83 35 95 27 100 C24 103 20 103 17 100 C9 95 7 83 13 79 C10 73 14 66 22 66 Z"/><path d="M19 4 L19 66 M25 4 L25 66 M16 4 L28 4"/><path d="M9 114 L16 102 M35 114 L28 102"/>',
+    side: '<path d="M15 68 L22 68 L24 102 L13 102 Z"/><path d="M18 4 L17 68"/><path d="M8 114 L14 104 M28 114 L23 104"/>' } },
+};
+
+function iconBox(id, view) {
+  const d = ICONS[id]?.defaults ?? [100, 100, 100];
+  if (view === "top") return [d[0], d[1]];
+  if (view === "front") return [d[0], d[2]];
+  return [d[1], d[2]];
+}
+const iconGlyph = (id, view) => ICONS[id]?.glyphs[view] ?? ICONS[id]?.glyphs.top ?? "";
+
+/* ------------------------------------------------------------------ *
+ * Drawing a sheet.
+ * ------------------------------------------------------------------ */
+
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const n = (v) => (Math.round(v * 1000) / 1000);
+
+const INK = { rule: "#111111", hair: "#bbbbbb", grey: "#777777", light: "#dddddd" };
+
+/* Weights, in real millimetres. */
+const W = { frame: 0.25, element: 0.3, grid: 0.06, floor: 0.5, hair: 0.15, rule: 0.5 };
+
+function text(x, y, str, { size = 6, weight = "normal", anchor = "start", fill = INK.rule, style = "normal", track = 0 } = {}) {
+  return `<text x="${n(x)}" y="${n(y)}" font-family="Helvetica, Arial, sans-serif" font-size="${n(size * PT)}"
+    font-weight="${weight}" font-style="${style}" text-anchor="${anchor}" fill="${fill}"
+    ${track ? `letter-spacing="${n(track)}"` : ""}>${esc(str)}</text>`;
+}
+
+/* The grid is the stage's own coordinate mesh, so it runs to the edge of the
+   frame rather than stopping where the furthest element happens to sit. */
+function drawGrid(view) {
+  const m = mapper(view), v = VIEWS[view];
+  const x1 = FRAME.x, x2 = FRAME.x + FRAME.w, y1 = FRAME.y, y2 = FRAME.y + FRAME.h;
+  const uAt = (x) => v.uWin[0] + (x - m.x0) / K;
+  const vAt = (y) => (v.vDown ? v.vWin[0] + (y - m.yTop) / K : v.vWin[0] + (m.yBottom - y) / K);
+
+  let out = `<g stroke="${INK.light}" stroke-width="${W.grid}" fill="none">`;
+  for (let u = Math.ceil(uAt(x1) / GRID_CM) * GRID_CM; u <= uAt(x2); u += GRID_CM) {
+    out += `<line x1="${n(m.X(u))}" y1="${n(y1)}" x2="${n(m.X(u))}" y2="${n(y2)}"/>`;
+  }
+  const vLo = Math.min(vAt(y1), vAt(y2)), vHi = Math.max(vAt(y1), vAt(y2));
+  for (let val = Math.ceil(vLo / GRID_CM) * GRID_CM; val <= vHi; val += GRID_CM) {
+    out += `<line x1="${n(x1)}" y1="${n(m.Y(val))}" x2="${n(x2)}" y2="${n(m.Y(val))}"/>`;
+  }
+  return out + "</g>";
+}
+
+/* The floor is a datum: a solid rule with hatching under it, the way every
+   trade draws ground. Dashes stay reserved for what is unresolved. */
+function drawFloor(view) {
+  const m = mapper(view);
+  const y = m.Y(0), x1 = FRAME.x, x2 = FRAME.x + FRAME.w;
+  let out = `<line x1="${n(x1)}" y1="${n(y)}" x2="${n(x2)}" y2="${n(y)}" stroke="${INK.rule}" stroke-width="${W.floor}"/>`;
+  out += `<g stroke="${INK.grey}" stroke-width="${W.hair}">`;
+  for (let x = x1 + 3; x < x2; x += 3) out += `<line x1="${n(x)}" y1="${n(y)}" x2="${n(x - 2)}" y2="${n(y + 2)}"/>`;
+  out += "</g>";
+  out += text(x2 - 1.5, y + 6.2, "FLOOR 0", { size: 5, anchor: "end", fill: INK.grey, track: 0.15 });
+  return out;
+}
+
+function drawElement(el, view, ink) {
+  const m = mapper(view);
+  const rect = projectElement(el, view);
+  const cx = m.X(rect.u), cy = m.Y(rect.v);
+  const w = rect.width * K, h = rect.height * K;
+  const hw = w / 2, hh = h / 2;
+  // Elevations flip the vertical axis, so a drawn rotation flips with it.
+  const rot = VIEWS[view].vDown ? rect.rotationDeg : -rect.rotationDeg;
+  let body = "";
+
+  if (el.kind === "shape") {
+    const s = `fill="none" stroke="${ink}" stroke-width="${W.element}"`;
+    if (el.shape_kind === "rect") body = `<rect x="${n(-hw)}" y="${n(-hh)}" width="${n(w)}" height="${n(h)}" ${s}/>`;
+    else if (el.shape_kind === "ellipse")
+      body = view === "top"
+        ? `<ellipse rx="${n(hw)}" ry="${n(hh)}" ${s}/>`
+        : `<rect x="${n(-hw)}" y="${n(-hh)}" width="${n(w)}" height="${n(h)}" ${s}/>`;
+    else if (el.shape_kind === "line") body = `<line x1="${n(-hw)}" x2="${n(hw)}" y1="0" y2="0" ${s}/>`;
+  } else if (el.kind === "truss") {
+    body = drawTruss(el, view, ink);
+  } else if (ICONS[el.icon]) {
+    const [bw, bh] = iconBox(el.icon, view);
+    const sx = w / bw, sy = h / bh;
+    // A non-uniform stretch would make the stroke anisotropic; the geometric
+    // mean holds the drawn weight at 0.3 mm in both directions.
+    const sw = W.element / Math.sqrt(Math.abs(sx * sy));
+    body = `<g transform="translate(${n(-hw)} ${n(-hh)}) scale(${n(sx)} ${n(sy)})"
+      fill="none" stroke="${ink}" stroke-width="${n(sw)}" stroke-linecap="round" stroke-linejoin="round">
+      ${iconGlyph(el.icon, view).replace(/class="fill"/g, `fill="${ink}" stroke="none"`)}</g>`;
+  } else {
+    body = `<rect x="${n(-hw)}" y="${n(-hh)}" width="${n(w)}" height="${n(Math.max(h, 1))}"
+      fill="none" stroke="${ink}" stroke-width="${W.element}" stroke-dasharray="1.2 0.8"/>`;
+  }
+
+  // The plan is where a thing is identified; an elevation is where its height
+  // is read. Labelling every element in both piles the whole floor-standing
+  // rig into one illegible line along the datum, so an elevation names only
+  // what is off the floor — which is the one thing the plan cannot tell you.
+  const named = el.name && (VIEWS[view].vDown || el.z_cm > 0);
+  const label = named
+    ? text(0, hh + 2.1, el.name, { size: 5.5, anchor: "middle", fill: ink }).replace("<text ", `<text transform="rotate(${n(-rot)})" `)
+    : "";
+  return `<g transform="translate(${n(cx)} ${n(cy)}) rotate(${n(rot)})">${body}${label}</g>`;
+}
+
+/* The truss: its true silhouette, plus a numbered balloon at each fixture's
+   real point on the bar. The name goes in the schedule, not on the drawing —
+   at 1:100 a fixture is 3 mm across and its label is 22 mm of type. */
+function drawTruss(el, view, ink) {
+  const axes = projectedAxes(el, view);
+  const flip = VIEWS[view].vDown ? 1 : -1;
+  const outline = projectedOutline(el, view)
+    .map((p) => `${n(p.u * K)},${n(p.v * K * flip)}`).join(" ");
+  let out = `<polygon points="${outline}" fill="none" stroke="${ink}" stroke-width="${W.element}"/>`;
+
+  const barLength = Math.max(TRUSS.total_length_cm, 20);
+  const hangV = (el.height_cm / 2) * Math.abs(axes.az.v);
+  const r = 1.55;
+  TRUSS.fixtures.forEach((fixture, index) => {
+    const offset = Math.min(fixture.offset_cm, barLength);
+    const laneV = trussLaneLocalV(fixture.side, el.depth_cm / 2);
+    const along = offset - barLength / 2;
+    const pos = { u: along * axes.ax.u + laneV * axes.ay.u, v: along * axes.ax.v + laneV * axes.ay.v };
+    const px = pos.u * K;
+    const py = (VIEWS[view].vDown ? pos.v : pos.v + hangV) * K * flip;
+    out += `<g transform="translate(${n(px)} ${n(py)})">
+      ${VIEWS[view].vDown ? "" : `<line x1="0" y1="${n(-hangV * K * flip)}" x2="0" y2="0" stroke="${ink}" stroke-width="${W.hair}"/>`}
+      <circle r="${r}" fill="#ffffff" stroke="${ink}" stroke-width="${W.element}"/>
+      ${text(0, 0.62, String(index + 1), { size: 5, anchor: "middle", fill: ink, weight: "bold" })}
+    </g>`;
+  });
+  return out;
+}
+
+function drawViewport(view) {
+  const m = mapper(view), v = VIEWS[view];
+  let out = `<g>`;
+  out += `<clipPath id="clip-${view}"><rect x="${FRAME.x}" y="${FRAME.y}" width="${FRAME.w}" height="${FRAME.h}"/></clipPath>`;
+  out += `<g clip-path="url(#clip-${view})">`;
+  out += drawGrid(view);
+  if (!v.vDown) out += drawFloor(view);
+  for (const el of VISIBLE) {
+    const layer = LAYERS.find((l) => l.id === el.layer_id);
+    out += drawElement(el, view, paperInk(layer.color).hex);
+  }
+  out += `</g>`;
+  out += `<rect x="${FRAME.x}" y="${FRAME.y}" width="${FRAME.w}" height="${FRAME.h}"
+    fill="none" stroke="${INK.rule}" stroke-width="${W.frame}"/>`;
+  // Axis names on the frame, so a reader never has to guess which way is which.
+  out += text(FRAME.x + FRAME.w, FRAME.y + FRAME.h + 3.4, v.uLabel.toUpperCase(), { size: 5, anchor: "end", fill: INK.grey, track: 0.2 });
+  const vy = FRAME.y + FRAME.h / 2;
+  out += text(FRAME.x - 2.4, vy, v.vLabel.toUpperCase(), { size: 5, anchor: "middle", fill: INK.grey, track: 0.2 })
+    .replace("<text ", `<text transform="rotate(-90 ${n(FRAME.x - 2.4)} ${n(vy)})" `);
+  return out + `</g>`;
+}
+
+/* The scale bar. Drawn, never typed: a photocopier resizes the sheet and
+   the bar resizes with it, while "1:100" quietly becomes a lie. */
+function scaleBar(x, y, w) {
+  const metres = Math.max(1, Math.floor(w / (100 * K)));
+  const seg = 100 * K;
+  let out = "";
+  for (let i = 0; i < metres; i++) {
+    out += `<rect x="${n(x + i * seg)}" y="${n(y)}" width="${n(seg)}" height="1.4"
+      fill="${i % 2 ? "#ffffff" : INK.rule}" stroke="${INK.rule}" stroke-width="0.12"/>`;
+  }
+  out += text(x, y + 4.1, "0", { size: 4.6, anchor: "middle", fill: INK.grey });
+  out += text(x + metres * seg, y + 4.1, `${metres} m`, { size: 4.6, anchor: "middle", fill: INK.grey });
+  return out;
+}
+
+function titleBlock(view) {
+  const x = BLOCK.x, w = BLOCK.w;
+  let y = BLOCK.y;
+  let out = `<rect x="${x}" y="${BLOCK.y}" width="${w}" height="${BLOCK.h}" fill="none" stroke="${INK.hair}" stroke-width="${W.frame}"/>`;
+  const pad = 2.6;
+  const label = (str) => {
+    y += 4.4;
+    const s = text(x + pad, y, str, { size: 5, weight: "bold", fill: INK.grey, track: 0.28 });
+    y += 1.2;
+    return s + `<line x1="${n(x + pad)}" y1="${n(y)}" x2="${n(x + w - pad)}" y2="${n(y)}" stroke="${INK.hair}" stroke-width="${W.hair}"/>`;
+  };
+
+  out += label("SCALE");
+  y += 4.2;
+  out += text(x + pad, y, `1:${DENOM}`, { size: 11, weight: "bold" });
+  out += text(x + w - pad, y, "A4", { size: 5.5, anchor: "end", fill: INK.grey });
+  y += 2.6;
+  out += scaleBar(x + pad, y, w - pad * 2);
+  y += 6.4;
+  out += text(x + pad, y, `Grid ${PLOT.grid_size_cm} cm · drawn every ${GRID_STEP === 1 ? "line" : ordinal(GRID_STEP)} (${GRID_CM} cm)`, { size: 5, fill: INK.grey });
+  y += 1.4;
+
+  out += label("LAYERS");
+  for (const layer of LAYERS) {
+    const ink = paperInk(layer.color);
+    const count = VISIBLE.filter((e) => e.layer_id === layer.id).length;
+    y += 4.6;
+    out += `<rect x="${n(x + pad)}" y="${n(y - 2.5)}" width="5.5" height="2.6" fill="${ink.hex}"/>`;
+    out += text(x + pad + 7.4, y, layer.name, { size: 6 });
+    out += text(x + w - pad, y, String(count), { size: 5.4, anchor: "end", fill: INK.grey });
+  }
+  y += 2;
+
+  const trussOnSheet = VISIBLE.some((e) => e.kind === "truss");
+  if (trussOnSheet) {
+    out += label(`TRUSS · ${TRUSS.name.toUpperCase()}`);
+    y += 3.6;
+    out += text(x + pad, y, `${TRUSS.total_length_cm / 100} m bar at ${TRUSS.height_cm / 100} m`, { size: 5, fill: INK.grey });
+    TRUSS.fixtures.forEach((fixture, index) => {
+      y += 4.5;
+      out += `<circle cx="${n(x + pad + 1.6)}" cy="${n(y - 1)}" r="1.55" fill="none" stroke="${INK.rule}" stroke-width="0.25"/>`;
+      out += text(x + pad + 1.6, y - 0.4, String(index + 1), { size: 5, anchor: "middle", weight: "bold" });
+      out += text(x + pad + 5.4, y - 1.6, fixture.fixture_name, { size: 5.4 });
+      out += text(x + pad + 5.4, y + 1.4, `FID ${fixture.fixture_number} · ${fixture.dmx_universe}.${String(fixture.dmx_start_address).padStart(3, "0")} · ${fixture.offset_cm} cm ${fixture.side}`, { size: 4.6, fill: INK.grey });
+      y += 1.6;
+    });
+    y += 2;
+  }
+
+  out += label("CONVENTIONS");
+  const conventions = [
+    ["floor", "Solid rule + hatch = floor, z 0"],
+    ["balloon", "Numbered circle = truss fixture"],
+    ["dash", "Dashed outline = unresolved link"],
+  ];
+  for (const [kind, caption] of conventions) {
+    y += 4.6;
+    const cx = x + pad + 3;
+    if (kind === "floor") {
+      out += `<line x1="${n(x + pad)}" y1="${n(y - 1)}" x2="${n(x + pad + 6)}" y2="${n(y - 1)}" stroke="${INK.rule}" stroke-width="0.4"/>`;
+      out += `<g stroke="${INK.grey}" stroke-width="0.12">${[0, 2, 4].map((d) => `<line x1="${n(x + pad + d + 1.6)}" y1="${n(y - 1)}" x2="${n(x + pad + d)}" y2="${n(y + 0.6)}"/>`).join("")}</g>`;
+    } else if (kind === "balloon") {
+      out += `<circle cx="${n(cx)}" cy="${n(y - 1)}" r="1.4" fill="none" stroke="${INK.rule}" stroke-width="0.25"/>`;
+    } else {
+      out += `<rect x="${n(x + pad)}" y="${n(y - 2.4)}" width="6" height="2.6" fill="none" stroke="${INK.rule}" stroke-width="0.25" stroke-dasharray="1 0.7"/>`;
+    }
+    out += text(x + pad + 8.4, y, caption, { size: 5, fill: INK.grey });
+  }
+
+  return out;
+}
+
+const ordinal = (v) => v + (v === 1 ? "st" : v === 2 ? "nd" : v === 3 ? "rd" : "th");
+
+function masthead() {
+  let out = "";
+  out += text(M_LEFT, 18, EVENT.name, { size: 17, weight: "bold" });
+  out += text(PAGE_W - M_RIGHT, 18, "PLOT", { size: 8, weight: "bold", anchor: "end", fill: "#666666", track: 0.5 });
+  out += text(M_LEFT, 23.6, `${PLOT.name}${EVENT.venue ? "   -   " + EVENT.venue : ""}   -   ${EVENT.start}`, { size: 9, fill: "#333333" });
+  out += text(M_LEFT, 28.4, `${VISIBLE.length} elements   -   ${LAYERS.length} layers   -   1 truss, 3 fixtures`, { size: 7, fill: "#777777" });
+  out += text(PAGE_W - M_RIGHT, 28.4, `Generated 2026-08-06   -   Scale 1:${DENOM}`, { size: 7, anchor: "end", fill: "#777777" });
+  out += `<line x1="${M_LEFT}" y1="30.8" x2="${PAGE_W - M_RIGHT}" y2="30.8" stroke="${INK.rule}" stroke-width="${W.rule}"/>`;
+  return out;
+}
+
+function runningHead() {
+  let out = "";
+  out += text(M_LEFT, 24, `${EVENT.name} - ${PLOT.name}`.toUpperCase(), { size: 6.5, weight: "bold", track: 0.1 });
+  out += text(PAGE_W - M_RIGHT, 24, `Scale 1:${DENOM}   -   continued`, { size: 7, anchor: "end", fill: "#666666" });
+  out += `<line x1="${M_LEFT}" y1="26.6" x2="${PAGE_W - M_RIGHT}" y2="26.6" stroke="${INK.hair}" stroke-width="0.2"/>`;
+  return out;
+}
+
+const SHEET_COUNT = 4;
+
+function viewHead(title, index) {
+  const y = FRAME.y - 4.5;
+  let out = "";
+  out += text(M_LEFT, y, title, { size: 11, weight: "bold" });
+  out += text(FRAME.x + FRAME.w, y, `Sheet ${index + 1} of ${SHEET_COUNT}`, { size: 7, anchor: "end", fill: "#777777" });
+  return out;
+}
+
+function footer(index) {
+  const y = PAGE_H - 11;
+  let out = `<line x1="${M_LEFT}" y1="${y - 3}" x2="${PAGE_W - M_RIGHT}" y2="${y - 3}" stroke="${INK.hair}" stroke-width="0.2"/>`;
+  out += text(M_LEFT, y, `${EVENT.name} - ${PLOT.name} - Stage plot`, { size: 6.6, fill: "#8c8c8c" });
+  out += text(PAGE_W - M_RIGHT, y, `${index + 1} / ${SHEET_COUNT}`, { size: 6.6, anchor: "end", fill: "#8c8c8c" });
+  return out;
+}
+
+/* ------------------------------------------------------------------ *
+ * Sheet 4 — the element schedule.
+ *
+ * The drawings answer "where is it"; this answers "what is it and how
+ * big". It is the sheet somebody marking out a floor carries, so it is
+ * a table in the audio document's idiom: grouped by layer under the
+ * layer's own paper ink, a column header that repeats after a break,
+ * and a note as a continuation line rather than a mostly-empty column.
+ * ------------------------------------------------------------------ */
+
+// No layer column: the rows already sit under their layer's heading, and a
+// value repeated on every row of a group is a value the group already states.
+const SCHEDULE_COLUMNS = [96, 22, 22, 22, 56, 35]; // 253 mm across the text block
+const SCHEDULE_HEADERS = ["Element", "X cm", "Y cm", "Z cm", "W × D × H cm", "Yaw / rake"];
+const SCHEDULE_ALIGN = ["start", "end", "end", "end", "end", "end"];
+
+function scheduleRow(cells, y, { bold = false, fill = INK.rule } = {}) {
+  let x = M_LEFT, out = "";
+  cells.forEach((cell, i) => {
+    const w = SCHEDULE_COLUMNS[i];
+    const align = SCHEDULE_ALIGN[i];
+    const at = align === "end" ? x + w - 2 : x;
+    out += text(at, y, cell, { size: bold ? 6.2 : 6.6, weight: bold ? "bold" : "normal", anchor: align === "end" ? "end" : "start", fill });
+    x += w;
+  });
+  return out;
+}
+
+const SHAPE_TITLES = { rect: "Rectangle", ellipse: "Ellipse", line: "Line", text: "Text" };
+
+/* An unnamed element still has to be findable on the drawing, so the schedule
+   falls back to what it is rather than to a blank or to a raw icon id. */
+function elementTitle(el) {
+  if (el.name) return el.name;
+  if (el.kind === "shape") return SHAPE_TITLES[el.shape_kind] ?? "Shape";
+  if (el.icon) return el.icon.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+  return el.kind.replace(/^./, (c) => c.toUpperCase());
+}
+
+function schedulePage(index) {
+  let out = runningHead();
+  out += viewHead("Element schedule", index);
+  let y = FRAME.y + 1;
+
+  // The repeating column header, drawn under a rule.
+  out += scheduleRow(SCHEDULE_HEADERS, y, { bold: true, fill: "#444444" });
+  y += 1.6;
+  out += `<line x1="${M_LEFT}" y1="${n(y)}" x2="${n(PAGE_W - M_RIGHT)}" y2="${n(y)}" stroke="${INK.rule}" stroke-width="0.25"/>`;
+  y += 1.4;
+
+  for (const layer of LAYERS) {
+    const rows = VISIBLE.filter((el) => el.layer_id === layer.id);
+    if (!rows.length) continue;
+    const ink = paperInk(layer.color).hex;
+    y += 5.4;
+    out += `<rect x="${M_LEFT}" y="${n(y - 2.6)}" width="5.5" height="2.6" fill="${ink}"/>`;
+    out += text(M_LEFT + 7.4, y, layer.name, { size: 7.4, weight: "bold" });
+    out += text(PAGE_W - M_RIGHT, y, `${rows.length} ${rows.length === 1 ? "element" : "elements"}`, { size: 6, anchor: "end", fill: INK.grey });
+    y += 1.2;
+    out += `<line x1="${M_LEFT}" y1="${n(y)}" x2="${n(PAGE_W - M_RIGHT)}" y2="${n(y)}" stroke="${INK.hair}" stroke-width="0.15"/>`;
+
+    for (const el of rows) {
+      y += 4.6;
+      out += scheduleRow([
+        elementTitle(el),
+        String(el.x_cm), String(el.y_cm), String(el.z_cm),
+        `${el.width_cm} × ${el.depth_cm} × ${el.height_cm}`,
+        `${el.rotation_deg}° / ${el.tilt_deg}°`,
+      ], y);
+      // The truss carries its bar and its fixtures as continuation lines,
+      // which is where the balloon numbers on the drawings are resolved.
+      if (el.kind === "truss") {
+        y += 3.6;
+        out += text(M_LEFT + 4, y, `${TRUSS.name} — ${TRUSS.total_length_cm / 100} m bar hung at ${TRUSS.height_cm / 100} m`, { size: 5.8, style: "italic", fill: "#555555" });
+        TRUSS.fixtures.forEach((fixture, i) => {
+          y += 3.6;
+          out += text(M_LEFT + 4, y, `${i + 1}.  ${fixture.fixture_name} · FID ${fixture.fixture_number} · DMX ${fixture.dmx_universe}.${String(fixture.dmx_start_address).padStart(3, "0")} · ${fixture.offset_cm} cm from stage-left end, ${fixture.side} lane`, { size: 5.8, fill: "#555555" });
+        });
+      }
+      out += `<line x1="${M_LEFT}" y1="${n(y + 1.4)}" x2="${n(PAGE_W - M_RIGHT)}" y2="${n(y + 1.4)}" stroke="#eeeeee" stroke-width="0.12"/>`;
+    }
+    y += 2.4;
+  }
+
+  y += 4;
+  out += `<line x1="${M_LEFT}" y1="${n(y)}" x2="${n(PAGE_W - M_RIGHT)}" y2="${n(y)}" stroke="${INK.hair}" stroke-width="0.15"/>`;
+  y += 4;
+  out += text(M_LEFT, y, `Positions are element centres, in centimetres from the stage origin.     Z is the underside above the floor.     Yaw is the plan rotation, rake the tilt.`, { size: 5.8, fill: INK.grey });
+  return out + footer(index);
+}
+
+function page(inner, label) {
+  return `<div class="sheet"><svg viewBox="0 0 ${PAGE_W} ${PAGE_H}" role="img" aria-label="${esc(label)}">
+    <rect width="${PAGE_W}" height="${PAGE_H}" fill="#ffffff"/>${inner}</svg></div>`;
+}
+
+function sheet(view, index) {
+  const inner = `${index === 0 ? masthead() : runningHead()}
+    ${viewHead(VIEWS[view].title, index)}
+    ${drawViewport(view)}
+    ${titleBlock(view)}
+    ${footer(index)}`;
+  return page(inner, `${VIEWS[view].title} of the ${PLOT.name} stage plot at 1:${DENOM}`);
+}
+
+const CAPTIONS = {
+  top: `<b>Sheet 1 &mdash; top view.</b> The masthead is the audio document's, with <span class="chip">PLOT</span>
+        where it says <span class="chip">AUDIO</span>. This view is what sets the common scale: it is the widest and
+        deepest of the three, so 1:50 will not fit the frame and 1:${DENOM} is the largest that does. The truss sits
+        upstage, yawed 32&deg;, drawn as the true silhouette of its oriented box rather than as a rectangle.`,
+  front: `<b>Sheet 2 &mdash; front view.</b> Same frame, same scale, same horizontal window as sheet 1, so a vertical
+        dropped from the plan lands on the same element here. The truss's fixtures hang below the bar's underside on a
+        short leader; the rake shows as the bar's hexagonal silhouette. Note how much white the elevation leaves:
+        that emptiness is the drawing telling the truth about a 6 m room.`,
+  side: `<b>Sheet 3 &mdash; side view.</b> Shares its vertical window and floor datum with sheet 2 and its horizontal
+        window with sheet 1's vertical. Read together the three are one projection set, which is what a fixed scale
+        buys and a fit-to-content frame destroys.`,
+  schedule: `<b>Sheet 4 &mdash; the element schedule.</b> The drawings answer <em>where is it</em>; this answers
+        <em>what is it and how big</em>. Grouped by layer under the layer's own paper ink, so the key on the drawings
+        and the grouping here are the same fact stated twice. The truss carries its bar and its three fixtures as
+        continuation lines &mdash; which is where the numbered balloons on sheets 1&ndash;3 are resolved &mdash; rather
+        than a fixture column that is empty on every other row. Same idiom as the audio document's tables: a repeating
+        column header, and a continuation line where a row needs more than its columns hold.`,
+};
+
+const SHEETS = ["top", "front", "side"]
+  .map((view, index) => `<figure>${sheet(view, index)}<figcaption>${CAPTIONS[view]}</figcaption></figure>`)
+  .concat(`<figure>${page(schedulePage(3), `Element schedule for the ${PLOT.name} stage plot`)}<figcaption>${CAPTIONS.schedule}</figcaption></figure>`);
+
+document.getElementById("sheets").innerHTML = SHEETS.join("");
+
+/* ------------------------------------------------------------------ *
+ * The contrast strip: the same hairline on both grounds, with the real
+ * numbers underneath it.
+ * ------------------------------------------------------------------ */
+
+const CANVAS_BG = [24, 24, 27]; // zinc-950, the plot canvas
+
+function hairline(color) {
+  return `<svg viewBox="0 0 120 12" preserveAspectRatio="none" aria-hidden="true">
+    <line x1="2" y1="4" x2="118" y2="4" stroke="${color}" stroke-width="0.9"/>
+    <circle cx="14" cy="9" r="2.2" fill="none" stroke="${color}" stroke-width="0.9"/>
+    <rect x="60" y="6.6" width="14" height="4.6" fill="none" stroke="${color}" stroke-width="0.9"/>
+  </svg>`;
+}
+
+const strip = document.getElementById("contrast");
+strip.innerHTML =
+  `<div class="cs-head"><div class="mono">layer</div><div class="mono">on the canvas</div><div class="mono">on paper</div></div>` +
+  LAYERS.map((layer) => {
+    const screen = layer.color || "#a1a1aa";
+    const ink = paperInk(layer.color);
+    const crCanvas = contrast(hexToRgb(screen), CANVAS_BG);
+    const crPaperBefore = contrast(hexToRgb(screen), [255, 255, 255]);
+    const crPaperAfter = contrast(hexToRgb(ink.hex), [255, 255, 255]);
+    const verdict = ink.unset
+      ? `unset &rarr; ink`
+      : ink.changed ? `${screen} &rarr; ${ink.hex}` : `${screen} unchanged`;
+    return `<div class="cs-row">
+      <div class="cs-name">${esc(layer.name)}<code>${verdict}</code></div>
+      <div class="cs-cell cs-canvas">${hairline(screen)}
+        <div class="cs-ratio" style="color:#8a8a92">${crCanvas.toFixed(2)}:1 on #18181b</div></div>
+      <div class="cs-cell cs-paper">${hairline(ink.hex)}
+        <div class="cs-ratio" style="color:#666">${crPaperBefore.toFixed(2)}:1 &rarr; <b style="color:#111">${crPaperAfter.toFixed(2)}:1</b></div></div>
+    </div>`;
+  }).join("");
+
+/* ------------------------------------------------------------------ *
+ * The element table, so the drawings can be checked against the data.
+ * ------------------------------------------------------------------ */
+
+const table = document.getElementById("datatable");
+table.innerHTML =
+  `<thead><tr><th>Element</th><th>Layer</th><th>Kind</th><th class="num">x</th><th class="num">y</th>
+   <th class="num">z</th><th class="num">w &times; d &times; h</th><th class="num">yaw / rake</th></tr></thead><tbody>` +
+  VISIBLE.map((el) => {
+    const layer = LAYERS.find((l) => l.id === el.layer_id);
+    const ink = paperInk(layer.color);
+    return `<tr>
+      <td>${esc(el.name || el.icon || el.shape_kind || el.kind)}</td>
+      <td><span class="swatch" style="background:${ink.hex}"></span> ${esc(layer.name)}</td>
+      <td>${esc(el.kind)}</td>
+      <td class="num">${el.x_cm}</td><td class="num">${el.y_cm}</td><td class="num">${el.z_cm}</td>
+      <td class="num">${el.width_cm} &times; ${el.depth_cm} &times; ${el.height_cm}</td>
+      <td class="num">${el.rotation_deg}&deg; / ${el.tilt_deg}&deg;</td>
+    </tr>`;
+  }).join("") + "</tbody>";
+</script>
