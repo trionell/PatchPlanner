@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	dbstore "github.com/trionell/patchplanner/internal/db"
 	"github.com/trionell/patchplanner/internal/domain"
+	"github.com/trionell/patchplanner/internal/service"
 )
 
 var validShapeKinds = map[string]bool{"rect": true, "ellipse": true, "line": true, "text": true}
@@ -36,6 +37,12 @@ func (h StagePlotsHandler) Register(r chi.Router) {
 			r.Post("/elements/{elementID}/links", h.createLink)
 			r.Patch("/elements/{elementID}/links/{linkID}", h.updateLink)
 			r.Delete("/elements/{elementID}/links/{linkID}", h.deleteLink)
+			// The plot as a scale drawing (Slice 41). It hangs off the plot
+			// rather than the event because an event holds several plots and
+			// they are drawings of different rooms. Registered inside the same
+			// router as the rest, so RequireEventAccess already covers it — an
+			// export reads, and a viewer may read.
+			r.Get("/export/pdf", h.exportPDF)
 		})
 	})
 	h.registerTrussRoutes(r)
@@ -118,6 +125,30 @@ func (h StagePlotsHandler) getPlot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, response)
+}
+
+// exportPDF returns this plot as a scale drawing: top, front and side views at
+// one stated scale, plus the element schedule.
+//
+// eventAndPlot has already refused a plot that belongs to a different event, so
+// a plot id cannot be used to reach across events.
+func (h StagePlotsHandler) exportPDF(w http.ResponseWriter, r *http.Request) {
+	eventID, plot, ok := h.eventAndPlot(w, r)
+	if !ok {
+		return
+	}
+	data, filename, err := service.ExportService{DB: h.DB}.BuildStagePlotPDF(eventID, plot.ID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "stage plot not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", pdfContentType)
+	w.Header().Set("Content-Disposition", contentDisposition(filename))
+	_, _ = w.Write(data)
 }
 
 type stagePlotPatch struct {
