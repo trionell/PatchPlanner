@@ -127,6 +127,19 @@ describe('PlotMeasurementLayer hit targets', () => {
     expect(paint).not.toContain('stroke="transparent"')
   })
 
+  it('paints nothing that can swallow its own target', () => {
+    // The paint pass is laid down after the targets pass, so anything
+    // interactive in it hit-tests first. The value covers its own target
+    // exactly, so an interactive text meant the tap landed on the number,
+    // found no handler, and bubbled up as a background tap that cleared the
+    // selection. Only the grips take pointer events.
+    const paint = render({ pass: 'paint' })
+    expect(paint).toContain('pointer-events="none"')
+
+    const withGrips = render({ pass: 'paint', selectedMeasurementId: 1 })
+    expect(withGrips).toContain('pointer-events="auto"')
+  })
+
   it('makes the value a target too, not only the line', () => {
     // The value is what anyone aims at, and the offset routinely holds it well
     // clear of the line it belongs to.

@@ -243,7 +243,13 @@ export function PlotMeasurementLayer({
         }
 
         return (
-          <g key={measurement.id}>
+          // The painted drawing takes no pointer events at all. It is laid
+          // down AFTER the targets pass, so anything interactive here
+          // hit-tests first and swallows the target beneath it — which is
+          // what the value did to its own: the tap landed on the text, found
+          // no handler, and bubbled up to the canvas as a background tap that
+          // cleared the selection. Only the grips opt back in.
+          <g key={measurement.id} pointerEvents="none">
             {extA && <line x1={extA.x1} y1={extA.y1} x2={extA.x2} y2={extA.y2} stroke={ink} strokeWidth={px(1)} />}
             {extB && <line x1={extB.x1} y1={extB.y1} x2={extB.x2} y2={extB.y2} stroke={ink} strokeWidth={px(1)} />}
 
@@ -319,7 +325,7 @@ export function PlotMeasurementLayer({
                 the measurement readable and selectable and takes these away,
                 exactly as it does for an element's resize handles. */}
             {selected && !locked && !isMobile && (
-              <>
+              <g pointerEvents="auto">
                 <rect
                   x={handleX - px(HANDLE_PX) / 2}
                   y={handleY - px(HANDLE_PX) / 2}
@@ -343,7 +349,7 @@ export function PlotMeasurementLayer({
                     />
                   )
                 })}
-              </>
+              </g>
             )}
           </g>
         )
