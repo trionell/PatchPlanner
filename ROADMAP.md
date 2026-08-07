@@ -7,11 +7,11 @@ per-slice record written after delivery; everything below this section is histor
 
 | | |
 |---|---|
-| *(nothing scheduled)* | |
+| **Slice 42 — Measurements on stage plots** | CAD-style dimensions: anchors on an element's centre, corners, side midpoints and faces; aligned or locked horizontal/vertical; an offset dimension line; on screen and on paper. Run through **OpenSpec** — `openspec/changes/plot-measurements/`, branch `042-plot-measurements`. Mockup approved 2026-08-06. |
 
-The table is empty because the roadmap is **asking**, not because the tool is
-finished. Slices 40 and 41 — the audio plan and the stage plot as generated
-documents — both merged 2026-08-06 and left it that way.
+Slices 40 and 41 — the audio plan and the stage plot as generated documents — both
+merged 2026-08-06 and left the table empty; Slice 42 is what the roadmap was asking
+for, and it is the first slice carried by OpenSpec rather than Spec Kit.
 
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
 multi-event/tour planning (§3.11).
