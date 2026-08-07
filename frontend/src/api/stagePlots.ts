@@ -6,6 +6,7 @@ import type {
   StagePlotElement,
   StagePlotLayer,
   StagePlotLink,
+  StagePlotMeasurement,
   StagePlotResponse,
   TrussSide,
 } from '../types'
@@ -77,6 +78,31 @@ export const updateStagePlotLink = (eventId: number, plotId: number, elementId: 
   })
 export const deleteStagePlotLink = (eventId: number, plotId: number, elementId: number, linkId: number) =>
   request<void>(`/events/${eventId}/stage-plots/${plotId}/elements/${elementId}/links/${linkId}`, { method: 'DELETE' })
+
+// ---- Measurements (Slice 42) ----
+
+/** A measurement's value is derived from its anchors wherever it is drawn, so
+ *  it is never sent and never stored. */
+export type StagePlotMeasurementCreate = Omit<StagePlotMeasurement, 'id' | 'plot_id'>
+export type StagePlotMeasurementPatch = Partial<StagePlotMeasurementCreate>
+
+export const createStagePlotMeasurement = (eventId: number, plotId: number, data: StagePlotMeasurementCreate) =>
+  request<StagePlotMeasurement>(`/events/${eventId}/stage-plots/${plotId}/measurements`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+export const updateStagePlotMeasurement = (
+  eventId: number,
+  plotId: number,
+  measurementId: number,
+  patch: StagePlotMeasurementPatch,
+) =>
+  request<StagePlotMeasurement>(`/events/${eventId}/stage-plots/${plotId}/measurements/${measurementId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  })
+export const deleteStagePlotMeasurement = (eventId: number, plotId: number, measurementId: number) =>
+  request<void>(`/events/${eventId}/stage-plots/${plotId}/measurements/${measurementId}`, { method: 'DELETE' })
 
 // ---- Trusses (event-scoped) ----
 

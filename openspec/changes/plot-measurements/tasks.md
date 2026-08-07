@@ -17,12 +17,12 @@
 
 ## 3. Persistence and API
 
-- [ ] 3.1 CRUD for measurements in `backend/internal/db/stage_plots.go`, read as part of the existing aggregate so the plot stays one round trip.
-- [ ] 3.2 Routes and validation in `backend/internal/api/stage_plots.go`: view and type enums, endpoint exclusivity (element+feature XOR free point), feature string parsing, layer belongs to the plot, element belongs to the plot.
-- [ ] 3.3 Reject a plane-mode pair whose faces are not parallel in the measurement's view.
-- [ ] 3.4 `httptest` coverage: create/update/delete, each validation rejection, the aggregate read carrying measurements, and cascade — deleting an element removes measurements anchored at either end while leaving free-ended ones alone.
-- [ ] 3.5 Return the count of anchored measurements where the element delete confirmation needs it, and cover it with a test asserting the count is that element's and not another's.
-- [ ] 3.6 Client bindings in `frontend/src/api/stagePlots.ts`.
+- [x] 3.1 CRUD for measurements in `backend/internal/db/stage_plots.go`, read as part of the existing aggregate so the plot stays one round trip.
+- [x] 3.2 Routes and validation in `backend/internal/api/stage_plots.go`: view and type enums, endpoint exclusivity (element+feature XOR free point), feature string parsing, layer belongs to the plot, element belongs to the plot.
+- [x] 3.3 Reject a plane-mode pair whose faces are not parallel in the measurement's view.
+- [x] 3.4 `httptest` coverage: create/update/delete, each validation rejection, the aggregate read carrying measurements, and cascade — deleting an element removes measurements anchored at either end while leaving free-ended ones alone.
+- [x] 3.5 Count the measurements an element delete takes with it, for the confirmation to state. Derived on the client from the aggregate read, which already carries every measurement — a second endpoint would be a second answer to a question the client can already answer. One anchored at both ends counts once.
+- [x] 3.6 Client bindings in `frontend/src/api/stagePlots.ts`.
 
 ## 4. The canvas
 

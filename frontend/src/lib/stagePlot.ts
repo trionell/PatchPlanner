@@ -1,4 +1,4 @@
-import type { MeasurementType, StagePlotElement, StagePlotView, TrussSide } from '../types'
+import type { MeasurementType, StagePlotElement, StagePlotMeasurement, StagePlotView, TrussSide } from '../types'
 
 // Pure geometry for the stage plot editor. Everything works in
 // centimetres; the canvas renders 1 SVG user unit = 1 cm, so these
@@ -824,4 +824,23 @@ export function measurementDrawing(span: MeasurementSpan, offsetCm: number): Mea
     return { u: roundCm(p.u + delta * normal.u), v: roundCm(p.v + delta * normal.v) }
   }
   return { ...span, normal, lineA: shift(span.a), lineB: shift(span.b) }
+}
+
+/** The elements a measurement depends on — one id when only one end is
+ *  anchored, none when it floats free of everything. */
+export function measurementAnchorElementIds(measurement: StagePlotMeasurement): number[] {
+  const ids: number[] = []
+  for (const end of [measurement.from, measurement.to]) {
+    if (end.element_id !== undefined && !ids.includes(end.element_id)) ids.push(end.element_id)
+  }
+  return ids
+}
+
+/**
+ * How many of these measurements go when this element goes — what the delete
+ * confirmation states. A measurement anchored to the element at BOTH ends is
+ * one measurement, not two, so this counts measurements and not references.
+ */
+export function measurementsAnchoredTo(measurements: StagePlotMeasurement[], elementId: number): number {
+  return measurements.filter((m) => measurementAnchorElementIds(m).includes(elementId)).length
 }

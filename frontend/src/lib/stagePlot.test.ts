@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import type { StagePlotElement } from '../types'
+import type { StagePlotElement, StagePlotMeasurement } from '../types'
 import {
   allowsPlaneAnchor,
   anchorPoint,
   faceLine,
   formatAnchorFeature,
+  measurementAnchorElementIds,
   measurementDrawing,
   measurementSpan,
+  measurementsAnchoredTo,
   offeredAnchors,
   parseAnchorFeature,
   clampDimension,
@@ -676,5 +678,34 @@ describe('measurementDrawing', () => {
     // end's extension line is what covers the 90 cm difference.
     expect(drawn.lineA).toEqual({ u: 0, v: 90 })
     expect(drawn.lineB).toEqual({ u: 400, v: 90 })
+  })
+})
+
+describe('measurementsAnchoredTo', () => {
+  const measurement = (id: number, from: object, to: object) =>
+    ({ id, plot_id: 1, layer_id: 1, view: 'top', type: 'aligned', from, to, offset_cm: 0, sort_order: 0 }) as StagePlotMeasurement
+
+  const measurements = [
+    measurement(1, { element_id: 7, feature: 'centre' }, { element_id: 8, feature: 'centre' }),
+    measurement(2, { u_cm: 0, v_cm: 0 }, { element_id: 7, feature: 'face:+x' }),
+    measurement(3, { element_id: 7, feature: 'face:+x' }, { element_id: 7, feature: 'face:-x' }),
+    measurement(4, { u_cm: 0, v_cm: 0 }, { u_cm: 100, v_cm: 100 }),
+  ]
+
+  it('counts a measurement anchored at both ends once', () => {
+    // Three measurements touch element 7, and the one touching it twice is
+    // still one measurement.
+    expect(measurementsAnchoredTo(measurements, 7)).toBe(3)
+  })
+
+  it('counts only what the element carries', () => {
+    expect(measurementsAnchoredTo(measurements, 8)).toBe(1)
+    expect(measurementsAnchoredTo(measurements, 99)).toBe(0)
+  })
+
+  it('lists each anchored element once', () => {
+    expect(measurementAnchorElementIds(measurements[0])).toEqual([7, 8])
+    expect(measurementAnchorElementIds(measurements[2])).toEqual([7])
+    expect(measurementAnchorElementIds(measurements[3])).toEqual([])
   })
 })
