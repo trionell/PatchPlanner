@@ -105,15 +105,31 @@ func measurementFromRequest(req stagePlotMeasurementRequest, plotID int64) domai
 // that the feature it names is a feature that element actually offers in this
 // view, and that a pair of sliding faces is parallel — the three things that
 // cannot be known from the request alone.
-func (h StagePlotsHandler) resolveMeasurement(w http.ResponseWriter, measurement domain.StagePlotMeasurement) bool {
+func (h StagePlotsHandler) resolveMeasurement(w http.ResponseWriter, eventID int64, measurement domain.StagePlotMeasurement) bool {
 	elements, err := dbstore.ListStagePlotElements(h.DB, measurement.PlotID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return false
 	}
+	// A truss element stores no geometry of its own — w, d, h and z are all
+	// zero on the row, and its real size is its truss's: the length is the sum
+	// of its pieces and the height is where it hangs. Validating the raw row
+	// therefore measured a zero-sized box, so every plane anchor on a truss was
+	// refused in every view, whatever the canvas had just drawn (field test,
+	// 2026-08-07). EffectiveElement is what the document already applies before
+	// drawing, and this is the same call.
+	trusses, err := dbstore.ListPlotTrusses(h.DB, eventID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return false
+	}
+	trussByID := make(map[int64]domain.PlotTruss, len(trusses))
+	for _, truss := range trusses {
+		trussByID[truss.ID] = truss
+	}
 	byID := make(map[int64]domain.StagePlotElement, len(elements))
 	for _, element := range elements {
-		byID[element.ID] = element
+		byID[element.ID] = service.EffectiveElement(element, trussByID)
 	}
 	view := service.PlotView(measurement.View)
 
@@ -137,8 +153,8 @@ func (h StagePlotsHandler) resolveMeasurement(w http.ResponseWriter, measurement
 			return false
 		}
 		if side.anchor.Slide {
-			if !service.AllowsPlaneAnchor(element) {
-				writeError(w, http.StatusBadRequest, "an ellipse has no straight side to measure along, so the "+side.label+" end cannot slide")
+			if !service.AllowsPlaneAnchor(element, view) {
+				writeError(w, http.StatusBadRequest, "seen from this view an ellipse shows its curve, not a straight side, so the "+side.label+" end cannot slide")
 				return false
 			}
 			line, ok := service.ProjectFaceLine(element, view, feature)
@@ -160,7 +176,7 @@ func (h StagePlotsHandler) resolveMeasurement(w http.ResponseWriter, measurement
 }
 
 func (h StagePlotsHandler) createMeasurement(w http.ResponseWriter, r *http.Request) {
-	_, plot, ok := h.eventAndPlot(w, r)
+	eventID, plot, ok := h.eventAndPlot(w, r)
 	if !ok {
 		return
 	}
@@ -174,7 +190,7 @@ func (h StagePlotsHandler) createMeasurement(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	measurement := measurementFromRequest(req, plot.ID)
-	if !h.resolveMeasurement(w, measurement) {
+	if !h.resolveMeasurement(w, eventID, measurement) {
 		return
 	}
 	created, err := dbstore.CreateStagePlotMeasurement(h.DB, measurement)
@@ -186,7 +202,7 @@ func (h StagePlotsHandler) createMeasurement(w http.ResponseWriter, r *http.Requ
 }
 
 func (h StagePlotsHandler) updateMeasurement(w http.ResponseWriter, r *http.Request) {
-	_, plot, ok := h.eventAndPlot(w, r)
+	eventID, plot, ok := h.eventAndPlot(w, r)
 	if !ok {
 		return
 	}
@@ -239,7 +255,7 @@ func (h StagePlotsHandler) updateMeasurement(w http.ResponseWriter, r *http.Requ
 	}
 	measurement := measurementFromRequest(req, plot.ID)
 	measurement.ID = existing.ID
-	if !h.resolveMeasurement(w, measurement) {
+	if !h.resolveMeasurement(w, eventID, measurement) {
 		return
 	}
 	if err := dbstore.UpdateStagePlotMeasurement(h.DB, measurement); err != nil {

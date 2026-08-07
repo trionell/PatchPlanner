@@ -187,8 +187,13 @@ func TestOfferedAnchors(t *testing.T) {
 			t.Error("an ellipse offered a sliding plane anchor")
 		}
 	}
-	if AllowsPlaneAnchor(ellipse) {
-		t.Error("AllowsPlaneAnchor said yes to an ellipse")
+	if AllowsPlaneAnchor(ellipse, ViewTop) {
+		t.Error("AllowsPlaneAnchor said yes to an ellipse seen along its extrusion")
+	}
+	// Seen from anywhere else the same prism draws as a rectangle, and its
+	// straight sides are as good as any other element's.
+	if !AllowsPlaneAnchor(ellipse, ViewFront) || !AllowsPlaneAnchor(ellipse, ViewSide) {
+		t.Error("an ellipse drawn as a rectangle should offer its sides")
 	}
 	// An ellipse has no corners: the hull is its bounding box, whose corners
 	// are the one place the drawn shape certainly is not.

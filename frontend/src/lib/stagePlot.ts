@@ -718,11 +718,24 @@ export function faceLine(element: StagePlotElement, view: StagePlotView, feature
   return { point, dir, normal, segment }
 }
 
-/** An ellipse has no straight side, so "anywhere along it" cannot be kept: a
- *  perpendicular to a curve is different at every point. Its four quadrant
- *  points are still offered — they are its edge-on face centres. */
-export function allowsPlaneAnchor(element: StagePlotElement): boolean {
-  return element.shape_kind !== 'ellipse'
+/**
+ * Whether an element offers a sliding plane in this view — a question about
+ * the DRAWN silhouette, so it is asked per view.
+ *
+ * An ellipse element is an elliptical prism: the curve lies in its local x–y
+ * plane and is extruded along local z. Look down that extrusion — the plan, for
+ * an upright one — and the silhouette is the curve itself, where "anywhere
+ * along this side" cannot be kept because a perpendicular to a curve differs at
+ * every point. Look at it from anywhere else and the silhouette is a plain
+ * rectangle with four straight edges, and its sides are as good as any other
+ * element's. The canvas has always drawn it that way: "a cylinder seen
+ * straight-on is a rectangle" (field test, 2026-08-07).
+ */
+export function allowsPlaneAnchor(element: StagePlotElement, view: StagePlotView): boolean {
+  if (element.shape_kind !== 'ellipse') return true
+  // The extrusion axis, projected. Degenerate means we are looking along it,
+  // and the outline we see is the curve.
+  return length(axisList(element, view)[2]) >= FACE_EDGE_ON_MIN
 }
 
 export interface OfferedAnchor {
@@ -768,7 +781,7 @@ export function offeredAnchors(element: StagePlotElement, view: StagePlotView): 
       }
     }
   }
-  const slide = allowsPlaneAnchor(element)
+  const slide = allowsPlaneAnchor(element, view)
   for (const axis of [0, 1, 2] as const) {
     for (const sign of [1, -1] as AnchorSign[]) {
       const feature: AnchorFeature = { kind: 'face', axis, sign }
@@ -953,7 +966,7 @@ export function aimAtAnchor(
 
   for (const element of elements) {
     const offered = offeredAnchors(element, view)
-    const slideAllowed = allowsPlaneAnchor(element)
+    const slideAllowed = allowsPlaneAnchor(element, view)
 
     // The centre competes with nothing, so it keeps the full radius.
     const centre = offered.find((o) => o.feature.kind === 'centre')

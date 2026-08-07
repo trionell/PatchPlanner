@@ -194,6 +194,53 @@ func TestMeasurementSlideSurvives(t *testing.T) {
 	}
 }
 
+// TestMeasurementOnATrussFace: a truss element carries no geometry of its own —
+// the row is all zeros and its size comes from its truss. Validated raw it is a
+// zero-sized box, and every plane anchor on it is refused in every view.
+func TestMeasurementOnATrussFace(t *testing.T) {
+	server, _ := newTestServer(t)
+	eventID := seedEvent(t, server.URL)
+	plot := seedStagePlot(t, server.URL, eventID, "Main stage")
+	layer := getPlotResponse(t, server.URL, eventID, plot.ID).Layers[0]
+
+	status, raw := doJSON(t, http.MethodPost, fmt.Sprintf("%s/events/%d/plot-trusses", server.URL, eventID),
+		map[string]any{"name": "Bar", "height_cm": 400})
+	if status != http.StatusCreated {
+		t.Fatalf("create truss: status %d body %s", status, raw)
+	}
+	truss := decodeJSON[domain.PlotTruss](t, raw)
+	if status, raw := doJSON(t, http.MethodPost, fmt.Sprintf("%s/events/%d/plot-trusses/%d/pieces", server.URL, eventID, truss.ID),
+		map[string]any{"length_cm": 600}); status != http.StatusCreated {
+		t.Fatalf("add piece: status %d body %s", status, raw)
+	}
+
+	status, raw = doJSON(t, http.MethodPost, fmt.Sprintf("%s/events/%d/stage-plots/%d/elements", server.URL, eventID, plot.ID),
+		map[string]any{"layer_id": layer.ID, "kind": "truss", "truss_id": truss.ID})
+	if status != http.StatusCreated {
+		t.Fatalf("place truss: status %d body %s", status, raw)
+	}
+	element := decodeJSON[domain.StagePlotElement](t, raw)
+	if element.WidthCm != 0 || element.HeightCm != 0 {
+		t.Fatalf("this test assumes a truss row stores no geometry; it stored %+v", element)
+	}
+
+	// Its long sides, in each view that draws them edge-on.
+	for _, tc := range []struct{ view, feature string }{
+		{"top", "face:+y"},
+		{"front", "face:+z"},
+		{"side", "face:+y"},
+	} {
+		status, raw := doJSON(t, http.MethodPost, measurementsURL(server.URL, eventID, plot.ID), map[string]any{
+			"layer_id": layer.ID, "view": tc.view, "type": "aligned",
+			"from": map[string]any{"element_id": element.ID, "feature": tc.feature, "slide": true},
+			"to":   map[string]any{"u_cm": 1500, "v_cm": 1500},
+		})
+		if status != http.StatusCreated {
+			t.Errorf("%s view, %s: status %d body %s", tc.view, tc.feature, status, raw)
+		}
+	}
+}
+
 func TestMeasurementValidation(t *testing.T) {
 	server, _ := newTestServer(t)
 	eventID := seedEvent(t, server.URL)

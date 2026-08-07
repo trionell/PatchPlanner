@@ -66,8 +66,12 @@ that an element whose silhouette is not a rectangle — one carrying both a plan
 rake — offers the corners and sides it actually has, not the corners of an unrotated box.
 
 An elliptical element SHALL offer its centre and the four points at its top, bottom, left and
-right, and SHALL offer **no face**: a perpendicular to a curve differs at every point along
-it, so "anywhere along this side" cannot be kept.
+right. It SHALL offer **no face** in any view that looks along its extrusion, where its
+silhouette is the curve itself and a perpendicular differs at every point along it, so
+"anywhere along this side" cannot be kept. In every other view its silhouette is a plain
+rectangle — a cylinder seen straight-on — and its sides SHALL be offered as any other
+element's are. An elliptical element SHALL NOT offer corners in any view: the silhouette hull
+is its bounding box, whose corners are the one place the drawn shape is not.
 
 The system SHALL make plain, before the pick is committed, which feature would be taken —
 in particular which of a side's midpoint or that same side's face is being aimed at.
@@ -78,11 +82,16 @@ in particular which of a side's midpoint or that same side's face is being aimed
   rectangle
 - **THEN** the anchor features offered are the corners and side midpoints of that silhouette
 
-#### Scenario: An ellipse
+#### Scenario: An ellipse seen along its extrusion
 
-- **WHEN** an elliptical element is aimed at
+- **WHEN** an elliptical element is aimed at in a view that looks along its extrusion
 - **THEN** it offers a centre and four quadrant points
-- **AND** it offers no face anchor
+- **AND** it offers no face anchor, and no corners
+
+#### Scenario: An ellipse seen from the side
+
+- **WHEN** the same element is aimed at in a view that draws it as a rectangle
+- **THEN** its straight silhouette sides are offered as any other element's are
 
 #### Scenario: Telling a midpoint from its face
 

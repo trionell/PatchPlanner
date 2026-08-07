@@ -624,7 +624,25 @@ describe('offeredAnchors', () => {
     const faces = offeredAnchors(el, 'top').filter((o) => o.feature.kind === 'face')
     expect(faces).toHaveLength(4)
     expect(faces.every((f) => f.allowSlide)).toBe(false)
-    expect(allowsPlaneAnchor(el)).toBe(false)
+    expect(allowsPlaneAnchor(el, 'top')).toBe(false)
+  })
+
+  it('offers an ellipse its sides in the elevations, where it draws as a rectangle', () => {
+    // An elliptical prism seen from anywhere but along its extrusion has four
+    // straight silhouette edges — the canvas draws exactly that box — so its
+    // sides are as good as any other element's there.
+    const el = element({ kind: 'shape', shape_kind: 'ellipse', width_cm: 400, depth_cm: 300, height_cm: 180 })
+    expect(allowsPlaneAnchor(el, 'front')).toBe(true)
+    expect(allowsPlaneAnchor(el, 'side')).toBe(true)
+    expect(offeredAnchors(el, 'front').some((o) => o.feature.kind === 'face' && o.allowSlide)).toBe(true)
+
+    // Turn the prism until the FRONT view looks down its extrusion, and the
+    // two swap: the plan draws the rectangle and the front view draws the
+    // curve. It is the view direction against the extrusion that decides,
+    // never the element's kind.
+    const laid = { ...el, rotation_deg: 90, tilt_deg: 90 }
+    expect(allowsPlaneAnchor(laid, 'top')).toBe(true)
+    expect(allowsPlaneAnchor(laid, 'front')).toBe(false)
   })
 
   it('offers an ellipse no corners, because it has none', () => {

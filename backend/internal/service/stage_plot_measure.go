@@ -254,11 +254,20 @@ func ProjectFaceLine(element domain.StagePlotElement, view PlotView, feature Anc
 	return FaceLine{Point: point, Dir: dir, Normal: normal, Segment: segment}, true
 }
 
-// AllowsPlaneAnchor: an ellipse has no straight side, so "anywhere along it"
-// cannot be kept. Its four quadrant points are still offered — they are its
-// edge-on face centres.
-func AllowsPlaneAnchor(element domain.StagePlotElement) bool {
-	return element.ShapeKind != "ellipse"
+// AllowsPlaneAnchor reports whether an element offers a sliding plane in this
+// view — a question about the DRAWN silhouette, so it is asked per view.
+//
+// An ellipse element is an elliptical prism: the curve lies in its local x-y
+// plane and is extruded along local z. Look down that extrusion and the
+// silhouette is the curve itself, where "anywhere along this side" cannot be
+// kept. Look at it from anywhere else and the silhouette is a plain rectangle
+// with four straight edges. The canvas has always drawn it that way: a cylinder
+// seen straight-on is a rectangle.
+func AllowsPlaneAnchor(element domain.StagePlotElement, view PlotView) bool {
+	if element.ShapeKind != "ellipse" {
+		return true
+	}
+	return planeLength(axisList(element, view)[2]) >= faceEdgeOnMin
 }
 
 type OfferedAnchor struct {
@@ -319,7 +328,7 @@ func OfferedAnchors(element domain.StagePlotElement, view PlotView) []OfferedAnc
 		}
 	}
 
-	slide := AllowsPlaneAnchor(element)
+	slide := AllowsPlaneAnchor(element, view)
 	for axis := 0; axis < 3; axis++ {
 		for _, sign := range []int{1, -1} {
 			feature := AnchorFeature{Kind: "face", Axis: axis, Sign: sign}
