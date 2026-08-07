@@ -1053,27 +1053,30 @@ export interface AnchorHint {
 }
 
 /**
- * The element whose anchors should be drawn because the pointer is near it, so
- * a pick is aimed at something visible rather than guessed at. Nearest by
- * distance to the element's projected box, and only within `radiusCm` of it.
+ * The anchors that should be drawn because the pointer is near them, so a pick
+ * is aimed at something visible rather than guessed at.
+ *
+ * EVERY element within the radius, not the nearest one. Picking a single
+ * element meant that where two overlap — a fixture on a truss, a riser on a
+ * stage — the anchors shown belonged to one of them while the pick took the
+ * other's, so the markers were somewhere the pointer was not (field test,
+ * 2026-08-07).
  */
-export function anchorHintFor(
+export function anchorHintsFor(
   elements: StagePlotElement[],
   view: StagePlotView,
   point: PlaneVec,
   radiusCm: number,
-): AnchorHint | null {
-  let best: { element: StagePlotElement; distance: number } | null = null
+): AnchorHint[] {
+  const hints: AnchorHint[] = []
   for (const element of elements) {
     const bounds = projectedBounds(element, view)
     const du = Math.max(bounds.minU - point.u, 0, point.u - bounds.maxU)
     const dv = Math.max(bounds.minV - point.v, 0, point.v - bounds.maxV)
-    const distance = Math.hypot(du, dv)
-    if (distance > radiusCm) continue
-    if (!best || distance < best.distance) best = { element, distance }
+    if (Math.hypot(du, dv) > radiusCm) continue
+    hints.push({ element, anchors: offeredAnchors(element, view) })
   }
-  if (!best) return null
-  return { element: best.element, anchors: offeredAnchors(best.element, view) }
+  return hints
 }
 
 /** What an anchor is, in words a person reading a plot would use. */

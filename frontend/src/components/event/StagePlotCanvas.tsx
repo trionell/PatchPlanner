@@ -8,7 +8,7 @@ import {
   measurementSpan,
   faceLine,
   anchorFeatureLabel,
-  anchorHintFor,
+  anchorHintsFor,
   MEASURE_HINT_PX,
   MEASURE_PICK_PX,
   measurementGeometry,
@@ -175,7 +175,14 @@ export function StagePlotCanvas({
   // over. A pick is an element anchor or a free point; both are stored the way
   // they will be saved.
   const [measureFirstState, setMeasureFirst] = useState<StagePlotMeasurement['from'] | null>(null)
-  const [aimState, setAim] = useState<{ u: number; v: number; slide: boolean; label: string; feature: AnchorFeature | null } | null>(null)
+  const [aimState, setAim] = useState<{
+    u: number
+    v: number
+    slide: boolean
+    label: string
+    feature: AnchorFeature | null
+    elementId: number | null
+  } | null>(null)
   // Where the pointer is, in canvas centimetres — the anchor hint follows it
   // even when no anchor is in range.
   const [pointerCm, setPointerCm] = useState<{ u: number; v: number } | null>(null)
@@ -283,18 +290,23 @@ export function StagePlotCanvas({
         // from a marker alone.
         label: `${owner?.name || owner?.kind || 'Element'} · ${anchorFeatureLabel(aimed.feature, aimed.slide)}`,
         feature: aimed.feature,
+        // The element the anchor is ON. Without it the highlight was looked up
+        // on whichever element happened to be nearest and matched only by
+        // feature NAME, so a `face:+y` taken from one object was drawn on
+        // another's side.
+        elementId: aimed.elementId,
       }
     }
     const free = snapFreePoint(projected)
-    return { u: free.u, v: free.v, slide: false, label: 'Grid', feature: null }
+    return { u: free.u, v: free.v, slide: false, label: 'Grid', feature: null, elementId: null }
   }
 
   // Every anchor the element under the pointer offers, drawn so a pick is aimed
   // at something visible instead of guessed at.
-  const anchorHint =
+  const anchorHints =
     measureType || drag.kind === 'measure-end'
-      ? anchorHintFor(measurableElements, view, svgToProjected(pointerCm ?? { u: 0, v: 0 }), MEASURE_HINT_PX / zoom)
-      : null
+      ? anchorHintsFor(measurableElements, view, svgToProjected(pointerCm ?? { u: 0, v: 0 }), MEASURE_HINT_PX / zoom)
+      : []
 
   /** The offset a pointer at this position is asking for: how far the
    *  dimension line has been pulled along its own perpendicular. */
@@ -1141,9 +1153,9 @@ export function StagePlotCanvas({
             something visible. Until this existed you had to hit an invisible
             point, which is why the centre — one point in a large empty middle
             — could not be reached at all. */}
-        {anchorHint && (
+        {anchorHints.length > 0 && (
           <g pointerEvents="none">
-            {anchorHint.anchors.map((offered, index) => {
+            {anchorHints.flatMap((hint) => hint.anchors).map((offered, index) => {
               const cx = offered.point.u
               const cy = view === 'top' ? offered.point.v : -offered.point.v
               const live =
@@ -1173,10 +1185,10 @@ export function StagePlotCanvas({
               // The sliding plane lights the SIDE itself, along the face, so
               // it is never mistaken for the point sitting on that same side.
               (() => {
-                const hinted = anchorHint?.anchors.find(
-                  (offered) => aim.feature && offered.feature.kind === 'face' && formatAnchorFeature(offered.feature) === formatAnchorFeature(aim.feature),
-                )
-                const line = hinted && anchorHint ? faceLine(anchorHint.element, view, hinted.feature) : null
+                // From the element the aim actually took it from, never from
+                // whichever element is nearest.
+                const owner = aim.elementId != null ? measurableById.get(aim.elementId) : undefined
+                const line = owner && aim.feature ? faceLine(owner, view, aim.feature) : null
                 if (!line) return null
                 const flip = view === 'top' ? 1 : -1
                 return (

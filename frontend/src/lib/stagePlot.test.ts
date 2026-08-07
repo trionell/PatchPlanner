@@ -4,7 +4,7 @@ import {
   aimAtAnchor,
   allowsPlaneAnchor,
   anchorFeatureLabel,
-  anchorHintFor,
+  anchorHintsFor,
   MEASURE_HINT_PX,
   MEASURE_PICK_PX,
   MEASURE_POINT_PX,
@@ -824,14 +824,23 @@ describe('reaching an anchor', () => {
   it('offers the whole element’s anchors once the pointer is near it', () => {
     // The hint is what makes any of them findable: it draws the candidates
     // instead of leaving them to be guessed at.
-    const hint = anchorHintFor([el], 'top', { u: 210, v: 0 }, MEASURE_HINT_PX / 0.3)
-    expect(hint!.element.id).toBe(5)
-    expect(hint!.anchors.filter((a) => a.feature.kind === 'corner')).toHaveLength(4)
-    expect(hint!.anchors.some((a) => a.feature.kind === 'centre')).toBe(true)
+    const hints = anchorHintsFor([el], 'top', { u: 210, v: 0 }, MEASURE_HINT_PX / 0.3)
+    expect(hints).toHaveLength(1)
+    expect(hints[0].element.id).toBe(5)
+    expect(hints[0].anchors.filter((a) => a.feature.kind === 'corner')).toHaveLength(4)
+    expect(hints[0].anchors.some((a) => a.feature.kind === 'centre')).toBe(true)
+  })
+
+  it('offers every element in range, not just the nearest', () => {
+    // Where two overlap, showing one element's anchors while the pick takes
+    // the other's put the markers where the pointer was not.
+    const other = element({ id: 6, kind: 'shape', shape_kind: 'rect', x_cm: 260, y_cm: 0, width_cm: 100, depth_cm: 100, height_cm: 50 })
+    const hints = anchorHintsFor([el, other], 'top', { u: 210, v: 0 }, MEASURE_HINT_PX / 0.3)
+    expect(hints.map((h) => h.element.id).sort()).toEqual([5, 6])
   })
 
   it('offers nothing when the pointer is out in the open', () => {
-    expect(anchorHintFor([el], 'top', { u: 5000, v: 5000 }, MEASURE_HINT_PX / 0.3)).toBeNull()
+    expect(anchorHintsFor([el], 'top', { u: 5000, v: 5000 }, MEASURE_HINT_PX / 0.3)).toHaveLength(0)
   })
 
   it('names what a pick would take', () => {
