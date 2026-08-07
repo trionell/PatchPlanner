@@ -506,7 +506,7 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
           the inspector sheet below is for.
         */}
         <InfoPanel className="border-b border-zinc-800/60 bg-zinc-950/35 px-3 py-2.5" note={deskJob}>
-          <span className="font-medium text-zinc-300">Placing elements is a desk job</span> — open this plot on a
+          <span className="font-medium text-zinc-300">Placing elements and drawing measurements is a desk job</span> — open this plot on a
           computer. Tap anything on it to read or edit what it is.
         </InfoPanel>
 

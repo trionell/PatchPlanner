@@ -2,6 +2,7 @@ import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { StagePlotElement, StagePlotLayer, StagePlotMeasurement, StagePlotView } from '../../types'
 import {
   measurementGeometry,
+  resolveEnd,
   visibleMeasurements,
   type MeasurementDrawing,
   type PlaneVec,
@@ -19,7 +20,10 @@ import {
 // honestly claim either.
 const INK_LINE = '#71717a'
 const INK_VALUE = '#d4d4d8'
-const INK_SELECTED = '#a5b4fc'
+// Amber-500 is the language's focus/selected ink (tokens.md §Focus and action),
+// and it is what the approved mockup selects a dimension with.
+const INK_SELECTED = '#f59e0b'
+const INK_SELECTED_VALUE = '#fbbf24'
 const INK_HANDLE = '#6366f1'
 
 const ARROW_LENGTH_PX = 9
@@ -49,6 +53,13 @@ interface PlotMeasurementLayerProps {
   zoom: number
   selectedMeasurementId: number | null
   isMobile?: boolean
+  /**
+   * SVG hit-tests what was painted LAST, and a measurement has to paint above
+   * every element while never stealing an element's tap. So it renders twice:
+   * the transparent targets go down BEFORE the elements, the visible drawing
+   * goes on top after them.
+   */
+  pass?: 'targets' | 'paint'
   onSelect?: (id: number) => void
   onOffsetPointerDown?: (event: ReactPointerEvent, context: MeasurementPointerContext) => void
   onEndPointerDown?: (event: ReactPointerEvent, context: MeasurementPointerContext, end: 'from' | 'to') => void
@@ -81,6 +92,7 @@ export function PlotMeasurementLayer({
   zoom,
   selectedMeasurementId,
   isMobile = false,
+  pass = 'paint',
   onSelect,
   onOffsetPointerDown,
   onEndPointerDown,
@@ -88,7 +100,7 @@ export function PlotMeasurementLayer({
   const px = (value: number) => value / zoom
 
   return (
-    <g data-testid="plot-measurements">
+    <g data-testid={pass === 'targets' ? 'plot-measurement-targets' : 'plot-measurements'}>
       {visibleMeasurements(measurements, view, elementById, layerById).map((measurement) => {
         const drawing = measurementGeometry(measurement, elementById, view)
         if (!drawing) return null
@@ -151,51 +163,32 @@ export function PlotMeasurementLayer({
         const labelX = inside ? midX : lineB.x + ux * px(ARROW_LENGTH_PX * 2)
         const labelY = inside ? midY : lineB.y + uy * px(ARROW_LENGTH_PX * 2)
 
-        // A right angle is drawn where a perpendicular meets a face, because
-        // "this is perpendicular" is the whole claim of that measurement.
-        const perpendicularEnd = measurement.from.slide ? 'from' : measurement.to.slide ? 'to' : null
-        const perpendicularAt = perpendicularEnd === 'from' ? a : perpendicularEnd === 'to' ? b : null
+        // A right angle is drawn only where there IS one: the end resolved to a
+        // line (a face that has turned flat falls back to a point and claims
+        // nothing), and the type is aligned — a locked type meets the face
+        // along a view axis on purpose, which is not perpendicular. The mark's
+        // arms come from the FACE's own direction and normal; the dimension
+        // line's direction is a different thing under a locked type.
+        const fromEnd = resolveEnd(measurement.from, elementById, view)
+        const toEnd = resolveEnd(measurement.to, elementById, view)
+        const lineEnd =
+          measurement.type !== 'aligned'
+            ? null
+            : fromEnd?.kind === 'line'
+              ? ({ at: a, line: fromEnd.line } as const)
+              : toEnd?.kind === 'line'
+                ? ({ at: b, line: toEnd.line } as const)
+                : null
 
         const handleX = midX + nx * px(HANDLE_LIFT_PX)
         const handleY = midY + ny * px(HANDLE_LIFT_PX)
 
-        return (
-          <g key={measurement.id}>
-            {extA && <line x1={extA.x1} y1={extA.y1} x2={extA.x2} y2={extA.y2} stroke={ink} strokeWidth={px(1)} />}
-            {extB && <line x1={extB.x1} y1={extB.y1} x2={extB.x2} y2={extB.y2} stroke={ink} strokeWidth={px(1)} />}
-
-            <line x1={lineA.x} y1={lineA.y} x2={lineB.x} y2={lineB.y} stroke={ink} strokeWidth={px(PAINT_PX)} />
-            <polygon points={arrow(lineA, inside ? 1 : -1)} fill={ink} />
-            <polygon points={arrow(lineB, inside ? -1 : 1)} fill={ink} />
-
-            {perpendicularAt && (
-              <polyline
-                points={`${perpendicularAt.x + ux * px(7)},${perpendicularAt.y + uy * px(7)} ${perpendicularAt.x + ux * px(7) + nx * px(7)},${perpendicularAt.y + uy * px(7) + ny * px(7)} ${perpendicularAt.x + nx * px(7)},${perpendicularAt.y + ny * px(7)}`}
-                fill="none"
-                stroke={ink}
-                strokeWidth={px(1)}
-              />
-            )}
-
-            <text
-              x={labelX}
-              y={labelY - px(VALUE_LIFT_PX)}
-              transform={`rotate(${angle} ${labelX} ${labelY - px(VALUE_LIFT_PX)})`}
-              textAnchor={inside ? 'middle' : 'start'}
-              fill={INK_VALUE}
-              fontFamily="ui-monospace, monospace"
-              fontSize={px(VALUE_SIZE_PX)}
-              style={{ fontVariantNumeric: 'tabular-nums' }}
-            >
-              {measurement.note ? `${measurement.note}  ` : ''}
-              {formatValue(drawing.value)}
-              <tspan fill={INK_LINE} fontSize={px(VALUE_SIZE_PX * 0.8)}>
-                {' cm'}
-              </tspan>
-            </text>
-
-            {/* The target, painted transparent and sized for the hand. */}
+        if (pass === 'targets') {
+          // The target, painted transparent and sized for the hand — laid down
+          // before the elements so an element over it wins the tap.
+          return (
             <line
+              key={measurement.id}
               x1={lineA.x}
               y1={lineA.y}
               x2={lineB.x}
@@ -208,6 +201,74 @@ export function PlotMeasurementLayer({
                 onSelect?.(measurement.id)
               }}
             />
+          )
+        }
+
+        return (
+          <g key={measurement.id}>
+            {extA && <line x1={extA.x1} y1={extA.y1} x2={extA.x2} y2={extA.y2} stroke={ink} strokeWidth={px(1)} />}
+            {extB && <line x1={extB.x1} y1={extB.y1} x2={extB.x2} y2={extB.y2} stroke={ink} strokeWidth={px(1)} />}
+
+            <line x1={lineA.x} y1={lineA.y} x2={lineB.x} y2={lineB.y} stroke={ink} strokeWidth={px(PAINT_PX)} />
+            <polygon points={arrow(lineA, inside ? 1 : -1)} fill={ink} />
+            <polygon points={arrow(lineB, inside ? -1 : 1)} fill={ink} />
+
+            {lineEnd &&
+              (() => {
+                const flip = view === 'top' ? 1 : -1
+                const fx = lineEnd.line.dir.u
+                const fy = lineEnd.line.dir.v * flip
+                const gx = lineEnd.line.normal.u
+                const gy = lineEnd.line.normal.v * flip
+                const arm = px(7)
+                const p0 = `${lineEnd.at.x + fx * arm},${lineEnd.at.y + fy * arm}`
+                const p1 = `${lineEnd.at.x + (fx + gx) * arm},${lineEnd.at.y + (fy + gy) * arm}`
+                const p2 = `${lineEnd.at.x + gx * arm},${lineEnd.at.y + gy * arm}`
+                return <polyline points={`${p0} ${p1} ${p2}`} fill="none" stroke={ink} strokeWidth={px(1)} />
+              })()}
+
+            {/* The run-out: where the perpendicular foot falls past the end of
+                the drawn side, the side's line is extended to reach it —
+                otherwise the foot and its right angle sit in empty space with
+                nothing to be perpendicular to. */}
+            {lineEnd &&
+              (() => {
+                const flip = view === 'top' ? 1 : -1
+                const alongDir = (p: PlaneVec) => p.u * lineEnd.line.dir.u + p.v * lineEnd.line.dir.v
+                const ends = [...lineEnd.line.segment].sort((p, q) => alongDir(p) - alongDir(q))
+                const footAlong = alongDir(lineEnd.at === a ? drawing.a : drawing.b)
+                const near = footAlong < alongDir(ends[0]) - 0.01 ? ends[0] : footAlong > alongDir(ends[1]) + 0.01 ? ends[1] : null
+                if (!near) return null
+                return (
+                  <line
+                    x1={near.u}
+                    y1={near.v * flip}
+                    x2={lineEnd.at.x}
+                    y2={lineEnd.at.y}
+                    stroke={ink}
+                    strokeWidth={px(0.75)}
+                    strokeDasharray={`${px(3)} ${px(2)}`}
+                  />
+                )
+              })()}
+
+            <text
+              x={labelX}
+              y={labelY - px(VALUE_LIFT_PX)}
+              transform={`rotate(${angle} ${labelX} ${labelY - px(VALUE_LIFT_PX)})`}
+              textAnchor={inside ? 'middle' : 'start'}
+              fill={selected ? INK_SELECTED_VALUE : INK_VALUE}
+              fontFamily="ui-monospace, monospace"
+              fontSize={px(VALUE_SIZE_PX)}
+              style={{ fontVariantNumeric: 'tabular-nums' }}
+            >
+              {measurement.note ? `${measurement.note}  ` : ''}
+              {formatValue(drawing.value)}
+              <tspan fill={INK_LINE} fontSize={px(VALUE_SIZE_PX * 0.8)}>
+                {' cm'}
+              </tspan>
+            </text>
+
 
             {/* Grips: the offset tab and the two ends. A locked layer keeps
                 the measurement readable and selectable and takes these away,

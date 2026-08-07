@@ -213,6 +213,35 @@ func (d *plotDoc) computeWindows() plotWindows {
 		windows.Z[0] = math.Min(windows.Z[0], front.MinV)
 		windows.Z[1] = math.Max(windows.Z[1], front.MaxV)
 	}
+	// A measurement can reach well outside the equipment — a free endpoint on
+	// the stage edge, or a dimension line held clear by its offset. It is
+	// content, so the window has to hold it; otherwise the sheet clips it away
+	// silently and prints a drawing the canvas does not show.
+	for _, measurement := range d.measurements {
+		view := PlotView(measurement.View)
+		drawing, ok := d.measurementDrawingFor(measurement, view)
+		if !ok {
+			continue
+		}
+		for _, point := range []PlaneVec{drawing.A, drawing.B, drawing.LineA, drawing.LineB} {
+			switch view {
+			case ViewTop: // u = x, v = y
+				windows.X[0] = math.Min(windows.X[0], point.U)
+				windows.X[1] = math.Max(windows.X[1], point.U)
+				windows.Y[0] = math.Min(windows.Y[0], point.V)
+				windows.Y[1] = math.Max(windows.Y[1], point.V)
+			case ViewFront: // u = x, v = z
+				windows.X[0] = math.Min(windows.X[0], point.U)
+				windows.X[1] = math.Max(windows.X[1], point.U)
+				windows.Z[1] = math.Max(windows.Z[1], point.V)
+			case ViewSide: // u = y, v = z
+				windows.Y[0] = math.Min(windows.Y[0], point.U)
+				windows.Y[1] = math.Max(windows.Y[1], point.U)
+				windows.Z[1] = math.Max(windows.Z[1], point.V)
+			}
+		}
+	}
+
 	if len(d.elements) == 0 {
 		// An empty plot still gets a frame, a grid and a stated scale — the
 		// sheet says in words that there is nothing on it.

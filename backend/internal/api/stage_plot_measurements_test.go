@@ -78,6 +78,58 @@ func TestMeasurementCRUD(t *testing.T) {
 	}
 }
 
+// TestMeasurementReAnchorChangesKind is the edit a grip drag makes: an end
+// stops being an element feature and becomes a free point, or the reverse.
+func TestMeasurementReAnchorChangesKind(t *testing.T) {
+	server, _ := newTestServer(t)
+	eventID := seedEvent(t, server.URL)
+	plot := seedStagePlot(t, server.URL, eventID, "Main stage")
+	layer := getPlotResponse(t, server.URL, eventID, plot.ID).Layers[0]
+	element := seedMeasurableElement(t, server.URL, eventID, plot.ID, layer.ID, 0, 0)
+
+	status, raw := doJSON(t, http.MethodPost, measurementsURL(server.URL, eventID, plot.ID), map[string]any{
+		"layer_id": layer.ID, "view": "top", "type": "aligned",
+		"from": map[string]any{"element_id": element.ID, "feature": "centre"},
+		"to":   map[string]any{"u_cm": 500, "v_cm": 0},
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("create: status %d body %s", status, raw)
+	}
+	created := decodeJSON[domain.StagePlotMeasurement](t, raw)
+	url := fmt.Sprintf("%s/%d", measurementsURL(server.URL, eventID, plot.ID), created.ID)
+
+	// Element end dragged onto open space.
+	status, raw = doJSON(t, http.MethodPatch, url, map[string]any{"from": map[string]any{"u_cm": -300, "v_cm": -300}})
+	if status != http.StatusOK {
+		t.Fatalf("element end to a free point: status %d body %s", status, raw)
+	}
+	freed := decodeJSON[domain.StagePlotMeasurement](t, raw)
+	if freed.From.ElementID != nil {
+		t.Errorf("the from end kept its element: %+v", freed.From)
+	}
+	if freed.From.UCm == nil || *freed.From.UCm != -300 {
+		t.Errorf("the from end did not become the free point: %+v", freed.From)
+	}
+
+	// …and back onto the element.
+	status, raw = doJSON(t, http.MethodPatch, url, map[string]any{"from": map[string]any{"element_id": element.ID, "feature": "face:+x"}})
+	if status != http.StatusOK {
+		t.Fatalf("free point back onto an element: status %d body %s", status, raw)
+	}
+	reanchored := decodeJSON[domain.StagePlotMeasurement](t, raw)
+	if reanchored.From.ElementID == nil || *reanchored.From.ElementID != element.ID {
+		t.Errorf("the from end did not take the element: %+v", reanchored.From)
+	}
+	if reanchored.From.UCm != nil || reanchored.From.VCm != nil {
+		t.Errorf("the from end kept its free point beside the element: %+v", reanchored.From)
+	}
+
+	// An untouched end stays exactly as it was.
+	if reanchored.To.UCm == nil || *reanchored.To.UCm != 500 {
+		t.Errorf("the to end moved when only the from end was patched: %+v", reanchored.To)
+	}
+}
+
 func TestMeasurementFreeEndpoints(t *testing.T) {
 	server, _ := newTestServer(t)
 	eventID := seedEvent(t, server.URL)

@@ -12,8 +12,8 @@
 - [x] 2.4 Compute a measurement's span and stated value for each of the three types, including a locked type against a face line (foot at the axis ray, not the perpendicular).
 - [x] 2.5 Compute the drawn dimension line from the span and `offset_cm`, plus the extension lines, and the flip.
 - [x] 2.6 Vitest suite over 2.1–2.5, including a raked element whose silhouette is a hexagon, a face turned face-on, and an ellipse.
-- [x] 2.7 Port 2.1–2.5 into `backend/internal/service/stage_plot_geometry.go`.
-- [x] 2.8 Go test asserting the ported functions against **the same cases and the same expected numbers** as 2.6, in the manner `stage_plot_geometry_test.go` already does for the projection.
+- [x] 2.7 Port 2.1–2.5 into `backend/internal/service/stage_plot_measure.go`, beside the projection port.
+- [x] 2.8 Go test asserting the ported functions against **the same cases and the same expected numbers** as 2.6, in `stage_plot_measure_test.go`, in the manner `stage_plot_geometry_test.go` already does for the projection.
 
 ## 3. Persistence and API
 

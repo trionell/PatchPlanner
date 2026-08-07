@@ -468,7 +468,7 @@ describe('fixtureDropOnTruss', () => {
 // ---- Measurements (Slice 42) ----
 //
 // These cases are the shared contract with the Go port in
-// backend/internal/service/stage_plot_geometry.go: the same inputs and the
+// backend/internal/service/stage_plot_measure.go: the same inputs and the
 // same expected numbers are asserted there, so the canvas and the document
 // cannot state different distances.
 
@@ -527,7 +527,9 @@ describe('anchorPoint', () => {
 })
 
 describe('faceLine', () => {
-  const el = element({ x_cm: 0, y_cm: 0, z_cm: 0, width_cm: 40, depth_cm: 30, height_cm: 60 })
+  // Same numbers as stage_plot_measure_test.go's TestProjectFaceLine: the
+  // "same inputs, same expected numbers" contract has to be literally true.
+  const el = element({ x_cm: 0, y_cm: 0, z_cm: 0, width_cm: 40, depth_cm: 30, height_cm: 20 })
 
   it('declines a face seen flat', () => {
     // In the top view the top and bottom faces project onto the whole

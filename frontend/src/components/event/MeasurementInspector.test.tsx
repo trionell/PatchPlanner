@@ -57,7 +57,18 @@ describe('MeasurementInspector', () => {
     const html = render(true)
     expect(html).toContain('Flip')
     expect(html).toContain('Delete')
-    expect(html).toContain('aligned')
+    expect(html).toContain('>Aligned<')
+  })
+
+  it('states the type on the phone, which cannot change it', () => {
+    // A measurement IS its two ends, its type and its value; the phone reads
+    // all of it and edits only the note.
+    const html = render(false)
+    expect(html).toContain('>horizontal<')
+    // Stated, not offered: the type's own options are absent, though the
+    // Layer row's select is still there.
+    expect(html).not.toContain('>Aligned<')
+    expect(html).not.toContain('>Vertical<')
   })
 
   it('gives the phone the value and the note, and no Delete at all', () => {

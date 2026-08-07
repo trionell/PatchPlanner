@@ -666,8 +666,11 @@ export function MeasurementInspector({
         </span>
       </Row>
 
-      {spatial && (
-        <Row label="Type">
+      {/* The type is stated everywhere and changed only where the geometry
+          can be: a phone reads what this measurement IS, and a measurement is
+          its two ends, its type and its value. */}
+      <Row label="Type">
+        {spatial ? (
           <Select
             className="h-7 text-xs"
             value={measurement.type}
@@ -678,8 +681,10 @@ export function MeasurementInspector({
             <option value="horizontal">Horizontal</option>
             <option value="vertical">Vertical</option>
           </Select>
-        </Row>
-      )}
+        ) : (
+          <span className="text-xs capitalize text-zinc-200">{measurement.type}</span>
+        )}
+      </Row>
 
       <Row label="From">
         <div className="flex flex-col text-xs leading-tight">

@@ -108,3 +108,26 @@ describe('PlotMeasurementLayer', () => {
     expect(html).toContain('400')
   })
 })
+
+describe('PlotMeasurementLayer hit targets', () => {
+  it('lays its target down in a separate pass, so an element over it wins the tap', () => {
+    // SVG hit-tests what was painted last. The canvas renders this pass BEFORE
+    // the elements and the visible drawing after them, so a dimension lying
+    // across a riser never steals the riser's selection.
+    const targets = render({ pass: 'targets' })
+    expect(targets).toContain('stroke="transparent"')
+    // Nothing visible in the target pass: no stated value, no painted ink.
+    // (The geometry's own numbers are still in the coordinates, of course.)
+    expect(targets).not.toContain('<text')
+    expect(targets).not.toContain('#71717a')
+
+    const paint = render({ pass: 'paint' })
+    expect(paint).toContain('<text')
+    expect(paint).toContain(' cm')
+    expect(paint).not.toContain('stroke="transparent"')
+  })
+
+  it('selects a measurement in amber, the language’s focus ink', () => {
+    expect(render({ selectedMeasurementId: 1 })).toContain('#f59e0b')
+  })
+})

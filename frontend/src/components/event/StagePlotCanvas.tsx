@@ -155,8 +155,8 @@ export function StagePlotCanvas({
   // The measure tool's first pick, and the anchor the pointer is currently
   // over. A pick is an element anchor or a free point; both are stored the way
   // they will be saved.
-  const [measureFirst, setMeasureFirst] = useState<StagePlotMeasurement['from'] | null>(null)
-  const [aim, setAim] = useState<{ u: number; v: number; slide: boolean } | null>(null)
+  const [measureFirstState, setMeasureFirst] = useState<StagePlotMeasurement['from'] | null>(null)
+  const [aimState, setAim] = useState<{ u: number; v: number; slide: boolean } | null>(null)
   // Live offset while a dimension line is being dragged; written on release.
   const [measureOverride, setMeasureOverride] = useState<{ id: number; offsetCm: number } | null>(null)
   // The truss a dragged free fixture element would attach to on drop.
@@ -218,6 +218,14 @@ export function StagePlotCanvas({
   // dragged exactly as the bar itself does.
   const measurableElements = elements.map(effectiveElement)
   const measurableById = new Map(measurableElements.map((element) => [element.id, element]))
+
+  // Leaving the tool — by key, or by clicking the armed tile off — drops any
+  // half-drawn measurement with it: a first pick with no second is not a
+  // measurement and is never saved. Derived rather than cleared, so there is
+  // no state to get out of step with whoever disarmed the tool. The aim marker
+  // also survives a re-anchor drag, which has no tool armed.
+  const measureFirst = measureType ? measureFirstState : null
+  const aim = measureType || drag.kind === 'measure-end' ? aimState : null
 
   /** clientToCm gives SVG coordinates; the elevations draw v flipped. */
   const svgToProjected = (point: { u: number; v: number }) => ({ u: point.u, v: view === 'top' ? point.v : -point.v })
@@ -297,16 +305,22 @@ export function StagePlotCanvas({
   // Esc leaves the measure tool, dropping any half-drawn measurement with it:
   // a first pick with no second is not a measurement and is never saved.
   useEffect(() => {
-    if (!measureType) return
+    if (isMobile || readOnly) return
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      setMeasureFirst(null)
-      setAim(null)
-      onMeasureTypeChange?.(null)
+      const target = event.target as HTMLElement | null
+      // Never while something is being typed into.
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
+      if (event.key === 'Escape' && measureType) {
+        onMeasureTypeChange?.(null)
+        return
+      }
+      if ((event.key === 'm' || event.key === 'M') && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        onMeasureTypeChange?.(measureType ? null : 'aligned')
+      }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [measureType, onMeasureTypeChange])
+  }, [measureType, onMeasureTypeChange, isMobile, readOnly])
 
   // ---- Interaction handlers ----
 
@@ -968,6 +982,18 @@ export function StagePlotCanvas({
         {view !== 'top' && (
           <line x1={panX - 100000} x2={panX + 100000} y1={0} y2={0} stroke="#3f3f46" strokeWidth={1.5 / zoom} strokeDasharray={`${10 / zoom} ${6 / zoom}`} />
         )}
+        <PlotMeasurementLayer
+          measurements={measurements}
+          elementById={measurableById}
+          layerById={layerById}
+          view={view}
+          zoom={zoom}
+          selectedMeasurementId={selectedMeasurementId}
+          isMobile={isMobile}
+          pass="targets"
+          onSelect={(id) => onSelectMeasurement?.(id)}
+        />
+
         {orderedLayers
           .filter((layer) => layer.visible)
           .map((layer) => (
@@ -978,7 +1004,9 @@ export function StagePlotCanvas({
             </g>
           ))}
         {/* Measurements draw above every element, whatever the layer order:
-            an annotation that a riser can cover is not an annotation. */}
+            an annotation that a riser can cover is not an annotation. Their
+            targets went down before the elements, so an element over a
+            dimension still wins the tap. */}
         <PlotMeasurementLayer
           measurements={measureOverride ? measurements.map((m) => (m.id === measureOverride.id ? { ...m, offset_cm: measureOverride.offsetCm } : m)) : measurements}
           elementById={measurableById}
@@ -1010,13 +1038,28 @@ export function StagePlotCanvas({
                 y={(view === 'top' ? aim.v : -aim.v) - 3 / zoom}
                 width={18 / zoom}
                 height={6 / zoom}
-                fill="#f59e0b"
+                fill="#818cf8"
                 opacity={0.9}
               />
             ) : (
-              <circle cx={aim.u} cy={view === 'top' ? aim.v : -aim.v} r={5 / zoom} fill="none" stroke="#f59e0b" strokeWidth={2 / zoom} />
+              <circle cx={aim.u} cy={view === 'top' ? aim.v : -aim.v} r={5 / zoom} fill="none" stroke="#818cf8" strokeWidth={2 / zoom} />
             )}
           </g>
+        )}
+
+        {/* The rubber band: what the measurement would span if the pointer
+            picked here. */}
+        {measureFirstPoint && aim && (
+          <line
+            x1={measureFirstPoint.u}
+            y1={view === 'top' ? measureFirstPoint.v : -measureFirstPoint.v}
+            x2={aim.u}
+            y2={view === 'top' ? aim.v : -aim.v}
+            stroke="#818cf8"
+            strokeWidth={1 / zoom}
+            strokeDasharray={`${5 / zoom} ${4 / zoom}`}
+            pointerEvents="none"
+          />
         )}
 
         {/* The first pick, still waiting for its partner. */}
@@ -1025,7 +1068,7 @@ export function StagePlotCanvas({
             cx={measureFirstPoint.u}
             cy={view === 'top' ? measureFirstPoint.v : -measureFirstPoint.v}
             r={5 / zoom}
-            fill="#f59e0b"
+            fill="#6366f1"
             pointerEvents="none"
           />
         )}

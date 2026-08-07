@@ -136,3 +136,61 @@ func TestVisibleMidpointFollowsTheSheet(t *testing.T) {
 		t.Error("a line entirely off the sheet reported a visible midpoint")
 	}
 }
+
+// TestAMeasurementCrossingASheetDivisionStatesItselfOnBothParts is the
+// requirement task 6.5 claims: a plot too wide for one sheet divides, and a
+// dimension spanning the division is drawn on every part it reaches with its
+// value in full — not clipped to one and left as a bare line on the other.
+func TestAMeasurementCrossingASheetDivisionStatesItselfOnBothParts(t *testing.T) {
+	// Far wider than the smallest scale on the ladder can fit in one frame.
+	left := domain.StagePlotElement{ID: 1, PlotID: 1, LayerID: 1, Kind: "shape", ShapeKind: "rect",
+		XCm: 0, YCm: 0, WidthCm: 100, DepthCm: 100, HeightCm: 100}
+	right := domain.StagePlotElement{ID: 2, PlotID: 1, LayerID: 1, Kind: "shape", ShapeKind: "rect",
+		XCm: 90000, YCm: 0, WidthCm: 100, DepthCm: 100, HeightCm: 100}
+	one, two := int64(1), int64(2)
+	measurement := domain.StagePlotMeasurement{
+		ID: 1, PlotID: 1, LayerID: 1, View: "top", Type: "horizontal",
+		From: domain.MeasurementAnchor{ElementID: &one, Feature: "centre"},
+		To:   domain.MeasurementAnchor{ElementID: &two, Feature: "centre"},
+	}
+	doc := measurementDoc(t, []domain.StagePlotMeasurement{measurement},
+		[]domain.StagePlotElement{left, right}, []domain.StagePlotLayer{visibleLayer(1)})
+
+	topParts := 0
+	for _, sheet := range doc.planSheets() {
+		if sheet.view == ViewTop {
+			topParts++
+		}
+	}
+	if topParts < 2 {
+		t.Fatalf("the top view drew on %d sheets; this plot is meant to divide", topParts)
+	}
+
+	drawing, ok := doc.measurementDrawingFor(measurement, ViewTop)
+	if !ok {
+		t.Fatal("the measurement stated no distance")
+	}
+	if drawing.Value != 90000 {
+		t.Fatalf("value = %v, want 90000", drawing.Value)
+	}
+
+	// On every part the dimension reaches, the label finds somewhere visible to
+	// sit — which is what makes each part state the distance rather than show a
+	// line running off the edge.
+	reached := 0
+	for _, sheet := range doc.planSheets() {
+		if sheet.view != ViewTop {
+			continue
+		}
+		m := doc.mapper(sheet.view)
+		m.tileU, m.tileV = sheet.tileU, sheet.tileV
+		x1, y1 := m.X(drawing.LineA.U), m.Y(drawing.LineA.V)
+		x2, y2 := m.X(drawing.LineB.U), m.Y(drawing.LineB.V)
+		if _, _, ok := visibleMidpoint(x1, y1, x2, y2); ok {
+			reached++
+		}
+	}
+	if reached < 2 {
+		t.Errorf("the measurement stated itself on %d parts, want at least 2", reached)
+	}
+}

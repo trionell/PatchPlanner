@@ -131,13 +131,22 @@ func (d *plotDoc) drawMeasurement(measurement domain.StagePlotMeasurement, drawi
 	d.pdf.SetLineWidth(measureLineWeight)
 	d.pdf.Line(lax, lay, lbx, lby)
 
+	d.drawFaceRunOut(measurement, drawing, m)
+
 	label := fmt.Sprintf("%d cm", int(math.Round(drawing.Value)))
 	if measurement.Note != "" {
 		label = measurement.Note + "  " + label
 	}
 	// An arrowhead is the same size at 1:50 and at 1:500: it is a mark on
 	// paper, not a distance on the stage.
-	inside := float64(len(label))*measureValueSize*0.5 <= length-2*measureArrowLength
+	//
+	// The fit test asks the font, not a guess: measureValueSize is a POINT
+	// size and length is millimetres, so estimating characters against it
+	// compares two different units and pushes labels outside that would have
+	// fitted easily.
+	d.pdf.SetFontSize(measureValueSize)
+	labelWidth := d.pdf.GetStringWidth(d.tr(label))
+	inside := labelWidth <= length-2*measureArrowLength
 	sign := 1.0
 	if !inside {
 		sign = -1
@@ -158,8 +167,11 @@ func (d *plotDoc) drawMeasurement(measurement domain.StagePlotMeasurement, drawi
 	// rather than staying at a midpoint that may be on another sheet.
 	labelX, labelY := (lax+lbx)/2, (lay+lby)/2
 	if !inside {
-		labelX = lbx + ux*measureArrowLength*2
-		labelY = lby + uy*measureArrowLength*2
+		// Centred text placed just past the terminator puts half the label back
+		// on the arrowhead, which is the overlap being outside exists to avoid.
+		clear := measureArrowLength + labelWidth/2 + 1
+		labelX = lbx + ux*clear
+		labelY = lby + uy*clear
 	}
 	if vx, vy, ok := visibleMidpoint(lax, lay, lbx, lby); ok && inside {
 		labelX, labelY = vx, vy
@@ -198,4 +210,57 @@ func visibleMidpoint(x1, y1, x2, y2 float64) (float64, float64, bool) {
 	}
 	mid := (firstT + lastT) / 2
 	return x1 + (x2-x1)*mid, y1 + (y2-y1)*mid, true
+}
+
+// drawFaceRunOut extends a face's line to reach a perpendicular foot that falls
+// beyond the side's drawn extent. Without it the foot, and its right angle, sit
+// in empty space with nothing to be perpendicular TO.
+func (d *plotDoc) drawFaceRunOut(measurement domain.StagePlotMeasurement, drawing MeasurementDrawing, m plotMapper) {
+	view := PlotView(measurement.View)
+	for i, anchor := range []domain.MeasurementAnchor{measurement.From, measurement.To} {
+		if !anchor.IsElement() || !anchor.Slide {
+			continue
+		}
+		element, ok := d.elementByID[*anchor.ElementID]
+		if !ok {
+			continue
+		}
+		feature, err := ParseAnchorFeature(anchor.Feature)
+		if err != nil {
+			continue
+		}
+		line, ok := ProjectFaceLine(element, view, feature)
+		if !ok {
+			continue
+		}
+		foot := drawing.A
+		if i == 1 {
+			foot = drawing.B
+		}
+		if near, out := runOutFrom(line, foot); out {
+			d.pdf.SetLineWidth(measureExtensionWidth)
+			d.pdf.Line(m.X(near.U), m.Y(near.V), m.X(foot.U), m.Y(foot.V))
+			d.pdf.SetLineWidth(measureLineWeight)
+		}
+	}
+}
+
+// runOutFrom reports the end of the drawn side nearest a foot that lies beyond
+// it, and whether the foot is outside at all.
+func runOutFrom(line FaceLine, foot PlaneVec) (PlaneVec, bool) {
+	along := func(p PlaneVec) float64 { return p.U*line.Dir.U + p.V*line.Dir.V }
+	lo, hi := along(line.Segment[0]), along(line.Segment[1])
+	if lo > hi {
+		lo, hi = hi, lo
+		line.Segment[0], line.Segment[1] = line.Segment[1], line.Segment[0]
+	}
+	at := along(foot)
+	// A hair of tolerance: a foot exactly on the end needs no run-out.
+	if at < lo-0.01 {
+		return line.Segment[0], true
+	}
+	if at > hi+0.01 {
+		return line.Segment[1], true
+	}
+	return PlaneVec{}, false
 }

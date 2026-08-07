@@ -199,21 +199,39 @@ func (h StagePlotsHandler) updateMeasurement(w http.ResponseWriter, r *http.Requ
 		writeError(w, http.StatusNotFound, "measurement not found")
 		return
 	}
-	// A PATCH states the whole measurement, as the element endpoints do: the
-	// anchors are a pair and re-anchoring one end can invalidate the other.
+	// Scalars prefill and are overwritten by whatever the body names. The two
+	// ANCHORS cannot: decoding into a prefilled struct leaves untouched fields
+	// alone, so a body naming only `u_cm`/`v_cm` would keep the old
+	// `element_id` beside it and the end would be both kinds at once — which
+	// validation then rejects. A re-anchor from an element onto a free point is
+	// the commonest edit there is, so each anchor is decoded as a POINTER and
+	// replaces its side whole.
 	req := stagePlotMeasurementRequest{
 		LayerID:   existing.LayerID,
 		View:      existing.View,
 		Type:      existing.Type,
-		From:      measurementAnchorRequest{ElementID: existing.From.ElementID, Feature: existing.From.Feature, Slide: existing.From.Slide, UCm: existing.From.UCm, VCm: existing.From.VCm},
-		To:        measurementAnchorRequest{ElementID: existing.To.ElementID, Feature: existing.To.Feature, Slide: existing.To.Slide, UCm: existing.To.UCm, VCm: existing.To.VCm},
 		OffsetCm:  existing.OffsetCm,
 		Note:      existing.Note,
 		SortOrder: existing.SortOrder,
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	patch := struct {
+		*stagePlotMeasurementRequest
+		From *measurementAnchorRequest `json:"from"`
+		To   *measurementAnchorRequest `json:"to"`
+	}{stagePlotMeasurementRequest: &req}
+	if err := json.NewDecoder(r.Body).Decode(&patch); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
 		return
+	}
+	if patch.From != nil {
+		req.From = *patch.From
+	} else {
+		req.From = measurementAnchorRequest{ElementID: existing.From.ElementID, Feature: existing.From.Feature, Slide: existing.From.Slide, UCm: existing.From.UCm, VCm: existing.From.VCm}
+	}
+	if patch.To != nil {
+		req.To = *patch.To
+	} else {
+		req.To = measurementAnchorRequest{ElementID: existing.To.ElementID, Feature: existing.To.Feature, Slide: existing.To.Slide, UCm: existing.To.UCm, VCm: existing.To.VCm}
 	}
 	if message := req.validate(); message != "" {
 		writeError(w, http.StatusBadRequest, message)
