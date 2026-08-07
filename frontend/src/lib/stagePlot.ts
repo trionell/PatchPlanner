@@ -857,6 +857,19 @@ export function measurementsAnchoredTo(measurements: StagePlotMeasurement[], ele
  */
 export const MEASURE_PICK_PX = 18
 
+/**
+ * How near the pointer has to be to take a CORNER or a SIDE MIDPOINT.
+ *
+ * Tighter than the pick radius on purpose. Those two share a side with the
+ * FACE, and a point in range beats a face — so a single generous radius makes
+ * the corner and midpoint zones meet in the middle and the face becomes
+ * unreachable, which is what raising the radius to 18 px did (field test,
+ * 2026-08-07). The centre and the face keep the full radius: nothing competes
+ * with the centre, and the face is what you get when you are deliberately not
+ * near a point. The anchors are drawn now, so a tighter target is aimable.
+ */
+export const MEASURE_POINT_PX = 11
+
 /** How near the pointer has to be to an element for its anchors to be SHOWN.
  *  Generous: seeing the candidates is what makes them pickable. */
 export const MEASURE_HINT_PX = 44
@@ -892,13 +905,18 @@ export function aimAtAnchor(
   view: StagePlotView,
   point: PlaneVec,
   thresholdCm: number,
+  pointThresholdCm = thresholdCm,
 ): AimedAnchor | null {
   let best: (AimedAnchor & { distance: number }) | null = null
 
   for (const element of elements) {
     for (const offered of offeredAnchors(element, view)) {
+      // A corner and a side midpoint live ON a face, so their reach has to
+      // leave the face somewhere to be. The centre shares its ground with
+      // nothing and keeps the full radius.
+      const reach = offered.feature.kind === 'centre' ? thresholdCm : pointThresholdCm
       const distance = Math.hypot(point.u - offered.point.u, point.v - offered.point.v)
-      if (distance > thresholdCm) continue
+      if (distance > reach) continue
       if (!best || distance < best.distance) {
         best = { elementId: element.id, feature: offered.feature, slide: false, point: offered.point, distance }
       }

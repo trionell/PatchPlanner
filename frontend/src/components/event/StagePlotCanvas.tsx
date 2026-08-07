@@ -4,6 +4,7 @@ import type { MeasurementType, PlotTruss, StagePlot, StagePlotElement, StagePlot
 import type { StagePlotElementPatch, StagePlotMeasurementCreate, StagePlotMeasurementPatch } from '../../api/stagePlots'
 import type { PlotViewState } from '../../hooks/usePlotView'
 import {
+  MEASURE_POINT_PX,
   measurementSpan,
   faceLine,
   anchorFeatureLabel,
@@ -249,7 +250,7 @@ export function StagePlotCanvas({
    *  otherwise a free point on the grid. */
   const anchorAt = (svgPoint: { u: number; v: number }): StagePlotMeasurement['from'] => {
     const projected = svgToProjected(svgPoint)
-    const aimed = aimAtAnchor(measurableElements, view, projected, MEASURE_PICK_PX / zoom)
+    const aimed = aimAtAnchor(measurableElements, view, projected, MEASURE_PICK_PX / zoom, MEASURE_POINT_PX / zoom)
     if (aimed) {
       return { element_id: aimed.elementId, feature: formatAnchorFeature(aimed.feature), slide: aimed.slide }
     }
@@ -259,7 +260,7 @@ export function StagePlotCanvas({
 
   const aimPreviewAt = (svgPoint: { u: number; v: number }) => {
     const projected = svgToProjected(svgPoint)
-    const aimed = aimAtAnchor(measurableElements, view, projected, MEASURE_PICK_PX / zoom)
+    const aimed = aimAtAnchor(measurableElements, view, projected, MEASURE_PICK_PX / zoom, MEASURE_POINT_PX / zoom)
     if (aimed) {
       const owner = measurableById.get(aimed.elementId)
       return {

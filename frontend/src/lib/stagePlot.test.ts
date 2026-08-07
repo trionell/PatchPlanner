@@ -7,6 +7,7 @@ import {
   anchorHintFor,
   MEASURE_HINT_PX,
   MEASURE_PICK_PX,
+  MEASURE_POINT_PX,
   SNAP_THRESHOLD_PX,
   anchorPoint,
   faceLine,
@@ -772,6 +773,22 @@ describe('reaching an anchor', () => {
     // radius is 9 cm and still reaches. That gap is the whole complaint.
     expect(aimAtAnchor([el], 'top', near, MEASURE_PICK_PX / 2)!.feature).toEqual({ kind: 'centre' })
     expect(aimAtAnchor([el], 'top', near, SNAP_THRESHOLD_PX / 2)).toBeNull()
+  })
+
+  it('leaves the face reachable between its corner and its midpoint', () => {
+    // The three zones, at a zoom where the pick radius is 60 cm and the point
+    // radius 36.7. Walking along the +x side of a 400×200 element from its
+    // corner (200, 100) to its midpoint (200, 0).
+    const zoom = 0.3
+    const at = (v: number) => aimAtAnchor([el], 'top', { u: 200, v }, MEASURE_PICK_PX / zoom, MEASURE_POINT_PX / zoom)
+    expect(at(95)!.feature.kind).toBe('corner')
+    expect(at(95)!.slide).toBe(false)
+    expect(at(5)!.feature).toEqual({ kind: 'face', axis: 0, sign: 1 })
+    expect(at(5)!.slide).toBe(false)
+    // Between them is the face, taken as a sliding plane — the zone a single
+    // generous radius swallowed entirely.
+    expect(at(55)!.feature).toEqual({ kind: 'face', axis: 0, sign: 1 })
+    expect(at(55)!.slide).toBe(true)
   })
 
   it('offers the whole element’s anchors once the pointer is near it', () => {

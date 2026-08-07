@@ -162,6 +162,38 @@ func TestMeasurementFreeEndpoints(t *testing.T) {
 	}
 }
 
+// TestMeasurementSlideSurvives is the field the plane anchor hinges on: stored
+// as an INTEGER, read back as a bool, and omitted from JSON when false. If it
+// silently came back false, every plane measurement would quietly become a
+// measurement to that face's midpoint.
+func TestMeasurementSlideSurvives(t *testing.T) {
+	server, _ := newTestServer(t)
+	eventID := seedEvent(t, server.URL)
+	plot := seedStagePlot(t, server.URL, eventID, "Main stage")
+	layer := getPlotResponse(t, server.URL, eventID, plot.ID).Layers[0]
+	element := seedMeasurableElement(t, server.URL, eventID, plot.ID, layer.ID, 0, 0)
+
+	status, raw := doJSON(t, http.MethodPost, measurementsURL(server.URL, eventID, plot.ID), map[string]any{
+		"layer_id": layer.ID, "view": "top", "type": "aligned",
+		"from": map[string]any{"element_id": element.ID, "feature": "face:+x", "slide": true},
+		"to":   map[string]any{"u_cm": 900, "v_cm": 900},
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("create a plane measurement: status %d body %s", status, raw)
+	}
+	if created := decodeJSON[domain.StagePlotMeasurement](t, raw); !created.From.Slide {
+		t.Fatalf("slide was lost on the way out: %+v", created.From)
+	}
+
+	reread := getPlotResponse(t, server.URL, eventID, plot.ID).Measurements
+	if len(reread) != 1 || !reread[0].From.Slide {
+		t.Errorf("slide was lost on the way back: %+v", reread)
+	}
+	if reread[0].To.Slide {
+		t.Errorf("a free point came back sliding: %+v", reread[0].To)
+	}
+}
+
 func TestMeasurementValidation(t *testing.T) {
 	server, _ := newTestServer(t)
 	eventID := seedEvent(t, server.URL)
