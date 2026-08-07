@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { StagePlotElement, StagePlotMeasurement } from '../types'
 import {
+  aimAtAnchor,
   allowsPlaneAnchor,
   anchorPoint,
   faceLine,
@@ -707,5 +708,42 @@ describe('measurementsAnchoredTo', () => {
     expect(measurementAnchorElementIds(measurements[0])).toEqual([7, 8])
     expect(measurementAnchorElementIds(measurements[2])).toEqual([7])
     expect(measurementAnchorElementIds(measurements[3])).toEqual([])
+  })
+})
+
+describe('aimAtAnchor', () => {
+  const el = element({ id: 5, kind: 'shape', shape_kind: 'rect', x_cm: 0, y_cm: 0, width_cm: 400, depth_cm: 200, height_cm: 100 })
+
+  it('takes a corner when the pointer is on one', () => {
+    const aimed = aimAtAnchor([el], 'top', { u: 198, v: 99 }, 8)
+    expect(aimed!.feature.kind).toBe('corner')
+    expect(aimed!.slide).toBe(false)
+  })
+
+  it('takes a side midpoint when the pointer is on one', () => {
+    const aimed = aimAtAnchor([el], 'top', { u: 200, v: 2 }, 8)
+    expect(aimed!.feature).toEqual({ kind: 'face', axis: 0, sign: 1 })
+    expect(aimed!.slide).toBe(false)
+  })
+
+  it('takes the face as a plane between the midpoint and the corner', () => {
+    // Same side, well away from both its midpoint and its corners: the third
+    // zone, and the one the request is about.
+    const aimed = aimAtAnchor([el], 'top', { u: 200, v: 60 }, 8)
+    expect(aimed!.feature).toEqual({ kind: 'face', axis: 0, sign: 1 })
+    expect(aimed!.slide).toBe(true)
+    // The aimed point rides the line under the pointer.
+    expect(aimed!.point.u).toBe(200)
+    expect(aimed!.point.v).toBeCloseTo(60, 6)
+  })
+
+  it('takes nothing out in the open', () => {
+    expect(aimAtAnchor([el], 'top', { u: 900, v: 900 }, 8)).toBeNull()
+  })
+
+  it('never offers an ellipse a plane', () => {
+    const round = element({ id: 6, kind: 'shape', shape_kind: 'ellipse', x_cm: 0, y_cm: 0, width_cm: 400, depth_cm: 200, height_cm: 100 })
+    expect(aimAtAnchor([round], 'top', { u: 200, v: 60 }, 8)).toBeNull()
+    expect(aimAtAnchor([round], 'top', { u: 200, v: 0 }, 8)!.slide).toBe(false)
   })
 })

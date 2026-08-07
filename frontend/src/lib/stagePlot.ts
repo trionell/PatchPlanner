@@ -1,4 +1,4 @@
-import type { MeasurementType, StagePlotElement, StagePlotMeasurement, StagePlotView, TrussSide } from '../types'
+import type { MeasurementAnchor, MeasurementType, StagePlotElement, StagePlotLayer, StagePlotMeasurement, StagePlotView, TrussSide } from '../types'
 
 // Pure geometry for the stage plot editor. Everything works in
 // centimetres; the canvas renders 1 SVG user unit = 1 cm, so these
@@ -843,4 +843,139 @@ export function measurementAnchorElementIds(measurement: StagePlotMeasurement): 
  */
 export function measurementsAnchoredTo(measurements: StagePlotMeasurement[], elementId: number): number {
   return measurements.filter((m) => measurementAnchorElementIds(m).includes(elementId)).length
+}
+
+export interface AimedAnchor {
+  elementId: number
+  feature: AnchorFeature
+  /** True when the face is taken as a sliding plane rather than as its midpoint. */
+  slide: boolean
+  point: PlaneVec
+}
+
+function distanceToSegment(p: PlaneVec, a: PlaneVec, b: PlaneVec): number {
+  const du = b.u - a.u
+  const dv = b.v - a.v
+  const lengthSquared = du * du + dv * dv
+  if (lengthSquared === 0) return Math.hypot(p.u - a.u, p.v - a.v)
+  let t = ((p.u - a.u) * du + (p.v - a.v) * dv) / lengthSquared
+  t = Math.max(0, Math.min(1, t))
+  return Math.hypot(p.u - (a.u + t * du), p.v - (a.v + t * dv))
+}
+
+/**
+ * The anchor a pointer is aiming at, or null.
+ *
+ * Along any side there are exactly three zones and no dead ground: two corner
+ * zones, one midpoint zone, and everything else on that side is the face taken
+ * as a sliding plane. Points win over faces wherever both are in range, which
+ * is what makes a corner reachable at all — it sits on two faces.
+ */
+export function aimAtAnchor(
+  elements: StagePlotElement[],
+  view: StagePlotView,
+  point: PlaneVec,
+  thresholdCm: number,
+): AimedAnchor | null {
+  let best: (AimedAnchor & { distance: number }) | null = null
+
+  for (const element of elements) {
+    for (const offered of offeredAnchors(element, view)) {
+      const distance = Math.hypot(point.u - offered.point.u, point.v - offered.point.v)
+      if (distance > thresholdCm) continue
+      if (!best || distance < best.distance) {
+        best = { elementId: element.id, feature: offered.feature, slide: false, point: offered.point, distance }
+      }
+    }
+  }
+  // A point anchor anywhere in range wins outright: the corner and the
+  // midpoint are the precise answers, and the face is the one you get when
+  // you are deliberately not near either.
+  if (best) return { elementId: best.elementId, feature: best.feature, slide: best.slide, point: best.point }
+
+  for (const element of elements) {
+    if (!allowsPlaneAnchor(element)) continue
+    for (const offered of offeredAnchors(element, view)) {
+      if (offered.feature.kind !== 'face' || !offered.allowSlide) continue
+      const line = faceLine(element, view, offered.feature)
+      if (!line) continue
+      const distance = distanceToSegment(point, line.segment[0], line.segment[1])
+      if (distance > thresholdCm) continue
+      if (!best || distance < best.distance) {
+        // The aimed point rides the face's line under the pointer; where it
+        // finally sits is decided by the other end, when the pair is measured.
+        const along = (point.u - line.point.u) * line.dir.u + (point.v - line.point.v) * line.dir.v
+        best = {
+          elementId: element.id,
+          feature: offered.feature,
+          slide: true,
+          point: { u: roundCm(line.point.u + along * line.dir.u), v: roundCm(line.point.v + along * line.dir.v) },
+          distance,
+        }
+      }
+    }
+  }
+  return best ? { elementId: best.elementId, feature: best.feature, slide: best.slide, point: best.point } : null
+}
+
+/**
+ * One end of a measurement, resolved against the plot's current elements.
+ * Returns null when the end cannot be resolved at all — an element that has
+ * gone, or a face that has turned flat and can no longer be a line.
+ */
+export function resolveEnd(
+  anchor: MeasurementAnchor,
+  elementById: Map<number, StagePlotElement>,
+  view: StagePlotView,
+): MeasurementEnd | null {
+  if (anchor.element_id === undefined) {
+    if (anchor.u_cm === undefined || anchor.v_cm === undefined) return null
+    return { kind: 'point', point: { u: anchor.u_cm, v: anchor.v_cm } }
+  }
+  const element = elementById.get(anchor.element_id)
+  if (!element) return null
+  const feature = parseAnchorFeature(anchor.feature ?? '')
+  if (!feature) return null
+  if (anchor.slide) {
+    const line = faceLine(element, view, feature)
+    // A face that has turned flat has no line left. The measurement does not
+    // break: it falls back to that face's centre, which still projects.
+    if (line) return { kind: 'line', line }
+  }
+  return { kind: 'point', point: anchorPoint(element, view, feature) }
+}
+
+/** Everything needed to draw one measurement, or null if it states nothing. */
+export function measurementGeometry(
+  measurement: StagePlotMeasurement,
+  elementById: Map<number, StagePlotElement>,
+  view: StagePlotView,
+): MeasurementDrawing | null {
+  const from = resolveEnd(measurement.from, elementById, view)
+  const to = resolveEnd(measurement.to, elementById, view)
+  if (!from || !to) return null
+  const span = measurementSpan(from, to, measurement.type)
+  if (!span) return null
+  return measurementDrawing(span, measurement.offset_cm)
+}
+
+/**
+ * Which measurements draw: their own layer visible, and every element they
+ * anchor to visible too. A measurement whose far end refers to something no
+ * longer shown would be stating a distance to nothing.
+ */
+export function visibleMeasurements(
+  measurements: StagePlotMeasurement[],
+  view: StagePlotView,
+  elementById: Map<number, StagePlotElement>,
+  layerById: Map<number, StagePlotLayer>,
+): StagePlotMeasurement[] {
+  return measurements.filter((measurement) => {
+    if (measurement.view !== view) return false
+    if (layerById.get(measurement.layer_id)?.visible === false) return false
+    return measurementAnchorElementIds(measurement).every((id) => {
+      const element = elementById.get(id)
+      return element !== undefined && layerById.get(element.layer_id)?.visible !== false
+    })
+  })
 }
