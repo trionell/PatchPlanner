@@ -131,3 +131,42 @@ describe('PlotMeasurementLayer hit targets', () => {
     expect(render({ selectedMeasurementId: 1 })).toContain('#f59e0b')
   })
 })
+
+describe('a measurement against a face line', () => {
+  // A truss yawed across the stage, measured perpendicular to its long side
+  // from a point well past its end: the foot lands on the face's INFINITE
+  // line, outside the bar that is actually drawn.
+  const truss = element({ id: 3, layer_id: 1, name: 'Truss', x_cm: 0, y_cm: 0, width_cm: 600, depth_cm: 30, height_cm: 30, rotation_deg: 30 })
+  const past: StagePlotMeasurement = measurement({
+    from: { u_cm: 1200, v_cm: -600 },
+    to: { element_id: 3, feature: 'face:+y', slide: true },
+  })
+  const props = { measurements: [past], elementById: new Map([[3, truss]]) }
+
+  it('admits that the foot is off the end of the drawn side', () => {
+    const html = render(props)
+    // Dashed run-out: the part of the line that is not on the object.
+    expect(html).toContain('stroke-dasharray')
+  })
+
+  it('draws the run-out for a locked type too, which meets the line just as far out', () => {
+    const locked = render({ ...props, measurements: [{ ...past, type: 'horizontal' }] })
+    expect(locked).toContain('stroke-dasharray')
+  })
+
+  it('claims a right angle only where there is one', () => {
+    // Aligned meets the face's normal: perpendicular, and marked.
+    expect(render(props)).toContain('<polyline')
+    // Locked meets it along a view axis on purpose. That is not a right angle
+    // and must not be drawn as one.
+    expect(render({ ...props, measurements: [{ ...past, type: 'vertical' }] })).not.toContain('<polyline')
+  })
+
+  it('draws no run-out when the foot lands on the side itself', () => {
+    const onIt = measurement({
+      from: { u_cm: 0, v_cm: -400 },
+      to: { element_id: 3, feature: 'face:+y', slide: true },
+    })
+    expect(render({ ...props, measurements: [onIt] })).not.toContain('stroke-dasharray')
+  })
+})

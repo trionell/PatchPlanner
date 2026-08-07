@@ -4,6 +4,7 @@ import {
   measurementGeometry,
   resolveEnd,
   visibleMeasurements,
+  type FaceLine,
   type MeasurementDrawing,
   type PlaneVec,
 } from '../../lib/stagePlot'
@@ -163,22 +164,34 @@ export function PlotMeasurementLayer({
         const labelX = inside ? midX : lineB.x + ux * px(ARROW_LENGTH_PX * 2)
         const labelY = inside ? midY : lineB.y + uy * px(ARROW_LENGTH_PX * 2)
 
-        // A right angle is drawn only where there IS one: the end resolved to a
-        // line (a face that has turned flat falls back to a point and claims
-        // nothing), and the type is aligned — a locked type meets the face
-        // along a view axis on purpose, which is not perpendicular. The mark's
-        // arms come from the FACE's own direction and normal; the dimension
-        // line's direction is a different thing under a locked type.
+        // Ends that resolved to a FACE LINE rather than a point. A face that
+        // has turned flat falls back to a point and is not one of these.
         const fromEnd = resolveEnd(measurement.from, elementById, view)
         const toEnd = resolveEnd(measurement.to, elementById, view)
-        const lineEnd =
-          measurement.type !== 'aligned'
-            ? null
-            : fromEnd?.kind === 'line'
-              ? ({ at: a, line: fromEnd.line } as const)
-              : toEnd?.kind === 'line'
-                ? ({ at: b, line: toEnd.line } as const)
-                : null
+        const flip = view === 'top' ? 1 : -1
+        const lineEnds = [
+          fromEnd?.kind === 'line' ? { at: a, projected: drawing.a, line: fromEnd.line } : null,
+          toEnd?.kind === 'line' ? { at: b, projected: drawing.b, line: toEnd.line } : null,
+        ].filter((entry): entry is { at: { x: number; y: number }; projected: PlaneVec; line: FaceLine } => entry !== null)
+
+        // A right angle is claimed only by an ALIGNED measurement: a locked one
+        // meets the face along a view axis on purpose, and that is not
+        // perpendicular. The mark's arms come from the face's own axes, not the
+        // dimension line's, which is a different direction under a locked type.
+        const rightAngle = measurement.type === 'aligned' ? (lineEnds[0] ?? null) : null
+
+        // Where the foot falls past the end of the side actually drawn, the
+        // measurement is against the face's INFINITE line — a fact the drawing
+        // has to admit, or the dimension appears to touch thin air.
+        const runOuts = lineEnds
+          .map((entry) => {
+            const along = (p: PlaneVec) => p.u * entry.line.dir.u + p.v * entry.line.dir.v
+            const ends = [...entry.line.segment].sort((p, q) => along(p) - along(q))
+            const foot = along(entry.projected)
+            const near = foot < along(ends[0]) - 0.01 ? ends[0] : foot > along(ends[1]) + 0.01 ? ends[1] : null
+            return near ? { near, at: entry.at, line: entry.line } : null
+          })
+          .filter((entry): entry is { near: PlaneVec; at: { x: number; y: number }; line: FaceLine } => entry !== null)
 
         const handleX = midX + nx * px(HANDLE_LIFT_PX)
         const handleY = midY + ny * px(HANDLE_LIFT_PX)
@@ -213,44 +226,51 @@ export function PlotMeasurementLayer({
             <polygon points={arrow(lineA, inside ? 1 : -1)} fill={ink} />
             <polygon points={arrow(lineB, inside ? -1 : 1)} fill={ink} />
 
-            {lineEnd &&
+            {rightAngle &&
               (() => {
-                const flip = view === 'top' ? 1 : -1
-                const fx = lineEnd.line.dir.u
-                const fy = lineEnd.line.dir.v * flip
-                const gx = lineEnd.line.normal.u
-                const gy = lineEnd.line.normal.v * flip
+                const fx = rightAngle.line.dir.u
+                const fy = rightAngle.line.dir.v * flip
+                const gx = rightAngle.line.normal.u
+                const gy = rightAngle.line.normal.v * flip
                 const arm = px(7)
-                const p0 = `${lineEnd.at.x + fx * arm},${lineEnd.at.y + fy * arm}`
-                const p1 = `${lineEnd.at.x + (fx + gx) * arm},${lineEnd.at.y + (fy + gy) * arm}`
-                const p2 = `${lineEnd.at.x + gx * arm},${lineEnd.at.y + gy * arm}`
+                const p0 = `${rightAngle.at.x + fx * arm},${rightAngle.at.y + fy * arm}`
+                const p1 = `${rightAngle.at.x + (fx + gx) * arm},${rightAngle.at.y + (fy + gy) * arm}`
+                const p2 = `${rightAngle.at.x + gx * arm},${rightAngle.at.y + gy * arm}`
                 return <polyline points={`${p0} ${p1} ${p2}`} fill="none" stroke={ink} strokeWidth={px(1)} />
               })()}
 
-            {/* The run-out: where the perpendicular foot falls past the end of
-                the drawn side, the side's line is extended to reach it —
-                otherwise the foot and its right angle sit in empty space with
-                nothing to be perpendicular to. */}
-            {lineEnd &&
-              (() => {
-                const flip = view === 'top' ? 1 : -1
-                const alongDir = (p: PlaneVec) => p.u * lineEnd.line.dir.u + p.v * lineEnd.line.dir.v
-                const ends = [...lineEnd.line.segment].sort((p, q) => alongDir(p) - alongDir(q))
-                const footAlong = alongDir(lineEnd.at === a ? drawing.a : drawing.b)
-                const near = footAlong < alongDir(ends[0]) - 0.01 ? ends[0] : footAlong > alongDir(ends[1]) + 0.01 ? ends[1] : null
-                if (!near) return null
-                return (
+            {/* The run-out, and the tick that says where the real edge stopped.
+                Dashed is the drawing saying "this part of the line is not on
+                the object" — the measurement is to the face's infinite line,
+                and the tick marks the last point that is actually the truss. */}
+            {runOuts.map((entry, index) => {
+              const nearX = entry.near.u
+              const nearY = entry.near.v * flip
+              const tx = entry.line.normal.u
+              const ty = entry.line.normal.v * flip
+              const tick = px(4)
+              return (
+                <g key={`runout-${index}`}>
                   <line
-                    x1={near.u}
-                    y1={near.v * flip}
-                    x2={lineEnd.at.x}
-                    y2={lineEnd.at.y}
+                    x1={nearX}
+                    y1={nearY}
+                    x2={entry.at.x}
+                    y2={entry.at.y}
                     stroke={ink}
                     strokeWidth={px(0.75)}
                     strokeDasharray={`${px(3)} ${px(2)}`}
                   />
-                )
-              })()}
+                  <line
+                    x1={nearX - tx * tick}
+                    y1={nearY - ty * tick}
+                    x2={nearX + tx * tick}
+                    y2={nearY + ty * tick}
+                    stroke={ink}
+                    strokeWidth={px(1.25)}
+                  />
+                </g>
+              )
+            })}
 
             <text
               x={labelX}

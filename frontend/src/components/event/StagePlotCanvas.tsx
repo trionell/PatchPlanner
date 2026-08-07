@@ -379,6 +379,17 @@ export function StagePlotCanvas({
 
   const handleElementPointerDown = (event: ReactPointerEvent, element: StagePlotElement) => {
     if (event.button !== 0) return
+    // An armed measure tool takes the press before anything else can swallow
+    // it. Every anchor a measurement wants is ON an element — a corner, a side,
+    // a centre — and each of these handlers stops propagation, so without this
+    // the only picks that ever reached the canvas were the ones on empty floor.
+    // That is why it appeared to snap to the grid and nothing else.
+    if (measureType && !isMobile && !readOnly) {
+      event.stopPropagation()
+      svgRef.current?.setPointerCapture(event.pointerId)
+      handleMeasurePick(clientToCm(event.clientX, event.clientY))
+      return
+    }
     const layer = layerById.get(element.layer_id)
     const locked = layer?.locked ?? false
     event.stopPropagation()
@@ -414,7 +425,14 @@ export function StagePlotCanvas({
   }
 
   const handleFixturePointerDown = (event: ReactPointerEvent, element: StagePlotElement, trussId: number, fixture: { fixture_id: number; side: TrussSide }, offsetCm: number) => {
-    if (event.button !== 0 || !onAttachFixture || readOnly) return
+    if (event.button !== 0) return
+    if (measureType && !isMobile && !readOnly) {
+      event.stopPropagation()
+      svgRef.current?.setPointerCapture(event.pointerId)
+      handleMeasurePick(clientToCm(event.clientX, event.clientY))
+      return
+    }
+    if (!onAttachFixture || readOnly) return
     if (layerById.get(element.layer_id)?.locked) return
     event.stopPropagation()
     svgRef.current?.setPointerCapture(event.pointerId)
@@ -422,7 +440,14 @@ export function StagePlotCanvas({
   }
 
   const handleHandlePointerDown = (event: ReactPointerEvent, element: StagePlotElement, mode: 'resize' | 'rotate') => {
-    if (event.button !== 0 || readOnly) return
+    if (event.button !== 0) return
+    if (measureType && !isMobile && !readOnly) {
+      event.stopPropagation()
+      svgRef.current?.setPointerCapture(event.pointerId)
+      handleMeasurePick(clientToCm(event.clientX, event.clientY))
+      return
+    }
+    if (readOnly) return
     event.stopPropagation()
     svgRef.current?.setPointerCapture(event.pointerId)
     setDrag(mode === 'resize' ? { kind: 'resize', elementId: element.id, origin: element } : { kind: 'rotate', elementId: element.id, origin: element })
@@ -982,17 +1007,20 @@ export function StagePlotCanvas({
         {view !== 'top' && (
           <line x1={panX - 100000} x2={panX + 100000} y1={0} y2={0} stroke="#3f3f46" strokeWidth={1.5 / zoom} strokeDasharray={`${10 / zoom} ${6 / zoom}`} />
         )}
-        <PlotMeasurementLayer
-          measurements={measurements}
-          elementById={measurableById}
-          layerById={layerById}
-          view={view}
-          zoom={zoom}
-          selectedMeasurementId={selectedMeasurementId}
-          isMobile={isMobile}
-          pass="targets"
-          onSelect={(id) => onSelectMeasurement?.(id)}
-        />
+        {/* While a tool is armed nothing is selectable: every press is a pick. */}
+        {!measureType && (
+          <PlotMeasurementLayer
+            measurements={measurements}
+            elementById={measurableById}
+            layerById={layerById}
+            view={view}
+            zoom={zoom}
+            selectedMeasurementId={selectedMeasurementId}
+            isMobile={isMobile}
+            pass="targets"
+            onSelect={(id) => onSelectMeasurement?.(id)}
+          />
+        )}
 
         {orderedLayers
           .filter((layer) => layer.visible)

@@ -238,9 +238,21 @@ func (d *plotDoc) drawFaceRunOut(measurement domain.StagePlotMeasurement, drawin
 			foot = drawing.B
 		}
 		if near, out := runOutFrom(line, foot); out {
+			// Dashed: this part of the line is not on the object. The
+			// measurement is to the face's infinite line, and the tick marks
+			// the last point that is actually the element.
 			d.pdf.SetLineWidth(measureExtensionWidth)
+			d.pdf.SetDashPattern([]float64{1, 0.8}, 0)
 			d.pdf.Line(m.X(near.U), m.Y(near.V), m.X(foot.U), m.Y(foot.V))
+			d.pdf.SetDashPattern(nil, 0)
+
+			const tick = 1.0
+			nx, ny := line.Normal.U, line.Normal.V
+			if view != ViewTop {
+				ny = -ny
+			}
 			d.pdf.SetLineWidth(measureLineWeight)
+			d.pdf.Line(m.X(near.U)-nx*tick, m.Y(near.V)-ny*tick, m.X(near.U)+nx*tick, m.Y(near.V)+ny*tick)
 		}
 	}
 }
