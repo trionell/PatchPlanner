@@ -201,8 +201,12 @@ func ProjectFaceLine(element domain.StagePlotElement, view PlotView, feature Anc
 				U: float64(feature.Sign)*half[feature.Axis]*axes[feature.Axis].U + sj*half[others[0]]*axes[others[0]].U + sk*half[others[1]]*axes[others[1]].U,
 				V: float64(feature.Sign)*half[feature.Axis]*axes[feature.Axis].V + sj*half[others[0]]*axes[others[0]].V + sk*half[others[1]]*axes[others[1]].V,
 			}
+			// drawnToProjected gives a DISPLACEMENT from the element's centre,
+			// and base below is taken from the absolute face centre — so this
+			// has to be absolute too, or the side's extent is offset by the
+			// projection of wherever the element happens to stand.
 			p := drawnToProjected(offset, rect, view)
-			t := p.U*dir.U + p.V*dir.V
+			t := (rect.U+p.U)*dir.U + (rect.V+p.V)*dir.V
 			minT = math.Min(minT, t)
 			maxT = math.Max(maxT, t)
 		}

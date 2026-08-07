@@ -95,6 +95,25 @@ func TestProjectFaceLine(t *testing.T) {
 	closeTo(t, "face line dir v", math.Abs(line.Dir.V), 1, 1e-6)
 	closeTo(t, "drawn extent", math.Hypot(line.Segment[1].U-line.Segment[0].U, line.Segment[1].V-line.Segment[0].V), 30, 1e-6)
 
+	// The length assertion above is the same wherever the side is put, so an
+	// offset segment passed it. These assert its POSITION, on an element
+	// standing away from the origin — where the error grew with the distance.
+	placed := plotElement(func(e *domain.StagePlotElement) {
+		e.XCm, e.YCm, e.ZCm = 800, 500, 0
+		e.WidthCm, e.DepthCm, e.HeightCm = 400, 200, 100
+	})
+	placedLine, ok := ProjectFaceLine(placed, ViewTop, AnchorFeature{Kind: "face", Axis: 0, Sign: 1})
+	if !ok {
+		t.Fatal("the placed element's +x face was not offered")
+	}
+	low, high := placedLine.Segment[0], placedLine.Segment[1]
+	if low.V > high.V {
+		low, high = high, low
+	}
+	wantPoint(t, "placed side start", low, 1000, 400)
+	wantPoint(t, "placed side end", high, 1000, 600)
+	wantPoint(t, "placed side midpoint", PlaneVec{U: (low.U + high.U) / 2, V: (low.V + high.V) / 2}, placedLine.Point.U, placedLine.Point.V)
+
 	turned := element
 	turned.RotationDeg = 90
 	turnedLine, ok := ProjectFaceLine(turned, ViewTop, AnchorFeature{Kind: "face", Axis: 0, Sign: 1})

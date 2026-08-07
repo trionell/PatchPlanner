@@ -672,8 +672,12 @@ export function faceLine(element: StagePlotElement, view: StagePlotView, feature
       const offset = { u: 0, v: 0 }
       offset.u = feature.sign * half[feature.axis] * axes[feature.axis].u + sj * half[others[0]] * axes[others[0]].u + sk * half[others[1]] * axes[others[1]].u
       offset.v = feature.sign * half[feature.axis] * axes[feature.axis].v + sj * half[others[0]] * axes[others[0]].v + sk * half[others[1]] * axes[others[1]].v
+      // drawnToProjected gives a DISPLACEMENT from the element's centre, and
+      // `base` below is taken from the absolute face centre — so this has to be
+      // absolute too, or the side's extent is offset by the projection of
+      // wherever the element happens to stand.
       const p = drawnToProjected(offset, rect, view)
-      const t = p.u * dir.u + p.v * dir.v
+      const t = (rect.u + p.u) * dir.u + (rect.v + p.v) * dir.v
       if (t < min) min = t
       if (t > max) max = t
     }

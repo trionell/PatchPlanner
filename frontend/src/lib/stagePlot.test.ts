@@ -556,6 +556,35 @@ describe('faceLine', () => {
     expect(Math.hypot(q.u - p.u, q.v - p.v)).toBeCloseTo(30, 6)
   })
 
+  it('puts the side where the side actually is', () => {
+    // The previous test only measured the segment's LENGTH, which is the same
+    // wherever you put it — so an offset segment passed. This asserts its
+    // POSITION, on an element standing well away from the origin, where the
+    // error was proportional to how far away it stood.
+    const placed = element({ x_cm: 800, y_cm: 500, z_cm: 0, width_cm: 400, depth_cm: 200, height_cm: 100 })
+    const line = faceLine(placed, 'top', { kind: 'face', axis: 0, sign: 1 })!
+    // The +x side of a 400×200 element centred at (800, 500) runs from
+    // (1000, 400) to (1000, 600).
+    const [p, q] = [...line.segment].sort((a, b) => a.v - b.v)
+    expect(p).toEqual({ u: 1000, v: 400 })
+    expect(q).toEqual({ u: 1000, v: 600 })
+    // …and its midpoint is the face centre the anchor resolves to.
+    expect({ u: (p.u + q.u) / 2, v: (p.v + q.v) / 2 }).toEqual(line.point)
+  })
+
+  it('puts a rotated side where that side actually is', () => {
+    const yawed = element({ x_cm: 300, y_cm: 200, width_cm: 600, depth_cm: 40, height_cm: 40, rotation_deg: 90 })
+    const line = faceLine(yawed, 'top', { kind: 'face', axis: 1, sign: 1 })!
+    // Yawed 90°, the depth axis points along -x, so the +y face is the long
+    // side at u = 300 - 20, running 600 cm through the centre's v.
+    const [p, q] = [...line.segment].sort((a, b) => a.v - b.v)
+    expect(p.u).toBeCloseTo(280, 6)
+    expect(q.u).toBeCloseTo(280, 6)
+    expect(p.v).toBeCloseTo(-100, 6)
+    expect(q.v).toBeCloseTo(500, 6)
+    expect(line.point.v).toBeCloseTo(200, 6)
+  })
+
   it('turns with the element', () => {
     const turned = { ...el, rotation_deg: 90 }
     const line = faceLine(turned, 'top', { kind: 'face', axis: 0, sign: 1 })
