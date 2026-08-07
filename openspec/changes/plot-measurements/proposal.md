@@ -93,9 +93,13 @@ approved.
   and it is modelled as an explicit reference to the element and feature it anchors to, never
   as a cached number or a free-text label. Its value is always derived from that reference.
 - **II. Extensibility by Design** — anchors are derived from `projectedOutline`, which every
-  element kind already goes through, so the feature branches on no element kind: rect,
-  ellipse, icon resource and raked truss are one code path. The ellipse's lack of a plane
-  anchor is a fact about having no straight side, not a special case in logic.
+  element kind already goes through, so anchor *derivation* is one code path for rect,
+  ellipse, icon resource and raked truss. There is one branch, and it is on `shape_kind`:
+  an ellipse is excluded from plane mode, because it has no straight side to be
+  perpendicular to at more than one point. `shape_kind` is a fixed structural enum
+  (`rect`/`ellipse`/`line`/`text`), not an inventory category, so this is the kind of
+  branch Principle II's carve-out for structural domain kinds expressly permits — nothing
+  here would need a new endpoint or component to add an inventory category.
 - **III. Full-Stack Monorepo Architecture** — one migration, `domain/` structs with no DB
   tags, data access in `db/`, handlers in `api/`, the geometry and the document in
   `service/`. No new dependency on either side.

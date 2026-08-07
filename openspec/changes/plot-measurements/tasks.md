@@ -27,14 +27,16 @@
 ## 4. The canvas
 
 - [ ] 4.1 Render a measurement: dimension line, terminators, extension lines, right-angle mark on a plane foot with the run-out where needed, value and optional note — screen-sized furniture written `n / zoom`, geometry in cm (D5).
-- [ ] 4.2 Place the value outside the measurement when it will not fit between the terminators.
-- [ ] 4.3 Draw measurements above all elements, and only where their own layer is visible and every anchored element is visible.
-- [ ] 4.4 Paint thin, hit-test on a separate transparent stroke, desk and hand widths, elements hit-testing first.
-- [ ] 4.5 Anchor aiming: the three zones along a side, the offered-feature highlight, and the distinct highlight for a face's pinned point versus its plane, using `SNAP_THRESHOLD_PX`.
-- [ ] 4.6 The two-pick draw, with the in-progress rubber band, committing at zero offset.
-- [ ] 4.7 Drag the dimension line to set `offset_cm`, snapped to the plot grid, with the value not changing.
-- [ ] 4.8 Drag an endpoint grip to re-anchor, including onto a free point that snaps to the grid.
-- [ ] 4.9 Suppress every grip and drag when the measurement's layer is locked, leaving it selectable and readable.
+- [ ] 4.2 Draw every measurement in one annotation ink, never in its layer's colour, so layer colour keeps meaning equipment identity alone. Cover it with a render test over measurements on layers of differing colours.
+- [ ] 4.3 Place the value outside the measurement when it will not fit between the terminators.
+- [ ] 4.4 Draw only the measurements belonging to the view being shown; switching views draws the new view's and none of the others'.
+- [ ] 4.5 Draw measurements above all elements, and only where their own layer is visible and every anchored element is visible.
+- [ ] 4.6 Paint thin, hit-test on a separate transparent stroke, desk and hand widths, elements hit-testing first.
+- [ ] 4.7 Anchor aiming: the three zones along a side, the offered-feature highlight, and the distinct highlight for a face's pinned point versus its plane, using `SNAP_THRESHOLD_PX`.
+- [ ] 4.8 The two-pick draw, with the in-progress rubber band, committing at zero offset.
+- [ ] 4.9 Drag the dimension line to set `offset_cm`, snapped to the plot grid, with the value not changing.
+- [ ] 4.10 Drag an endpoint grip to re-anchor, including onto a free point that snaps to the grid.
+- [ ] 4.11 Suppress every grip and drag when the measurement's layer is locked, leaving it selectable and readable.
 
 ## 5. Palette, inspector and the phone
 
