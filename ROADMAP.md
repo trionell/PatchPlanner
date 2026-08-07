@@ -2,16 +2,16 @@
 
 ## What remains
 
-**Slices 0–41 are delivered, and every recorded defect is fixed.** This file is a
+**Slices 0–42 are delivered, and every recorded defect is fixed.** This file is a
 per-slice record written after delivery; everything below this section is history.
 
 | | |
 |---|---|
-| **Slice 42 — Measurements on stage plots** | CAD-style dimensions: anchors on an element's centre, corners, side midpoints and faces; aligned or locked horizontal/vertical; an offset dimension line; on screen and on paper. Run through **OpenSpec** — `openspec/changes/plot-measurements/`, branch `042-plot-measurements`. Mockup approved 2026-08-06. |
+| *(nothing scheduled)* | |
 
-Slices 40 and 41 — the audio plan and the stage plot as generated documents — both
-merged 2026-08-06 and left the table empty; Slice 42 is what the roadmap was asking
-for, and it is the first slice carried by OpenSpec rather than Spec Kit.
+The table is empty because the roadmap is **asking**, not because the tool is finished.
+Slice 42 — measurements on stage plots, and the first slice carried by OpenSpec — is
+delivered on `042-plot-measurements` and awaiting the user's decision to merge.
 
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
 multi-event/tour planning (§3.11).
@@ -2147,6 +2147,80 @@ synthetic 300 m plot, not by real data. Where elements overlap into a run wider 
 frame, no division can keep them all whole; the document draws them rather than
 refusing, and says so in a comment.
 
+## Slice 42 — Measurements on stage plots (OpenSpec: `plot-measurements`) ✅ 2026-08-07
+
+**Asked for 2026-08-06:** *"On the stage plots it's not easy to see the relative positions of
+things… Kinda like how measurements are plotted on CAD drawings."* Slice 41 made the plot
+measurable with a ruler at a stated 1:50 or 1:100; this lets the planner say **which**
+distances matter, which is the half that was missing.
+
+**The first slice carried by OpenSpec** rather than Spec Kit. Artifacts live in
+`openspec/changes/plot-measurements/`; the mockup was approved 2026-08-06 before any spec
+existed, as the Frontend Design Workflow requires.
+
+**Four decisions were the user's, taken before the spec.** Measurements print as well as
+draw; a measurement belongs to the view it was drawn in; both aligned and locked
+horizontal/vertical are offered; and an endpoint may be a free grid-snapped point rather
+than an element.
+
+- [x] **An anchor is a feature of the element's 3D box, not a vertex of its silhouette.**
+      The obvious model — "corner 2 of `projectedOutline`" — is wrong and quietly so: the
+      hull has four vertices for a plain rect and up to six when yaw and tilt combine, so
+      after a rake, corner 2 is a *different corner* and the dimension walks without
+      saying. What is stored is a sign triple on the element's own axes, or one of its six
+      faces. The silhouette is used only to decide which features to **offer**, and to draw.
+- [x] **A face is offered exactly when its projected normal is not collapsing.** Normal in
+      the view plane means the face is seen edge-on, which is the straight side you can
+      measure to; normal pointing into the screen means it is seen flat. One test, and it
+      declines the top face in a top view with no special case. The ellipse's four quadrant
+      points fall out of the same derivation — they are its edge-on face centres — so it
+      needs no code path of its own, only exclusion from plane mode.
+- [x] **A face's midpoint and its plane are one feature in two modes**, distinguished by a
+      `slide` flag. They occupy the same position, so aiming cannot separate them by
+      proximity: along any side there are three zones and no dead ground — two corner zones,
+      one midpoint zone, the rest of the side is the plane. Points beat faces wherever both
+      are in range, which is the only thing that makes a corner reachable at all, since a
+      corner sits on two faces.
+- [x] **The three types are one function.** They differ only in the direction the value is
+      read along: aligned along the line between the ends (or a face's normal, which is what
+      makes it perpendicular), locked along one view axis. A face end resolves by
+      intersecting the other end's ray with the face's line, which yields the perpendicular
+      foot and the locked foot from the same formula.
+- [x] **No value is stored or transmitted, anywhere.** The schema holds two anchors and an
+      offset; the API accepts no value; the document derives its own in Go. That is what
+      keeps a dimension true when what it measures moves, and it is why the geometry is
+      ported rather than shipped as a number — `stage_plot_measure.go` and `lib/stagePlot.ts`
+      assert the same cases with the same expected numbers, as the projection port already did.
+- [x] **Two corrections the maths made to the plan.** The silhouette hexagon is unreachable
+      in plan view — with yaw and tilt the length and height axes both project onto the yaw
+      direction, so a top view is always a parallelogram; the test asserts it in the
+      elevation, where it is real. And migration 051 uses `CHECK` for its enums and Go for
+      the endpoint exclusivity, which is the split migration 032 already drew, not the
+      "no CHECK" style design.md first claimed.
+- [x] **`design/patterns.md` §7g gained a rule, and it cost a second surface.** *A surface
+      never destroys what it cannot author.* §7g drew its line at the **gesture**, which says
+      what a phone may do to an object and nothing about what it may end — so as it stood, it
+      permitted the phone to delete a dimension. The clause is an insertion, not an amendment
+      to the withheld-gesture sentence. Its consequence: the phone's element sheet had been
+      offering a Delete for an element the phone cannot place, so that went too, in the same
+      commit as the rule.
+- [x] **Found on the way, and fixed here: deleting a plot element was never confirmed.** No
+      dialog, straight to the mutation — while `destructive-confirmation` has required a
+      confirmation for "an element" since D6. This slice needed somewhere to state how many
+      measurements go with the element, so the question now exists and states the count. A
+      measurement anchored at both ends counts once.
+- [x] **The tile crossing needed one idea.** A dimension spanning a sheet division is drawn
+      on both parts by the existing clip, but its label sits at the midpoint — which can be
+      on the *other* sheet, leaving a part showing a line and no number. The label rides the
+      visible portion instead, so each part states the distance in full.
+- [x] **Verified against a copy of the real database**: migration 051 applied clean to the
+      live schema (2 plots, 15 elements intact), three measurements drawn on the *Kyrkan*
+      plot including a sliding face anchor, and the four-sheet PDF rendered with the values
+      and the conventions row on it.
+
+Deliberately out: angular, radial and diameter dimensions; continued/baseline chains;
+auto-dimensioning; cross-view dimensions; a plane anchor on an ellipse.
+
 ## Known defects — found, reproduced, not yet scheduled
 
 Each of these has been traced to a specific line. A defect with a cause written
@@ -2783,4 +2857,5 @@ Slice 15 (sharing, the model it exposes) + Slice 33 (ui/Sheet, and Drawer's phon
 Slice 13 (stage plots, the trusses) + Slice 33 (ui/Drawer) + Slice 36 (the plot is read-only on a phone) ──→ Slice 39 (the Trusses overlay) — shares components.md's Dialog/Sheet rule with Slice 38
 Slice 22 (the Go PDF writer) + Slice 11 + Slice 12 (the graphs) + Slice 37 (positions that mean something) ──→ Slice 40 (the audio exports become documents)
 Slice 13 (plots, layers, trusses) + Slice 22 (the Go PDF writer) + Slice 40 (the page furniture, the cp1252 decision) ──→ Slice 41 (the plot on paper) ✅ — landing second was cheaper, as predicted: it inherited §8, the masthead and the tiling rule
+Slice 13 (the plot's geometry) + Slice 37 (the projection as a plane) + Slice 41 (the geometry ported to Go, and the tiling) ──→ Slice 42 (measurements) — the port is what made "screen and paper state the same distance" a property rather than a hope
 ```

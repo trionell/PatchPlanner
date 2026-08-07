@@ -61,7 +61,7 @@
 
 ## 8. Validation
 
-- [ ] 8.1 Run the Gates: `cd backend && gofmt -l . && go vet ./... && go test ./...`, then `cd frontend && npx tsc -b && npx eslint src && npx vitest run && npx vite build`.
-- [ ] 8.2 Verify against a copy of the real database in `/tmp` with `PATCHPLANNER_DB` pointed at it — draw each anchor kind on a real plot, produce the document, and read the same value in both.
+- [x] 8.1 Run the Gates: `cd backend && gofmt -l . && go vet ./... && go test ./...`, then `cd frontend && npx tsc -b && npx eslint src && npx vitest run && npx vite build`.
+- [x] 8.2 Verify against a copy of the real database in `/tmp` with `PATCHPLANNER_DB` pointed at it — draw each anchor kind on a real plot, produce the document, and read the same value in both.
 - [ ] 8.3 Review against the specs and the approved mockup; fix what review finds.
-- [ ] 8.4 Write the slice's outcome into `ROADMAP.md` as Slice 42, and add it to the **What remains** index until it lands.
+- [x] 8.4 Write the slice's outcome into `ROADMAP.md` as Slice 42, and add it to the **What remains** index until it lands.
