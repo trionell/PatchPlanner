@@ -127,6 +127,14 @@ describe('PlotMeasurementLayer hit targets', () => {
     expect(paint).not.toContain('stroke="transparent"')
   })
 
+  it('makes the value a target too, not only the line', () => {
+    // The value is what anyone aims at, and the offset routinely holds it well
+    // clear of the line it belongs to.
+    const targets = render({ pass: 'targets' })
+    expect(targets).toContain('<rect')
+    expect(targets).toContain('rotate(')
+  })
+
   it('selects a measurement in amber, the language’s focus ink', () => {
     expect(render({ selectedMeasurementId: 1 })).toContain('#f59e0b')
   })

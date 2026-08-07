@@ -38,7 +38,7 @@ const HANDLE_LIFT_PX = 12
 const PAINT_PX = 1.5
 /** The transparent stroke that catches the pointer. Separate geometry from the
  *  painted line, because a 1.5 px line is not a target. */
-const HIT_DESK_PX = 14
+const HIT_DESK_PX = 20
 const HIT_HAND_PX = 44
 
 export interface MeasurementPointerContext {
@@ -75,14 +75,19 @@ function formatValue(valueCm: number): string {
   return `${Math.round(valueCm)}`
 }
 
-/** Is the label's own extent longer than the space between the terminators? */
-function labelFitsInside(measurement: StagePlotMeasurement, drawing: MeasurementDrawing, zoom: number): boolean {
-  const text = formatValue(drawing.value) + ' cm' + (measurement.note ? ` ${measurement.note}` : '')
-  // 0.6 em per character is the usual monospace approximation; this only has
-  // to decide inside-or-outside, not lay text out.
+/**
+ * The label as one description: its text, how wide it runs, and whether that
+ * fits between the terminators. One source for the fit test, the drawing and
+ * the hit target, so the target cannot end up somewhere the text is not.
+ *
+ * 0.6 em per character is the usual monospace approximation; nothing here has
+ * to lay text out, only bound it.
+ */
+function labelBox(measurement: StagePlotMeasurement, drawing: MeasurementDrawing, zoom: number) {
+  const text = `${measurement.note ? `${measurement.note}  ` : ''}${formatValue(drawing.value)} cm`
   const widthCm = (text.length * VALUE_SIZE_PX * 0.6) / zoom
-  const roomCm = drawing.value - (2 * ARROW_LENGTH_PX) / zoom
-  return widthCm <= roomCm
+  const heightCm = (VALUE_SIZE_PX * 1.5) / zoom
+  return { text, widthCm, heightCm, inside: widthCm <= drawing.value - (2 * ARROW_LENGTH_PX) / zoom }
 }
 
 export function PlotMeasurementLayer({
@@ -144,7 +149,8 @@ export function PlotMeasurementLayer({
         const extA = extension(a, lineA)
         const extB = extension(b, lineB)
 
-        const inside = labelFitsInside(measurement, drawing, zoom)
+        const label = labelBox(measurement, drawing, zoom)
+        const inside = label.inside
         // Filled triangles, pointing inward when the label fits between them
         // and outward when it does not — CAD's rule, and the reason a short
         // dimension stays readable instead of colliding with itself.
@@ -197,23 +203,42 @@ export function PlotMeasurementLayer({
         const handleY = midY + ny * px(HANDLE_LIFT_PX)
 
         if (pass === 'targets') {
-          // The target, painted transparent and sized for the hand — laid down
-          // before the elements so an element over it wins the tap.
+          // The targets, painted transparent and sized for the hand — laid down
+          // before the elements so an element over one wins the tap.
+          //
+          // The VALUE is a target too. It is the part of a dimension anyone
+          // aims at, and it commonly sits clear of the line it belongs to —
+          // held off by the offset, or pushed outside a short measurement
+          // entirely — so a line-only target misses what the eye went for.
+          const anchorX = inside ? labelX - label.widthCm / 2 : labelX
+          const pivotY = labelY - px(VALUE_LIFT_PX)
+          const take = (event: ReactPointerEvent) => {
+            event.stopPropagation()
+            onSelect?.(measurement.id)
+          }
           return (
-            <line
-              key={measurement.id}
-              x1={lineA.x}
-              y1={lineA.y}
-              x2={lineB.x}
-              y2={lineB.y}
-              stroke="transparent"
-              strokeWidth={px(isMobile ? HIT_HAND_PX : HIT_DESK_PX)}
-              style={{ cursor: 'pointer' }}
-              onPointerDown={(event) => {
-                event.stopPropagation()
-                onSelect?.(measurement.id)
-              }}
-            />
+            <g key={measurement.id}>
+              <line
+                x1={lineA.x}
+                y1={lineA.y}
+                x2={lineB.x}
+                y2={lineB.y}
+                stroke="transparent"
+                strokeWidth={px(isMobile ? HIT_HAND_PX : HIT_DESK_PX)}
+                style={{ cursor: 'pointer' }}
+                onPointerDown={take}
+              />
+              <rect
+                x={anchorX}
+                y={pivotY - label.heightCm * 0.8}
+                width={label.widthCm}
+                height={label.heightCm}
+                transform={`rotate(${angle} ${labelX} ${pivotY})`}
+                fill="transparent"
+                style={{ cursor: 'pointer' }}
+                onPointerDown={take}
+              />
+            </g>
           )
         }
 
