@@ -113,7 +113,19 @@ type DragMode =
    * the background. Elements that cannot be *dragged* (a viewer, a phone, a locked
    * layer) enter this state too, which is what lets a pan begin on top of one.
    */
-  | { kind: 'maybe-pan'; startClientX: number; startClientY: number; startPanX: number; startPanY: number; moved: boolean; selectId?: number }
+  | {
+      kind: 'maybe-pan'
+      startClientX: number
+      startClientY: number
+      startPanX: number
+      startPanY: number
+      moved: boolean
+      selectId?: number
+      /** An armed measure tool's pick, taken on release. A press has to be able
+       *  to turn out to be a pan — otherwise arming the tool takes the canvas
+       *  away, and a plot you cannot move is a plot you cannot measure. */
+      pick?: { u: number; v: number }
+    }
   | { kind: 'move'; elementId: number; startU: number; startV: number; origin: StagePlotElement; moved: boolean }
   | { kind: 'resize'; elementId: number; origin: StagePlotElement }
   | { kind: 'rotate'; elementId: number; origin: StagePlotElement }
@@ -338,8 +350,14 @@ export function StagePlotCanvas({
       const target = event.target as HTMLElement | null
       // Never while something is being typed into.
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
-      if (event.key === 'Escape' && measureType) {
-        onMeasureTypeChange?.(null)
+      if (event.key === 'Escape') {
+        // Armed, Esc leaves the tool. Otherwise it drops the selection, which
+        // is the other thing there was no way out of.
+        if (measureType) onMeasureTypeChange?.(null)
+        else {
+          onSelectMeasurement?.(null)
+          onSelectElement(null)
+        }
         return
       }
       if ((event.key === 'm' || event.key === 'M') && !event.metaKey && !event.ctrlKey && !event.altKey) {
@@ -348,7 +366,7 @@ export function StagePlotCanvas({
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [measureType, onMeasureTypeChange, isMobile, readOnly])
+  }, [measureType, onMeasureTypeChange, onSelectMeasurement, onSelectElement, isMobile, readOnly])
 
   // ---- Interaction handlers ----
 
@@ -388,12 +406,6 @@ export function StagePlotCanvas({
 
   const handleBackgroundPointerDown = (event: ReactPointerEvent<SVGSVGElement>) => {
     if (event.button !== 0) return
-    // An armed measure tool takes the press: it is aiming, not panning.
-    if (measureType && !isMobile && !readOnly) {
-      event.currentTarget.setPointerCapture(event.pointerId)
-      handleMeasurePick(clientToCm(event.clientX, event.clientY))
-      return
-    }
     event.currentTarget.setPointerCapture(event.pointerId)
     setDrag({
       kind: 'maybe-pan',
@@ -402,6 +414,9 @@ export function StagePlotCanvas({
       startPanX: panX,
       startPanY: panY,
       moved: false,
+      // Armed, this press is a pick unless it travels — the same bargain the
+      // canvas already strikes between a tap and a pan.
+      pick: measureType && !isMobile && !readOnly ? clientToCm(event.clientX, event.clientY) : undefined,
     })
   }
 
@@ -415,7 +430,15 @@ export function StagePlotCanvas({
     if (measureType && !isMobile && !readOnly) {
       event.stopPropagation()
       svgRef.current?.setPointerCapture(event.pointerId)
-      handleMeasurePick(clientToCm(event.clientX, event.clientY))
+      setDrag({
+        kind: 'maybe-pan',
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startPanX: panX,
+        startPanY: panY,
+        moved: false,
+        pick: clientToCm(event.clientX, event.clientY),
+      })
       return
     }
     const layer = layerById.get(element.layer_id)
@@ -448,6 +471,9 @@ export function StagePlotCanvas({
     }
 
     onSelectElement(element.id)
+    // One thing is inspected at a time: taking an element puts down whatever
+    // measurement was held.
+    onSelectMeasurement?.(null)
     const point = clientToCm(event.clientX, event.clientY)
     setDrag({ kind: 'move', elementId: element.id, startU: point.u, startV: point.v, origin: element, moved: false })
   }
@@ -457,7 +483,15 @@ export function StagePlotCanvas({
     if (measureType && !isMobile && !readOnly) {
       event.stopPropagation()
       svgRef.current?.setPointerCapture(event.pointerId)
-      handleMeasurePick(clientToCm(event.clientX, event.clientY))
+      setDrag({
+        kind: 'maybe-pan',
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startPanX: panX,
+        startPanY: panY,
+        moved: false,
+        pick: clientToCm(event.clientX, event.clientY),
+      })
       return
     }
     if (!onAttachFixture || readOnly) return
@@ -472,7 +506,15 @@ export function StagePlotCanvas({
     if (measureType && !isMobile && !readOnly) {
       event.stopPropagation()
       svgRef.current?.setPointerCapture(event.pointerId)
-      handleMeasurePick(clientToCm(event.clientX, event.clientY))
+      setDrag({
+        kind: 'maybe-pan',
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startPanX: panX,
+        startPanY: panY,
+        moved: false,
+        pick: clientToCm(event.clientX, event.clientY),
+      })
       return
     }
     if (readOnly) return
@@ -675,9 +717,17 @@ export function StagePlotCanvas({
       return
     }
     if (drag.kind === 'maybe-pan') {
-      // Released without travelling: a tap. On the background that clears the
-      // selection; on an element it opens it.
-      if (!drag.moved) onSelectElement(drag.selectId ?? null)
+      // Released without travelling: a tap. Armed, that is the pick. Otherwise
+      // it opens what it landed on and clears what it did not — including any
+      // selected measurement, which nothing else was clearing.
+      if (!drag.moved) {
+        if (drag.pick) {
+          handleMeasurePick(drag.pick)
+        } else {
+          onSelectElement(drag.selectId ?? null)
+          onSelectMeasurement?.(null)
+        }
+      }
     } else if (drag.kind === 'truss-fixture') {
       if (fixtureDrag && onAttachFixture) {
         onAttachFixture({ trussId: drag.trussId, fixtureId: drag.fixtureId, offsetCm: fixtureDrag.offset, side: fixtureDrag.side })
