@@ -845,6 +845,22 @@ export function measurementsAnchoredTo(measurements: StagePlotMeasurement[], ele
   return measurements.filter((m) => measurementAnchorElementIds(m).includes(elementId)).length
 }
 
+/**
+ * How near the pointer has to be to TAKE an anchor.
+ *
+ * Deliberately not `SNAP_THRESHOLD_PX`. That is 8 px and it is right for a drag
+ * snap, where you are already holding the thing and it eases into place. A pick
+ * is the opposite: nothing is held, and until the hint is drawn there is
+ * nothing on screen saying where the point is. 8 px meant hitting an invisible
+ * target — which made the CENTRE of an element, a single point in a large empty
+ * middle, effectively unreachable (field test, 2026-08-07).
+ */
+export const MEASURE_PICK_PX = 18
+
+/** How near the pointer has to be to an element for its anchors to be SHOWN.
+ *  Generous: seeing the candidates is what makes them pickable. */
+export const MEASURE_HINT_PX = 44
+
 export interface AimedAnchor {
   elementId: number
   feature: AnchorFeature
@@ -978,4 +994,43 @@ export function visibleMeasurements(
       return element !== undefined && layerById.get(element.layer_id)?.visible !== false
     })
   })
+}
+
+
+export interface AnchorHint {
+  element: StagePlotElement
+  anchors: OfferedAnchor[]
+}
+
+/**
+ * The element whose anchors should be drawn because the pointer is near it, so
+ * a pick is aimed at something visible rather than guessed at. Nearest by
+ * distance to the element's projected box, and only within `radiusCm` of it.
+ */
+export function anchorHintFor(
+  elements: StagePlotElement[],
+  view: StagePlotView,
+  point: PlaneVec,
+  radiusCm: number,
+): AnchorHint | null {
+  let best: { element: StagePlotElement; distance: number } | null = null
+  for (const element of elements) {
+    const bounds = projectedBounds(element, view)
+    const du = Math.max(bounds.minU - point.u, 0, point.u - bounds.maxU)
+    const dv = Math.max(bounds.minV - point.v, 0, point.v - bounds.maxV)
+    const distance = Math.hypot(du, dv)
+    if (distance > radiusCm) continue
+    if (!best || distance < best.distance) best = { element, distance }
+  }
+  if (!best) return null
+  return { element: best.element, anchors: offeredAnchors(best.element, view) }
+}
+
+/** What an anchor is, in words a person reading a plot would use. */
+export function anchorFeatureLabel(feature: AnchorFeature, slide: boolean): string {
+  if (feature.kind === 'centre') return 'Centre'
+  if (feature.kind === 'corner') return 'Corner'
+  const side = ['Width', 'Depth', 'Height'][feature.axis]
+  const which = feature.sign > 0 ? 'far' : 'near'
+  return slide ? `${side} side (${which}) — perpendicular` : `${side} side (${which}) — midpoint`
 }

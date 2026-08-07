@@ -257,7 +257,7 @@ export function PlotMeasurementLayer({
                     x2={entry.at.x}
                     y2={entry.at.y}
                     stroke={ink}
-                    strokeWidth={px(0.75)}
+                    strokeWidth={px(1)}
                     strokeDasharray={`${px(3)} ${px(2)}`}
                   />
                   <line

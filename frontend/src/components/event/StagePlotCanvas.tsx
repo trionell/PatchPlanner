@@ -4,10 +4,15 @@ import type { MeasurementType, PlotTruss, StagePlot, StagePlotElement, StagePlot
 import type { StagePlotElementPatch, StagePlotMeasurementCreate, StagePlotMeasurementPatch } from '../../api/stagePlots'
 import type { PlotViewState } from '../../hooks/usePlotView'
 import {
+  measurementSpan,
+  faceLine,
+  anchorFeatureLabel,
+  anchorHintFor,
+  MEASURE_HINT_PX,
+  MEASURE_PICK_PX,
   measurementGeometry,
   parseAnchorFeature,
   anchorPoint,
-  SNAP_THRESHOLD_PX,
   formatAnchorFeature,
   aimAtAnchor,
   clampDimension,
@@ -26,6 +31,7 @@ import {
   trussSideForLocalV,
   viewAxisFields,
   type SnapGuide,
+  type AnchorFeature,
 } from '../../lib/stagePlot'
 import { iconGlyph, iconViewBox } from '../../lib/stagePlotIcons'
 import { PlotMeasurementLayer } from './PlotMeasurementLayer'
@@ -156,7 +162,10 @@ export function StagePlotCanvas({
   // over. A pick is an element anchor or a free point; both are stored the way
   // they will be saved.
   const [measureFirstState, setMeasureFirst] = useState<StagePlotMeasurement['from'] | null>(null)
-  const [aimState, setAim] = useState<{ u: number; v: number; slide: boolean } | null>(null)
+  const [aimState, setAim] = useState<{ u: number; v: number; slide: boolean; label: string; feature: AnchorFeature | null } | null>(null)
+  // Where the pointer is, in canvas centimetres — the anchor hint follows it
+  // even when no anchor is in range.
+  const [pointerCm, setPointerCm] = useState<{ u: number; v: number } | null>(null)
   // Live offset while a dimension line is being dragged; written on release.
   const [measureOverride, setMeasureOverride] = useState<{ id: number; offsetCm: number } | null>(null)
   // The truss a dragged free fixture element would attach to on drop.
@@ -240,7 +249,7 @@ export function StagePlotCanvas({
    *  otherwise a free point on the grid. */
   const anchorAt = (svgPoint: { u: number; v: number }): StagePlotMeasurement['from'] => {
     const projected = svgToProjected(svgPoint)
-    const aimed = aimAtAnchor(measurableElements, view, projected, SNAP_THRESHOLD_PX / zoom)
+    const aimed = aimAtAnchor(measurableElements, view, projected, MEASURE_PICK_PX / zoom)
     if (aimed) {
       return { element_id: aimed.elementId, feature: formatAnchorFeature(aimed.feature), slide: aimed.slide }
     }
@@ -250,11 +259,29 @@ export function StagePlotCanvas({
 
   const aimPreviewAt = (svgPoint: { u: number; v: number }) => {
     const projected = svgToProjected(svgPoint)
-    const aimed = aimAtAnchor(measurableElements, view, projected, SNAP_THRESHOLD_PX / zoom)
-    if (aimed) return { u: aimed.point.u, v: aimed.point.v, slide: aimed.slide }
+    const aimed = aimAtAnchor(measurableElements, view, projected, MEASURE_PICK_PX / zoom)
+    if (aimed) {
+      const owner = measurableById.get(aimed.elementId)
+      return {
+        u: aimed.point.u,
+        v: aimed.point.v,
+        slide: aimed.slide,
+        // What it would take, and whose it is — the two things you cannot tell
+        // from a marker alone.
+        label: `${owner?.name || owner?.kind || 'Element'} · ${anchorFeatureLabel(aimed.feature, aimed.slide)}`,
+        feature: aimed.feature,
+      }
+    }
     const free = snapFreePoint(projected)
-    return { u: free.u, v: free.v, slide: false }
+    return { u: free.u, v: free.v, slide: false, label: 'Grid', feature: null }
   }
+
+  // Every anchor the element under the pointer offers, drawn so a pick is aimed
+  // at something visible instead of guessed at.
+  const anchorHint =
+    measureType || drag.kind === 'measure-end'
+      ? anchorHintFor(measurableElements, view, svgToProjected(pointerCm ?? { u: 0, v: 0 }), MEASURE_HINT_PX / zoom)
+      : null
 
   /** The offset a pointer at this position is asking for: how far the
    *  dimension line has been pulled along its own perpendicular. */
@@ -457,7 +484,9 @@ export function StagePlotCanvas({
     // Aiming happens without a button held: the highlight has to say what a
     // pick would take BEFORE it is taken.
     if (measureType && !isMobile && !readOnly && drag.kind === 'none') {
-      setAim(aimPreviewAt(clientToCm(event.clientX, event.clientY)))
+      const at = clientToCm(event.clientX, event.clientY)
+      setPointerCm(at)
+      setAim(aimPreviewAt(at))
       return
     }
     if (drag.kind === 'none') return
@@ -470,6 +499,7 @@ export function StagePlotCanvas({
     }
 
     if (drag.kind === 'measure-end') {
+      setPointerCm(point)
       setAim(aimPreviewAt(point))
       return
     }
@@ -1056,24 +1086,110 @@ export function StagePlotCanvas({
           }}
         />
 
-        {/* What a pick would take, shown before it is taken. A hollow ring is
-            a point; a bar across the face is the sliding plane. */}
+        {/* Every anchor the nearby item offers, so a pick is aimed at
+            something visible. Until this existed you had to hit an invisible
+            point, which is why the centre — one point in a large empty middle
+            — could not be reached at all. */}
+        {anchorHint && (
+          <g pointerEvents="none">
+            {anchorHint.anchors.map((offered, index) => {
+              const cx = offered.point.u
+              const cy = view === 'top' ? offered.point.v : -offered.point.v
+              const live =
+                aim && Math.abs(aim.u - offered.point.u) < 0.01 && Math.abs(aim.v - offered.point.v) < 0.01 && !aim.slide
+              const r = (live ? 4.5 : 2.5) / zoom
+              return (
+                <circle
+                  key={index}
+                  cx={cx}
+                  cy={cy}
+                  r={r}
+                  fill={live ? '#818cf8' : '#3f3f46'}
+                  stroke={live ? '#c7d2fe' : '#71717a'}
+                  strokeWidth={1 / zoom}
+                />
+              )
+            })}
+          </g>
+        )}
+
+        {/* What a pick would take, shown before it is taken, and named — a
+            marker alone cannot say whether it caught the grid or an item, or
+            which item. */}
         {aim && (
           <g pointerEvents="none">
             {aim.slide ? (
-              <rect
-                x={aim.u - 9 / zoom}
-                y={(view === 'top' ? aim.v : -aim.v) - 3 / zoom}
-                width={18 / zoom}
-                height={6 / zoom}
-                fill="#818cf8"
-                opacity={0.9}
-              />
+              // The sliding plane lights the SIDE itself, along the face, so
+              // it is never mistaken for the point sitting on that same side.
+              (() => {
+                const hinted = anchorHint?.anchors.find(
+                  (offered) => aim.feature && offered.feature.kind === 'face' && formatAnchorFeature(offered.feature) === formatAnchorFeature(aim.feature),
+                )
+                const line = hinted && anchorHint ? faceLine(anchorHint.element, view, hinted.feature) : null
+                if (!line) return null
+                const flip = view === 'top' ? 1 : -1
+                return (
+                  <line
+                    x1={line.segment[0].u}
+                    y1={line.segment[0].v * flip}
+                    x2={line.segment[1].u}
+                    y2={line.segment[1].v * flip}
+                    stroke="#818cf8"
+                    strokeWidth={4 / zoom}
+                    opacity={0.85}
+                  />
+                )
+              })()
             ) : (
               <circle cx={aim.u} cy={view === 'top' ? aim.v : -aim.v} r={5 / zoom} fill="none" stroke="#818cf8" strokeWidth={2 / zoom} />
             )}
+            <text
+              x={aim.u + 9 / zoom}
+              y={(view === 'top' ? aim.v : -aim.v) - 9 / zoom}
+              fill="#c7d2fe"
+              fontSize={11 / zoom}
+              fontFamily="ui-sans-serif, system-ui"
+            >
+              {aim.label}
+            </text>
           </g>
         )}
+
+        {/* When the first pick was a PLANE, the item's line is extended —
+            dashed — out to where the measurement will actually attach, before
+            the pick is committed. The attachment point is on the face's
+            infinite line and is routinely off the end of the object; without
+            this the second point looks like it is measuring to nothing. */}
+        {measureFirst?.slide &&
+          measureFirst.element_id !== undefined &&
+          aim &&
+          (() => {
+            const element = measurableById.get(measureFirst.element_id)
+            const feature = parseAnchorFeature(measureFirst.feature ?? '')
+            if (!element || !feature) return null
+            const line = faceLine(element, view, feature)
+            if (!line) return null
+            const span = measurementSpan({ kind: 'line', line }, { kind: 'point', point: { u: aim.u, v: aim.v } }, measureType ?? 'aligned')
+            if (!span) return null
+            const flip = view === 'top' ? 1 : -1
+            const along = (p: { u: number; v: number }) => p.u * line.dir.u + p.v * line.dir.v
+            const ends = [...line.segment].sort((p, q) => along(p) - along(q))
+            const foot = along(span.a)
+            const near = foot < along(ends[0]) ? ends[0] : foot > along(ends[1]) ? ends[1] : null
+            if (!near) return null
+            return (
+              <line
+                x1={near.u}
+                y1={near.v * flip}
+                x2={span.a.u}
+                y2={span.a.v * flip}
+                stroke="#818cf8"
+                strokeWidth={1 / zoom}
+                strokeDasharray={`${4 / zoom} ${3 / zoom}`}
+                pointerEvents="none"
+              />
+            )
+          })()}
 
         {/* The rubber band: what the measurement would span if the pointer
             picked here. */}

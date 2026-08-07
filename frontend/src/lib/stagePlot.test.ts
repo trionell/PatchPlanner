@@ -3,6 +3,11 @@ import type { StagePlotElement, StagePlotMeasurement } from '../types'
 import {
   aimAtAnchor,
   allowsPlaneAnchor,
+  anchorFeatureLabel,
+  anchorHintFor,
+  MEASURE_HINT_PX,
+  MEASURE_PICK_PX,
+  SNAP_THRESHOLD_PX,
   anchorPoint,
   faceLine,
   formatAnchorFeature,
@@ -747,5 +752,44 @@ describe('aimAtAnchor', () => {
     const round = element({ id: 6, kind: 'shape', shape_kind: 'ellipse', x_cm: 0, y_cm: 0, width_cm: 400, depth_cm: 200, height_cm: 100 })
     expect(aimAtAnchor([round], 'top', { u: 200, v: 60 }, 8)).toBeNull()
     expect(aimAtAnchor([round], 'top', { u: 200, v: 0 }, 8)!.slide).toBe(false)
+  })
+})
+
+describe('reaching an anchor', () => {
+  const el = element({ id: 5, kind: 'shape', shape_kind: 'rect', x_cm: 0, y_cm: 0, width_cm: 400, depth_cm: 200, height_cm: 100 })
+
+  it('takes the centre, which the drag-snap radius could not reach', () => {
+    // At a whole-stage zoom of 0.3 px/cm the pick radius is 60 cm and the drag
+    // snap's would have been 27 — but the centre of a 4 m element is nowhere
+    // near any other anchor, so what decides it is whether you can land on an
+    // invisible point at all. This is the case the field test could never hit.
+    // 7.2 cm off the centre of a 4 m element — nowhere near any other anchor.
+    const near = { u: 6, v: 4 }
+    const zoom = 0.3
+    expect(aimAtAnchor([el], 'top', near, MEASURE_PICK_PX / zoom)!.feature).toEqual({ kind: 'centre' })
+    expect(aimAtAnchor([el], 'top', near, SNAP_THRESHOLD_PX / zoom)!.feature).toEqual({ kind: 'centre' })
+    // Zoomed in to 2 px/cm the drag-snap radius is 4 cm and misses; the pick
+    // radius is 9 cm and still reaches. That gap is the whole complaint.
+    expect(aimAtAnchor([el], 'top', near, MEASURE_PICK_PX / 2)!.feature).toEqual({ kind: 'centre' })
+    expect(aimAtAnchor([el], 'top', near, SNAP_THRESHOLD_PX / 2)).toBeNull()
+  })
+
+  it('offers the whole element’s anchors once the pointer is near it', () => {
+    // The hint is what makes any of them findable: it draws the candidates
+    // instead of leaving them to be guessed at.
+    const hint = anchorHintFor([el], 'top', { u: 210, v: 0 }, MEASURE_HINT_PX / 0.3)
+    expect(hint!.element.id).toBe(5)
+    expect(hint!.anchors.filter((a) => a.feature.kind === 'corner')).toHaveLength(4)
+    expect(hint!.anchors.some((a) => a.feature.kind === 'centre')).toBe(true)
+  })
+
+  it('offers nothing when the pointer is out in the open', () => {
+    expect(anchorHintFor([el], 'top', { u: 5000, v: 5000 }, MEASURE_HINT_PX / 0.3)).toBeNull()
+  })
+
+  it('names what a pick would take', () => {
+    expect(anchorFeatureLabel({ kind: 'centre' }, false)).toBe('Centre')
+    expect(anchorFeatureLabel({ kind: 'face', axis: 0, sign: 1 }, true)).toContain('perpendicular')
+    expect(anchorFeatureLabel({ kind: 'face', axis: 0, sign: 1 }, false)).toContain('midpoint')
   })
 })
