@@ -1,19 +1,19 @@
 ## 1. Schema and domain
 
-- [ ] 1.1 Write `backend/migrations/051_stage_plot_measurements.up.sql` and its `.down.sql`, per design D3 — plot and layer foreign keys cascading, both element references nullable and cascading, view, type, the two endpoint triples, `offset_cm`, `note`, `sort_order`.
-- [ ] 1.2 Add `StagePlotMeasurement` to `backend/internal/domain/stageplot.go` and a `Measurements` field to `StagePlotResponse`.
-- [ ] 1.3 Add the mirroring TypeScript types to `frontend/src/types/index.ts`.
+- [x] 1.1 Write `backend/migrations/051_stage_plot_measurements.up.sql` and its `.down.sql`, per design D3 — plot and layer foreign keys cascading, both element references nullable and cascading, view, type, the two endpoint triples, `offset_cm`, `note`, `sort_order`.
+- [x] 1.2 Add `StagePlotMeasurement` to `backend/internal/domain/stageplot.go` and a `Measurements` field to `StagePlotResponse`.
+- [x] 1.3 Add the mirroring TypeScript types to `frontend/src/types/index.ts`.
 
 ## 2. Geometry, in both languages
 
-- [ ] 2.1 In `frontend/src/lib/stagePlot.ts`: resolve a stored anchor to a point in a view — `centre`, a box corner through `projectedAxes`, a face centre.
-- [ ] 2.2 Resolve a face anchor to its projected line, and compute the foot of a perpendicular from a point onto it, including the case where the foot falls beyond the drawn side.
-- [ ] 2.3 Compute the offered features for an element in a view: corners that are silhouette vertices, faces whose projected normal is non-negligible, plane mode excluded for `ellipse`.
-- [ ] 2.4 Compute a measurement's span and stated value for each of the three types, including a locked type against a face line (foot at the axis ray, not the perpendicular).
-- [ ] 2.5 Compute the drawn dimension line from the span and `offset_cm`, plus the extension lines, and the flip.
-- [ ] 2.6 Vitest suite over 2.1–2.5, including a raked element whose silhouette is a hexagon, a face turned face-on, and an ellipse.
-- [ ] 2.7 Port 2.1–2.5 into `backend/internal/service/stage_plot_geometry.go`.
-- [ ] 2.8 Go test asserting the ported functions against **the same cases and the same expected numbers** as 2.6, in the manner `stage_plot_geometry_test.go` already does for the projection.
+- [x] 2.1 In `frontend/src/lib/stagePlot.ts`: resolve a stored anchor to a point in a view — `centre`, a box corner through `projectedAxes`, a face centre.
+- [x] 2.2 Resolve a face anchor to its projected line, and compute the foot of a perpendicular from a point onto it, including the case where the foot falls beyond the drawn side.
+- [x] 2.3 Compute the offered features for an element in a view: corners that are silhouette vertices, faces whose projected normal is non-negligible, plane mode excluded for `ellipse`.
+- [x] 2.4 Compute a measurement's span and stated value for each of the three types, including a locked type against a face line (foot at the axis ray, not the perpendicular).
+- [x] 2.5 Compute the drawn dimension line from the span and `offset_cm`, plus the extension lines, and the flip.
+- [x] 2.6 Vitest suite over 2.1–2.5, including a raked element whose silhouette is a hexagon, a face turned face-on, and an ellipse.
+- [x] 2.7 Port 2.1–2.5 into `backend/internal/service/stage_plot_geometry.go`.
+- [x] 2.8 Go test asserting the ported functions against **the same cases and the same expected numbers** as 2.6, in the manner `stage_plot_geometry_test.go` already does for the projection.
 
 ## 3. Persistence and API
 

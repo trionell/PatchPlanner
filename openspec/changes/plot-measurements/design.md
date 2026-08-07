@@ -116,12 +116,16 @@ stage_plot_measurements
   sort_order  INTEGER
 ```
 
-Each endpoint is **either** `element_id + feature` **or** `u_cm + v_cm`, never both; a Go-side
-check enforces the exclusivity, matching how the existing element validation works rather than
-inventing a CHECK-constraint style this schema does not use. `feature` is a compact text
-encoding of D1's triple (`centre`, `corner:+-+`, `face:+x`), so it reads in a database dump and
-survives without a lookup table — Principle II is about equipment categories, not about the
-element's own six faces, which are a fact of a box and not configurable data.
+Each endpoint is **either** `element_id + feature` **or** `u_cm + v_cm`, never both. The split
+follows the one its sibling table already draws: `stage_plot_elements` puts its enums in `CHECK`
+constraints and leaves "exactly one of `shape_kind`/`icon`/`truss_id`/`fixture_id`" to Go
+(migration 032). So `view` and `type` are `CHECK`ed, and the endpoint exclusivity is validated in
+`internal/api`, where the message naming the offending end already lives.
+
+`feature` is a compact text encoding of D1's triple (`centre`, `corner:+-+`, `face:+x`), so it
+reads in a database dump and survives without a lookup table — Principle II is about equipment
+categories, not about the element's own six faces, which are a fact of a box and not
+configurable data.
 
 **No stored value, and no stored derived point.** Both are re-derived. This is the whole reason a
 measurement stays true when its element moves.

@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { StagePlotElement } from '../types'
 import {
+  allowsPlaneAnchor,
+  anchorPoint,
+  faceLine,
+  formatAnchorFeature,
+  measurementDrawing,
+  measurementSpan,
+  offeredAnchors,
+  parseAnchorFeature,
   clampDimension,
   clampFixtureOffset,
   fixtureDropOnTruss,
@@ -21,6 +29,8 @@ import {
   trussSideForLocalV,
   trussSubtitle,
   viewAxisFields,
+  type AnchorFeature,
+  type MeasurementEnd,
   type SnapSettings,
 } from './stagePlot'
 
@@ -449,5 +459,222 @@ describe('fixtureDropOnTruss', () => {
   it('rejects drops beyond the margin', () => {
     expect(fixtureDropOnTruss({ u: 340, v: 0 }, 600, 15)).toBeNull()
     expect(fixtureDropOnTruss({ u: 0, v: 45 }, 600, 15)).toBeNull()
+  })
+})
+
+// ---- Measurements (Slice 42) ----
+//
+// These cases are the shared contract with the Go port in
+// backend/internal/service/stage_plot_geometry.go: the same inputs and the
+// same expected numbers are asserted there, so the canvas and the document
+// cannot state different distances.
+
+describe('anchor features', () => {
+  it('round-trips through its text encoding', () => {
+    const cases: AnchorFeature[] = [
+      { kind: 'centre' },
+      { kind: 'corner', signs: [1, -1, 1] },
+      { kind: 'corner', signs: [-1, -1, -1] },
+      { kind: 'face', axis: 0, sign: 1 },
+      { kind: 'face', axis: 2, sign: -1 },
+    ]
+    for (const feature of cases) {
+      expect(parseAnchorFeature(formatAnchorFeature(feature))).toEqual(feature)
+    }
+    expect(formatAnchorFeature({ kind: 'corner', signs: [1, -1, 1] })).toBe('corner:+-+')
+    expect(formatAnchorFeature({ kind: 'face', axis: 0, sign: 1 })).toBe('face:+x')
+  })
+
+  it('rejects anything it did not write', () => {
+    expect(parseAnchorFeature('corner:++')).toBeNull()
+    expect(parseAnchorFeature('face:+w')).toBeNull()
+    expect(parseAnchorFeature('')).toBeNull()
+  })
+})
+
+describe('anchorPoint', () => {
+  const el = element({ x_cm: 100, y_cm: 200, z_cm: 0, width_cm: 40, depth_cm: 30, height_cm: 60 })
+
+  it('resolves the centre to the element centre', () => {
+    expect(anchorPoint(el, 'top', { kind: 'centre' })).toEqual({ u: 100, v: 200 })
+  })
+
+  it('resolves a corner in the top view', () => {
+    // +x is stage-right, +y is downstage: the corner at (+w/2, +d/2).
+    expect(anchorPoint(el, 'top', { kind: 'corner', signs: [1, 1, 1] })).toEqual({ u: 120, v: 215 })
+    expect(anchorPoint(el, 'top', { kind: 'corner', signs: [-1, -1, -1] })).toEqual({ u: 80, v: 185 })
+  })
+
+  it('resolves a face to the midpoint of that side', () => {
+    expect(anchorPoint(el, 'top', { kind: 'face', axis: 0, sign: 1 })).toEqual({ u: 120, v: 200 })
+    expect(anchorPoint(el, 'top', { kind: 'face', axis: 1, sign: -1 })).toEqual({ u: 100, v: 185 })
+  })
+
+  it('resolves a corner in an elevation, where v grows upward', () => {
+    // Front view: centre v is z + height/2 = 30; the top face is at 60.
+    expect(anchorPoint(el, 'front', { kind: 'face', axis: 2, sign: 1 })).toEqual({ u: 100, v: 60 })
+    expect(anchorPoint(el, 'front', { kind: 'face', axis: 2, sign: -1 })).toEqual({ u: 100, v: 0 })
+  })
+
+  it('follows a rotation', () => {
+    const turned = { ...el, rotation_deg: 90 }
+    // Yawed 90°, the +x face points downstage.
+    expect(anchorPoint(turned, 'top', { kind: 'face', axis: 0, sign: 1 })).toEqual({ u: 100, v: 220 })
+  })
+})
+
+describe('faceLine', () => {
+  const el = element({ x_cm: 0, y_cm: 0, z_cm: 0, width_cm: 40, depth_cm: 30, height_cm: 60 })
+
+  it('declines a face seen flat', () => {
+    // In the top view the top and bottom faces project onto the whole
+    // silhouette; they are not sides and are not offered.
+    expect(faceLine(el, 'top', { kind: 'face', axis: 2, sign: 1 })).toBeNull()
+    expect(faceLine(el, 'top', { kind: 'face', axis: 2, sign: -1 })).toBeNull()
+  })
+
+  it('gives an edge-on face its line and its drawn extent', () => {
+    const line = faceLine(el, 'top', { kind: 'face', axis: 0, sign: 1 })
+    expect(line).not.toBeNull()
+    expect(line!.point).toEqual({ u: 20, v: 0 })
+    expect(line!.normal).toEqual({ u: 1, v: 0 })
+    // The side runs along the depth axis, 30 cm of it.
+    expect(Math.abs(line!.dir.u)).toBeCloseTo(0, 6)
+    expect(Math.abs(line!.dir.v)).toBeCloseTo(1, 6)
+    const [p, q] = line!.segment
+    expect(Math.hypot(q.u - p.u, q.v - p.v)).toBeCloseTo(30, 6)
+  })
+
+  it('turns with the element', () => {
+    const turned = { ...el, rotation_deg: 90 }
+    const line = faceLine(turned, 'top', { kind: 'face', axis: 0, sign: 1 })
+    expect(line!.normal.u).toBeCloseTo(0, 6)
+    expect(line!.normal.v).toBeCloseTo(1, 6)
+  })
+})
+
+describe('offeredAnchors', () => {
+  it('offers a plain rectangle four corners and four sides', () => {
+    const el = element({ shape_kind: 'rect', kind: 'shape', width_cm: 40, depth_cm: 30, height_cm: 20 })
+    const offered = offeredAnchors(el, 'top')
+    expect(offered.filter((o) => o.feature.kind === 'centre')).toHaveLength(1)
+    // Eight box corners project onto four drawn corners; the duplicates are
+    // one corner, not two.
+    expect(offered.filter((o) => o.feature.kind === 'corner')).toHaveLength(4)
+    expect(offered.filter((o) => o.feature.kind === 'face')).toHaveLength(4)
+  })
+
+  it('offers a raked element the corners its silhouette actually has', () => {
+    // Yaw and tilt together make the silhouette a hexagon — the shape a
+    // rotated rectangle cannot represent. It is the ELEVATIONS that show it:
+    // in the top view the length and height axes both project onto the yaw
+    // direction, so a plan silhouette is always a parallelogram however the
+    // element is raked.
+    const raked = element({ shape_kind: 'rect', kind: 'shape', width_cm: 200, depth_cm: 40, height_cm: 30, rotation_deg: 30, tilt_deg: 25 })
+    expect(projectedOutline(raked, 'top')).toHaveLength(4)
+    expect(offeredAnchors(raked, 'top').filter((o) => o.feature.kind === 'corner')).toHaveLength(4)
+
+    expect(projectedOutline(raked, 'front')).toHaveLength(6)
+    expect(offeredAnchors(raked, 'front').filter((o) => o.feature.kind === 'corner')).toHaveLength(6)
+  })
+
+  it('offers an ellipse its quadrant points but no plane', () => {
+    const el = element({ kind: 'shape', shape_kind: 'ellipse', width_cm: 40, depth_cm: 30, height_cm: 20 })
+    const faces = offeredAnchors(el, 'top').filter((o) => o.feature.kind === 'face')
+    expect(faces).toHaveLength(4)
+    expect(faces.every((f) => f.allowSlide)).toBe(false)
+    expect(allowsPlaneAnchor(el)).toBe(false)
+  })
+
+  it('lets every other shape slide along a face', () => {
+    const el = element({ kind: 'shape', shape_kind: 'rect', width_cm: 40, depth_cm: 30, height_cm: 20 })
+    expect(offeredAnchors(el, 'top').filter((o) => o.feature.kind === 'face').every((f) => f.allowSlide)).toBe(true)
+  })
+})
+
+describe('measurementSpan', () => {
+  const at = (u: number, v: number): MeasurementEnd => ({ kind: 'point', point: { u, v } })
+
+  it('states the true distance when aligned', () => {
+    const span = measurementSpan(at(0, 0), at(300, 400), 'aligned')
+    expect(span!.value).toBe(500)
+  })
+
+  it('states one axis alone when locked', () => {
+    expect(measurementSpan(at(0, 0), at(300, 400), 'horizontal')!.value).toBe(300)
+    expect(measurementSpan(at(0, 0), at(300, 400), 'vertical')!.value).toBe(400)
+  })
+
+  it('has no distance between two coincident points', () => {
+    expect(measurementSpan(at(50, 50), at(50, 50), 'aligned')).toBeNull()
+  })
+
+  it('measures perpendicular to a face', () => {
+    const el = element({ x_cm: 0, y_cm: 0, width_cm: 40, depth_cm: 30, height_cm: 20 })
+    const line = faceLine(el, 'top', { kind: 'face', axis: 0, sign: 1 })!
+    // The face's line is u = 20; a point 100 to its right is 80 away.
+    const span = measurementSpan(at(100, 250), { kind: 'line', line }, 'aligned')
+    expect(span!.value).toBe(80)
+    // The foot lands where the perpendicular falls, well outside the drawn
+    // side — which is what the run-out exists to reach.
+    expect(span!.b).toEqual({ u: 20, v: 250 })
+  })
+
+  it('measures an axis distance to a face when locked', () => {
+    const el = element({ x_cm: 0, y_cm: 0, width_cm: 40, depth_cm: 30, height_cm: 20, rotation_deg: 30 })
+    const line = faceLine(el, 'top', { kind: 'face', axis: 0, sign: 1 })!
+    const horizontal = measurementSpan(at(200, 0), { kind: 'line', line }, 'horizontal')
+    // The foot is where the horizontal ray meets the slanted line, not where
+    // the perpendicular would fall.
+    expect(horizontal!.b.v).toBe(0)
+    expect(horizontal!.value).toBeCloseTo(200 - horizontal!.b.u, 6)
+  })
+
+  it('measures between two parallel faces', () => {
+    const left = element({ x_cm: 0, y_cm: 0, width_cm: 40, depth_cm: 30, height_cm: 20 })
+    const right = element({ id: 2, x_cm: 500, y_cm: 0, width_cm: 40, depth_cm: 30, height_cm: 20 })
+    const a = faceLine(left, 'top', { kind: 'face', axis: 0, sign: 1 })!
+    const b = faceLine(right, 'top', { kind: 'face', axis: 0, sign: -1 })!
+    // Inner faces at u = 20 and u = 480.
+    expect(measurementSpan({ kind: 'line', line: a }, { kind: 'line', line: b }, 'aligned')!.value).toBe(460)
+  })
+
+  it('declines two faces that are not parallel', () => {
+    const el = element({ x_cm: 0, y_cm: 0, width_cm: 40, depth_cm: 30, height_cm: 20 })
+    const a = faceLine(el, 'top', { kind: 'face', axis: 0, sign: 1 })!
+    const b = faceLine(el, 'top', { kind: 'face', axis: 1, sign: 1 })!
+    expect(measurementSpan({ kind: 'line', line: a }, { kind: 'line', line: b }, 'aligned')).toBeNull()
+  })
+})
+
+describe('measurementDrawing', () => {
+  const span = measurementSpan({ kind: 'point', point: { u: 0, v: 0 } }, { kind: 'point', point: { u: 400, v: 0 } }, 'aligned')!
+
+  it('runs between the ends at no offset', () => {
+    const drawn = measurementDrawing(span, 0)
+    expect(drawn.lineA).toEqual({ u: 0, v: 0 })
+    expect(drawn.lineB).toEqual({ u: 400, v: 0 })
+  })
+
+  it('holds the line clear without changing the value', () => {
+    const drawn = measurementDrawing(span, 120)
+    expect(drawn.lineA).toEqual({ u: 0, v: 120 })
+    expect(drawn.lineB).toEqual({ u: 400, v: 120 })
+    expect(drawn.value).toBe(400)
+  })
+
+  it('flips to the other side', () => {
+    expect(measurementDrawing(span, -120).lineA).toEqual({ u: 0, v: -120 })
+    expect(measurementDrawing(span, -120).value).toBe(400)
+  })
+
+  it('puts a locked line on the end picked second and grows the first', () => {
+    const stepped = measurementSpan({ kind: 'point', point: { u: 0, v: 0 } }, { kind: 'point', point: { u: 400, v: 90 } }, 'horizontal')!
+    const drawn = measurementDrawing(stepped, 0)
+    expect(drawn.value).toBe(400)
+    // Both ends of the dimension line sit at the second end's v; the first
+    // end's extension line is what covers the 90 cm difference.
+    expect(drawn.lineA).toEqual({ u: 0, v: 90 })
+    expect(drawn.lineB).toEqual({ u: 400, v: 90 })
   })
 })

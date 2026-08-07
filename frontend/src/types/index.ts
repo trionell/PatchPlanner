@@ -754,6 +754,48 @@ export interface StagePlotElement {
   links: StagePlotLink[]
 }
 
+/** Aligned states the true point-to-point distance; horizontal and vertical
+ *  state the separation along one of the view's axes alone. */
+export type MeasurementType = 'aligned' | 'horizontal' | 'vertical'
+
+/**
+ * One end of a measurement: EITHER a feature of one element's box
+ * (`element_id` + `feature`) OR a free point in the view plane (`u_cm` +
+ * `v_cm`) — never both, never neither.
+ *
+ * `feature` names a feature of the element's own box, not a vertex of its
+ * drawn silhouette: `centre`, `corner:+-+` (signs on its local x/y/z axes),
+ * or `face:+x`. The silhouette's vertex count changes with rotation, so an
+ * index into it would come to mean a different corner after a rake.
+ *
+ * `slide` distinguishes a face anchor's two modes: false pins it to the
+ * face's projected centre — the midpoint of that drawn side — and true lets
+ * it sit anywhere along the face's line, stating the perpendicular distance.
+ */
+export interface MeasurementAnchor {
+  element_id?: number
+  feature?: string
+  slide?: boolean
+  u_cm?: number
+  v_cm?: number
+}
+
+export interface StagePlotMeasurement {
+  id: number
+  plot_id: number
+  layer_id: number
+  /** The projection this measurement belongs to and is drawn in. */
+  view: StagePlotView
+  type: MeasurementType
+  from: MeasurementAnchor
+  to: MeasurementAnchor
+  /** Holds the dimension line clear of what it measures, perpendicular to the
+   *  measured direction; signed, so it flips. Never changes the value. */
+  offset_cm: number
+  note?: string
+  sort_order: number
+}
+
 export interface PlotTrussPiece {
   id: number
   truss_id: number
@@ -795,6 +837,7 @@ export interface StagePlotResponse {
   plot: StagePlot
   layers: StagePlotLayer[]
   elements: StagePlotElement[]
+  measurements: StagePlotMeasurement[]
   /** All of the event's trusses, placed on this plot or not. */
   trusses: PlotTruss[]
 }
