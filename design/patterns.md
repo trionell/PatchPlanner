@@ -731,6 +731,14 @@ that will not let you move a riser will let you tap it and rename it; the same f
 canvas that will not let you patch will let you change what is on the end of the
 cable that is already there.
 
+**But a surface never destroys what it cannot author.** The gesture line says what a
+phone may *do* to an object; it says nothing about what a phone may *end*. Where the
+only way to bring a kind of object into being is a desk gesture, the phone that reads
+it does not get to delete it — the repair is asymmetric, and a mis-tap on a stage costs
+a trip to a computer to undo. A plot's dimensions are the first object of that kind:
+the hand reads them, edits the one field that is not geometry, and deletes nothing. A
+plot's elements are the second, for the same reason.
+
 Everything else that is a form over a row has a phone form, whether or not it is
 built yet: equipment lines, rental quantities, event settings, overview details,
 inventory items, and the rig, buses and universes drawers — a stagebox that
@@ -739,8 +747,8 @@ arrives on site is declared on site.
 A surface withholding a gesture says so, in the panel, in one sentence naming the
 reason, and names what is still available:
 
-> *Placing elements is a desk job — open this plot on a computer. Tap anything on
-> it to read or edit what it is.*
+> *Placing elements and drawing measurements is a desk job — open this plot on a
+> computer. Tap anything on it to read or edit what it is.*
 
 That sentence is the whole of the treatment. It is not a banner, not a dialog, and
 not a disabled control (P7); it sits where the editor would be, and the read view

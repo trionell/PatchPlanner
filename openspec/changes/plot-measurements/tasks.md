@@ -40,12 +40,12 @@
 
 ## 5. Palette, inspector and the phone
 
-- [ ] 5.1 Measure section in `StagePlotPalette.tsx` — three tiles that arm a mode rather than place; `M` arms, `Esc` leaves, a completed measurement leaves the tool armed.
-- [ ] 5.2 Measurement panel in `StagePlotInspector.tsx`: value stated with no input, type as a Select, both ends stated on two lines with no control, offset with Flip, note, layer, Delete with no confirm.
-- [ ] 5.3 The phone's measurement sheet: both ends, type and value stated, note editable, no footer, safe-area inset on the body, **no Delete**.
-- [ ] 5.4 Remove the Delete from the phone's element sheet — gate `StagePlotInspector.tsx:576` on `spatial`, leaving the desk unchanged.
-- [ ] 5.5 Widen the plot panel's withheld-gesture sentence to name drawing measurements and to say what the phone can still do.
-- [ ] 5.6 Vitest render coverage for 5.2–5.4 via `renderToStaticMarkup`, asserting the phone sheet has no delete control and the desk rail does.
+- [x] 5.1 Measure section in `StagePlotPalette.tsx` — three tiles that arm a mode rather than place; `M` arms, `Esc` leaves, a completed measurement leaves the tool armed.
+- [x] 5.2 Measurement panel in `StagePlotInspector.tsx`: value stated with no input, type as a Select, both ends stated on two lines with no control, offset with Flip, note, layer, Delete with no confirm.
+- [x] 5.3 The phone's measurement sheet: both ends, type and value stated, note editable, no footer, safe-area inset on the body, **no Delete**.
+- [x] 5.4 Remove the Delete from the phone's element sheet — gate `StagePlotInspector.tsx:576` on `spatial`, leaving the desk unchanged.
+- [x] 5.5 Widen the plot panel's withheld-gesture sentence to name drawing measurements and to say what the phone can still do.
+- [x] 5.6 Vitest render coverage for 5.2–5.4 via `renderToStaticMarkup`, asserting the phone sheet has no delete control and the desk rail does.
 
 ## 6. The document
 
@@ -57,7 +57,7 @@
 
 ## 7. Design language
 
-- [ ] 7.1 Insert the approved paragraph into `design/patterns.md` §7g, after the gesture paragraph, in the same commit as tasks 5.3 and 5.4.
+- [x] 7.1 Insert the approved paragraph into `design/patterns.md` §7g, after the gesture paragraph, in the same commit as tasks 5.3 and 5.4.
 
 ## 8. Validation
 

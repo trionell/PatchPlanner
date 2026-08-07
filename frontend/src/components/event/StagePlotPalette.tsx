@@ -1,4 +1,4 @@
-import type { StagePlotShapeKind } from '../../types'
+import type { MeasurementType, StagePlotShapeKind } from '../../types'
 import type { StagePlotElementCreate } from '../../api/stagePlots'
 import { iconViewBox, STAGE_PLOT_ICONS } from '../../lib/stagePlotIcons'
 import { MicroLabel } from '../ui/Label'
@@ -9,7 +9,18 @@ interface StagePlotPaletteProps {
   disabled: boolean
   /** The event's lighting rig, for placing real fixtures on the plot. */
   rigFixtures: Array<{ id: number; name: string; trussName?: string; placed: boolean }>
+  /** The armed measure tool, or null. This is the palette's first MODE: every
+   *  other entry places something, and a measurement cannot be placed because
+   *  it is defined by two picks on the canvas. */
+  measureType?: MeasurementType | null
+  onMeasureTypeChange?: (type: MeasurementType | null) => void
 }
+
+const MEASURE_TOOLS: Array<{ type: MeasurementType; label: string; preview: JSX.Element }> = [
+  { type: 'aligned', label: 'Aligned', preview: <path d="M4 19 L20 5 M3 17 l3 3 M18 4 l3 3" /> },
+  { type: 'horizontal', label: 'Horizontal', preview: <path d="M4 12 H20 M4 9 v6 M20 9 v6" /> },
+  { type: 'vertical', label: 'Vertical', preview: <path d="M12 4 V20 M9 4 h6 M9 20 h6" /> },
+]
 
 const SHAPES: Array<{ kind: StagePlotShapeKind; label: string; defaults: { width_cm: number; depth_cm: number } }> = [
   { kind: 'rect', label: 'Rectangle', defaults: { width_cm: 200, depth_cm: 100 } },
@@ -51,7 +62,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 /** Left-hand palette: click an entry to drop it at the viewport centre
  *  on the active layer, sized with the icon's real-world defaults. */
-export function StagePlotPalette({ onPlace, disabled, rigFixtures }: StagePlotPaletteProps) {
+export function StagePlotPalette({ onPlace, disabled, rigFixtures, measureType = null, onMeasureTypeChange }: StagePlotPaletteProps) {
   const resources = STAGE_PLOT_ICONS.filter((icon) => icon.group === 'resource')
   const instruments = STAGE_PLOT_ICONS.filter((icon) => icon.group === 'instrument')
   const fixtureIcon = STAGE_PLOT_ICONS.find((icon) => icon.id === 'fixture')
@@ -84,6 +95,35 @@ export function StagePlotPalette({ onPlace, disabled, rigFixtures }: StagePlotPa
     // A column of the panel, not a card floating beside it: one border, on the
     // edge it shares with the canvas. Mirrors the inspector rail on the far side.
     <div className="flex w-44 flex-none flex-col gap-4 overflow-y-auto border-r border-zinc-800 p-2.5">
+      <Section title="Measure">
+        {MEASURE_TOOLS.map((tool) => {
+          const armed = measureType === tool.type
+          return (
+            <button
+              key={tool.type}
+              type="button"
+              disabled={disabled}
+              aria-pressed={armed}
+              onClick={() => onMeasureTypeChange?.(armed ? null : tool.type)}
+              className={
+                'flex flex-col items-center gap-1 rounded-md border px-1 py-2 text-[11px] leading-tight disabled:opacity-40 ' +
+                (armed
+                  ? 'border-amber-500 text-amber-400'
+                  : 'border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200')
+              }
+              title={`${tool.label} dimension — click two points on the plot`}
+            >
+              <span className="h-6 w-6">
+                <svg viewBox="0 0 24 24" className="h-full w-full" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  {tool.preview}
+                </svg>
+              </span>
+              <span className="text-center">{tool.label}</span>
+            </button>
+          )
+        })}
+      </Section>
+
       <Section title="Shapes">
         {SHAPES.map((shape) => (
           <PaletteItem
