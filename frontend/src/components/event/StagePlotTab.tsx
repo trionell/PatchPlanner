@@ -538,7 +538,11 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
                 selectedMeasurementId={selectedMeasurementId}
                 onSelectMeasurement={(id) => {
                   setSelectedMeasurementId(id)
-                  setSelectedElementId(null)
+                  // Only TAKING a measurement puts an element down. Clearing
+                  // one must leave the element alone, or the canvas's own
+                  // "put down the measurement" call cancels the selection it
+                  // was made alongside.
+                  if (id !== null) setSelectedElementId(null)
                 }}
                 selectedElementId={selectedElementId}
                 trusses={response.trusses}
@@ -867,7 +871,11 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
                 selectedMeasurementId={selectedMeasurementId}
                 onSelectMeasurement={(id) => {
                   setSelectedMeasurementId(id)
-                  setSelectedElementId(null)
+                  // Only TAKING a measurement puts an element down. Clearing
+                  // one must leave the element alone, or the canvas's own
+                  // "put down the measurement" call cancels the selection it
+                  // was made alongside.
+                  if (id !== null) setSelectedElementId(null)
                 }}
                 onCreateMeasurement={(data) => createMeasurementMutation.mutate(data)}
                 onUpdateMeasurement={(measurementId, patch) => updateMeasurementMutation.mutate({ measurementId, patch })}
