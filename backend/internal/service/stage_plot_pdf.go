@@ -98,9 +98,12 @@ type plotDoc struct {
 	layers   []domain.StagePlotLayer
 	elements []domain.StagePlotElement // visible only, truss geometry applied
 	trusses  map[int64]domain.PlotTruss
+	// Visible only, and only those whose anchors are all visible too.
+	measurements []domain.StagePlotMeasurement
 
-	layerByID  map[int64]domain.StagePlotLayer
-	inkByLayer map[int64]string
+	elementByID map[int64]domain.StagePlotElement
+	layerByID   map[int64]domain.StagePlotLayer
+	inkByLayer  map[int64]string
 
 	windows  plotWindows
 	denom    float64 // the scale's denominator: 100 means 1:100
@@ -167,6 +170,22 @@ func newPlotDoc(event domain.Event, response domain.StagePlotResponse) *plotDoc 
 			continue
 		}
 		doc.elements = append(doc.elements, EffectiveElement(element, doc.trusses))
+	}
+	// Measurements follow the same rule the canvas applies: their own layer
+	// visible, and every element they anchor to visible. A dimension whose far
+	// end refers to something not on the drawing states a distance to nothing.
+	doc.elementByID = make(map[int64]domain.StagePlotElement, len(doc.elements))
+	for _, element := range doc.elements {
+		doc.elementByID[element.ID] = element
+	}
+	for _, measurement := range response.Measurements {
+		if layer, ok := doc.layerByID[measurement.LayerID]; !ok || !layer.Visible {
+			continue
+		}
+		if !doc.measurementAnchorsVisible(measurement) {
+			continue
+		}
+		doc.measurements = append(doc.measurements, measurement)
 	}
 	doc.windows = doc.computeWindows()
 	doc.denom, doc.perCm = doc.chooseScale()

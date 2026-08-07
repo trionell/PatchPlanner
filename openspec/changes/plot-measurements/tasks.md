@@ -49,11 +49,11 @@
 
 ## 6. The document
 
-- [ ] 6.1 Draw measurements on each view's sheet in `stage_plot_draw.go`, in the document's ink, told from equipment by line weight, under the canvas's visibility rules.
-- [ ] 6.2 Derive every printed value server-side from the stored anchors; accept no value from the client.
-- [ ] 6.3 Draw a measurement that spans a tile division on every part it reaches, each stating the full value.
-- [ ] 6.4 Add the measurement conventions row to the sheet key; leave the element schedule alone.
-- [ ] 6.5 Go tests: a dimensioned plot's sheets, a hidden anchor's measurement absent, a divided drawing's measurement present on both parts, and a printed value equal to the geometry test's expected number.
+- [x] 6.1 Draw measurements on each view's sheet in `stage_plot_draw.go`, in the document's ink, told from equipment by line weight, under the canvas's visibility rules.
+- [x] 6.2 Derive every printed value server-side from the stored anchors; accept no value from the client.
+- [x] 6.3 Draw a measurement that spans a tile division on every part it reaches, each stating the full value.
+- [x] 6.4 Add the measurement conventions row to the sheet key; leave the element schedule alone.
+- [x] 6.5 Go tests: a dimensioned plot's sheets, a hidden anchor's measurement absent, a divided drawing's measurement present on both parts, and a printed value equal to the geometry test's expected number.
 
 ## 7. Design language
 

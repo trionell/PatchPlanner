@@ -68,6 +68,9 @@ func (d *plotDoc) writeViewSheet(sheet plotSheetPlan) {
 	for _, element := range d.elements {
 		d.drawElement(element, sheet.view, m)
 	}
+	// Above every element, whatever the layer order: an annotation a riser can
+	// cover is not an annotation.
+	d.drawMeasurements(sheet.view, m)
 	d.pdf.ClipEnd()
 
 	// The frame goes on last so no element paints over its own boundary.
@@ -537,6 +540,28 @@ func (d *plotDoc) writeTitleBlock(sheet plotSheetPlan) {
 	d.setInk(119, 119, 119)
 	d.text(x+pad+8.4, y, 5, "", "L", "Dashed outline = unresolved")
 	d.setInk(17, 17, 17)
+
+	// Measurements are told from equipment by weight, so the key says so —
+	// and says the unit, because a number on a drawing without one is a guess.
+	if len(d.measurements) > 0 {
+		y += 4.6
+		d.pdf.SetDrawColor(17, 17, 17)
+		d.pdf.SetLineWidth(measureLineWeight)
+		d.pdf.Line(x+pad, y-1, x+pad+6, y-1)
+		d.polygon([]fpdfPoint{
+			{X: x + pad, Y: y - 1},
+			{X: x + pad + measureArrowLength, Y: y - 1 - measureArrowHalf},
+			{X: x + pad + measureArrowLength, Y: y - 1 + measureArrowHalf},
+		})
+		d.polygon([]fpdfPoint{
+			{X: x + pad + 6, Y: y - 1},
+			{X: x + pad + 6 - measureArrowLength, Y: y - 1 - measureArrowHalf},
+			{X: x + pad + 6 - measureArrowLength, Y: y - 1 + measureArrowHalf},
+		})
+		d.setInk(119, 119, 119)
+		d.text(x+pad+8.4, y, 5, "", "L", "Thin arrowed rule = measurement, in cm")
+		d.setInk(17, 17, 17)
+	}
 
 	if sheet.parts > 1 {
 		y += 6
