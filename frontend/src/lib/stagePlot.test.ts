@@ -627,6 +627,17 @@ describe('offeredAnchors', () => {
     expect(allowsPlaneAnchor(el)).toBe(false)
   })
 
+  it('offers an ellipse no corners, because it has none', () => {
+    // The hull is its bounding box, and those corners are the one place the
+    // drawn shape certainly is not.
+    const el = element({ kind: 'shape', shape_kind: 'ellipse', width_cm: 400, depth_cm: 300, height_cm: 180 })
+    for (const view of ['top', 'front', 'side'] as const) {
+      expect(offeredAnchors(el, view).filter((o) => o.feature.kind === 'corner')).toHaveLength(0)
+      expect(offeredAnchors(el, view).some((o) => o.feature.kind === 'centre')).toBe(true)
+      expect(offeredAnchors(el, view).filter((o) => o.feature.kind === 'face').length).toBeGreaterThan(0)
+    }
+  })
+
   it('lets every other shape slide along a face', () => {
     const el = element({ kind: 'shape', shape_kind: 'rect', width_cm: 40, depth_cm: 30, height_cm: 20 })
     expect(offeredAnchors(el, 'top').filter((o) => o.feature.kind === 'face').every((f) => f.allowSlide)).toBe(true)
@@ -924,5 +935,46 @@ describe('a face line under every rotation', () => {
     const flat = element({ kind: 'shape', shape_kind: 'rect', width_cm: 400, depth_cm: 200, height_cm: 100 })
     expect(faceLine(flat, 'top', { kind: 'face', axis: 2, sign: 1 })).toBeNull()
     expect(faceLine(flat, 'front', { kind: 'face', axis: 1, sign: 1 })).toBeNull()
+  })
+})
+
+describe('a face on a small drawn element', () => {
+  // A 6 m truss seen end-on from the side projects to its cross-section, about
+  // 40 × 30 cm. The radii are screen sizes, so at working zoom they cover the
+  // whole of it — and without a cap every position on it belongs to a corner.
+  const truss = element({ id: 8, kind: 'truss', shape_kind: undefined, x_cm: 0, y_cm: 0, z_cm: 400, width_cm: 600, depth_cm: 40, height_cm: 30 })
+  const zoom = 0.3
+  const aim = (u: number, v: number) => aimAtAnchor([truss], 'side', { u, v }, MEASURE_PICK_PX / zoom, MEASURE_POINT_PX / zoom)
+
+  it('gives a side too short to hold zones entirely to the plane', () => {
+    // In the side view u is depth (±20) and v is height (400 to 430). Thirty
+    // centimetres of drawn height is nine pixels at this zoom: its corners and
+    // its midpoint are within a pixel of each other, so the only thing on it
+    // that means anything is the face.
+    for (const v of [403, 415, 427]) {
+      const at = aim(20, v)
+      expect(at!.feature.kind).toBe('face')
+      expect(at!.slide).toBe(true)
+    }
+  })
+
+  it('gives the points back when you zoom in far enough to distinguish them', () => {
+    // Same truss, same side, at 2 px/cm: the radius shrinks in centimetres,
+    // the side clears the bar, and the three zones fit again.
+    const close = (u: number, v: number) => aimAtAnchor([truss], 'side', { u, v }, MEASURE_PICK_PX / 2, MEASURE_POINT_PX / 2)
+    expect(close(20, 429)!.feature.kind).toBe('corner')
+    expect(close(20, 415)!.feature).toMatchObject({ kind: 'face' })
+    expect(close(20, 415)!.slide).toBe(false)
+    expect(close(20, 422)!.slide).toBe(true)
+  })
+
+  it('is unaffected where the element is large on the page', () => {
+    // The same truss in plan is 600 × 40, so its long side holds all three
+    // zones comfortably. A quarter of the way along it is plane.
+    const plan = aimAtAnchor([truss], 'top', { u: 150, v: 20 }, MEASURE_PICK_PX / zoom, MEASURE_POINT_PX / zoom)
+    expect(plan!.feature.kind).toBe('face')
+    expect(plan!.slide).toBe(true)
+    // …and its middle is still the midpoint.
+    expect(aimAtAnchor([truss], 'top', { u: 0, v: 20 }, MEASURE_PICK_PX / zoom, MEASURE_POINT_PX / zoom)!.slide).toBe(false)
   })
 })

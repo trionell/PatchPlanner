@@ -747,9 +747,15 @@ export function offeredAnchors(element: StagePlotElement, view: StagePlotView): 
   const onHull = (p: PlaneVec) => hull.some((h) => Math.abs(h.u - p.u) < 0.05 && Math.abs(h.v - p.v) < 0.05)
   const seen = new Set<string>()
   const key = (p: PlaneVec) => `${Math.round(p.u * 100)}:${Math.round(p.v * 100)}`
+  // An ellipse has no corners. The silhouette hull is its bounding box, whose
+  // corners are the one place the drawn shape certainly is NOT — anchoring
+  // there would put a dimension in the gap beside the curve. Its centre and
+  // its four quadrant points are the whole of what it offers.
+  const cornered = element.shape_kind !== 'ellipse'
   for (const sx of [1, -1] as AnchorSign[]) {
     for (const sy of [1, -1] as AnchorSign[]) {
       for (const sz of [1, -1] as AnchorSign[]) {
+        if (!cornered) continue
         const feature: AnchorFeature = { kind: 'corner', signs: [sx, sy, sz] }
         const offset = drawnToProjected(featureDrawnOffset(element, view, feature), rect, view)
         if (!onHull(offset)) continue
@@ -902,6 +908,7 @@ export const MEASURE_PICK_PX = 18
  */
 export const MEASURE_POINT_PX = 11
 
+
 /** How near the pointer has to be to an element for its anchors to be SHOWN.
  *  Generous: seeing the candidates is what makes them pickable. */
 export const MEASURE_HINT_PX = 44
@@ -939,48 +946,87 @@ export function aimAtAnchor(
   thresholdCm: number,
   pointThresholdCm = thresholdCm,
 ): AimedAnchor | null {
-  let best: (AimedAnchor & { distance: number }) | null = null
-
-  for (const element of elements) {
-    for (const offered of offeredAnchors(element, view)) {
-      // A corner and a side midpoint live ON a face, so their reach has to
-      // leave the face somewhere to be. The centre shares its ground with
-      // nothing and keeps the full radius.
-      const reach = offered.feature.kind === 'centre' ? thresholdCm : pointThresholdCm
-      const distance = Math.hypot(point.u - offered.point.u, point.v - offered.point.v)
-      if (distance > reach) continue
-      if (!best || distance < best.distance) {
-        best = { elementId: element.id, feature: offered.feature, slide: false, point: offered.point, distance }
-      }
-    }
+  let best: (AimedAnchor & { score: number }) | null = null
+  const take = (elementId: number, feature: AnchorFeature, slide: boolean, at: PlaneVec, score: number) => {
+    if (!best || score < best.score) best = { elementId, feature, slide, point: at, score }
   }
-  // A point anchor anywhere in range wins outright: the corner and the
-  // midpoint are the precise answers, and the face is the one you get when
-  // you are deliberately not near either.
-  if (best) return { elementId: best.elementId, feature: best.feature, slide: best.slide, point: best.point }
 
   for (const element of elements) {
-    if (!allowsPlaneAnchor(element)) continue
-    for (const offered of offeredAnchors(element, view)) {
-      if (offered.feature.kind !== 'face' || !offered.allowSlide) continue
-      const line = faceLine(element, view, offered.feature)
+    const offered = offeredAnchors(element, view)
+    const slideAllowed = allowsPlaneAnchor(element)
+
+    // The centre competes with nothing, so it keeps the full radius.
+    const centre = offered.find((o) => o.feature.kind === 'centre')
+    if (centre) {
+      const distance = Math.hypot(point.u - centre.point.u, point.v - centre.point.v)
+      if (distance <= thresholdCm) take(element.id, centre.feature, false, centre.point, distance)
+    }
+
+    const corners = offered.filter((o) => o.feature.kind === 'corner')
+
+    // Everything else is decided ALONG a side, not by distance to a marker.
+    // Three zones and no dead ground: a corner zone at each end, a midpoint
+    // zone in the middle, and the rest of the side is the sliding plane.
+    for (const face of offered) {
+      if (face.feature.kind !== 'face') continue
+      const line = faceLine(element, view, face.feature)
       if (!line) continue
-      const distance = distanceToSegment(point, line.segment[0], line.segment[1])
-      if (distance > thresholdCm) continue
-      if (!best || distance < best.distance) {
-        // The aimed point rides the face's line under the pointer; where it
-        // finally sits is decided by the other end, when the pair is measured.
-        const along = (point.u - line.point.u) * line.dir.u + (point.v - line.point.v) * line.dir.v
-        best = {
-          elementId: element.id,
-          feature: offered.feature,
-          slide: true,
-          point: { u: roundCm(line.point.u + along * line.dir.u), v: roundCm(line.point.v + along * line.dir.v) },
-          distance,
+
+      const perpendicular = distanceToSegment(point, line.segment[0], line.segment[1])
+      if (perpendicular > thresholdCm) continue
+
+      const spanU = line.segment[1].u - line.segment[0].u
+      const spanV = line.segment[1].v - line.segment[0].v
+      const drawnLength = Math.hypot(spanU, spanV)
+      if (drawnLength < 1e-6) continue
+      const along = Math.max(0, Math.min(drawnLength, (point.u - line.segment[0].u) * line.dir.u + (point.v - line.segment[0].v) * line.dir.v))
+
+      // Five zone-widths is the least a side can be and still hold all three
+      // zones with plane left over. Shorter than that — a truss seen end-on
+      // from the side is 30 cm of drawn height — and the side is ALL plane:
+      // its corners and its midpoint are within a pixel of each other at that
+      // size, so the only thing on it that means anything is the face itself.
+      // Zoom in and the radius shrinks in centimetres, the side clears the
+      // bar, and the points come back.
+      const zone = drawnLength >= 5 * pointThresholdCm ? Math.min(pointThresholdCm, drawnLength / 5) : 0
+
+      const toEnd = Math.min(along, drawnLength - along)
+      const toMiddle = Math.abs(along - drawnLength / 2)
+
+      if (zone > 0 && toEnd <= zone) {
+        const end = along < drawnLength / 2 ? line.segment[0] : line.segment[1]
+        let nearest: OfferedAnchor | null = null
+        let nearestDistance = Infinity
+        for (const corner of corners) {
+          const distance = Math.hypot(corner.point.u - end.u, corner.point.v - end.v)
+          if (distance < nearestDistance) {
+            nearest = corner
+            nearestDistance = distance
+          }
+        }
+        if (nearest) {
+          take(element.id, nearest.feature, false, nearest.point, Math.hypot(point.u - nearest.point.u, point.v - nearest.point.v))
+          continue
         }
       }
+
+      if (zone > 0 && toMiddle <= zone) {
+        take(element.id, face.feature, false, face.point, Math.hypot(point.u - face.point.u, point.v - face.point.v))
+        continue
+      }
+
+      // An ellipse has no straight side to slide along, so the ground between
+      // its quadrant points belongs to nothing and takes no pick.
+      if (!slideAllowed) continue
+
+      const on = {
+        u: roundCm(line.segment[0].u + along * line.dir.u),
+        v: roundCm(line.segment[0].v + along * line.dir.v),
+      }
+      take(element.id, face.feature, true, on, perpendicular)
     }
   }
+
   return best ? { elementId: best.elementId, feature: best.feature, slide: best.slide, point: best.point } : null
 }
 
@@ -1045,7 +1091,6 @@ export function visibleMeasurements(
     })
   })
 }
-
 
 export interface AnchorHint {
   element: StagePlotElement

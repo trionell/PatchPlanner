@@ -291,9 +291,15 @@ func OfferedAnchors(element domain.StagePlotElement, view PlotView) []OfferedAnc
 	}
 
 	seen := map[[2]int64]bool{}
+	// An ellipse has no corners. The silhouette hull is its bounding box, whose
+	// corners are the one place the drawn shape certainly is NOT.
+	cornered := element.ShapeKind != "ellipse"
 	for _, sx := range []int{1, -1} {
 		for _, sy := range []int{1, -1} {
 			for _, sz := range []int{1, -1} {
+				if !cornered {
+					continue
+				}
 				feature := AnchorFeature{Kind: "corner", Signs: [3]int{sx, sy, sz}}
 				offset := drawnToProjected(featureDrawnOffset(element, view, feature), rect, view)
 				if !onHull(offset) {

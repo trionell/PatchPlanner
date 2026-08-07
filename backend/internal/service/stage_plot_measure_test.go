@@ -190,6 +190,16 @@ func TestOfferedAnchors(t *testing.T) {
 	if AllowsPlaneAnchor(ellipse) {
 		t.Error("AllowsPlaneAnchor said yes to an ellipse")
 	}
+	// An ellipse has no corners: the hull is its bounding box, whose corners
+	// are the one place the drawn shape certainly is not.
+	for _, view := range PlotViews {
+		if got := countOffered(OfferedAnchors(ellipse, view), "corner"); got != 0 {
+			t.Errorf("%s view offered an ellipse %d corners, want 0", view, got)
+		}
+		if got := countOffered(OfferedAnchors(ellipse, view), "centre"); got != 1 {
+			t.Errorf("%s view lost the ellipse's centre", view)
+		}
+	}
 	for _, o := range OfferedAnchors(rect, ViewTop) {
 		if o.Feature.Kind == "face" && !o.AllowSlide {
 			t.Error("a rectangle's face refused to slide")
