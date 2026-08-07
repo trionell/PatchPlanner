@@ -177,16 +177,6 @@ func ProjectFaceLine(element domain.StagePlotElement, view PlotView, feature Anc
 	rect := ProjectElement(element, view)
 	axes := axisList(element, view)
 	half := halfExtents(element)
-	raw := drawnToProjected(PlaneVec{
-		U: float64(feature.Sign) * axes[feature.Axis].U,
-		V: float64(feature.Sign) * axes[feature.Axis].V,
-	}, rect, view)
-	if planeLength(raw) < faceEdgeOnMin {
-		return FaceLine{}, false
-	}
-	normal := planeNormalize(raw)
-	dir := PlaneVec{U: -normal.V, V: normal.U}
-	point := AnchorPoint(element, view, feature)
 
 	others := make([]int, 0, 2)
 	for i := 0; i < 3; i++ {
@@ -194,6 +184,51 @@ func ProjectFaceLine(element domain.StagePlotElement, view PlotView, feature Anc
 			others = append(others, i)
 		}
 	}
+
+	// The face's OWN in-plane axes, projected — and the line's direction comes
+	// from these, never from rotating the projected normal by 90°.
+	//
+	// Orthographic projection drops an axis, and dropping an axis does not
+	// preserve angles: two perpendicular 3D vectors generally do not project to
+	// perpendicular 2D ones. Rotating the normal is only right when everything
+	// stays in the view plane, which is why a yaw-only element read correctly
+	// in plan and an element turned on every axis did not, in the elevations.
+	spans := [2]PlaneVec{}
+	for k, i := range others {
+		spans[k] = drawnToProjected(PlaneVec{U: half[i] * axes[i].U, V: half[i] * axes[i].V}, rect, view)
+	}
+	cross := spans[0].U*spans[1].V - spans[0].V*spans[1].U
+	long, short := spans[0], spans[1]
+	if planeLength(spans[1]) > planeLength(spans[0]) {
+		long, short = spans[1], spans[0]
+	}
+	// Projects to a point, not a line: there is no side to slide along.
+	if planeLength(long) < 1e-6 {
+		return FaceLine{}, false
+	}
+	// Edge-on when the face's two in-plane axes project onto ONE line. The
+	// spread off that line is compared to the SHORT axis, which makes the test
+	// sin(angle between them) < eps — scale-free, and true of a 6 m truss side
+	// and a 40 cm one alike. Measured against the long axis instead, a long
+	// thin face passes whatever its angle.
+	if math.Abs(cross)/planeLength(long) > faceEdgeOnMin*planeLength(short) {
+		return FaceLine{}, false
+	}
+
+	dir := planeNormalize(long)
+	// Out of the face, as the projected normal would have it — used only to
+	// orient, never to derive.
+	outward := drawnToProjected(PlaneVec{
+		U: float64(feature.Sign) * axes[feature.Axis].U,
+		V: float64(feature.Sign) * axes[feature.Axis].V,
+	}, rect, view)
+	normal := PlaneVec{U: dir.V, V: -dir.U}
+	if normal.U*outward.U+normal.V*outward.V < 0 {
+		normal = PlaneVec{U: -normal.U, V: -normal.V}
+	}
+
+	point := AnchorPoint(element, view, feature)
+
 	minT, maxT := math.Inf(1), math.Inf(-1)
 	for _, sj := range []float64{-1, 1} {
 		for _, sk := range []float64{-1, 1} {

@@ -39,6 +39,7 @@ import {
   trussSubtitle,
   viewAxisFields,
   type AnchorFeature,
+  type AnchorSign,
   type MeasurementEnd,
   type SnapSettings,
 } from './stagePlot'
@@ -837,5 +838,82 @@ describe('reaching an anchor', () => {
     expect(anchorFeatureLabel({ kind: 'centre' }, false)).toBe('Centre')
     expect(anchorFeatureLabel({ kind: 'face', axis: 0, sign: 1 }, true)).toContain('perpendicular')
     expect(anchorFeatureLabel({ kind: 'face', axis: 0, sign: 1 }, false)).toContain('midpoint')
+  })
+})
+
+describe('a face line under every rotation', () => {
+  // The invariant that decides whether a face line is right at all: the four
+  // corners of that face, projected, must all lie ON the line. It holds in
+  // every view and under any combination of yaw and rake, and it is what a
+  // direction taken from the projected normal cannot satisfy — orthographic
+  // projection does not preserve angles.
+  const raked = element({
+    id: 7, kind: 'shape', shape_kind: 'rect',
+    x_cm: 300, y_cm: 200, z_cm: 150,
+    width_cm: 600, depth_cm: 40, height_cm: 40,
+    rotation_deg: 35, tilt_deg: 20,
+  })
+
+  for (const view of ['top', 'front', 'side'] as const) {
+    it(`holds its own face corners in the ${view} view`, () => {
+      let checked = 0
+      for (const offered of offeredAnchors(raked, view)) {
+        if (offered.feature.kind !== 'face') continue
+        const line = faceLine(raked, view, offered.feature)
+        if (!line) continue
+        checked++
+        const axis = offered.feature.axis
+        const others = [0, 1, 2].filter((i) => i !== axis)
+        for (const sj of [-1, 1] as AnchorSign[]) {
+          for (const sk of [-1, 1] as AnchorSign[]) {
+            const signs: [AnchorSign, AnchorSign, AnchorSign] = [1, 1, 1]
+            signs[axis] = offered.feature.sign
+            signs[others[0]] = sj
+            signs[others[1]] = sk
+            const corner = anchorPoint(raked, view, { kind: 'corner', signs })
+            // Distance from the corner to the line, along the line's normal.
+            const off = (corner.u - line.point.u) * line.normal.u + (corner.v - line.point.v) * line.normal.v
+            expect(Math.abs(off)).toBeLessThan(0.05)
+          }
+        }
+        // And the drawn extent spans those corners rather than some other run
+        // of the same length somewhere else.
+        const along = (p: { u: number; v: number }) => p.u * line.dir.u + p.v * line.dir.v
+        const ends = [along(line.segment[0]), along(line.segment[1])].sort((a, b) => a - b)
+        expect(along(line.point)).toBeGreaterThanOrEqual(ends[0] - 0.05)
+        expect(along(line.point)).toBeLessThanOrEqual(ends[1] + 0.05)
+      }
+      // How many are offered is the next test's business; this one is about
+      // every one that IS offered being right.
+      expect(checked).toBeGreaterThanOrEqual(0)
+    })
+  }
+
+  it('offers sides in plan, and none in the elevations, when turned on every axis', () => {
+    // A truss with both yaw and rake has no face seen edge-on in an elevation:
+    // every one of them is a tilted plane, projecting to a parallelogram
+    // rather than a line, so there is no side to be perpendicular to. Offering
+    // one would be inventing an edge the drawing does not have — which is what
+    // deriving the direction from the projected normal used to do.
+    const planeAnchors = (view: 'top' | 'front' | 'side') =>
+      offeredAnchors(raked, view).filter((o) => o.feature.kind === 'face' && faceLine(raked, view, o.feature) !== null)
+
+    // In plan the depth axis stays horizontal, so its two faces are still sides.
+    expect(planeAnchors('top').length).toBeGreaterThan(0)
+    expect(planeAnchors('front')).toHaveLength(0)
+    expect(planeAnchors('side')).toHaveLength(0)
+
+    // The point anchors are unaffected — corners, side midpoints and the
+    // centre are all still there to measure from in every view.
+    for (const view of ['top', 'front', 'side'] as const) {
+      expect(offeredAnchors(raked, view).some((o) => o.feature.kind === 'centre')).toBe(true)
+      expect(offeredAnchors(raked, view).filter((o) => o.feature.kind === 'corner').length).toBeGreaterThan(0)
+    }
+  })
+
+  it('still refuses a face seen flat', () => {
+    const flat = element({ kind: 'shape', shape_kind: 'rect', width_cm: 400, depth_cm: 200, height_cm: 100 })
+    expect(faceLine(flat, 'top', { kind: 'face', axis: 2, sign: 1 })).toBeNull()
+    expect(faceLine(flat, 'front', { kind: 'face', axis: 1, sign: 1 })).toBeNull()
   })
 })

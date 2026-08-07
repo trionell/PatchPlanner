@@ -657,14 +657,42 @@ export function faceLine(element: StagePlotElement, view: StagePlotView, feature
   const rect = projectElement(element, view)
   const axes = axisList(element, view)
   const half = halfExtents(element)
-  const raw = drawnToProjected({ u: feature.sign * axes[feature.axis].u, v: feature.sign * axes[feature.axis].v }, rect, view)
-  if (length(raw) < FACE_EDGE_ON_MIN) return null
-  const normal = normalize(raw)
-  const dir = { u: -normal.v, v: normal.u }
-  const point = anchorPoint(element, view, feature)
-  // The face's four corners, projected: edge-on they collapse onto the line,
-  // and their spread along it is the side's drawn extent.
   const others = [0, 1, 2].filter((i) => i !== feature.axis)
+
+  // The face's OWN in-plane axes, projected — and the line's direction comes
+  // from these, never from rotating the projected normal by 90°.
+  //
+  // Orthographic projection drops an axis, and dropping an axis does not
+  // preserve angles: two perpendicular 3D vectors generally do not project to
+  // perpendicular 2D ones. Rotating the normal is only right when everything
+  // stays in the view plane, which is why a yaw-only element read correctly in
+  // plan and an element turned on every axis did not, in the elevations
+  // (field test, 2026-08-07).
+  const spans = others.map((i) => drawnToProjected({ u: half[i] * axes[i].u, v: half[i] * axes[i].v }, rect, view))
+  const cross = spans[0].u * spans[1].v - spans[0].v * spans[1].u
+  const [long, short] = length(spans[0]) >= length(spans[1]) ? [spans[0], spans[1]] : [spans[1], spans[0]]
+  // Projects to a point, not a line: there is no side to slide along.
+  if (length(long) < 1e-6) return null
+  // Edge-on when the face's two in-plane axes project onto ONE line — the
+  // face has collapsed to its own edge. `|cross| / |long|` is how far the
+  // face spreads off that line, and it is compared to the SHORT axis rather
+  // than the long one, which makes the test `sin(angle between them) < ε`:
+  // scale-free, and true of a 6 m truss side and a 40 cm one alike. Measured
+  // against the long axis instead, a long thin face passes whatever its
+  // angle — which is how a raked truss came to offer sides it does not have.
+  if (Math.abs(cross) / length(long) > FACE_EDGE_ON_MIN * length(short)) return null
+
+  const dir = normalize(long)
+  // Out of the face, as the projected normal would have it — used only to
+  // orient, never to derive.
+  const outward = drawnToProjected({ u: feature.sign * axes[feature.axis].u, v: feature.sign * axes[feature.axis].v }, rect, view)
+  // `+ 0` collapses the negative zero a flip leaves behind, so an unrotated
+  // face's normal reads {1, 0} rather than {1, -0}.
+  let normal = { u: dir.v + 0, v: -dir.u + 0 }
+  if (normal.u * outward.u + normal.v * outward.v < 0) normal = { u: -normal.u + 0, v: -normal.v + 0 }
+
+  const point = anchorPoint(element, view, feature)
+
   let min = Infinity
   let max = -Infinity
   for (const sj of [-1, 1]) {

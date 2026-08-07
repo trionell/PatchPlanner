@@ -294,3 +294,95 @@ func TestComputeMeasurementDrawing(t *testing.T) {
 	wantPoint(t, "locked lineA", steppedDrawing.LineA, 0, 90)
 	wantPoint(t, "locked lineB", steppedDrawing.LineB, 400, 90)
 }
+
+// TestFaceLineUnderEveryRotation is the invariant that decides whether a face
+// line is right at all: the four corners of that face, projected, must all lie
+// ON the line. It holds in every view and under any combination of yaw and
+// rake, and it is what a direction taken from the projected normal cannot
+// satisfy — orthographic projection does not preserve angles. Mirrors
+// stagePlot.test.ts's "a face line under every rotation".
+func TestFaceLineUnderEveryRotation(t *testing.T) {
+	raked := plotElement(func(e *domain.StagePlotElement) {
+		e.ID, e.Kind, e.ShapeKind, e.Icon = 7, "shape", "rect", ""
+		e.XCm, e.YCm, e.ZCm = 300, 200, 150
+		e.WidthCm, e.DepthCm, e.HeightCm = 600, 40, 40
+		e.RotationDeg, e.TiltDeg = 35, 20
+	})
+
+	for _, view := range PlotViews {
+		for _, offered := range OfferedAnchors(raked, view) {
+			if offered.Feature.Kind != "face" {
+				continue
+			}
+			line, ok := ProjectFaceLine(raked, view, offered.Feature)
+			if !ok {
+				continue
+			}
+			axis := offered.Feature.Axis
+			others := make([]int, 0, 2)
+			for i := 0; i < 3; i++ {
+				if i != axis {
+					others = append(others, i)
+				}
+			}
+			for _, sj := range []int{-1, 1} {
+				for _, sk := range []int{-1, 1} {
+					signs := [3]int{1, 1, 1}
+					signs[axis] = offered.Feature.Sign
+					signs[others[0]] = sj
+					signs[others[1]] = sk
+					corner := AnchorPoint(raked, view, AnchorFeature{Kind: "corner", Signs: signs})
+					off := (corner.U-line.Point.U)*line.Normal.U + (corner.V-line.Point.V)*line.Normal.V
+					if math.Abs(off) > 0.05 {
+						t.Errorf("%s view, face %s: its own corner sits %.3f cm off the line",
+							view, FormatAnchorFeature(offered.Feature), off)
+					}
+				}
+			}
+		}
+	}
+}
+
+// TestARakedElementOffersNoSidesInElevation: a truss with both yaw and rake has
+// no face seen edge-on in an elevation — every one is a tilted plane, drawn as
+// a parallelogram rather than a line, so there is no side to be perpendicular
+// to. Offering one would invent an edge the drawing does not have.
+func TestARakedElementOffersNoSidesInElevation(t *testing.T) {
+	raked := plotElement(func(e *domain.StagePlotElement) {
+		e.ID, e.Kind, e.ShapeKind, e.Icon = 7, "shape", "rect", ""
+		e.XCm, e.YCm, e.ZCm = 300, 200, 150
+		e.WidthCm, e.DepthCm, e.HeightCm = 600, 40, 40
+		e.RotationDeg, e.TiltDeg = 35, 20
+	})
+	planes := func(view PlotView) int {
+		count := 0
+		for _, offered := range OfferedAnchors(raked, view) {
+			if offered.Feature.Kind != "face" {
+				continue
+			}
+			if _, ok := ProjectFaceLine(raked, view, offered.Feature); ok {
+				count++
+			}
+		}
+		return count
+	}
+	if planes(ViewTop) == 0 {
+		t.Error("the plan should still show sides: the depth axis stays horizontal under a rake")
+	}
+	if got := planes(ViewFront); got != 0 {
+		t.Errorf("the front view offered %d sides on a fully raked element, want 0", got)
+	}
+	if got := planes(ViewSide); got != 0 {
+		t.Errorf("the side view offered %d sides on a fully raked element, want 0", got)
+	}
+
+	// The point anchors are unaffected in every view.
+	for _, view := range PlotViews {
+		if countOffered(OfferedAnchors(raked, view), "centre") != 1 {
+			t.Errorf("%s view lost the centre anchor", view)
+		}
+		if countOffered(OfferedAnchors(raked, view), "corner") == 0 {
+			t.Errorf("%s view lost its corner anchors", view)
+		}
+	}
+}
