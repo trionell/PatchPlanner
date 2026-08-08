@@ -13,7 +13,7 @@ export const listEventInventoryCategories = (eventId: number) =>
 
 export const listEventInventoryItems = (
   eventId: number,
-  params?: { categoryId?: number; categoryType?: string; role?: 'cable' | 'stand' | 'truss'; includeDiscontinued?: boolean },
+  params?: { categoryId?: number; categoryType?: string; role?: 'cable' | 'stand' | 'truss' | 'mic'; includeDiscontinued?: boolean },
 ) => {
   const search = new URLSearchParams()
   if (params?.categoryId) search.set('category_id', String(params.categoryId))

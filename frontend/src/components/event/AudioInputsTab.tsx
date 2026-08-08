@@ -43,6 +43,10 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
     queryKey: ['inventory-items', eventId, 'role', 'stand'],
     queryFn: () => listEventInventoryItems(eventId, { role: 'stand' }),
   })
+  const micQuery = useQuery({
+    queryKey: ['inventory-items', eventId, 'role', 'mic'],
+    queryFn: () => listEventInventoryItems(eventId, { role: 'mic' }),
+  })
   const ownedQuery = useQuery({ queryKey: ['owned-items'], queryFn: listOwnedItems })
 
   const isMobile = useIsMobile()
@@ -123,7 +127,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
   const cableItems: InventoryItem[] = useMemo(() => cableQuery.data ?? [], [cableQuery.data])
   const standItems: InventoryItem[] = useMemo(() => standQuery.data ?? [], [standQuery.data])
   const ownedItems: OwnedItem[] = useMemo(() => ownedQuery.data ?? [], [ownedQuery.data])
-  const micItems = useMemo(() => allAudioItems.filter((i) => i.category_name?.toLowerCase().startsWith('mikrofon')), [allAudioItems])
+  const micItems: InventoryItem[] = useMemo(() => micQuery.data ?? [], [micQuery.data])
 
   const channels = audioQuery.data?.input_channels ?? []
   const sources = audioQuery.data?.input_sources ?? []
@@ -136,8 +140,8 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
   const dcas = audioQuery.data?.dcas ?? []
 
   const itemLabelById = useMemo(
-    () => new Map([...allAudioItems, ...cableItems, ...standItems].map((item) => [item.id, itemLabel(item)])),
-    [allAudioItems, cableItems, standItems],
+    () => new Map([...allAudioItems, ...cableItems, ...standItems, ...micItems].map((item) => [item.id, itemLabel(item)])),
+    [allAudioItems, cableItems, standItems, micItems],
   )
 
   if (isMobile) {

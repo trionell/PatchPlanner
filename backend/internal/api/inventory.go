@@ -120,8 +120,8 @@ func (h EventInventoryHandler) listItems(w http.ResponseWriter, r *http.Request)
 		categoryID = &parsed
 	}
 	role := r.URL.Query().Get("role")
-	if role != "" && role != "cable" && role != "stand" && role != "truss" {
-		writeError(w, http.StatusBadRequest, "invalid role: must be 'cable', 'stand' or 'truss'")
+	if role != "" && role != "cable" && role != "stand" && role != "truss" && role != "mic" {
+		writeError(w, http.StatusBadRequest, "invalid role: must be 'cable', 'stand', 'truss' or 'mic'")
 		return
 	}
 	includeDiscontinued := r.URL.Query().Get("include_discontinued") == "true"

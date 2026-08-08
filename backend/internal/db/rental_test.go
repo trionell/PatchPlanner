@@ -99,6 +99,31 @@ func TestRentalSummaryCountsAllSources(t *testing.T) {
 	}
 }
 
+// TestUnassignedMicSourceExcludedFromRental verifies that a "mic" source
+// with no mic_item_id yet (fix-mic-source-picker) contributes nothing to
+// the rental order — an unpicked mic must not be silently counted as
+// rented stock (Constitution Principle IV).
+func TestUnassignedMicSourceExcludedFromRental(t *testing.T) {
+	database := openTestDB(t)
+	cat := seedCatalog(t, database)
+	eventID := createTestEvent(t, database)
+
+	createMicSource(t, database, eventID, nil)
+	createMicSource(t, database, eventID, &cat.Mic)
+
+	summary, err := GetRentalSummary(database, eventID)
+	if err != nil {
+		t.Fatalf("get rental summary: %v", err)
+	}
+	byItem := summaryByItem(summary)
+	if line, ok := byItem[cat.Mic]; !ok || line.QuantityAudio != 1 {
+		t.Errorf("mic: got %+v, want quantity_audio=1 (only the assigned source counts)", line)
+	}
+	if summary.TotalItems != 1 {
+		t.Errorf("total_items=%d, want 1 (unassigned source contributes no line)", summary.TotalItems)
+	}
+}
+
 // TestMicBackfillMigration verifies FR-002: legacy free-text mic names are
 // linked by case-insensitive match, and unmatched names are kept as labels
 // that contribute nothing to the rental order.
