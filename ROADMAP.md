@@ -2,7 +2,7 @@
 
 ## What remains
 
-**Slices 0–42 are delivered, and every recorded defect is fixed.** This file is a
+**Slices 0–43 are delivered, and every recorded defect is fixed.** This file is a
 per-slice record written after delivery; everything below this section is history.
 
 | | |
@@ -11,8 +11,9 @@ per-slice record written after delivery; everything below this section is histor
 
 The table is empty because the roadmap is **asking**, not because the tool is
 finished. Slices 40 and 41 — the audio plan and the stage plot as generated
-documents — both merged 2026-08-06, and Slice 42 — the Sources drawer's mic
-picker — merged 2026-08-08, all leaving it that way.
+documents — both merged 2026-08-06, Slice 42 — the Sources drawer's mic
+picker — merged 2026-08-08, and Slice 43 — the output flow graph's stage-multi
+visibility flag — done 2026-08-08 pending merge, all leaving it that way.
 
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
 multi-event/tour planning (§3.11).
@@ -2193,6 +2194,48 @@ not have caught this pairing itself, since nothing exercised both routes togethe
 string is validated, not just the one the management UI calls. Two copies of the same
 enum check is the shape of this bug, and it will recur for `truss` or any role added
 next unless one is deleted in favour of the other.
+
+## Slice 43 — A visibility flag for stage multis on the output flow graph (change: `stage-multi-output-visibility`) ✅ 2026-08-08
+
+**Asked for directly**, not filed as a defect: stage multis are normally an input-only
+device, but connector adapters let them carry outputs too, so they were shown
+unconditionally in both the audio input and audio output flow graphs. On the output
+side that reverse use is the secondary case, and most multis have nothing to do with
+output at all — every one of them cluttered the output graph regardless.
+
+**Ran through OpenSpec**, the user's call for this piece of work. No `design/` file
+changed and the new form control reuses the existing `phantom_power` checkbox pattern
+in `InputFlowInspector.tsx` verbatim, so no mockup gate applied.
+
+Added `ShowInOutputGraph` to `domain.StageMulti` (migration 052), read by three
+independent places that decide a stage multi's presence in a graph — the interactive
+output canvas (`AudioOutputsTab.tsx`), the backend PDF/graph builder
+(`audio_graph.go`'s `passThroughNodes`, shared with the input graph via an `input`
+flag), and nothing else: the input canvas, the Rig drawer, and the output tab's
+search/palette all keep listing every stage multi regardless, unchanged. A multi with
+a real `output_cables` connection — the connector-adapter use — stays visible
+regardless of the flag, computed independently on each side (`stageMultiHasOutputCable`
+in Go, `isStageMultiVisibleInOutputGraph` in `frontend/src/lib/outputGraph.ts`) rather
+than through a shared representation, mirroring how this codebase already keeps its
+cable-kind validators independent on both sides.
+
+**Caught by manual verification against a copy of real data, not the automated
+gates:** the field was drafted as `HideFromOutputGraph`, defaulting to `true`
+("hidden") for newly created multis. Go's `bool` zero value is `false`, so any create
+path that didn't explicitly set the field — a bare API `POST`, in particular, not only
+the frontend form, which by then always set it — landed on `false`, i.e. "not hidden",
+silently inverting the intended default. Verifying against a `/tmp` copy of the real
+database (empty of stage multis, so the check exercised `db.CreateStageMulti` directly
+rather than existing rows) reproduced this immediately. Fixed by renaming and
+repolarizing the field to `ShowInOutputGraph`, whose Go zero value (`false`) already
+means the intended default, closing the gap structurally rather than special-casing
+every creation path.
+
+**What a future default-true boolean should check first:** a Go `bool` field can only
+default-zero to `false`. A flag whose product default is "on" needs either its
+polarity inverted so `false` is the wanted default, or a `*bool`/explicit-default at
+every write path — decide this before naming the column, not after a create path
+proves it wrong.
 
 ## Known defects — found, reproduced, not yet scheduled
 
