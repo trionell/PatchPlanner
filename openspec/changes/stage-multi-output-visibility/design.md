@@ -25,16 +25,20 @@ See proposal.md for why the output side needs to exclude some of these.
 
 ## Decisions
 
-- **Field name and shape**: add `HideFromOutputGraph bool` (JSON `hide_from_output_graph`) to
-  `domain.StageMulti`, defaulting to `true` (hidden) for newly created records. A positive
-  boolean ("hide") rather than a negative-of-a-negative ("show") was chosen so the zero value
-  (`false`) reads naturally if the column is ever inspected directly — but since existing rows
-  must migrate to hidden (see proposal.md's default-hidden decision), the migration backfills
-  existing rows to `true` explicitly rather than relying on SQLite's default-`false` zero value.
-- **Migration**: one column, `stage_multis.hide_from_output_graph BOOLEAN NOT NULL DEFAULT 1`,
+- **Field name and shape**: add `ShowInOutputGraph bool` (JSON `show_in_output_graph`) to
+  `domain.StageMulti`. The first draft of this decision used a `HideFromOutputGraph` flag
+  defaulting to `true`, reasoning that a positive "hide" boolean reads more naturally than a
+  negative-of-a-negative "show" one. That was wrong in a way manual verification caught: a
+  create request that omits the field (or any Go call site that builds a `domain.StageMulti`
+  without setting it — the real HTTP API included, since nothing forces every caller through the
+  edit form) gets Go's `bool` zero value, `false`, meaning "not hidden" — the opposite of the
+  intended default. Flipping the polarity to `ShowInOutputGraph` makes the zero value (`false`)
+  mean exactly the intended default (not shown), so the guarantee holds for every caller without
+  a special case, not only the one path the frontend happens to remember to set explicitly.
+- **Migration**: one column, `stage_multis.show_in_output_graph BOOLEAN NOT NULL DEFAULT 0`,
   following the single `ALTER TABLE` pattern already used by
-  `027_output_graph_positions.up.sql` / `031_input_graph_positions.up.sql`. `DEFAULT 1` covers
-  both existing rows and any insert that omits the column.
+  `027_output_graph_positions.up.sql` / `031_input_graph_positions.up.sql`. `DEFAULT 0` covers
+  existing rows the same way the Go zero value covers a future insert that omits the column.
 - **Cabled-override check, computed independently on each side rather than shared**: the
   frontend already has the output cable list in memory when laying out `AudioOutputsTab`'s
   canvas; the backend already has it in memory when walking `buildOutputGraph`. Rather than

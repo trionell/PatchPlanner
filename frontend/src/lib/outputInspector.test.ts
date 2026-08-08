@@ -8,7 +8,7 @@ const stageboxes: Stagebox[] = [
   { id: 1, event_id: 1, name: 'SB1', model: '', input_count: 32, output_count: 16, connection_type: 'dante', position_x: 0, position_y: 0, input_position_x: 0, input_position_y: 0 },
 ]
 const stageMultis: StageMulti[] = [
-  { id: 5, event_id: 1, name: 'Multi A', length_m: 30, channels: 16, connector_type: 'harting', position_x: 0, position_y: 0, input_position_x: 0, input_position_y: 0 },
+  { id: 5, event_id: 1, name: 'Multi A', length_m: 30, channels: 16, connector_type: 'harting', position_x: 0, position_y: 0, input_position_x: 0, input_position_y: 0, show_in_output_graph: true },
 ]
 const itemLabelById = new Map([[7, 'NL4 10 m — Högtalarkabel']])
 

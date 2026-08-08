@@ -382,3 +382,18 @@ export function isCablelessToKind(kind: PortRef['kind']): boolean {
   // own jacks is desk routing; the real cable is the one leaving that jack.
   return kind === 'stagebox' || kind === 'stage_multi' || kind === 'console_local'
 }
+
+/**
+ * Whether a stage multi belongs on the output flow graph. A stage multi is
+ * normally input-only; showing it here is a secondary, connector-adapter use,
+ * so it defaults to hidden — but a multi with a real output cable stays
+ * visible regardless of the flag, so that cable's edge never goes missing.
+ */
+export function isStageMultiVisibleInOutputGraph(stageMulti: StageMulti, cables: OutputCable[]): boolean {
+  if (stageMulti.show_in_output_graph) return true
+  return cables.some(
+    (cable) =>
+      (cable.from_kind === 'stage_multi' && cable.from_id === stageMulti.id) ||
+      (cable.to_kind === 'stage_multi' && cable.to_id === stageMulti.id),
+  )
+}

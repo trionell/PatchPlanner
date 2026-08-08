@@ -88,12 +88,12 @@ func DeleteStagebox(db *sql.DB, id int64) error {
 	return tx.Commit()
 }
 
-const stageMultiColumns = `id, event_id, name, COALESCE(length_m, 0), COALESCE(channels, 24), COALESCE(connector_type, 'xlr'), inventory_item_id, position_x, position_y, input_position_x, input_position_y`
+const stageMultiColumns = `id, event_id, name, COALESCE(length_m, 0), COALESCE(channels, 24), COALESCE(connector_type, 'xlr'), inventory_item_id, position_x, position_y, input_position_x, input_position_y, show_in_output_graph`
 
 func scanStageMulti(row scanner) (domain.StageMulti, error) {
 	var item domain.StageMulti
 	var invID sql.NullInt64
-	if err := row.Scan(&item.ID, &item.EventID, &item.Name, &item.LengthM, &item.Channels, &item.ConnectorType, &invID, &item.PositionX, &item.PositionY, &item.InputPositionX, &item.InputPositionY); err != nil {
+	if err := row.Scan(&item.ID, &item.EventID, &item.Name, &item.LengthM, &item.Channels, &item.ConnectorType, &invID, &item.PositionX, &item.PositionY, &item.InputPositionX, &item.InputPositionY, &item.ShowInOutputGraph); err != nil {
 		return domain.StageMulti{}, fmt.Errorf("scan stage multi: %w", err)
 	}
 	item.InventoryItemID = int64PtrFromNull(invID)
@@ -123,8 +123,8 @@ func GetStageMulti(db *sql.DB, id int64) (domain.StageMulti, error) {
 }
 
 func CreateStageMulti(db *sql.DB, sm domain.StageMulti) (domain.StageMulti, error) {
-	result, err := db.Exec(`INSERT INTO stage_multis (event_id, name, length_m, channels, connector_type, inventory_item_id, position_x, position_y, input_position_x, input_position_y) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		sm.EventID, sm.Name, sm.LengthM, sm.Channels, sm.ConnectorType, nullInt64(sm.InventoryItemID), sm.PositionX, sm.PositionY, sm.InputPositionX, sm.InputPositionY)
+	result, err := db.Exec(`INSERT INTO stage_multis (event_id, name, length_m, channels, connector_type, inventory_item_id, position_x, position_y, input_position_x, input_position_y, show_in_output_graph) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		sm.EventID, sm.Name, sm.LengthM, sm.Channels, sm.ConnectorType, nullInt64(sm.InventoryItemID), sm.PositionX, sm.PositionY, sm.InputPositionX, sm.InputPositionY, sm.ShowInOutputGraph)
 	if err != nil {
 		return domain.StageMulti{}, fmt.Errorf("create stage multi: %w", err)
 	}
@@ -133,8 +133,8 @@ func CreateStageMulti(db *sql.DB, sm domain.StageMulti) (domain.StageMulti, erro
 }
 
 func UpdateStageMulti(db *sql.DB, id int64, sm domain.StageMulti) (domain.StageMulti, error) {
-	_, err := db.Exec(`UPDATE stage_multis SET name = ?, length_m = ?, channels = ?, connector_type = ?, inventory_item_id = ?, position_x = ?, position_y = ?, input_position_x = ?, input_position_y = ? WHERE id = ?`,
-		sm.Name, sm.LengthM, sm.Channels, sm.ConnectorType, nullInt64(sm.InventoryItemID), sm.PositionX, sm.PositionY, sm.InputPositionX, sm.InputPositionY, id)
+	_, err := db.Exec(`UPDATE stage_multis SET name = ?, length_m = ?, channels = ?, connector_type = ?, inventory_item_id = ?, position_x = ?, position_y = ?, input_position_x = ?, input_position_y = ?, show_in_output_graph = ? WHERE id = ?`,
+		sm.Name, sm.LengthM, sm.Channels, sm.ConnectorType, nullInt64(sm.InventoryItemID), sm.PositionX, sm.PositionY, sm.InputPositionX, sm.InputPositionY, sm.ShowInOutputGraph, id)
 	if err != nil {
 		return domain.StageMulti{}, fmt.Errorf("update stage multi: %w", err)
 	}

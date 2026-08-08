@@ -38,6 +38,7 @@ import {
   devicePorts,
   isCablelessToKind,
   isPortConnected,
+  isStageMultiVisibleInOutputGraph,
   mixerPorts,
   nodeZone,
   resolvePortRef,
@@ -763,6 +764,7 @@ function OutputGraphCanvas({
       nodes.push({ kind: 'stagebox', id: sb.id, x: pos.x, y: pos.y, zone: 'processing' })
     }
     for (const sm of stageMultis) {
+      if (!isStageMultiVisibleInOutputGraph(sm, cables)) continue
       const pos = effectivePosition('stage_multi', sm.id, sm.position_x, sm.position_y)
       nodes.push({ kind: 'stage_multi', id: sm.id, x: pos.x, y: pos.y, zone: 'processing' })
     }
@@ -772,7 +774,7 @@ function OutputGraphCanvas({
     }
     return nodes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [consoles, orphanOutputs, sourceDevices, destinationDevices, stageboxes, stageMultis, processingDevices, positions])
+  }, [consoles, orphanOutputs, sourceDevices, destinationDevices, stageboxes, stageMultis, processingDevices, positions, cables])
 
   /* Where the plane starts — see the input canvas's note (Slice 37 R4). */
   const origin = useMemo(() => planeOrigin(layout), [layout])
@@ -1477,7 +1479,7 @@ function OutputGraphCanvas({
       )}
       </div>
 
-      {devices.length === 0 && stageboxes.length === 0 && stageMultis.length === 0 && (
+      {devices.length === 0 && stageboxes.length === 0 && !stageMultis.some((sm) => isStageMultiVisibleInOutputGraph(sm, cables)) && (
         <p className="text-xs text-zinc-500">No devices yet — add one below, then click or drag from a port here to start cabling.</p>
       )}
 
