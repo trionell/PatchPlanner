@@ -148,6 +148,8 @@ export interface StageMulti {
   /** This same stage multi's separate canvas placement in the Input graph's Processing zone — see Stagebox's own note above. */
   input_position_x: number
   input_position_y: number
+  /** Opts this multi into the output flow graph (canvas and exported PDF); ignored (treated as shown) when it has a real output cable connected. */
+  show_in_output_graph: boolean
 }
 
 /** A named mix bus of one event; LR is built-in (recolorable, never renamed/deleted). */
