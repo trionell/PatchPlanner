@@ -661,7 +661,7 @@ func assignCarriers(plans []*plan, candidates []float64, boxes []NodeBox, top, b
 		reachHi := math.Max(p.fromX, p.toX) + 4*edgeStubMM
 
 		if p.gutterFixed {
-			step := minLaneGapMM
+			var step float64
 			if p.carrier > (top+bottom)/2 {
 				// Below the boxes: further out is further down.
 				step = minLaneGapMM

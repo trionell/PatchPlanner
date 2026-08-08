@@ -245,7 +245,7 @@ func (d *plotDoc) drawElement(element domain.StagePlotElement, view PlotView, m 
 	// The label's POSITION turns with the element, so it stays under the shape
 	// it names; its ORIENTATION does not, because a drawing is read one way up.
 	if element.Name != "" && (m.vDown || element.ZCm > 0) &&
-		!(element.Kind == "shape" && element.ShapeKind == "text") {
+		(element.Kind != "shape" || element.ShapeKind != "text") {
 		labelX, labelY := frame.toPage(0, rect.Height/2+2.1/d.perCm)
 		d.setInk(red, green, blue)
 		d.text(labelX, labelY, 5.5, "", "C", element.Name)

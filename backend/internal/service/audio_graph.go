@@ -543,6 +543,9 @@ func passThroughNodes(data audioGraphData, patched map[portKey]bool, colors map[
 	}
 
 	for _, multi := range data.stageMultis {
+		if !input && !multi.ShowInOutputGraph && !stageMultiHasOutputCable(data, multi.ID) {
+			continue
+		}
 		key := "stage_multi:" + itoa(multi.ID)
 		node := FlowNode{Key: key, Title: multi.Name, Badge: "SM"}
 		if input {
@@ -574,6 +577,18 @@ func passThroughNodes(data audioGraphData, patched map[portKey]bool, colors map[
 	}
 
 	return nodes
+}
+
+// stageMultiHasOutputCable reports whether an output cable runs to or from this
+// stage multi — the connector-adapter use that forces it to stay visible on
+// the output graph regardless of its ShowInOutputGraph flag.
+func stageMultiHasOutputCable(data audioGraphData, multiID int64) bool {
+	for _, cable := range data.outCables {
+		if (cable.FromKind == "stage_multi" && cable.FromID == multiID) || (cable.ToKind == "stage_multi" && cable.ToID == multiID) {
+			return true
+		}
+	}
+	return false
 }
 
 func portAt(node string, side FlowSide, index int, label string, patched map[portKey]bool, colors map[portKey]string) FlowPort {

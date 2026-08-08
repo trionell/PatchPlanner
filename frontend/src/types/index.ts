@@ -87,7 +87,7 @@ export interface InventoryCategory {
   name: string
   category_type: 'audio' | 'lighting' | 'misc' | 'video' | 'rigging'
   /** Marks the category as a planning-picker source; absent = not offered. */
-  picker_role?: 'cable' | 'stand' | 'truss'
+  picker_role?: 'cable' | 'stand' | 'truss' | 'mic'
   item_count?: number
 }
 
@@ -148,6 +148,8 @@ export interface StageMulti {
   /** This same stage multi's separate canvas placement in the Input graph's Processing zone — see Stagebox's own note above. */
   input_position_x: number
   input_position_y: number
+  /** Opts this multi into the output flow graph (canvas and exported PDF); ignored (treated as shown) when it has a real output cable connected. */
+  show_in_output_graph: boolean
 }
 
 /** A named mix bus of one event; LR is built-in (recolorable, never renamed/deleted). */
@@ -186,7 +188,7 @@ export interface InputSource {
   id: number
   event_id: number
   name: string
-  /** 'mic' requires mic_item_id (stand_item_id/phantom_power meaningful only for this kind); 'line' forbids all three. */
+  /** 'mic' allows mic_item_id/stand_item_id/phantom_power, all optional (a mic source may be unassigned); 'line' forbids all three. */
   kind: 'mic' | 'line'
   mic_item_id?: number
   stand_item_id?: number

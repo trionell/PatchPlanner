@@ -216,7 +216,8 @@ func seedItem(t *testing.T, database *sql.DB, name string, quantity int, price f
 }
 
 // seedRoleItem inserts an item under a category carrying a picker_role
-// ('cable' or 'stand'), reusing the category on repeated calls.
+// ('cable', 'stand', 'truss', or 'mic'), reusing the category on repeated
+// calls.
 func seedRoleItem(t *testing.T, database *sql.DB, role, name, description string, quantity int, price float64) int64 {
 	t.Helper()
 	inventoryID := testOwnerInventoryIDFromDB(t, database)

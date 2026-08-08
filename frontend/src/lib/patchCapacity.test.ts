@@ -3,7 +3,7 @@ import type { Console, InputCable, StageMulti, Stagebox } from '../types'
 import { boxUsage, cablesPicked, inputPatchStatus, outputPatchStatus, overCapacityLine, patchStatusState, type PatchStatus } from './patchCapacity'
 
 const stagebox: Stagebox = { id: 1, event_id: 1, name: 'SB1', model: '', input_count: 32, output_count: 16, connection_type: 'dante', position_x: 0, position_y: 0, input_position_x: 0, input_position_y: 0 }
-const multi: StageMulti = { id: 5, event_id: 1, name: 'Multi A', length_m: 30, channels: 16, connector_type: 'harting', position_x: 0, position_y: 0, input_position_x: 0, input_position_y: 0 }
+const multi: StageMulti = { id: 5, event_id: 1, name: 'Multi A', length_m: 30, channels: 16, connector_type: 'harting', position_x: 0, position_y: 0, input_position_x: 0, input_position_y: 0, show_in_output_graph: true }
 
 function cable(overrides: Partial<InputCable>): InputCable {
   return { id: 1, event_id: 1, from_kind: 'source', from_id: 1, from_port: 0, to_kind: 'channel', to_id: 1, to_port: 0, ...overrides }

@@ -44,6 +44,14 @@ type StageMulti struct {
 	// see Stagebox's own note above.
 	InputPositionX float64 `json:"input_position_x"`
 	InputPositionY float64 `json:"input_position_y"`
+	// ShowInOutputGraph opts this stage multi into the output signal-flow
+	// graph (canvas and exported PDF), since a stage multi is normally
+	// input-only and its output-side use via a connector adapter is
+	// secondary. Defaults to false (Go's zero value), so a multi created
+	// without setting this field is not shown; ignored when the multi has
+	// a real output_cables connection, so a cabled edge never goes
+	// missing.
+	ShowInOutputGraph bool `json:"show_in_output_graph"`
 }
 
 // MixerGroup is a named mix bus of one event. The built-in LR main group

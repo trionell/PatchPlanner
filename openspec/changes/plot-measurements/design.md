@@ -101,7 +101,7 @@ the measurement lives in the view.
 
 ### D3 · Storage
 
-One migration, `051_stage_plot_measurements`:
+One migration, `053_stage_plot_measurements`:
 
 ```
 stage_plot_measurements
@@ -236,7 +236,7 @@ one commit, which is what the same-commit rule for `design/` is for.
 
 ## Migration Plan
 
-Forward-only, additive: one new table, no column changes to any existing table. `051_*.down.sql`
+Forward-only, additive: one new table, no column changes to any existing table. `053_*.down.sql`
 drops the table, which is a complete rollback because nothing outside it references a
 measurement. No backfill — an existing plot has no measurements and is correct with none.
 

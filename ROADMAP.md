@@ -2,16 +2,22 @@
 
 ## What remains
 
-**Slices 0–42 are delivered, and every recorded defect is fixed.** This file is a
+**Slices 0–43 are delivered, and every recorded defect is fixed.** This file is a
 per-slice record written after delivery; everything below this section is history.
 
 | | |
 |---|---|
 | *(nothing scheduled)* | |
 
-The table is empty because the roadmap is **asking**, not because the tool is finished.
-Slice 42 — measurements on stage plots, and the first slice carried by OpenSpec — is
-delivered on `042-plot-measurements` and awaiting the user's decision to merge.
+The table is empty because the roadmap is **asking**, not because the tool is
+finished. Slices 40 and 41 — the audio plan and the stage plot as generated
+documents — both merged 2026-08-06, Slice 42 — the Sources drawer's mic
+picker — merged 2026-08-08, and Slice 43 — the output flow graph's stage-multi
+visibility flag — also merged 2026-08-08, all leaving it that way. Slice 44 —
+measurements on stage plots — is delivered on `042-plot-measurements` and
+awaiting the user's decision to merge; it was drafted as "Slice 42" before that
+number was independently claimed by the mic-picker fix above, and is renumbered
+here to the next free slot.
 
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
 multi-event/tour planning (§3.11).
@@ -2147,7 +2153,95 @@ synthetic 300 m plot, not by real data. Where elements overlap into a run wider 
 frame, no division can keep them all whole; the document draws them rather than
 refusing, and says so in a comment.
 
-## Slice 42 — Measurements on stage plots (OpenSpec: `plot-measurements`) ✅ 2026-08-07
+## Slice 42 — The Sources drawer's mic picker, and a mic-first default (spec: `fix-mic-source-picker`) ✅ merged 2026-08-08
+
+**Reported 2026-08-08:** switching a Source's kind to "Mic" in the Audio Inputs flow
+graph's drawer and saving it failed with *"mic_item_id is required when kind is mic"* —
+and there was no way to pick a mic to begin with. Traced rather than patched blind: the
+drawer's Mic `<Select>` (`InputFlowInspector.tsx:163-174`) already worked; it was fed an
+empty list because `AudioInputsTab.tsx:126` matched inventory category names against a
+hardcoded `"mikrofon"` prefix instead of using `inventory_categories.picker_role` —
+the mechanism migration 019 built for exactly this, already working correctly for the
+Cable and Stand pickers next to it. This is a Principle II violation in its own right
+(planning logic branching on a category name), not only the reported bug's cause.
+
+**Ran through OpenSpec rather than as a `dN-` defect**, on the user's call: this needed
+a migration (extending `picker_role` with a fourth value and backfilling it), which is
+the second trigger in CLAUDE.md's *Defects* section that promotes a defect to full
+scope. No `design/` file changed and no new UI pattern was introduced — the category
+role picker and the drawer's Mic select both already existed; only what fed them
+changed — so no mockup gate applied.
+
+**A second ask, and the decision it forced.** The user separately wanted a new Source
+to default to kind "Mic" rather than "Line". A new Source is created via an immediate
+`POST`, before the drawer where a mic gets attached is ever opened — so defaulting to
+"mic" meant a mic Source had to be allowed to exist unassigned. Relaxed
+`validInputSource` (`audio_patch.go`) to drop its `mic_item_id`-required check for
+`kind: "mic"`; `MicItemID` was already `*int64`, so "no item yet" was already a
+representable state, just a forbidden one. Every downstream reader of `mic_item_id`
+(rental counting, PDF export, patch-sheet display, the flow canvas's own label) already
+null-checked it for display purposes, so nothing else needed to change — verified by
+a new regression test (`TestUnassignedMicSourceExcludedFromRental`) locking in that an
+unassigned mic Source contributes no rental quantity, per Constitution Principle IV.
+
+**Found during the user's own manual verification, not the automated gates:** `?role=`
+on inventory items is validated by two independent copies — `inventories.go`'s
+owner-scoped `/inventories/{id}/items` and `inventory.go`'s event-scoped
+`/events/{id}/inventory/items`. Only the first had been updated to accept `'mic'`, and
+the second is the one `AudioInputsTab.tsx`'s `micQuery` actually calls, so the select
+still rendered empty after correctly assigning a category the Mic role. Fixed the
+second copy and added `TestEventScopedItemsRoleFilter` specifically on the event-scoped
+route, so the two checks can't drift apart silently again — the automated suite could
+not have caught this pairing itself, since nothing exercised both routes together.
+
+**What a future picker-role addition should check first:** grep for every place a role
+string is validated, not just the one the management UI calls. Two copies of the same
+enum check is the shape of this bug, and it will recur for `truss` or any role added
+next unless one is deleted in favour of the other.
+
+## Slice 43 — A visibility flag for stage multis on the output flow graph (change: `stage-multi-output-visibility`) ✅ merged 2026-08-08
+
+**Asked for directly**, not filed as a defect: stage multis are normally an input-only
+device, but connector adapters let them carry outputs too, so they were shown
+unconditionally in both the audio input and audio output flow graphs. On the output
+side that reverse use is the secondary case, and most multis have nothing to do with
+output at all — every one of them cluttered the output graph regardless.
+
+**Ran through OpenSpec**, the user's call for this piece of work. No `design/` file
+changed and the new form control reuses the existing `phantom_power` checkbox pattern
+in `InputFlowInspector.tsx` verbatim, so no mockup gate applied.
+
+Added `ShowInOutputGraph` to `domain.StageMulti` (migration 052), read by three
+independent places that decide a stage multi's presence in a graph — the interactive
+output canvas (`AudioOutputsTab.tsx`), the backend PDF/graph builder
+(`audio_graph.go`'s `passThroughNodes`, shared with the input graph via an `input`
+flag), and nothing else: the input canvas, the Rig drawer, and the output tab's
+search/palette all keep listing every stage multi regardless, unchanged. A multi with
+a real `output_cables` connection — the connector-adapter use — stays visible
+regardless of the flag, computed independently on each side (`stageMultiHasOutputCable`
+in Go, `isStageMultiVisibleInOutputGraph` in `frontend/src/lib/outputGraph.ts`) rather
+than through a shared representation, mirroring how this codebase already keeps its
+cable-kind validators independent on both sides.
+
+**Caught by manual verification against a copy of real data, not the automated
+gates:** the field was drafted as `HideFromOutputGraph`, defaulting to `true`
+("hidden") for newly created multis. Go's `bool` zero value is `false`, so any create
+path that didn't explicitly set the field — a bare API `POST`, in particular, not only
+the frontend form, which by then always set it — landed on `false`, i.e. "not hidden",
+silently inverting the intended default. Verifying against a `/tmp` copy of the real
+database (empty of stage multis, so the check exercised `db.CreateStageMulti` directly
+rather than existing rows) reproduced this immediately. Fixed by renaming and
+repolarizing the field to `ShowInOutputGraph`, whose Go zero value (`false`) already
+means the intended default, closing the gap structurally rather than special-casing
+every creation path.
+
+**What a future default-true boolean should check first:** a Go `bool` field can only
+default-zero to `false`. A flag whose product default is "on" needs either its
+polarity inverted so `false` is the wanted default, or a `*bool`/explicit-default at
+every write path — decide this before naming the column, not after a create path
+proves it wrong.
+
+## Slice 44 — Measurements on stage plots (OpenSpec: `plot-measurements`) ✅ 2026-08-07
 
 **Asked for 2026-08-06:** *"On the stage plots it's not easy to see the relative positions of
 things… Kinda like how measurements are plotted on CAD drawings."* Slice 41 made the plot
@@ -2156,7 +2250,9 @@ distances matter, which is the half that was missing.
 
 **The first slice carried by OpenSpec** rather than Spec Kit. Artifacts live in
 `openspec/changes/plot-measurements/`; the mockup was approved 2026-08-06 before any spec
-existed, as the Frontend Design Workflow requires.
+existed, as the Frontend Design Workflow requires. Drafted and delivered as "Slice 42" — the
+number was independently claimed by the mic-picker fix above while this branch was in
+flight, and it is renumbered here to 44, the next free slot, on merge.
 
 **Four decisions were the user's, taken before the spec.** Measurements print as well as
 draw; a measurement belongs to the view it was drawn in; both aligned and locked
@@ -2194,7 +2290,7 @@ than an element.
 - [x] **Two corrections the maths made to the plan.** The silhouette hexagon is unreachable
       in plan view — with yaw and tilt the length and height axes both project onto the yaw
       direction, so a top view is always a parallelogram; the test asserts it in the
-      elevation, where it is real. And migration 051 uses `CHECK` for its enums and Go for
+      elevation, where it is real. And migration 053 uses `CHECK` for its enums and Go for
       the endpoint exclusivity, which is the split migration 032 already drew, not the
       "no CHECK" style design.md first claimed.
 - [x] **`design/patterns.md` §7g gained a rule, and it cost a second surface.** *A surface
@@ -2213,7 +2309,7 @@ than an element.
       on both parts by the existing clip, but its label sits at the midpoint — which can be
       on the *other* sheet, leaving a part showing a line and no number. The label rides the
       visible portion instead, so each part states the distance in full.
-- [x] **Verified against a copy of the real database**: migration 051 applied clean to the
+- [x] **Verified against a copy of the real database**: migration 053 applied clean to the
       live schema (2 plots, 15 elements intact), three measurements drawn on the *Kyrkan*
       plot including a sliding face anchor, and the four-sheet PDF rendered with the values
       and the conventions row on it.

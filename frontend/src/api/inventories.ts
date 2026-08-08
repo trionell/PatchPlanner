@@ -32,7 +32,7 @@ export const listInventoryEvents = (inventoryId: number) =>
   request<Event[]>(`/inventories/${inventoryId}/events`)
 
 export const listCategories = (inventoryId: number) => request<InventoryCategory[]>(`/inventories/${inventoryId}/categories`)
-export const updateCategoryPickerRole = (inventoryId: number, categoryId: number, role: 'cable' | 'stand' | 'truss' | null) =>
+export const updateCategoryPickerRole = (inventoryId: number, categoryId: number, role: 'cable' | 'stand' | 'truss' | 'mic' | null) =>
   request<InventoryCategory>(`/inventories/${inventoryId}/categories/${categoryId}`, {
     method: 'PATCH',
     body: JSON.stringify({ picker_role: role }),

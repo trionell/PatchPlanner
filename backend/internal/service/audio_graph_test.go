@@ -415,6 +415,53 @@ func TestBuildOutputGraphWalksToTheDestination(t *testing.T) {
 	}
 }
 
+func TestBuildOutputGraphRespectsStageMultiVisibility(t *testing.T) {
+	database, eventID, inventoryID := seedAudioEvent(t)
+
+	// Neither multi below sets ShowInOutputGraph — proving the *default* is
+	// hidden (Go's bool zero value), not just that explicitly hiding works.
+	hiddenUncabled, err := db.CreateStageMulti(database, domain.StageMulti{
+		EventID: eventID, Name: "Hidden uncabled", Channels: 8, ConnectorType: "XLR-3",
+	})
+	if err != nil {
+		t.Fatalf("create hidden uncabled multi: %v", err)
+	}
+	hiddenCabled, err := db.CreateStageMulti(database, domain.StageMulti{
+		EventID: eventID, Name: "Hidden but cabled", Channels: 8, ConnectorType: "XLR-3",
+	})
+	if err != nil {
+		t.Fatalf("create hidden cabled multi: %v", err)
+	}
+	speaker, err := db.CreateOutputDevice(database, domain.OutputDevice{
+		EventID: eventID, Name: "Fill speaker", InputPortCount: 1,
+	})
+	if err != nil {
+		t.Fatalf("create output device: %v", err)
+	}
+	mustOutCable(t, database, domain.OutputCable{
+		EventID: eventID, FromKind: "stage_multi", FromID: hiddenCabled.ID, FromPort: 0,
+		ToKind: "device", ToID: speaker.ID, ToPort: 0,
+	})
+
+	data, err := loadAudioGraphData(database, eventID, inventoryID)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	output := buildOutputGraph(data)
+	if _, ok := output.Node("stage_multi:" + itoa(hiddenUncabled.ID)); ok {
+		t.Error("hidden, uncabled stage multi drawn in the output graph")
+	}
+	if _, ok := output.Node("stage_multi:" + itoa(hiddenCabled.ID)); !ok {
+		t.Error("hidden but cabled stage multi omitted from the output graph")
+	}
+
+	input := buildInputGraph(data)
+	if _, ok := input.Node("stage_multi:" + itoa(hiddenUncabled.ID)); !ok {
+		t.Error("the visibility flag hid a stage multi from the input graph too")
+	}
+}
+
 func TestEmptyEventStillBuildsGraphs(t *testing.T) {
 	database := openTestDB(t)
 	owner, _ := db.UpsertUserByGoogleSub(database, "empty-sub", "empty@example.com", "Empty", "")

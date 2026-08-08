@@ -35,7 +35,7 @@ export function StageMultiSection({ eventId, stageMultis, stageboxCount, audioIt
   /* The multi, never a boolean — the count in the sentence is this multi's, and it is
      recomputed from `cables` at render so an open confirm cannot state a stale one. */
   const [pendingMulti, setPendingMulti] = useState<StageMulti | null>(null)
-  const [draft, setDraft] = useState({ name: '', inventory_item_id: '', channels: '24', connector_type: 'xlr', length_m: '' })
+  const [draft, setDraft] = useState({ name: '', inventory_item_id: '', channels: '24', connector_type: 'xlr', length_m: '', show_in_output_graph: false })
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['audio-patch', eventId] })
@@ -45,7 +45,7 @@ export function StageMultiSection({ eventId, stageMultis, stageboxCount, audioIt
     mutationFn: (data: Omit<StageMulti, 'id'>) => createStageMulti(eventId, data),
     onSuccess: async () => {
       setAdding(false)
-      setDraft({ name: '', inventory_item_id: '', channels: '24', connector_type: 'xlr', length_m: '' })
+      setDraft({ name: '', inventory_item_id: '', channels: '24', connector_type: 'xlr', length_m: '', show_in_output_graph: false })
       await invalidate()
     },
   })
@@ -187,6 +187,17 @@ export function StageMultiSection({ eventId, stageMultis, stageboxCount, audioIt
                     ))}
                   </Select>
                 </FieldStack>
+                <FieldStack label="Output graph" width="short">
+                  <label className="flex items-center gap-2 text-[11px] text-zinc-400">
+                    <input
+                      type="checkbox"
+                      checked={multi.show_in_output_graph}
+                      onChange={(event) => update.mutate({ id: multi.id, data: { ...multi, show_in_output_graph: event.target.checked } })}
+                      className="h-3.5 w-3.5 accent-red-500"
+                    />
+                    {multi.show_in_output_graph ? 'shown' : 'hidden'}
+                  </label>
+                </FieldStack>
                 <FormActions>
                   <Button
                     size="sm"
@@ -246,6 +257,17 @@ export function StageMultiSection({ eventId, stageMultis, stageboxCount, audioIt
               ))}
             </Select>
           </FieldStack>
+          <FieldStack label="Output graph" width="short">
+            <label className="flex items-center gap-2 text-[11px] text-zinc-400">
+              <input
+                type="checkbox"
+                checked={draft.show_in_output_graph}
+                onChange={(event) => setDraft((d) => ({ ...d, show_in_output_graph: event.target.checked }))}
+                className="h-3.5 w-3.5 accent-red-500"
+              />
+              {draft.show_in_output_graph ? 'shown' : 'hidden'}
+            </label>
+          </FieldStack>
           <FormActions>
             <Button
               size="sm"
@@ -259,6 +281,7 @@ export function StageMultiSection({ eventId, stageMultis, stageboxCount, audioIt
                   connector_type: draft.connector_type,
                   length_m: Number(draft.length_m) || 0,
                   inventory_item_id: draft.inventory_item_id ? Number(draft.inventory_item_id) : undefined,
+                  show_in_output_graph: draft.show_in_output_graph,
                   // Offset past the stageboxes so a new multi doesn't open under one.
                   ...nextPosition(stageboxCount + stageMultis.length),
                 })

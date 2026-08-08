@@ -164,6 +164,11 @@ that cable connects.
 Each box SHALL state its name, its kind, its jacks, and which of those jacks are patched.
 Whether a jack is patched SHALL be legible without colour.
 
+The output graph SHALL omit a stage multi whose output-graph visibility flag is not shown,
+unless that stage multi has an output cable connected to it, in which case it SHALL be drawn
+like any other box. The input graph is unaffected by this flag and SHALL continue to draw
+every stage multi.
+
 #### Scenario: A graph drawn from stored positions
 
 - **WHEN** a planner has arranged the input graph's boxes on the canvas
@@ -175,6 +180,20 @@ Whether a jack is patched SHALL be legible without colour.
 - **WHEN** a box has jacks that no cable reaches
 - **THEN** those jacks are drawn and marked as free
 - **AND** the distinction from a patched jack survives monochrome printing
+
+#### Scenario: A hidden stage multi is omitted from the output graph
+
+- **WHEN** the exported document's output graph is drawn for an event with a stage multi whose
+  visibility flag is not shown and which has no output cable connected to it
+- **THEN** that stage multi is not drawn as a box in the output graph section
+- **AND** the same stage multi is still drawn in the input graph section
+
+#### Scenario: A cabled stage multi is drawn even when hidden
+
+- **WHEN** the exported document's output graph is drawn for an event with a stage multi whose
+  visibility flag is not shown but which has an output cable connected to it
+- **THEN** that stage multi is drawn as a box in the output graph section
+- **AND** the cable's line is drawn to it as it would be for any other box
 
 ### Requirement: No two cable lines share a line
 

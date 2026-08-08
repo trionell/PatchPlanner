@@ -1,6 +1,6 @@
 ## 1. Schema and domain
 
-- [x] 1.1 Write `backend/migrations/051_stage_plot_measurements.up.sql` and its `.down.sql`, per design D3 — plot and layer foreign keys cascading, both element references nullable and cascading, view, type, the two endpoint triples, `offset_cm`, `note`, `sort_order`.
+- [x] 1.1 Write `backend/migrations/053_stage_plot_measurements.up.sql` and its `.down.sql`, per design D3 — plot and layer foreign keys cascading, both element references nullable and cascading, view, type, the two endpoint triples, `offset_cm`, `note`, `sort_order`.
 - [x] 1.2 Add `StagePlotMeasurement` to `backend/internal/domain/stageplot.go` and a `Measurements` field to `StagePlotResponse`.
 - [x] 1.3 Add the mirroring TypeScript types to `frontend/src/types/index.ts`.
 
@@ -64,4 +64,4 @@
 - [x] 8.1 Run the Gates: `cd backend && gofmt -l . && go vet ./... && go test ./...`, then `cd frontend && npx tsc -b && npx eslint src && npx vitest run && npx vite build`.
 - [x] 8.2 Verify against a copy of the real database in `/tmp` with `PATCHPLANNER_DB` pointed at it — draw each anchor kind on a real plot, produce the document, and read the same value in both.
 - [ ] 8.3 Review against the specs and the approved mockup; fix what review finds.
-- [x] 8.4 Write the slice's outcome into `ROADMAP.md` as Slice 42, and add it to the **What remains** index until it lands.
+- [x] 8.4 Write the slice's outcome into `ROADMAP.md` as Slice 44 (renumbered from 42 — that number was independently claimed by the mic-picker fix while this branch was in flight), and add it to the **What remains** index until it lands.

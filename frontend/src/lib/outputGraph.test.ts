@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import type { AudioPatchOutput, Console, OutputCable, OutputDevice } from '../types'
-import { consoleLocalPorts, derivedCableColor, derivedOutputPortColor, isCablelessToKind, nodeZone } from './outputGraph'
+import type { AudioPatchOutput, Console, OutputCable, OutputDevice, StageMulti } from '../types'
+import {
+  consoleLocalPorts,
+  derivedCableColor,
+  derivedOutputPortColor,
+  isCablelessToKind,
+  isStageMultiVisibleInOutputGraph,
+  nodeZone,
+} from './outputGraph'
 
 function output(overrides: Partial<AudioPatchOutput> = {}): AudioPatchOutput {
   return { id: 1, event_id: 1, output_number: 1, output_name: 'FOH', output_type: 'foh', width: 'mono', color: '#38bdf8', ...overrides }
@@ -10,6 +17,22 @@ function device(overrides: Partial<OutputDevice> = {}): OutputDevice {
 }
 function cable(overrides: Partial<OutputCable> = {}): OutputCable {
   return { id: 1, event_id: 1, from_kind: 'mixer', from_id: 1, from_port: 0, to_kind: 'device', to_id: 10, to_port: 0, ...overrides }
+}
+function stageMulti(overrides: Partial<StageMulti> = {}): StageMulti {
+  return {
+    id: 1,
+    event_id: 1,
+    name: 'Multi A',
+    length_m: 30,
+    channels: 16,
+    connector_type: 'xlr',
+    position_x: 0,
+    position_y: 0,
+    input_position_x: 0,
+    input_position_y: 0,
+    show_in_output_graph: false,
+    ...overrides,
+  }
 }
 
 describe('derivedCableColor', () => {
@@ -123,5 +146,33 @@ describe('derivedOutputPortColor', () => {
     const first = cable({ id: 1 })
     const ctx = { outputs: [output()], cables: [first], devices: [device()] }
     expect(derivedCableColor(first, ctx)).toBe(derivedOutputPortColor(first.from_kind, first.from_id, first.from_port, ctx))
+  })
+})
+
+describe('isStageMultiVisibleInOutputGraph', () => {
+  it('is visible when the flag is on', () => {
+    expect(isStageMultiVisibleInOutputGraph(stageMulti({ show_in_output_graph: true }), [])).toBe(true)
+  })
+
+  it('is hidden by default (flag off, uncabled) — the fixture default, not an explicit override', () => {
+    expect(isStageMultiVisibleInOutputGraph(stageMulti(), [])).toBe(false)
+  })
+
+  it('stays visible when flagged off but cabled as a from', () => {
+    const multi = stageMulti({ id: 5, show_in_output_graph: false })
+    const wired = cable({ from_kind: 'stage_multi', from_id: 5, to_kind: 'device', to_id: 10 })
+    expect(isStageMultiVisibleInOutputGraph(multi, [wired])).toBe(true)
+  })
+
+  it('stays visible when flagged off but cabled as a to', () => {
+    const multi = stageMulti({ id: 5, show_in_output_graph: false })
+    const wired = cable({ from_kind: 'mixer', from_id: 1, to_kind: 'stage_multi', to_id: 5 })
+    expect(isStageMultiVisibleInOutputGraph(multi, [wired])).toBe(true)
+  })
+
+  it('ignores a cable that belongs to a different stage multi', () => {
+    const multi = stageMulti({ id: 5, show_in_output_graph: false })
+    const wired = cable({ from_kind: 'stage_multi', from_id: 6, to_kind: 'device', to_id: 10 })
+    expect(isStageMultiVisibleInOutputGraph(multi, [wired])).toBe(false)
   })
 })
