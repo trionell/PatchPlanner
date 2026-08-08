@@ -81,6 +81,31 @@ func TestListItemsRoleFilter(t *testing.T) {
 	}
 }
 
+// TestEventScopedItemsRoleFilter covers ?role= on GET
+// /events/{eventID}/inventory/items — the event-scoped route the Audio
+// Inputs flow graph actually calls, which validates the role param with
+// its own copy of the check in TestListItemsRoleFilter's owner-scoped
+// route. Both copies must accept the same roles.
+func TestEventScopedItemsRoleFilter(t *testing.T) {
+	server, database := newTestServer(t)
+	eventID := seedEvent(t, server.URL)
+	micID := seedRoleItem(t, database, "mic", "Shure SM58", "", 4, 150)
+	itemsURL := fmt.Sprintf("%s/events/%d/inventory/items", server.URL, eventID)
+
+	status, raw := doJSON(t, http.MethodGet, itemsURL+"?role=mic", nil)
+	if status != http.StatusOK {
+		t.Fatalf("GET role=mic: status %d body %s", status, raw)
+	}
+	mics := decodeJSON[[]domain.InventoryItem](t, raw)
+	if len(mics) != 1 || mics[0].ID != micID {
+		t.Errorf("role=mic returned %+v, want only the Shure SM58", mics)
+	}
+
+	if status, raw := doJSON(t, http.MethodGet, itemsURL+"?role=banana", nil); status != http.StatusBadRequest {
+		t.Errorf("role=banana: status %d body %s, want 400", status, raw)
+	}
+}
+
 // TestUpdateCategoryPickerRole covers PATCH /inventories/{id}/categories/{id}.
 func TestUpdateCategoryPickerRole(t *testing.T) {
 	server, database := newTestServer(t)
