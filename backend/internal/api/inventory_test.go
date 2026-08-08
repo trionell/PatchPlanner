@@ -9,14 +9,15 @@ import (
 )
 
 // TestListItemsRoleFilter covers ?role= on GET /inventories/{id}/items: only
-// items whose category carries the picker_role are returned; unknown roles
-// 400.
+// items whose category carries the picker_role (cable, stand, or mic) are
+// returned; unknown roles 400.
 func TestListItemsRoleFilter(t *testing.T) {
 	server, database := newTestServer(t)
 	inventoryID := testOwnerInventoryID(t, server.URL)
 	cableID := seedRoleItem(t, database, "cable", "Mikrofonkabel", "4m", 6, 7)
 	standID := seedRoleItem(t, database, "stand", "Mikrofonstativ Med bom", "", 16, 20)
-	seedItem(t, database, "Shure SM58", 4, 150) // role-less category
+	micID := seedRoleItem(t, database, "mic", "Shure SM58", "", 4, 150)
+	seedItem(t, database, "Sennheiser e935", 2, 180) // role-less category
 
 	itemsURL := fmt.Sprintf("%s/inventories/%d/items", server.URL, inventoryID)
 
@@ -36,6 +37,15 @@ func TestListItemsRoleFilter(t *testing.T) {
 	stands := decodeJSON[[]domain.InventoryItem](t, raw)
 	if len(stands) != 1 || stands[0].ID != standID {
 		t.Errorf("role=stand returned %+v, want only the boom stand", stands)
+	}
+
+	status, raw = doJSON(t, http.MethodGet, itemsURL+"?role=mic", nil)
+	if status != http.StatusOK {
+		t.Fatalf("GET role=mic: status %d body %s", status, raw)
+	}
+	mics := decodeJSON[[]domain.InventoryItem](t, raw)
+	if len(mics) != 1 || mics[0].ID != micID {
+		t.Errorf("role=mic returned %+v, want only the Shure SM58", mics)
 	}
 
 	if status, raw = doJSON(t, http.MethodGet, itemsURL+"?role=banana", nil); status != http.StatusBadRequest {
@@ -63,11 +73,11 @@ func TestListItemsRoleFilter(t *testing.T) {
 	for _, category := range decodeJSON[[]domain.InventoryCategory](t, raw) {
 		roles[category.Name] = category.PickerRole
 	}
-	if roles["cable kategori"] != "cable" || roles["stand kategori"] != "stand" {
-		t.Errorf("category roles = %v, want cable/stand set", roles)
+	if roles["cable kategori"] != "cable" || roles["stand kategori"] != "stand" || roles["mic kategori"] != "mic" {
+		t.Errorf("category roles = %v, want cable/stand/mic set", roles)
 	}
-	if roles[fmt.Sprintf("%s kategori", "Shure SM58")] != "" {
-		t.Errorf("mic category unexpectedly has a picker role")
+	if roles[fmt.Sprintf("%s kategori", "Sennheiser e935")] != "" {
+		t.Errorf("role-less category unexpectedly has a picker role")
 	}
 }
 

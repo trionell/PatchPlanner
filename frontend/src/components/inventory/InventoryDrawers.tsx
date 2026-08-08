@@ -46,6 +46,7 @@ const PICKER_ROLES = [
   { value: 'cable', label: 'Cable' },
   { value: 'stand', label: 'Stand' },
   { value: 'truss', label: 'Truss' },
+  { value: 'mic', label: 'Mic' },
 ]
 
 interface CategoriesDrawerProps {

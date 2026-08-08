@@ -287,7 +287,7 @@ export function InputGraphCanvas({
     mutationFn: () =>
       createInputSource(eventId, {
         name: `Source ${sources.length + 1}`,
-        kind: 'line',
+        kind: 'mic',
         phantom_power: false,
         connector_type: 'xlr',
         width: 'mono',

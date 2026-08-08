@@ -6,8 +6,9 @@ type InventoryCategory struct {
 	Name         string `json:"name"`
 	CategoryType string `json:"category_type"`
 	// PickerRole marks the category as a source for planning pickers:
-	// 'cable' or 'stand' (empty = not a picker source). Set by the 019
-	// seed and editable via PATCH; the xlsx import never touches it.
+	// 'cable', 'stand', 'truss', or 'mic' (empty = not a picker source).
+	// Set by the 019 seed (mic added by 051) and editable via PATCH; the
+	// xlsx import never touches it.
 	PickerRole string `json:"picker_role,omitempty"`
 	ItemCount  int    `json:"item_count,omitempty"`
 }

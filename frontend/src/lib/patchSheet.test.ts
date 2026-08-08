@@ -128,6 +128,12 @@ describe('inputChainSegments', () => {
     const model = inputChainSegments(channel(), inputContext({ sources: [source({ mic_item_id: undefined, kind: 'line', name: 'Jack' })], cables }))
     expect(labels(model.lines[0].segments)).toEqual(['Jack', 'ch 3'])
   })
+
+  it('falls back to the source name for an unassigned mic source', () => {
+    const cables = [cable({ id: 1 })]
+    const model = inputChainSegments(channel(), inputContext({ sources: [source({ mic_item_id: undefined, kind: 'mic', name: 'New source' })], cables }))
+    expect(labels(model.lines[0].segments)).toEqual(['New source', 'ch 3'])
+  })
 })
 
 function output(overrides: Partial<AudioPatchOutput> = {}): AudioPatchOutput {

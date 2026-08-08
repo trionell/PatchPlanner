@@ -196,7 +196,7 @@ func (h InventoriesHandler) listCategories(w http.ResponseWriter, r *http.Reques
 var validCategoryTypes = map[string]bool{"audio": true, "lighting": true, "rigging": true, "video": true, "misc": true}
 
 func validPickerRole(role string) bool {
-	return role == "" || role == "cable" || role == "stand" || role == "truss"
+	return role == "" || role == "cable" || role == "stand" || role == "truss" || role == "mic"
 }
 
 func (h InventoriesHandler) createCategory(w http.ResponseWriter, r *http.Request) {
@@ -219,7 +219,7 @@ func (h InventoriesHandler) createCategory(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if !validPickerRole(payload.PickerRole) {
-		writeError(w, http.StatusBadRequest, "invalid picker_role: must be 'cable', 'stand', 'truss', or empty")
+		writeError(w, http.StatusBadRequest, "invalid picker_role: must be 'cable', 'stand', 'truss', 'mic', or empty")
 		return
 	}
 	category, err := dbstore.CreateInventoryCategory(h.DB, inventoryID, payload.Name, payload.CategoryType, payload.PickerRole)
@@ -270,7 +270,7 @@ func (h InventoriesHandler) updateCategory(w http.ResponseWriter, r *http.Reques
 		payload.PickerRole = &empty
 	}
 	if !validPickerRole(*payload.PickerRole) {
-		writeError(w, http.StatusBadRequest, "invalid picker_role: must be 'cable', 'stand', 'truss', or null")
+		writeError(w, http.StatusBadRequest, "invalid picker_role: must be 'cable', 'stand', 'truss', 'mic', or null")
 		return
 	}
 	category, err := dbstore.UpdateInventoryCategory(h.DB, inventoryID, categoryID, payload.Name, payload.CategoryType, payload.PickerRole)
@@ -421,8 +421,8 @@ func (h InventoriesHandler) listItems(w http.ResponseWriter, r *http.Request) {
 		categoryID = &parsed
 	}
 	role := r.URL.Query().Get("role")
-	if role != "" && role != "cable" && role != "stand" && role != "truss" {
-		writeError(w, http.StatusBadRequest, "invalid role: must be 'cable', 'stand' or 'truss'")
+	if role != "" && role != "cable" && role != "stand" && role != "truss" && role != "mic" {
+		writeError(w, http.StatusBadRequest, "invalid role: must be 'cable', 'stand', 'truss' or 'mic'")
 		return
 	}
 	includeDiscontinued := r.URL.Query().Get("include_discontinued") == "true"

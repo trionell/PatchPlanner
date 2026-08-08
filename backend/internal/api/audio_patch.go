@@ -672,20 +672,16 @@ func (h AudioPatchHandler) deleteInputChannel(w http.ResponseWriter, r *http.Req
 
 // validInputSource writes a 400/500 response and returns false unless the
 // source's kind-conditional fields are consistent (data-model.md): "mic"
-// requires mic_item_id (stand_item_id/phantom_power are optional but only
-// meaningful for this kind); "line" forbids all three. connector_type and
-// width are required/validated regardless of kind.
+// allows mic_item_id, stand_item_id, and phantom_power, all optional — a mic
+// source may exist unassigned until the user picks an item; "line" forbids
+// all three. connector_type and width are required/validated regardless of
+// kind.
 func (h AudioPatchHandler) validInputSource(w http.ResponseWriter, inventoryID int64, source domain.InputSource) bool {
 	if !slices.Contains(domain.ValidInputSourceKinds, source.Kind) {
 		writeError(w, http.StatusBadRequest, "kind must be one of: mic, line")
 		return false
 	}
-	if source.Kind == "mic" {
-		if source.MicItemID == nil {
-			writeError(w, http.StatusBadRequest, "mic_item_id is required when kind is mic")
-			return false
-		}
-	} else if source.MicItemID != nil || source.StandItemID != nil || source.PhantomPower {
+	if source.Kind != "mic" && (source.MicItemID != nil || source.StandItemID != nil || source.PhantomPower) {
 		writeError(w, http.StatusBadRequest, "mic_item_id, stand_item_id, and phantom_power must be unset when kind is line")
 		return false
 	}

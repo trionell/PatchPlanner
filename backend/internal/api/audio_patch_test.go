@@ -115,11 +115,26 @@ func TestInputSourceKindValidation(t *testing.T) {
 	standID := seedRoleItem(t, database, "stand", "Boom stand", "", 10, 20)
 	sourcesURL := fmt.Sprintf("%s/events/%d/input-sources", server.URL, eventID)
 
-	// mic without mic_item_id → 400.
-	if status, raw := doJSON(t, http.MethodPost, sourcesURL, map[string]any{
+	// mic without mic_item_id → 201, stored unassigned.
+	status, raw := doJSON(t, http.MethodPost, sourcesURL, map[string]any{
 		"name": "Lead Vox", "kind": "mic", "connector_type": "xlr", "width": "mono",
-	}); status != http.StatusBadRequest {
-		t.Errorf("mic without mic_item_id: status %d body %s, want 400", status, raw)
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("mic without mic_item_id: status %d body %s, want 201", status, raw)
+	}
+	unassigned := decodeJSON[domain.InputSource](t, raw)
+	if unassigned.MicItemID != nil {
+		t.Errorf("unassigned mic source = %+v, want mic_item_id nil", unassigned)
+	}
+
+	// An unassigned mic source can later be given an item.
+	unassigned.MicItemID = &micID
+	status, raw = doJSON(t, http.MethodPatch, fmt.Sprintf("%s/%d", sourcesURL, unassigned.ID), unassigned)
+	if status != http.StatusOK {
+		t.Fatalf("PATCH attach mic_item_id: status %d body %s", status, raw)
+	}
+	if attached := decodeJSON[domain.InputSource](t, raw); attached.MicItemID == nil || *attached.MicItemID != micID {
+		t.Errorf("attached mic source = %+v, want mic_item_id %d", attached, micID)
 	}
 
 	// line with mic_item_id set → 400.
@@ -137,7 +152,7 @@ func TestInputSourceKindValidation(t *testing.T) {
 	}
 
 	// Valid mic source round-trips.
-	status, raw := doJSON(t, http.MethodPost, sourcesURL, map[string]any{
+	status, raw = doJSON(t, http.MethodPost, sourcesURL, map[string]any{
 		"name": "Lead Vox", "kind": "mic", "mic_item_id": micID, "stand_item_id": standID, "phantom_power": true, "connector_type": "xlr", "width": "mono",
 	})
 	if status != http.StatusCreated {
