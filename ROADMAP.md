@@ -13,7 +13,7 @@ The table is empty because the roadmap is **asking**, not because the tool is
 finished. Slices 40 and 41 — the audio plan and the stage plot as generated
 documents — both merged 2026-08-06, Slice 42 — the Sources drawer's mic
 picker — merged 2026-08-08, and Slice 43 — the output flow graph's stage-multi
-visibility flag — done 2026-08-08 pending merge, all leaving it that way.
+visibility flag — also merged 2026-08-08, all leaving it that way.
 
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
 multi-event/tour planning (§3.11).
@@ -2195,7 +2195,7 @@ string is validated, not just the one the management UI calls. Two copies of the
 enum check is the shape of this bug, and it will recur for `truss` or any role added
 next unless one is deleted in favour of the other.
 
-## Slice 43 — A visibility flag for stage multis on the output flow graph (change: `stage-multi-output-visibility`) ✅ 2026-08-08
+## Slice 43 — A visibility flag for stage multis on the output flow graph (change: `stage-multi-output-visibility`) ✅ merged 2026-08-08
 
 **Asked for directly**, not filed as a defect: stage multis are normally an input-only
 device, but connector adapters let them carry outputs too, so they were shown
