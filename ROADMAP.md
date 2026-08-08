@@ -2,7 +2,7 @@
 
 ## What remains
 
-**Slices 0–41 are delivered, and every recorded defect is fixed.** This file is a
+**Slices 0–42 are delivered, and every recorded defect is fixed.** This file is a
 per-slice record written after delivery; everything below this section is history.
 
 | | |
@@ -11,7 +11,8 @@ per-slice record written after delivery; everything below this section is histor
 
 The table is empty because the roadmap is **asking**, not because the tool is
 finished. Slices 40 and 41 — the audio plan and the stage plot as generated
-documents — both merged 2026-08-06 and left it that way.
+documents — both merged 2026-08-06, and Slice 42 — the Sources drawer's mic
+picker — merged 2026-08-08, all leaving it that way.
 
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
 multi-event/tour planning (§3.11).
@@ -2146,6 +2147,52 @@ festival-sized plan has been through it in either slice. The tiling path is cove
 synthetic 300 m plot, not by real data. Where elements overlap into a run wider than one
 frame, no division can keep them all whole; the document draws them rather than
 refusing, and says so in a comment.
+
+## Slice 42 — The Sources drawer's mic picker, and a mic-first default (spec: `fix-mic-source-picker`) ✅ merged 2026-08-08
+
+**Reported 2026-08-08:** switching a Source's kind to "Mic" in the Audio Inputs flow
+graph's drawer and saving it failed with *"mic_item_id is required when kind is mic"* —
+and there was no way to pick a mic to begin with. Traced rather than patched blind: the
+drawer's Mic `<Select>` (`InputFlowInspector.tsx:163-174`) already worked; it was fed an
+empty list because `AudioInputsTab.tsx:126` matched inventory category names against a
+hardcoded `"mikrofon"` prefix instead of using `inventory_categories.picker_role` —
+the mechanism migration 019 built for exactly this, already working correctly for the
+Cable and Stand pickers next to it. This is a Principle II violation in its own right
+(planning logic branching on a category name), not only the reported bug's cause.
+
+**Ran through OpenSpec rather than as a `dN-` defect**, on the user's call: this needed
+a migration (extending `picker_role` with a fourth value and backfilling it), which is
+the second trigger in CLAUDE.md's *Defects* section that promotes a defect to full
+scope. No `design/` file changed and no new UI pattern was introduced — the category
+role picker and the drawer's Mic select both already existed; only what fed them
+changed — so no mockup gate applied.
+
+**A second ask, and the decision it forced.** The user separately wanted a new Source
+to default to kind "Mic" rather than "Line". A new Source is created via an immediate
+`POST`, before the drawer where a mic gets attached is ever opened — so defaulting to
+"mic" meant a mic Source had to be allowed to exist unassigned. Relaxed
+`validInputSource` (`audio_patch.go`) to drop its `mic_item_id`-required check for
+`kind: "mic"`; `MicItemID` was already `*int64`, so "no item yet" was already a
+representable state, just a forbidden one. Every downstream reader of `mic_item_id`
+(rental counting, PDF export, patch-sheet display, the flow canvas's own label) already
+null-checked it for display purposes, so nothing else needed to change — verified by
+a new regression test (`TestUnassignedMicSourceExcludedFromRental`) locking in that an
+unassigned mic Source contributes no rental quantity, per Constitution Principle IV.
+
+**Found during the user's own manual verification, not the automated gates:** `?role=`
+on inventory items is validated by two independent copies — `inventories.go`'s
+owner-scoped `/inventories/{id}/items` and `inventory.go`'s event-scoped
+`/events/{id}/inventory/items`. Only the first had been updated to accept `'mic'`, and
+the second is the one `AudioInputsTab.tsx`'s `micQuery` actually calls, so the select
+still rendered empty after correctly assigning a category the Mic role. Fixed the
+second copy and added `TestEventScopedItemsRoleFilter` specifically on the event-scoped
+route, so the two checks can't drift apart silently again — the automated suite could
+not have caught this pairing itself, since nothing exercised both routes together.
+
+**What a future picker-role addition should check first:** grep for every place a role
+string is validated, not just the one the management UI calls. Two copies of the same
+enum check is the shape of this bug, and it will recur for `truss` or any role added
+next unless one is deleted in favour of the other.
 
 ## Known defects — found, reproduced, not yet scheduled
 
