@@ -21,12 +21,17 @@ import {
   stagePlotExportPdfUrl,
   type StagePlotElementCreate,
   type StagePlotElementPatch,
+  createStagePlotMeasurement,
+  updateStagePlotMeasurement,
+  deleteStagePlotMeasurement,
+  type StagePlotMeasurementCreate,
+  type StagePlotMeasurementPatch,
 } from '../../api/stagePlots'
-import type { PlotTruss, StagePlotLayer, StagePlotResponse, StagePlotView, TrussSide } from '../../types'
+import type { MeasurementType, PlotTruss, StagePlotElement, StagePlotLayer, StagePlotResponse, StagePlotView, TrussSide } from '../../types'
 import { useDraftState } from '../../hooks/useDraftState'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { usePlotView } from '../../hooks/usePlotView'
-import { clampPlotZoom, roundCm } from '../../lib/stagePlot'
+import { clampPlotZoom, measurementsAnchoredTo, roundCm } from '../../lib/stagePlot'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Input } from '../ui/Input'
@@ -38,7 +43,7 @@ import { PlotTrussManager } from './PlotTrussManager'
 import { InspectorRail } from './graph/InspectorRail'
 import { ZoomControl } from './graph/ZoomControl'
 import { StagePlotCanvas } from './StagePlotCanvas'
-import { StagePlotInspector, StagePlotLayersPanel } from './StagePlotInspector'
+import { MeasurementInspector, StagePlotInspector, StagePlotLayersPanel } from './StagePlotInspector'
 import { StagePlotPalette } from './StagePlotPalette'
 import { useInfoNote } from '../../hooks/useInfoNote'
 import { InfoPanel, InfoToggle } from '../ui/InfoNote'
@@ -117,6 +122,13 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
      `backdrop-filter` creates a containing block — a `position: fixed` dialog inside
      it is positioned and clipped against that box instead of the viewport. */
   const [pendingLayer, setPendingLayer] = useState<StagePlotLayer | null>(null)
+  /* Measurements (Slice 42). The armed tool is a MODE on the palette, not a
+     placement, so it lives here beside the selection rather than inside it. */
+  const [selectedMeasurementId, setSelectedMeasurementId] = useState<number | null>(null)
+  const [measureType, setMeasureType] = useState<MeasurementType | null>(null)
+  /* Deleting an element takes its measurements with it, so the question has to
+     say how many — which means it has to be a question. */
+  const [pendingElement, setPendingElement] = useState<StagePlotElement | null>(null)
   const [gridSizeDraft, setGridSizeDraft] = useDraftState(response?.plot.grid_size_cm, String, '25')
   const [trussManagerOpen, setTrussManagerOpen] = useState(false)
   // Fullscreen editor: the canvas fills the browser window and the
@@ -229,6 +241,33 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
     mutationFn: (elementId: number) => deleteStagePlotElement(eventId, activePlotId as number, elementId),
     onSuccess: async () => {
       setSelectedElementId(null)
+      await invalidatePlot()
+    },
+  })
+
+  const createMeasurementMutation = useMutation({
+    mutationFn: (data: StagePlotMeasurementCreate) => createStagePlotMeasurement(eventId, activePlotId as number, data),
+    onSuccess: async (measurement) => {
+      await invalidatePlot()
+      setSelectedMeasurementId(measurement.id)
+    },
+  })
+
+  const updateMeasurementMutation = useMutation({
+    mutationFn: ({ measurementId, patch }: { measurementId: number; patch: StagePlotMeasurementPatch }) =>
+      updateStagePlotMeasurement(eventId, activePlotId as number, measurementId, patch),
+    onSuccess: (measurement) => {
+      queryClient.setQueryData<StagePlotResponse>(['stage-plot', eventId, activePlotId], (old) =>
+        old ? { ...old, measurements: old.measurements.map((entry) => (entry.id === measurement.id ? measurement : entry)) } : old,
+      )
+    },
+    onError: () => invalidatePlot(),
+  })
+
+  const deleteMeasurementMutation = useMutation({
+    mutationFn: (measurementId: number) => deleteStagePlotMeasurement(eventId, activePlotId as number, measurementId),
+    onSuccess: async () => {
+      setSelectedMeasurementId(null)
       await invalidatePlot()
     },
   })
@@ -373,6 +412,14 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
     return layer?.visible ? element : null
   })()
 
+  // Same rule for a measurement: a hidden layer takes its selection with it.
+  const selectedMeasurement = (() => {
+    const measurement = response?.measurements.find((entry) => entry.id === selectedMeasurementId) ?? null
+    if (!measurement) return null
+    const layer = response?.layers.find((entry) => entry.id === measurement.layer_id)
+    return layer?.visible ? measurement : null
+  })()
+
   /*
     The phone (Wave 6c). Its own return, above the desktop's, for the reason every other
     tab's is: the plot tab strip, the rename controls and the palette are a desktop
@@ -459,7 +506,7 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
           the inspector sheet below is for.
         */}
         <InfoPanel className="border-b border-zinc-800/60 bg-zinc-950/35 px-3 py-2.5" note={deskJob}>
-          <span className="font-medium text-zinc-300">Placing elements is a desk job</span> — open this plot on a
+          <span className="font-medium text-zinc-300">Placing elements and drawing measurements is a desk job</span> — open this plot on a
           computer. Tap anything on it to read or edit what it is.
         </InfoPanel>
 
@@ -486,6 +533,17 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
                 onViewStateChange={handleViewStateChange}
                 plot={response.plot}
                 readOnly
+                isMobile
+                measurements={response.measurements}
+                selectedMeasurementId={selectedMeasurementId}
+                onSelectMeasurement={(id) => {
+                  setSelectedMeasurementId(id)
+                  // Only TAKING a measurement puts an element down. Clearing
+                  // one must leave the element alone, or the canvas's own
+                  // "put down the measurement" call cancels the selection it
+                  // was made alongside.
+                  if (id !== null) setSelectedElementId(null)
+                }}
                 selectedElementId={selectedElementId}
                 trusses={response.trusses}
                 view={mobileView}
@@ -513,6 +571,28 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
                   onDuplicate={() => {}}
                   onReorderLink={(elementId, linkId, sortOrder) => reorderLinkMutation.mutate({ elementId, linkId, sortOrder })}
                   onUpdate={(elementId, patch) => updateElementMutation.mutate({ elementId, patch })}
+                  readOnly={!editingAllowed}
+                  spatial={false}
+                />
+              </Sheet>
+            )}
+
+            {/* A measurement on a phone: both ends, its type and its value stated,
+                the note editable, and no Delete — the hand cannot draw one back
+                (patterns.md §7g). */}
+            {selectedMeasurement && (
+              <Sheet
+                onClose={() => setSelectedMeasurementId(null)}
+                open
+                scrim={false}
+                title={<span className="text-lg font-semibold">Measurement</span>}
+              >
+                <MeasurementInspector
+                  measurement={selectedMeasurement}
+                  elements={response.elements}
+                  layers={response.layers}
+                  view={mobileView}
+                  onUpdate={(measurementId, patch) => updateMeasurementMutation.mutate({ measurementId, patch })}
                   readOnly={!editingAllowed}
                   spatial={false}
                 />
@@ -760,6 +840,11 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
 
           const palette = (
             <StagePlotPalette
+              measureType={measureType}
+              onMeasureTypeChange={(type) => {
+                setMeasureType(type)
+                if (type) setSelectedElementId(null)
+              }}
               onPlace={handlePlace}
               disabled={readOnly || activeLayerId == null || createElementMutation.isPending}
               rigFixtures={rigFixtures.map((fixture) => ({
@@ -782,6 +867,21 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
                 viewState={viewState}
                 onViewStateChange={handleViewStateChange}
                 selectedElementId={selectedElementId}
+                measurements={response.measurements}
+                selectedMeasurementId={selectedMeasurementId}
+                onSelectMeasurement={(id) => {
+                  setSelectedMeasurementId(id)
+                  // Only TAKING a measurement puts an element down. Clearing
+                  // one must leave the element alone, or the canvas's own
+                  // "put down the measurement" call cancels the selection it
+                  // was made alongside.
+                  if (id !== null) setSelectedElementId(null)
+                }}
+                onCreateMeasurement={(data) => createMeasurementMutation.mutate(data)}
+                onUpdateMeasurement={(measurementId, patch) => updateMeasurementMutation.mutate({ measurementId, patch })}
+                measureType={measureType}
+                onMeasureTypeChange={setMeasureType}
+                activeLayerId={activeLayerId ?? undefined}
                 onSelectElement={setSelectedElementId}
                 onUpdateElement={(elementId, patch) => updateElementMutation.mutate({ elementId, patch })}
                 onCanvasSize={(size) => {
@@ -799,13 +899,24 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
           // border rather than a stack of cards floating beside the drawing.
           const sidePanels = (
             <InspectorRail className="overflow-y-auto">
+              {selectedMeasurement && (
+                <MeasurementInspector
+                  measurement={selectedMeasurement}
+                  elements={response.elements}
+                  layers={response.layers}
+                  view={response.plot.active_view}
+                  onUpdate={(measurementId, patch) => updateMeasurementMutation.mutate({ measurementId, patch })}
+                  onDelete={(measurementId) => deleteMeasurementMutation.mutate(measurementId)}
+                  readOnly={readOnly}
+                />
+              )}
               <StagePlotInspector
                 eventId={eventId}
                 element={selectedElement}
                 layers={response.layers}
                 onUpdate={(elementId, patch) => updateElementMutation.mutate({ elementId, patch })}
                 onDuplicate={(template) => createElementMutation.mutate(template)}
-                onDelete={(elementId) => deleteElementMutation.mutate(elementId)}
+                onDelete={(elementId) => setPendingElement(response.elements.find((entry) => entry.id === elementId) ?? null)}
                 onAddLink={(elementId, role, entityKind, entityId, sortOrder) => addLinkMutation.mutate({ elementId, role, entityKind, entityId, sortOrder })}
                 onReorderLink={(elementId, linkId, sortOrder) => reorderLinkMutation.mutate({ elementId, linkId, sortOrder })}
                 onDeleteLink={(elementId, linkId) => deleteLinkMutation.mutate({ elementId, linkId })}
@@ -915,6 +1026,34 @@ export function StagePlotTab({ eventId, readOnly = false }: { eventId: number; r
       {pendingLayer && (
         <>
           Layer <span className="text-zinc-200">{pendingLayer.name}</span> and every element on it are removed from this plot.
+        </>
+      )}
+    </ConfirmDialog>
+
+    <ConfirmDialog
+      open={pendingElement != null}
+      title="Delete element"
+      onCancel={() => setPendingElement(null)}
+      onConfirm={() => {
+        if (pendingElement) deleteElementMutation.mutate(pendingElement.id)
+        setPendingElement(null)
+      }}
+    >
+      {pendingElement && (
+        <>
+          <span className="text-zinc-200">{pendingElement.name || 'This element'}</span> is removed from this plot.
+          {(() => {
+            // A measurement anchored to it at both ends is one measurement,
+            // and the sentence has to say the number the user will lose.
+            const count = measurementsAnchoredTo(response?.measurements ?? [], pendingElement.id)
+            if (count === 0) return null
+            return (
+              <>
+                {' '}
+                {count === 1 ? 'One measurement is' : `${count} measurements are`} anchored to it and {count === 1 ? 'goes' : 'go'} with it.
+              </>
+            )
+          })()}
         </>
       )}
     </ConfirmDialog>

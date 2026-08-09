@@ -1,12 +1,22 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowDown, ArrowUp, Copy, Eye, EyeOff, Lock, LockOpen, Plus, Trash2, X } from 'lucide-react'
-import type { StagePlotElement, StagePlotEntityKind, StagePlotLayer, StagePlotLink, StagePlotLinkRole } from '../../types'
-import type { StagePlotElementCreate, StagePlotElementPatch } from '../../api/stagePlots'
+import type {
+  MeasurementAnchor,
+  MeasurementType,
+  StagePlotElement,
+  StagePlotEntityKind,
+  StagePlotLayer,
+  StagePlotLink,
+  StagePlotLinkRole,
+  StagePlotMeasurement,
+  StagePlotView,
+} from '../../types'
+import type { StagePlotElementCreate, StagePlotElementPatch, StagePlotMeasurementPatch } from '../../api/stagePlots'
 import { getAudioPatch } from '../../api/audioPatch'
 import { getLightingRig } from '../../api/lighting'
 import { useDraftState } from '../../hooks/useDraftState'
-import { clampDimension, roundCm } from '../../lib/stagePlot'
+import { anchorFeatureLabel, clampDimension, measurementGeometry, parseAnchorFeature, roundCm } from '../../lib/stagePlot'
 import { STAGE_PLOT_ICONS } from '../../lib/stagePlotIcons'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
@@ -573,7 +583,165 @@ export function StagePlotInspector({ eventId, element, layers, onUpdate, onDupli
           >
             <Copy className="mr-1.5 h-3.5 w-3.5" /> Duplicate
           </Button>
-          <Button variant="destructive" size="sm" disabled={locked} onClick={() => onDelete(element.id)}>
+          {/* A surface never destroys what it cannot author (patterns.md §7g).
+              The phone cannot place an element, so it does not get to delete
+              one: the repair is asymmetric, and a mis-tap on a stage costs a
+              trip to a computer. `spatial` is already the flag for "this
+              surface does the desk gestures", so it is the flag for this. */}
+          {spatial && (
+            <Button variant="destructive" size="sm" disabled={locked} onClick={() => onDelete(element.id)}>
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
+            </Button>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
+// ---- Measurement inspector (Slice 42) ----
+
+/** What an anchor points at, in words. Two lines: the element, then the
+ *  feature — and no control, because choosing an anchor is aiming at geometry
+ *  and a dropdown of "corner:+-+" is not aiming. */
+function anchorDescription(anchor: MeasurementAnchor, elementById: Map<number, StagePlotElement>): { subject: string; detail: string } {
+  if (anchor.element_id === undefined) {
+    return { subject: 'Free point', detail: `${Math.round(anchor.u_cm ?? 0)}, ${Math.round(anchor.v_cm ?? 0)} cm` }
+  }
+  const element = elementById.get(anchor.element_id)
+  const subject = element?.name || (element ? `${element.kind}` : 'Missing element')
+  const feature = parseAnchorFeature(anchor.feature ?? '')
+  if (!feature) return { subject, detail: '—' }
+  return { subject, detail: anchorFeatureLabel(feature, anchor.slide ?? false) }
+}
+
+interface MeasurementInspectorProps {
+  measurement: StagePlotMeasurement
+  elements: StagePlotElement[]
+  layers: StagePlotLayer[]
+  view: StagePlotView
+  onUpdate: (measurementId: number, patch: StagePlotMeasurementPatch) => void
+  onDelete?: (measurementId: number) => void
+  readOnly?: boolean
+  /**
+   * Whether this surface can author a measurement. A phone cannot draw one, so
+   * it does not get to delete one either — patterns.md §7g: a surface never
+   * destroys what it cannot author. Also hides the type and offset, which are
+   * geometry.
+   */
+  spatial?: boolean
+}
+
+export function MeasurementInspector({
+  measurement,
+  elements,
+  layers,
+  view,
+  onUpdate,
+  onDelete,
+  readOnly = false,
+  spatial = true,
+}: MeasurementInspectorProps) {
+  const [noteDraft, setNoteDraft] = useDraftState(measurement.note ?? '', String, '')
+  const elementById = new Map(elements.map((element) => [element.id, element]))
+  const locked = layers.find((layer) => layer.id === measurement.layer_id)?.locked ?? false
+  const disabled = readOnly || locked
+  const drawing = measurementGeometry(measurement, elementById, view)
+  const from = anchorDescription(measurement.from, elementById)
+  const to = anchorDescription(measurement.to, elementById)
+
+  return (
+    <section className="flex flex-col gap-2.5">
+      <MicroLabel>Measurement</MicroLabel>
+
+      {/* Stated, never typed: a dimension that can disagree with the drawing
+          is worse than no dimension. */}
+      <Row label="Value">
+        <span className="font-mono text-sm tabular-nums text-zinc-200">
+          {drawing ? `${Math.round(drawing.value)} cm` : '—'}
+        </span>
+      </Row>
+
+      {/* The type is stated everywhere and changed only where the geometry
+          can be: a phone reads what this measurement IS, and a measurement is
+          its two ends, its type and its value. */}
+      <Row label="Type">
+        {spatial ? (
+          <Select
+            className="h-7 text-xs"
+            value={measurement.type}
+            disabled={disabled}
+            onChange={(e) => onUpdate(measurement.id, { type: e.target.value as MeasurementType })}
+          >
+            <option value="aligned">Aligned</option>
+            <option value="horizontal">Horizontal</option>
+            <option value="vertical">Vertical</option>
+          </Select>
+        ) : (
+          <span className="text-xs capitalize text-zinc-200">{measurement.type}</span>
+        )}
+      </Row>
+
+      <Row label="From">
+        <div className="flex flex-col text-xs leading-tight">
+          <span className="text-zinc-200">{from.subject}</span>
+          <span className="text-zinc-500">{from.detail}</span>
+        </div>
+      </Row>
+      <Row label="To">
+        <div className="flex flex-col text-xs leading-tight">
+          <span className="text-zinc-200">{to.subject}</span>
+          <span className="text-zinc-500">{to.detail}</span>
+        </div>
+      </Row>
+
+      {spatial && (
+        <Row label="Offset">
+          <Input
+            className="h-7 text-xs"
+            type="number"
+            value={String(measurement.offset_cm)}
+            disabled={disabled}
+            onChange={(e) => onUpdate(measurement.id, { offset_cm: roundCm(Number(e.target.value) || 0) })}
+          />
+          <Button variant="outline" size="sm" disabled={disabled} onClick={() => onUpdate(measurement.id, { offset_cm: -measurement.offset_cm })}>
+            Flip
+          </Button>
+        </Row>
+      )}
+
+      {/* The one field that is not geometry, which is why the phone keeps it. */}
+      <Row label="Note">
+        <Input
+          className="h-7 text-xs"
+          value={noteDraft}
+          disabled={disabled}
+          onChange={(e) => setNoteDraft(e.target.value)}
+          onBlur={() => onUpdate(measurement.id, { note: noteDraft })}
+        />
+      </Row>
+
+      <Row label="Layer">
+        <Select
+          className="h-7 text-xs"
+          value={String(measurement.layer_id)}
+          disabled={disabled}
+          onChange={(e) => onUpdate(measurement.id, { layer_id: Number(e.target.value) })}
+        >
+          {layers.map((layer) => (
+            <option key={layer.id} value={layer.id}>
+              {layer.name}
+            </option>
+          ))}
+        </Select>
+      </Row>
+
+      {/* No confirm: this canvas confirms only a delete that takes other things
+          with it, and a measurement takes nothing. Absent entirely on a phone,
+          which cannot draw one back. */}
+      {spatial && !readOnly && onDelete && (
+        <div className="flex gap-2">
+          <Button variant="destructive" size="sm" disabled={locked} onClick={() => onDelete(measurement.id)}>
             <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
           </Button>
         </div>

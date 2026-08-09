@@ -1,4 +1,4 @@
-import type { StagePlotElement, StagePlotView, TrussSide } from '../types'
+import type { MeasurementAnchor, MeasurementType, StagePlotElement, StagePlotLayer, StagePlotMeasurement, StagePlotView, TrussSide } from '../types'
 
 // Pure geometry for the stage plot editor. Everything works in
 // centimetres; the canvas renders 1 SVG user unit = 1 cm, so these
@@ -34,7 +34,7 @@ interface Vec3 {
   z: number
 }
 
-interface PlaneVec {
+export interface PlaneVec {
   u: number
   v: number
 }
@@ -517,4 +517,768 @@ export function snapPosition(
     }
   }
   return result
+}
+
+// ---- Measurements (Slice 42) ----
+//
+// A measurement states a distance between two anchors. Its value is always
+// derived from those anchors and never stored, so it stays true when what it
+// measures is moved, resized, rotated or raked.
+//
+// Everything below works in the PROJECTED plane — the (u, v) frame
+// `projectElement` returns a centre in, where v grows downstage in the top
+// view and UP in the elevations. That is the frame both renderers already take
+// as input: the canvas places a group at `svgY = view === 'top' ? rect.v : -rect.v`,
+// and the document's mapper flips the same way. An element's own drawn frame
+// has v pointing DOWN in every view, so converting out of it negates v in the
+// elevations — `viewFlip` below is that one negation, in one place.
+
+/** A sign on one of the element's local axes. */
+export type AnchorSign = -1 | 1
+
+/**
+ * A feature of an element's own box — NOT a vertex of its drawn silhouette.
+ * The silhouette's vertex count changes with rotation (four for a plain rect,
+ * up to six when yaw and tilt combine), so an index into it would come to mean
+ * a different corner after a rake. A box feature is stable under every edit.
+ */
+export type AnchorFeature =
+  | { kind: 'centre' }
+  | { kind: 'corner'; signs: [AnchorSign, AnchorSign, AnchorSign] }
+  /**
+   * A SIDE of the drawn silhouette, stored as the box edge it is the
+   * projection of: the axis it runs along, and the signs on the other two.
+   *
+   * Sides are what the drawing has and what a person points at, and a box
+   * FACE is only one when the face happens to be seen exactly edge-on. Turn an
+   * element on two axes — a raked truss — and no face is edge-on in an
+   * elevation, while the silhouette still has six perfectly straight sides.
+   * Anchoring to edges makes the count come out right in every view, and the
+   * edge-on face is just the case where two edges project onto one line.
+   */
+  | { kind: 'edge'; axis: 0 | 1 | 2; signs: [AnchorSign, AnchorSign] }
+  /** Superseded by `edge`, still resolved so measurements drawn against a face
+   *  keep pointing where they always did. */
+  | { kind: 'face'; axis: 0 | 1 | 2; sign: AnchorSign }
+
+const AXIS_LETTERS = ['x', 'y', 'z'] as const
+
+/** Below this, a face's projected normal is pointing into the screen: the face
+ *  is seen face-on and has no straight side to measure to. */
+export const FACE_EDGE_ON_MIN = 0.05
+
+const signChar = (s: AnchorSign) => (s > 0 ? '+' : '-')
+
+export function formatAnchorFeature(feature: AnchorFeature): string {
+  if (feature.kind === 'centre') return 'centre'
+  if (feature.kind === 'corner') return `corner:${feature.signs.map(signChar).join('')}`
+  if (feature.kind === 'edge') return `edge:${AXIS_LETTERS[feature.axis]}${feature.signs.map(signChar).join('')}`
+  return `face:${signChar(feature.sign)}${AXIS_LETTERS[feature.axis]}`
+}
+
+/** The two axes an edge along `axis` is positioned by, in index order. */
+export function edgeCrossAxes(axis: 0 | 1 | 2): [0 | 1 | 2, 0 | 1 | 2] {
+  return [0, 1, 2].filter((i) => i !== axis) as [0 | 1 | 2, 0 | 1 | 2]
+}
+
+export function parseAnchorFeature(value: string): AnchorFeature | null {
+  if (value === 'centre') return { kind: 'centre' }
+  const asSign = (s: string): AnchorSign => (s === '+' ? 1 : -1)
+  const corner = /^corner:([+-])([+-])([+-])$/.exec(value)
+  if (corner) return { kind: 'corner', signs: [asSign(corner[1]), asSign(corner[2]), asSign(corner[3])] }
+  const edge = /^edge:([xyz])([+-])([+-])$/.exec(value)
+  if (edge) {
+    return {
+      kind: 'edge',
+      axis: AXIS_LETTERS.indexOf(edge[1] as 'x' | 'y' | 'z') as 0 | 1 | 2,
+      signs: [asSign(edge[2]), asSign(edge[3])],
+    }
+  }
+  const face = /^face:([+-])([xyz])$/.exec(value)
+  if (face) return { kind: 'face', axis: AXIS_LETTERS.indexOf(face[2] as 'x' | 'y' | 'z') as 0 | 1 | 2, sign: asSign(face[1]) }
+  return null
+}
+
+/** The elevations draw v upward while an element's drawn frame points it down. */
+function viewFlip(view: StagePlotView): number {
+  return view === 'top' ? 1 : -1
+}
+
+function halfExtents(element: StagePlotElement): [number, number, number] {
+  return [element.width_cm / 2, element.depth_cm / 2, element.height_cm / 2]
+}
+
+function axisList(element: StagePlotElement, view: StagePlotView): [PlaneVec, PlaneVec, PlaneVec] {
+  const { ax, ay, az } = projectedAxes(element, view)
+  return [ax, ay, az]
+}
+
+/** A displacement in the element's drawn frame, turned into the projected
+ *  plane: rotate by the drawn rotation, then undo the elevations' v flip. */
+function drawnToProjected(offset: PlaneVec, rect: ProjectedRect, view: StagePlotView): PlaneVec {
+  const radians = (rect.rotationDeg * Math.PI) / 180
+  const cos = Math.cos(radians)
+  const sin = Math.sin(radians)
+  const u = offset.u * cos - offset.v * sin
+  const v = offset.u * sin + offset.v * cos
+  return { u: roundCm(u), v: roundCm(v * viewFlip(view)) }
+}
+
+function featureDrawnOffset(element: StagePlotElement, view: StagePlotView, feature: AnchorFeature): PlaneVec {
+  if (feature.kind === 'centre') return { u: 0, v: 0 }
+  const axes = axisList(element, view)
+  const half = halfExtents(element)
+  if (feature.kind === 'corner') {
+    let u = 0
+    let v = 0
+    for (let i = 0; i < 3; i++) {
+      u += feature.signs[i] * half[i] * axes[i].u
+      v += feature.signs[i] * half[i] * axes[i].v
+    }
+    return { u, v }
+  }
+  if (feature.kind === 'edge') {
+    // The edge's MIDPOINT: it is positioned by the two axes it does not run
+    // along, and centred on the one it does.
+    const [j, k] = edgeCrossAxes(feature.axis)
+    return {
+      u: feature.signs[0] * half[j] * axes[j].u + feature.signs[1] * half[k] * axes[k].u,
+      v: feature.signs[0] * half[j] * axes[j].v + feature.signs[1] * half[k] * axes[k].v,
+    }
+  }
+  const i = feature.axis
+  return { u: feature.sign * half[i] * axes[i].u, v: feature.sign * half[i] * axes[i].v }
+}
+
+/** An edge's two ends, in the element's drawn frame. */
+function edgeDrawnEnds(element: StagePlotElement, view: StagePlotView, feature: Extract<AnchorFeature, { kind: 'edge' }>): [PlaneVec, PlaneVec] {
+  const axes = axisList(element, view)
+  const half = halfExtents(element)
+  const middle = featureDrawnOffset(element, view, feature)
+  const along = { u: half[feature.axis] * axes[feature.axis].u, v: half[feature.axis] * axes[feature.axis].v }
+  return [
+    { u: middle.u - along.u, v: middle.v - along.v },
+    { u: middle.u + along.u, v: middle.v + along.v },
+  ]
+}
+
+/**
+ * Where an anchor feature falls in the projected plane. A face resolves to its
+ * projected CENTRE, which is the midpoint of that straight side in any view
+ * that shows the face edge-on — the "middle of each straight side" the feature
+ * exists to give.
+ */
+export function anchorPoint(element: StagePlotElement, view: StagePlotView, feature: AnchorFeature): PlaneVec {
+  const rect = projectElement(element, view)
+  const offset = drawnToProjected(featureDrawnOffset(element, view, feature), rect, view)
+  return { u: roundCm(rect.u + offset.u), v: roundCm(rect.v + offset.v) }
+}
+
+/** A face seen edge-on: the infinite line it projects to, and the extent it
+ *  actually draws over. */
+export interface FaceLine {
+  /** A point on the line — the face's projected centre. */
+  point: PlaneVec
+  /** Unit direction along the line. */
+  dir: PlaneVec
+  /** Unit normal, pointing out of the face. */
+  normal: PlaneVec
+  /** The drawn extent of the side, for deciding when a foot needs a run-out. */
+  segment: [PlaneVec, PlaneVec]
+}
+
+function length(v: PlaneVec): number {
+  return Math.hypot(v.u, v.v)
+}
+
+function normalize(v: PlaneVec): PlaneVec {
+  const l = length(v)
+  return l === 0 ? { u: 0, v: 0 } : { u: v.u / l, v: v.v / l }
+}
+
+/**
+ * The line a face projects to, or null where the face is not edge-on. A face's
+ * projected normal has length ~1 when the normal lies in the view plane (the
+ * face is seen as a side) and ~0 when it points into the screen (the face is
+ * seen flat). That single test also declines the top and bottom faces in a top
+ * view, which is correct and needs no special case.
+ */
+/**
+ * The line a SIDE of the silhouette runs along, or null where that side is not
+ * a line in this view — an edge pointing into the screen, or a face that is not
+ * seen edge-on.
+ */
+export function sideLine(element: StagePlotElement, view: StagePlotView, feature: AnchorFeature): FaceLine | null {
+  if (feature.kind === 'face') return legacyFaceLine(element, view, feature)
+  if (feature.kind !== 'edge') return null
+
+  const rect = projectElement(element, view)
+  const ends = edgeDrawnEnds(element, view, feature).map((end) => {
+    const p = drawnToProjected(end, rect, view)
+    return { u: roundCm(rect.u + p.u), v: roundCm(rect.v + p.v) }
+  }) as [PlaneVec, PlaneVec]
+
+  const span = { u: ends[1].u - ends[0].u, v: ends[1].v - ends[0].v }
+  // Pointing into the screen: the side is a point, not a line.
+  if (length(span) < 1e-6) return null
+  const dir = normalize(span)
+
+  const point = anchorPoint(element, view, feature)
+  // Outward is away from the element's own centre, which is what makes a
+  // perpendicular measurement leave the object rather than cross it.
+  const outward = { u: point.u - rect.u, v: point.v - rect.v }
+  let normal = { u: dir.v + 0, v: -dir.u + 0 }
+  if (normal.u * outward.u + normal.v * outward.v < 0) normal = { u: -normal.u + 0, v: -normal.v + 0 }
+
+  return { point, dir, normal, segment: ends }
+}
+
+function legacyFaceLine(element: StagePlotElement, view: StagePlotView, feature: AnchorFeature): FaceLine | null {
+  if (feature.kind !== 'face') return null
+  const rect = projectElement(element, view)
+  const axes = axisList(element, view)
+  const half = halfExtents(element)
+  const others = [0, 1, 2].filter((i) => i !== feature.axis)
+
+  // The face's OWN in-plane axes, projected — and the line's direction comes
+  // from these, never from rotating the projected normal by 90°.
+  //
+  // Orthographic projection drops an axis, and dropping an axis does not
+  // preserve angles: two perpendicular 3D vectors generally do not project to
+  // perpendicular 2D ones. Rotating the normal is only right when everything
+  // stays in the view plane, which is why a yaw-only element read correctly in
+  // plan and an element turned on every axis did not, in the elevations
+  // (field test, 2026-08-07).
+  const spans = others.map((i) => drawnToProjected({ u: half[i] * axes[i].u, v: half[i] * axes[i].v }, rect, view))
+  const cross = spans[0].u * spans[1].v - spans[0].v * spans[1].u
+  const [long, short] = length(spans[0]) >= length(spans[1]) ? [spans[0], spans[1]] : [spans[1], spans[0]]
+  // Projects to a point, not a line: there is no side to slide along.
+  if (length(long) < 1e-6) return null
+  // Edge-on when the face's two in-plane axes project onto ONE line — the
+  // face has collapsed to its own edge. `|cross| / |long|` is how far the
+  // face spreads off that line, and it is compared to the SHORT axis rather
+  // than the long one, which makes the test `sin(angle between them) < ε`:
+  // scale-free, and true of a 6 m truss side and a 40 cm one alike. Measured
+  // against the long axis instead, a long thin face passes whatever its
+  // angle — which is how a raked truss came to offer sides it does not have.
+  if (Math.abs(cross) / length(long) > FACE_EDGE_ON_MIN * length(short)) return null
+
+  const dir = normalize(long)
+  // Out of the face, as the projected normal would have it — used only to
+  // orient, never to derive.
+  const outward = drawnToProjected({ u: feature.sign * axes[feature.axis].u, v: feature.sign * axes[feature.axis].v }, rect, view)
+  // `+ 0` collapses the negative zero a flip leaves behind, so an unrotated
+  // face's normal reads {1, 0} rather than {1, -0}.
+  let normal = { u: dir.v + 0, v: -dir.u + 0 }
+  if (normal.u * outward.u + normal.v * outward.v < 0) normal = { u: -normal.u + 0, v: -normal.v + 0 }
+
+  const point = anchorPoint(element, view, feature)
+
+  let min = Infinity
+  let max = -Infinity
+  for (const sj of [-1, 1]) {
+    for (const sk of [-1, 1]) {
+      const offset = { u: 0, v: 0 }
+      offset.u = feature.sign * half[feature.axis] * axes[feature.axis].u + sj * half[others[0]] * axes[others[0]].u + sk * half[others[1]] * axes[others[1]].u
+      offset.v = feature.sign * half[feature.axis] * axes[feature.axis].v + sj * half[others[0]] * axes[others[0]].v + sk * half[others[1]] * axes[others[1]].v
+      // drawnToProjected gives a DISPLACEMENT from the element's centre, and
+      // `base` below is taken from the absolute face centre — so this has to be
+      // absolute too, or the side's extent is offset by the projection of
+      // wherever the element happens to stand.
+      const p = drawnToProjected(offset, rect, view)
+      const t = (rect.u + p.u) * dir.u + (rect.v + p.v) * dir.v
+      if (t < min) min = t
+      if (t > max) max = t
+    }
+  }
+  const base = point.u * dir.u + point.v * dir.v
+  const segment: [PlaneVec, PlaneVec] = [
+    { u: roundCm(point.u + (min - base) * dir.u), v: roundCm(point.v + (min - base) * dir.v) },
+    { u: roundCm(point.u + (max - base) * dir.u), v: roundCm(point.v + (max - base) * dir.v) },
+  ]
+  return { point, dir, normal, segment }
+}
+
+/**
+ * Whether an element offers a sliding plane in this view — a question about
+ * the DRAWN silhouette, so it is asked per view.
+ *
+ * An ellipse element is an elliptical prism: the curve lies in its local x–y
+ * plane and is extruded along local z. Look down that extrusion — the plan, for
+ * an upright one — and the silhouette is the curve itself, where "anywhere
+ * along this side" cannot be kept because a perpendicular to a curve differs at
+ * every point. Look at it from anywhere else and the silhouette is a plain
+ * rectangle with four straight edges, and its sides are as good as any other
+ * element's. The canvas has always drawn it that way: "a cylinder seen
+ * straight-on is a rectangle" (field test, 2026-08-07).
+ */
+export function allowsPlaneAnchor(element: StagePlotElement, view: StagePlotView): boolean {
+  if (element.shape_kind !== 'ellipse') return true
+  // The extrusion axis, projected. Degenerate means we are looking along it,
+  // and the outline we see is the curve.
+  return length(axisList(element, view)[2]) >= FACE_EDGE_ON_MIN
+}
+
+export interface OfferedAnchor {
+  feature: AnchorFeature
+  point: PlaneVec
+  /** Faces only: whether this feature can also be taken as a sliding plane. */
+  allowSlide: boolean
+}
+
+/**
+ * The anchor features an element offers in a view: its centre, the corners
+ * that are vertices of its drawn silhouette, and the midpoints of the sides it
+ * actually shows. Corners projecting into the interior of the silhouette are
+ * not corners of the drawn shape and are not offered.
+ */
+export function offeredAnchors(element: StagePlotElement, view: StagePlotView): OfferedAnchor[] {
+  const rect = projectElement(element, view)
+  const offered: OfferedAnchor[] = [{ feature: { kind: 'centre' }, point: { u: rect.u, v: rect.v }, allowSlide: false }]
+  const hull = projectedOutline(element, view).map((p) => drawnToProjected(p, rect, view))
+  // The hull's points were rounded to the 0.1 mm grain before this rounds them
+  // again, so the comparison has to clear two roundings, not one.
+  const onHull = (p: PlaneVec) => hull.some((h) => Math.abs(h.u - p.u) < 0.05 && Math.abs(h.v - p.v) < 0.05)
+  const seen = new Set<string>()
+  const key = (p: PlaneVec) => `${Math.round(p.u * 100)}:${Math.round(p.v * 100)}`
+  // An ellipse has no corners. The silhouette hull is its bounding box, whose
+  // corners are the one place the drawn shape certainly is NOT — anchoring
+  // there would put a dimension in the gap beside the curve. Its centre and
+  // its four quadrant points are the whole of what it offers.
+  const cornered = element.shape_kind !== 'ellipse'
+  for (const sx of [1, -1] as AnchorSign[]) {
+    for (const sy of [1, -1] as AnchorSign[]) {
+      for (const sz of [1, -1] as AnchorSign[]) {
+        if (!cornered) continue
+        const feature: AnchorFeature = { kind: 'corner', signs: [sx, sy, sz] }
+        const offset = drawnToProjected(featureDrawnOffset(element, view, feature), rect, view)
+        if (!onHull(offset)) continue
+        const point = { u: roundCm(rect.u + offset.u), v: roundCm(rect.v + offset.v) }
+        // Corners that coincide in this projection are one drawn corner; the
+        // first in this fixed order wins, so the choice is deterministic.
+        if (seen.has(key(point))) continue
+        seen.add(key(point))
+        offered.push({ feature, point, allowSlide: false })
+      }
+    }
+  }
+  // The SIDES of the drawn silhouette. Each is the projection of a box edge,
+  // so an edge is what gets stored — and the count then matches what is drawn:
+  // four sides for a parallelogram in plan, six for the hexagon an element
+  // turned on two axes shows in an elevation. Asking which box FACES are
+  // edge-on answers a different question, and answers it with nothing as soon
+  // as anything is properly rotated.
+  const slide = allowsPlaneAnchor(element, view)
+  const hullIndex = (p: PlaneVec) => hull.findIndex((h) => Math.abs(h.u - p.u) < 0.05 && Math.abs(h.v - p.v) < 0.05)
+  // Sides already taken, compared with a TOLERANCE rather than hashed: a
+  // face's segment is reconstructed from projections and an edge's is read off
+  // the corners, so the same drawn side arrives from the two paths a
+  // hundredth of a centimetre apart — close enough to be one side, far enough
+  // that any rounding grain will eventually split them across a boundary.
+  const takenSides: Array<[PlaneVec, PlaneVec]> = []
+  const near = (a: PlaneVec, b: PlaneVec) => Math.hypot(a.u - b.u, a.v - b.v) < 0.1
+  const alreadyASide = (ends: [PlaneVec, PlaneVec]) =>
+    takenSides.some(
+      (side) => (near(side[0], ends[0]) && near(side[1], ends[1])) || (near(side[0], ends[1]) && near(side[1], ends[0])),
+    )
+
+  // A side can arrive two ways, and BOTH are needed.
+  //
+  // A FACE seen edge-on collapses to a line — that is a side. It is how the
+  // long sides of a raked truss appear in plan, where the length and height
+  // axes project onto one direction and the whole ±depth face flattens to a
+  // segment no single box edge spans.
+  //
+  // A box EDGE projects to a side wherever the silhouette turns a corner that
+  // is not a flattened face — the short ends of that same truss, and every
+  // side of the hexagon it shows in an elevation.
+  //
+  // Faces go first so that where a side is both, it keeps the encoding it has
+  // always had and measurements drawn before edges existed still name it.
+  for (const axis of [0, 1, 2] as const) {
+    for (const sign of [1, -1] as AnchorSign[]) {
+      const feature: AnchorFeature = { kind: 'face', axis, sign }
+      const line = sideLine(element, view, feature)
+      if (!line) continue
+      takenSides.push(line.segment)
+      offered.push({ feature, point: anchorPoint(element, view, feature), allowSlide: slide })
+    }
+  }
+
+  for (const axis of [0, 1, 2] as const) {
+    for (const sj of [1, -1] as AnchorSign[]) {
+      for (const sk of [1, -1] as AnchorSign[]) {
+        const feature: AnchorFeature = { kind: 'edge', axis, signs: [sj, sk] }
+        const ends = edgeDrawnEnds(element, view, feature).map((end) => drawnToProjected(end, rect, view))
+        const a = hullIndex(ends[0])
+        const b = hullIndex(ends[1])
+        // A side of the drawing is an edge whose two ends are neighbours on
+        // the silhouette. An edge running through the interior, or one hidden
+        // behind the shape, is not a side of it.
+        if (a < 0 || b < 0 || a === b) continue
+        const gap = Math.abs(a - b)
+        if (gap !== 1 && gap !== hull.length - 1) continue
+        // Edges that project onto the same run — as two do wherever a face is
+        // edge-on — are one drawn side.
+        const absolute = ends.map((e) => ({ u: roundCm(rect.u + e.u), v: roundCm(rect.v + e.v) })) as [PlaneVec, PlaneVec]
+        if (alreadyASide(absolute)) continue
+        takenSides.push(absolute)
+        offered.push({ feature, point: anchorPoint(element, view, feature), allowSlide: slide })
+      }
+    }
+  }
+  return offered
+}
+
+/** One end of a measurement, already resolved against the plot's geometry. */
+export type MeasurementEnd = { kind: 'point'; point: PlaneVec } | { kind: 'line'; line: FaceLine }
+
+export interface MeasurementSpan {
+  /** The point the measurement runs from, after any foot has been found. */
+  a: PlaneVec
+  b: PlaneVec
+  /** Unit direction the value is measured along. */
+  dir: PlaneVec
+  value: number
+}
+
+/** Where a ray from `origin` along `dir` crosses a line, or null if parallel. */
+function rayMeetsLine(origin: PlaneVec, dir: PlaneVec, line: FaceLine): PlaneVec | null {
+  const denominator = dir.u * line.normal.u + dir.v * line.normal.v
+  if (Math.abs(denominator) < 1e-9) return null
+  const toLine = { u: line.point.u - origin.u, v: line.point.v - origin.v }
+  const t = (toLine.u * line.normal.u + toLine.v * line.normal.v) / denominator
+  return { u: roundCm(origin.u + t * dir.u), v: roundCm(origin.v + t * dir.v) }
+}
+
+/**
+ * What a measurement actually measures. The three types differ only in the
+ * direction the value is read along: aligned reads along the line between the
+ * ends (or along a face's normal, which is what makes it perpendicular),
+ * horizontal and vertical read along one of the view's axes alone.
+ *
+ * Returns null where the ends state no distance: two coincident points, or a
+ * locked type whose axis runs parallel to the face it measures to.
+ */
+export function measurementSpan(from: MeasurementEnd, to: MeasurementEnd, type: MeasurementType): MeasurementSpan | null {
+  const axisDir = type === 'horizontal' ? { u: 1, v: 0 } : type === 'vertical' ? { u: 0, v: 1 } : null
+
+  if (from.kind === 'point' && to.kind === 'point') {
+    const delta = { u: to.point.u - from.point.u, v: to.point.v - from.point.v }
+    const dir = axisDir ?? normalize(delta)
+    if (length(dir) === 0) return null
+    return { a: from.point, b: to.point, dir, value: roundCm(Math.abs(delta.u * dir.u + delta.v * dir.v)) }
+  }
+
+  if (from.kind === 'line' && to.kind === 'line') {
+    // Only parallel faces have a single distance between them.
+    if (Math.abs(from.line.normal.u * to.line.normal.v - from.line.normal.v * to.line.normal.u) > 1e-6) return null
+    const dir = axisDir ?? from.line.normal
+    const a = from.line.point
+    const b = rayMeetsLine(a, dir, to.line)
+    if (!b) return null
+    return { a, b, dir, value: roundCm(Math.abs((b.u - a.u) * dir.u + (b.v - a.v) * dir.v)) }
+  }
+
+  const line = from.kind === 'line' ? from.line : (to as { kind: 'line'; line: FaceLine }).line
+  const point = from.kind === 'point' ? from.point : (to as { kind: 'point'; point: PlaneVec }).point
+  const dir = axisDir ?? line.normal
+  const foot = rayMeetsLine(point, dir, line)
+  if (!foot) return null
+  const a = from.kind === 'point' ? point : foot
+  const b = from.kind === 'point' ? foot : point
+  return { a, b, dir, value: roundCm(Math.abs((b.u - a.u) * dir.u + (b.v - a.v) * dir.v)) }
+}
+
+export interface MeasurementDrawing extends MeasurementSpan {
+  /** Unit normal to `dir`: the direction the offset moves the line along. */
+  normal: PlaneVec
+  /** The dimension line, held clear of the geometry by the offset. */
+  lineA: PlaneVec
+  lineB: PlaneVec
+}
+
+/**
+ * The drawn dimension line for a span. At zero offset a locked measurement
+ * sits on the end picked SECOND, and the first grows the extension line; an
+ * aligned one runs straight between its ends, because both share the same
+ * perpendicular coordinate. The offset never changes the value.
+ */
+export function measurementDrawing(span: MeasurementSpan, offsetCm: number): MeasurementDrawing {
+  const normal = { u: -span.dir.v, v: span.dir.u }
+  const at = (p: PlaneVec) => p.u * normal.u + p.v * normal.v
+  const target = at(span.b) + offsetCm
+  const shift = (p: PlaneVec): PlaneVec => {
+    const delta = target - at(p)
+    return { u: roundCm(p.u + delta * normal.u), v: roundCm(p.v + delta * normal.v) }
+  }
+  return { ...span, normal, lineA: shift(span.a), lineB: shift(span.b) }
+}
+
+/** The elements a measurement depends on — one id when only one end is
+ *  anchored, none when it floats free of everything. */
+export function measurementAnchorElementIds(measurement: StagePlotMeasurement): number[] {
+  const ids: number[] = []
+  for (const end of [measurement.from, measurement.to]) {
+    if (end.element_id !== undefined && !ids.includes(end.element_id)) ids.push(end.element_id)
+  }
+  return ids
+}
+
+/**
+ * How many of these measurements go when this element goes — what the delete
+ * confirmation states. A measurement anchored to the element at BOTH ends is
+ * one measurement, not two, so this counts measurements and not references.
+ */
+export function measurementsAnchoredTo(measurements: StagePlotMeasurement[], elementId: number): number {
+  return measurements.filter((m) => measurementAnchorElementIds(m).includes(elementId)).length
+}
+
+/**
+ * How near the pointer has to be to TAKE an anchor.
+ *
+ * Deliberately not `SNAP_THRESHOLD_PX`. That is 8 px and it is right for a drag
+ * snap, where you are already holding the thing and it eases into place. A pick
+ * is the opposite: nothing is held, and until the hint is drawn there is
+ * nothing on screen saying where the point is. 8 px meant hitting an invisible
+ * target — which made the CENTRE of an element, a single point in a large empty
+ * middle, effectively unreachable (field test, 2026-08-07).
+ */
+export const MEASURE_PICK_PX = 18
+
+/**
+ * How near the pointer has to be to take a CORNER or a SIDE MIDPOINT.
+ *
+ * Tighter than the pick radius on purpose. Those two share a side with the
+ * FACE, and a point in range beats a face — so a single generous radius makes
+ * the corner and midpoint zones meet in the middle and the face becomes
+ * unreachable, which is what raising the radius to 18 px did (field test,
+ * 2026-08-07). The centre and the face keep the full radius: nothing competes
+ * with the centre, and the face is what you get when you are deliberately not
+ * near a point. The anchors are drawn now, so a tighter target is aimable.
+ */
+export const MEASURE_POINT_PX = 11
+
+
+/** How near the pointer has to be to an element for its anchors to be SHOWN.
+ *  Generous: seeing the candidates is what makes them pickable. */
+export const MEASURE_HINT_PX = 44
+
+export interface AimedAnchor {
+  elementId: number
+  feature: AnchorFeature
+  /** True when the face is taken as a sliding plane rather than as its midpoint. */
+  slide: boolean
+  point: PlaneVec
+}
+
+function distanceToSegment(p: PlaneVec, a: PlaneVec, b: PlaneVec): number {
+  const du = b.u - a.u
+  const dv = b.v - a.v
+  const lengthSquared = du * du + dv * dv
+  if (lengthSquared === 0) return Math.hypot(p.u - a.u, p.v - a.v)
+  let t = ((p.u - a.u) * du + (p.v - a.v) * dv) / lengthSquared
+  t = Math.max(0, Math.min(1, t))
+  return Math.hypot(p.u - (a.u + t * du), p.v - (a.v + t * dv))
+}
+
+/**
+ * The anchor a pointer is aiming at, or null.
+ *
+ * Along any side there are exactly three zones and no dead ground: two corner
+ * zones, one midpoint zone, and everything else on that side is the face taken
+ * as a sliding plane. Points win over faces wherever both are in range, which
+ * is what makes a corner reachable at all — it sits on two faces.
+ */
+export function aimAtAnchor(
+  elements: StagePlotElement[],
+  view: StagePlotView,
+  point: PlaneVec,
+  thresholdCm: number,
+  pointThresholdCm = thresholdCm,
+): AimedAnchor | null {
+  let best: (AimedAnchor & { score: number }) | null = null
+  const take = (elementId: number, feature: AnchorFeature, slide: boolean, at: PlaneVec, score: number) => {
+    if (!best || score < best.score) best = { elementId, feature, slide, point: at, score }
+  }
+
+  for (const element of elements) {
+    const offered = offeredAnchors(element, view)
+    const slideAllowed = allowsPlaneAnchor(element, view)
+
+    // The centre competes with nothing, so it keeps the full radius.
+    const centre = offered.find((o) => o.feature.kind === 'centre')
+    if (centre) {
+      const distance = Math.hypot(point.u - centre.point.u, point.v - centre.point.v)
+      if (distance <= thresholdCm) take(element.id, centre.feature, false, centre.point, distance)
+    }
+
+    const corners = offered.filter((o) => o.feature.kind === 'corner')
+
+    // Everything else is decided ALONG a side, not by distance to a marker.
+    // Three zones and no dead ground: a corner zone at each end, a midpoint
+    // zone in the middle, and the rest of the side is the sliding plane.
+    for (const face of offered) {
+      if (face.feature.kind !== 'edge' && face.feature.kind !== 'face') continue
+      const line = sideLine(element, view, face.feature)
+      if (!line) continue
+
+      const perpendicular = distanceToSegment(point, line.segment[0], line.segment[1])
+      if (perpendicular > thresholdCm) continue
+
+      const spanU = line.segment[1].u - line.segment[0].u
+      const spanV = line.segment[1].v - line.segment[0].v
+      const drawnLength = Math.hypot(spanU, spanV)
+      if (drawnLength < 1e-6) continue
+      const along = Math.max(0, Math.min(drawnLength, (point.u - line.segment[0].u) * line.dir.u + (point.v - line.segment[0].v) * line.dir.v))
+
+      // Five zone-widths is the least a side can be and still hold all three
+      // zones with plane left over. Shorter than that — a truss seen end-on
+      // from the side is 30 cm of drawn height — and the side is ALL plane:
+      // its corners and its midpoint are within a pixel of each other at that
+      // size, so the only thing on it that means anything is the face itself.
+      // Zoom in and the radius shrinks in centimetres, the side clears the
+      // bar, and the points come back.
+      const zone = drawnLength >= 5 * pointThresholdCm ? Math.min(pointThresholdCm, drawnLength / 5) : 0
+
+      const toEnd = Math.min(along, drawnLength - along)
+      const toMiddle = Math.abs(along - drawnLength / 2)
+
+      if (zone > 0 && toEnd <= zone) {
+        const end = along < drawnLength / 2 ? line.segment[0] : line.segment[1]
+        let nearest: OfferedAnchor | null = null
+        let nearestDistance = Infinity
+        for (const corner of corners) {
+          const distance = Math.hypot(corner.point.u - end.u, corner.point.v - end.v)
+          if (distance < nearestDistance) {
+            nearest = corner
+            nearestDistance = distance
+          }
+        }
+        if (nearest) {
+          take(element.id, nearest.feature, false, nearest.point, Math.hypot(point.u - nearest.point.u, point.v - nearest.point.v))
+          continue
+        }
+      }
+
+      if (zone > 0 && toMiddle <= zone) {
+        take(element.id, face.feature, false, face.point, Math.hypot(point.u - face.point.u, point.v - face.point.v))
+        continue
+      }
+
+      // An ellipse has no straight side to slide along, so the ground between
+      // its quadrant points belongs to nothing and takes no pick.
+      if (!slideAllowed) continue
+
+      const on = {
+        u: roundCm(line.segment[0].u + along * line.dir.u),
+        v: roundCm(line.segment[0].v + along * line.dir.v),
+      }
+      take(element.id, face.feature, true, on, perpendicular)
+    }
+  }
+
+  return best ? { elementId: best.elementId, feature: best.feature, slide: best.slide, point: best.point } : null
+}
+
+/**
+ * One end of a measurement, resolved against the plot's current elements.
+ * Returns null when the end cannot be resolved at all — an element that has
+ * gone, or a face that has turned flat and can no longer be a line.
+ */
+export function resolveEnd(
+  anchor: MeasurementAnchor,
+  elementById: Map<number, StagePlotElement>,
+  view: StagePlotView,
+): MeasurementEnd | null {
+  if (anchor.element_id === undefined) {
+    if (anchor.u_cm === undefined || anchor.v_cm === undefined) return null
+    return { kind: 'point', point: { u: anchor.u_cm, v: anchor.v_cm } }
+  }
+  const element = elementById.get(anchor.element_id)
+  if (!element) return null
+  const feature = parseAnchorFeature(anchor.feature ?? '')
+  if (!feature) return null
+  if (anchor.slide) {
+    const line = sideLine(element, view, feature)
+    // A face that has turned flat has no line left. The measurement does not
+    // break: it falls back to that face's centre, which still projects.
+    if (line) return { kind: 'line', line }
+  }
+  return { kind: 'point', point: anchorPoint(element, view, feature) }
+}
+
+/** Everything needed to draw one measurement, or null if it states nothing. */
+export function measurementGeometry(
+  measurement: StagePlotMeasurement,
+  elementById: Map<number, StagePlotElement>,
+  view: StagePlotView,
+): MeasurementDrawing | null {
+  const from = resolveEnd(measurement.from, elementById, view)
+  const to = resolveEnd(measurement.to, elementById, view)
+  if (!from || !to) return null
+  const span = measurementSpan(from, to, measurement.type)
+  if (!span) return null
+  return measurementDrawing(span, measurement.offset_cm)
+}
+
+/**
+ * Which measurements draw: their own layer visible, and every element they
+ * anchor to visible too. A measurement whose far end refers to something no
+ * longer shown would be stating a distance to nothing.
+ */
+export function visibleMeasurements(
+  measurements: StagePlotMeasurement[],
+  view: StagePlotView,
+  elementById: Map<number, StagePlotElement>,
+  layerById: Map<number, StagePlotLayer>,
+): StagePlotMeasurement[] {
+  return measurements.filter((measurement) => {
+    if (measurement.view !== view) return false
+    if (layerById.get(measurement.layer_id)?.visible === false) return false
+    return measurementAnchorElementIds(measurement).every((id) => {
+      const element = elementById.get(id)
+      return element !== undefined && layerById.get(element.layer_id)?.visible !== false
+    })
+  })
+}
+
+export interface AnchorHint {
+  element: StagePlotElement
+  anchors: OfferedAnchor[]
+}
+
+/**
+ * The anchors that should be drawn because the pointer is near them, so a pick
+ * is aimed at something visible rather than guessed at.
+ *
+ * EVERY element within the radius, not the nearest one. Picking a single
+ * element meant that where two overlap — a fixture on a truss, a riser on a
+ * stage — the anchors shown belonged to one of them while the pick took the
+ * other's, so the markers were somewhere the pointer was not (field test,
+ * 2026-08-07).
+ */
+export function anchorHintsFor(
+  elements: StagePlotElement[],
+  view: StagePlotView,
+  point: PlaneVec,
+  radiusCm: number,
+): AnchorHint[] {
+  const hints: AnchorHint[] = []
+  for (const element of elements) {
+    const bounds = projectedBounds(element, view)
+    const du = Math.max(bounds.minU - point.u, 0, point.u - bounds.maxU)
+    const dv = Math.max(bounds.minV - point.v, 0, point.v - bounds.maxV)
+    if (Math.hypot(du, dv) > radiusCm) continue
+    hints.push({ element, anchors: offeredAnchors(element, view) })
+  }
+  return hints
+}
+
+/** What an anchor is, in words a person reading a plot would use. */
+export function anchorFeatureLabel(feature: AnchorFeature, slide: boolean): string {
+  if (feature.kind === 'centre') return 'Centre'
+  if (feature.kind === 'corner') return 'Corner'
+  const along = feature.kind === 'edge' ? ['Length', 'Depth', 'Height'][feature.axis] : ['Width', 'Depth', 'Height'][feature.axis]
+  return slide ? `${along} side — perpendicular` : `${along} side — midpoint`
 }

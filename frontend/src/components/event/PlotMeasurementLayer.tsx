@@ -1,0 +1,359 @@
+import type { PointerEvent as ReactPointerEvent } from 'react'
+import type { StagePlotElement, StagePlotLayer, StagePlotMeasurement, StagePlotView } from '../../types'
+import {
+  measurementGeometry,
+  resolveEnd,
+  visibleMeasurements,
+  type FaceLine,
+  type MeasurementDrawing,
+  type PlaneVec,
+} from '../../lib/stagePlot'
+
+// Measurements drawn on the plot canvas (Slice 42).
+//
+// The geometry is centimetres and comes from lib/stagePlot; everything here is
+// the DRAWING of it, and every size that is about legibility rather than about
+// the stage is a screen size written `n / zoom` — the convention the canvas
+// already uses for every stroke it makes.
+//
+// One annotation ink for every measurement, never the layer's colour: layer
+// colour tells equipment apart, and a dimension spanning two layers could not
+// honestly claim either.
+const INK_LINE = '#71717a'
+const INK_VALUE = '#d4d4d8'
+// Amber-500 is the language's focus/selected ink (tokens.md §Focus and action),
+// and it is what the approved mockup selects a dimension with.
+const INK_SELECTED = '#f59e0b'
+const INK_SELECTED_VALUE = '#fbbf24'
+const INK_HANDLE = '#6366f1'
+
+const ARROW_LENGTH_PX = 9
+const ARROW_HALF_PX = 3
+const EXTENSION_GAP_PX = 4
+const EXTENSION_OVERSHOOT_PX = 5
+const VALUE_SIZE_PX = 12
+const VALUE_LIFT_PX = 5
+const HANDLE_PX = 8
+const HANDLE_LIFT_PX = 12
+const PAINT_PX = 1.5
+/** The transparent stroke that catches the pointer. Separate geometry from the
+ *  painted line, because a 1.5 px line is not a target. */
+const HIT_DESK_PX = 20
+const HIT_HAND_PX = 44
+
+export interface MeasurementPointerContext {
+  measurement: StagePlotMeasurement
+  drawing: MeasurementDrawing
+}
+
+interface PlotMeasurementLayerProps {
+  measurements: StagePlotMeasurement[]
+  elementById: Map<number, StagePlotElement>
+  layerById: Map<number, StagePlotLayer>
+  view: StagePlotView
+  zoom: number
+  selectedMeasurementId: number | null
+  isMobile?: boolean
+  /**
+   * SVG hit-tests what was painted LAST, and a measurement has to paint above
+   * every element while never stealing an element's tap. So it renders twice:
+   * the transparent targets go down BEFORE the elements, the visible drawing
+   * goes on top after them.
+   */
+  pass?: 'targets' | 'paint'
+  onSelect?: (id: number) => void
+  onOffsetPointerDown?: (event: ReactPointerEvent, context: MeasurementPointerContext) => void
+  onEndPointerDown?: (event: ReactPointerEvent, context: MeasurementPointerContext, end: 'from' | 'to') => void
+}
+
+/** The canvas draws elevations with v flipped onto SVG's downward y. */
+function toSvg(point: PlaneVec, view: StagePlotView): { x: number; y: number } {
+  return { x: point.u, y: view === 'top' ? point.v : -point.v }
+}
+
+function formatValue(valueCm: number): string {
+  return `${Math.round(valueCm)}`
+}
+
+/**
+ * The label as one description: its text, how wide it runs, and whether that
+ * fits between the terminators. One source for the fit test, the drawing and
+ * the hit target, so the target cannot end up somewhere the text is not.
+ *
+ * 0.6 em per character is the usual monospace approximation; nothing here has
+ * to lay text out, only bound it.
+ */
+function labelBox(measurement: StagePlotMeasurement, drawing: MeasurementDrawing, zoom: number) {
+  const text = `${measurement.note ? `${measurement.note}  ` : ''}${formatValue(drawing.value)} cm`
+  const widthCm = (text.length * VALUE_SIZE_PX * 0.6) / zoom
+  const heightCm = (VALUE_SIZE_PX * 1.5) / zoom
+  return { text, widthCm, heightCm, inside: widthCm <= drawing.value - (2 * ARROW_LENGTH_PX) / zoom }
+}
+
+export function PlotMeasurementLayer({
+  measurements,
+  elementById,
+  layerById,
+  view,
+  zoom,
+  selectedMeasurementId,
+  isMobile = false,
+  pass = 'paint',
+  onSelect,
+  onOffsetPointerDown,
+  onEndPointerDown,
+}: PlotMeasurementLayerProps) {
+  const px = (value: number) => value / zoom
+
+  return (
+    <g data-testid={pass === 'targets' ? 'plot-measurement-targets' : 'plot-measurements'}>
+      {visibleMeasurements(measurements, view, elementById, layerById).map((measurement) => {
+        const drawing = measurementGeometry(measurement, elementById, view)
+        if (!drawing) return null
+
+        const selected = measurement.id === selectedMeasurementId
+        const locked = layerById.get(measurement.layer_id)?.locked === true
+        const ink = selected ? INK_SELECTED : INK_LINE
+
+        const a = toSvg(drawing.a, view)
+        const b = toSvg(drawing.b, view)
+        const lineA = toSvg(drawing.lineA, view)
+        const lineB = toSvg(drawing.lineB, view)
+
+        // The dimension line's direction on the page, which every screen-sized
+        // piece of furniture is measured along.
+        const dx = lineB.x - lineA.x
+        const dy = lineB.y - lineA.y
+        const spanPx = Math.hypot(dx, dy)
+        const ux = spanPx === 0 ? 1 : dx / spanPx
+        const uy = spanPx === 0 ? 0 : dy / spanPx
+        const nx = -uy
+        const ny = ux
+
+        // Extension lines stop short of the anchor and run past the dimension
+        // line, so neither touches what it is pointing at.
+        const extension = (anchor: { x: number; y: number }, end: { x: number; y: number }) => {
+          const ex = end.x - anchor.x
+          const ey = end.y - anchor.y
+          const len = Math.hypot(ex, ey)
+          if (len < px(EXTENSION_GAP_PX)) return null
+          const kx = ex / len
+          const ky = ey / len
+          return {
+            x1: anchor.x + kx * px(EXTENSION_GAP_PX),
+            y1: anchor.y + ky * px(EXTENSION_GAP_PX),
+            x2: end.x + kx * px(EXTENSION_OVERSHOOT_PX),
+            y2: end.y + ky * px(EXTENSION_OVERSHOOT_PX),
+          }
+        }
+        const extA = extension(a, lineA)
+        const extB = extension(b, lineB)
+
+        const label = labelBox(measurement, drawing, zoom)
+        const inside = label.inside
+        // Filled triangles, pointing inward when the label fits between them
+        // and outward when it does not — CAD's rule, and the reason a short
+        // dimension stays readable instead of colliding with itself.
+        const arrow = (at: { x: number; y: number }, sign: number) => {
+          const tipX = at.x
+          const tipY = at.y
+          const baseX = tipX + sign * ux * px(ARROW_LENGTH_PX)
+          const baseY = tipY + sign * uy * px(ARROW_LENGTH_PX)
+          return `${tipX},${tipY} ${baseX + nx * px(ARROW_HALF_PX)},${baseY + ny * px(ARROW_HALF_PX)} ${baseX - nx * px(ARROW_HALF_PX)},${baseY - ny * px(ARROW_HALF_PX)}`
+        }
+
+        const midX = (lineA.x + lineB.x) / 2
+        const midY = (lineA.y + lineB.y) / 2
+        // Text runs along the line, never upside down.
+        let angle = (Math.atan2(dy, dx) * 180) / Math.PI
+        if (angle > 90 || angle < -90) angle += 180
+        const labelX = inside ? midX : lineB.x + ux * px(ARROW_LENGTH_PX * 2)
+        const labelY = inside ? midY : lineB.y + uy * px(ARROW_LENGTH_PX * 2)
+
+        // Ends that resolved to a FACE LINE rather than a point. A face that
+        // has turned flat falls back to a point and is not one of these.
+        const fromEnd = resolveEnd(measurement.from, elementById, view)
+        const toEnd = resolveEnd(measurement.to, elementById, view)
+        const flip = view === 'top' ? 1 : -1
+        const lineEnds = [
+          fromEnd?.kind === 'line' ? { at: a, projected: drawing.a, line: fromEnd.line } : null,
+          toEnd?.kind === 'line' ? { at: b, projected: drawing.b, line: toEnd.line } : null,
+        ].filter((entry): entry is { at: { x: number; y: number }; projected: PlaneVec; line: FaceLine } => entry !== null)
+
+        // A right angle is claimed only by an ALIGNED measurement: a locked one
+        // meets the face along a view axis on purpose, and that is not
+        // perpendicular. The mark's arms come from the face's own axes, not the
+        // dimension line's, which is a different direction under a locked type.
+        const rightAngle = measurement.type === 'aligned' ? (lineEnds[0] ?? null) : null
+
+        // Where the foot falls past the end of the side actually drawn, the
+        // measurement is against the face's INFINITE line — a fact the drawing
+        // has to admit, or the dimension appears to touch thin air.
+        const runOuts = lineEnds
+          .map((entry) => {
+            const along = (p: PlaneVec) => p.u * entry.line.dir.u + p.v * entry.line.dir.v
+            const ends = [...entry.line.segment].sort((p, q) => along(p) - along(q))
+            const foot = along(entry.projected)
+            const near = foot < along(ends[0]) - 0.01 ? ends[0] : foot > along(ends[1]) + 0.01 ? ends[1] : null
+            return near ? { near, at: entry.at, line: entry.line } : null
+          })
+          .filter((entry): entry is { near: PlaneVec; at: { x: number; y: number }; line: FaceLine } => entry !== null)
+
+        const handleX = midX + nx * px(HANDLE_LIFT_PX)
+        const handleY = midY + ny * px(HANDLE_LIFT_PX)
+
+        if (pass === 'targets') {
+          // The targets, painted transparent and sized for the hand — laid down
+          // before the elements so an element over one wins the tap.
+          //
+          // The VALUE is a target too. It is the part of a dimension anyone
+          // aims at, and it commonly sits clear of the line it belongs to —
+          // held off by the offset, or pushed outside a short measurement
+          // entirely — so a line-only target misses what the eye went for.
+          const anchorX = inside ? labelX - label.widthCm / 2 : labelX
+          const pivotY = labelY - px(VALUE_LIFT_PX)
+          const take = (event: ReactPointerEvent) => {
+            event.stopPropagation()
+            onSelect?.(measurement.id)
+          }
+          return (
+            <g key={measurement.id}>
+              <line
+                x1={lineA.x}
+                y1={lineA.y}
+                x2={lineB.x}
+                y2={lineB.y}
+                stroke="transparent"
+                strokeWidth={px(isMobile ? HIT_HAND_PX : HIT_DESK_PX)}
+                style={{ cursor: 'pointer' }}
+                onPointerDown={take}
+              />
+              <rect
+                x={anchorX}
+                y={pivotY - label.heightCm * 0.8}
+                width={label.widthCm}
+                height={label.heightCm}
+                transform={`rotate(${angle} ${labelX} ${pivotY})`}
+                fill="transparent"
+                style={{ cursor: 'pointer' }}
+                onPointerDown={take}
+              />
+            </g>
+          )
+        }
+
+        return (
+          // The painted drawing takes no pointer events at all. It is laid
+          // down AFTER the targets pass, so anything interactive here
+          // hit-tests first and swallows the target beneath it — which is
+          // what the value did to its own: the tap landed on the text, found
+          // no handler, and bubbled up to the canvas as a background tap that
+          // cleared the selection. Only the grips opt back in.
+          <g key={measurement.id} pointerEvents="none">
+            {extA && <line x1={extA.x1} y1={extA.y1} x2={extA.x2} y2={extA.y2} stroke={ink} strokeWidth={px(1)} />}
+            {extB && <line x1={extB.x1} y1={extB.y1} x2={extB.x2} y2={extB.y2} stroke={ink} strokeWidth={px(1)} />}
+
+            <line x1={lineA.x} y1={lineA.y} x2={lineB.x} y2={lineB.y} stroke={ink} strokeWidth={px(PAINT_PX)} />
+            <polygon points={arrow(lineA, inside ? 1 : -1)} fill={ink} />
+            <polygon points={arrow(lineB, inside ? -1 : 1)} fill={ink} />
+
+            {rightAngle &&
+              (() => {
+                const fx = rightAngle.line.dir.u
+                const fy = rightAngle.line.dir.v * flip
+                const gx = rightAngle.line.normal.u
+                const gy = rightAngle.line.normal.v * flip
+                const arm = px(7)
+                const p0 = `${rightAngle.at.x + fx * arm},${rightAngle.at.y + fy * arm}`
+                const p1 = `${rightAngle.at.x + (fx + gx) * arm},${rightAngle.at.y + (fy + gy) * arm}`
+                const p2 = `${rightAngle.at.x + gx * arm},${rightAngle.at.y + gy * arm}`
+                return <polyline points={`${p0} ${p1} ${p2}`} fill="none" stroke={ink} strokeWidth={px(1)} />
+              })()}
+
+            {/* The run-out, and the tick that says where the real edge stopped.
+                Dashed is the drawing saying "this part of the line is not on
+                the object" — the measurement is to the face's infinite line,
+                and the tick marks the last point that is actually the truss. */}
+            {runOuts.map((entry, index) => {
+              const nearX = entry.near.u
+              const nearY = entry.near.v * flip
+              const tx = entry.line.normal.u
+              const ty = entry.line.normal.v * flip
+              const tick = px(4)
+              return (
+                <g key={`runout-${index}`}>
+                  <line
+                    x1={nearX}
+                    y1={nearY}
+                    x2={entry.at.x}
+                    y2={entry.at.y}
+                    stroke={ink}
+                    strokeWidth={px(1)}
+                    strokeDasharray={`${px(3)} ${px(2)}`}
+                  />
+                  <line
+                    x1={nearX - tx * tick}
+                    y1={nearY - ty * tick}
+                    x2={nearX + tx * tick}
+                    y2={nearY + ty * tick}
+                    stroke={ink}
+                    strokeWidth={px(1.25)}
+                  />
+                </g>
+              )
+            })}
+
+            <text
+              x={labelX}
+              y={labelY - px(VALUE_LIFT_PX)}
+              transform={`rotate(${angle} ${labelX} ${labelY - px(VALUE_LIFT_PX)})`}
+              textAnchor={inside ? 'middle' : 'start'}
+              fill={selected ? INK_SELECTED_VALUE : INK_VALUE}
+              fontFamily="ui-monospace, monospace"
+              fontSize={px(VALUE_SIZE_PX)}
+              style={{ fontVariantNumeric: 'tabular-nums' }}
+            >
+              {measurement.note ? `${measurement.note}  ` : ''}
+              {formatValue(drawing.value)}
+              <tspan fill={INK_LINE} fontSize={px(VALUE_SIZE_PX * 0.8)}>
+                {' cm'}
+              </tspan>
+            </text>
+
+
+            {/* Grips: the offset tab and the two ends. A locked layer keeps
+                the measurement readable and selectable and takes these away,
+                exactly as it does for an element's resize handles. */}
+            {selected && !locked && !isMobile && (
+              <g pointerEvents="auto">
+                <rect
+                  x={handleX - px(HANDLE_PX) / 2}
+                  y={handleY - px(HANDLE_PX) / 2}
+                  width={px(HANDLE_PX)}
+                  height={px(HANDLE_PX)}
+                  fill={INK_HANDLE}
+                  style={{ cursor: 'move' }}
+                  onPointerDown={(event) => onOffsetPointerDown?.(event, { measurement, drawing })}
+                />
+                {(['from', 'to'] as const).map((end) => {
+                  const at = end === 'from' ? a : b
+                  return (
+                    <circle
+                      key={end}
+                      cx={at.x}
+                      cy={at.y}
+                      r={px(HANDLE_PX) / 2}
+                      fill={INK_HANDLE}
+                      style={{ cursor: 'crosshair' }}
+                      onPointerDown={(event) => onEndPointerDown?.(event, { measurement, drawing }, end)}
+                    />
+                  )
+                })}
+              </g>
+            )}
+          </g>
+        )
+      })}
+    </g>
+  )
+}

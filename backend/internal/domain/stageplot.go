@@ -77,6 +77,57 @@ type StagePlotLink struct {
 	DMXStartAddress *int `json:"dmx_start_address,omitempty"`
 }
 
+// MeasurementAnchor is one end of a measurement. It is EITHER a feature of
+// one element's box (ElementID + Feature) OR a free point in the view plane
+// (UCm + VCm) — never both, never neither; api validates the exclusivity.
+//
+// An element end stores the reference and never the resolved point, so the
+// measurement is re-derived from the element's current geometry every time it
+// is drawn: that is what keeps it true when the element moves, resizes,
+// rotates or rakes.
+type MeasurementAnchor struct {
+	ElementID *int64 `json:"element_id,omitempty"`
+	// Feature names a feature of the element's own box, not a vertex of its
+	// drawn silhouette: "centre", "corner:+-+" (signs on its local x/y/z
+	// axes), or "face:+x". A silhouette's vertex count changes with rotation
+	// — four for a plain rect, six when yaw and tilt combine — so an index
+	// into it would come to mean a different corner after a rake.
+	Feature string `json:"feature,omitempty"`
+	// Slide distinguishes a face anchor's two modes: false pins it to the
+	// face's projected centre (the midpoint of that drawn side), true lets it
+	// sit anywhere along the face's line and states the perpendicular
+	// distance. Meaningless on a corner or a centre.
+	Slide bool     `json:"slide,omitempty"`
+	UCm   *float64 `json:"u_cm,omitempty"`
+	VCm   *float64 `json:"v_cm,omitempty"`
+}
+
+// IsElement reports whether this end is anchored to an element.
+func (a MeasurementAnchor) IsElement() bool { return a.ElementID != nil }
+
+// StagePlotMeasurement is one stated distance on a plot (Slice 42). Its value
+// is always derived from its two anchors and is never stored: a typed value
+// can disagree with the drawing, and a dimension that disagrees with what it
+// measures is worse than no dimension.
+type StagePlotMeasurement struct {
+	ID      int64 `json:"id"`
+	PlotID  int64 `json:"plot_id"`
+	LayerID int64 `json:"layer_id"`
+	// View is the projection this measurement belongs to and is drawn in.
+	View string `json:"view"`
+	// Type is "aligned" (true point-to-point distance), "horizontal" or
+	// "vertical" (the separation along one of the view's axes alone).
+	Type string            `json:"type"`
+	From MeasurementAnchor `json:"from"`
+	To   MeasurementAnchor `json:"to"`
+	// OffsetCm holds the dimension line clear of what it measures,
+	// perpendicular to the measured direction; signed, so it can be flipped
+	// to the other side. It never changes the stated value.
+	OffsetCm  float64 `json:"offset_cm"`
+	Note      string  `json:"note,omitempty"`
+	SortOrder int     `json:"sort_order"`
+}
+
 // PlotTruss is event-scoped: placed on plots by reference, counted once
 // per event on the rental order (research.md R4).
 type PlotTruss struct {
@@ -117,9 +168,10 @@ type PlotTrussFixture struct {
 // StagePlotResponse is the aggregate read for one plot: everything the
 // editor needs in a single query round-trip.
 type StagePlotResponse struct {
-	Plot     StagePlot          `json:"plot"`
-	Layers   []StagePlotLayer   `json:"layers"`
-	Elements []StagePlotElement `json:"elements"`
+	Plot         StagePlot              `json:"plot"`
+	Layers       []StagePlotLayer       `json:"layers"`
+	Elements     []StagePlotElement     `json:"elements"`
+	Measurements []StagePlotMeasurement `json:"measurements"`
 	// Trusses lists ALL of the event's trusses (placed on this plot or
 	// not), so the truss manager and the palette share this response.
 	Trusses []PlotTruss `json:"trusses"`

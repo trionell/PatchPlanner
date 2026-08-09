@@ -1,9 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import type { PlotTruss, StagePlot, StagePlotElement, StagePlotLayer, StagePlotView, TrussSide } from '../../types'
-import type { StagePlotElementPatch } from '../../api/stagePlots'
+import type { MeasurementType, PlotTruss, StagePlot, StagePlotElement, StagePlotLayer, StagePlotMeasurement, StagePlotView, TrussSide } from '../../types'
+import type { StagePlotElementPatch, StagePlotMeasurementCreate, StagePlotMeasurementPatch } from '../../api/stagePlots'
 import type { PlotViewState } from '../../hooks/usePlotView'
 import {
+  MEASURE_POINT_PX,
+  measurementSpan,
+  sideLine,
+  anchorFeatureLabel,
+  anchorHintsFor,
+  MEASURE_HINT_PX,
+  MEASURE_PICK_PX,
+  measurementGeometry,
+  parseAnchorFeature,
+  anchorPoint,
+  formatAnchorFeature,
+  aimAtAnchor,
   clampDimension,
   clampFixtureOffset,
   clampPlotZoom,
@@ -20,8 +32,10 @@ import {
   trussSideForLocalV,
   viewAxisFields,
   type SnapGuide,
+  type AnchorFeature,
 } from '../../lib/stagePlot'
 import { iconGlyph, iconViewBox } from '../../lib/stagePlotIcons'
+import { PlotMeasurementLayer } from './PlotMeasurementLayer'
 
 /** Live viewport state (owned by the tab so the palette can place elements at the
  *  visible center, and by `usePlotView` so it outlives the mount). Pan is the viewBox
@@ -53,6 +67,21 @@ interface StagePlotCanvasProps {
    *  or attach anything — element drags never start, and resize/rotate
    *  handles don't render. */
   readOnly?: boolean
+  // ---- Measurements (Slice 42) ----
+  measurements?: StagePlotMeasurement[]
+  selectedMeasurementId?: number | null
+  onSelectMeasurement?: (id: number | null) => void
+  onUpdateMeasurement?: (id: number, patch: StagePlotMeasurementPatch) => void
+  onCreateMeasurement?: (data: StagePlotMeasurementCreate) => void
+  /** The armed measure tool. Unlike every other palette entry this ARMS
+   *  rather than places: a measurement is defined by two picks, so there is
+   *  nothing to drag onto the canvas before the first of them. */
+  measureType?: MeasurementType | null
+  onMeasureTypeChange?: (type: MeasurementType | null) => void
+  /** Where a new measurement is placed. */
+  activeLayerId?: number
+  /** The hand reads measurements and draws none. */
+  isMobile?: boolean
 }
 
 const DEFAULT_LAYER_COLOR = '#a1a1aa'
@@ -84,11 +113,27 @@ type DragMode =
    * the background. Elements that cannot be *dragged* (a viewer, a phone, a locked
    * layer) enter this state too, which is what lets a pan begin on top of one.
    */
-  | { kind: 'maybe-pan'; startClientX: number; startClientY: number; startPanX: number; startPanY: number; moved: boolean; selectId?: number }
+  | {
+      kind: 'maybe-pan'
+      startClientX: number
+      startClientY: number
+      startPanX: number
+      startPanY: number
+      moved: boolean
+      selectId?: number
+      /** An armed measure tool's pick, taken on release. A press has to be able
+       *  to turn out to be a pan — otherwise arming the tool takes the canvas
+       *  away, and a plot you cannot move is a plot you cannot measure. */
+      pick?: { u: number; v: number }
+    }
   | { kind: 'move'; elementId: number; startU: number; startV: number; origin: StagePlotElement; moved: boolean }
   | { kind: 'resize'; elementId: number; origin: StagePlotElement }
   | { kind: 'rotate'; elementId: number; origin: StagePlotElement }
   | { kind: 'truss-fixture'; trussElementId: number; trussId: number; fixtureId: number; side: TrussSide; offsetCm: number }
+  /** Holding a dimension line clear of the geometry, or re-aiming one of its
+   *  ends. Both write on release, as element drags do. */
+  | { kind: 'measure-offset'; measurementId: number }
+  | { kind: 'measure-end'; measurementId: number; end: 'from' | 'to' }
 
 export function StagePlotCanvas({
   plot,
@@ -106,6 +151,15 @@ export function StagePlotCanvas({
   fixtureNameById,
   onAttachFixture,
   readOnly = false,
+  measurements = [],
+  selectedMeasurementId = null,
+  onSelectMeasurement,
+  onUpdateMeasurement,
+  onCreateMeasurement,
+  measureType = null,
+  onMeasureTypeChange,
+  activeLayerId,
+  isMobile = false,
 }: StagePlotCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
@@ -117,6 +171,23 @@ export function StagePlotCanvas({
   const [guides, setGuides] = useState<SnapGuide[]>([])
   // Live position of a fixture marker being dragged along its truss.
   const [fixtureDrag, setFixtureDrag] = useState<{ fixtureId: number; offset: number; side: TrussSide } | null>(null)
+  // The measure tool's first pick, and the anchor the pointer is currently
+  // over. A pick is an element anchor or a free point; both are stored the way
+  // they will be saved.
+  const [measureFirstState, setMeasureFirst] = useState<StagePlotMeasurement['from'] | null>(null)
+  const [aimState, setAim] = useState<{
+    u: number
+    v: number
+    slide: boolean
+    label: string
+    feature: AnchorFeature | null
+    elementId: number | null
+  } | null>(null)
+  // Where the pointer is, in canvas centimetres — the anchor hint follows it
+  // even when no anchor is in range.
+  const [pointerCm, setPointerCm] = useState<{ u: number; v: number } | null>(null)
+  // Live offset while a dimension line is being dragged; written on release.
+  const [measureOverride, setMeasureOverride] = useState<{ id: number; offsetCm: number } | null>(null)
   // The truss a dragged free fixture element would attach to on drop.
   const [dropTarget, setDropTarget] = useState<{ elementId: number; trussId: number; offset: number; side: TrussSide } | null>(null)
 
@@ -169,6 +240,146 @@ export function StagePlotCanvas({
     return current
   }
 
+  // ---- Measurements (Slice 42) ----
+
+  // Elements as the measurement geometry sees them: the drag override and the
+  // truss's derived size folded in, so a measurement follows a truss being
+  // dragged exactly as the bar itself does.
+  const measurableElements = elements.map(effectiveElement)
+  const measurableById = new Map(measurableElements.map((element) => [element.id, element]))
+
+  // Leaving the tool — by key, or by clicking the armed tile off — drops any
+  // half-drawn measurement with it: a first pick with no second is not a
+  // measurement and is never saved. Derived rather than cleared, so there is
+  // no state to get out of step with whoever disarmed the tool. The aim marker
+  // also survives a re-anchor drag, which has no tool armed.
+  const measureFirst = measureType ? measureFirstState : null
+  const aim = measureType || drag.kind === 'measure-end' ? aimState : null
+
+  /** clientToCm gives SVG coordinates; the elevations draw v flipped. */
+  const svgToProjected = (point: { u: number; v: number }) => ({ u: point.u, v: view === 'top' ? point.v : -point.v })
+
+  const snapFreePoint = (point: { u: number; v: number }) => {
+    const step = plot.snap_grid && plot.grid_size_cm > 0 ? plot.grid_size_cm : 0
+    if (step <= 0) return { u: roundCm(point.u), v: roundCm(point.v) }
+    return { u: roundCm(Math.round(point.u / step) * step), v: roundCm(Math.round(point.v / step) * step) }
+  }
+
+  /** What a pick at this point takes: an element anchor if one is in range,
+   *  otherwise a free point on the grid. */
+  const anchorAt = (svgPoint: { u: number; v: number }): StagePlotMeasurement['from'] => {
+    const projected = svgToProjected(svgPoint)
+    const aimed = aimAtAnchor(measurableElements, view, projected, MEASURE_PICK_PX / zoom, MEASURE_POINT_PX / zoom)
+    if (aimed) {
+      return { element_id: aimed.elementId, feature: formatAnchorFeature(aimed.feature), slide: aimed.slide }
+    }
+    const free = snapFreePoint(projected)
+    return { u_cm: free.u, v_cm: free.v }
+  }
+
+  const aimPreviewAt = (svgPoint: { u: number; v: number }) => {
+    const projected = svgToProjected(svgPoint)
+    const aimed = aimAtAnchor(measurableElements, view, projected, MEASURE_PICK_PX / zoom, MEASURE_POINT_PX / zoom)
+    if (aimed) {
+      const owner = measurableById.get(aimed.elementId)
+      return {
+        u: aimed.point.u,
+        v: aimed.point.v,
+        slide: aimed.slide,
+        // What it would take, and whose it is — the two things you cannot tell
+        // from a marker alone.
+        label: `${owner?.name || owner?.kind || 'Element'} · ${anchorFeatureLabel(aimed.feature, aimed.slide)}`,
+        feature: aimed.feature,
+        // The element the anchor is ON. Without it the highlight was looked up
+        // on whichever element happened to be nearest and matched only by
+        // feature NAME, so a `face:+y` taken from one object was drawn on
+        // another's side.
+        elementId: aimed.elementId,
+      }
+    }
+    const free = snapFreePoint(projected)
+    return { u: free.u, v: free.v, slide: false, label: 'Grid', feature: null, elementId: null }
+  }
+
+  // Every anchor the element under the pointer offers, drawn so a pick is aimed
+  // at something visible instead of guessed at.
+  const anchorHints =
+    measureType || drag.kind === 'measure-end'
+      ? anchorHintsFor(measurableElements, view, svgToProjected(pointerCm ?? { u: 0, v: 0 }), MEASURE_HINT_PX / zoom)
+      : []
+
+  /** The offset a pointer at this position is asking for: how far the
+   *  dimension line has been pulled along its own perpendicular. */
+  const offsetFor = (measurement: StagePlotMeasurement, svgPoint: { u: number; v: number }): number => {
+    const drawing = measurementGeometry({ ...measurement, offset_cm: 0 }, measurableById, view)
+    if (!drawing) return measurement.offset_cm
+    const projected = svgToProjected(svgPoint)
+    const at = (p: { u: number; v: number }) => p.u * drawing.normal.u + p.v * drawing.normal.v
+    const raw = at(projected) - at(drawing.b)
+    const step = plot.snap_grid && plot.grid_size_cm > 0 ? plot.grid_size_cm : 0
+    return step > 0 ? roundCm(Math.round(raw / step) * step) : roundCm(raw)
+  }
+
+  // Where the first pick landed, for the marker that says a measurement is
+  // half-drawn. A free point is its own answer; an element anchor is resolved
+  // the same way the finished measurement will resolve it.
+  const measureFirstPoint = ((): { u: number; v: number } | null => {
+    if (!measureFirst) return null
+    if (measureFirst.u_cm !== undefined && measureFirst.v_cm !== undefined) return { u: measureFirst.u_cm, v: measureFirst.v_cm }
+    if (measureFirst.element_id === undefined) return null
+    const element = measurableById.get(measureFirst.element_id)
+    const feature = parseAnchorFeature(measureFirst.feature ?? '')
+    if (!element || !feature) return null
+    return anchorPoint(element, view, feature)
+  })()
+
+  const handleMeasurePick = (svgPoint: { u: number; v: number }) => {
+    const anchor = anchorAt(svgPoint)
+    if (!measureFirst) {
+      setMeasureFirst(anchor)
+      return
+    }
+    if (measureType && activeLayerId !== undefined && onCreateMeasurement) {
+      onCreateMeasurement({
+        layer_id: activeLayerId,
+        view,
+        type: measureType,
+        from: measureFirst,
+        to: anchor,
+        offset_cm: 0,
+        sort_order: 0,
+      })
+    }
+    // A completed measurement leaves the tool armed for the next one.
+    setMeasureFirst(null)
+  }
+
+  // Esc leaves the measure tool, dropping any half-drawn measurement with it:
+  // a first pick with no second is not a measurement and is never saved.
+  useEffect(() => {
+    if (isMobile || readOnly) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      // Never while something is being typed into.
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
+      if (event.key === 'Escape') {
+        // Armed, Esc leaves the tool. Otherwise it drops the selection, which
+        // is the other thing there was no way out of.
+        if (measureType) onMeasureTypeChange?.(null)
+        else {
+          onSelectMeasurement?.(null)
+          onSelectElement(null)
+        }
+        return
+      }
+      if ((event.key === 'm' || event.key === 'M') && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        onMeasureTypeChange?.(measureType ? null : 'aligned')
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [measureType, onMeasureTypeChange, onSelectMeasurement, onSelectElement, isMobile, readOnly])
+
   // ---- Interaction handlers ----
 
   // Zoom on wheel. React's synthetic onWheel is passive (preventDefault
@@ -215,11 +426,33 @@ export function StagePlotCanvas({
       startPanX: panX,
       startPanY: panY,
       moved: false,
+      // Armed, this press is a pick unless it travels — the same bargain the
+      // canvas already strikes between a tap and a pan.
+      pick: measureType && !isMobile && !readOnly ? clientToCm(event.clientX, event.clientY) : undefined,
     })
   }
 
   const handleElementPointerDown = (event: ReactPointerEvent, element: StagePlotElement) => {
     if (event.button !== 0) return
+    // An armed measure tool takes the press before anything else can swallow
+    // it. Every anchor a measurement wants is ON an element — a corner, a side,
+    // a centre — and each of these handlers stops propagation, so without this
+    // the only picks that ever reached the canvas were the ones on empty floor.
+    // That is why it appeared to snap to the grid and nothing else.
+    if (measureType && !isMobile && !readOnly) {
+      event.stopPropagation()
+      svgRef.current?.setPointerCapture(event.pointerId)
+      setDrag({
+        kind: 'maybe-pan',
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startPanX: panX,
+        startPanY: panY,
+        moved: false,
+        pick: clientToCm(event.clientX, event.clientY),
+      })
+      return
+    }
     const layer = layerById.get(element.layer_id)
     const locked = layer?.locked ?? false
     event.stopPropagation()
@@ -250,12 +483,30 @@ export function StagePlotCanvas({
     }
 
     onSelectElement(element.id)
+    // One thing is inspected at a time: taking an element puts down whatever
+    // measurement was held.
+    onSelectMeasurement?.(null)
     const point = clientToCm(event.clientX, event.clientY)
     setDrag({ kind: 'move', elementId: element.id, startU: point.u, startV: point.v, origin: element, moved: false })
   }
 
   const handleFixturePointerDown = (event: ReactPointerEvent, element: StagePlotElement, trussId: number, fixture: { fixture_id: number; side: TrussSide }, offsetCm: number) => {
-    if (event.button !== 0 || !onAttachFixture || readOnly) return
+    if (event.button !== 0) return
+    if (measureType && !isMobile && !readOnly) {
+      event.stopPropagation()
+      svgRef.current?.setPointerCapture(event.pointerId)
+      setDrag({
+        kind: 'maybe-pan',
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startPanX: panX,
+        startPanY: panY,
+        moved: false,
+        pick: clientToCm(event.clientX, event.clientY),
+      })
+      return
+    }
+    if (!onAttachFixture || readOnly) return
     if (layerById.get(element.layer_id)?.locked) return
     event.stopPropagation()
     svgRef.current?.setPointerCapture(event.pointerId)
@@ -263,15 +514,50 @@ export function StagePlotCanvas({
   }
 
   const handleHandlePointerDown = (event: ReactPointerEvent, element: StagePlotElement, mode: 'resize' | 'rotate') => {
-    if (event.button !== 0 || readOnly) return
+    if (event.button !== 0) return
+    if (measureType && !isMobile && !readOnly) {
+      event.stopPropagation()
+      svgRef.current?.setPointerCapture(event.pointerId)
+      setDrag({
+        kind: 'maybe-pan',
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startPanX: panX,
+        startPanY: panY,
+        moved: false,
+        pick: clientToCm(event.clientX, event.clientY),
+      })
+      return
+    }
+    if (readOnly) return
     event.stopPropagation()
     svgRef.current?.setPointerCapture(event.pointerId)
     setDrag(mode === 'resize' ? { kind: 'resize', elementId: element.id, origin: element } : { kind: 'rotate', elementId: element.id, origin: element })
   }
 
   const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+    // Aiming happens without a button held: the highlight has to say what a
+    // pick would take BEFORE it is taken.
+    if (measureType && !isMobile && !readOnly && drag.kind === 'none') {
+      const at = clientToCm(event.clientX, event.clientY)
+      setPointerCm(at)
+      setAim(aimPreviewAt(at))
+      return
+    }
     if (drag.kind === 'none') return
     const point = clientToCm(event.clientX, event.clientY)
+
+    if (drag.kind === 'measure-offset') {
+      const measurement = measurements.find((entry) => entry.id === drag.measurementId)
+      if (measurement) setMeasureOverride({ id: measurement.id, offsetCm: offsetFor(measurement, point) })
+      return
+    }
+
+    if (drag.kind === 'measure-end') {
+      setPointerCm(point)
+      setAim(aimPreviewAt(point))
+      return
+    }
 
     if (drag.kind === 'maybe-pan') {
       const dx = event.clientX - drag.startClientX
@@ -426,11 +712,34 @@ export function StagePlotCanvas({
     }
   }
 
-  const handlePointerUp = () => {
+  const handlePointerUp = (event?: ReactPointerEvent<SVGSVGElement>) => {
+    if (drag.kind === 'measure-offset') {
+      if (measureOverride && onUpdateMeasurement) onUpdateMeasurement(measureOverride.id, { offset_cm: measureOverride.offsetCm })
+      setMeasureOverride(null)
+      setAim(null)
+      setDrag({ kind: 'none' })
+      return
+    }
+    if (drag.kind === 'measure-end') {
+      if (event && onUpdateMeasurement) {
+        onUpdateMeasurement(drag.measurementId, { [drag.end]: anchorAt(clientToCm(event.clientX, event.clientY)) })
+      }
+      setAim(null)
+      setDrag({ kind: 'none' })
+      return
+    }
     if (drag.kind === 'maybe-pan') {
-      // Released without travelling: a tap. On the background that clears the
-      // selection; on an element it opens it.
-      if (!drag.moved) onSelectElement(drag.selectId ?? null)
+      // Released without travelling: a tap. Armed, that is the pick. Otherwise
+      // it opens what it landed on and clears what it did not — including any
+      // selected measurement, which nothing else was clearing.
+      if (!drag.moved) {
+        if (drag.pick) {
+          handleMeasurePick(drag.pick)
+        } else {
+          onSelectElement(drag.selectId ?? null)
+          onSelectMeasurement?.(null)
+        }
+      }
     } else if (drag.kind === 'truss-fixture') {
       if (fixtureDrag && onAttachFixture) {
         onAttachFixture({ trussId: drag.trussId, fixtureId: drag.fixtureId, offsetCm: fixtureDrag.offset, side: fixtureDrag.side })
@@ -782,7 +1091,7 @@ export function StagePlotCanvas({
         onPointerDown={handleBackgroundPointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
+        onPointerCancel={() => handlePointerUp()}
       >
         {/* Background grid: adaptive line density so a 40×60 m venue at
             far zoom never renders thousands of lines (spec edge case). */}
@@ -791,6 +1100,21 @@ export function StagePlotCanvas({
         {view !== 'top' && (
           <line x1={panX - 100000} x2={panX + 100000} y1={0} y2={0} stroke="#3f3f46" strokeWidth={1.5 / zoom} strokeDasharray={`${10 / zoom} ${6 / zoom}`} />
         )}
+        {/* While a tool is armed nothing is selectable: every press is a pick. */}
+        {!measureType && (
+          <PlotMeasurementLayer
+            measurements={measurements}
+            elementById={measurableById}
+            layerById={layerById}
+            view={view}
+            zoom={zoom}
+            selectedMeasurementId={selectedMeasurementId}
+            isMobile={isMobile}
+            pass="targets"
+            onSelect={(id) => onSelectMeasurement?.(id)}
+          />
+        )}
+
         {orderedLayers
           .filter((layer) => layer.visible)
           .map((layer) => (
@@ -800,6 +1124,162 @@ export function StagePlotCanvas({
                 .map((element) => renderElement(element, layer))}
             </g>
           ))}
+        {/* Measurements draw above every element, whatever the layer order:
+            an annotation that a riser can cover is not an annotation. Their
+            targets went down before the elements, so an element over a
+            dimension still wins the tap. */}
+        <PlotMeasurementLayer
+          measurements={measureOverride ? measurements.map((m) => (m.id === measureOverride.id ? { ...m, offset_cm: measureOverride.offsetCm } : m)) : measurements}
+          elementById={measurableById}
+          layerById={layerById}
+          view={view}
+          zoom={zoom}
+          selectedMeasurementId={selectedMeasurementId}
+          isMobile={isMobile}
+          onSelect={(id) => onSelectMeasurement?.(id)}
+          onOffsetPointerDown={(event, context) => {
+            event.stopPropagation()
+            svgRef.current?.setPointerCapture(event.pointerId)
+            setDrag({ kind: 'measure-offset', measurementId: context.measurement.id })
+          }}
+          onEndPointerDown={(event, context, end) => {
+            event.stopPropagation()
+            svgRef.current?.setPointerCapture(event.pointerId)
+            setDrag({ kind: 'measure-end', measurementId: context.measurement.id, end })
+          }}
+        />
+
+        {/* Every anchor the nearby item offers, so a pick is aimed at
+            something visible. Until this existed you had to hit an invisible
+            point, which is why the centre — one point in a large empty middle
+            — could not be reached at all. */}
+        {anchorHints.length > 0 && (
+          <g pointerEvents="none">
+            {anchorHints.flatMap((hint) => hint.anchors).map((offered, index) => {
+              const cx = offered.point.u
+              const cy = view === 'top' ? offered.point.v : -offered.point.v
+              const live =
+                aim && Math.abs(aim.u - offered.point.u) < 0.01 && Math.abs(aim.v - offered.point.v) < 0.01 && !aim.slide
+              const r = (live ? 4.5 : 2.5) / zoom
+              return (
+                <circle
+                  key={index}
+                  cx={cx}
+                  cy={cy}
+                  r={r}
+                  fill={live ? '#818cf8' : '#3f3f46'}
+                  stroke={live ? '#c7d2fe' : '#71717a'}
+                  strokeWidth={1 / zoom}
+                />
+              )
+            })}
+          </g>
+        )}
+
+        {/* What a pick would take, shown before it is taken, and named — a
+            marker alone cannot say whether it caught the grid or an item, or
+            which item. */}
+        {aim && (
+          <g pointerEvents="none">
+            {aim.slide ? (
+              // The sliding plane lights the SIDE itself, along the face, so
+              // it is never mistaken for the point sitting on that same side.
+              (() => {
+                // From the element the aim actually took it from, never from
+                // whichever element is nearest.
+                const owner = aim.elementId != null ? measurableById.get(aim.elementId) : undefined
+                const line = owner && aim.feature ? sideLine(owner, view, aim.feature) : null
+                if (!line) return null
+                const flip = view === 'top' ? 1 : -1
+                return (
+                  <line
+                    x1={line.segment[0].u}
+                    y1={line.segment[0].v * flip}
+                    x2={line.segment[1].u}
+                    y2={line.segment[1].v * flip}
+                    stroke="#818cf8"
+                    strokeWidth={4 / zoom}
+                    opacity={0.85}
+                  />
+                )
+              })()
+            ) : (
+              <circle cx={aim.u} cy={view === 'top' ? aim.v : -aim.v} r={5 / zoom} fill="none" stroke="#818cf8" strokeWidth={2 / zoom} />
+            )}
+            <text
+              x={aim.u + 9 / zoom}
+              y={(view === 'top' ? aim.v : -aim.v) - 9 / zoom}
+              fill="#c7d2fe"
+              fontSize={11 / zoom}
+              fontFamily="ui-sans-serif, system-ui"
+            >
+              {aim.label}
+            </text>
+          </g>
+        )}
+
+        {/* When the first pick was a PLANE, the item's line is extended —
+            dashed — out to where the measurement will actually attach, before
+            the pick is committed. The attachment point is on the face's
+            infinite line and is routinely off the end of the object; without
+            this the second point looks like it is measuring to nothing. */}
+        {measureFirst?.slide &&
+          measureFirst.element_id !== undefined &&
+          aim &&
+          (() => {
+            const element = measurableById.get(measureFirst.element_id)
+            const feature = parseAnchorFeature(measureFirst.feature ?? '')
+            if (!element || !feature) return null
+            const line = sideLine(element, view, feature)
+            if (!line) return null
+            const span = measurementSpan({ kind: 'line', line }, { kind: 'point', point: { u: aim.u, v: aim.v } }, measureType ?? 'aligned')
+            if (!span) return null
+            const flip = view === 'top' ? 1 : -1
+            const along = (p: { u: number; v: number }) => p.u * line.dir.u + p.v * line.dir.v
+            const ends = [...line.segment].sort((p, q) => along(p) - along(q))
+            const foot = along(span.a)
+            const near = foot < along(ends[0]) ? ends[0] : foot > along(ends[1]) ? ends[1] : null
+            if (!near) return null
+            return (
+              <line
+                x1={near.u}
+                y1={near.v * flip}
+                x2={span.a.u}
+                y2={span.a.v * flip}
+                stroke="#818cf8"
+                strokeWidth={1 / zoom}
+                strokeDasharray={`${4 / zoom} ${3 / zoom}`}
+                pointerEvents="none"
+              />
+            )
+          })()}
+
+        {/* The rubber band: what the measurement would span if the pointer
+            picked here. */}
+        {measureFirstPoint && aim && (
+          <line
+            x1={measureFirstPoint.u}
+            y1={view === 'top' ? measureFirstPoint.v : -measureFirstPoint.v}
+            x2={aim.u}
+            y2={view === 'top' ? aim.v : -aim.v}
+            stroke="#818cf8"
+            strokeWidth={1 / zoom}
+            strokeDasharray={`${5 / zoom} ${4 / zoom}`}
+            pointerEvents="none"
+          />
+        )}
+
+        {/* The first pick, still waiting for its partner. */}
+        {measureFirstPoint && (
+          <circle
+            cx={measureFirstPoint.u}
+            cy={view === 'top' ? measureFirstPoint.v : -measureFirstPoint.v}
+            r={5 / zoom}
+            fill="#6366f1"
+            pointerEvents="none"
+          />
+        )}
+
         {/* Alignment guides while dragging (snap-to-objects). */}
         {guides.map((guide, index) =>
           guide.axis === 'u' ? (

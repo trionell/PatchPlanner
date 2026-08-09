@@ -1,0 +1,2495 @@
+<!--
+  PatchPlanner — Stage plot measurements (dimension lines).
+  Redesign mockup, revision 2. FOR APPROVAL, before the spec is written.
+  Nobody has approved this. The reviewer is the user, and only a turn from the
+  user counts.
+
+  WHAT CHANGED IN REVISION 2 — one thing, from review:
+    · THE PHONE NO LONGER DELETES. The dimension sheet states both ends, the
+      type and the value, and edits the note. That is all of it. The reason is
+      not §7g's spatial-gesture line — a delete is not a gesture over a drawing
+      — it is asymmetry of repair: the phone cannot draw a dimension, so a
+      dimension it destroys costs a trip to a computer to put back. §09 carries
+      the argument, §06 marks the desk's delete as the desk's, §10 records it as
+      a decision taken. Removing the button also removes the sheet's footer,
+      which patterns.md §7d never wanted there in the first place.
+  No CSS changed in this revision; no section was added or renumbered.
+
+  EVERY NAME AND EVERY POSITION IN THIS DOCUMENT IS INVENTED. The plot below is
+  a purpose-built one — a stage, a raked riser, a round podium, a PA pair and a
+  wedge — chosen so that each of the five cases this slice has to answer appears
+  exactly once. No database was opened for this one; the layer colours are the
+  three real ones (`#5e5c64`, `#62a0ea`, unset) because those are what the paper
+  crossing has to survive.
+
+  READ AGAINST THE CODE, NOT RUN:
+    · StagePlotCanvas.tsx — 1 SVG user unit = 1 cm, zoom is a viewBox transform,
+      and EVERY stroke, handle and label is written `n / zoom`. Selection is
+      `#6366f1` dashed 5/4, handles are 8 px squares, snap guides are `#6366f1`
+      dashed 4/4, the truss drop highlight is `#818cf8`, labels are 12 px.
+    · lib/stagePlot.ts — `projectElement` gives a drawn rect, `projectedOutline`
+      the true silhouette (a HEXAGON when yaw and tilt combine).
+      `SNAP_THRESHOLD_PX = 8`, `roundCm` is a 0.1 mm grain.
+    · StagePlotPalette.tsx — every entry today PLACES at the viewport centre.
+      This slice gives the palette its first MODE, which is called out in §03.
+    · StagePlotInspector.tsx — `grid-cols-[76px_1fr]`, and the `spatial` prop
+      that already withholds the geometry rows on a phone.
+
+  ALREADY DECIDED BY THE USER, before this document:
+    · measurements print — screen AND the generated PDF sheets (Slice 41).
+    · a measurement belongs to the view it was drawn in, and to no other.
+    · both kinds: ALIGNED (true point-to-point distance) and LOCKED horizontal
+      or vertical (one axis's separation only).
+    · an endpoint may be anchored to an element or free on the grid. Anchored
+      ends follow their element; free ends stay put.
+    · the value is stated in CENTIMETRES at every length — `1120 cm`, never
+      `11.2 m` (§05), because the model is centimetres and one unit is one
+      vocabulary.
+    · the note takes no character cap (§05).
+    · a dimension on a LOCKED layer is selectable and readable, with no handle
+      and no end grips — an element's rule, unchanged (§07).
+    · the anchor aim radius is `SNAP_THRESHOLD_PX` = 8, the canvas's own
+      existing figure (§02), and is a tuning question rather than a design one.
+    · THE PHONE DOES NOT DELETE A DIMENSION (§09), which is revision 2.
+
+  WHAT IS LIVE:
+    · §02 — move the pointer over the riser and the anchor you would grab lights
+      up, with the readout naming it. This is the whole of the point/plane
+      argument, and it is the one thing a picture cannot make.
+    · §04 — drag the square handle on the left specimen to move the dimension
+      line off the geometry. The value does not change; only the placement does.
+  Everything else is drawn.
+
+  The file is an HTML *fragment*: the Artifact publisher wraps it in
+  doctype/head/body, so there are deliberately no <html>, <head> or <body> tags.
+
+  Specimen CSS is inherited from specs/039-plot-trusses-drawer/mockup.html,
+  which inherits from 038/037/036/035/034/033/032/030/029/028, which lifted it
+  from design/design-language.html. The five blocks below are carried forward
+  VERBATIM — nothing inherited has been restyled. Everything new is in the sixth
+  block, ADDITIONS FOR THE MEASUREMENTS SLICE: the canvas specimen frame, the
+  palette column, the inspector rail, the anchor legend, and the A4 sheet
+  (`.sheet` is carried from the Slice 41 mockup, which is not in this CSS chain).
+-->
+
+<title>Stage plot measurements · dimension lines</title>
+<style>
+  /* ==================================================================
+     DOCUMENT CHROME — theme-aware, tokens only.
+     ================================================================== */
+  :root {
+    --ground: #f2f2f4;
+    --raised: #ffffff;
+    --sunken: #e8e8ec;
+    --rule: #d7d7de;
+    --rule-soft: #e4e4ea;
+    --ink: #16171b;
+    --ink-2: #43444d;
+    --muted: #6c6d78;
+    --faint: #90919c;
+    --amber: #b45309;
+    --keep: #0e7490;
+    --drop: #9f1239;
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --measure: 68ch;
+    --wrap: 1180px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0a0b0d; --raised: #14151a; --sunken: #101014;
+      --rule: #26272e; --rule-soft: #1d1e24;
+      --ink: #f2f2f4; --ink-2: #b6b7c0; --muted: #8b8c96; --faint: #62636d;
+      --amber: #f59e0b; --keep: #22d3ee; --drop: #fb7185;
+    }
+  }
+
+  :root[data-theme="light"] {
+    --ground: #f2f2f4; --raised: #ffffff; --sunken: #e8e8ec;
+    --rule: #d7d7de; --rule-soft: #e4e4ea;
+    --ink: #16171b; --ink-2: #43444d; --muted: #6c6d78; --faint: #90919c;
+    --amber: #b45309; --keep: #0e7490; --drop: #9f1239;
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0a0b0d; --raised: #14151a; --sunken: #101014;
+    --rule: #26272e; --rule-soft: #1d1e24;
+    --ink: #f2f2f4; --ink-2: #b6b7c0; --muted: #8b8c96; --faint: #62636d;
+    --amber: #f59e0b; --keep: #22d3ee; --drop: #fb7185;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px 110px; }
+
+  h1, h2, h3 { margin: 0; font-family: var(--mono); font-weight: 500; }
+  h1 {
+    font-size: clamp(28px, 4.4vw, 46px);
+    line-height: 1.04; letter-spacing: -0.035em; text-wrap: balance;
+  }
+  h2 { font-size: clamp(19px, 2.3vw, 25px); letter-spacing: -0.02em; text-wrap: balance; }
+  h3 { font-size: 14px; letter-spacing: 0.02em; color: var(--ink-2); }
+
+  p { margin: 0; max-width: var(--measure); }
+  a { color: inherit; }
+
+  .head {
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 68px 0 30px; border-bottom: 1px solid var(--rule);
+  }
+  .head__eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--amber);
+  }
+  .head__lede { font-size: 18px; color: var(--ink-2); line-height: 1.5; }
+
+  section { display: flex; flex-direction: column; gap: 22px; padding: 56px 0 0; }
+  .sec__no {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  .sec__hd { display: flex; flex-direction: column; gap: 8px; }
+  .prose { display: flex; flex-direction: column; gap: 13px; color: var(--ink-2); font-size: 15.5px; }
+  .prose strong { color: var(--ink); font-weight: 600; }
+  .prose code, .k {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  .spec { display: flex; flex-direction: column; gap: 9px; }
+  .spec__frame {
+    overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px;
+    background: #09090b; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  }
+  .spec__cap {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-left: 2px;
+  }
+  .spec__cap b { color: var(--ink-2); font-weight: 500; }
+
+  .led { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .led__row {
+    display: grid; grid-template-columns: 148px minmax(0, 1fr);
+    gap: 18px; padding: 15px 2px; border-bottom: 1px solid var(--rule-soft);
+    align-items: start;
+  }
+  .led__k {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-top: 3px;
+  }
+  .led__v { font-size: 15px; color: var(--ink-2); line-height: 1.5; }
+  .led__v b { color: var(--ink); font-weight: 600; }
+  .led__v em { font-style: normal; color: var(--faint); }
+  .led__v code, .led__v .k {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  .tag {
+    display: inline-block; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase; padding: 1px 6px;
+    border-radius: 4px; vertical-align: 2px; margin-left: 7px;
+  }
+  .tag--keep { color: var(--keep); border: 1px solid currentColor; }
+  .tag--drop { color: var(--drop); border: 1px solid currentColor; }
+  .tag--new { color: var(--amber); border: 1px solid currentColor; }
+
+  .ask {
+    border: 1px solid var(--rule); border-left: 3px solid var(--amber);
+    border-radius: 0 8px 8px 0; padding: 16px 18px; background: var(--raised);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .ask h3 { color: var(--ink); }
+  .ask p { font-size: 15px; color: var(--ink-2); max-width: none; }
+
+  .tbl { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  .tbl th {
+    text-align: left; font-family: var(--mono); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint);
+    padding: 8px 12px 8px 2px; border-bottom: 1px solid var(--rule);
+  }
+  .tbl td {
+    padding: 11px 12px 11px 2px; border-bottom: 1px solid var(--rule-soft);
+    color: var(--ink-2); vertical-align: top;
+  }
+  .tbl td b { color: var(--ink); font-weight: 600; }
+  .tbl td .k { white-space: nowrap; }
+  .tbl td em { font-style: normal; color: var(--faint); }
+
+  @media (max-width: 720px) {
+    .led__row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  }
+
+  /* ==================================================================
+     SPECIMENS — the app's own faces and values.
+     ================================================================== */
+  .app {
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px; line-height: 1.45;
+    color: #f4f4f5; background: #09090b;
+    padding: 16px; min-width: 1040px;
+  }
+  .app--tight { padding: 16px; min-width: 0; }
+  .app *, .app *::before, .app *::after { box-sizing: border-box; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 28px; padding: 0 10px; border: 1px solid transparent; border-radius: 6px;
+    font-size: 12px; font-weight: 500; white-space: nowrap; font-family: inherit;
+  }
+  .btn--primary { background: #f59e0b; border-color: #f59e0b; color: #09090b; }
+  .btn--outline { background: #18181b; border-color: #3f3f46; color: #f4f4f5; }
+  .btn--ghost { background: transparent; color: #f4f4f5; }
+  .btn--sm { height: 24px; padding: 0 8px; font-size: 11px; }
+  .btn--md { height: 40px; padding: 0 16px; font-size: 14px; }
+  .btn--danger-ghost { background: transparent; color: #f87171; }
+  .seg { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; }
+
+  .fld {
+    height: 32px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b;
+    display: inline-flex; align-items: center; padding: 0 8px;
+    font-size: 12px; color: #e4e4e7; min-width: 0;
+  }
+  .fld--md { height: 40px; font-size: 14px; padding: 0 12px; }
+  .fld--ph { color: #71717a; }
+  .fld--sel::after { content: "▾"; margin-left: auto; padding-left: 8px; color: #71717a; font-size: 10px; }
+  .fld--foc { border-color: #f59e0b; }
+
+  .lbl {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #71717a; font-weight: 500;
+  }
+  .lbl--nav { font-family: inherit; font-size: 14px; letter-spacing: 0; text-transform: none; color: #d4d4d8; font-weight: 400; }
+
+  .pill {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 1px 6px; font-size: 10px; font-weight: 500; white-space: nowrap;
+  }
+  .t-drum { background: rgba(56, 189, 248, 0.15); color: #7dd3fc; }
+  .t-ok   { background: rgba(52, 211, 153, 0.15); color: #6ee7b7; }
+  .t-warn { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
+  .t-err  { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+  .t-def  { background: #3f3f46; color: #f4f4f5; }
+  .t-sky  { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .p48 { display: inline-block; width: 8px; height: 3px; border-radius: 2px; background: #ef4444; box-shadow: 0 0 5px rgba(239, 68, 68, 0.65); vertical-align: 2px; }
+  .tape { display: inline-block; width: 3px; height: 14px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+
+  .badge {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 2px 10px; font-size: 12px; font-weight: 500; white-space: nowrap;
+  }
+
+  /* the desktop drawer, for the side-by-side in §06 */
+  .dstack { position: relative; min-height: 400px; overflow: hidden; }
+  .scrim { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.7); }
+  .sd {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 420px;
+    background: #18181b; border-left: 1px solid #3f3f46;
+    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.5);
+    display: flex; flex-direction: column;
+  }
+  .sd__hd { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 14px 20px; border-bottom: 1px solid #27272a; }
+  .sd__ti { font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .sd__sub { font-size: 12px; color: #71717a; margin-top: 2px; }
+  .sd__x { color: #a1a1aa; font-size: 15px; line-height: 1.2; }
+  .sd__body { padding: 16px 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+  .sd__ft { margin-top: auto; padding: 12px 20px; border-top: 1px solid #27272a; font-size: 12px; color: #71717a; }
+  .sd__ft b { color: #a1a1aa; font-weight: 500; }
+  .dsec { display: flex; flex-direction: column; gap: 6px; }
+  .dsec__hd { display: flex; align-items: center; gap: 8px; }
+  .dsec__ct { font-family: var(--mono); font-size: 10px; color: #52525b; }
+  .gear {
+    border: 1px solid #27272a; border-radius: 6px; background: #18181b;
+    padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .gear__top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+  .gear__nm { font-size: 14px; font-weight: 500; color: #f4f4f5; }
+  .gear__ac { margin-left: auto; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; color: #a1a1aa; }
+  .gear__sp { display: flex; flex-wrap: wrap; gap: 2px 12px; font-family: var(--mono); font-size: 10px; color: #71717a; }
+  .gear__sp b { color: #d4d4d8; font-weight: 400; }
+  .insp__box { border: 1px solid #27272a; border-radius: 5px; background: rgba(9, 9, 11, 0.6); padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+  .insp__lg { display: flex; align-items: center; gap: 8px; font-size: 10px; color: #a1a1aa; }
+
+  /* ==================================================================
+     THE PHONE — lifted verbatim from design/design-language.html §8.
+     True 375 px width, 14 px base, 44 px targets.
+     ================================================================== */
+  .phones { display: flex; flex-wrap: wrap; gap: 22px; }
+  .phone { display: flex; flex-direction: column; gap: 9px; width: 375px; }
+  .phone__frame {
+    width: 375px; height: 690px; flex: none;
+    border: 1px solid #3f3f46; border-radius: 22px; background: #09090b;
+    overflow: hidden; position: relative;
+    display: flex; flex-direction: column;
+    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    font-size: 14px; line-height: 1.45; color: #f4f4f5;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  }
+  .phone__frame * { box-sizing: border-box; }
+  .phone__cap { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .phone__cap b { color: var(--ink-2); font-weight: 500; }
+  .phone__cap--bad b { color: var(--drop); }
+
+  .m-hd { display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 56px; padding: 0 16px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-hd__ti { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; min-width: 0; }
+  .m-hd__ic { width: 26px; height: 26px; border-radius: 6px; background: rgba(245, 158, 11, 0.15); color: #fbbf24; display: grid; place-items: center; flex: none; font-size: 13px; }
+  .m-hd__av { width: 28px; height: 28px; border-radius: 999px; background: #27272a; flex: none; }
+  .m-bd { flex: 1; overflow: hidden; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .m-nav { display: flex; height: 56px; border-top: 1px solid #27272a; background: #09090b; flex: none; }
+  .m-nav__i { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; color: #a1a1aa; }
+  .m-nav__i.on { color: #fbbf24; }
+  .m-nav__g { font-size: 18px; line-height: 1; }
+
+  .m-pan { border: 1px solid #3f3f46; border-radius: 12px; background: rgba(9, 9, 11, 0.4); overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+  .m-pan--fill { flex: 1; }
+  .m-pan__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-pan__ti { font-size: 14px; font-weight: 600; color: #f4f4f5; margin-right: auto; }
+  .m-pan__ic { width: 36px; height: 36px; border-radius: 6px; border: 1px solid #3f3f46; background: #18181b; display: grid; place-items: center; color: #a1a1aa; font-size: 14px; flex: none; }
+  .m-pan__ic--pri { background: #f59e0b; border-color: #f59e0b; color: #09090b; font-size: 17px; }
+  .m-pan__rows { flex: 1; min-height: 0; overflow: hidden; }
+
+  .m-row { display: flex; align-items: stretch; min-height: 44px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-row__e { width: 3px; flex: none; }
+  .m-row__c { flex: 1; min-width: 0; padding: 5px 12px; display: flex; flex-direction: column; justify-content: center; }
+  .m-row__t { font-size: 14px; font-weight: 500; line-height: 1.3; color: #f4f4f5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-row__s { font-size: 12px; line-height: 1.3; color: #a1a1aa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-row__n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #fbbf24; margin-right: 7px; }
+
+  .m-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 12px; padding: 10px 12px; border-top: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); font-size: 12px; color: #a1a1aa; flex: none; }
+  .m-strip .mono { color: #e4e4e7; }
+
+  .m-sw { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 44px; padding: 0 12px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; flex: none; }
+  .m-sw__t { font-size: 14px; font-weight: 600; }
+  .m-sw--old { border-color: rgba(245, 158, 11, 0.6); }
+
+  /* -- ui/Sheet, the phone's sibling of the drawer -- */
+  .m-sheet { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.8); display: flex; align-items: flex-end; }
+  .m-sheet--noscrim { background: transparent; pointer-events: none; }
+  .m-sheet__p { width: 100%; max-height: 85%; overflow: hidden; border-top: 1px solid #3f3f46; border-radius: 12px 12px 0 0; background: #18181b; display: flex; flex-direction: column; }
+  .m-sheet__hd { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-sheet__ti { font-size: 18px; font-weight: 600; }
+  .m-sheet__sub { font-size: 12px; color: #71717a; margin-top: 2px; }
+  .m-sheet__x { margin-left: auto; width: 44px; height: 44px; margin-right: -10px; display: grid; place-items: center; color: #a1a1aa; font-size: 18px; flex: none; }
+  .m-sheet__bd { padding: 16px; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+  .m-sheet__ft { display: flex; align-items: center; gap: 10px; padding: 12px 16px 20px; border-top: 1px solid #27272a; flex: none; }
+  .m-fld { display: flex; flex-direction: column; gap: 5px; }
+  .m-insp { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; align-items: center; }
+
+  .m-jump { display: flex; flex-direction: column; }
+  .m-jump__i { display: flex; align-items: center; gap: 11px; min-height: 52px; padding: 0 14px 0 12px; border-left: 2px solid transparent; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-jump__i.on { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.06); }
+  .m-jump__n { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; letter-spacing: 0.14em; color: #52525b; width: 16px; flex: none; }
+  .m-jump__i.on .m-jump__n { color: #f59e0b; }
+  .m-jump__l { font-size: 14px; color: #d4d4d8; flex: 1; min-width: 0; }
+  .m-jump__i.on .m-jump__l { color: #fcd34d; font-weight: 600; }
+  .m-jump__c { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 11px; color: #71717a; flex: none; }
+
+  .m-cvs { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #09090b; }
+  .cvs__band { position: absolute; top: 0; bottom: 0; }
+  .node { position: absolute; border: 1px solid #3f3f46; border-radius: 7px; background: #1f2028; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); overflow: hidden; }
+  .node__hd { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-bottom: 1px solid #27272a; font-size: 11px; font-weight: 600; color: #fafafa; }
+  .node__bdg { margin-left: auto; font-family: var(--mono); font-size: 9px; background: #27272a; border-radius: 3px; padding: 0 3px; color: #a1a1aa; }
+  .node__body { padding: 3px 0; }
+  .node__ft { padding: 3px 6px; border-top: 1px solid #27272a; font-family: var(--mono); font-size: 9px; color: #71717a; }
+  .prow { display: flex; align-items: center; gap: 6px; height: 18px; padding: 0 6px; font-size: 11px; color: #d4d4d8; }
+  .port { width: 7px; height: 7px; border-radius: 50%; border: 1px solid #71717a; background: #27272a; flex: none; }
+  .port--c { border-color: var(--c); background: color-mix(in srgb, var(--c) 75%, transparent); }
+  .srail { position: absolute; border: 1px solid #3f3f46; border-radius: 7px; background: #1f2028; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); overflow: hidden; }
+  .srail__hd { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 6px; border-bottom: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); }
+  .srail__hd b { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; font-weight: 500; }
+  .srail__hd span { font-family: var(--mono); font-size: 10px; color: #52525b; margin-left: auto; }
+  .srow { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 6px 0 0; border-bottom: 1px solid rgba(39, 39, 42, 0.6); font-size: 11px; color: #d4d4d8; }
+  .srow--sel { background: rgba(245, 158, 11, 0.1); }
+  .srow__tape { width: 3px; align-self: stretch; flex: none; }
+  .srow__nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 4px; }
+  .srow__md { font-family: var(--mono); font-size: 10px; color: #71717a; flex: none; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6a — the centred dialog as it stands today, the
+     virtual keyboard, the anatomy diagram, the safe area.
+     ================================================================== */
+
+  /* the centred dialog, at ui/Dialog's real values, inside a 375 px frame */
+  .m-dlg { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.8); display: flex; align-items: center; justify-content: center; padding: 0 16px; }
+  .m-dlg__p { width: 100%; border: 1px solid #3f3f46; border-radius: 12px; background: #18181b; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6); }
+  .m-dlg__hd { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #27272a; }
+  .m-dlg__ti { font-size: 18px; font-weight: 600; }
+  .m-dlg__x { color: #a1a1aa; font-size: 16px; }
+  .m-dlg__bd { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+  /* the two things that make it not a sheet: it is centred, and it does not
+     scroll — so anything past the frame is simply gone. */
+  .m-dlg--clip { overflow: hidden; }
+  .m-cut { position: absolute; left: 0; right: 0; height: 1px; background: repeating-linear-gradient(90deg, #f87171 0 6px, transparent 6px 12px); }
+  .m-cut__l {
+    position: absolute; right: 6px; transform: translateY(-100%);
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: #f87171; padding-bottom: 2px;
+  }
+
+  /* the virtual keyboard, drawn because it is half the finding */
+  .m-kbd { position: absolute; inset-inline: 0; bottom: 0; height: 268px; background: #1c1c1e; border-top: 1px solid #3f3f46; padding: 8px 4px 26px; display: flex; flex-direction: column; gap: 8px; }
+  .m-kbd__r { display: flex; gap: 5px; justify-content: center; flex: 1; }
+  .m-kbd__k { flex: 1; max-width: 32px; border-radius: 5px; background: #48484a; box-shadow: 0 1px 0 rgba(0,0,0,0.4); }
+  .m-kbd__k--w { max-width: 120px; }
+  .m-kbd__k--sp { max-width: 170px; }
+  .m-kbd__home { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 134px; height: 5px; border-radius: 3px; background: #f4f4f5; opacity: 0.85; }
+
+  /* the anatomy diagram — labelled parts down the right of a real sheet */
+  .anat { display: grid; grid-template-columns: 375px minmax(0, 1fr); gap: 26px; align-items: start; }
+  @media (max-width: 860px) { .anat { grid-template-columns: minmax(0, 1fr); } }
+  .anat__parts { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .anat__p { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--rule-soft); align-items: start; }
+  .anat__n { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); padding-top: 3px; }
+  .anat__v { font-size: 14.5px; color: var(--ink-2); line-height: 1.5; }
+  .anat__v b { color: var(--ink); font-weight: 600; }
+  .anat__v .k { font-size: 0.85em; }
+  .anat__v .cls { display: block; font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-top: 4px; word-break: break-word; }
+
+  /* the marker that pins a specimen part to its row in the anatomy list */
+  .mk {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; border-radius: 999px; flex: none;
+    background: #f59e0b; color: #09090b;
+    font-family: var(--mono); font-size: 9px; font-weight: 700;
+  }
+  .mk--doc { background: var(--amber); color: var(--ground); }
+  .mk--abs { position: absolute; z-index: 5; }
+
+  /* safe area, drawn */
+  .safe { position: absolute; inset-inline: 0; bottom: 0; height: 22px; background: repeating-linear-gradient(45deg, rgba(245,158,11,0.16) 0 5px, transparent 5px 10px); border-top: 1px dashed rgba(245,158,11,0.45); }
+  .safe__l { position: absolute; right: 8px; top: 3px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: #fbbf24; }
+
+  /* two-up comparison of one decision */
+  .vs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  @media (max-width: 860px) { .vs { grid-template-columns: minmax(0, 1fr); } }
+  .vs__c { display: flex; flex-direction: column; gap: 9px; }
+  .vs__hd { display: flex; align-items: baseline; gap: 9px; }
+  .vs__hd b { font-size: 15px; color: var(--ink); }
+  .vs__hd span { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+  .vs__note { font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+  .vs__note b { color: var(--ink-2); font-weight: 600; }
+
+  /* the thumb, drawn where the argument is about reach */
+  .thumb { position: absolute; border-radius: 999px; border: 1px dashed rgba(248, 113, 113, 0.55); background: rgba(248, 113, 113, 0.07); pointer-events: none; }
+  .thumb__l { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: #f87171; white-space: nowrap; }
+
+  .files { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .file { display: grid; grid-template-columns: 22px minmax(0, 260px) minmax(0, 1fr); gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--rule-soft); align-items: baseline; }
+  .file__s { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  .file__s--new { color: var(--amber); }
+  .file__s--del { color: var(--drop); }
+  .file__n { font-family: var(--mono); font-size: 13px; color: var(--ink); word-break: break-word; }
+  .file__w { font-size: 14px; color: var(--ink-2); line-height: 1.5; }
+  .file__w b { color: var(--ink); font-weight: 600; }
+
+  .code {
+    border: 1px solid var(--rule); border-radius: 8px; background: var(--sunken);
+    padding: 14px 16px; overflow-x: auto;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.65; color: var(--ink-2);
+    white-space: pre;
+  }
+  .code b { color: var(--ink); font-weight: 600; }
+  .code i { font-style: normal; color: var(--faint); }
+  .code u { text-decoration: none; color: var(--amber); }
+
+  .empty { padding: 34px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6b — the list as it ships today, the target
+     overlay, the bar's second row, the strip as its own control.
+     ================================================================== */
+
+  /* today: the row as a free-standing card on the page ground, at the real
+     values — px-2.5 py-1.5, 13px over 11px, its own border and bg-zinc-900 */
+  .m-card {
+    display: flex; align-items: center; gap: 8px;
+    border: 1px solid #27272a; border-radius: 6px; background: #18181b;
+    padding: 6px 10px;
+  }
+  .m-card + .m-card { margin-top: 4px; }
+  .m-card__c { flex: 1; min-width: 0; }
+  .m-card__t { font-size: 13px; font-weight: 500; line-height: 1.25; color: #f4f4f5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-card__s { font-size: 11px; line-height: 1.25; color: #a1a1aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-card__x { flex: none; color: #52525b; font-size: 12px; }
+  /* the h-9 search field and the h-9 w-9 add button, drawn at their real size */
+  .m-srch { display: flex; align-items: center; gap: 8px; flex: none; }
+  .m-srch__f { flex: 1; height: 36px; display: flex; align-items: center; gap: 7px; padding: 0 10px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; font-size: 14px; color: #71717a; }
+  .m-srch__b { width: 36px; height: 36px; border-radius: 6px; background: #f59e0b; color: #09090b; display: grid; place-items: center; font-size: 16px; flex: none; }
+
+  /* a control drawn with its true target bounds called out */
+  .tgt { position: relative; }
+  .tgt::after {
+    content: ""; position: absolute; inset: 50% auto auto 50%;
+    width: var(--tw); height: var(--th); transform: translate(-50%, -50%);
+    border: 1px dashed var(--tc); border-radius: 7px; pointer-events: none;
+  }
+  .tgt--bad { --tc: rgba(248, 113, 113, 0.75); }
+  .tgt--ok { --tc: rgba(52, 211, 153, 0.7); }
+  .szl { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .szl--bad { color: #f87171; }
+  .szl--ok { color: #34d399; }
+
+  /* the bar's second row, when search is open */
+  .m-pan__ic--44 { width: 44px; height: 44px; font-size: 16px; }
+  .m-pan__ic--44.m-pan__ic--pri { font-size: 20px; }
+  .m-pan__sr { display: flex; align-items: center; gap: 8px; padding: 0 12px 8px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-pan__sr .fld { flex: 1; }
+
+  /* a heading over a run of rows, inside the frame */
+  .m-hdr { display: flex; align-items: center; gap: 9px; padding: 9px 12px 5px; background: rgba(9, 9, 11, 0.35); }
+  .m-hdr b { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; }
+  .m-hdr i { font-style: normal; flex: 1; height: 1px; background: #27272a; }
+  .m-hdr--today b { color: #f59e0b; }
+  .m-hdr--today i { background: rgba(245, 158, 11, 0.45); }
+
+  /* the strip when it is the control that filters what it reports */
+  .m-strip__go { margin-left: auto; display: flex; align-items: center; gap: 5px; flex: none; color: #fcd34d; font-size: 12px; }
+  .m-strip--on { border-top-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.09); }
+
+  /* the row arithmetic, drawn as a stacked bar */
+  .stack { display: flex; flex-direction: column; width: 190px; flex: none; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em; }
+  .stack__b { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 7px; color: var(--muted); border-bottom: 1px solid var(--rule-soft); background: var(--sunken); }
+  .stack__b--rows { background: rgba(245, 158, 11, 0.12); color: var(--amber); }
+  .stack__b--chrome { background: transparent; }
+  .stacks { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+  .stacks__c { display: flex; flex-direction: column; gap: 8px; }
+  .stacks__t { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .stacks__t b { color: var(--ink-2); font-weight: 500; }
+
+  .empty { padding: 34px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+</style>
+<style>
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6c — the figures grid, the ribbon in the hand,
+     the bar's overflow, the withheld-gesture sentence, the plot canvas.
+     ================================================================== */
+
+  /* Overview's numbers band, at 375 px. Hairlines, never cards: five tiles
+     separated the way rows are separated, so the band is part of the frame.
+     The countdown spans, because it is the one figure that is about NOW. */
+  .m-figs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-fig { padding: 10px 12px 11px; border-top: 1px solid rgba(39, 39, 42, 0.6); border-left: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-fig:nth-child(odd) { border-left: 0; }
+  .m-fig--span { grid-column: 1 / -1; border-top: 0; padding-top: 12px; padding-bottom: 13px; }
+  .m-fig__v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 26px; line-height: 1.05; color: #f4f4f5; }
+  .m-fig--span .m-fig__v { font-size: 34px; }
+  .m-fig__v i { font-style: normal; font-size: 0.5em; color: #71717a; margin-left: 3px; }
+  .m-fig__v u { text-decoration: none; color: #52525b; }
+  .m-fig__l { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; margin-top: 7px; display: block; }
+
+  /* the rig ribbon: the flow canvas one row high, and on a phone it pans.
+     Drawn clipped at the right edge, because that is what it does. */
+  .m-rib { padding: 9px 0 10px 12px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-rib__l { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; display: block; margin-bottom: 7px; }
+  .m-rib__t { display: flex; align-items: center; gap: 0; overflow: hidden; }
+  .m-rib__n { flex: none; border: 1px solid #3f3f46; border-radius: 5px; background: #1f2028; padding: 4px 8px; text-align: center; min-width: 58px; }
+  .m-rib__n b { display: block; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 400; line-height: 1.2; color: #f4f4f5; }
+  .m-rib__n s { display: block; text-decoration: none; font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: #71717a; margin-top: 2px; }
+  .m-rib__n--desk { border-color: rgba(245, 158, 11, 0.5); background: rgba(245, 158, 11, 0.08); }
+  .m-rib__w { flex: none; width: 14px; height: 1px; background: #3f3f46; }
+  .m-rib__m { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-right: 12px; }
+  .m-rib__bar { flex: 1; height: 5px; border-radius: 3px; background: #27272a; overflow: hidden; }
+  .m-rib__bar i { display: block; height: 100%; background: #34d399; }
+  .m-rib__mv { font-family: var(--mono); font-size: 10px; color: #a1a1aa; flex: none; }
+
+  /* readiness, as rows: the phone's index of the show. Trailing pill, leading
+     edge in the verdict's own tone, and the tap opens that section. */
+  .m-rd { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px 0 0; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-rd__e { width: 3px; align-self: stretch; flex: none; }
+  .m-rd__a { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #d4d4d8; padding-left: 9px; width: 88px; flex: none; }
+  .m-rd__f { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: #71717a; flex: 1; min-width: 0; }
+  .m-rd__c { flex: none; color: #52525b; font-size: 13px; }
+
+  /* a quiet last row: the desktop card's meta footer */
+  .m-meta { display: flex; flex-wrap: wrap; gap: 3px 14px; padding: 9px 12px 10px; font-size: 12px; color: #71717a; }
+
+  /* the event's name, in the shell's own header — the one place on the phone
+     that is on screen in all nine sections and never scrolls */
+  .m-hd__nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+  /* the switcher row: the back target and the section switcher, one 44 px row,
+     because the block they replace was 48 px of a 490 px panel */
+  .m-swr { display: flex; align-items: center; gap: 8px; flex: none; }
+  .m-swr .m-sw { flex: 1; min-width: 0; }
+  .m-back { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; color: #a1a1aa; font-size: 16px; }
+
+  /* the event, stated once at the top of its own section */
+  .m-sub { padding: 9px 12px 10px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); font-size: 12px; color: #a1a1aa; }
+  .m-sub b { color: #d4d4d8; font-weight: 500; }
+  .m-sub s { text-decoration: none; color: #71717a; }
+
+  /* a bar control that names a selection and opens a sheet — the rail, and the
+     plot picker, collapsed to a target. It stays in the bar because it changes
+     WHAT YOU ARE LOOKING AT. */
+  .m-pick { display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 10px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; font-size: 13px; color: #f4f4f5; flex: none; max-width: 112px; }
+  .m-pick b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-pick s { text-decoration: none; color: #a1a1aa; flex: none; font-size: 11px; }
+
+  /* a segmented view toggle at a 44 px target — the plot's Top/Front/Side */
+  .m-seg { display: flex; height: 44px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; overflow: hidden; flex: none; }
+  .m-seg span { display: grid; place-items: center; min-width: 46px; padding: 0 8px; font-size: 13px; color: #a1a1aa; border-left: 1px solid #27272a; }
+  .m-seg span:first-child { border-left: 0; }
+  .m-seg span.on { background: #f59e0b; color: #09090b; font-weight: 500; }
+
+  /* the sentence that names a withheld gesture. Not a banner, not a dialog,
+     not a disabled control — it sits where the editor would be. */
+  .m-said { display: flex; gap: 9px; padding: 11px 12px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); background: rgba(9, 9, 11, 0.35); }
+  .m-said__i { flex: none; color: #71717a; font-size: 13px; line-height: 1.5; }
+  .m-said__t { font-size: 12.5px; line-height: 1.5; color: #a1a1aa; }
+  .m-said__t b { color: #d4d4d8; font-weight: 500; }
+
+  /* the stage plot canvas, in the frame */
+  .m-plot { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #09090b; }
+  .m-plot__g { position: absolute; inset: 0; background-image: linear-gradient(rgba(63,63,70,0.28) 1px, transparent 1px), linear-gradient(90deg, rgba(63,63,70,0.28) 1px, transparent 1px); background-size: 34px 34px; }
+  .m-el { position: absolute; border: 1px solid #52525b; border-radius: 4px; background: #27272a; display: grid; place-items: center; font-size: 10px; color: #d4d4d8; text-align: center; padding: 2px; }
+  .m-el--sel { border-color: #f59e0b; background: rgba(245, 158, 11, 0.16); color: #fcd34d; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25); }
+  .m-el--truss { border-color: #38bdf8; background: rgba(56, 189, 248, 0.1); color: #7dd3fc; }
+
+  /* the overflow sheet's rows — SectionSwitcher's shape, one labelled action each */
+  .m-act { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 4px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-act:last-child { border-bottom: 0; }
+  .m-act__i { width: 22px; flex: none; text-align: center; color: #a1a1aa; font-size: 14px; }
+  .m-act__l { font-size: 14px; color: #f4f4f5; flex: 1; min-width: 0; }
+  .m-act__h { font-size: 12px; color: #71717a; flex: none; }
+
+  /* the bar-width arithmetic, drawn as a ruler */
+  .rule { display: flex; align-items: stretch; width: 375px; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; font-family: var(--mono); font-size: 9px; letter-spacing: 0.04em; }
+  .rule__s { display: grid; place-items: center; min-height: 30px; border-left: 1px solid var(--rule-soft); color: var(--muted); background: var(--sunken); text-align: center; padding: 0 1px; }
+  .rule__s:first-child { border-left: 0; }
+  .rule__s--t { background: rgba(245, 158, 11, 0.14); color: var(--amber); }
+  .rule__s--o { background: rgba(159, 18, 57, 0.14); color: var(--drop); }
+  .rule__s--g { background: transparent; }
+  .rulel { display: flex; align-items: baseline; gap: 10px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+  .rulel b { color: var(--ink-2); font-weight: 500; }
+  .rulel u { text-decoration: none; color: var(--drop); }
+
+  /* a rule stated once, in a box, because it is the thing that stops nine
+     call sites making nine judgements */
+  .law { border: 1px solid var(--rule); border-left: 3px solid var(--amber); border-radius: 0 8px 8px 0; background: var(--raised); padding: 16px 18px; display: flex; flex-direction: column; gap: 9px; }
+  .law__h { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); }
+  .law__t { font-size: 16.5px; line-height: 1.45; color: var(--ink); }
+  .law__t b { font-weight: 600; }
+  .law__n { font-size: 14px; line-height: 1.55; color: var(--muted); }
+  .law__n b { color: var(--ink-2); font-weight: 600; }
+
+  /* two columns of examples under a rule */
+  .split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 26px; }
+  @media (max-width: 720px) { .split { grid-template-columns: minmax(0, 1fr); } }
+  .split__c { display: flex; flex-direction: column; gap: 7px; padding-top: 4px; }
+  .split__h { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); padding-bottom: 6px; border-bottom: 1px solid var(--rule); }
+  .split__i { display: flex; gap: 9px; font-size: 14px; color: var(--ink-2); line-height: 1.5; }
+  .split__i b { color: var(--ink); font-weight: 600; }
+  .split__i em { font-style: normal; color: var(--faint); }
+</style>
+
+<style>
+  /* ==================================================================
+     ADDITIONS FOR SLICE 37 — the coordinate space drawn three times, the
+     plane, and the evidence tables.
+     ================================================================== */
+
+  .spaces { display: grid; gap: 14px; }
+  .space { border: 1px solid var(--rule); border-radius: 8px; background: var(--raised); overflow: hidden; }
+  .space__hd { display: flex; align-items: baseline; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--rule-soft); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); }
+  .space__hd b { color: var(--ink); font-weight: 600; letter-spacing: 0.08em; }
+  .space__hd s { margin-left: auto; text-decoration: none; color: var(--faint); letter-spacing: 0.06em; }
+  /* the band diagram: regions drawn to scale against a 2200-wide plane */
+  .band { position: relative; height: 46px; background: var(--sunken); }
+  .band__z { position: absolute; top: 0; bottom: 0; }
+  .band__z--rail { background: rgba(180, 83, 9, 0.16); border-left: 1px solid rgba(180, 83, 9, 0.5); border-right: 1px solid rgba(180, 83, 9, 0.5); }
+  .band__z--rig { background: rgba(14, 116, 144, 0.14); }
+  .band__z--dead { background: repeating-linear-gradient(135deg, transparent 0 5px, rgba(159, 18, 57, 0.16) 5px 10px); }
+  .band__l { position: absolute; top: 5px; left: 5px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); white-space: nowrap; }
+  .band__w { position: absolute; bottom: 5px; left: 5px; font-family: var(--mono); font-size: 10px; font-variant-numeric: tabular-nums; color: var(--muted); }
+  /* one 200 px node, same scale, so its width reads against the lane */
+  .band__n { position: absolute; top: 13px; height: 20px; border: 1px solid var(--amber); border-radius: 3px; background: rgba(180, 83, 9, 0.22); }
+
+  .ev { width: 100%; border-collapse: collapse; font-size: 14px; margin: 4px 0 8px; }
+  .ev th { text-align: left; font-family: var(--mono); font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--faint); font-weight: 500; padding: 0 12px 7px 0; border-bottom: 1px solid var(--rule); }
+  .ev td { padding: 7px 12px 7px 0; border-bottom: 1px solid var(--rule-soft); color: var(--ink-2); vertical-align: baseline; }
+  .ev td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ev td.bad { color: var(--drop); font-weight: 600; }
+  .ev tr.ok td { color: var(--muted); }
+  .ev caption { caption-side: bottom; padding-top: 10px; font-size: 13.5px; color: var(--muted); text-align: left; line-height: 1.6; }
+  .ev-wrap { overflow-x: auto; }
+
+  /* the plane specimen */
+  .plane { position: relative; overflow: auto; background: #09090b; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-x pan-y; }
+  .plane__box { position: relative; }
+  .plane__c { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+  .plane__hint { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 3; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: #52525b; background: rgba(9, 9, 11, 0.86); border: 1px solid #27272a; border-radius: 999px; padding: 3px 9px; pointer-events: none; }
+  .zbar { display: flex; align-items: center; gap: 2px; padding: 7px 8px; border-top: 1px solid #27272a; background: #0c0c0e; }
+  .zbar button { width: 40px; height: 40px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; color: #a1a1aa; font-size: 16px; display: grid; place-items: center; padding: 0; font-family: inherit; cursor: pointer; }
+  .zbar .zv { width: 66px; height: 40px; border: 0; background: transparent; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: #d4d4d8; cursor: pointer; }
+  .zbar .zv s { display: block; text-decoration: none; font-size: 8.5px; letter-spacing: 0.13em; text-transform: uppercase; color: #52525b; }
+  .zbar em { margin-left: auto; font-style: normal; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: #3f3f46; }
+
+  /* a decision recorded as a strike-through of the alternative (from 6d) */
+  .verdict { display: grid; grid-template-columns: 152px minmax(0, 1fr); gap: 14px 18px; align-items: baseline; }
+  .verdict__k { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); }
+  .verdict__v { font-size: 15px; color: var(--ink-2); line-height: 1.55; }
+  .verdict__v b { color: var(--ink); font-weight: 600; }
+  .verdict__v u { text-decoration: line-through; text-decoration-color: var(--drop); color: var(--faint); }
+  @media (max-width: 720px) { .verdict { grid-template-columns: minmax(0, 1fr); gap: 4px 0; } }
+</style>
+<style>
+  /* ==================================================================
+     ADDITIONS FOR SLICE 38 — the narrow drawer, a person as a card, the
+     info note that is live, and the event's two attachment rows.
+     ================================================================== */
+
+  /* ui/Drawer at `narrow` — max-w-md, 448 px, against the Rig's max-w-3xl */
+  .sd--narrow { width: 448px; }
+  .sd__hdc { min-width: 0; flex: 1; }
+  .sd__tir { display: flex; align-items: center; gap: 8px; }
+
+  /* ui/Dialog on a desk: centred at every width. Drawn twice — once as what
+     Manage access is today (max-w-2xl), once as the confirm (max-w-md). */
+  .ddlg { position: absolute; inset: 0; display: grid; place-items: center; padding: 0 24px; background: rgba(9, 9, 11, 0.7); }
+  .ddlg__p { width: 100%; max-width: 672px; border: 1px solid #3f3f46; border-radius: 12px; background: #18181b; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); }
+  .ddlg__p--md { max-width: 448px; }
+  .ddlg__hd { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid #27272a; }
+  .ddlg__ti { font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .ddlg__x { color: #a1a1aa; font-size: 16px; }
+  .ddlg__bd { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+  .ddlg__s { font-size: 14px; line-height: 1.55; color: #a1a1aa; }
+  .ddlg__s b { color: #e4e4e7; font-weight: 600; }
+  .ddlg__ft { display: flex; justify-content: flex-end; gap: 8px; }
+
+  /* A person, as a GearCard. Identity first; controls after it — on one line at
+     448 px, on their own line at 375 px, where 44 px is what sets the height. */
+  .who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .who__av { width: 24px; height: 24px; border-radius: 999px; flex: none; }
+  .who__av--mono { display: grid; place-items: center; font-family: var(--mono); font-size: 9px; letter-spacing: 0.04em; color: #d4d4d8; background: #27272a; border: 1px solid #3f3f46; }
+  .who__nm { font-size: 14px; font-weight: 500; color: #f4f4f5; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .who__sp { font-family: var(--mono); font-size: 10px; color: #71717a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .who__pad { margin-left: auto; display: flex; align-items: center; gap: 8px; flex: none; }
+  .who__ctl { display: flex; align-items: center; gap: 8px; }
+  .who__ctl .fld { flex: 1; min-width: 0; }
+  /* the remove target: a Button ghost xs on a desk (h-7 around a 14 px icon),
+     44 px in the hand around a 16 px one (tokens.md §7, amendment 1) */
+  .who__rm { width: 34px; height: 28px; border-radius: 6px; display: grid; place-items: center; color: #a1a1aa; flex: none; }
+  .who__rm--44 { width: 44px; height: 44px; }
+  .who__rm svg { display: block; }
+
+  /* the info note — the `i` rides in a row that already exists, so a closed note
+     costs no space; the sentence opens where the sentence belongs. LIVE. */
+  .itog { border: 0; background: transparent; padding: 8px; margin: -8px; color: #71717a; font-family: inherit; line-height: 1; cursor: pointer; flex: none; }
+  .itog[aria-expanded="true"] { color: #fbbf24; }
+  .itog i { font-style: normal; display: grid; place-items: center; width: 16px; height: 16px; border: 1px solid currentColor; border-radius: 999px; font-family: var(--mono); font-size: 10px; }
+  .inote { font-size: 12px; line-height: 1.6; color: #a1a1aa; }
+  .inote[hidden] { display: none; }
+  .inote p + p { margin-top: 7px; }
+  .inote b { color: #e4e4e7; font-weight: 600; }
+
+  /* the state that stands where the picker was when there is nobody left */
+  .exh { font-size: 12px; line-height: 1.6; color: #71717a; }
+  .exh--ph { font-size: 14px; }
+
+  /* the event's attachment rows on a desk — the shape the catalog row has had
+     since D4, with a second instance beside it */
+  .ocard { border: 1px solid #3f3f46; border-radius: 8px; background: #18181b; overflow: hidden; }
+  .ohd { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 20px; }
+  .ohd h4 { margin: 0; font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .ohd p { margin: 2px 0 0; font-size: 14px; color: #a1a1aa; }
+  .orow { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 20px; border-top: 1px solid #27272a; }
+  .orow--new { background: rgba(245, 158, 11, 0.05); }
+  .orow__l { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #71717a; width: 72px; flex: none; }
+  .orow__c { flex: 1; min-width: 0; }
+  .orow__t { font-size: 14px; color: #f4f4f5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .orow__s { font-size: 12px; color: #71717a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ometa { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 10px 20px; border-top: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); font-size: 12px; color: #71717a; }
+  .ometa u { text-decoration: line-through; text-decoration-color: #fb7185; color: #52525b; }
+
+  /* the event header, drawn so a control leaving it can be seen leaving */
+  .ehd { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding-bottom: 14px; }
+  .ehd h4 { margin: 0; font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .ehd p { margin: 2px 0 0; font-size: 14px; color: #a1a1aa; }
+  .ehd__r { display: flex; align-items: center; gap: 16px; }
+  .ehd__lk { font-size: 14px; color: #fbbf24; }
+  .gone { position: relative; opacity: 0.4; }
+  .gone::after { content: ""; position: absolute; left: -3px; right: -3px; top: 50%; height: 1px; background: #fb7185; }
+
+  /* a desk specimen and a phone specimen, argued as one thing */
+  .pair { display: grid; grid-template-columns: minmax(0, 1fr) 375px; gap: 24px; align-items: start; }
+  @media (max-width: 1020px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+  .pair__c { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+
+  /* the surface a drawer opens over, drawn faintly — a drawer accompanies */
+  .behind { display: flex; flex-direction: column; gap: 12px; opacity: 0.9; }
+  .behind__b { height: 10px; border-radius: 3px; background: #27272a; }
+</style>
+<style>
+  /* ==================================================================
+     ADDITIONS FOR SLICE 39 — the wide drawer, the flush construction,
+     the truss band with its two runs of rows, and the plot canvas a
+     drawer opens over. Nothing above this block has been restyled.
+     ================================================================== */
+
+  /* ui/Drawer at `wide` — max-w-3xl, 768 px, against Slice 38's max-w-md */
+  .sd--wide { width: 768px; }
+  /* `flush`: the body gives up its px-5 py-4 and its gap-5, at BOTH widths */
+  .sd__body--flush { padding: 0; gap: 0; flex: 1; }
+  .m-sheet__bd--flush { padding: 0; gap: 0; }
+
+  /* one truss = one block of the single construction. Not a card: it has no
+     radius, no ground of its own and no inset — the rule between two trusses is
+     the same rule that separates two rows, one shade stronger. */
+  .tblk { border-top: 1px solid #3f3f46; }
+  .tblk:first-child { border-top: 0; }
+  .tblk__hd { padding: 9px 20px 10px; background: rgba(9, 9, 11, 0.45); border-bottom: 1px solid #27272a; display: flex; flex-direction: column; gap: 7px; }
+  .tblk__r { display: flex; align-items: center; gap: 10px; }
+  .tblk__nm { font-size: 14px; font-weight: 500; color: #f4f4f5; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tblk__len { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: #a1a1aa; flex: none; }
+  .tblk__u { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #a1a1aa; flex: none; }
+  .tblk__sp { display: flex; flex-wrap: wrap; gap: 2px 12px; font-family: var(--mono); font-size: 10px; color: #71717a; }
+  .tblk__sp b { color: #d4d4d8; font-weight: 400; }
+  .tblk__geo { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #71717a; }
+  .tblk__geo .lbl { flex: none; }
+
+  /* a MicroLabel heading over a run of rows, full width — tokens.md §7's last
+     table row, in a construction that owns no padding */
+  .tband { display: flex; align-items: center; gap: 9px; padding: 9px 20px 5px; }
+  .tband b { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; }
+  .tband s { text-decoration: none; font-family: var(--mono); font-size: 10px; color: #52525b; }
+  .tband i { font-style: normal; flex: 1; height: 1px; background: #27272a; }
+
+  /* the row. Full-bleed, hairline-separated, no border of its own. */
+  .trow { display: flex; align-items: center; gap: 10px; min-height: 30px; padding: 3px 20px; border-bottom: 1px solid rgba(39, 39, 42, 0.7); font-size: 12px; color: #d4d4d8; }
+  .trow:last-child { border-bottom: 0; }
+  .trow__c { min-width: 0; flex: 1; }
+  .trow__nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .trow__sp { font-family: var(--mono); font-size: 10px; color: #71717a; }
+  .trow__sp--warn { color: #fcd34d; }
+  .trow__v { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #a1a1aa; flex: none; }
+  .trow__fid { font-family: var(--mono); font-size: 10px; color: #52525b; }
+  /* the destructive icon target: a Button ghost xs on the desk (h-7 around an
+     h-4 icon), never the bare h-3.5 glyph it is today */
+  .trow__x { width: 28px; height: 28px; border-radius: 6px; display: grid; place-items: center; color: #71717a; flex: none; }
+  .trow__x svg { display: block; }
+  .trow--empty { color: #52525b; font-style: normal; min-height: 34px; }
+
+  /* the desk's own add rows, inside the construction rather than in a box */
+  .tform { display: flex; align-items: center; gap: 8px; padding: 7px 20px 9px; border-bottom: 1px solid rgba(39, 39, 42, 0.7); }
+  .tform--last { border-bottom: 0; }
+  .tnew { padding: 10px 20px 14px; display: flex; align-items: center; gap: 8px; }
+
+  /* the same rows in the hand: 44 px, two lines, nothing tappable in them */
+  .trow--ph { min-height: 44px; padding: 6px 12px; gap: 8px; font-size: 14px; color: #f4f4f5; }
+  .trow--ph .trow__sp { font-size: 12px; }
+  .trow--ph .trow__v { font-size: 12px; }
+  .tband--ph { padding: 9px 12px 5px; }
+  .tblk__hd--ph { padding: 10px 12px 11px; }
+
+  /* the plot canvas the drawer opens over — a drawer ACCOMPANIES, so the thing
+     it accompanies has to be in the picture */
+  .dcvs { position: absolute; inset: 0; background: #09090b; overflow: hidden; }
+  .dcvs__g { position: absolute; inset: 0; background-image: linear-gradient(rgba(63,63,70,0.22) 1px, transparent 1px), linear-gradient(90deg, rgba(63,63,70,0.22) 1px, transparent 1px); background-size: 40px 40px; }
+  .dcvs__bar { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-bottom: 1px solid #27272a; background: #0c0c0e; }
+  .d-el { position: absolute; border: 1px solid #52525b; border-radius: 4px; background: #27272a; display: grid; place-items: center; font-size: 11px; color: #d4d4d8; text-align: center; padding: 2px; }
+  /* a truss, as the canvas draws it: a bar with three lanes and a marker per
+     hung fixture. 7 px markers — drawing, not targeting (P9). */
+  .tbar { position: absolute; height: 16px; border: 1px solid #38bdf8; border-radius: 3px; background: rgba(56, 189, 248, 0.12); }
+  .tbar__l { position: absolute; left: 0; top: -14px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: #7dd3fc; white-space: nowrap; }
+  .fx { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: #fbbf24; box-shadow: 0 0 4px rgba(251, 191, 36, 0.6); }
+
+  /* a decision recorded per action, with the reason in the row */
+  .peract { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  .peract th { text-align: left; font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); padding: 0 14px 8px 0; border-bottom: 1px solid var(--rule); }
+  .peract td { padding: 11px 14px 11px 0; border-bottom: 1px solid var(--rule-soft); color: var(--ink-2); vertical-align: top; line-height: 1.5; }
+  .peract td b { color: var(--ink); font-weight: 600; }
+  .peract td.y { color: var(--drop); font-weight: 600; white-space: nowrap; }
+  .peract td.n { color: var(--muted); white-space: nowrap; }
+
+  /* the phone bar, drawn as three rows of arithmetic */
+  .rules { display: flex; flex-direction: column; gap: 6px; }
+
+  /* the desk-job sentence is a real InfoPanel in the panel, so it has to be
+     able to close — its own `display: flex` outranks the UA's [hidden] rule */
+  .m-said[hidden] { display: none; }
+</style>
+<style>
+  /* ==================================================================
+     ADDITIONS FOR THE MEASUREMENTS SLICE — the canvas specimen frame,
+     the palette column and the inspector rail beside it, the anchor
+     legend, the tool-armed hint strip, and the A4 sheet. Nothing above
+     this block has been restyled.
+     ================================================================== */
+
+  /* the plot canvas as a specimen: the app's ground, the app's bar, and an
+     SVG whose user unit is one centimetre. Every stroke inside it is written
+     `n / zoom`, exactly as StagePlotCanvas.tsx writes it. */
+  .cvs { display: flex; flex-direction: column; background: #09090b; }
+  .cvs__bar { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-bottom: 1px solid #27272a; background: #0c0c0e; flex: none; }
+  .cvs__bar .lbl { flex: none; }
+  .cvs__sp { flex: 1; }
+  .cvs__z { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 11px; color: #71717a; flex: none; }
+  .cvs__svg { display: block; }
+  .cvs__svg text { user-select: none; }
+
+  /* the armed-tool hint: one sentence in the bar's own trough, naming the
+     mode, the next pick and the way out. Not a banner and not a dialog. */
+  .arm { display: flex; align-items: center; gap: 9px; padding: 6px 12px; border-bottom: 1px solid #27272a; background: rgba(245, 158, 11, 0.08); flex: none; }
+  .arm b { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #fbbf24; flex: none; }
+  .arm span { font-size: 12px; color: #d4d4d8; }
+  .arm s { text-decoration: none; margin-left: auto; font-size: 11px; color: #71717a; flex: none; }
+
+  /* the palette column — w-44, bordered on the edge it shares with the canvas */
+  .pal { width: 176px; flex: none; border-right: 1px solid #27272a; padding: 10px; display: flex; flex-direction: column; gap: 14px; background: #09090b; }
+  .pal__sec { display: flex; flex-direction: column; gap: 6px; }
+  .pal__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .pal__i { display: flex; flex-direction: column; align-items: center; gap: 4px; border: 1px solid #27272a; border-radius: 6px; padding: 8px 4px; font-size: 11px; line-height: 1.15; color: #a1a1aa; text-align: center; }
+  .pal__i svg { display: block; width: 24px; height: 24px; color: #d4d4d8; }
+  /* the first palette entry that arms rather than places: it stays lit while
+     the mode is on, so the canvas's crosshair always has a source on screen. */
+  .pal__i--on { border-color: #f59e0b; background: rgba(245, 158, 11, 0.12); color: #fcd34d; }
+  .pal__i--on svg { color: #fcd34d; }
+
+  /* the inspector rail — w-60 shrink-0, bordered on the edge it shares */
+  .irail { width: 240px; flex: none; border-left: 1px solid #27272a; background: #09090b; display: flex; flex-direction: column; }
+  .irail__hd { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); }
+  .irail__hd b { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; }
+  .irail__hd s { text-decoration: none; margin-left: auto; color: #52525b; font-size: 12px; }
+  .irail__bd { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+  .irail__ft { margin-top: auto; padding: 8px 10px; border-top: 1px solid #27272a; display: flex; gap: 6px; }
+  .irow { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 8px; align-items: center; }
+  .irow > label { font-size: 12px; color: #a1a1aa; }
+  .irow__v { display: flex; gap: 6px; min-width: 0; }
+  /* a derived value is STATED, never typed into (P6). It gets the ink of a
+     value you are reading, not the border of a control you may edit. */
+  .ival { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 14px; color: #f4f4f5; }
+  .ival u { text-decoration: none; font-size: 11px; color: #71717a; margin-left: 3px; }
+  /* Both facts about an end, stacked, inside the 136 px the rail's 76 px
+     label column leaves. Nothing here is a control: re-anchoring is a drag
+     of that end's grip on the canvas, where the anchors are. */
+  .iend { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.25; }
+  .iend__t { font-size: 12px; color: #d4d4d8; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .iend__s { font-size: 11px; color: #71717a; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ibtn { width: 28px; height: 28px; flex: none; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; color: #a1a1aa; display: grid; place-items: center; font-size: 12px; }
+  .irow--top { align-items: start; }
+
+  /* the anchor legend — the CAD marker set, drawn once and named */
+  .anch { display: grid; grid-template-columns: repeat(auto-fit, minmax(212px, 1fr)); gap: 0 22px; border-top: 1px solid var(--rule); }
+  .anch__r { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 12px; align-items: start; padding: 11px 2px; border-bottom: 1px solid var(--rule-soft); }
+  .anch__g { width: 34px; height: 22px; background: #09090b; border-radius: 3px; display: grid; place-items: center; }
+  .anch__g svg { display: block; }
+  .anch__n { font-size: 14px; color: var(--ink); font-weight: 600; }
+  .anch__d { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+  /* the live readout under an interactive specimen */
+  .rdo { display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-top: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); font-size: 12px; color: #a1a1aa; min-height: 32px; }
+  .rdo b { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #71717a; flex: none; }
+  .rdo em { font-style: normal; color: #f4f4f5; }
+  .rdo i { font-style: normal; color: #818cf8; }
+
+  /* a sheet: true 297 × 210 proportion, floating over the document ground.
+     Carried from the Slice 41 mockup, which is not in this CSS chain. */
+  .sheet { background: #ffffff; border-radius: 1px; overflow: hidden; box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.3); }
+  .sheet svg { display: block; width: 100%; height: auto; }
+
+  .cols { display: flex; align-items: stretch; }
+  .cols .cvs { flex: 1; min-width: 0; }
+</style>
+
+<div class="wrap">
+
+  <header class="head">
+    <span class="head__eyebrow">stage plot measurements · revision 1 · for approval, before the spec</span>
+    <h1>A plan you cannot measure off is a picture of a stage.</h1>
+
+    <p class="head__lede">
+      The plot already knows every distance on it — it stores centimetres and draws them at
+      1 SVG&nbsp;unit&nbsp;=&nbsp;1&nbsp;cm. What it will not do is <b>say</b> one. This slice lets you
+      draw the distance you care about and leave it on the drawing, the way a drawing office does:
+      two anchors, extension lines, a dimension line held off the geometry, arrowheads, and the
+      number in a gap in its own line.
+    </p>
+    <p class="head__lede">
+      Three things make it a measured drawing rather than an annotation layer. <b>The value is
+      derived and never typed</b> — the inspector states it and offers no field, because the moment
+      a dimension can disagree with the geometry it is worse than none (P6). <b>The anchors are
+      features of the element's own box</b>, so a corner survives a rotation, a resize and a rake,
+      and is re-projected rather than re-found. And <b>the same four dimensions print</b>, on the
+      sheet Slice 41 built, at the sheet's own weights.
+    </p>
+    <p class="head__lede">
+      The hard part is the one the request named: an <em>edge</em> anchor and the <em>point</em>
+      anchors sitting on that same edge are the same feature of the same box, and you have to be
+      able to tell which one you are about to grab. §02 is that, and it is live.
+    </p>
+  </header>
+
+  <!-- ============================================================ 01 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">01 · the surface</span>
+      <h2>Four dimensions, four different claims, one drawing</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Everything below is drawn through <span class="mono">projectElement</span> and
+        <span class="mono">projectedOutline</span>, ported unchanged, into a viewBox whose user unit
+        is a centimetre. The riser is raked 14° in the plan, so its silhouette is a rotated
+        rectangle and its faces are not axis-aligned — which is the case the <em>perpendicular to a
+        plane</em> anchor exists for.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="cvs" id="hero"></div>
+      </div>
+      <div class="spec__cap"><b>Top view · 1 sq = 25 cm.</b> A · locked horizontal &nbsp;·&nbsp; B · locked vertical, to a plane &nbsp;·&nbsp; C · aligned, perpendicular to a raked face &nbsp;·&nbsp; D · aligned, one free endpoint</div>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">A · horizontal</div>
+        <div class="led__v"><b>Speaker&nbsp;L centre → Speaker&nbsp;R centre</b>, locked to the u axis. Both speakers sit at the same depth here, so the aligned value and the horizontal value agree — <em>and that is exactly why the lock has to be stored rather than inferred.</em> Move one speaker 30 cm upstage and this dimension must still read the PA's width.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">B · vertical</div>
+        <div class="led__v"><b>The riser's upstage-left corner → the stage's upstage face</b>, locked to the v axis — how far the riser stands off the back wall. The stage end is a <b>plane</b>: the dimension does not care where along that edge it lands, only that it meets it square. Slide the riser sideways and this dimension follows without ever being re-anchored.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">C · aligned</div>
+        <div class="led__v"><b>The podium's west quadrant → the riser's stage-right face</b> — the gap between them. The face is raked 14°, so the dimension is raked 14° with it, and the value is the <b>perpendicular distance</b> to that face's line. The foot is drawn where the perpendicular actually lands, and it carries a right-angle mark saying so.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">D · free end</div>
+        <div class="led__v"><b>Wedge centre → a free point on the grid.</b> The free end is a small × and it is anchored to nothing: it stays where it was put when the wedge moves, and it snaps to the plot's own grid when it is placed. This is how you dimension to a thing that is not on the plot — a socket, a trench, a mark on the floor.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 02 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">02 · anchors · live</span>
+      <h2>A dot is a place. A lit edge is a direction.</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Arm the tool and aim at an element: it shows what it offers. <strong>Move the pointer over
+        the riser below</strong> — the anchor you would grab lights, and the readout names it. Aim
+        near a corner and the square wins; aim at the middle of a side and the triangle wins; aim
+        anywhere else along that side and <strong>the whole side lights instead</strong>, with a
+        <span class="mono">⟂</span> badge on the pointer.
+      </p>
+      <p>
+        That is the answer to the request's subtle half. <strong>A side's midpoint marker and that
+        side's plane anchor are the same feature of the same box</strong> — one pinned to the middle,
+        one free to slide. So they cannot be told apart by <em>where</em> they are, only by
+        <em>what shape lights up</em>, which is P5 doing the work it was written for: shape carries
+        the meaning, and the colour is the same indigo the canvas already uses for &ldquo;this is what
+        you will land on&rdquo;.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="cvs" id="anchorlive"></div>
+      </div>
+      <div class="spec__cap"><b>Live.</b> Pointer inside the frame · the aim radius is <span class="mono">SNAP_THRESHOLD_PX = 8</span>, the constant the drag snap already uses</div>
+    </div>
+
+    <h3>The marker set is AutoCAD's, because half the people who will use this already know it</h3>
+    <div class="anch" id="anchlegend"></div>
+
+    <div class="prose">
+      <p>
+        Nine anchors on a rectangle: a centre, four corners, four side midpoints — and four planes
+        underneath the midpoints. They are not a list per shape. <strong>They are derived from
+        <span class="mono">projectedOutline</span></strong>, so a rectangle yields four of each, a
+        raked truss yields six of each from its hexagonal silhouette, and an icon resource yields
+        the corners of its own box. One derivation, no branch on kind — which is Constitution
+        Principle&nbsp;II at the geometry level.
+      </p>
+      <p>
+        <strong>The ellipse is the one exception, and it is a fact about shape rather than a
+        category.</strong> It has no straight side, so it offers a centre and the four quadrant
+        points north / east / south / west, and <em>no plane anchor at all</em>: the promise a plane
+        anchor makes — <em>I don't care where along it, as long as we meet at 90°</em> — is only
+        keepable on a straight edge.
+      </p>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="cvs" id="zones"></div>
+      </div>
+      <div class="spec__cap"><b>One side, three zones.</b> Corner · midpoint · everything else — no dead ground, and a wrong pick is undone by moving three pixels</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 03 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">03 · drawing one</span>
+      <h2>The palette gets its first mode, because you cannot drop a two-ended thing at a point</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Every entry in <span class="mono">StagePlotPalette</span> today places an element at the
+        viewport centre and selects it. A dimension has two ends and neither of them is the
+        viewport centre, so the <strong>Measure</strong> section <em>arms</em> instead: the tile
+        lights, the canvas takes a crosshair, and the bar states the mode, the next pick and the way
+        out. <span class="k">M</span> arms it from the keyboard, <span class="k">Esc</span> leaves.
+        A completed measurement <b>leaves the tool armed</b>, because a plot gets dimensioned in
+        runs, not one at a time.
+      </p>
+      <p>
+        Three tiles rather than one tile and a modifier. <span class="k">Shift</span>-to-constrain is
+        a real idiom and it is deliberately not here: the mode is a stored property that the
+        inspector can change afterwards, so it has to be nameable, and a thing you can name in the
+        inspector should be pickable by the same name in the palette. One vocabulary, two places.
+      </p>
+    </div>
+
+    <div class="vs" id="sequence"></div>
+
+    <div class="prose">
+      <p>
+        <strong>Two picks make a measurement — the offset is a separate gesture.</strong> A third
+        click to set the offset is what CAD does, and it is what makes CAD's dimension command a
+        three-step ritual you cannot leave half-done. Here the second pick <em>commits</em>: the
+        dimension exists, at zero offset, running exactly between its anchors. Nudging it off the
+        geometry is §04, and it is a drag with an undo.
+      </p>
+      <p>
+        <strong>At zero offset a locked dimension sits on the anchor you picked second.</strong> A
+        horizontal dimension between two points at different depths has to choose a depth to sit at,
+        and &ldquo;the one you just pointed at&rdquo; is the only answer that needs no constant. The
+        first anchor grows the extension line.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ 04 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">04 · the offset · live</span>
+      <h2>Moving the line is not changing the measurement</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        <strong>Drag the square handle on the left specimen.</strong> The dimension line slides off
+        the geometry, the extension lines grow to reach it, and the value does not move — because
+        the value is derived from the anchors and the offset is a placement. The handle is the
+        canvas's own 8&nbsp;px handle in <span class="mono">#6366f1</span>, the same square the
+        resize corner uses, so a measurement's grab affordance looks like every other grab
+        affordance on this canvas.
+      </p>
+    </div>
+
+    <div class="vs" id="offsets"></div>
+
+    <div class="prose">
+      <p>
+        The offset is stored in <b>centimetres</b> and it snaps to the plot's grid. That is the one
+        place in the whole dimension where a screen-pixel value would be wrong: an offset in pixels
+        would slide the line across the drawing as you zoom, and it would have nothing to mean on
+        paper. A negative offset puts the line on the other side, which is what the inspector's
+        <em>Flip</em> does without arithmetic.
+      </p>
+    </div>
+
+    <div class="verdict">
+      <div class="verdict__k">the geometry</div>
+      <div class="verdict__v"><b>Centimetres.</b> The two anchors and the offset are positions on a
+        measured drawing. They zoom with it and they print.</div>
+      <div class="verdict__k">the lettering</div>
+      <div class="verdict__v"><b>Pixels, written <span class="mono">n / zoom</span>.</b> Arrowheads,
+        tick sizes, the extension gap and overshoot, the value type and the grab handle. This is not
+        a new decision — it is the rule <span class="mono">StagePlotCanvas.tsx</span> already applies
+        to every stroke it draws, and a dimension that broke it would be the only thing on the canvas
+        that got illegible at 20&nbsp;%.</div>
+      <div class="verdict__k">on paper</div>
+      <div class="verdict__v"><b>Millimetres, fixed.</b> An arrowhead is 1.8&nbsp;mm at 1:20 and
+        1.8&nbsp;mm at 1:500. Same rule, different unit of legibility: a dimension's furniture is
+        sized to the reader, never to the drawing. <u>Sizing the furniture in centimetres so it
+        scales with the plot</u> is the alternative, and it is what makes a 1:500 sheet's arrowheads
+        invisible and a 1:20 sheet's arrowheads a foot long.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 05 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">05 · anatomy</span>
+      <h2>When the number will not fit between its own arrows, the number leaves</h2>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="cvs" id="anatomy"></div>
+      </div>
+      <div class="spec__cap"><b>One rule, three lengths.</b> 480 cm · 150 cm · 34 cm, at one zoom</div>
+    </div>
+
+    <div class="led" id="anatparts"></div>
+
+    <div class="prose">
+      <p>
+        <strong>One threshold, not two.</strong> CAD has separate rules for the text not fitting and
+        the arrows not fitting, and the middle band — arrows in, text out — is where its dimensions
+        look worst. Here there is one test, measured in pixels because both the text and the arrows
+        are pixels: <em>if the value plus its gaps will not fit between the arrowheads, the value and
+        the arrowheads both go outside.</em> A dimension is either wholly inside its own line or
+        wholly outside it, and you can see which at a glance.
+      </p>
+      <p>
+        <strong>The value carries its unit.</strong> <span class="mono">1120 cm</span>, not
+        <span class="mono">1120</span> and not <span class="mono">11.2 m</span>. The model is
+        centimetres from end to end and a second unit is a second thing to reconcile; the unit rides
+        at 0.8× in the muted ink so it never competes with the digits. Values display to the whole
+        centimetre — the store keeps <span class="mono">roundCm</span>'s 0.1&nbsp;mm grain, and a
+        dimension reading <span class="mono">1120.37 cm</span> on a stage is noise pretending to be
+        precision.
+      </p>
+      <p>
+        <strong>A dimension may carry a note of its own, above the value.</strong> Optional, empty by
+        default, and on its own line so the number never has to share one. It is the only text on a
+        dimension a person types, and it is the reason a sheet can say <em>FOH trim</em> rather than
+        leaving a reader to work out why that particular 1120 was worth writing down.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ 06 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">06 · selected</span>
+      <h2>Everything about a dimension is editable except the one thing it says</h2>
+    </div>
+
+    <div class="spec">
+      <div class="spec__frame">
+        <div class="app" style="min-width:1132px;padding:0">
+          <div class="cols" style="height:520px" id="deskcols"></div>
+        </div>
+      </div>
+      <div class="spec__cap"><b>Palette · canvas · inspector rail</b> — patterns.md §4, the stage plot's three columns, with the Measure section added at the head of the palette</div>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">value</div>
+        <div class="led__v"><b>Stated, never a field.</b> It is derived from two anchors and a mode, so a field would be a place for the drawing and the number to disagree. P6, and the same reason the flow canvas has no cable-colour picker.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">type</div>
+        <div class="led__v">A <b>select</b>, not a segmented trough: <b>Aligned · Horizontal · Vertical</b>. A trough is for alternative <em>views</em> of one thing (patterns.md §4); this is a property's value, and the rail edits properties with selects. Changing it re-derives the value and re-places the line; nothing is re-picked.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">from · to</div>
+        <div class="led__v">Each end <b>states</b> what it is anchored to, on two lines — the element, then the feature: <em>Riser / stage-right face</em>, <em>free point</em>. There is no control here, because re-anchoring is <b>a drag of that end's grip on the canvas</b>, where the anchors light up as you pass them (§02). One gesture for picking an anchor, used the same way whether the dimension is new or twenty minutes old.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">offset</div>
+        <div class="led__v">A number in centimetres, and a <b>Flip</b> that negates it. The same value the handle drags, so the two controls cannot drift apart.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">note</div>
+        <div class="led__v">Optional short text, drawn above the value on screen and on paper. Empty by default.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">layer</div>
+        <div class="led__v">A select, like an element's. Which is the next section's argument.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">delete</div>
+        <div class="led__v"><b>At the desk, and no confirm.</b> This canvas confirms a delete that takes other things with it — a plot, a layer — and nothing else. A dimension takes nothing with it and is two picks to redraw <em>at the machine that can draw it</em>. Which is why the rail has this control and the phone's sheet does not: §09.</div>
+      </div>
+    </div>
+
+    <h3>Selection reads the same as every other selection on this canvas</h3>
+    <div class="prose">
+      <p>
+        A selected dimension goes <span class="mono">amber-500</span> — lines, arrowheads and value
+        together — and grows three grips: the 8&nbsp;px offset handle at its midpoint, and a grip at
+        each end that re-picks that end by dragging. The dashed <span class="mono">#6366f1</span>
+        selection ring is for a box, and a dimension is not a box, so it does not get one; the hue
+        change <em>is</em> the selection, with the grips as the second carrier (P4).
+      </p>
+      <p>
+        <strong>And a line is a hard thing to hit.</strong> A dimension paints at 1.5&nbsp;px and
+        carries a transparent hit stroke of 14&nbsp;px on the desk and <b>44&nbsp;px</b> in the hand,
+        as separate geometry from the paint. That is the port dot's rule verbatim — tokens.md §3, the
+        paint and the target are different elements on purpose — and the 44 is amendment 1. Elements
+        hit-test first, so a dimension lying across a riser never steals the riser's click.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ 07 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">07 · layers</span>
+      <h2>A dimension takes its layer's switch and refuses its layer's colour</h2>
+    </div>
+
+    <div class="law">
+      <span class="law__h">the call this mockup makes</span>
+      <p class="law__t"><b>Measurements live on layers</b> — one <span class="mono">layer_id</span>,
+        the same column an element has, inheriting <em>visible</em> and <em>locked</em> and printing
+        under the layer key that already exists.</p>
+      <p class="law__t"><b>They do not take the layer's colour.</b> Layer colour is how one piece of
+        equipment is told from another. A dimension is not equipment — it is the drawing's own
+        lettering, and it sits with the grid, the origin axis and the floor datum, which are not on
+        layers' palette either.</p>
+      <p class="law__n">The alternative — a separate annotation set with its own eye — was rejected on
+        what it costs everywhere else: a second visibility switch on the panel, a second key on the
+        sheet, and a <em>print measurements?</em> checkbox that nobody finds. The plot has exactly one
+        mechanism for <em>show me this and not that</em>, and it is the one that already prints.</p>
+    </div>
+
+    <div class="split">
+      <div class="split__c">
+        <span class="split__h">what the layer decides</span>
+        <div class="split__i"><b>Hidden.</b> The layer's eye takes its dimensions with it.</div>
+        <div class="split__i"><b>Locked.</b> Selectable and readable; the handle and the end grips are not rendered, exactly as an element's are not.</div>
+        <div class="split__i"><b>Ordering.</b> Dimensions draw above every element regardless of layer order — a number under a riser is not a number.</div>
+        <div class="split__i"><b>Paper.</b> A hidden layer's dimensions are absent from the sheet, for the same reason its elements are.</div>
+      </div>
+      <div class="split__c">
+        <span class="split__h">what it does not</span>
+        <div class="split__i"><b>Colour.</b> One annotation ink at all times: <span class="mono">zinc-500</span> for the lines, <span class="mono">zinc-300</span> for the value. <em>The number is the loud part and the line that carries it is quiet — P8, chrome recedes.</em></div>
+        <div class="split__i"><b>Which layer a cross-layer dimension belongs to.</b> It is the active layer when it was drawn, and it is a select afterwards. A dimension from an audio speaker to a venue wall belongs to neither, and pretending otherwise would be a derivation with no ground truth.</div>
+      </div>
+    </div>
+
+    <div class="ask">
+      <h3>One derived rule falls out of this and is worth stating as a requirement</h3>
+      <p>
+        <b>A dimension is drawn only if its own layer is visible <em>and</em> every element it is
+        anchored to is visible.</b> Hide the audio layer and the speaker-to-wall dimension goes with
+        it, even though the dimension lives on Venue — because it is measuring to something that is
+        no longer on the drawing, and a dimension whose anchor you cannot see is a number floating in
+        space. Free endpoints have nothing to hide behind, so a free-to-free dimension follows only
+        its own layer.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ 08 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">08 · on paper</span>
+      <h2>The object line is heavy and the dimension is light, which is how a drawing office reads</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        Sheet 1 of the document Slice 41 built, with §01's four dimensions on it at 1:100. The
+        crossing rule in patterns.md §8 decides the ink without needing an exception: a dimension has
+        no colour a planner chose, so it is <strong>a value nobody chose</strong> and it prints in the
+        document's own ink rather than being crossed. What separates it from the elements is not hue
+        — it is weight. Element outlines are 0.3&nbsp;mm; a dimension line is 0.18&nbsp;mm and its
+        extension lines are 0.12&nbsp;mm, the sheet's hairline.
+      </p>
+    </div>
+
+    <figure style="margin:0 0 8px"><div class="sheet" id="papersheet"></div></figure>
+    <div class="spec__cap" style="padding-left:2px"><b>A4 landscape · 1:100 · sheet 1 of 4.</b> The title block's conventions list gains one row, which is the whole of what this slice adds to the document's furniture</div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">per view</div>
+        <div class="led__v">Sheet 1 carries the top view's dimensions, sheet 2 the front's, sheet 3 the side's. A measurement belongs to one view, so no sheet has to decide whether to show somebody else's.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">furniture, not schedule</div>
+        <div class="led__v">Dimensions get <b>no row in the element schedule</b> on sheet 4. A schedule answers <em>what is it and how big</em> about a thing on the floor; a dimension is a statement about the drawing, and it is already complete where it stands. What the title block gains is one <b>conventions</b> row and a count.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">nothing meaningful is typed</div>
+        <div class="led__v">Slice 40's rule, inherited: the arrowhead is a filled triangle and the free-end mark is two crossed strokes, both vectors. The document is built-in Helvetica through a cp1252 translator, so a glyph arrowhead would come out as a full stop.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">the value is re-derived</div>
+        <div class="led__v">The server computes the number from the stored anchors, in Go, from the same projection — it is <em>not</em> carried in the payload. A second rendering of one model, as §8a puts it, and the only arrangement in which the paper cannot quietly disagree with the screen.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 09 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">09 · the phone</span>
+      <h2>The phone reads every dimension on the plot, draws none and destroys none</h2>
+    </div>
+
+    <div class="prose">
+      <p>
+        patterns.md §7g settles the drawing without a new rule. Exactly one thing stays a desk job:
+        <strong>direct manipulation of a spatial artifact</strong> — and picking two anchors on a
+        scale drawing is that, twice, with an 8&nbsp;px aim radius. So on a phone the tool does not
+        exist, the palette's Measure section does not exist, and the offset handle and the end grips
+        are not rendered.
+      </p>
+      <p>
+        <strong>What is drawn is drawn.</strong> Every dimension renders on the phone canvas at
+        exactly the values the desk draws — 12&nbsp;px value, 9&nbsp;px arrowheads, the same
+        <span class="mono">n&nbsp;/&nbsp;zoom</span>. Drawing is not targeting (P9), and a technician
+        standing on the stage wanting to know how far the PA is apart is the best case for this
+        feature, not an edge case.
+      </p>
+      <p>
+        <strong>Tap one and you get its sheet: both ends, the type, the value, and the note.</strong>
+        Nothing else. Every geometry row is withheld — that is the
+        <span class="mono">spatial</span> prop this file already has, applied to a new object — and
+        the note is the one thing a dimension has that is <em>not</em> geometry, so the note is the
+        one thing the sheet edits. It commits per field, which means this sheet has no footer and no
+        Save, exactly as the element sheet beside it already works (patterns.md §7d) — and the
+        safe-area inset sits under the last row of the <em>body</em>, which is the half of that rule
+        the code had to be corrected on in Wave 6d (components.md, <span class="mono">ui/Sheet</span>).
+      </p>
+      <p>
+        <strong>And it does not delete.</strong> Not because deleting is a spatial gesture — it
+        plainly is not — but because <em>the phone cannot make one of these</em>. A dimension removed
+        in the hand can only be redrawn at a desk, so a thumb brushing a red control on a stage costs
+        a trip to a computer to repair. <b>Asymmetry of repair is the test, and it is general: a
+        surface that can read an object but not author it does not get to destroy it.</b> That is a
+        different line from §7g's, and it is the one that puts this sheet where Slice 39 put trusses
+        — read in the hand, authored at the desk — with a single editable field between them, which
+        is the note.
+      </p>
+    </div>
+
+    <div class="phones" id="phones"></div>
+
+    <div class="ask">
+      <h3>The withheld gesture says so, once, where the editor would be</h3>
+      <p>
+        <em>&ldquo;Drawing dimensions is a desk job — open this plot on a computer. Tap any dimension
+        to read it or to change its note.&rdquo;</em> A <span class="mono">ui/InfoNote</span>: open by
+        default, closing to an <span class="mono">i</span> that reopens it, and the choice remembered.
+        Not a banner, not a dialog, and not a greyed-out tool (P7).
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ 10 -->
+  <section>
+    <div class="sec__hd">
+      <span class="sec__no">10 · scope</span>
+      <h2>What this deliberately does not do</h2>
+    </div>
+
+    <div class="prose">
+      <p>Each of these is a decision taken, not a thing left out. They are here so the next reader
+        finds a call rather than an oversight.</p>
+    </div>
+
+    <div class="led">
+      <div class="led__row">
+        <div class="led__k">no angles</div>
+        <div class="led__v"><b>No angular dimensions, no radius, no diameter.</b> The request is about relative position, and the plot's own rotations are already stated in degrees in the inspector and in the schedule. Angular dimensions are a second geometry, a second label placement rule and a second arrowhead; they are a slice of their own if they are ever wanted.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">no chains</div>
+        <div class="led__v"><b>No continued or baseline dimension runs.</b> CAD's <em>continue</em> chains a dimension off the last one's second anchor. It is genuinely useful and it is the first thing to add once the single dimension is in use — but it needs a rule about what happens when a link in the chain is deleted, and inventing that before anyone has drawn a chain is inventing a requirement.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">no tolerance, no ticks</div>
+        <div class="led__v"><b>One arrowhead convention.</b> Filled triangles, not architectural slashes and not a per-plot choice. A second convention to learn is worse than one you did not pick — patterns.md §8a's R7, on crossings, is the same argument.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">no cross-view dimension</div>
+        <div class="led__v"><b>Already settled by the user, and worth its consequence being written down:</b> a dimension drawn in the top view is not shown in the front or side view, even where its two anchors both project into them. Which also means a height is dimensioned in an elevation and nowhere else, which is where a height belongs.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">no ellipse plane</div>
+        <div class="led__v"><b>An ellipse offers no edge anchor.</b> §02. A perpendicular to a curve is a different perpendicular at every point, so &ldquo;anywhere along it&rdquo; is not a promise that can be kept.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">no shift-constrain</div>
+        <div class="led__v"><b>The mode is picked by name, in the palette or in the inspector.</b> §03. A modifier that produces a stored property the user then sees named differently is two vocabularies for one thing.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">no delete in the hand</div>
+        <div class="led__v"><b>Decided by the user at review, and the reason travels further than this slice:</b> the phone cannot draw a dimension, so it must not be able to destroy one — the repair is only available at a desk. The phone's sheet therefore ends at the note. Whether <span class="mono">design/patterns.md</span> §7g gains a clause saying that generally is a question this document puts to the reviewer, not one it answers; §09.</div>
+      </div>
+      <div class="led__row">
+        <div class="led__k">no auto-dimension</div>
+        <div class="led__v"><b>Nothing is measured for you.</b> The request was <em>&ldquo;add measurements where I see fit&rdquo;</em>. A plot that dimensions every gap it can find is a plot you cannot read, and the judgement about which distance matters is the whole content of the feature.</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+<script>
+"use strict";
+
+/* ==================================================================== *
+ * 1 · The plot. Invented, but built to the real model's fields so the
+ *     projection below can be the real projection.
+ * ==================================================================== */
+
+const LAYERS = [
+  { id: 1, name: "Venue", color: "#5e5c64" },
+  { id: 2, name: "Band",  color: "" },          // unset → the canvas default
+  { id: 3, name: "Audio", color: "#62a0ea" },
+];
+
+const ELEMENTS = [
+  { id: 1, layer_id: 1, shape_kind: "rect",    name: "Stage",     x_cm: 700,  y_cm: 450, z_cm: 0, width_cm: 1400, depth_cm: 900, height_cm: 0,  rotation_deg: 0,  tilt_deg: 0 },
+  { id: 2, layer_id: 2, shape_kind: "rect",    name: "Riser",     x_cm: 600,  y_cm: 270, z_cm: 0, width_cm: 400,  depth_cm: 250, height_cm: 40, rotation_deg: 14, tilt_deg: 0 },
+  { id: 3, layer_id: 2, shape_kind: "ellipse", name: "Podium",    x_cm: 1130, y_cm: 300, z_cm: 0, width_cm: 300,  depth_cm: 300, height_cm: 20, rotation_deg: 0,  tilt_deg: 0 },
+  { id: 4, layer_id: 3, shape_kind: "rect",    name: "Speaker L", x_cm: 140,  y_cm: 770, z_cm: 0, width_cm: 60,   depth_cm: 50,  height_cm: 70, rotation_deg: 0,  tilt_deg: 0 },
+  { id: 5, layer_id: 3, shape_kind: "rect",    name: "Speaker R", x_cm: 1260, y_cm: 770, z_cm: 0, width_cm: 60,   depth_cm: 50,  height_cm: 70, rotation_deg: 0,  tilt_deg: 0 },
+  { id: 6, layer_id: 3, shape_kind: "rect",    name: "Wedge",     x_cm: 600,  y_cm: 600, z_cm: 0, width_cm: 50,   depth_cm: 40,  height_cm: 35, rotation_deg: 0,  tilt_deg: 0 },
+];
+
+const GRID_CM = 25;
+const elById = (id) => ELEMENTS.find((e) => e.id === id);
+const layerOf = (el) => LAYERS.find((l) => l.id === el.layer_id);
+const layerInk = (el) => (layerOf(el).color || "#a1a1aa");
+
+/* ==================================================================== *
+ * 2 · lib/stagePlot.ts, ported. Only the top view is drawn here, but the
+ *     projection is the general one so a raked element is honest.
+ * ==================================================================== */
+
+const roundCm = (v) => Math.round(v * 100) / 100;
+const rad = (d) => (d * Math.PI) / 180;
+
+function localAxes(rotationDeg, tiltDeg) {
+  const yaw = rad(rotationDeg), tilt = rad(tiltDeg);
+  const cy = Math.cos(yaw), sy = Math.sin(yaw), ct = Math.cos(tilt), st = Math.sin(tilt);
+  return { ax: { x: cy * ct, y: sy * ct, z: -st }, ay: { x: -sy, y: cy, z: 0 }, az: { x: cy * st, y: sy * st, z: ct } };
+}
+function screenDirection(a, view) {
+  if (view === "top") return { u: a.x, v: a.y };
+  if (view === "front") return { u: a.x, v: -a.z };
+  return { u: a.y, v: -a.z };
+}
+const dot = (a, b) => a.u * b.u + a.v * b.v;
+const drawnRotation = (el, view) => (view === "top" ? el.rotation_deg : view === "front" ? el.tilt_deg : 0);
+
+function projectElement(el, view) {
+  const rotationDeg = drawnRotation(el, view);
+  const axes = localAxes(el.rotation_deg, el.tilt_deg);
+  const r = rad(rotationDeg);
+  const along = { u: Math.cos(r), v: Math.sin(r) }, across = { u: -Math.sin(r), v: Math.cos(r) };
+  const pX = screenDirection(axes.ax, view), pY = screenDirection(axes.ay, view), pZ = screenDirection(axes.az, view);
+  const width = roundCm(el.width_cm * Math.abs(dot(pX, along)) + el.depth_cm * Math.abs(dot(pY, along)) + el.height_cm * Math.abs(dot(pZ, along)));
+  const height = roundCm(el.width_cm * Math.abs(dot(pX, across)) + el.depth_cm * Math.abs(dot(pY, across)) + el.height_cm * Math.abs(dot(pZ, across)));
+  if (view === "top") return { u: el.x_cm, v: el.y_cm, width, height, rotationDeg };
+  if (view === "front") return { u: el.x_cm, v: el.z_cm + el.height_cm / 2, width, height, rotationDeg };
+  return { u: el.y_cm, v: el.z_cm + el.height_cm / 2, width, height, rotationDeg };
+}
+function projectedAxes(el, view) {
+  const axes = localAxes(el.rotation_deg, el.tilt_deg);
+  const r = rad(drawnRotation(el, view));
+  const along = { u: Math.cos(r), v: Math.sin(r) }, across = { u: -Math.sin(r), v: Math.cos(r) };
+  const toDrawn = (a) => { const p = screenDirection(a, view); return { u: dot(p, along), v: dot(p, across) }; };
+  return { ax: toDrawn(axes.ax), ay: toDrawn(axes.ay), az: toDrawn(axes.az) };
+}
+function convexHull(points) {
+  const pts = [...points].sort((a, b) => a.u - b.u || a.v - b.v);
+  const cross = (o, a, b) => (a.u - o.u) * (b.v - o.v) - (a.v - o.v) * (b.u - o.u);
+  const build = (list) => {
+    const hull = [];
+    for (const p of list) {
+      while (hull.length >= 2 && cross(hull[hull.length - 2], hull[hull.length - 1], p) <= 0) hull.pop();
+      hull.push(p);
+    }
+    return hull;
+  };
+  return [...build(pts).slice(0, -1), ...build([...pts].reverse()).slice(0, -1)];
+}
+function projectedOutline(el, view) {
+  const { ax, ay, az } = projectedAxes(el, view);
+  const hw = el.width_cm / 2, hd = el.depth_cm / 2, hh = el.height_cm / 2;
+  const corners = [];
+  for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) {
+    corners.push({
+      u: roundCm(sx * hw * ax.u + sy * hd * ay.u + sz * hh * az.u),
+      v: roundCm(sx * hw * ax.v + sy * hd * ay.v + sz * hh * az.v),
+    });
+  }
+  return convexHull(corners);
+}
+
+/* ==================================================================== *
+ * 3 · Anchors.
+ *
+ *     THE ONE DECISION THIS SECTION IS: an anchor is a feature of the
+ *     element's own box — its centre, a corner of its silhouette, a face
+ *     — derived from `projectedOutline` and re-projected on every draw.
+ *     Nothing branches on kind. The ellipse is the single exception, and
+ *     it is a fact about having no straight side rather than a category.
+ * ==================================================================== */
+
+const AIM_PX = 8;   // SNAP_THRESHOLD_PX, the constant the drag snap uses
+
+function sideName(n) {
+  return Math.abs(n.u) >= Math.abs(n.v)
+    ? (n.u > 0 ? "stage-right" : "stage-left")
+    : (n.v > 0 ? "downstage" : "upstage");
+}
+function cornerName(d) {
+  return (d.v < 0 ? "upstage" : "downstage") + "-" + (d.u < 0 ? "left" : "right");
+}
+
+function anchorsOf(el) {
+  const rect = projectElement(el, "top");
+  const r = rad(rect.rotationDeg), c = Math.cos(r), s = Math.sin(r);
+  const toW = (p) => ({ u: rect.u + p.u * c - p.v * s, v: rect.v + p.u * s + p.v * c });
+  const dirW = (p) => ({ u: p.u * c - p.v * s, v: p.u * s + p.v * c });
+  const out = [{ el: el.id, kind: "centre", i: 0, p: { u: rect.u, v: rect.v }, name: "centre" }];
+
+  if (el.shape_kind === "ellipse") {
+    [[rect.width / 2, 0, "east"], [0, rect.height / 2, "south"], [-rect.width / 2, 0, "west"], [0, -rect.height / 2, "north"]]
+      .forEach(([a, b, nm], i) => out.push({ el: el.id, kind: "quad", i, p: toW({ u: a, v: b }), name: nm + " quadrant" }));
+    return out;
+  }
+
+  const raw = projectedOutline(el, "top");
+  const hull = [];
+  for (const p of raw) if (!hull.some((q) => Math.hypot(q.u - p.u, q.v - p.v) < 0.05)) hull.push(p);
+
+  hull.forEach((p, i) => out.push({ el: el.id, kind: "corner", i, p: toW(p), name: cornerName(dirW(p)) + " corner" }));
+  hull.forEach((p, i) => {
+    const q = hull[(i + 1) % hull.length];
+    const mid = { u: (p.u + q.u) / 2, v: (p.v + q.v) / 2 };
+    let n = { u: -(q.v - p.v), v: q.u - p.u };
+    const L = Math.hypot(n.u, n.v) || 1;
+    n = { u: n.u / L, v: n.v / L };
+    if (n.u * mid.u + n.v * mid.v < 0) n = { u: -n.u, v: -n.v };
+    const nm = sideName(dirW(n));
+    out.push({ el: el.id, kind: "side", i, p: toW(mid), name: nm + " midpoint" });
+    out.push({ el: el.id, kind: "plane", i, p: toW(mid), a: toW(p), b: toW(q), n: dirW(n), name: nm + " face" });
+  });
+  return out;
+}
+
+const anchorAt = (ref) => anchorsOf(elById(ref.el)).find((a) => a.kind === ref.kind && a.i === ref.i);
+
+/** The aim: point anchors win inside the radius, then the lit edge. */
+function aim(cursor, els, zoom) {
+  const rCm = AIM_PX / zoom;
+  let best = null, bestD = Infinity;
+  for (const el of els) for (const a of anchorsOf(el)) {
+    if (a.kind === "plane") continue;
+    const d = Math.hypot(a.p.u - cursor.u, a.p.v - cursor.v);
+    if (d < rCm && d < bestD) { best = a; bestD = d; }
+  }
+  if (best) return best;
+  for (const el of els) for (const a of anchorsOf(el)) {
+    if (a.kind !== "plane") continue;
+    const e = { u: a.b.u - a.a.u, v: a.b.v - a.a.v };
+    const L2 = e.u * e.u + e.v * e.v;
+    const t = Math.max(0, Math.min(1, ((cursor.u - a.a.u) * e.u + (cursor.v - a.a.v) * e.v) / L2));
+    const f = { u: a.a.u + t * e.u, v: a.a.v + t * e.v };
+    const d = Math.hypot(f.u - cursor.u, f.v - cursor.v);
+    if (d < rCm && d < bestD) { best = a; bestD = d; }
+  }
+  return best;
+}
+
+/* ==================================================================== *
+ * 4 · A measurement, resolved.
+ * ==================================================================== */
+
+const MEASURES = {
+  A: { id: "A", mode: "horizontal", offset_cm: 280,  note: "PA span", a: { el: 4, kind: "centre", i: 0 }, b: { el: 5, kind: "centre", i: 0 } },
+  B: { id: "B", mode: "vertical",   offset_cm: -136, note: "",        a: { el: 2, kind: "corner", i: -1, want: "upstage-left corner" }, b: { el: 1, kind: "plane", i: -1, want: "upstage face" } },
+  C: { id: "C", mode: "aligned",    offset_cm: -200, note: "",        a: { el: 2, kind: "plane", i: -1, want: "stage-right face" }, b: { el: 3, kind: "quad", i: -1, want: "west quadrant" } },
+  D: { id: "D", mode: "aligned",    offset_cm: 70,   note: "power drop", a: { el: 6, kind: "centre", i: 0 }, b: { free: true, u: 250, v: 850 } },
+};
+
+/* The `want` fields let the invented data name an anchor rather than
+   guess a hull index — the index is whatever the hull actually produced. */
+function bindWants() {
+  for (const m of Object.values(MEASURES)) for (const ref of [m.a, m.b]) {
+    if (ref.free || !ref.want) continue;
+    const hit = anchorsOf(elById(ref.el)).find((a) => a.kind === ref.kind && a.name === ref.want);
+    if (hit) ref.i = hit.i; else console.warn("no anchor", ref);
+  }
+}
+bindWants();
+
+function endPoint(ref) { return ref.free ? { free: true, p: { u: ref.u, v: ref.v }, name: "free point" } : anchorAt(ref); }
+
+function footOn(plane, P, mode) {
+  const e = { u: plane.b.u - plane.a.u, v: plane.b.v - plane.a.v };
+  const L = Math.hypot(e.u, e.v) || 1;
+  const eu = { u: e.u / L, v: e.v / L };
+  if (mode === "aligned") {
+    const d = (P.u - plane.a.u) * plane.n.u + (P.v - plane.a.v) * plane.n.v;
+    return { u: P.u - d * plane.n.u, v: P.v - d * plane.n.v };
+  }
+  if (mode === "horizontal") {
+    if (Math.abs(eu.v) < 1e-6) return null;
+    const s = (P.v - plane.a.v) / eu.v;
+    return { u: plane.a.u + s * eu.u, v: P.v };
+  }
+  if (Math.abs(eu.u) < 1e-6) return null;
+  const s = (P.u - plane.a.u) / eu.u;
+  return { u: P.u, v: plane.a.v + s * eu.v };
+}
+
+function dimGeom(m) {
+  const A = endPoint(m.a), B = endPoint(m.b);
+  let p1, p2, footPlane = null;
+  if (A.kind === "plane" && B.kind !== "plane") { p2 = B.p; p1 = footOn(A, p2, m.mode); footPlane = { plane: A, at: p1 }; }
+  else if (B.kind === "plane" && A.kind !== "plane") { p1 = A.p; p2 = footOn(B, p1, m.mode); footPlane = { plane: B, at: p2 }; }
+  else { p1 = A.p; p2 = B.p; }
+  if (!p1 || !p2) return null;
+
+  const off = m.offset_cm;
+  let a, b, value;
+  if (m.mode === "aligned") {
+    const d = { u: p2.u - p1.u, v: p2.v - p1.v };
+    const L = Math.hypot(d.u, d.v) || 1;
+    const perp = { u: -d.v / L, v: d.u / L };
+    a = { u: p1.u + off * perp.u, v: p1.v + off * perp.v };
+    b = { u: p2.u + off * perp.u, v: p2.v + off * perp.v };
+    value = L;
+  } else if (m.mode === "horizontal") {
+    const vLine = p2.v + off;
+    a = { u: p1.u, v: vLine }; b = { u: p2.u, v: vLine };
+    value = Math.abs(p2.u - p1.u);
+  } else {
+    const uLine = p2.u + off;
+    a = { u: uLine, v: p1.v }; b = { u: uLine, v: p2.v };
+    value = Math.abs(p2.v - p1.v);
+  }
+  return { A, B, p1, p2, a, b, value, footPlane, free: [A.free ? p1 : null, B.free ? p2 : null].filter(Boolean) };
+}
+
+/* ==================================================================== *
+ * 5 · Drawing. Every chrome value below is a PIXEL value written
+ *     `n / zoom`, which is what StagePlotCanvas.tsx already does for
+ *     every stroke, handle and label it renders.
+ * ==================================================================== */
+
+const N = (v) => Math.round(v * 1000) / 1000;
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+
+const DIM = {
+  quiet: "#71717a",    // zinc-500 — the line
+  value: "#d4d4d8",    // zinc-300 — the number
+  unit:  "#71717a",
+  hot:   "#a1a1aa",
+  sel:   "#f59e0b",    // amber-500 — focus
+  selValue: "#fbbf24",
+  snap:  "#818cf8",    // the canvas's own "this is what you will land on"
+  snapQuiet: "#6366f1",
+  handle: "#6366f1",
+};
+const ARROW_PX = 9, ARROW_W_PX = 3, GAP_PX = 4, OVER_PX = 5, FONT_PX = 12, HIT_PX = 14;
+
+function tri(tip, dir, K) {
+  const p = { u: -dir.v, v: dir.u };
+  const base = { u: tip.u + ARROW_PX * K * dir.u, v: tip.v + ARROW_PX * K * dir.v };
+  const w = ARROW_W_PX * K;
+  return `${N(tip.u)},${N(tip.v)} ${N(base.u + w * p.u)},${N(base.v + w * p.v)} ${N(base.u - w * p.u)},${N(base.v - w * p.v)}`;
+}
+
+function drawMeasure(m, zoom, opt) {
+  opt = opt || {};
+  const g = dimGeom(m);
+  if (!g) return "";
+  const K = 1 / zoom;
+  const ink = opt.sel ? DIM.sel : opt.hot ? DIM.hot : DIM.quiet;
+  const vInk = opt.sel ? DIM.selValue : DIM.value;
+  const uInk = opt.sel ? "#d97706" : DIM.unit;
+  const dv = { u: g.b.u - g.a.u, v: g.b.v - g.a.v };
+  const LL = Math.hypot(dv.u, dv.v) || 1;
+  const d = { u: dv.u / LL, v: dv.v / LL };
+  let out = "";
+
+  /* extension lines — a gap at the anchor, an overshoot past the line */
+  for (const [p, q] of [[g.p1, g.a], [g.p2, g.b]]) {
+    const e = { u: q.u - p.u, v: q.v - p.v };
+    const L = Math.hypot(e.u, e.v);
+    if (L * zoom < 2) continue;
+    const eu = { u: e.u / L, v: e.v / L };
+    const s = { u: p.u + GAP_PX * K * eu.u, v: p.v + GAP_PX * K * eu.v };
+    const t = { u: q.u + OVER_PX * K * eu.u, v: q.v + OVER_PX * K * eu.v };
+    out += `<line x1="${N(s.u)}" y1="${N(s.v)}" x2="${N(t.u)}" y2="${N(t.v)}" stroke="${ink}" stroke-width="${N(K)}"/>`;
+  }
+
+  /* the value, and the one placement rule */
+  const num = String(Math.round(g.value));
+  const txt = num + " cm";
+  const textPx = txt.length * FONT_PX * 0.6;
+  const fits = LL * zoom >= textPx + 10 + 2 * ARROW_PX;
+  let angle = (Math.atan2(d.v, d.u) * 180) / Math.PI;
+  if (angle >= 90) angle -= 180; else if (angle < -90) angle += 180;
+
+  if (fits) {
+    const half = (textPx / 2 + 5) * K;
+    const mid = { u: (g.a.u + g.b.u) / 2, v: (g.a.v + g.b.v) / 2 };
+    out += `<line x1="${N(g.a.u)}" y1="${N(g.a.v)}" x2="${N(mid.u - half * d.u)}" y2="${N(mid.v - half * d.v)}" stroke="${ink}" stroke-width="${N(1.5 * K)}"/>`;
+    out += `<line x1="${N(mid.u + half * d.u)}" y1="${N(mid.v + half * d.v)}" x2="${N(g.b.u)}" y2="${N(g.b.v)}" stroke="${ink}" stroke-width="${N(1.5 * K)}"/>`;
+    out += `<polygon points="${tri(g.a, d, K)}" fill="${ink}"/><polygon points="${tri(g.b, { u: -d.u, v: -d.v }, K)}" fill="${ink}"/>`;
+    out += label(mid, angle, num, vInk, uInk, m.note, K);
+  } else {
+    const back = { u: -d.u, v: -d.v };
+    out += `<line x1="${N(g.a.u - ARROW_PX * K * d.u)}" y1="${N(g.a.v - ARROW_PX * K * d.v)}" x2="${N(g.b.u + ARROW_PX * K * d.u)}" y2="${N(g.b.v + ARROW_PX * K * d.v)}" stroke="${ink}" stroke-width="${N(1.5 * K)}"/>`;
+    out += `<polygon points="${tri(g.a, back, K)}" fill="${ink}"/><polygon points="${tri(g.b, d, K)}" fill="${ink}"/>`;
+    const end = d.u >= 0 ? g.b : g.a;
+    const away = d.u >= 0 ? d : back;
+    const at = { u: end.u + (ARROW_PX + 7) * K * away.u, v: end.v + (ARROW_PX + 7) * K * away.v };
+    out += label(at, angle, num, vInk, uInk, m.note, K, "start");
+  }
+
+  /* a plane end: a 90° mark where the perpendicular actually lands, plus
+     the run-out when the foot has left the drawn edge */
+  if (g.footPlane) {
+    const { plane, at } = g.footPlane;
+    const e = { u: plane.b.u - plane.a.u, v: plane.b.v - plane.a.v };
+    const L = Math.hypot(e.u, e.v) || 1;
+    const eu = { u: e.u / L, v: e.v / L };
+    const t = ((at.u - plane.a.u) * eu.u + (at.v - plane.a.v) * eu.v) / L;
+    if (t < 0 || t > 1) {
+      const near = t < 0 ? plane.a : plane.b;
+      out += `<line x1="${N(near.u)}" y1="${N(near.v)}" x2="${N(at.u)}" y2="${N(at.v)}" stroke="${ink}" stroke-width="${N(0.75 * K)}" stroke-dasharray="${N(3 * K)} ${N(3 * K)}"/>`;
+    }
+    const s = 5 * K;
+    const n2 = plane.n;
+    out += `<path d="M ${N(at.u + s * eu.u)} ${N(at.v + s * eu.v)} L ${N(at.u + s * eu.u + s * n2.u)} ${N(at.v + s * eu.v + s * n2.v)} L ${N(at.u + s * n2.u)} ${N(at.v + s * n2.v)}" fill="none" stroke="${ink}" stroke-width="${N(K)}"/>`;
+  }
+
+  /* a free end is an ×: it is anchored to nothing and says so */
+  for (const f of g.free) {
+    const s = 3.5 * K;
+    out += `<path d="M ${N(f.u - s)} ${N(f.v - s)} L ${N(f.u + s)} ${N(f.v + s)} M ${N(f.u + s)} ${N(f.v - s)} L ${N(f.u - s)} ${N(f.v + s)}" stroke="${ink}" stroke-width="${N(1.5 * K)}"/>`;
+  }
+
+  /* the transparent hit stroke — paint and target are different elements */
+  out += `<line x1="${N(g.a.u)}" y1="${N(g.a.v)}" x2="${N(g.b.u)}" y2="${N(g.b.v)}" stroke="transparent" stroke-width="${N(HIT_PX * K)}"/>`;
+
+  if (opt.sel && !opt.locked) {
+    /* The grab tab hangs 12 px off the line, on the side away from the
+       note — the midpoint of the line is where the value lives, and a handle
+       that covers the number is a handle over the one thing the dimension
+       exists to say. */
+    const mid = { u: (g.a.u + g.b.u) / 2, v: (g.a.v + g.b.v) / 2 };
+    const ar = (angle * Math.PI) / 180;
+    const tabDir = { u: -Math.sin(ar), v: Math.cos(ar) };   // the label frame's own down
+    const at = { u: mid.u + 12 * K * tabDir.u, v: mid.v + 12 * K * tabDir.v };
+    const h = 8 * K;
+    out += `<line x1="${N(mid.u)}" y1="${N(mid.v)}" x2="${N(at.u)}" y2="${N(at.v)}" stroke="${DIM.handle}" stroke-width="${N(K)}"/>`;
+    out += `<rect class="ohandle" data-m="${m.id}" x="${N(at.u - h / 2)}" y="${N(at.v - h / 2)}" width="${N(h)}" height="${N(h)}" fill="${DIM.handle}" style="cursor:move"/>`;
+    for (const p of [g.p1, g.p2]) out += `<circle cx="${N(p.u)}" cy="${N(p.v)}" r="${N(3.5 * K)}" fill="${DIM.handle}"/>`;
+  }
+  return out;
+}
+
+function label(at, angle, num, vInk, uInk, note, K, anchor) {
+  const fs = FONT_PX * K;
+  const a = anchor || "middle";
+  let out = `<g transform="translate(${N(at.u)} ${N(at.v)}) rotate(${N(angle)})">`;
+  if (note) out += `<text x="0" y="${N(-fs * 0.75)}" text-anchor="${a}" font-family="${MONO}" font-size="${N(fs * 0.8)}" fill="${DIM.unit}">${esc(note)}</text>`;
+  out += `<text x="0" y="${N(fs * 0.34)}" text-anchor="${a}" font-family="${MONO}" font-size="${N(fs)}" fill="${vInk}" style="font-variant-numeric:tabular-nums">${num}<tspan font-size="${N(fs * 0.8)}" fill="${uInk}"> cm</tspan></text>`;
+  return out + "</g>";
+}
+
+/* -- anchor markers. Five shapes, one hue: P5, shape carries meaning. -- */
+function marker(a, zoom, lit) {
+  const K = 1 / zoom, p = a.p;
+  const stroke = lit ? DIM.snap : DIM.snapQuiet;
+  const fill = lit ? DIM.snap : "rgba(99,102,241,0.16)";
+  const w = lit ? 1.6 : 1.2;
+  const at = (s) => `transform="translate(${N(p.u)} ${N(p.v)}) scale(${N(K)})" fill="${fill}" stroke="${stroke}" stroke-width="${w}"`;
+  if (a.kind === "corner") return `<rect ${at()} x="-4" y="-4" width="8" height="8"/>`;
+  if (a.kind === "side")   return `<polygon ${at()} points="0,-5 4.6,3 -4.6,3"/>`;
+  if (a.kind === "centre") return `<circle ${at()} r="4.4"/>`;
+  if (a.kind === "quad")   return `<polygon ${at()} points="0,-5 5,0 0,5 -5,0"/>`;
+  return "";
+}
+function planeMark(a, zoom, lit) {
+  const K = 1 / zoom;
+  return `<line x1="${N(a.a.u)}" y1="${N(a.a.v)}" x2="${N(a.b.u)}" y2="${N(a.b.v)}"
+    stroke="${lit ? DIM.snap : DIM.snapQuiet}" stroke-opacity="${lit ? 1 : 0.28}" stroke-width="${N((lit ? 3 : 1.2) * K)}" stroke-linecap="round"/>`;
+}
+function perpBadge(p, zoom) {
+  const K = 1 / zoom;
+  return `<g transform="translate(${N(p.u)} ${N(p.v)}) scale(${N(K)})">
+    <rect x="8" y="-20" width="17" height="15" rx="3" fill="#09090b" stroke="${DIM.snap}" stroke-width="1"/>
+    <path d="M13 -9 L13 -17 M12 -9 L21 -9" stroke="${DIM.snap}" stroke-width="1.4" fill="none"/></g>`;
+}
+
+/* -- the canvas frame -------------------------------------------------- */
+
+function grid(win, zoom) {
+  let step = GRID_CM;
+  while (step * zoom < 8) step *= 2;
+  let out = `<g stroke="#1e1e22" stroke-width="${N(1 / zoom)}">`;
+  for (let u = Math.ceil(win.u0 / step) * step; u <= win.u1; u += step) out += `<line x1="${N(u)}" y1="${N(win.v0)}" x2="${N(u)}" y2="${N(win.v1)}"/>`;
+  for (let v = Math.ceil(win.v0 / step) * step; v <= win.v1; v += step) out += `<line x1="${N(win.u0)}" y1="${N(v)}" x2="${N(win.u1)}" y2="${N(v)}"/>`;
+  return out + "</g>";
+}
+
+function drawElement(el, zoom, opt) {
+  opt = opt || {};
+  const rect = projectElement(el, "top");
+  const ink = layerInk(el);
+  const hw = rect.width / 2, hh = rect.height / 2, K = 1 / zoom;
+  const body = el.shape_kind === "ellipse"
+    ? `<ellipse rx="${N(hw)}" ry="${N(hh)}" fill="transparent" stroke="${ink}" stroke-width="${N(2 * K)}"/>`
+    : `<rect x="${N(-hw)}" y="${N(-hh)}" width="${N(rect.width)}" height="${N(rect.height)}" fill="transparent" stroke="${ink}" stroke-width="${N(2 * K)}"/>`;
+  const lbl = opt.noLabel ? "" : `<text y="${N(hh + FONT_PX * K * 1.25)}" text-anchor="middle" fill="#d4d4d8" font-size="${N(FONT_PX * K)}" transform="rotate(${N(-rect.rotationDeg)})" font-family="Inter, system-ui, sans-serif">${esc(el.name)}</text>`;
+  return `<g transform="translate(${N(rect.u)} ${N(rect.v)}) rotate(${N(rect.rotationDeg)})">${body}${lbl}</g>`;
+}
+
+function canvasSVG(win, zoom, inner, opt) {
+  opt = opt || {};
+  const w = (win.u1 - win.u0) * zoom, h = (win.v1 - win.v0) * zoom;
+  return `<svg class="cvs__svg" width="${N(w)}" height="${N(h)}" viewBox="${N(win.u0)} ${N(win.v0)} ${N(win.u1 - win.u0)} ${N(win.v1 - win.v0)}"
+    ${opt.id ? `id="${opt.id}"` : ""} style="${opt.style || ""}" role="img" aria-label="${esc(opt.label || "Stage plot, top view")}">
+    <rect x="${N(win.u0)}" y="${N(win.v0)}" width="${N(win.u1 - win.u0)}" height="${N(win.v1 - win.v0)}" fill="#09090b"/>
+    ${opt.noGrid ? "" : grid(win, zoom)}${inner}</svg>`;
+}
+
+function bar(right) {
+  return `<div class="cvs__bar"><span class="lbl">Vårgalan · Main stage</span>
+    <span class="cvs__sp"></span><span class="cvs__z">${right || "1 sq = 25 cm · true to scale"}</span></div>`;
+}
+
+/* ==================================================================== *
+ * 6 · The specimens.
+ * ==================================================================== */
+
+const ALL = Object.values(MEASURES);
+
+/* -- §01 the hero ------------------------------------------------------ */
+{
+  const win = { u0: -140, v0: -120, u1: 1560, v1: 1130 };
+  const zoom = 0.6;
+  let inner = ELEMENTS.map((e) => drawElement(e, zoom)).join("");
+  inner += ALL.map((m) => drawMeasure(m, zoom)).join("");
+  inner += ALL.map((m) => {
+    const g = dimGeom(m);
+    const mid = { u: (g.a.u + g.b.u) / 2, v: (g.a.v + g.b.v) / 2 };
+    const K = 1 / zoom;
+    return `<g transform="translate(${N(mid.u)} ${N(mid.v)}) scale(${N(K)})">
+      <circle cx="0" cy="-26" r="8" fill="#f59e0b"/>
+      <text x="0" y="-22.5" text-anchor="middle" font-family="${MONO}" font-size="10" font-weight="700" fill="#09090b">${m.id}</text></g>`;
+  }).join("");
+  document.getElementById("hero").innerHTML = bar() + canvasSVG(win, zoom, inner);
+}
+
+/* -- §02 the live anchor specimen -------------------------------------- */
+const LIVE = { win: { u0: 310, v0: 55, u1: 1390, v1: 490 }, zoom: 1.0, hit: null };
+function renderLive() {
+  const { win, zoom } = LIVE;
+  const els = [elById(2), elById(3)];
+  let inner = els.map((e) => drawElement(e, zoom)).join("");
+  const list = els.flatMap(anchorsOf);
+  const litIsPlane = LIVE.hit && LIVE.hit.kind === "plane";
+  const same = (a, b) => a && b && a.el === b.el && a.kind === b.kind && a.i === b.i;
+  inner += list.filter((a) => a.kind === "plane").map((a) => planeMark(a, zoom, same(LIVE.hit, a))).join("");
+  inner += list.filter((a) => a.kind !== "plane").map((a) => marker(a, zoom, same(LIVE.hit, a))).join("");
+  if (litIsPlane && LIVE.cursor) inner += perpBadge(LIVE.cursor, zoom);
+  const svg = canvasSVG(win, zoom, inner, { id: "livesvg", style: "cursor:crosshair", label: "The riser and the podium, showing every anchor they offer" });
+  const what = LIVE.hit
+    ? `<em>${esc(elById(LIVE.hit.el).name)}</em> · <i>${esc(LIVE.hit.name)}</i>${LIVE.hit.kind === "plane" ? " &mdash; free to slide, meets at 90&deg;" : " &mdash; a fixed point"}`
+    : `<span style="color:#52525b">aim inside the frame</span>`;
+  document.getElementById("anchorlive").innerHTML =
+    `<div class="arm"><b>Measure · aligned</b><span>Pick the first anchor.</span><s>Esc to leave</s></div>` +
+    svg + `<div class="rdo"><b>would grab</b>${what}</div>`;
+}
+renderLive();
+{
+  const host = document.getElementById("anchorlive");
+  host.addEventListener("pointermove", (ev) => {
+    const svg = document.getElementById("livesvg");
+    if (!svg) return;
+    const r = svg.getBoundingClientRect();
+    if (ev.clientX < r.left || ev.clientX > r.right || ev.clientY < r.top || ev.clientY > r.bottom) return;
+    const cur = { u: LIVE.win.u0 + (ev.clientX - r.left) / LIVE.zoom, v: LIVE.win.v0 + (ev.clientY - r.top) / LIVE.zoom };
+    const hit = aim(cur, [elById(2), elById(3)], LIVE.zoom);
+    LIVE.cursor = cur;
+    const same = (a, b) => (!a && !b) || (a && b && a.el === b.el && a.kind === b.kind && a.i === b.i);
+    if (!same(hit, LIVE.hit) || (hit && hit.kind === "plane")) { LIVE.hit = hit; renderLive(); }
+  });
+  host.addEventListener("pointerleave", () => { if (LIVE.hit) { LIVE.hit = null; LIVE.cursor = null; renderLive(); } });
+}
+
+/* -- §02 the marker legend --------------------------------------------- */
+{
+  const g = (inner) => `<svg width="34" height="22" viewBox="-17 -11 34 22">${inner}</svg>`;
+  const s = `fill="rgba(99,102,241,0.16)" stroke="#818cf8" stroke-width="1.3"`;
+  const rows = [
+    [g(`<rect ${s} x="-4" y="-4" width="8" height="8"/>`), "Corner", "A square. Every vertex of the silhouette — four on a rectangle, six on a truss raked in both axes."],
+    [g(`<polygon ${s} points="0,-5 4.6,3 -4.6,3"/>`), "Side midpoint", "A triangle. The middle of a straight side, pinned there."],
+    [g(`<circle ${s} r="4.4"/>`), "Centre", "A circle. The element's projected centre — what the inspector's position row edits."],
+    [g(`<polygon ${s} points="0,-5 5,0 0,5 -5,0"/>`), "Quadrant", "A diamond. North, east, south, west on a circle or an ellipse; nothing else offers one."],
+    [g(`<line x1="-13" y1="0" x2="13" y2="0" stroke="#818cf8" stroke-width="3" stroke-linecap="round"/>`), "Face", "No marker at all — the side itself lights, and the pointer takes a ⟂ badge. Free to slide; meets at 90°."],
+  ];
+  document.getElementById("anchlegend").innerHTML = rows.map(([glyph, name, desc]) =>
+    `<div class="anch__r"><div class="anch__g">${glyph}</div><div><div class="anch__n">${name}</div><div class="anch__d">${desc}</div></div></div>`).join("");
+}
+
+/* -- §02 the three zones ----------------------------------------------- */
+{
+  /* Drawn at 3 px per cm, so the 8 px aim radius is a real 8 px on screen
+     and the three zones are at the size a hand actually meets them. */
+  const zoom = 3, win = { u0: -8, v0: -26, u1: 352, v1: 40 };
+  const K = 1 / zoom;
+  const A = { u: 40, v: 0 }, B = { u: 320, v: 0 }, M = { u: 180, v: 0 };
+  let inner = `<line x1="${A.u - 22}" y1="0" x2="${B.u + 22}" y2="0" stroke="#5e5c64" stroke-width="${N(2 * K)}"/>`;
+  inner += `<line x1="${A.u}" y1="0" x2="${B.u}" y2="0" stroke="${DIM.snapQuiet}" stroke-opacity="0.28" stroke-width="${N(1.2 * K)}"/>`;
+  const dashed = (p) => `<circle cx="${p.u}" cy="${p.v}" r="${N(AIM_PX * K)}" fill="none" stroke="#52525b" stroke-width="${N(K)}" stroke-dasharray="${N(2.5 * K)} ${N(2.5 * K)}"/>`;
+  inner += dashed(A) + dashed(B) + dashed(M);
+  inner += marker({ kind: "corner", p: A }, zoom, false) + marker({ kind: "corner", p: B }, zoom, false) + marker({ kind: "side", p: M }, zoom, false);
+  const cap = (u, v, t, c, sz) => `<text x="${u}" y="${v}" text-anchor="middle" font-family="${MONO}" font-size="${N((sz || 10) * K)}" letter-spacing="${N(1.2 * K)}" fill="${c}">${t}</text>`;
+  inner += cap(A.u, -14, "CORNER", "#818cf8") + cap(B.u, -14, "CORNER", "#818cf8") + cap(M.u, -14, "MIDPOINT", "#818cf8");
+  inner += cap((A.u + M.u) / 2, 12, "FACE", "#818cf8") + cap((M.u + B.u) / 2, 12, "FACE", "#818cf8");
+  for (const p of [A, M, B]) inner += cap(p.u, 12, "8 px", "#52525b", 8.5);
+  inner += cap((A.u + B.u) / 2, 30, "the aim resolves to exactly one of these, everywhere along the side", "#52525b", 9);
+  document.getElementById("zones").innerHTML = canvasSVG(win, zoom, inner, { noGrid: true, label: "One side of an element, and the three zones an aim resolves into" });
+}
+
+/* -- §03 the sequence -------------------------------------------------- */
+{
+  const host = document.getElementById("sequence");
+  host.style.gridTemplateColumns = "repeat(3, minmax(0, 1fr))";
+  const zoom = 0.33, win = { u0: 300, v0: -60, u1: 1379, v1: 637 };
+  const base = () => [elById(2), elById(3)].map((e) => drawElement(e, zoom)).join("");
+  const cross = (p) => { const K = 1 / zoom; return `<path d="M ${N(p.u - 9 * K)} ${N(p.v)} L ${N(p.u + 9 * K)} ${N(p.v)} M ${N(p.u)} ${N(p.v - 9 * K)} L ${N(p.u)} ${N(p.v + 9 * K)}" stroke="#fbbf24" stroke-width="${N(K)}"/>`; };
+
+  /* 1 — armed, aiming at the podium */
+  let f1 = base();
+  const cur1 = { u: 1152, v: 172 };
+  f1 += anchorsOf(elById(3)).map((a) => marker(a, zoom, a.kind === "quad" && a.name === "north quadrant")).join("");
+  f1 += cross(cur1);
+
+  /* 2 — first pick taken on the riser's raked face, rubber band running */
+  const plane = anchorsOf(elById(2)).find((a) => a.kind === "plane" && a.name === "stage-right face");
+  const cur2 = { u: 1010, v: 330 };
+  const foot2 = footOn(plane, cur2, "aligned");
+  let f2 = base();
+  f2 += planeMark(plane, zoom, true);
+  f2 += `<line x1="${N(foot2.u)}" y1="${N(foot2.v)}" x2="${N(cur2.u)}" y2="${N(cur2.v)}" stroke="#f59e0b" stroke-width="${N(1.5 / zoom)}" stroke-dasharray="${N(5 / zoom)} ${N(4 / zoom)}"/>`;
+  f2 += anchorsOf(elById(3)).map((a) => marker(a, zoom, false)).join("");
+  f2 += cross(cur2);
+  {
+    const K = 1 / zoom, mid = { u: (foot2.u + cur2.u) / 2, v: (foot2.v + cur2.v) / 2 };
+    const val = Math.round(Math.hypot(cur2.u - foot2.u, cur2.v - foot2.v));
+    f2 += `<g transform="translate(${N(mid.u)} ${N(mid.v - 24 * K)}) scale(${N(K)})">
+      <rect x="-30" y="-11" width="60" height="18" rx="9" fill="#09090b" stroke="#f59e0b" stroke-width="1"/>
+      <text x="0" y="2" text-anchor="middle" font-family="${MONO}" font-size="11" fill="#fcd34d">${val} cm</text></g>`;
+  }
+
+  /* 3 — committed, at zero offset */
+  const committed = { id: "C0", mode: "aligned", offset_cm: 0, note: "", a: MEASURES.C.a, b: MEASURES.C.b };
+  let f3 = base() + drawMeasure(committed, zoom, { sel: true });
+
+  const frame = (title, sub, svg, armed) => `<div class="vs__c">
+    <div class="vs__hd"><b>${title}</b><span>${sub}</span></div>
+    <div class="spec__frame"><div class="cvs">${armed}${svg}</div></div></div>`;
+  const armed = (t) => `<div class="arm"><b>Measure · aligned</b><span>${t}</span><s>Esc</s></div>`;
+  host.innerHTML =
+    frame("Armed", "the tile is lit", canvasSVG(win, zoom, f1, { label: "The tool armed, showing the podium's anchors" }), armed("Pick the first anchor.")) +
+    frame("First pick", "a face, so it slides", canvasSVG(win, zoom, f2, { label: "The rubber band, held perpendicular to the picked face" }), armed("Pick the second anchor.")) +
+    frame("Committed", "offset 0, and selected", canvasSVG(win, zoom, f3, { label: "The finished dimension, running between its anchors" }), armed("Pick the first anchor."));
+}
+
+/* -- §04 the offset, one of them live ---------------------------------- */
+const OFF = { win: { u0: 60, v0: 400, u1: 1340, v1: 1103 }, zoom: 0.4266, value: -120 };
+function offsetInner(offset, sel) {
+  const m = Object.assign({}, MEASURES.A, { offset_cm: offset, id: "A" });
+  return [elById(1), elById(4), elById(5)].map((e) => drawElement(e, OFF.zoom)).join("") + drawMeasure(m, OFF.zoom, { sel });
+}
+function renderOffsets() {
+  const host = document.getElementById("offsets");
+  const left = canvasSVG(OFF.win, OFF.zoom, offsetInner(OFF.value, true), { id: "offsvg", label: "A dimension with a draggable offset" });
+  const right = canvasSVG(OFF.win, OFF.zoom, offsetInner(-280, false), { label: "The same dimension held 280 cm off the geometry" });
+  host.innerHTML =
+    `<div class="vs__c"><div class="vs__hd"><b>Drag me</b><span>offset ${Math.round(OFF.value)} cm</span></div>
+       <div class="spec__frame"><div class="cvs">${left}</div></div>
+       <div class="vs__note">The square handle is the canvas's own 8&nbsp;px handle. <b>The value never moves</b> — it is derived from the anchors, and the offset is placement.</div></div>` +
+    `<div class="vs__c"><div class="vs__hd"><b>Held well off</b><span>offset -280 cm</span></div>
+       <div class="spec__frame"><div class="cvs">${right}</div></div>
+       <div class="vs__note">The extension lines grow to reach the line and overshoot it by 5&nbsp;px, which is what tells a reader the line belongs to those two points and not to whatever it happens to pass.</div></div>`;
+}
+renderOffsets();
+{
+  let dragging = false;
+  const host = document.getElementById("offsets");
+  host.addEventListener("pointerdown", (ev) => {
+    if (!(ev.target instanceof Element) || !ev.target.classList.contains("ohandle")) return;
+    dragging = true; ev.preventDefault();
+    try { ev.target.setPointerCapture(ev.pointerId); } catch (e) { /* not fatal */ }
+  });
+  host.addEventListener("pointermove", (ev) => {
+    if (!dragging) return;
+    const svg = document.getElementById("offsvg");
+    if (!svg) return;
+    const r = svg.getBoundingClientRect();
+    const v = OFF.win.v0 + (ev.clientY - r.top) / OFF.zoom;
+    const raw = v - 770;                                   // the second anchor's depth
+    OFF.value = Math.max(-350, Math.min(200, Math.round(raw / GRID_CM) * GRID_CM));
+    renderOffsets();
+  });
+  const stop = () => { dragging = false; };
+  host.addEventListener("pointerup", stop);
+  host.addEventListener("pointercancel", stop);
+  host.addEventListener("pointerleave", stop);
+}
+
+/* -- §05 anatomy ------------------------------------------------------- */
+{
+  const zoom = 1.0, win = { u0: -40, v0: 0, u1: 980, v1: 200 };
+  const K = 1 / zoom;
+  const dim = (u1, u2, note) => ({ id: "x", mode: "horizontal", offset_cm: 70, note, a: { free: true, u: u1, v: 40 }, b: { free: true, u: u2, v: 40 } });
+  let inner = "";
+  inner += drawMeasure(dim(40, 520, "trim"), zoom, {});
+  inner += drawMeasure(dim(600, 750, ""), zoom, {});
+  inner += drawMeasure(dim(830, 864, ""), zoom, {});
+  const mk = (n, u, v) => `<g transform="translate(${u} ${v}) scale(${N(K)})"><circle r="8" fill="#f59e0b"/><text y="3.4" text-anchor="middle" font-family="${MONO}" font-size="10" font-weight="700" fill="#09090b">${n}</text></g>`;
+  inner += mk(1, 40, 28) + mk(2, 40, 98) + mk(3, 40, 126) + mk(4, 70, 110) + mk(5, 228, 110) + mk(6, 243, 90) + mk(7, 430, 96);
+  inner += `<text x="280" y="185" text-anchor="middle" font-family="${MONO}" font-size="${N(11 * K)}" fill="#52525b">480 cm — the value sits in a gap in its own line</text>`;
+  inner += `<text x="675" y="185" text-anchor="middle" font-family="${MONO}" font-size="${N(11 * K)}" fill="#52525b">150 cm — still fits</text>`;
+  inner += `<text x="880" y="185" text-anchor="middle" font-family="${MONO}" font-size="${N(11 * K)}" fill="#f87171">34 cm — flips out</text>`;
+  document.getElementById("anatomy").innerHTML = canvasSVG(win, zoom, inner, { noGrid: true, label: "The parts of a dimension, and the rule that moves the label outside" });
+
+  const parts = [
+    ["1 · anchor", "The point the dimension is measured from. Not drawn as anything: a marker here would say <b>you can grab this</b>, and outside the armed tool you cannot."],
+    ["2 · gap", "<b>4 px.</b> The extension line starts clear of the anchor, so the dimension never appears to touch the thing it measures."],
+    ["3 · overshoot", "<b>5 px.</b> The extension line runs past the dimension line. Without it the two lines meet in a corner and read as one bracket."],
+    ["4 · arrowhead", "<b>9 px long, 3 px half-width</b>, a filled triangle. One convention, no per-plot choice."],
+    ["5 · value", "<b>12 px mono, tabular-nums</b> — tokens.md §4, numbers that line up. Whole centimetres, in a gap in the line, never above it."],
+    ["6 · note", "Optional, <b>0.8×</b>, muted, on its own line above the value. Empty by default."],
+    ["7 · dimension line", "<b>1.5 px</b>, quieter than an element's 2 px. Carries a transparent <b>14 px</b> hit stroke on the desk and <b>44 px</b> in the hand."],
+  ];
+  document.getElementById("anatparts").innerHTML = parts.map(([k, v]) =>
+    `<div class="led__row"><div class="led__k">${k}</div><div class="led__v">${v}</div></div>`).join("");
+}
+
+/* -- §06 the desk, with the inspector rail ----------------------------- */
+{
+  const CW = 1132 - 176 - 240;   /* palette + rail come off the top */
+  const zoom = 0.62, win = { u0: 270, v0: -140, u1: 270 + CW / 0.62, v1: -140 + 486 / 0.62 };
+  let inner = ELEMENTS.map((e) => drawElement(e, zoom)).join("");
+  inner += drawMeasure(MEASURES.B, zoom, {});
+  inner += drawMeasure(MEASURES.D, zoom, {});
+  inner += drawMeasure(MEASURES.C, zoom, { sel: true });
+
+  const measureTile = (label, on, path) => `<div class="pal__i${on ? " pal__i--on" : ""}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">${path}</svg><span>${label}</span></div>`;
+  const palette = `<div class="pal">
+    <div class="pal__sec"><span class="lbl">Measure</span>
+      <div class="pal__grid">
+        ${measureTile("Aligned", true, '<path d="M4 20 L20 4"/><path d="M4 20 l1 -5 l4 1 Z" fill="currentColor" stroke="none"/><path d="M20 4 l-1 5 l-4 -1 Z" fill="currentColor" stroke="none"/>')}
+        ${measureTile("Horizontal", false, '<path d="M4 12 H20"/><path d="M4 12 l5 -3 v6 Z" fill="currentColor" stroke="none"/><path d="M20 12 l-5 -3 v6 Z" fill="currentColor" stroke="none"/>')}
+        ${measureTile("Vertical", false, '<path d="M12 4 V20"/><path d="M12 4 l-3 5 h6 Z" fill="currentColor" stroke="none"/><path d="M12 20 l-3 -5 h6 Z" fill="currentColor" stroke="none"/>')}
+      </div>
+    </div>
+    <div class="pal__sec"><span class="lbl">Shapes</span>
+      <div class="pal__grid">
+        <div class="pal__i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="6" width="18" height="12" rx="1"/></svg><span>Rectangle</span></div>
+        <div class="pal__i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="12" rx="9" ry="7"/></svg><span>Ellipse</span></div>
+        <div class="pal__i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19 L20 5"/></svg><span>Line</span></div>
+        <div class="pal__i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 6h14M12 6v13"/></svg><span>Text</span></div>
+      </div>
+    </div>
+    <div class="pal__sec"><span class="lbl">Resources</span>
+      <div class="pal__grid">
+        <div class="pal__i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="3" width="14" height="18" rx="1"/><circle cx="12" cy="14" r="4"/><circle cx="12" cy="7" r="1.6"/></svg><span>Speaker</span></div>
+        <div class="pal__i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6h16l-3 12H7Z"/><path d="M7 10h10"/></svg><span>Monitor</span></div>
+      </div>
+    </div></div>`;
+
+  const rail = `<div class="irail">
+    <div class="irail__hd"><b>Dimension</b><s>×</s></div>
+    <div class="irail__bd">
+      <div class="irow"><label>Value</label><div class="irow__v"><span class="ival">176<u>cm</u></span></div></div>
+      <div class="irow"><label>Type</label><div class="irow__v"><span class="fld fld--sel" style="flex:1">Aligned</span></div></div>
+      <div class="irow irow--top"><label style="padding-top:1px">From</label><div class="irow__v"><span class="iend"><span class="iend__t">Riser</span><span class="iend__s">stage-right face</span></span></div></div>
+      <div class="irow irow--top"><label style="padding-top:1px">To</label><div class="irow__v"><span class="iend"><span class="iend__t">Podium</span><span class="iend__s">west quadrant</span></span></div></div>
+      <div class="irow"><label>Offset</label><div class="irow__v"><span class="fld" style="flex:1;min-width:0">-200</span><span class="ibtn" title="Flip to the other side">⇄</span></div></div>
+      <div class="irow"><label>Note</label><div class="irow__v"><span class="fld fld--ph" style="flex:1">Optional</span></div></div>
+      <div class="irow"><label>Layer</label><div class="irow__v"><span class="fld fld--sel" style="flex:1">Band</span></div></div>
+    </div>
+    <div class="irail__ft" style="flex-direction:column;align-items:stretch;gap:8px">
+      <p style="margin:0;font-size:11px;line-height:1.45;color:#52525b">Drag an end grip on the canvas to re-anchor that end.</p>
+      <span class="btn btn--danger-ghost btn--sm" style="align-self:flex-start">Delete</span></div></div>`;
+
+  document.getElementById("deskcols").innerHTML =
+    palette +
+    `<div class="cvs">${bar("Dimension · aligned · 176 cm")}${canvasSVG(win, zoom, inner, { label: "The plot with one dimension selected" })}</div>` +
+    rail;
+}
+
+/* ==================================================================== *
+ * 7 · Paper. Sheet 1 of the document Slice 41 built, at 1:100.
+ *     Millimetres throughout; the dimension's furniture is fixed in mm,
+ *     so it is the same size at every scale on the ladder.
+ * ==================================================================== */
+
+const PAGE_W = 297, PAGE_H = 210, M_LEFT = 12, M_RIGHT = 12;
+const FRAME = { x: 12, y: 40, w: 218, h: 150 };
+const BLOCK = { x: 234, y: 40, w: 51, h: 150 };
+const PT = 0.3528;
+const INK = { rule: "#111111", hair: "#bbbbbb", grey: "#777777", light: "#dddddd", dim: "#555555" };
+const PW = { frame: 0.25, element: 0.3, grid: 0.06, hair: 0.15, rule: 0.5, dimLine: 0.18, dimExt: 0.12 };
+
+function hexToRgb(hex) { const m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim()); if (!m) return null; const n = parseInt(m[1], 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+const toHex = (rgb) => "#" + rgb.map((c) => Math.round(c).toString(16).padStart(2, "0")).join("");
+function relLum(rgb) { const f = rgb.map((c) => { const s = c / 255; return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4); }); return 0.2126 * f[0] + 0.7152 * f[1] + 0.0722 * f[2]; }
+const contrast = (a, b) => { const la = relLum(a), lb = relLum(b); return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05); };
+function rgbToHsl([r, g, b]) { r /= 255; g /= 255; b /= 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; const l = (mx + mn) / 2; let h = 0, s = 0; if (d) { s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn); if (mx === r) h = (g - b) / d + (g < b ? 6 : 0); else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4; h /= 6; } return [h, s, l]; }
+function hslToRgb([h, s, l]) { if (!s) return [l * 255, l * 255, l * 255]; const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q; const hue = (t) => { if (t < 0) t += 1; if (t > 1) t -= 1; if (t < 1 / 6) return p + (q - p) * 6 * t; if (t < 1 / 2) return q; if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6; return p; }; return [hue(h + 1 / 3) * 255, hue(h) * 255, hue(h - 1 / 3) * 255]; }
+
+/* patterns.md §8, "crossing a dark-ground colour onto paper" — applied,
+   not restated. A dimension has no colour anybody chose, so it never
+   reaches this function at all: it prints in the document's ink. */
+function paperInk(color) {
+  const rgb = hexToRgb(color || "");
+  if (!rgb) return { hex: INK.rule, unset: true };
+  const white = [255, 255, 255];
+  if (contrast(rgb, white) >= 4.5) return { hex: toHex(rgb), unset: false };
+  const [h, s] = rgbToHsl(rgb);
+  let lo = 0.12, hi = rgbToHsl(rgb)[2], best = hslToRgb([h, s, lo]);
+  for (let i = 0; i < 24; i++) {
+    const mid = (lo + hi) / 2, cand = hslToRgb([h, s, mid]);
+    if (contrast(cand, white) >= 4.5) { best = cand; lo = mid; } else hi = mid;
+  }
+  return { hex: toHex(best), unset: false };
+}
+
+const DENOM = 100, KMM = 10 / DENOM;   // mm per cm at 1:100
+const PWIN = { u0: -100, u1: 1500, v0: -120, v1: 1090 };
+const PX0 = FRAME.x + (FRAME.w - (PWIN.u1 - PWIN.u0) * KMM) / 2;
+const PY0 = FRAME.y + (FRAME.h - 9 - (PWIN.v1 - PWIN.v0) * KMM) / 2;
+const MX = (u) => PX0 + (u - PWIN.u0) * KMM;
+const MY = (v) => PY0 + (v - PWIN.v0) * KMM;
+
+function ptext(x, y, str, o) {
+  o = o || {};
+  return `<text x="${N(x)}" y="${N(y)}" font-family="Helvetica, Arial, sans-serif" font-size="${N((o.size || 6) * PT)}"
+    font-weight="${o.weight || "normal"}" text-anchor="${o.anchor || "start"}" fill="${o.fill || INK.rule}"
+    ${o.track ? `letter-spacing="${N(o.track)}"` : ""}>${esc(str)}</text>`;
+}
+
+/* Paper dimension furniture, in real millimetres. Fixed at every scale. */
+const PD = { arrow: 1.8, arrowW: 0.6, gap: 0.9, over: 1.1, size: 5.5, note: 4.4 };
+
+function paperMeasure(m) {
+  const g = dimGeom(m);
+  if (!g) return "";
+  const A = { u: MX(g.a.u), v: MY(g.a.v) }, B = { u: MX(g.b.u), v: MY(g.b.v) };
+  const P1 = { u: MX(g.p1.u), v: MY(g.p1.v) }, P2 = { u: MX(g.p2.u), v: MY(g.p2.v) };
+  const dv = { u: B.u - A.u, v: B.v - A.v };
+  const LL = Math.hypot(dv.u, dv.v) || 1;
+  const d = { u: dv.u / LL, v: dv.v / LL };
+  let out = "";
+  for (const [p, q] of [[P1, A], [P2, B]]) {
+    const e = { u: q.u - p.u, v: q.v - p.v }, L = Math.hypot(e.u, e.v);
+    if (L < 0.4) continue;
+    const eu = { u: e.u / L, v: e.v / L };
+    out += `<line x1="${N(p.u + PD.gap * eu.u)}" y1="${N(p.v + PD.gap * eu.v)}" x2="${N(q.u + PD.over * eu.u)}" y2="${N(q.v + PD.over * eu.v)}" stroke="${INK.dim}" stroke-width="${PW.dimExt}"/>`;
+  }
+  const arrow = (tip, dir) => {
+    const p = { u: -dir.v, v: dir.u };
+    const b = { u: tip.u + PD.arrow * dir.u, v: tip.v + PD.arrow * dir.v };
+    return `<polygon points="${N(tip.u)},${N(tip.v)} ${N(b.u + PD.arrowW * p.u)},${N(b.v + PD.arrowW * p.v)} ${N(b.u - PD.arrowW * p.u)},${N(b.v - PD.arrowW * p.v)}" fill="${INK.rule}"/>`;
+  };
+  const num = String(Math.round(g.value));
+  const txt = num + " cm";
+  const textMM = txt.length * PD.size * PT * 0.58;
+  const fits = LL >= textMM + 2 + 2 * PD.arrow;
+  let angle = (Math.atan2(d.v, d.u) * 180) / Math.PI;
+  if (angle >= 90) angle -= 180; else if (angle < -90) angle += 180;
+  const mid = { u: (A.u + B.u) / 2, v: (A.v + B.v) / 2 };
+
+  if (fits) {
+    const half = textMM / 2 + 1;
+    out += `<line x1="${N(A.u)}" y1="${N(A.v)}" x2="${N(mid.u - half * d.u)}" y2="${N(mid.v - half * d.v)}" stroke="${INK.dim}" stroke-width="${PW.dimLine}"/>`;
+    out += `<line x1="${N(mid.u + half * d.u)}" y1="${N(mid.v + half * d.v)}" x2="${N(B.u)}" y2="${N(B.v)}" stroke="${INK.dim}" stroke-width="${PW.dimLine}"/>`;
+    out += arrow(A, d) + arrow(B, { u: -d.u, v: -d.v });
+    out += `<g transform="translate(${N(mid.u)} ${N(mid.v)}) rotate(${N(angle)})">
+      ${m.note ? ptext(0, -PD.size * PT * 1.35, m.note, { size: PD.note, anchor: "middle", fill: INK.grey }) : ""}
+      ${ptext(0, PD.size * PT * 0.36, txt, { size: PD.size, anchor: "middle" })}</g>`;
+  } else {
+    out += `<line x1="${N(A.u - PD.arrow * d.u)}" y1="${N(A.v - PD.arrow * d.v)}" x2="${N(B.u + PD.arrow * d.u)}" y2="${N(B.v + PD.arrow * d.v)}" stroke="${INK.dim}" stroke-width="${PW.dimLine}"/>`;
+    out += arrow(A, { u: -d.u, v: -d.v }) + arrow(B, d);
+    const end = d.u >= 0 ? B : A, away = d.u >= 0 ? d : { u: -d.u, v: -d.v };
+    out += `<g transform="translate(${N(end.u + (PD.arrow + 1.2) * away.u)} ${N(end.v + (PD.arrow + 1.2) * away.v)}) rotate(${N(angle)})">
+      ${ptext(0, PD.size * PT * 0.36, txt, { size: PD.size })}</g>`;
+  }
+  for (const f of g.free) {
+    const p = { u: MX(f.u), v: MY(f.v) }, s = 0.9;
+    out += `<path d="M ${N(p.u - s)} ${N(p.v - s)} L ${N(p.u + s)} ${N(p.v + s)} M ${N(p.u + s)} ${N(p.v - s)} L ${N(p.u - s)} ${N(p.v + s)}" stroke="${INK.rule}" stroke-width="${PW.dimLine}"/>`;
+  }
+  return out;
+}
+
+{
+  let inner = `<rect width="${PAGE_W}" height="${PAGE_H}" fill="#ffffff"/>`;
+  /* masthead */
+  inner += ptext(M_LEFT, 18, "Vårgalan", { size: 17, weight: "bold" });
+  inner += ptext(PAGE_W - M_RIGHT, 18, "PLOT", { size: 8, weight: "bold", anchor: "end", fill: "#666666", track: 0.5 });
+  inner += ptext(M_LEFT, 23.6, "Main stage   -   2026-09-19", { size: 9, fill: "#333333" });
+  inner += ptext(M_LEFT, 28.4, "6 elements   -   3 layers   -   4 dimensions", { size: 7, fill: "#777777" });
+  inner += ptext(PAGE_W - M_RIGHT, 28.4, "Generated 2026-08-06   -   Scale 1:100", { size: 7, anchor: "end", fill: "#777777" });
+  inner += `<line x1="${M_LEFT}" y1="30.8" x2="${PAGE_W - M_RIGHT}" y2="30.8" stroke="${INK.rule}" stroke-width="${PW.rule}"/>`;
+  inner += ptext(M_LEFT, FRAME.y - 4.5, "Top view", { size: 11, weight: "bold" });
+  inner += ptext(FRAME.x + FRAME.w, FRAME.y - 4.5, "Sheet 1 of 4", { size: 7, anchor: "end", fill: "#777777" });
+
+  /* the drawing */
+  inner += `<clipPath id="pclip"><rect x="${FRAME.x}" y="${FRAME.y}" width="${FRAME.w}" height="${FRAME.h}"/></clipPath><g clip-path="url(#pclip)">`;
+  inner += `<g stroke="${INK.light}" stroke-width="${PW.grid}">`;
+  for (let u = 0; u <= 1400; u += 100) inner += `<line x1="${N(MX(u))}" y1="${FRAME.y}" x2="${N(MX(u))}" y2="${FRAME.y + FRAME.h}"/>`;
+  for (let v = 0; v <= 900; v += 100) inner += `<line x1="${FRAME.x}" y1="${N(MY(v))}" x2="${FRAME.x + FRAME.w}" y2="${N(MY(v))}"/>`;
+  inner += "</g>";
+  for (const el of ELEMENTS) {
+    const ink = paperInk(layerOf(el).color).hex;
+    const rect = projectElement(el, "top");
+    const cx = MX(rect.u), cy = MY(rect.v), w = rect.width * KMM, h = rect.height * KMM;
+    const body = el.shape_kind === "ellipse"
+      ? `<ellipse rx="${N(w / 2)}" ry="${N(h / 2)}" fill="none" stroke="${ink}" stroke-width="${PW.element}"/>`
+      : `<rect x="${N(-w / 2)}" y="${N(-h / 2)}" width="${N(w)}" height="${N(h)}" fill="none" stroke="${ink}" stroke-width="${PW.element}"/>`;
+    const lbl = ptext(0, h / 2 + 2.1, el.name, { size: 5.5, anchor: "middle", fill: ink }).replace("<text ", `<text transform="rotate(${N(-rect.rotationDeg)})" `);
+    inner += `<g transform="translate(${N(cx)} ${N(cy)}) rotate(${N(rect.rotationDeg)})">${body}${lbl}</g>`;
+  }
+  inner += ALL.map(paperMeasure).join("");
+  inner += "</g>";
+  inner += `<rect x="${FRAME.x}" y="${FRAME.y}" width="${FRAME.w}" height="${FRAME.h}" fill="none" stroke="${INK.rule}" stroke-width="${PW.frame}"/>`;
+  inner += ptext(FRAME.x + FRAME.w, FRAME.y + FRAME.h + 3.4, "STAGE WIDTH", { size: 5, anchor: "end", fill: INK.grey, track: 0.2 });
+
+  /* title block */
+  let y = BLOCK.y;
+  inner += `<rect x="${BLOCK.x}" y="${BLOCK.y}" width="${BLOCK.w}" height="${BLOCK.h}" fill="none" stroke="${INK.hair}" stroke-width="${PW.frame}"/>`;
+  const pad = 2.6;
+  const head = (s) => { y += 4.4; const t = ptext(BLOCK.x + pad, y, s, { size: 5, weight: "bold", fill: INK.grey, track: 0.28 }); y += 1.2; return t + `<line x1="${N(BLOCK.x + pad)}" y1="${N(y)}" x2="${N(BLOCK.x + BLOCK.w - pad)}" y2="${N(y)}" stroke="${INK.hair}" stroke-width="${PW.hair}"/>`; };
+  inner += head("SCALE");
+  y += 4.2;
+  inner += ptext(BLOCK.x + pad, y, "1:100", { size: 11, weight: "bold" }) + ptext(BLOCK.x + BLOCK.w - pad, y, "A4", { size: 5.5, anchor: "end", fill: INK.grey });
+  y += 2.6;
+  for (let i = 0; i < 4; i++) inner += `<rect x="${N(BLOCK.x + pad + i * 100 * KMM)}" y="${N(y)}" width="${N(100 * KMM)}" height="1.4" fill="${i % 2 ? "#ffffff" : INK.rule}" stroke="${INK.rule}" stroke-width="0.12"/>`;
+  inner += ptext(BLOCK.x + pad, y + 4.1, "0", { size: 4.6, anchor: "middle", fill: INK.grey }) + ptext(BLOCK.x + pad + 4 * 100 * KMM, y + 4.1, "4 m", { size: 4.6, anchor: "middle", fill: INK.grey });
+  y += 6.4;
+  inner += ptext(BLOCK.x + pad, y, "Grid 25 cm · drawn every 4th (100 cm)", { size: 5, fill: INK.grey });
+  y += 1.4;
+  inner += head("LAYERS");
+  for (const l of LAYERS) {
+    const ink = paperInk(l.color).hex;
+    y += 4.6;
+    inner += `<rect x="${N(BLOCK.x + pad)}" y="${N(y - 2.5)}" width="5.5" height="2.6" fill="${ink}"/>`;
+    inner += ptext(BLOCK.x + pad + 7.4, y, l.name, { size: 6 });
+    inner += ptext(BLOCK.x + BLOCK.w - pad, y, String(ELEMENTS.filter((e) => e.layer_id === l.id).length), { size: 5.4, anchor: "end", fill: INK.grey });
+  }
+  y += 2;
+  inner += head("DIMENSIONS");
+  y += 3.8;
+  inner += ptext(BLOCK.x + pad, y, "4 on this view, in centimetres", { size: 5, fill: INK.grey });
+  y += 1.4;
+  inner += head("CONVENTIONS");
+  const conv = [
+    ["dim", "Arrowed line = dimension, cm"],
+    ["perp", "Right-angle mark = met square"],
+    ["free", "× = a point on the floor"],
+  ];
+  for (const [kind, caption] of conv) {
+    y += 4.6;
+    const cx = BLOCK.x + pad;
+    if (kind === "dim") {
+      inner += `<line x1="${N(cx)}" y1="${N(y - 1)}" x2="${N(cx + 7)}" y2="${N(y - 1)}" stroke="${INK.dim}" stroke-width="${PW.dimLine}"/>`;
+      inner += `<polygon points="${N(cx)},${N(y - 1)} ${N(cx + 1.6)},${N(y - 1.5)} ${N(cx + 1.6)},${N(y - 0.5)}" fill="${INK.rule}"/>`;
+      inner += `<polygon points="${N(cx + 7)},${N(y - 1)} ${N(cx + 5.4)},${N(y - 1.5)} ${N(cx + 5.4)},${N(y - 0.5)}" fill="${INK.rule}"/>`;
+    } else if (kind === "perp") {
+      inner += `<path d="M ${N(cx)} ${N(y - 3)} L ${N(cx)} ${N(y)} L ${N(cx + 4)} ${N(y)}" fill="none" stroke="${INK.dim}" stroke-width="0.18"/>`;
+      inner += `<path d="M ${N(cx + 1.4)} ${N(y - 1.4)} L ${N(cx + 1.4)} ${N(y)} M ${N(cx)} ${N(y - 1.4)} L ${N(cx + 1.4)} ${N(y - 1.4)}" fill="none" stroke="${INK.dim}" stroke-width="0.12"/>`;
+    } else {
+      inner += `<path d="M ${N(cx)} ${N(y - 2.4)} L ${N(cx + 2.4)} ${N(y)} M ${N(cx + 2.4)} ${N(y - 2.4)} L ${N(cx)} ${N(y)}" stroke="${INK.rule}" stroke-width="0.18"/>`;
+    }
+    inner += ptext(BLOCK.x + pad + 9.4, y, caption, { size: 5, fill: INK.grey });
+  }
+  inner += `<line x1="${M_LEFT}" y1="${PAGE_H - 14}" x2="${PAGE_W - M_RIGHT}" y2="${PAGE_H - 14}" stroke="${INK.hair}" stroke-width="0.2"/>`;
+  inner += ptext(M_LEFT, PAGE_H - 11, "Vårgalan - Main stage - Stage plot", { size: 6.6, fill: "#8c8c8c" });
+  inner += ptext(PAGE_W - M_RIGHT, PAGE_H - 11, "1 / 4", { size: 6.6, anchor: "end", fill: "#8c8c8c" });
+
+  document.getElementById("papersheet").innerHTML =
+    `<svg viewBox="0 0 ${PAGE_W} ${PAGE_H}" role="img" aria-label="Sheet 1: the top view at 1:100, with four dimensions">${inner}</svg>`;
+}
+
+/* ==================================================================== *
+ * 8 · The phone. Drawn at the desk's own values; targeted at 44.
+ * ==================================================================== */
+{
+  const zoom = 0.38;
+  const win = { u0: 200, v0: -100, u1: 200 + 375 / 0.38, v1: -100 + 430 / 0.38 };
+  const inner = ELEMENTS.map((e) => drawElement(e, zoom)).join("")
+    + drawMeasure(MEASURES.B, zoom, {})
+    + drawMeasure(MEASURES.C, zoom, {})
+    + drawMeasure(MEASURES.D, zoom, {});
+  const innerSel = ELEMENTS.map((e) => drawElement(e, zoom)).join("")
+    + drawMeasure(MEASURES.B, zoom, {})
+    + drawMeasure(MEASURES.D, zoom, {})
+    + drawMeasure(MEASURES.C, zoom, { sel: true, locked: true });
+
+  const shell = (body) => `<div class="phone__frame">
+    <div class="m-hd"><div class="m-hd__ti"><span class="m-hd__ic">▦</span><span class="m-hd__nm">Vårgalan</span></div><span class="m-hd__av"></span></div>
+    ${body}
+    <div class="m-nav">
+      <span class="m-nav__i"><span class="m-nav__g">▤</span>Overview</span>
+      <span class="m-nav__i on"><span class="m-nav__g">▦</span>Plot</span>
+      <span class="m-nav__i"><span class="m-nav__g">♪</span>Audio</span>
+      <span class="m-nav__i"><span class="m-nav__g">☰</span>More</span>
+    </div></div>`;
+
+  const barRow = `<div class="m-pan__bar" style="border-bottom:1px solid #27272a">
+      <span class="m-pick"><b>Main stage</b><s>▾</s></span>
+      <span class="m-seg"><span class="on">Top</span><span>Front</span><span>Side</span></span>
+      <span class="m-pan__ic m-pan__ic--44">⌕</span></div>`;
+
+  const said = `<div class="m-said"><span class="m-said__i">i</span><span class="m-said__t">
+      <b>Placing elements and drawing dimensions is a desk job</b> — open this plot on a computer.
+      Tap anything on it to read or edit what it is, and tap a dimension to change its note.</span></div>`;
+
+  const one = shell(`<div class="m-bd" style="padding:0;gap:0">
+      ${barRow}${said}
+      <div class="m-plot">${canvasSVG(win, zoom, inner, { style: "position:absolute;inset:0", label: "The plot on a phone, with its dimensions drawn" })}</div>
+    </div>`);
+
+  const sheet = `<div class="m-sheet m-sheet--noscrim"><div class="m-sheet__p" style="pointer-events:auto">
+      <div class="m-sheet__hd"><div><div class="m-sheet__ti">Dimension</div><div class="m-sheet__sub">Riser → Podium · aligned</div></div><span class="m-sheet__x">×</span></div>
+      <div class="m-sheet__bd" style="padding-bottom:28px">
+        <div class="m-insp"><span class="lbl">Value</span><span class="ival" style="font-size:20px">176<u>cm</u></span></div>
+        <div class="m-insp"><span class="lbl">From</span><span style="font-size:14px;color:#d4d4d8">Riser <s style="text-decoration:none;color:#71717a">· stage-right face</s></span></div>
+        <div class="m-insp"><span class="lbl">To</span><span style="font-size:14px;color:#d4d4d8">Podium <s style="text-decoration:none;color:#71717a">· west quadrant</s></span></div>
+        <div class="m-fld"><span class="lbl">Note</span><span class="fld fld--md fld--ph">Optional</span></div>
+      </div>
+    </div></div>`;
+
+  const two = shell(`<div class="m-bd" style="padding:0;gap:0;position:relative">
+      ${barRow}
+      <div class="m-plot">${canvasSVG(win, zoom, innerSel, { style: "position:absolute;inset:0", label: "A dimension tapped on a phone" })}</div>
+      ${sheet}
+    </div>`);
+
+  document.getElementById("phones").innerHTML =
+    `<div class="phone">${one}<div class="phone__cap"><b>375 × 690.</b> Every dimension draws at the desk's values &mdash; drawing is not targeting</div></div>` +
+    `<div class="phone">${two}<div class="phone__cap"><b>Tapped.</b> No scrim (§7f, read against what is behind it), no footer, no delete &mdash; the note commits per field and nothing here destroys</div></div>`;
+}
+</script>

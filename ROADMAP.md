@@ -13,7 +13,11 @@ The table is empty because the roadmap is **asking**, not because the tool is
 finished. Slices 40 and 41 — the audio plan and the stage plot as generated
 documents — both merged 2026-08-06, Slice 42 — the Sources drawer's mic
 picker — merged 2026-08-08, and Slice 43 — the output flow graph's stage-multi
-visibility flag — also merged 2026-08-08, all leaving it that way.
+visibility flag — also merged 2026-08-08, all leaving it that way. Slice 44 —
+measurements on stage plots — is delivered on `042-plot-measurements` and
+awaiting the user's decision to merge; it was drafted as "Slice 42" before that
+number was independently claimed by the mic-picker fix above, and is renumbered
+here to the next free slot.
 
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
 multi-event/tour planning (§3.11).
@@ -2237,6 +2241,127 @@ polarity inverted so `false` is the wanted default, or a `*bool`/explicit-defaul
 every write path — decide this before naming the column, not after a create path
 proves it wrong.
 
+## Slice 44 — Measurements on stage plots (OpenSpec: `plot-measurements`) ✅ 2026-08-07
+
+**Asked for 2026-08-06:** *"On the stage plots it's not easy to see the relative positions of
+things… Kinda like how measurements are plotted on CAD drawings."* Slice 41 made the plot
+measurable with a ruler at a stated 1:50 or 1:100; this lets the planner say **which**
+distances matter, which is the half that was missing.
+
+**The first slice carried by OpenSpec** rather than Spec Kit. Artifacts live in
+`openspec/changes/plot-measurements/`; the mockup was approved 2026-08-06 before any spec
+existed, as the Frontend Design Workflow requires. Drafted and delivered as "Slice 42" — the
+number was independently claimed by the mic-picker fix above while this branch was in
+flight, and it is renumbered here to 44, the next free slot, on merge.
+
+**Four decisions were the user's, taken before the spec.** Measurements print as well as
+draw; a measurement belongs to the view it was drawn in; both aligned and locked
+horizontal/vertical are offered; and an endpoint may be a free grid-snapped point rather
+than an element.
+
+- [x] **An anchor is a feature of the element's 3D box, not a vertex of its silhouette.**
+      The obvious model — "corner 2 of `projectedOutline`" — is wrong and quietly so: the
+      hull has four vertices for a plain rect and up to six when yaw and tilt combine, so
+      after a rake, corner 2 is a *different corner* and the dimension walks without
+      saying. What is stored is a sign triple on the element's own axes, or one of its six
+      faces. The silhouette is used only to decide which features to **offer**, and to draw.
+- [x] **A face is offered exactly when its projected normal is not collapsing.** Normal in
+      the view plane means the face is seen edge-on, which is the straight side you can
+      measure to; normal pointing into the screen means it is seen flat. One test, and it
+      declines the top face in a top view with no special case. The ellipse's four quadrant
+      points fall out of the same derivation — they are its edge-on face centres — so it
+      needs no code path of its own, only exclusion from plane mode.
+- [x] **A face's midpoint and its plane are one feature in two modes**, distinguished by a
+      `slide` flag. They occupy the same position, so aiming cannot separate them by
+      proximity: along any side there are three zones and no dead ground — two corner zones,
+      one midpoint zone, the rest of the side is the plane. Points beat faces wherever both
+      are in range, which is the only thing that makes a corner reachable at all, since a
+      corner sits on two faces.
+- [x] **The three types are one function.** They differ only in the direction the value is
+      read along: aligned along the line between the ends (or a face's normal, which is what
+      makes it perpendicular), locked along one view axis. A face end resolves by
+      intersecting the other end's ray with the face's line, which yields the perpendicular
+      foot and the locked foot from the same formula.
+- [x] **No value is stored or transmitted, anywhere.** The schema holds two anchors and an
+      offset; the API accepts no value; the document derives its own in Go. That is what
+      keeps a dimension true when what it measures moves, and it is why the geometry is
+      ported rather than shipped as a number — `stage_plot_measure.go` and `lib/stagePlot.ts`
+      assert the same cases with the same expected numbers, as the projection port already did.
+- [x] **Two corrections the maths made to the plan.** The silhouette hexagon is unreachable
+      in plan view — with yaw and tilt the length and height axes both project onto the yaw
+      direction, so a top view is always a parallelogram; the test asserts it in the
+      elevation, where it is real. And migration 053 uses `CHECK` for its enums and Go for
+      the endpoint exclusivity, which is the split migration 032 already drew, not the
+      "no CHECK" style design.md first claimed.
+- [x] **`design/patterns.md` §7g gained a rule, and it cost a second surface.** *A surface
+      never destroys what it cannot author.* §7g drew its line at the **gesture**, which says
+      what a phone may do to an object and nothing about what it may end — so as it stood, it
+      permitted the phone to delete a dimension. The clause is an insertion, not an amendment
+      to the withheld-gesture sentence. Its consequence: the phone's element sheet had been
+      offering a Delete for an element the phone cannot place, so that went too, in the same
+      commit as the rule.
+- [x] **Found on the way, and fixed here: deleting a plot element was never confirmed.** No
+      dialog, straight to the mutation — while `destructive-confirmation` has required a
+      confirmation for "an element" since D6. This slice needed somewhere to state how many
+      measurements go with the element, so the question now exists and states the count. A
+      measurement anchored at both ends counts once.
+- [x] **The tile crossing needed one idea.** A dimension spanning a sheet division is drawn
+      on both parts by the existing clip, but its label sits at the midpoint — which can be
+      on the *other* sheet, leaving a part showing a line and no number. The label rides the
+      visible portion instead, so each part states the distance in full.
+- [x] **Verified against a copy of the real database**: migration 053 applied clean to the
+      live schema (2 plots, 15 elements intact), three measurements drawn on the *Kyrkan*
+      plot including a sliding face anchor, and the four-sheet PDF rendered with the values
+      and the conventions row on it.
+
+**Eight rounds of field use followed, and they are most of what this slice knows.** The
+geometry held from the first pass; everything found was a layer above it, and none of it
+was reachable by the test suites as the project runs them — pointer behaviour has no DOM
+to be tested in, and the geometry's own tests were asking invariants that the faults
+survived. Worth reading before the next canvas slice:
+
+- **The anchor model was wrong, and the spec said so all along.** It read "each straight
+  side of that *silhouette*"; the code offered box *faces*, which are sides of the drawing
+  only when seen exactly edge-on. On a truss yawed 33° and raked 31° the silhouette has
+  four sides in plan and six in each elevation, and it offered two, none and none. A side
+  is now stored as the box **edge** it projects from — but **both** encodings are kept,
+  because where two axes project parallel a whole face flattens to a segment no single edge
+  spans, which is how that truss's long sides appear in plan. The invariant both suites now
+  assert is the one that decides it: **sides offered equals sides drawn**.
+- **A truss carries no geometry of its own.** Its row is `w=0 d=0 h=0 z=0`; the size comes
+  from its truss through `EffectiveElement`. The canvas aimed at the effective element and
+  the document drew it, but the API validated the raw row — a zero-sized box — so every
+  plane anchor on a truss was refused in every view. Only plane anchors took that path,
+  which is why point anchors worked and hid it.
+- **Paint order is hit order.** Three separate faults came from it: measurements stealing
+  element taps, then the two-pass split, then the painted value swallowing its own target
+  and bubbling up as a background tap that *cleared* the selection. The rule that stuck is
+  structural — the paint pass is inert, and only the grips opt back in.
+- **`stopPropagation` on every element handler swallowed every pick**, because every anchor
+  is on an element. Only presses on empty floor reached the canvas, which read as
+  "it only snaps to the grid".
+- **Zone collapse arrived from both directions**: a pick radius raised to fix the centre
+  swallowed the face between corner and midpoint; then a truss seen end-on projects to
+  40 × 30 cm and the radius covered the whole element. Radii could not settle it, and the
+  three zones are now decided by position *along* a side, with a side too short to hold
+  them given entirely to the plane.
+- **Two coordinate-frame bugs in the face line**, one mixing a relative displacement with an
+  absolute baseline, one taking the line's direction by rotating the projected normal —
+  which is only valid where nothing leaves the view plane. Orthographic projection does not
+  preserve angles. Both suites now assert that a face's own corners lie *on* its line.
+- **An ellipse is an elliptical prism.** Looking along the extrusion it draws as a curve and
+  has no sides; from anywhere else it draws as a rectangle and has four. The rule was a fact
+  about the kind and is a fact about the view — the canvas had said so in a comment since
+  Slice 13.
+- **The merge renumbered the migration to 053** after this branch's database had already run
+  it as 051, which left `schema_migrations` dirty and silently skipped main's own 051. A dev
+  database that ran this branch before the merge needs its backfill applied and the flag
+  cleared; nothing that only ever ran `main` is affected.
+
+Deliberately out: angular, radial and diameter dimensions; continued/baseline chains;
+auto-dimensioning; cross-view dimensions; a plane anchor on an ellipse seen along its
+extrusion (it has sides in every other view).
+
 ## Known defects — found, reproduced, not yet scheduled
 
 Each of these has been traced to a specific line. A defect with a cause written
@@ -2873,4 +2998,5 @@ Slice 15 (sharing, the model it exposes) + Slice 33 (ui/Sheet, and Drawer's phon
 Slice 13 (stage plots, the trusses) + Slice 33 (ui/Drawer) + Slice 36 (the plot is read-only on a phone) ──→ Slice 39 (the Trusses overlay) — shares components.md's Dialog/Sheet rule with Slice 38
 Slice 22 (the Go PDF writer) + Slice 11 + Slice 12 (the graphs) + Slice 37 (positions that mean something) ──→ Slice 40 (the audio exports become documents)
 Slice 13 (plots, layers, trusses) + Slice 22 (the Go PDF writer) + Slice 40 (the page furniture, the cp1252 decision) ──→ Slice 41 (the plot on paper) ✅ — landing second was cheaper, as predicted: it inherited §8, the masthead and the tiling rule
+Slice 13 (the plot's geometry) + Slice 37 (the projection as a plane) + Slice 41 (the geometry ported to Go, and the tiling) ──→ Slice 42 (measurements) — the port is what made "screen and paper state the same distance" a property rather than a hope
 ```

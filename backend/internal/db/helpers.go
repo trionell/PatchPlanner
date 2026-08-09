@@ -23,6 +23,21 @@ func nullInt(value *int) sql.NullInt64 {
 	return sql.NullInt64{Int64: int64(*value), Valid: true}
 }
 
+func nullFloat64(value *float64) sql.NullFloat64 {
+	if value == nil {
+		return sql.NullFloat64{}
+	}
+	return sql.NullFloat64{Float64: *value, Valid: true}
+}
+
+func float64PtrFromNull(value sql.NullFloat64) *float64 {
+	if !value.Valid {
+		return nil
+	}
+	v := value.Float64
+	return &v
+}
+
 func boolToInt(value bool) int {
 	if value {
 		return 1

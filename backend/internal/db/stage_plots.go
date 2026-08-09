@@ -540,14 +540,140 @@ func GetStagePlotResponse(db *sql.DB, eventID, plotID int64) (domain.StagePlotRe
 			elements[i].Links = links
 		}
 	}
+	measurements, err := ListStagePlotMeasurements(db, plotID)
+	if err != nil {
+		return domain.StagePlotResponse{}, err
+	}
 	trusses, err := ListPlotTrusses(db, eventID)
 	if err != nil {
 		return domain.StagePlotResponse{}, err
 	}
 	return domain.StagePlotResponse{
-		Plot:     plot,
-		Layers:   layers,
-		Elements: elements,
-		Trusses:  trusses,
+		Plot:         plot,
+		Layers:       layers,
+		Elements:     elements,
+		Measurements: measurements,
+		Trusses:      trusses,
 	}, nil
+}
+
+// ---- Measurements (Slice 42) ----
+
+const stagePlotMeasurementColumns = `id, plot_id, layer_id, view, type,
+	from_element_id, from_feature, from_slide, from_u_cm, from_v_cm,
+	to_element_id, to_feature, to_slide, to_u_cm, to_v_cm,
+	offset_cm, note, sort_order`
+
+func scanStagePlotMeasurement(row interface{ Scan(...any) error }) (domain.StagePlotMeasurement, error) {
+	var m domain.StagePlotMeasurement
+	var fromElement, toElement sql.NullInt64
+	var fromFeature, toFeature, note sql.NullString
+	var fromU, fromV, toU, toV sql.NullFloat64
+	err := row.Scan(&m.ID, &m.PlotID, &m.LayerID, &m.View, &m.Type,
+		&fromElement, &fromFeature, &m.From.Slide, &fromU, &fromV,
+		&toElement, &toFeature, &m.To.Slide, &toU, &toV,
+		&m.OffsetCm, &note, &m.SortOrder)
+	if err != nil {
+		return domain.StagePlotMeasurement{}, err
+	}
+	m.From.ElementID = int64PtrFromNull(fromElement)
+	m.From.Feature = fromFeature.String
+	m.From.UCm = float64PtrFromNull(fromU)
+	m.From.VCm = float64PtrFromNull(fromV)
+	m.To.ElementID = int64PtrFromNull(toElement)
+	m.To.Feature = toFeature.String
+	m.To.UCm = float64PtrFromNull(toU)
+	m.To.VCm = float64PtrFromNull(toV)
+	m.Note = note.String
+	return m, nil
+}
+
+func ListStagePlotMeasurements(db *sql.DB, plotID int64) ([]domain.StagePlotMeasurement, error) {
+	rows, err := db.Query(`SELECT `+stagePlotMeasurementColumns+` FROM stage_plot_measurements WHERE plot_id = ? ORDER BY sort_order ASC, id ASC`, plotID)
+	if err != nil {
+		return nil, fmt.Errorf("list stage plot measurements: %w", err)
+	}
+	defer rows.Close()
+	measurements := make([]domain.StagePlotMeasurement, 0)
+	for rows.Next() {
+		measurement, err := scanStagePlotMeasurement(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan stage plot measurement: %w", err)
+		}
+		measurements = append(measurements, measurement)
+	}
+	return measurements, rows.Err()
+}
+
+func GetStagePlotMeasurement(db *sql.DB, plotID, measurementID int64) (domain.StagePlotMeasurement, error) {
+	row := db.QueryRow(`SELECT `+stagePlotMeasurementColumns+` FROM stage_plot_measurements WHERE id = ? AND plot_id = ?`, measurementID, plotID)
+	measurement, err := scanStagePlotMeasurement(row)
+	if err != nil {
+		return domain.StagePlotMeasurement{}, fmt.Errorf("get stage plot measurement: %w", err)
+	}
+	return measurement, nil
+}
+
+// measurementLayerBelongs repeats the check CreateStagePlotElement makes: a
+// cross-plot layer id would orphan the row from its own plot's cascade.
+func measurementLayerBelongs(db *sql.DB, layerID, plotID int64) error {
+	var layerPlot int64
+	if err := db.QueryRow(`SELECT plot_id FROM stage_plot_layers WHERE id = ?`, layerID).Scan(&layerPlot); err != nil {
+		return fmt.Errorf("resolve measurement layer: %w", err)
+	}
+	if layerPlot != plotID {
+		return fmt.Errorf("layer %d does not belong to plot %d", layerID, plotID)
+	}
+	return nil
+}
+
+func CreateStagePlotMeasurement(db *sql.DB, m domain.StagePlotMeasurement) (domain.StagePlotMeasurement, error) {
+	if err := measurementLayerBelongs(db, m.LayerID, m.PlotID); err != nil {
+		return domain.StagePlotMeasurement{}, err
+	}
+	result, err := db.Exec(`INSERT INTO stage_plot_measurements
+		(plot_id, layer_id, view, type,
+		 from_element_id, from_feature, from_slide, from_u_cm, from_v_cm,
+		 to_element_id, to_feature, to_slide, to_u_cm, to_v_cm,
+		 offset_cm, note, sort_order)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		m.PlotID, m.LayerID, m.View, m.Type,
+		nullInt64(m.From.ElementID), nullString(m.From.Feature), m.From.Slide, nullFloat64(m.From.UCm), nullFloat64(m.From.VCm),
+		nullInt64(m.To.ElementID), nullString(m.To.Feature), m.To.Slide, nullFloat64(m.To.UCm), nullFloat64(m.To.VCm),
+		m.OffsetCm, nullString(m.Note), m.SortOrder)
+	if err != nil {
+		return domain.StagePlotMeasurement{}, fmt.Errorf("create stage plot measurement: %w", err)
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return domain.StagePlotMeasurement{}, err
+	}
+	return GetStagePlotMeasurement(db, m.PlotID, id)
+}
+
+func UpdateStagePlotMeasurement(db *sql.DB, m domain.StagePlotMeasurement) error {
+	if err := measurementLayerBelongs(db, m.LayerID, m.PlotID); err != nil {
+		return err
+	}
+	_, err := db.Exec(`UPDATE stage_plot_measurements SET layer_id = ?, view = ?, type = ?,
+		from_element_id = ?, from_feature = ?, from_slide = ?, from_u_cm = ?, from_v_cm = ?,
+		to_element_id = ?, to_feature = ?, to_slide = ?, to_u_cm = ?, to_v_cm = ?,
+		offset_cm = ?, note = ?, sort_order = ?
+		WHERE id = ? AND plot_id = ?`,
+		m.LayerID, m.View, m.Type,
+		nullInt64(m.From.ElementID), nullString(m.From.Feature), m.From.Slide, nullFloat64(m.From.UCm), nullFloat64(m.From.VCm),
+		nullInt64(m.To.ElementID), nullString(m.To.Feature), m.To.Slide, nullFloat64(m.To.UCm), nullFloat64(m.To.VCm),
+		m.OffsetCm, nullString(m.Note), m.SortOrder, m.ID, m.PlotID)
+	if err != nil {
+		return fmt.Errorf("update stage plot measurement: %w", err)
+	}
+	return nil
+}
+
+func DeleteStagePlotMeasurement(db *sql.DB, plotID, measurementID int64) error {
+	_, err := db.Exec(`DELETE FROM stage_plot_measurements WHERE id = ? AND plot_id = ?`, measurementID, plotID)
+	if err != nil {
+		return fmt.Errorf("delete stage plot measurement: %w", err)
+	}
+	return nil
 }
