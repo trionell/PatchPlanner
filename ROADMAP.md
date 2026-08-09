@@ -2314,8 +2314,53 @@ than an element.
       plot including a sliding face anchor, and the four-sheet PDF rendered with the values
       and the conventions row on it.
 
+**Eight rounds of field use followed, and they are most of what this slice knows.** The
+geometry held from the first pass; everything found was a layer above it, and none of it
+was reachable by the test suites as the project runs them — pointer behaviour has no DOM
+to be tested in, and the geometry's own tests were asking invariants that the faults
+survived. Worth reading before the next canvas slice:
+
+- **The anchor model was wrong, and the spec said so all along.** It read "each straight
+  side of that *silhouette*"; the code offered box *faces*, which are sides of the drawing
+  only when seen exactly edge-on. On a truss yawed 33° and raked 31° the silhouette has
+  four sides in plan and six in each elevation, and it offered two, none and none. A side
+  is now stored as the box **edge** it projects from — but **both** encodings are kept,
+  because where two axes project parallel a whole face flattens to a segment no single edge
+  spans, which is how that truss's long sides appear in plan. The invariant both suites now
+  assert is the one that decides it: **sides offered equals sides drawn**.
+- **A truss carries no geometry of its own.** Its row is `w=0 d=0 h=0 z=0`; the size comes
+  from its truss through `EffectiveElement`. The canvas aimed at the effective element and
+  the document drew it, but the API validated the raw row — a zero-sized box — so every
+  plane anchor on a truss was refused in every view. Only plane anchors took that path,
+  which is why point anchors worked and hid it.
+- **Paint order is hit order.** Three separate faults came from it: measurements stealing
+  element taps, then the two-pass split, then the painted value swallowing its own target
+  and bubbling up as a background tap that *cleared* the selection. The rule that stuck is
+  structural — the paint pass is inert, and only the grips opt back in.
+- **`stopPropagation` on every element handler swallowed every pick**, because every anchor
+  is on an element. Only presses on empty floor reached the canvas, which read as
+  "it only snaps to the grid".
+- **Zone collapse arrived from both directions**: a pick radius raised to fix the centre
+  swallowed the face between corner and midpoint; then a truss seen end-on projects to
+  40 × 30 cm and the radius covered the whole element. Radii could not settle it, and the
+  three zones are now decided by position *along* a side, with a side too short to hold
+  them given entirely to the plane.
+- **Two coordinate-frame bugs in the face line**, one mixing a relative displacement with an
+  absolute baseline, one taking the line's direction by rotating the projected normal —
+  which is only valid where nothing leaves the view plane. Orthographic projection does not
+  preserve angles. Both suites now assert that a face's own corners lie *on* its line.
+- **An ellipse is an elliptical prism.** Looking along the extrusion it draws as a curve and
+  has no sides; from anywhere else it draws as a rectangle and has four. The rule was a fact
+  about the kind and is a fact about the view — the canvas had said so in a comment since
+  Slice 13.
+- **The merge renumbered the migration to 053** after this branch's database had already run
+  it as 051, which left `schema_migrations` dirty and silently skipped main's own 051. A dev
+  database that ran this branch before the merge needs its backfill applied and the flag
+  cleared; nothing that only ever ran `main` is affected.
+
 Deliberately out: angular, radial and diameter dimensions; continued/baseline chains;
-auto-dimensioning; cross-view dimensions; a plane anchor on an ellipse.
+auto-dimensioning; cross-view dimensions; a plane anchor on an ellipse seen along its
+extrusion (it has sides in every other view).
 
 ## Known defects — found, reproduced, not yet scheduled
 

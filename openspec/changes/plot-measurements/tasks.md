@@ -63,5 +63,6 @@
 
 - [x] 8.1 Run the Gates: `cd backend && gofmt -l . && go vet ./... && go test ./...`, then `cd frontend && npx tsc -b && npx eslint src && npx vitest run && npx vite build`.
 - [x] 8.2 Verify against a copy of the real database in `/tmp` with `PATCHPLANNER_DB` pointed at it — draw each anchor kind on a real plot, produce the document, and read the same value in both.
-- [ ] 8.3 Review against the specs and the approved mockup; fix what review finds.
+- [x] 8.3 Review against the specs and the approved mockup; fix what review finds.
 - [x] 8.4 Write the slice's outcome into `ROADMAP.md` as Slice 44 (renumbered from 42 — that number was independently claimed by the mic-picker fix while this branch was in flight), and add it to the **What remains** index until it lands.
+- [x] 8.6 Close what field use found, over eight rounds: the migration renumbered by the merge; pointer propagation swallowing every pick on an element; the zone collapse from both directions; the face line's mixed coordinate frames; a direction taken from the projected normal; the highlight drawn on the nearest element rather than the aimed one; the API validating a truss's zero-sized raw row; the ellipse's per-view silhouette; and the anchor model itself — sides of the drawing, not faces of the box.
