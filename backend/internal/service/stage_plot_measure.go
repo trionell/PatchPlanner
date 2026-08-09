@@ -220,11 +220,6 @@ func planeNormalize(v PlaneVec) PlaneVec {
 	return PlaneVec{U: v.U / l, V: v.V / l}
 }
 
-// ProjectFaceLine gives the line a face projects to, or false where the face is
-// not edge-on. A face's projected normal has length ~1 when the normal lies in
-// the view plane (the face is seen as a side) and ~0 when it points into the
-// screen. That one test also declines the top and bottom faces in a top view,
-// which is correct and needs no special case.
 // SideLine is the line a SIDE of the silhouette runs along, or false where that
 // side is not a line in this view — an edge pointing into the screen, or a face
 // not seen edge-on.
@@ -259,6 +254,10 @@ func SideLine(element domain.StagePlotElement, view PlotView, feature AnchorFeat
 	return FaceLine{Point: point, Dir: dir, Normal: normal, Segment: ends}, true
 }
 
+// projectFaceLine is the older path: the line a FACE projects to, or false
+// where the face is not seen edge-on. Superseded by the edge encoding for new
+// picks, and still what resolves a side that is a flattened face — and every
+// measurement stored before edges existed.
 func projectFaceLine(element domain.StagePlotElement, view PlotView, feature AnchorFeature) (FaceLine, bool) {
 	if feature.Kind != "face" {
 		return FaceLine{}, false
