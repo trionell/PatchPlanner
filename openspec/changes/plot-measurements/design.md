@@ -68,6 +68,17 @@ used for two things only: deciding which features to *offer*, and drawing.
   in the top view of an unrotated element the top and bottom faces project onto the whole
   silhouette and are correctly not offered as sides.
 
+**A side is stored as the box EDGE it projects from, not as a face** (revised
+2026-08-07, after field use). A face is a side of the drawing only when it is seen
+exactly edge-on; turn an element on two axes — a raked truss — and no face is edge-on in
+an elevation, while the silhouette still has six perfectly straight sides. Anchoring to
+edges makes the count come out right: four sides in plan, six in an elevation, all
+pickable. Both encodings are offered and resolved, because a side can arrive either way —
+where two axes project parallel, a whole face flattens to a segment no single edge spans,
+which is how a raked truss's long sides appear in plan. Faces are offered first, so a side
+that is both keeps the encoding it has always had and measurements drawn before edges
+existed still name it.
+
 **The ellipse falls out of the same derivation.** Its four quadrant points are the projected
 centres of its four edge-on faces, so it needs no separate code path for its points. It is
 excluded from **plane mode** only — one boolean on the shape kind, because a perpendicular to a

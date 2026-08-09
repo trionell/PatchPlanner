@@ -70,7 +70,7 @@ func TestAnchorPoint(t *testing.T) {
 	wantPoint(t, "face +x yawed 90", AnchorPoint(turned, ViewTop, AnchorFeature{Kind: "face", Axis: 0, Sign: 1}), 100, 220)
 }
 
-func TestProjectFaceLine(t *testing.T) {
+func TestSideLine(t *testing.T) {
 	element := plotElement(func(e *domain.StagePlotElement) {
 		e.XCm, e.YCm, e.ZCm = 0, 0, 0
 		e.WidthCm, e.DepthCm, e.HeightCm = 40, 30, 20
@@ -78,14 +78,14 @@ func TestProjectFaceLine(t *testing.T) {
 
 	// In the top view the top and bottom faces project onto the whole
 	// silhouette; they are not sides and are not offered.
-	if _, ok := ProjectFaceLine(element, ViewTop, AnchorFeature{Kind: "face", Axis: 2, Sign: 1}); ok {
+	if _, ok := SideLine(element, ViewTop, AnchorFeature{Kind: "face", Axis: 2, Sign: 1}); ok {
 		t.Error("top face was offered as a side in the top view")
 	}
-	if _, ok := ProjectFaceLine(element, ViewTop, AnchorFeature{Kind: "face", Axis: 2, Sign: -1}); ok {
+	if _, ok := SideLine(element, ViewTop, AnchorFeature{Kind: "face", Axis: 2, Sign: -1}); ok {
 		t.Error("bottom face was offered as a side in the top view")
 	}
 
-	line, ok := ProjectFaceLine(element, ViewTop, AnchorFeature{Kind: "face", Axis: 0, Sign: 1})
+	line, ok := SideLine(element, ViewTop, AnchorFeature{Kind: "face", Axis: 0, Sign: 1})
 	if !ok {
 		t.Fatal("the +x face is edge-on in the top view and was not offered")
 	}
@@ -102,7 +102,7 @@ func TestProjectFaceLine(t *testing.T) {
 		e.XCm, e.YCm, e.ZCm = 800, 500, 0
 		e.WidthCm, e.DepthCm, e.HeightCm = 400, 200, 100
 	})
-	placedLine, ok := ProjectFaceLine(placed, ViewTop, AnchorFeature{Kind: "face", Axis: 0, Sign: 1})
+	placedLine, ok := SideLine(placed, ViewTop, AnchorFeature{Kind: "face", Axis: 0, Sign: 1})
 	if !ok {
 		t.Fatal("the placed element's +x face was not offered")
 	}
@@ -116,7 +116,7 @@ func TestProjectFaceLine(t *testing.T) {
 
 	turned := element
 	turned.RotationDeg = 90
-	turnedLine, ok := ProjectFaceLine(turned, ViewTop, AnchorFeature{Kind: "face", Axis: 0, Sign: 1})
+	turnedLine, ok := SideLine(turned, ViewTop, AnchorFeature{Kind: "face", Axis: 0, Sign: 1})
 	if !ok {
 		t.Fatal("the yawed +x face was not offered")
 	}
@@ -235,7 +235,7 @@ func TestComputeMeasurementSpan(t *testing.T) {
 		e.XCm, e.YCm = 0, 0
 		e.WidthCm, e.DepthCm, e.HeightCm = 40, 30, 20
 	})
-	line, _ := ProjectFaceLine(element, ViewTop, AnchorFeature{Kind: "face", Axis: 0, Sign: 1})
+	line, _ := SideLine(element, ViewTop, AnchorFeature{Kind: "face", Axis: 0, Sign: 1})
 	// The face's line is u = 20; a point 100 to its right is 80 away, and the
 	// foot lands well outside the drawn side — what the run-out reaches.
 	perpendicular, ok := ComputeMeasurementSpan(pointEnd(100, 250), MeasurementEnd{Line: line, IsLine: true}, "aligned")
@@ -246,7 +246,7 @@ func TestComputeMeasurementSpan(t *testing.T) {
 
 	slanted := element
 	slanted.RotationDeg = 30
-	slantedLine, _ := ProjectFaceLine(slanted, ViewTop, AnchorFeature{Kind: "face", Axis: 0, Sign: 1})
+	slantedLine, _ := SideLine(slanted, ViewTop, AnchorFeature{Kind: "face", Axis: 0, Sign: 1})
 	horizontal, ok := ComputeMeasurementSpan(pointEnd(200, 0), MeasurementEnd{Line: slantedLine, IsLine: true}, "horizontal")
 	if !ok {
 		t.Fatal("a horizontal measurement to a slanted face stated nothing")
@@ -261,8 +261,8 @@ func TestComputeMeasurementSpan(t *testing.T) {
 		e.ID, e.XCm, e.YCm = 2, 500, 0
 		e.WidthCm, e.DepthCm, e.HeightCm = 40, 30, 20
 	})
-	leftLine, _ := ProjectFaceLine(left, ViewTop, AnchorFeature{Kind: "face", Axis: 0, Sign: 1})
-	rightLine, _ := ProjectFaceLine(right, ViewTop, AnchorFeature{Kind: "face", Axis: 0, Sign: -1})
+	leftLine, _ := SideLine(left, ViewTop, AnchorFeature{Kind: "face", Axis: 0, Sign: 1})
+	rightLine, _ := SideLine(right, ViewTop, AnchorFeature{Kind: "face", Axis: 0, Sign: -1})
 	// Inner faces at u = 20 and u = 480.
 	between, ok := ComputeMeasurementSpan(
 		MeasurementEnd{Line: leftLine, IsLine: true},
@@ -271,7 +271,7 @@ func TestComputeMeasurementSpan(t *testing.T) {
 		t.Errorf("between parallel faces = %v (ok=%v), want 460", between.Value, ok)
 	}
 
-	crossLine, _ := ProjectFaceLine(element, ViewTop, AnchorFeature{Kind: "face", Axis: 1, Sign: 1})
+	crossLine, _ := SideLine(element, ViewTop, AnchorFeature{Kind: "face", Axis: 1, Sign: 1})
 	if _, ok := ComputeMeasurementSpan(
 		MeasurementEnd{Line: leftLine, IsLine: true},
 		MeasurementEnd{Line: crossLine, IsLine: true}, "aligned"); ok {
@@ -329,7 +329,7 @@ func TestFaceLineUnderEveryRotation(t *testing.T) {
 			if offered.Feature.Kind != "face" {
 				continue
 			}
-			line, ok := ProjectFaceLine(raked, view, offered.Feature)
+			line, ok := SideLine(raked, view, offered.Feature)
 			if !ok {
 				continue
 			}
@@ -375,7 +375,7 @@ func TestARakedElementOffersNoSidesInElevation(t *testing.T) {
 			if offered.Feature.Kind != "face" {
 				continue
 			}
-			if _, ok := ProjectFaceLine(raked, view, offered.Feature); ok {
+			if _, ok := SideLine(raked, view, offered.Feature); ok {
 				count++
 			}
 		}
@@ -398,6 +398,60 @@ func TestARakedElementOffersNoSidesInElevation(t *testing.T) {
 		}
 		if countOffered(OfferedAnchors(raked, view), "corner") == 0 {
 			t.Errorf("%s view lost its corner anchors", view)
+		}
+	}
+}
+
+// TestEverySideOfTheSilhouetteIsOffered mirrors stagePlot.test.ts's invariant:
+// what a person points at is a SIDE of the drawn shape, so the number offered
+// must equal the number drawn, in every view and however the element is turned.
+// Asking which box faces are edge-on answers a different question and answers
+// it with nothing as soon as an element is turned on two axes.
+func TestEverySideOfTheSilhouetteIsOffered(t *testing.T) {
+	cases := map[string]domain.StagePlotElement{
+		"a plain rectangle": plotElement(func(e *domain.StagePlotElement) {
+			e.Kind, e.ShapeKind, e.Icon = "shape", "rect", ""
+			e.WidthCm, e.DepthCm, e.HeightCm = 400, 200, 100
+		}),
+		"a yawed truss": plotElement(func(e *domain.StagePlotElement) {
+			e.Kind, e.ShapeKind, e.Icon = "truss", "", ""
+			e.XCm, e.YCm, e.ZCm = 100, 50, 400
+			e.WidthCm, e.DepthCm, e.HeightCm = 600, 30, 30
+			e.RotationDeg = 40
+		}),
+		// The one from the field test: yawed and raked together, hung high.
+		"a raked truss": plotElement(func(e *domain.StagePlotElement) {
+			e.Kind, e.ShapeKind, e.Icon = "truss", "", ""
+			e.ZCm = 600
+			e.WidthCm, e.DepthCm, e.HeightCm = 600, 27.11, 30
+			e.RotationDeg, e.TiltDeg = 33, 31
+		}),
+	}
+	for name, element := range cases {
+		for _, view := range PlotViews {
+			drawn := len(ProjectedOutline(element, view))
+			sides := 0
+			for _, offered := range OfferedAnchors(element, view) {
+				if offered.Feature.Kind == "edge" || offered.Feature.Kind == "face" {
+					sides++
+				}
+			}
+			if sides != drawn {
+				t.Errorf("%s, %s view: %d sides offered for %d drawn", name, view, sides, drawn)
+			}
+		}
+	}
+
+	raked := cases["a raked truss"]
+	for _, view := range []PlotView{ViewFront, ViewSide} {
+		sides := 0
+		for _, offered := range OfferedAnchors(raked, view) {
+			if offered.Feature.Kind == "edge" || offered.Feature.Kind == "face" {
+				sides++
+			}
+		}
+		if sides != 6 {
+			t.Errorf("%s view offered %d sides on the raked truss, want 6", view, sides)
 		}
 	}
 }

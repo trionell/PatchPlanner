@@ -10,7 +10,7 @@ import {
   MEASURE_POINT_PX,
   SNAP_THRESHOLD_PX,
   anchorPoint,
-  faceLine,
+  sideLine,
   formatAnchorFeature,
   measurementAnchorElementIds,
   measurementDrawing,
@@ -541,12 +541,12 @@ describe('faceLine', () => {
   it('declines a face seen flat', () => {
     // In the top view the top and bottom faces project onto the whole
     // silhouette; they are not sides and are not offered.
-    expect(faceLine(el, 'top', { kind: 'face', axis: 2, sign: 1 })).toBeNull()
-    expect(faceLine(el, 'top', { kind: 'face', axis: 2, sign: -1 })).toBeNull()
+    expect(sideLine(el, 'top', { kind: 'face', axis: 2, sign: 1 })).toBeNull()
+    expect(sideLine(el, 'top', { kind: 'face', axis: 2, sign: -1 })).toBeNull()
   })
 
   it('gives an edge-on face its line and its drawn extent', () => {
-    const line = faceLine(el, 'top', { kind: 'face', axis: 0, sign: 1 })
+    const line = sideLine(el, 'top', { kind: 'face', axis: 0, sign: 1 })
     expect(line).not.toBeNull()
     expect(line!.point).toEqual({ u: 20, v: 0 })
     expect(line!.normal).toEqual({ u: 1, v: 0 })
@@ -563,7 +563,7 @@ describe('faceLine', () => {
     // POSITION, on an element standing well away from the origin, where the
     // error was proportional to how far away it stood.
     const placed = element({ x_cm: 800, y_cm: 500, z_cm: 0, width_cm: 400, depth_cm: 200, height_cm: 100 })
-    const line = faceLine(placed, 'top', { kind: 'face', axis: 0, sign: 1 })!
+    const line = sideLine(placed, 'top', { kind: 'face', axis: 0, sign: 1 })!
     // The +x side of a 400×200 element centred at (800, 500) runs from
     // (1000, 400) to (1000, 600).
     const [p, q] = [...line.segment].sort((a, b) => a.v - b.v)
@@ -575,7 +575,7 @@ describe('faceLine', () => {
 
   it('puts a rotated side where that side actually is', () => {
     const yawed = element({ x_cm: 300, y_cm: 200, width_cm: 600, depth_cm: 40, height_cm: 40, rotation_deg: 90 })
-    const line = faceLine(yawed, 'top', { kind: 'face', axis: 1, sign: 1 })!
+    const line = sideLine(yawed, 'top', { kind: 'face', axis: 1, sign: 1 })!
     // Yawed 90°, the depth axis points along -x, so the +y face is the long
     // side at u = 300 - 20, running 600 cm through the centre's v.
     const [p, q] = [...line.segment].sort((a, b) => a.v - b.v)
@@ -588,7 +588,7 @@ describe('faceLine', () => {
 
   it('turns with the element', () => {
     const turned = { ...el, rotation_deg: 90 }
-    const line = faceLine(turned, 'top', { kind: 'face', axis: 0, sign: 1 })
+    const line = sideLine(turned, 'top', { kind: 'face', axis: 0, sign: 1 })
     expect(line!.normal.u).toBeCloseTo(0, 6)
     expect(line!.normal.v).toBeCloseTo(1, 6)
   })
@@ -681,7 +681,7 @@ describe('measurementSpan', () => {
 
   it('measures perpendicular to a face', () => {
     const el = element({ x_cm: 0, y_cm: 0, width_cm: 40, depth_cm: 30, height_cm: 20 })
-    const line = faceLine(el, 'top', { kind: 'face', axis: 0, sign: 1 })!
+    const line = sideLine(el, 'top', { kind: 'face', axis: 0, sign: 1 })!
     // The face's line is u = 20; a point 100 to its right is 80 away.
     const span = measurementSpan(at(100, 250), { kind: 'line', line }, 'aligned')
     expect(span!.value).toBe(80)
@@ -692,7 +692,7 @@ describe('measurementSpan', () => {
 
   it('measures an axis distance to a face when locked', () => {
     const el = element({ x_cm: 0, y_cm: 0, width_cm: 40, depth_cm: 30, height_cm: 20, rotation_deg: 30 })
-    const line = faceLine(el, 'top', { kind: 'face', axis: 0, sign: 1 })!
+    const line = sideLine(el, 'top', { kind: 'face', axis: 0, sign: 1 })!
     const horizontal = measurementSpan(at(200, 0), { kind: 'line', line }, 'horizontal')
     // The foot is where the horizontal ray meets the slanted line, not where
     // the perpendicular would fall.
@@ -703,16 +703,16 @@ describe('measurementSpan', () => {
   it('measures between two parallel faces', () => {
     const left = element({ x_cm: 0, y_cm: 0, width_cm: 40, depth_cm: 30, height_cm: 20 })
     const right = element({ id: 2, x_cm: 500, y_cm: 0, width_cm: 40, depth_cm: 30, height_cm: 20 })
-    const a = faceLine(left, 'top', { kind: 'face', axis: 0, sign: 1 })!
-    const b = faceLine(right, 'top', { kind: 'face', axis: 0, sign: -1 })!
+    const a = sideLine(left, 'top', { kind: 'face', axis: 0, sign: 1 })!
+    const b = sideLine(right, 'top', { kind: 'face', axis: 0, sign: -1 })!
     // Inner faces at u = 20 and u = 480.
     expect(measurementSpan({ kind: 'line', line: a }, { kind: 'line', line: b }, 'aligned')!.value).toBe(460)
   })
 
   it('declines two faces that are not parallel', () => {
     const el = element({ x_cm: 0, y_cm: 0, width_cm: 40, depth_cm: 30, height_cm: 20 })
-    const a = faceLine(el, 'top', { kind: 'face', axis: 0, sign: 1 })!
-    const b = faceLine(el, 'top', { kind: 'face', axis: 1, sign: 1 })!
+    const a = sideLine(el, 'top', { kind: 'face', axis: 0, sign: 1 })!
+    const b = sideLine(el, 'top', { kind: 'face', axis: 1, sign: 1 })!
     expect(measurementSpan({ kind: 'line', line: a }, { kind: 'line', line: b }, 'aligned')).toBeNull()
   })
 })
@@ -897,7 +897,7 @@ describe('a face line under every rotation', () => {
       let checked = 0
       for (const offered of offeredAnchors(raked, view)) {
         if (offered.feature.kind !== 'face') continue
-        const line = faceLine(raked, view, offered.feature)
+        const line = sideLine(raked, view, offered.feature)
         if (!line) continue
         checked++
         const axis = offered.feature.axis
@@ -934,7 +934,7 @@ describe('a face line under every rotation', () => {
     // one would be inventing an edge the drawing does not have — which is what
     // deriving the direction from the projected normal used to do.
     const planeAnchors = (view: 'top' | 'front' | 'side') =>
-      offeredAnchors(raked, view).filter((o) => o.feature.kind === 'face' && faceLine(raked, view, o.feature) !== null)
+      offeredAnchors(raked, view).filter((o) => o.feature.kind === 'face' && sideLine(raked, view, o.feature) !== null)
 
     // In plan the depth axis stays horizontal, so its two faces are still sides.
     expect(planeAnchors('top').length).toBeGreaterThan(0)
@@ -951,8 +951,8 @@ describe('a face line under every rotation', () => {
 
   it('still refuses a face seen flat', () => {
     const flat = element({ kind: 'shape', shape_kind: 'rect', width_cm: 400, depth_cm: 200, height_cm: 100 })
-    expect(faceLine(flat, 'top', { kind: 'face', axis: 2, sign: 1 })).toBeNull()
-    expect(faceLine(flat, 'front', { kind: 'face', axis: 1, sign: 1 })).toBeNull()
+    expect(sideLine(flat, 'top', { kind: 'face', axis: 2, sign: 1 })).toBeNull()
+    expect(sideLine(flat, 'front', { kind: 'face', axis: 1, sign: 1 })).toBeNull()
   })
 })
 
@@ -994,5 +994,62 @@ describe('a face on a small drawn element', () => {
     expect(plan!.slide).toBe(true)
     // …and its middle is still the midpoint.
     expect(aimAtAnchor([truss], 'top', { u: 0, v: 20 }, MEASURE_PICK_PX / zoom, MEASURE_POINT_PX / zoom)!.slide).toBe(false)
+  })
+})
+
+describe('every side of the silhouette is offered', () => {
+  // The invariant the whole anchor model now rests on: what a person can point
+  // at is a SIDE of the drawn shape, so the number offered must equal the
+  // number drawn — in every view, however the element is turned. Asking which
+  // box faces are edge-on answers a different question, and answers it with
+  // nothing as soon as an element is turned on two axes.
+  const cases: Array<[string, StagePlotElement]> = [
+    ['a plain rectangle', element({ kind: 'shape', shape_kind: 'rect', width_cm: 400, depth_cm: 200, height_cm: 100 })],
+    ['a yawed truss', element({ kind: 'truss', shape_kind: undefined, x_cm: 100, y_cm: 50, z_cm: 400, width_cm: 600, depth_cm: 30, height_cm: 30, rotation_deg: 40 })],
+    // The one from the field test: yawed and raked together, hung high.
+    ['a raked truss', element({ kind: 'truss', shape_kind: undefined, x_cm: 0, y_cm: 0, z_cm: 600, width_cm: 600, depth_cm: 27.11, height_cm: 30, rotation_deg: 33, tilt_deg: 31 })],
+    ['an ellipse', element({ kind: 'shape', shape_kind: 'ellipse', width_cm: 400, depth_cm: 300, height_cm: 180 })],
+  ]
+
+  for (const [name, el] of cases) {
+    for (const view of ['top', 'front', 'side'] as const) {
+      it(`${name}, ${view} view`, () => {
+        const drawn = projectedOutline(el, view).length
+        const sides = offeredAnchors(el, view).filter((o) => o.feature.kind === 'edge' || o.feature.kind === 'face')
+        expect(sides).toHaveLength(drawn)
+
+        // And each one is a real side: its line's two ends are corners of the
+        // silhouette, so it runs along the outline rather than through it.
+        const rect = projectElement(el, view)
+        const hull = projectedOutline(el, view).map((p) => {
+          const radians = (rect.rotationDeg * Math.PI) / 180
+          const u = p.u * Math.cos(radians) - p.v * Math.sin(radians)
+          const v = (p.u * Math.sin(radians) + p.v * Math.cos(radians)) * (view === 'top' ? 1 : -1)
+          return { u: rect.u + u, v: rect.v + v }
+        })
+        const onHull = (p: { u: number; v: number }) => hull.some((h) => Math.hypot(h.u - p.u, h.v - p.v) < 0.1)
+        for (const side of sides) {
+          const line = sideLine(el, view, side.feature)
+          expect(line).not.toBeNull()
+          expect(onHull(line!.segment[0])).toBe(true)
+          expect(onHull(line!.segment[1])).toBe(true)
+        }
+      })
+    }
+  }
+
+  it('the raked truss the field test found offers all six in an elevation', () => {
+    const raked = cases[2][1]
+    for (const view of ['front', 'side'] as const) {
+      const sides = offeredAnchors(raked, view).filter((o) => o.feature.kind === 'edge' || o.feature.kind === 'face')
+      expect(sides).toHaveLength(6)
+      expect(sides.every((s) => s.allowSlide)).toBe(true)
+    }
+    // …and all four in plan, where two of them are flattened faces and two are
+    // box edges. Both kinds, one drawing.
+    const plan = offeredAnchors(raked, 'top').filter((o) => o.feature.kind === 'edge' || o.feature.kind === 'face')
+    expect(plan).toHaveLength(4)
+    expect(plan.filter((s) => s.feature.kind === 'face')).toHaveLength(2)
+    expect(plan.filter((s) => s.feature.kind === 'edge')).toHaveLength(2)
   })
 })

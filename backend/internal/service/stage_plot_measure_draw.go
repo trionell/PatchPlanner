@@ -61,7 +61,7 @@ func (d *plotDoc) resolveMeasurementEnd(anchor domain.MeasurementAnchor, view Pl
 		return MeasurementEnd{}, false
 	}
 	if anchor.Slide {
-		if line, ok := ProjectFaceLine(element, view, feature); ok {
+		if line, ok := SideLine(element, view, feature); ok {
 			return MeasurementEnd{Line: line, IsLine: true}, true
 		}
 	}
@@ -229,7 +229,7 @@ func (d *plotDoc) drawFaceRunOut(measurement domain.StagePlotMeasurement, drawin
 		if err != nil {
 			continue
 		}
-		line, ok := ProjectFaceLine(element, view, feature)
+		line, ok := SideLine(element, view, feature)
 		if !ok {
 			continue
 		}

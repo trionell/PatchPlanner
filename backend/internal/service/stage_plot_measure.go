@@ -28,13 +28,31 @@ import (
 const faceEdgeOnMin = 0.05
 
 // AnchorFeature is a feature of an element's own box — NOT a vertex of its
-// drawn silhouette, whose vertex count changes with rotation. Kind is
-// "centre", "corner" or "face".
+// drawn silhouette, whose vertex count changes with rotation.
+//
+// Kind is "centre", "corner", "edge" or "face". An "edge" is a SIDE of the
+// drawn silhouette, stored as the box edge it projects from: the axis it runs
+// along, plus the signs on the other two. A "face" is the older encoding for a
+// side, still resolved, and still produced where a face is seen exactly
+// edge-on — which is how a side arrives that no single edge spans.
 type AnchorFeature struct {
 	Kind  string
-	Signs [3]int // corner only
-	Axis  int    // face only: 0=x, 1=y, 2=z
+	Signs [3]int // corner: all three. edge: [0] and [1] are the cross axes.
+	Axis  int    // edge: the axis it runs along. face: its normal. 0=x, 1=y, 2=z
 	Sign  int    // face only
+}
+
+// edgeCrossAxes are the two axes an edge along axis is positioned by.
+func edgeCrossAxes(axis int) [2]int {
+	out := [2]int{}
+	n := 0
+	for i := 0; i < 3; i++ {
+		if i != axis {
+			out[n] = i
+			n++
+		}
+	}
+	return out
 }
 
 var axisLetters = [3]string{"x", "y", "z"}
@@ -51,6 +69,16 @@ func FormatAnchorFeature(f AnchorFeature) string {
 			}
 		}
 		return "corner:" + b.String()
+	case "edge":
+		var b strings.Builder
+		for i := 0; i < 2; i++ {
+			if f.Signs[i] > 0 {
+				b.WriteString("+")
+			} else {
+				b.WriteString("-")
+			}
+		}
+		return fmt.Sprintf("edge:%s%s", axisLetters[f.Axis], b.String())
 	case "face":
 		sign := "-"
 		if f.Sign > 0 {
@@ -65,6 +93,7 @@ func FormatAnchorFeature(f AnchorFeature) string {
 var (
 	cornerPattern = regexp.MustCompile(`^corner:([+-])([+-])([+-])$`)
 	facePattern   = regexp.MustCompile(`^face:([+-])([xyz])$`)
+	edgePattern   = regexp.MustCompile(`^edge:([xyz])([+-])([+-])$`)
 )
 
 func ParseAnchorFeature(value string) (AnchorFeature, error) {
@@ -79,6 +108,10 @@ func ParseAnchorFeature(value string) (AnchorFeature, error) {
 	}
 	if m := cornerPattern.FindStringSubmatch(value); m != nil {
 		return AnchorFeature{Kind: "corner", Signs: [3]int{asSign(m[1]), asSign(m[2]), asSign(m[3])}}, nil
+	}
+	if m := edgePattern.FindStringSubmatch(value); m != nil {
+		axis := strings.Index("xyz", m[1])
+		return AnchorFeature{Kind: "edge", Axis: axis, Signs: [3]int{asSign(m[2]), asSign(m[3])}}, nil
 	}
 	if m := facePattern.FindStringSubmatch(value); m != nil {
 		axis := strings.Index("xyz", m[2])
@@ -130,10 +163,32 @@ func featureDrawnOffset(element domain.StagePlotElement, view PlotView, feature 
 		}
 		return out
 	}
+	if feature.Kind == "edge" {
+		// The edge's MIDPOINT: positioned by the two axes it does not run
+		// along, centred on the one it does.
+		cross := edgeCrossAxes(feature.Axis)
+		j, k := cross[0], cross[1]
+		return PlaneVec{
+			U: float64(feature.Signs[0])*half[j]*axes[j].U + float64(feature.Signs[1])*half[k]*axes[k].U,
+			V: float64(feature.Signs[0])*half[j]*axes[j].V + float64(feature.Signs[1])*half[k]*axes[k].V,
+		}
+	}
 	i := feature.Axis
 	return PlaneVec{
 		U: float64(feature.Sign) * half[i] * axes[i].U,
 		V: float64(feature.Sign) * half[i] * axes[i].V,
+	}
+}
+
+// edgeDrawnEnds gives an edge's two ends in the element's drawn frame.
+func edgeDrawnEnds(element domain.StagePlotElement, view PlotView, feature AnchorFeature) [2]PlaneVec {
+	axes := axisList(element, view)
+	half := halfExtents(element)
+	middle := featureDrawnOffset(element, view, feature)
+	along := PlaneVec{U: half[feature.Axis] * axes[feature.Axis].U, V: half[feature.Axis] * axes[feature.Axis].V}
+	return [2]PlaneVec{
+		{U: middle.U - along.U, V: middle.V - along.V},
+		{U: middle.U + along.U, V: middle.V + along.V},
 	}
 }
 
@@ -170,7 +225,41 @@ func planeNormalize(v PlaneVec) PlaneVec {
 // the view plane (the face is seen as a side) and ~0 when it points into the
 // screen. That one test also declines the top and bottom faces in a top view,
 // which is correct and needs no special case.
-func ProjectFaceLine(element domain.StagePlotElement, view PlotView, feature AnchorFeature) (FaceLine, bool) {
+// SideLine is the line a SIDE of the silhouette runs along, or false where that
+// side is not a line in this view — an edge pointing into the screen, or a face
+// not seen edge-on.
+func SideLine(element domain.StagePlotElement, view PlotView, feature AnchorFeature) (FaceLine, bool) {
+	if feature.Kind == "face" {
+		return projectFaceLine(element, view, feature)
+	}
+	if feature.Kind != "edge" {
+		return FaceLine{}, false
+	}
+	rect := ProjectElement(element, view)
+	drawn := edgeDrawnEnds(element, view, feature)
+	var ends [2]PlaneVec
+	for i, end := range drawn {
+		p := drawnToProjected(end, rect, view)
+		ends[i] = PlaneVec{U: roundCm(rect.U + p.U), V: roundCm(rect.V + p.V)}
+	}
+	span := PlaneVec{U: ends[1].U - ends[0].U, V: ends[1].V - ends[0].V}
+	// Pointing into the screen: the side is a point, not a line.
+	if planeLength(span) < 1e-6 {
+		return FaceLine{}, false
+	}
+	dir := planeNormalize(span)
+	point := AnchorPoint(element, view, feature)
+	// Outward is away from the element's own centre, which is what makes a
+	// perpendicular measurement leave the object rather than cross it.
+	outward := PlaneVec{U: point.U - rect.U, V: point.V - rect.V}
+	normal := PlaneVec{U: dir.V, V: -dir.U}
+	if normal.U*outward.U+normal.V*outward.V < 0 {
+		normal = PlaneVec{U: -normal.U, V: -normal.V}
+	}
+	return FaceLine{Point: point, Dir: dir, Normal: normal, Segment: ends}, true
+}
+
+func projectFaceLine(element domain.StagePlotElement, view PlotView, feature AnchorFeature) (FaceLine, bool) {
 	if feature.Kind != "face" {
 		return FaceLine{}, false
 	}
@@ -328,13 +417,37 @@ func OfferedAnchors(element domain.StagePlotElement, view PlotView) []OfferedAnc
 		}
 	}
 
+	// The SIDES of the drawn silhouette. A side arrives two ways and both are
+	// needed: a FACE seen edge-on flattens to a segment no single edge spans —
+	// the long sides of a raked truss in plan — and a box EDGE projects to a
+	// side everywhere else, including every side of the hexagon that truss
+	// shows in an elevation. Faces go first so a side that is both keeps the
+	// encoding it has always had.
+	//
+	// Compared with a TOLERANCE rather than hashed: a face's segment is
+	// reconstructed from projections and an edge's is read off the corners, so
+	// the same drawn side arrives from the two paths a hundredth of a
+	// centimetre apart, and any rounding grain eventually splits them.
 	slide := AllowsPlaneAnchor(element, view)
+	taken := make([][2]PlaneVec, 0, 8)
+	near := func(a, b PlaneVec) bool { return math.Hypot(a.U-b.U, a.V-b.V) < 0.1 }
+	alreadyASide := func(ends [2]PlaneVec) bool {
+		for _, side := range taken {
+			if (near(side[0], ends[0]) && near(side[1], ends[1])) || (near(side[0], ends[1]) && near(side[1], ends[0])) {
+				return true
+			}
+		}
+		return false
+	}
+
 	for axis := 0; axis < 3; axis++ {
 		for _, sign := range []int{1, -1} {
 			feature := AnchorFeature{Kind: "face", Axis: axis, Sign: sign}
-			if _, ok := ProjectFaceLine(element, view, feature); !ok {
+			line, ok := SideLine(element, view, feature)
+			if !ok {
 				continue
 			}
+			taken = append(taken, line.Segment)
 			offered = append(offered, OfferedAnchor{
 				Feature:    feature,
 				Point:      AnchorPoint(element, view, feature),
@@ -342,6 +455,53 @@ func OfferedAnchors(element domain.StagePlotElement, view PlotView) []OfferedAnc
 			})
 		}
 	}
+
+	hullIndex := func(p PlaneVec) int {
+		for i, h := range projectedHull {
+			if math.Abs(h.U-p.U) < 0.05 && math.Abs(h.V-p.V) < 0.05 {
+				return i
+			}
+		}
+		return -1
+	}
+	for axis := 0; axis < 3; axis++ {
+		for _, sj := range []int{1, -1} {
+			for _, sk := range []int{1, -1} {
+				feature := AnchorFeature{Kind: "edge", Axis: axis, Signs: [3]int{sj, sk, 0}}
+				drawn := edgeDrawnEnds(element, view, feature)
+				var relative [2]PlaneVec
+				var absolute [2]PlaneVec
+				for i, end := range drawn {
+					relative[i] = drawnToProjected(end, rect, view)
+					absolute[i] = PlaneVec{U: roundCm(rect.U + relative[i].U), V: roundCm(rect.V + relative[i].V)}
+				}
+				// A side of the drawing is an edge whose two ends are
+				// neighbours on the silhouette. An edge crossing the interior,
+				// or hidden behind the shape, is not a side of it.
+				a, b := hullIndex(relative[0]), hullIndex(relative[1])
+				if a < 0 || b < 0 || a == b {
+					continue
+				}
+				gap := a - b
+				if gap < 0 {
+					gap = -gap
+				}
+				if gap != 1 && gap != len(projectedHull)-1 {
+					continue
+				}
+				if alreadyASide(absolute) {
+					continue
+				}
+				taken = append(taken, absolute)
+				offered = append(offered, OfferedAnchor{
+					Feature:    feature,
+					Point:      AnchorPoint(element, view, feature),
+					AllowSlide: slide,
+				})
+			}
+		}
+	}
+
 	return offered
 }
 

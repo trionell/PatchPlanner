@@ -6,7 +6,7 @@ import type { PlotViewState } from '../../hooks/usePlotView'
 import {
   MEASURE_POINT_PX,
   measurementSpan,
-  faceLine,
+  sideLine,
   anchorFeatureLabel,
   anchorHintsFor,
   MEASURE_HINT_PX,
@@ -1188,7 +1188,7 @@ export function StagePlotCanvas({
                 // From the element the aim actually took it from, never from
                 // whichever element is nearest.
                 const owner = aim.elementId != null ? measurableById.get(aim.elementId) : undefined
-                const line = owner && aim.feature ? faceLine(owner, view, aim.feature) : null
+                const line = owner && aim.feature ? sideLine(owner, view, aim.feature) : null
                 if (!line) return null
                 const flip = view === 'top' ? 1 : -1
                 return (
@@ -1230,7 +1230,7 @@ export function StagePlotCanvas({
             const element = measurableById.get(measureFirst.element_id)
             const feature = parseAnchorFeature(measureFirst.feature ?? '')
             if (!element || !feature) return null
-            const line = faceLine(element, view, feature)
+            const line = sideLine(element, view, feature)
             if (!line) return null
             const span = measurementSpan({ kind: 'line', line }, { kind: 'point', point: { u: aim.u, v: aim.v } }, measureType ?? 'aligned')
             if (!span) return null

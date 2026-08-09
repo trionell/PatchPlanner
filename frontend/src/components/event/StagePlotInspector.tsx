@@ -16,7 +16,7 @@ import type { StagePlotElementCreate, StagePlotElementPatch, StagePlotMeasuremen
 import { getAudioPatch } from '../../api/audioPatch'
 import { getLightingRig } from '../../api/lighting'
 import { useDraftState } from '../../hooks/useDraftState'
-import { clampDimension, measurementGeometry, parseAnchorFeature, roundCm } from '../../lib/stagePlot'
+import { anchorFeatureLabel, clampDimension, measurementGeometry, parseAnchorFeature, roundCm } from '../../lib/stagePlot'
 import { STAGE_PLOT_ICONS } from '../../lib/stagePlotIcons'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
@@ -612,11 +612,7 @@ function anchorDescription(anchor: MeasurementAnchor, elementById: Map<number, S
   const subject = element?.name || (element ? `${element.kind}` : 'Missing element')
   const feature = parseAnchorFeature(anchor.feature ?? '')
   if (!feature) return { subject, detail: '—' }
-  if (feature.kind === 'centre') return { subject, detail: 'Centre' }
-  if (feature.kind === 'corner') return { subject, detail: 'Corner' }
-  const side = ['Width', 'Depth', 'Height'][feature.axis]
-  const which = feature.sign > 0 ? 'far' : 'near'
-  return { subject, detail: anchor.slide ? `${side} side, ${which} — perpendicular` : `${side} side, ${which} — midpoint` }
+  return { subject, detail: anchorFeatureLabel(feature, anchor.slide ?? false) }
 }
 
 interface MeasurementInspectorProps {

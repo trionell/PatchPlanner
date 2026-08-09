@@ -157,7 +157,7 @@ func (h StagePlotsHandler) resolveMeasurement(w http.ResponseWriter, eventID int
 				writeError(w, http.StatusBadRequest, "seen from this view an ellipse shows its curve, not a straight side, so the "+side.label+" end cannot slide")
 				return false
 			}
-			line, ok := service.ProjectFaceLine(element, view, feature)
+			line, ok := service.SideLine(element, view, feature)
 			if !ok {
 				writeError(w, http.StatusBadRequest, "the "+side.label+" end names a face that is not seen edge-on in the "+measurement.View+" view")
 				return false

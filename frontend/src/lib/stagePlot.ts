@@ -545,6 +545,20 @@ export type AnchorSign = -1 | 1
 export type AnchorFeature =
   | { kind: 'centre' }
   | { kind: 'corner'; signs: [AnchorSign, AnchorSign, AnchorSign] }
+  /**
+   * A SIDE of the drawn silhouette, stored as the box edge it is the
+   * projection of: the axis it runs along, and the signs on the other two.
+   *
+   * Sides are what the drawing has and what a person points at, and a box
+   * FACE is only one when the face happens to be seen exactly edge-on. Turn an
+   * element on two axes — a raked truss — and no face is edge-on in an
+   * elevation, while the silhouette still has six perfectly straight sides.
+   * Anchoring to edges makes the count come out right in every view, and the
+   * edge-on face is just the case where two edges project onto one line.
+   */
+  | { kind: 'edge'; axis: 0 | 1 | 2; signs: [AnchorSign, AnchorSign] }
+  /** Superseded by `edge`, still resolved so measurements drawn against a face
+   *  keep pointing where they always did. */
   | { kind: 'face'; axis: 0 | 1 | 2; sign: AnchorSign }
 
 const AXIS_LETTERS = ['x', 'y', 'z'] as const
@@ -553,10 +567,18 @@ const AXIS_LETTERS = ['x', 'y', 'z'] as const
  *  is seen face-on and has no straight side to measure to. */
 export const FACE_EDGE_ON_MIN = 0.05
 
+const signChar = (s: AnchorSign) => (s > 0 ? '+' : '-')
+
 export function formatAnchorFeature(feature: AnchorFeature): string {
   if (feature.kind === 'centre') return 'centre'
-  if (feature.kind === 'corner') return `corner:${feature.signs.map((s) => (s > 0 ? '+' : '-')).join('')}`
-  return `face:${feature.sign > 0 ? '+' : '-'}${AXIS_LETTERS[feature.axis]}`
+  if (feature.kind === 'corner') return `corner:${feature.signs.map(signChar).join('')}`
+  if (feature.kind === 'edge') return `edge:${AXIS_LETTERS[feature.axis]}${feature.signs.map(signChar).join('')}`
+  return `face:${signChar(feature.sign)}${AXIS_LETTERS[feature.axis]}`
+}
+
+/** The two axes an edge along `axis` is positioned by, in index order. */
+export function edgeCrossAxes(axis: 0 | 1 | 2): [0 | 1 | 2, 0 | 1 | 2] {
+  return [0, 1, 2].filter((i) => i !== axis) as [0 | 1 | 2, 0 | 1 | 2]
 }
 
 export function parseAnchorFeature(value: string): AnchorFeature | null {
@@ -564,6 +586,14 @@ export function parseAnchorFeature(value: string): AnchorFeature | null {
   const asSign = (s: string): AnchorSign => (s === '+' ? 1 : -1)
   const corner = /^corner:([+-])([+-])([+-])$/.exec(value)
   if (corner) return { kind: 'corner', signs: [asSign(corner[1]), asSign(corner[2]), asSign(corner[3])] }
+  const edge = /^edge:([xyz])([+-])([+-])$/.exec(value)
+  if (edge) {
+    return {
+      kind: 'edge',
+      axis: AXIS_LETTERS.indexOf(edge[1] as 'x' | 'y' | 'z') as 0 | 1 | 2,
+      signs: [asSign(edge[2]), asSign(edge[3])],
+    }
+  }
   const face = /^face:([+-])([xyz])$/.exec(value)
   if (face) return { kind: 'face', axis: AXIS_LETTERS.indexOf(face[2] as 'x' | 'y' | 'z') as 0 | 1 | 2, sign: asSign(face[1]) }
   return null
@@ -607,8 +637,29 @@ function featureDrawnOffset(element: StagePlotElement, view: StagePlotView, feat
     }
     return { u, v }
   }
+  if (feature.kind === 'edge') {
+    // The edge's MIDPOINT: it is positioned by the two axes it does not run
+    // along, and centred on the one it does.
+    const [j, k] = edgeCrossAxes(feature.axis)
+    return {
+      u: feature.signs[0] * half[j] * axes[j].u + feature.signs[1] * half[k] * axes[k].u,
+      v: feature.signs[0] * half[j] * axes[j].v + feature.signs[1] * half[k] * axes[k].v,
+    }
+  }
   const i = feature.axis
   return { u: feature.sign * half[i] * axes[i].u, v: feature.sign * half[i] * axes[i].v }
+}
+
+/** An edge's two ends, in the element's drawn frame. */
+function edgeDrawnEnds(element: StagePlotElement, view: StagePlotView, feature: Extract<AnchorFeature, { kind: 'edge' }>): [PlaneVec, PlaneVec] {
+  const axes = axisList(element, view)
+  const half = halfExtents(element)
+  const middle = featureDrawnOffset(element, view, feature)
+  const along = { u: half[feature.axis] * axes[feature.axis].u, v: half[feature.axis] * axes[feature.axis].v }
+  return [
+    { u: middle.u - along.u, v: middle.v - along.v },
+    { u: middle.u + along.u, v: middle.v + along.v },
+  ]
 }
 
 /**
@@ -652,7 +703,37 @@ function normalize(v: PlaneVec): PlaneVec {
  * seen flat). That single test also declines the top and bottom faces in a top
  * view, which is correct and needs no special case.
  */
-export function faceLine(element: StagePlotElement, view: StagePlotView, feature: AnchorFeature): FaceLine | null {
+/**
+ * The line a SIDE of the silhouette runs along, or null where that side is not
+ * a line in this view — an edge pointing into the screen, or a face that is not
+ * seen edge-on.
+ */
+export function sideLine(element: StagePlotElement, view: StagePlotView, feature: AnchorFeature): FaceLine | null {
+  if (feature.kind === 'face') return legacyFaceLine(element, view, feature)
+  if (feature.kind !== 'edge') return null
+
+  const rect = projectElement(element, view)
+  const ends = edgeDrawnEnds(element, view, feature).map((end) => {
+    const p = drawnToProjected(end, rect, view)
+    return { u: roundCm(rect.u + p.u), v: roundCm(rect.v + p.v) }
+  }) as [PlaneVec, PlaneVec]
+
+  const span = { u: ends[1].u - ends[0].u, v: ends[1].v - ends[0].v }
+  // Pointing into the screen: the side is a point, not a line.
+  if (length(span) < 1e-6) return null
+  const dir = normalize(span)
+
+  const point = anchorPoint(element, view, feature)
+  // Outward is away from the element's own centre, which is what makes a
+  // perpendicular measurement leave the object rather than cross it.
+  const outward = { u: point.u - rect.u, v: point.v - rect.v }
+  let normal = { u: dir.v + 0, v: -dir.u + 0 }
+  if (normal.u * outward.u + normal.v * outward.v < 0) normal = { u: -normal.u + 0, v: -normal.v + 0 }
+
+  return { point, dir, normal, segment: ends }
+}
+
+function legacyFaceLine(element: StagePlotElement, view: StagePlotView, feature: AnchorFeature): FaceLine | null {
   if (feature.kind !== 'face') return null
   const rect = projectElement(element, view)
   const axes = axisList(element, view)
@@ -781,12 +862,69 @@ export function offeredAnchors(element: StagePlotElement, view: StagePlotView): 
       }
     }
   }
+  // The SIDES of the drawn silhouette. Each is the projection of a box edge,
+  // so an edge is what gets stored — and the count then matches what is drawn:
+  // four sides for a parallelogram in plan, six for the hexagon an element
+  // turned on two axes shows in an elevation. Asking which box FACES are
+  // edge-on answers a different question, and answers it with nothing as soon
+  // as anything is properly rotated.
   const slide = allowsPlaneAnchor(element, view)
+  const hullIndex = (p: PlaneVec) => hull.findIndex((h) => Math.abs(h.u - p.u) < 0.05 && Math.abs(h.v - p.v) < 0.05)
+  // Sides already taken, compared with a TOLERANCE rather than hashed: a
+  // face's segment is reconstructed from projections and an edge's is read off
+  // the corners, so the same drawn side arrives from the two paths a
+  // hundredth of a centimetre apart — close enough to be one side, far enough
+  // that any rounding grain will eventually split them across a boundary.
+  const takenSides: Array<[PlaneVec, PlaneVec]> = []
+  const near = (a: PlaneVec, b: PlaneVec) => Math.hypot(a.u - b.u, a.v - b.v) < 0.1
+  const alreadyASide = (ends: [PlaneVec, PlaneVec]) =>
+    takenSides.some(
+      (side) => (near(side[0], ends[0]) && near(side[1], ends[1])) || (near(side[0], ends[1]) && near(side[1], ends[0])),
+    )
+
+  // A side can arrive two ways, and BOTH are needed.
+  //
+  // A FACE seen edge-on collapses to a line — that is a side. It is how the
+  // long sides of a raked truss appear in plan, where the length and height
+  // axes project onto one direction and the whole ±depth face flattens to a
+  // segment no single box edge spans.
+  //
+  // A box EDGE projects to a side wherever the silhouette turns a corner that
+  // is not a flattened face — the short ends of that same truss, and every
+  // side of the hexagon it shows in an elevation.
+  //
+  // Faces go first so that where a side is both, it keeps the encoding it has
+  // always had and measurements drawn before edges existed still name it.
   for (const axis of [0, 1, 2] as const) {
     for (const sign of [1, -1] as AnchorSign[]) {
       const feature: AnchorFeature = { kind: 'face', axis, sign }
-      if (!faceLine(element, view, feature)) continue
+      const line = sideLine(element, view, feature)
+      if (!line) continue
+      takenSides.push(line.segment)
       offered.push({ feature, point: anchorPoint(element, view, feature), allowSlide: slide })
+    }
+  }
+
+  for (const axis of [0, 1, 2] as const) {
+    for (const sj of [1, -1] as AnchorSign[]) {
+      for (const sk of [1, -1] as AnchorSign[]) {
+        const feature: AnchorFeature = { kind: 'edge', axis, signs: [sj, sk] }
+        const ends = edgeDrawnEnds(element, view, feature).map((end) => drawnToProjected(end, rect, view))
+        const a = hullIndex(ends[0])
+        const b = hullIndex(ends[1])
+        // A side of the drawing is an edge whose two ends are neighbours on
+        // the silhouette. An edge running through the interior, or one hidden
+        // behind the shape, is not a side of it.
+        if (a < 0 || b < 0 || a === b) continue
+        const gap = Math.abs(a - b)
+        if (gap !== 1 && gap !== hull.length - 1) continue
+        // Edges that project onto the same run — as two do wherever a face is
+        // edge-on — are one drawn side.
+        const absolute = ends.map((e) => ({ u: roundCm(rect.u + e.u), v: roundCm(rect.v + e.v) })) as [PlaneVec, PlaneVec]
+        if (alreadyASide(absolute)) continue
+        takenSides.push(absolute)
+        offered.push({ feature, point: anchorPoint(element, view, feature), allowSlide: slide })
+      }
     }
   }
   return offered
@@ -981,8 +1119,8 @@ export function aimAtAnchor(
     // Three zones and no dead ground: a corner zone at each end, a midpoint
     // zone in the middle, and the rest of the side is the sliding plane.
     for (const face of offered) {
-      if (face.feature.kind !== 'face') continue
-      const line = faceLine(element, view, face.feature)
+      if (face.feature.kind !== 'edge' && face.feature.kind !== 'face') continue
+      const line = sideLine(element, view, face.feature)
       if (!line) continue
 
       const perpendicular = distanceToSegment(point, line.segment[0], line.segment[1])
@@ -1062,7 +1200,7 @@ export function resolveEnd(
   const feature = parseAnchorFeature(anchor.feature ?? '')
   if (!feature) return null
   if (anchor.slide) {
-    const line = faceLine(element, view, feature)
+    const line = sideLine(element, view, feature)
     // A face that has turned flat has no line left. The measurement does not
     // break: it falls back to that face's centre, which still projects.
     if (line) return { kind: 'line', line }
@@ -1141,7 +1279,6 @@ export function anchorHintsFor(
 export function anchorFeatureLabel(feature: AnchorFeature, slide: boolean): string {
   if (feature.kind === 'centre') return 'Centre'
   if (feature.kind === 'corner') return 'Corner'
-  const side = ['Width', 'Depth', 'Height'][feature.axis]
-  const which = feature.sign > 0 ? 'far' : 'near'
-  return slide ? `${side} side (${which}) — perpendicular` : `${side} side (${which}) — midpoint`
+  const along = feature.kind === 'edge' ? ['Length', 'Depth', 'Height'][feature.axis] : ['Width', 'Depth', 'Height'][feature.axis]
+  return slide ? `${along} side — perpendicular` : `${along} side — midpoint`
 }
