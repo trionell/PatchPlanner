@@ -20,6 +20,10 @@ type OwnedItem struct {
 type EventOwnedEquipment struct {
 	OwnedItemID   int64  `json:"owned_item_id"`
 	OwnedItemName string `json:"owned_item_name"`
+	// Description is the catalog item's own, carried onto the line because a
+	// name is not an identity: fifteen catalog items are called
+	// "Mikrofonkabel" and differ only here.
+	Description   string `json:"description,omitempty"`
 	CategoryType  string `json:"category_type"`
 	Quantity      int    `json:"quantity"`
 	QuantityOwned int    `json:"quantity_owned"`

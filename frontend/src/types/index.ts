@@ -572,6 +572,8 @@ export interface OwnedItem {
 export interface EventOwnedEquipment {
   owned_item_id: number
   owned_item_name: string
+  /** The catalog item's own, carried onto the line — a name is not an identity. */
+  description?: string
   category_type: string
   quantity: number
   quantity_owned: number

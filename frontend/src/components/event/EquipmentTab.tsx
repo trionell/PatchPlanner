@@ -58,7 +58,10 @@ export function EquipmentTab({ eventId, readOnly = false }: { eventId: number; r
     const visible = rows.filter(
       (row) =>
         (mobileFilter !== 'problems' || (row.source === 'owned' && row.over)) &&
-        (!q || row.name.toLowerCase().includes(q) || row.type.toLowerCase().includes(q)),
+        (!q ||
+          row.name.toLowerCase().includes(q) ||
+          (row.description ?? '').toLowerCase().includes(q) ||
+          row.type.toLowerCase().includes(q)),
     )
     const editing = editingKey ? rows.find((row) => rowKey(row) === editingKey) : undefined
     return (
@@ -89,9 +92,21 @@ export function EquipmentTab({ eventId, readOnly = false }: { eventId: number; r
               <CondensedListRow
                 key={rowKey(row)}
                 title={row.name}
+                /*
+                  Ranked, not appended (patterns.md §7c). The line already joined
+                  five facts onto one truncating line and the description would
+                  be a sixth, so something had to lose its standing slot — and it
+                  is `type`, the coarsest of them, which is what the description
+                  was being substituted for in the first place. It keeps the
+                  slot whenever there is no description, so nothing is lost; it
+                  is paid for.
+
+                  The over-owned warning is conditional rather than ranked: an
+                  alarm is never dropped to make room for detail.
+                */
                 subtitle={[
+                  row.description || row.type,
                   row.source,
-                  row.type,
                   split ?? String(row.qty),
                   row.source === 'owned' && row.over ? `exceeds owned ${row.have}` : undefined,
                   row.note,
@@ -126,8 +141,11 @@ export function EquipmentTab({ eventId, readOnly = false }: { eventId: number; r
             }}
             onOpenRental={() => openTab('rentals')}
             ownedCatalog={ownedCatalogQuery.data ?? []}
+            ownedCatalogLoading={ownedCatalogQuery.isPending}
+            planned={rows}
             readOnly={!editable}
             rentalCatalog={allInventoryQuery.data ?? []}
+            rentalCatalogLoading={allInventoryQuery.isPending}
             row={editing}
           />
         )}
@@ -168,7 +186,9 @@ export function EquipmentTab({ eventId, readOnly = false }: { eventId: number; r
         owned={ownedLinesQuery.data}
         rental={rentalQuery.data?.items}
         ownedCatalog={ownedCatalogQuery.data ?? []}
+        ownedCatalogLoading={ownedCatalogQuery.isPending}
         rentalCatalog={allInventoryQuery.data ?? []}
+        rentalCatalogLoading={allInventoryQuery.isPending}
         search={search}
         adding={adding}
         onAddingChange={setAdding}

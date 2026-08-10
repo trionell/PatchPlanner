@@ -69,7 +69,7 @@ func scanOwnedItem(row scanner) (domain.OwnedItem, error) {
 }
 
 const eventOwnedEquipmentQuery = `
-	SELECT e.owned_item_id, o.name, o.category_type, e.quantity, o.quantity_owned, COALESCE(e.notes, '')
+	SELECT e.owned_item_id, o.name, COALESCE(o.description, ''), o.category_type, e.quantity, o.quantity_owned, COALESCE(e.notes, '')
 	FROM event_owned_equipment e
 	JOIN owned_items o ON o.id = e.owned_item_id
 	WHERE e.event_id = ?
@@ -96,7 +96,7 @@ func ListEventOwnedEquipment(db *sql.DB, eventID int64) ([]domain.EventOwnedEqui
 // when the event has no line for the item.
 func GetEventOwnedEquipment(db *sql.DB, eventID, ownedItemID int64) (domain.EventOwnedEquipment, error) {
 	row := db.QueryRow(`
-		SELECT e.owned_item_id, o.name, o.category_type, e.quantity, o.quantity_owned, COALESCE(e.notes, '')
+		SELECT e.owned_item_id, o.name, COALESCE(o.description, ''), o.category_type, e.quantity, o.quantity_owned, COALESCE(e.notes, '')
 		FROM event_owned_equipment e
 		JOIN owned_items o ON o.id = e.owned_item_id
 		WHERE e.event_id = ? AND e.owned_item_id = ?`, eventID, ownedItemID)
@@ -130,7 +130,7 @@ func DeleteEventOwnedEquipment(db *sql.DB, eventID, ownedItemID int64) error {
 
 func scanEventOwnedEquipment(row scanner) (domain.EventOwnedEquipment, error) {
 	var line domain.EventOwnedEquipment
-	if err := row.Scan(&line.OwnedItemID, &line.OwnedItemName, &line.CategoryType, &line.Quantity, &line.QuantityOwned, &line.Notes); err != nil {
+	if err := row.Scan(&line.OwnedItemID, &line.OwnedItemName, &line.Description, &line.CategoryType, &line.Quantity, &line.QuantityOwned, &line.Notes); err != nil {
 		return domain.EventOwnedEquipment{}, fmt.Errorf("scan event owned equipment: %w", err)
 	}
 	line.IsOverOwned = line.Quantity > line.QuantityOwned

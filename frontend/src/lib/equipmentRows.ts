@@ -18,6 +18,12 @@ export interface OwnedRow {
   /** The *item* id. The two id spaces are separate, so a React key needs the source too. */
   id: number
   name: string
+  /**
+   * The catalog item's description. Both sources carry one, because a name is
+   * not an identity — fifteen items in the live catalog are called
+   * `Mikrofonkabel` and differ only here.
+   */
+  description?: string
   type: string
   qty: number
   have: number
@@ -29,6 +35,7 @@ export interface RentedRow {
   source: 'rented'
   id: number
   name: string
+  description?: string
   type: string
   audio: number
   light: number
@@ -68,6 +75,7 @@ export function equipmentRows(
     source: 'owned',
     id: line.owned_item_id,
     name: line.owned_item_name,
+    description: line.description || undefined,
     type: line.category_type,
     qty: line.quantity,
     have: line.quantity_owned,
@@ -81,6 +89,7 @@ export function equipmentRows(
       source: 'rented',
       id: item.inventory_item_id,
       name: item.inventory_item_name ?? 'Catalog item',
+      description: item.description || undefined,
       type: item.category_name || item.category_type || '',
       audio: item.manual_quantity_audio,
       light: item.manual_quantity_lighting,

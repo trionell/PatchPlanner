@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { useEscapeToClose } from '../../hooks/useEscapeToClose'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { cn } from '../../lib/utils'
@@ -76,6 +76,34 @@ type DrawerProps = DrawerBaseProps & DrawerNoteProps
 export function Drawer({ open, onClose, title, subtitle, width = 'wide', flush = false, children, footer, info, noteId }: DrawerProps) {
   useEscapeToClose(open, onClose)
   const isMobile = useIsMobile()
+  const panelRef = useRef<HTMLDivElement>(null)
+  const returnFocusTo = useRef<Element | null>(null)
+
+  /*
+    The same focus contract `ui/Sheet` has had since Wave 6a, which this had not
+    — so on a phone a drawer returned focus to whatever opened it and on a desk
+    it did not, one component behaving two ways.
+
+    It is not a nicety. A drawer opened from inside a row editor leaves focus on
+    `<body>` when it closes, and the editor binds `Escape` as a React
+    `onKeyDown` on its own subtree — so the *second* Escape, the one meant to
+    cancel the row, reaches nothing at all. Returning focus to the control that
+    opened the drawer is what makes Escape-twice work.
+
+    The mobile branch renders a `Sheet`, which does this itself; running both
+    would fight over the same target, hence the desk-only guard.
+  */
+  useEffect(() => {
+    if (!open || isMobile) return
+    returnFocusTo.current = document.activeElement
+    panelRef.current?.focus()
+    return () => {
+      const target = returnFocusTo.current
+      // Best-effort: the invoking control may have unmounted with the row it
+      // belonged to, in which case focus stays where the browser put it.
+      if (target instanceof HTMLElement && target.isConnected) target.focus()
+    }
+  }, [open, isMobile])
   // The `i` rides in the title's row, so a closed note costs the drawer no space.
   // Keyed by `noteId`, never by the title — see `DrawerNoteProps` for what that cost.
   // The `drawer:` prefix keeps these one namespace, apart from the panel notes
@@ -112,10 +140,12 @@ export function Drawer({ open, onClose, title, subtitle, width = 'wide', flush =
     <div className="fixed inset-0 z-50 flex justify-end bg-zinc-950/70" onClick={onClose}>
       <div
         className={cn(
-          'flex h-full w-full flex-col border-l border-zinc-700 bg-zinc-900 shadow-2xl',
+          'flex h-full w-full flex-col border-l border-zinc-700 bg-zinc-900 shadow-2xl focus:outline-none',
           width === 'wide' ? 'max-w-3xl' : 'max-w-md',
         )}
         onClick={(event) => event.stopPropagation()}
+        ref={panelRef}
+        tabIndex={-1}
       >
         <div className="flex items-start justify-between border-b border-zinc-800 px-5 py-4">
           <div className="min-w-0 flex-1">

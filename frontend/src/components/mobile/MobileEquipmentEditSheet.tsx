@@ -1,12 +1,23 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { deleteEventOwnedEquipment, putEventOwnedEquipment } from '../../api/owned'
 import { deleteManualRental, putManualRental } from '../../api/rentals'
+import {
+  BLANK_LINE,
+  batchDefaults,
+  linesReady,
+  ownedCandidates,
+  rentedCandidates,
+  type LineValues,
+  type PickerCandidate,
+} from '../../lib/equipmentCandidates'
 import type { EquipmentRow } from '../../lib/equipmentRows'
 import type { InventoryItem, OwnedItem } from '../../types'
+import { CatalogItemPicker } from '../event/CatalogItemPicker'
 import { Button } from '../ui/Button'
 import { FieldStack } from '../ui/GearList'
 import { Input } from '../ui/Input'
+import { RecordField } from '../ui/RecordField'
 import { Select } from '../ui/Select'
 import { Sheet } from '../ui/Sheet'
 
@@ -31,8 +42,11 @@ import { Sheet } from '../ui/Sheet'
 export function MobileEquipmentEditSheet({
   eventId,
   row,
+  planned,
   ownedCatalog,
+  ownedCatalogLoading = false,
   rentalCatalog,
+  rentalCatalogLoading = false,
   readOnly,
   onClose,
   onOpenRental,
@@ -44,8 +58,12 @@ export function MobileEquipmentEditSheet({
    * same `RowEditor` as its edit row.
    */
   row?: EquipmentRow
+  /** Every line the event already has, so the picker can refuse to overwrite one. */
+  planned: EquipmentRow[]
   ownedCatalog: OwnedItem[]
+  ownedCatalogLoading?: boolean
   rentalCatalog: InventoryItem[]
+  rentalCatalogLoading?: boolean
   /** A role that may not edit gets the same sheet with no confirm and no delete (P7). */
   readOnly: boolean
   onClose: () => void
@@ -53,13 +71,49 @@ export function MobileEquipmentEditSheet({
   onOpenRental?: () => void
 }) {
   const queryClient = useQueryClient()
-  const [source, setSource] = useState<EquipmentRow['source']>(row?.source ?? 'owned')
-  const [itemId, setItemId] = useState('')
+  /* `rented` is the catalog that has anything in it — the owned one is empty
+     until the planner builds it, and defaulting to it opened the picker onto
+     nothing at all. */
+  const [source, setSource] = useState<EquipmentRow['source']>(row?.source ?? 'rented')
+  const [chosen, setChosen] = useState<PickerCandidate[]>([])
+  const [values, setValues] = useState<Record<number, LineValues>>({})
+  const [picking, setPicking] = useState(false)
   const [quantity, setQuantity] = useState(row?.source === 'owned' ? row.qty : 1)
-  const [audio, setAudio] = useState(0)
-  const [light, setLight] = useState(0)
   const [note, setNote] = useState(row?.note ?? '')
   const [error, setError] = useState<string | null>(null)
+
+  const candidates = useMemo(
+    () => (source === 'owned' ? ownedCandidates(ownedCatalog) : rentedCandidates(rentalCatalog)),
+    [ownedCatalog, rentalCatalog, source],
+  )
+  const onSheet = useMemo(() => {
+    const map = new Map<number, number>()
+    for (const line of planned) if (line.source === source) map.set(line.id, line.qty)
+    return map
+  }, [planned, source])
+
+  /* Nothing chosen yet still needs somewhere to hold a typed quantity. Id 0 is it. */
+  const key = chosen.length === 1 ? chosen[0].id : 0
+  const single = values[key] ?? BLANK_LINE
+  const setSingle = (patch: Partial<LineValues>) =>
+    setValues((prev) => ({ ...prev, [key]: { ...(prev[key] ?? BLANK_LINE), ...patch } }))
+  const many = chosen.length > 1
+
+  const choose = (ids: number[]) => {
+    const picked = ids.flatMap((id) => {
+      const found = candidates.find((item) => item.id === id)
+      return found ? [found] : []
+    })
+    setPicking(false)
+    setChosen(picked)
+    setValues((prev) => {
+      const next: Record<number, LineValues> = {}
+      for (const item of picked) {
+        next[item.id] = picked.length > 1 ? batchDefaults(item) : (prev[item.id] ?? prev[0] ?? BLANK_LINE)
+      }
+      return next
+    })
+  }
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['owned-equipment', eventId] })
@@ -69,13 +123,54 @@ export function MobileEquipmentEditSheet({
 
   const save = useMutation({
     mutationFn: async () => {
-      const targetId = row?.id ?? Number(itemId)
-      const notes = note || undefined
-      if ((row?.source ?? source) === 'owned') {
-        await putEventOwnedEquipment(eventId, targetId, { quantity, notes })
+      const kind = row?.source ?? source
+      // Editing one line is one call, exactly as before.
+      if (row) {
+        const notes = note || undefined
+        if (kind === 'owned') {
+          await putEventOwnedEquipment(eventId, row.id, { quantity, notes })
+          return
+        }
+        await putManualRental(eventId, row.id, { quantity_audio: single.audio, quantity_lighting: single.light, notes })
         return
       }
-      await putManualRental(eventId, targetId, { quantity_audio: audio, quantity_lighting: light, notes })
+      /*
+        Adding is N calls, and it does not stop at the first failure — three of
+        five landing beats one landing and the rest being abandoned. What failed
+        stays in the sheet so pressing the confirm again retries exactly that;
+        the message names what *landed*, since that is the fact a phone screen
+        behind this sheet cannot show.
+      */
+      const notes = chosen.length === 1 ? note || undefined : undefined
+      const failed: PickerCandidate[] = []
+      let lastError = ''
+      for (const item of chosen) {
+        const value = values[item.id] ?? BLANK_LINE
+        try {
+          if (kind === 'owned') {
+            await putEventOwnedEquipment(eventId, item.id, { quantity: value.quantity, notes })
+          } else {
+            await putManualRental(eventId, item.id, {
+              quantity_audio: value.audio,
+              quantity_lighting: value.light,
+              notes,
+            })
+          }
+        } catch (err) {
+          failed.push(item)
+          lastError = (err as Error).message
+        }
+      }
+      if (failed.length > 0) {
+        setChosen(failed)
+        /* The lines that *did* land are rows on the sheet behind this one, and
+           they must be there when it closes — or when it does not. Invalidating
+           only on success left a partial batch invisible until the next refetch. */
+        await invalidate()
+        throw new Error(
+          `${chosen.length - failed.length} of ${chosen.length} lines were added. ${failed.length} failed: ${lastError}`,
+        )
+      }
     },
     onSuccess: async () => {
       await invalidate()
@@ -96,7 +191,8 @@ export function MobileEquipmentEditSheet({
     onError: (err: Error) => setError(err.message),
   })
 
-  const ready = row != null || (itemId !== '' && (source === 'owned' ? quantity > 0 : audio > 0 || light > 0))
+  const ready =
+    row != null || linesReady(source, chosen.map((item) => item.id), values)
 
   /*
     A rented line is read-only here at every width — the desktop row editor does the
@@ -120,6 +216,7 @@ export function MobileEquipmentEditSheet({
   }
 
   return (
+    <>
     <Sheet
       footer={
         readOnly ? undefined : (
@@ -140,15 +237,17 @@ export function MobileEquipmentEditSheet({
             )}
             <span className="flex-1" />
             <Button className="flex-1" disabled={save.isPending || !ready} onClick={() => save.mutate()}>
-              {save.isPending ? 'Saving…' : row ? 'Save line' : 'Add line'}
+              {save.isPending ? 'Saving…' : row ? 'Save line' : many ? `Add ${chosen.length} lines` : 'Add line'}
             </Button>
           </div>
         )
       }
       onClose={onClose}
       open
-      subtitle={row ? `owned · ${row.type} · ${row.have} in stock` : undefined}
-      title={row ? row.name : 'Add a line'}
+      subtitle={
+        row ? [`owned`, row.description || row.type, `${row.have} in stock`].join(' · ') : undefined
+      }
+      title={row ? row.name : many ? `Add ${chosen.length} lines` : 'Add a line'}
     >
       {error && (
         <div className="rounded-md border border-red-800 bg-red-950/50 px-3 py-2 text-sm text-red-300">{error}</div>
@@ -162,11 +261,11 @@ export function MobileEquipmentEditSheet({
           <FieldStack label="Source" width="grow">
             <Select
               onChange={(event) => {
-                // Switching source invalidates the chosen item — the two catalogs are
-                // different lists — so the picker resets rather than pointing at an id
-                // from the other one.
+                // The two catalogs are different lists with different quantity
+                // shapes, so the whole batch goes with the source.
                 setSource(event.target.value as EquipmentRow['source'])
-                setItemId('')
+                setChosen([])
+                setValues({})
               }}
               value={source}
             >
@@ -175,52 +274,87 @@ export function MobileEquipmentEditSheet({
             </Select>
           </FieldStack>
           <FieldStack label="Item" width="grow">
-            <Select onChange={(event) => setItemId(event.target.value)} value={itemId}>
-              <option value="">Select item…</option>
-              {source === 'owned'
-                ? ownedCatalog.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.category_type} — {item.name}
-                    </option>
-                  ))
-                : rentalCatalog.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.category_name ? `${item.category_name} — ${item.name}` : item.name}
-                    </option>
-                  ))}
-            </Select>
+            <RecordField
+              count={chosen.length}
+              onOpen={() => setPicking(true)}
+              placeholder="Choose an item…"
+              record={chosen.length === 1 ? { name: chosen[0].name, qualifier: chosen[0].description } : undefined}
+            />
           </FieldStack>
         </>
       )}
 
-      {(row?.source ?? source) === 'owned' ? (
-        <FieldStack label="Quantity" width="count">
-          <Input
-            disabled={readOnly}
-            min={0}
-            onChange={(event) => setQuantity(Math.max(0, Number(event.target.value)))}
-            type="number"
-            value={quantity}
-          />
-        </FieldStack>
-      ) : (
-        <div className="flex gap-2.5">
-          <FieldStack label="Audio" width="grow">
+      {/* At one line these are the fields the sheet has always had. More than one
+          and they move into the block below, one row per item — the same
+          construction as the desk, because `ui/Drawer`'s own rule says a batch
+          reads the same at both widths. */}
+      {!many &&
+        ((row?.source ?? source) === 'owned' ? (
+          <FieldStack label="Quantity" width="count">
             <Input
+              disabled={readOnly}
               min={0}
-              onChange={(event) => setAudio(Math.max(0, Number(event.target.value)))}
+              onChange={(event) =>
+                row ? setQuantity(Math.max(0, Number(event.target.value))) : setSingle({ quantity: Math.max(0, Number(event.target.value)) })
+              }
               type="number"
-              value={audio}
+              value={row ? quantity : single.quantity}
             />
           </FieldStack>
-          <FieldStack label="Light" width="grow">
-            <Input
-              min={0}
-              onChange={(event) => setLight(Math.max(0, Number(event.target.value)))}
-              type="number"
-              value={light}
-            />
-          </FieldStack>
+        ) : (
+          <div className="flex gap-2.5">
+            <FieldStack label="Audio" width="grow">
+              <Input
+                min={0}
+                onChange={(event) => setSingle({ audio: Math.max(0, Number(event.target.value)) })}
+                type="number"
+                value={single.audio}
+              />
+            </FieldStack>
+            <FieldStack label="Light" width="grow">
+              <Input
+                min={0}
+                onChange={(event) => setSingle({ light: Math.max(0, Number(event.target.value)) })}
+                type="number"
+                value={single.light}
+              />
+            </FieldStack>
+          </div>
+        ))}
+
+      {many && (
+        <div className="rounded-md border border-zinc-800">
+          {chosen.map((item) => {
+            const value = values[item.id] ?? BLANK_LINE
+            return (
+              <div className="flex items-center gap-2 border-b border-zinc-800/60 px-2.5 py-2 last:border-b-0" key={item.id}>
+                <span className="min-w-0 flex-1 truncate text-sm text-zinc-100">
+                  {item.name}
+                  {item.description && <span className="text-zinc-500"> · {item.description}</span>}
+                </span>
+                {source === 'owned' ? (
+                  <PhoneNumber
+                    label="Qty"
+                    onChange={(quantity) => setValues((prev) => ({ ...prev, [item.id]: { ...value, quantity } }))}
+                    value={value.quantity}
+                  />
+                ) : (
+                  <>
+                    <PhoneNumber
+                      label="A"
+                      onChange={(audio) => setValues((prev) => ({ ...prev, [item.id]: { ...value, audio } }))}
+                      value={value.audio}
+                    />
+                    <PhoneNumber
+                      label="L"
+                      onChange={(light) => setValues((prev) => ({ ...prev, [item.id]: { ...value, light } }))}
+                      value={value.light}
+                    />
+                  </>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -232,9 +366,68 @@ export function MobileEquipmentEditSheet({
         </div>
       )}
 
-      <FieldStack label="Note" width="grow">
-        <Input disabled={readOnly} onChange={(event) => setNote(event.target.value)} value={note} />
-      </FieldStack>
+      {/* A batch carries no per-line note — five note fields is a form nobody
+          fills in — so the field is absent rather than present and discarded,
+          which is what it was doing. The desk hides it on the same test. */}
+      {!many && (
+        <FieldStack label="Note" width="grow">
+          <Input disabled={readOnly} onChange={(event) => setNote(event.target.value)} value={note} />
+        </FieldStack>
+      )}
     </Sheet>
+
+    {/*
+      A **second sheet layer**, not a replacement of this one's contents. The add
+      sheet stays mounted, so a draft typed in a loading bay on a bad connection
+      survives a visit to the catalog; replacing the contents in place would need
+      a back control and a navigation stack inside a component that has six props
+      on purpose. The construction already ships — D4's browse opens a sheet from
+      inside a sheet, and `useEscapeToClose` already keeps the overlay stack — so
+      Back, Escape and the scrim close the picker only.
+    */}
+    {picking && (
+      <CatalogItemPicker
+        candidates={candidates}
+        emptyMessage={
+          source === 'owned'
+            ? 'Your owned-gear catalog is empty — add items on the Inventory page first.'
+            : 'Nothing in this catalog yet.'
+        }
+        loading={source === 'owned' ? ownedCatalogLoading : rentalCatalogLoading}
+        onChoose={choose}
+        onClose={() => setPicking(false)}
+        onSheet={onSheet}
+        selection={chosen.map((item) => item.id)}
+      />
+    )}
+    </>
+  )
+}
+
+/**
+ * A batch line's number in the hand: the name at the left, the editable value at
+ * the right edge — `components.md` §`ui/Drawer`'s own rule, which already says a
+ * batch reads the same at both widths, so this is not a phone composition.
+ */
+function PhoneNumber({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: number
+  onChange: (value: number) => void
+}) {
+  return (
+    <label className="flex flex-none items-center gap-1">
+      <span className="text-[10px] uppercase tracking-wide text-zinc-500">{label}</span>
+      <Input
+        className="w-14"
+        min={0}
+        onChange={(event) => onChange(Math.max(0, Number(event.target.value)))}
+        type="number"
+        value={value}
+      />
+    </label>
   )
 }

@@ -1,0 +1,425 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Search } from 'lucide-react'
+import { useIsMobile } from '../../hooks/useIsMobile'
+import type { PickerCandidate } from '../../lib/equipmentCandidates'
+import { matchesSearch } from '../../lib/patchSearch'
+import { cn } from '../../lib/utils'
+import { MobilePicker } from '../mobile/MobilePicker'
+import { Button } from '../ui/Button'
+import { Drawer } from '../ui/Drawer'
+import { PanelCols, PanelMain, PanelRail, PanelRailRow } from '../ui/PanelRail'
+import { NumCell, SheetBody, SheetCell, SheetHead, SheetHeadCell, SheetRow, SheetTable } from '../ui/SheetTable'
+
+/**
+ * Choosing catalog items for an equipment line — one, or several in a visit.
+ *
+ * This is `EventInventoryBrowser` with its rows switched on. That is deliberate
+ * and it is the whole architecture: the read-only browse of these exact rows is
+ * already a rail plus a search plus a description column, so choosing from them
+ * is **the fifth instance of `patterns.md` §4's rail**, not a new pattern.
+ *
+ * **Two gestures per row**, which is §4's own split — the label selects, the dot
+ * cables:
+ *
+ * - the **name** chooses that item and closes, while nothing is ticked;
+ * - the **tick** accumulates it and keeps the picker open.
+ *
+ * Once anything is ticked the name ticks too, because closing on a name click
+ * would throw the batch away. The consequence worth stating: choosing one item
+ * still costs exactly what the `<select>` it replaces cost — open, click a name,
+ * done. The batch is what is new, and it is not charged to the common case.
+ *
+ * Both catalogs arrive here already flattened to `PickerCandidate`, so nothing
+ * in this file branches on which one it is looking at — five fixed
+ * `category_type` values and twenty-seven free-form category names are the same
+ * shape to a rail that takes rows.
+ */
+
+const ALL = '__all__'
+
+export function CatalogItemPicker({
+  onClose,
+  candidates,
+  loading = false,
+  emptyMessage,
+  onSheet,
+  selection,
+  onChoose,
+}: {
+  onClose: () => void
+  candidates: PickerCandidate[]
+  /** An unanswered request and an empty catalog look identical; they must not read alike. */
+  loading?: boolean
+  /** What to say when the catalog has loaded and holds nothing. */
+  emptyMessage: string
+  /**
+   * Items the event already plans, mapped to how many. Both write endpoints are
+   * PUTs keyed on the item, so re-choosing one would overwrite that line's
+   * quantity rather than adding a second — these are stated and cannot be
+   * chosen. **Absent, never disabled** (P7).
+   */
+  onSheet: Map<number, number>
+  /**
+   * Ids already held by the field, restored as ticks. Read once, at mount: this
+   * component is rendered **only while it is open**, so opening it is a mount
+   * and every initial value is a `useState` initialiser rather than an effect
+   * that fights the user's own ticks a render later.
+   */
+  selection: number[]
+  /** Confirming. Closing without choosing calls `onClose` instead. */
+  onChoose: (ids: number[]) => void
+}) {
+  const isMobile = useIsMobile()
+  const [ticked, setTicked] = useState<Set<number>>(() => new Set(selection))
+  const [query, setQuery] = useState('')
+  /* Re-opening lands on the chosen item's own category, so the drawer widens a
+     selection rather than starting it again. */
+  const [category, setCategory] = useState<string>(
+    () => (selection.length === 1 ? candidates.find((item) => item.id === selection[0])?.categoryKey : undefined) ?? ALL,
+  )
+  const searchRef = useRef<HTMLInputElement>(null)
+
+  /* Focus is a DOM concern, which is what an effect is actually for. */
+  useEffect(() => {
+    searchRef.current?.focus()
+  }, [])
+
+  const categories = useMemo(() => {
+    const seen = new Map<string, { key: string; label: string; qualifier?: string; count: number }>()
+    for (const item of candidates) {
+      const found = seen.get(item.categoryKey)
+      if (found) found.count += 1
+      else
+        seen.set(item.categoryKey, {
+          key: item.categoryKey,
+          label: item.categoryLabel,
+          qualifier: item.categoryQualifier,
+          count: 1,
+        })
+    }
+    // Derived from the items, so a category holding nothing is never listed.
+    return [...seen.values()].sort((a, b) => a.label.localeCompare(b.label))
+  }, [candidates])
+
+  const inCategory = useMemo(
+    () => (category === ALL ? candidates : candidates.filter((item) => item.categoryKey === category)),
+    [candidates, category],
+  )
+  const visible = useMemo(
+    () => inCategory.filter((item) => matchesSearch(query, item.name, item.description)),
+    [inCategory, query],
+  )
+
+  const toggle = (id: number) =>
+    setTicked((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(id)) next.add(id)
+      return next
+    })
+
+  /** The name's shortcut exists only while nothing is ticked (see the header). */
+  const pickByName = (id: number) => (ticked.size === 0 ? onChoose([id]) : toggle(id))
+
+  const count = ticked.size
+  const categoryLabel = category === ALL ? undefined : categories.find((one) => one.key === category)?.label
+
+  const nothingHere = loading
+    ? 'Loading catalog…'
+    : candidates.length === 0
+      ? emptyMessage
+      : `No item matches “${query.trim()}”${categoryLabel ? ` in ${categoryLabel}` : ''}.`
+
+  /* Offered when the *category* is what hid the answer. Gated on the category
+     alone: with everything already in view, a control promising to widen the
+     search whose only effect is to erase it is a lie about what it does. */
+  const widen = !loading && candidates.length > 0 && category !== ALL
+
+  const none = (
+    <div className="px-3 py-3 text-sm text-zinc-500">
+      {nothingHere}
+      {widen && (
+        <Button
+          className="ml-3 align-middle"
+          /* The **same** search, one category wider — the term is what the
+             planner typed, and throwing it away is not widening it. */
+          onClick={() => setCategory(ALL)}
+          size="xs"
+          variant="outline"
+        >
+          Search all {candidates.length} items
+        </Button>
+      )}
+    </div>
+  )
+
+  return (
+    <Drawer
+      flush
+      footer={
+        /* None until something is ticked: with an empty selection this is the
+           browse it always was, and there is nothing to confirm. */
+        count === 0 ? undefined : isMobile ? (
+          /* The confirm, full width, and nothing else (§7d). The count rides in
+             the label, which is what lets the desk put a statement beside the
+             same button without the two reaches using different words — and a
+             `sm` button here would be a 32px target on a surface whose rule is
+             44. */
+          <Button className="w-full" onClick={() => onChoose([...ticked])} size="md">
+            Choose {count} {count === 1 ? 'item' : 'items'}
+          </Button>
+        ) : (
+          <div className="flex items-center gap-3">
+            <span className="min-w-0 truncate">
+              {count} {count === 1 ? 'item' : 'items'} selected · {count} {count === 1 ? 'line' : 'lines'} on the
+              sheet
+            </span>
+            <Button className="ml-auto flex-none" onClick={() => onChoose([...ticked])} size="sm">
+              Choose {count} {count === 1 ? 'item' : 'items'}
+            </Button>
+          </div>
+        )
+      }
+      info={
+        <>
+          Clicking an item's <b>name</b> chooses it and closes. Ticking several keeps this open and adds them
+          as one batch, each with its own quantity. Nothing is written to the event until you save the line.
+        </>
+      }
+      noteId="equipment-item"
+      onClose={onClose}
+      open
+      title="Choose items"
+    >
+      {isMobile ? (
+        <>
+          <div className="sticky top-0 z-10 flex flex-none flex-col border-b border-zinc-800 bg-zinc-900">
+            <div className="flex items-center gap-2 px-3">
+              <MobilePicker
+                label="All categories"
+                onChange={(id) => setCategory(String(id))}
+                options={[
+                  { id: ALL, label: 'All categories', hint: String(candidates.length) },
+                  ...categories.map((one) => ({ id: one.key, label: one.label, hint: String(one.count) })),
+                ]}
+                title="Filter by category"
+                value={category}
+                variant="title"
+              />
+              <span className="ml-auto flex-none font-mono text-xs tabular-nums text-zinc-500">
+                {visible.length}
+              </span>
+            </div>
+            {/* Open, not behind a target — a stated exception to `patterns.md`
+                §7b on that rule's own justification: a field costing 44px "to
+                serve something done on some screens" is wrong, and here
+                finding is the entire job of the surface. */}
+            <div className="flex items-center gap-2 border-t border-zinc-800 px-3">
+              <Search className="h-4 w-4 flex-none text-zinc-500" />
+              <input
+                className="h-11 min-w-0 flex-1 bg-transparent text-sm text-zinc-100 outline-none placeholder:text-zinc-500"
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search name and description…"
+                ref={searchRef}
+                value={query}
+              />
+            </div>
+          </div>
+
+          {visible.map((item) => (
+            <PhoneCandidateRow
+              item={item}
+              key={item.id}
+              onPick={() => pickByName(item.id)}
+              onToggle={() => toggle(item.id)}
+              planned={onSheet.get(item.id)}
+              ticked={ticked.has(item.id)}
+            />
+          ))}
+          {visible.length === 0 && none}
+        </>
+      ) : (
+        <PanelCols className="min-h-full">
+          <PanelRail>
+            <PanelRailRow
+              count={candidates.length}
+              label="All items"
+              onSelect={() => setCategory(ALL)}
+              selected={category === ALL}
+            />
+            {categories.map((one) => (
+              <PanelRailRow
+                count={one.count}
+                key={one.key}
+                label={one.label}
+                onSelect={() => setCategory(one.key)}
+                qualifier={one.qualifier}
+                selected={one.key === category}
+              />
+            ))}
+          </PanelRail>
+
+          <PanelMain>
+            {/* Sticky, because a filter you have scrolled past is one you have
+                to scroll back to, and a catalog is 338 rows. */}
+            <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-zinc-800 bg-zinc-900 px-2 py-1.5">
+              <Search className="h-3.5 w-3.5 flex-none text-zinc-500" />
+              <input
+                className="h-6 min-w-0 flex-1 bg-transparent text-xs text-zinc-100 outline-none placeholder:text-zinc-500"
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search name and description…"
+                ref={searchRef}
+                value={query}
+              />
+              <span className="flex-none font-mono text-[10px] tabular-nums text-zinc-500">
+                {visible.length} of {candidates.length}
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <SheetTable>
+                <SheetHead>
+                  <tr>
+                    <SheetHeadCell />
+                    {COLUMNS.map((column) => (
+                      <SheetHeadCell key={column}>{column}</SheetHeadCell>
+                    ))}
+                  </tr>
+                </SheetHead>
+                <SheetBody>
+                  {visible.map((item, index) => {
+                    const planned = onSheet.get(item.id)
+                    const isTicked = ticked.has(item.id)
+                    return (
+                      <SheetRow key={item.id} open={isTicked} striped={index % 2 === 1}>
+                        <SheetCell className="w-8">
+                          {/* Absent on a planned row, never disabled (P7). */}
+                          {planned == null && (
+                            <input
+                              aria-label={`Add ${item.name} to the batch`}
+                              checked={isTicked}
+                              className="h-3.5 w-3.5 accent-amber-500"
+                              onChange={() => toggle(item.id)}
+                              type="checkbox"
+                            />
+                          )}
+                        </SheetCell>
+                        <SheetCell className="whitespace-nowrap">
+                          {planned == null ? (
+                            <button
+                              className="text-left text-zinc-100 hover:text-amber-300"
+                              onClick={() => pickByName(item.id)}
+                              type="button"
+                            >
+                              {item.name}
+                            </button>
+                          ) : (
+                            <span className="text-zinc-400">
+                              {item.name}
+                              <span className="ml-2 text-[11px] text-zinc-600">on the sheet · {planned}</span>
+                            </span>
+                          )}
+                        </SheetCell>
+                        <SheetCell className="max-w-64 truncate text-zinc-500" title={item.description}>
+                          {item.description || <Dash />}
+                        </SheetCell>
+                        <NumCell>{item.stock}</NumCell>
+                      </SheetRow>
+                    )
+                  })}
+
+                  {visible.length === 0 && (
+                    <tr>
+                      <SheetCell colSpan={COLUMNS.length + 1}>{none}</SheetCell>
+                    </tr>
+                  )}
+                </SheetBody>
+              </SheetTable>
+            </div>
+          </PanelMain>
+        </PanelCols>
+      )}
+    </Drawer>
+  )
+}
+
+const COLUMNS = ['Item', 'Description', 'Stock']
+
+function Dash() {
+  return <span className="text-zinc-600">—</span>
+}
+
+/**
+ * The phone's candidate row, and **not** `CondensedListRow`.
+ *
+ * That component makes the whole row one tap target — *"one state or one
+ * affordance, never both"* — which is right for a list you are reading and
+ * wrong for one you are choosing from two ways. A tick nested inside a row-wide
+ * `<button>` is also invalid markup, so the choice is not between two styles: a
+ * row with two gestures cannot be that component.
+ *
+ * Its geometry is copied from it rather than invented — 44 px minimum, the same
+ * hairline, the same two truncating lines — so the two lists read as one family.
+ */
+function PhoneCandidateRow({
+  item,
+  planned,
+  ticked,
+  onPick,
+  onToggle,
+}: {
+  item: PickerCandidate
+  planned?: number
+  ticked: boolean
+  onPick: () => void
+  onToggle: () => void
+}) {
+  const subtitle = [item.description, `Stock ${item.stock}`].filter(Boolean).join(' · ')
+
+  return (
+    <div
+      className={cn(
+        'flex min-h-[44px] w-full items-stretch border-b border-zinc-800/60',
+        ticked && 'bg-amber-500/[0.06]',
+      )}
+    >
+      {/* On a planned row this is a `div`, not a disabled `button`. **Absent, not
+          disabled** (P7) — and a disabled control dressed to look enabled is
+          still the disabled affordance the rule names. The desk does the same. */}
+      {planned == null ? (
+        <button
+          className="flex min-w-0 flex-1 flex-col justify-center px-3 py-1.5 text-left"
+          onClick={onPick}
+          type="button"
+        >
+          <span className="truncate text-sm text-zinc-100">{item.name}</span>
+          <span className="truncate text-xs text-zinc-500">{subtitle}</span>
+        </button>
+      ) : (
+        <div className="flex min-w-0 flex-1 flex-col justify-center px-3 py-1.5">
+          <span className="truncate text-sm text-zinc-400">{item.name}</span>
+          <span className="truncate text-xs text-zinc-500">{subtitle}</span>
+        </div>
+      )}
+      {planned != null ? (
+        <span className="flex flex-none items-center px-3 text-[11px] text-zinc-600">on the sheet · {planned}</span>
+      ) : (
+        <button
+          aria-label={`Add ${item.name} to the batch`}
+          aria-pressed={ticked}
+          className="flex h-11 w-11 flex-none items-center justify-center self-center"
+          onClick={onToggle}
+          type="button"
+        >
+          <span
+            className={cn(
+              'flex h-5 w-5 items-center justify-center rounded-sm border text-[11px]',
+              ticked ? 'border-amber-500 bg-amber-500 text-zinc-950' : 'border-zinc-600 text-transparent',
+            )}
+          >
+            ✓
+          </span>
+        </button>
+      )}
+    </div>
+  )
+}
