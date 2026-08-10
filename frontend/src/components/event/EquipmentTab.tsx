@@ -141,9 +141,11 @@ export function EquipmentTab({ eventId, readOnly = false }: { eventId: number; r
             }}
             onOpenRental={() => openTab('rentals')}
             ownedCatalog={ownedCatalogQuery.data ?? []}
+            ownedCatalogLoading={ownedCatalogQuery.isPending}
             planned={rows}
             readOnly={!editable}
             rentalCatalog={allInventoryQuery.data ?? []}
+            rentalCatalogLoading={allInventoryQuery.isPending}
             row={editing}
           />
         )}
@@ -184,7 +186,9 @@ export function EquipmentTab({ eventId, readOnly = false }: { eventId: number; r
         owned={ownedLinesQuery.data}
         rental={rentalQuery.data?.items}
         ownedCatalog={ownedCatalogQuery.data ?? []}
+        ownedCatalogLoading={ownedCatalogQuery.isPending}
         rentalCatalog={allInventoryQuery.data ?? []}
+        rentalCatalogLoading={allInventoryQuery.isPending}
         search={search}
         adding={adding}
         onAddingChange={setAdding}

@@ -44,7 +44,9 @@ export function MobileEquipmentEditSheet({
   row,
   planned,
   ownedCatalog,
+  ownedCatalogLoading = false,
   rentalCatalog,
+  rentalCatalogLoading = false,
   readOnly,
   onClose,
   onOpenRental,
@@ -59,7 +61,9 @@ export function MobileEquipmentEditSheet({
   /** Every line the event already has, so the picker can refuse to overwrite one. */
   planned: EquipmentRow[]
   ownedCatalog: OwnedItem[]
+  ownedCatalogLoading?: boolean
   rentalCatalog: InventoryItem[]
+  rentalCatalogLoading?: boolean
   /** A role that may not edit gets the same sheet with no confirm and no delete (P7). */
   readOnly: boolean
   onClose: () => void
@@ -96,7 +100,10 @@ export function MobileEquipmentEditSheet({
   const many = chosen.length > 1
 
   const choose = (ids: number[]) => {
-    const picked = ids.map((id) => candidates.find((item) => item.id === id)!).filter(Boolean)
+    const picked = ids.flatMap((id) => {
+      const found = candidates.find((item) => item.id === id)
+      return found ? [found] : []
+    })
     setPicking(false)
     setChosen(picked)
     setValues((prev) => {
@@ -156,6 +163,10 @@ export function MobileEquipmentEditSheet({
       }
       if (failed.length > 0) {
         setChosen(failed)
+        /* The lines that *did* land are rows on the sheet behind this one, and
+           they must be there when it closes — or when it does not. Invalidating
+           only on success left a partial batch invisible until the next refetch. */
+        await invalidate()
         throw new Error(
           `${chosen.length - failed.length} of ${chosen.length} lines were added. ${failed.length} failed: ${lastError}`,
         )
@@ -355,9 +366,14 @@ export function MobileEquipmentEditSheet({
         </div>
       )}
 
-      <FieldStack label="Note" width="grow">
-        <Input disabled={readOnly} onChange={(event) => setNote(event.target.value)} value={note} />
-      </FieldStack>
+      {/* A batch carries no per-line note — five note fields is a form nobody
+          fills in — so the field is absent rather than present and discarded,
+          which is what it was doing. The desk hides it on the same test. */}
+      {!many && (
+        <FieldStack label="Note" width="grow">
+          <Input disabled={readOnly} onChange={(event) => setNote(event.target.value)} value={note} />
+        </FieldStack>
+      )}
     </Sheet>
 
     {/*
@@ -377,6 +393,7 @@ export function MobileEquipmentEditSheet({
             ? 'Your owned-gear catalog is empty — add items on the Inventory page first.'
             : 'Nothing in this catalog yet.'
         }
+        loading={source === 'owned' ? ownedCatalogLoading : rentalCatalogLoading}
         onChoose={choose}
         onClose={() => setPicking(false)}
         onSheet={onSheet}

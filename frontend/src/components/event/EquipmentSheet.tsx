@@ -62,8 +62,15 @@ interface EquipmentSheetProps {
   rental?: EventRental[]
   /** Your own gear catalog, for an owned line's item picker. */
   ownedCatalog: OwnedItem[]
+  /**
+   * Whether that catalog is still on its way. An empty list and an unanswered
+   * request look identical from here, and *Nothing in this catalog yet* is the
+   * wrong thing to tell someone opening a full one.
+   */
+  ownedCatalogLoading?: boolean
   /** The event's rental catalog, for a rented line's. */
   rentalCatalog: InventoryItem[]
+  rentalCatalogLoading?: boolean
   search?: string
   adding?: boolean
   onAddingChange?: (adding: boolean) => void
@@ -77,7 +84,9 @@ export function EquipmentSheet({
   owned,
   rental,
   ownedCatalog,
+  ownedCatalogLoading = false,
   rentalCatalog,
+  rentalCatalogLoading = false,
   search = '',
   adding = false,
   onAddingChange,
@@ -124,29 +133,33 @@ export function EquipmentSheet({
    *
    * One invalidation at the end rather than N, so the sheet redraws once.
    */
-  const saveLines = async (source: 'owned' | 'rented', lines: SaveLine[], note?: string) => {
-    const failed: number[] = []
-    let lastError = ''
-    for (const line of lines) {
-      try {
-        if (source === 'owned') {
-          await putEventOwnedEquipment(eventId, line.itemId, { quantity: line.quantity, notes: note })
-        } else {
-          await putManualRental(eventId, line.itemId, {
-            quantity_audio: line.audio,
-            quantity_lighting: line.light,
-            notes: note,
-          })
+  const addLines = useMutation({
+    mutationFn: async ({ source, lines, note }: { source: 'owned' | 'rented'; lines: SaveLine[]; note?: string }) => {
+      const failed: number[] = []
+      let lastError = ''
+      for (const line of lines) {
+        try {
+          if (source === 'owned') {
+            await putEventOwnedEquipment(eventId, line.itemId, { quantity: line.quantity, notes: note })
+          } else {
+            await putManualRental(eventId, line.itemId, {
+              quantity_audio: line.audio,
+              quantity_lighting: line.light,
+              notes: note,
+            })
+          }
+        } catch (error) {
+          failed.push(line.itemId)
+          lastError = (error as Error).message
         }
-      } catch (error) {
-        failed.push(line.itemId)
-        lastError = (error as Error).message
       }
-    }
-    if (source === 'owned') await invalidateOwned()
-    else await invalidateRental()
-    return { failed, lastError }
-  }
+      return { failed, lastError }
+    },
+    /* `onSettled`, not `onSuccess`: a batch where two of five were rejected has
+       still written three, and they must be on the sheet either way. */
+    onSettled: (_result, _error, variables) =>
+      variables.source === 'owned' ? invalidateOwned() : invalidateRental(),
+  })
 
   const rows = useMemo(() => equipmentRows(owned, rental), [owned, rental])
   const visible = useMemo(
@@ -361,9 +374,12 @@ export function EquipmentSheet({
                     onCancel={() => onAddingChange?.(false)}
                     onDone={() => onAddingChange?.(false)}
                     ownedCatalog={ownedCatalog}
+                    ownedCatalogLoading={ownedCatalogLoading}
                     planned={rows}
                     rentalCatalog={rentalCatalog}
-                    saveLines={saveLines}
+                    rentalCatalogLoading={rentalCatalogLoading}
+                    saveLines={addLines.mutateAsync}
+                    saving={addLines.isPending}
                   />
                 </td>
               </tr>
@@ -392,21 +408,28 @@ function Dash() {
  */
 function AddEquipmentLine({
   ownedCatalog,
+  ownedCatalogLoading,
   rentalCatalog,
+  rentalCatalogLoading,
   planned,
   saveLines,
+  saving,
   onDone,
   onCancel,
 }: {
   ownedCatalog: OwnedItem[]
+  ownedCatalogLoading: boolean
   rentalCatalog: InventoryItem[]
+  rentalCatalogLoading: boolean
   /** Every line the event already has, so the picker can refuse to overwrite one. */
   planned: EquipmentRow[]
-  saveLines: (
-    source: 'owned' | 'rented',
-    lines: SaveLine[],
-    note?: string,
-  ) => Promise<{ failed: number[]; lastError: string }>
+  /** `useMutation`'s `mutateAsync` — server state stays TanStack's (Principle V). */
+  saveLines: (variables: {
+    source: 'owned' | 'rented'
+    lines: SaveLine[]
+    note?: string
+  }) => Promise<{ failed: number[]; lastError: string }>
+  saving: boolean
   onDone: () => void
   onCancel: () => void
 }) {
@@ -415,7 +438,6 @@ function AddEquipmentLine({
   const [values, setValues] = useState<Record<number, LineValues>>({})
   const [note, setNote] = useState('')
   const [picking, setPicking] = useState(false)
-  const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const candidates = useMemo(
@@ -439,7 +461,10 @@ function AddEquipmentLine({
   const ready = linesReady(source, chosen.map((item) => item.id), values)
 
   const choose = (ids: number[]) => {
-    const picked = ids.map((id) => candidates.find((item) => item.id === id)!).filter(Boolean)
+    const picked = ids.flatMap((id) => {
+      const found = candidates.find((item) => item.id === id)
+      return found ? [found] : []
+    })
     setPicking(false)
     setChosen(picked)
     setValues((prev) => {
@@ -467,12 +492,14 @@ function AddEquipmentLine({
 
   const save = async () => {
     if (!ready || saving) return
-    setSaving(true)
     setError(null)
     const lines: SaveLine[] = chosen.map((item) => ({ itemId: item.id, ...(values[item.id] ?? BLANK_LINE) }))
     // A batch carries no per-line note; the single add keeps its Note field.
-    const { failed, lastError } = await saveLines(source, lines, chosen.length === 1 ? note || undefined : undefined)
-    setSaving(false)
+    const { failed, lastError } = await saveLines({
+      source,
+      lines,
+      note: chosen.length === 1 ? note || undefined : undefined,
+    })
     if (failed.length === 0) {
       onDone()
       return
@@ -514,7 +541,19 @@ function AddEquipmentLine({
           ) : undefined
         }
         onSave={() => void save()}
-        saveLabel={saving ? 'Adding…' : many ? `Add ${chosen.length} lines` : 'Add line'}
+        /* After a partial failure the editor holds the remainder, so the confirm
+           counts it even at one — *Add 1 line* — because what it will write has
+           become the fact worth stating. A fresh single add still reads *Add
+           line*, which is the wording it has always had. */
+        saveLabel={
+          saving
+            ? 'Adding…'
+            : many
+              ? `Add ${chosen.length} lines`
+              : error
+                ? `Add ${chosen.length} line`
+                : 'Add line'
+        }
       >
         <FieldStack label="Source" width="short">
           <Select
@@ -659,6 +698,7 @@ function AddEquipmentLine({
               ? 'Your owned-gear catalog is empty — add items on the Inventory page first.'
               : 'Nothing in this catalog yet.'
           }
+          loading={source === 'owned' ? ownedCatalogLoading : rentalCatalogLoading}
           onChoose={choose}
           onClose={() => setPicking(false)}
           onSheet={onSheet}

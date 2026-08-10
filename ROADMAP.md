@@ -19,6 +19,10 @@ awaiting the user's decision to merge; it was drafted as "Slice 42" before that
 number was independently claimed by the mic-picker fix above, and is renumbered
 here to the next free slot.
 
+Slice 45 — the equipment item picker — is delivered on `equipment-item-picker`
+and awaiting the user's decision to merge. **Its browser walk has not been run**;
+everything else on it is gated and reviewed.
+
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
 multi-event/tour planning (§3.11).
 
@@ -2980,6 +2984,66 @@ what just happened** — `Dialog` is defined as an interruption you answer, so a
 dialog contradicts it, and that would need a design decision and an approved mockup.
 
 ## Dependency graph
+
+
+## Slice 45 — Choosing equipment from the catalog, not from a select (OpenSpec: `equipment-item-picker`) — delivered, unmerged
+
+**The finding, measured rather than felt.** Adding an equipment line meant a flat
+`<select>` whose options read `category — name`. The catalog bound to a live event
+holds **338 items in 27 categories**, and **fifteen of them are called
+`Mikrofonkabel`**, differing only by a `description` the label threw away — 62 such
+collisions across the four catalogs in the database. Separately, `owned_items` is
+**empty in every catalog**, so the old default source of `owned` opened the picker
+onto no options at all.
+
+**What it is now.** The Item field is `ui/RecordField`, a control that names what it
+holds rather than holding a value, opening `EventInventoryBrowser` with its rows
+switched on — the **fifth** instance of `patterns.md` §4's rail, not a new pattern.
+Rail, sticky search over name *and* description, columns Item · Description · Stock.
+
+**Two gestures per row**, which is §4's own split: the **name** chooses and closes,
+the **tick** accumulates. Once anything is ticked the name ticks too. That split is
+the whole reason a batch could be added without charging the common case — one item
+still costs three clicks, exactly what the `<select>` cost.
+
+**Decisions worth keeping**
+
+- **The two quantity paths differ on purpose.** A batch of more than one defaults
+  each line to 1 in the department its category names; a **single** add keeps
+  today's `0 / 0` and will not save until a quantity is typed. The mockup would have
+  let the batch's default leak into the single path — changing behaviour nobody
+  asked to change — and the user ruled against it.
+- **A re-pick is an overwrite, not a duplicate.** Both endpoints are PUTs keyed on
+  item id, so a planned candidate carries no tick and its name does not choose.
+  Absent, never disabled.
+- **Drawer, not Dialog.** The *interrupts vs accompanies* test did not separate this
+  picker from the cable pickers that are `Dialog`s. The clause that now separates
+  them: a vocabulary of eight is **answered**, a catalog of 338 is **worked in**.
+- **An overlay opened from inside a row editor renders beside it, never within it.**
+  React events bubble the React tree, so a drawer among the editor's children
+  delivers one `Escape` to both handlers. Sibling placement fixes it with no prop
+  and no `stopPropagation`.
+- **Fixing the picker without fixing the sheet is half a fix.** The Description
+  column landed with it, and it is the change's only backend delta —
+  `owned_items.description` has existed since migration `011`, so it was two select
+  lists and a scan, not a migration.
+
+**What the review caught, and it is the lesson of this slice.** A **NUL byte** in
+the picker's category sentinel made git store the entire 400-line component as
+**binary**. It compiled, `tsc`, `eslint`, 716 tests and `vite build` all passed, and
+the file appeared in no diff — `git blame` and `git merge` refused it and `grep -r`
+skipped it silently. Every gate this project has was green over a component nobody
+could read. Nine further defects sat behind it, including a requirement with no
+implementation at all (the *catalog is still loading* state, dead because both call
+sites collapsed their queries with `?? []` before handing them down) and a task
+simply not done (`ui/Drawer`'s focus return — which is what made Escape-twice fail
+on a desk). All are fixed on the branch.
+
+**Not done: the browser walk.** Nobody has driven the real surface against a copy of
+the 338-item catalog — the fifteen cables, an already-planned item, a partial-failure
+batch, or the two stacked sheets on a handset.
+
+---
 
 ```
 Slices 0–21 ✅ done
