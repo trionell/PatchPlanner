@@ -19,10 +19,6 @@ awaiting the user's decision to merge; it was drafted as "Slice 42" before that
 number was independently claimed by the mic-picker fix above, and is renumbered
 here to the next free slot.
 
-Slice 45 — the equipment item picker — is delivered on `equipment-item-picker`
-and awaiting the user's decision to merge. **Its browser walk has not been run**;
-everything else on it is gated and reviewed.
-
 Post-v1 and deliberately out of scope: video equipment (PROJECT.md §3.3) and
 multi-event/tour planning (§3.11).
 
@@ -2986,7 +2982,7 @@ dialog contradicts it, and that would need a design decision and an approved moc
 ## Dependency graph
 
 
-## Slice 45 — Choosing equipment from the catalog, not from a select (OpenSpec: `equipment-item-picker`) — delivered, unmerged
+## Slice 45 — Choosing equipment from the catalog, not from a select (OpenSpec: `equipment-item-picker`) ✅ 2026-08-10
 
 **The finding, measured rather than felt.** Adding an equipment line meant a flat
 `<select>` whose options read `category — name`. The catalog bound to a live event
@@ -3039,9 +3035,9 @@ sites collapsed their queries with `?? []` before handing them down) and a task
 simply not done (`ui/Drawer`'s focus return — which is what made Escape-twice fail
 on a desk). All are fixed on the branch.
 
-**Not done: the browser walk.** Nobody has driven the real surface against a copy of
-the 338-item catalog — the fifteen cables, an already-planned item, a partial-failure
-batch, or the two stacked sheets on a handset.
+**Verified in the browser by the user, 2026-08-10** — the step a green suite does not
+stand in for, and the one that closed the slice. Raised as a PR from
+`equipment-item-picker`; the merge is the user's.
 
 ---
 

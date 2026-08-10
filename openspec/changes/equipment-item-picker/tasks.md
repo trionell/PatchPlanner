@@ -76,7 +76,7 @@
 - [x] 9.1 `cd frontend && npx tsc -b && npx eslint src && npx vitest run && npx vite build`
 - [x] 9.2 `cd backend && gofmt -l . && go vet ./... && go test ./...`
 - [x] 9.3 Run the `reviewer` subagent against the spec's requirements, the diff and the tests
-- [ ] 9.4 **Not run — see 11.1.** Walk the surface in a browser at both widths against a **copy** of the database with `PATCHPLANNER_DB` — the 338-item catalog, the fifteen `Mikrofonkabel`, an item already on the sheet, and a partial-failure batch
+- [x] 9.4 Walk the surface in a browser at both widths against a **copy** of the database with `PATCHPLANNER_DB` — the 338-item catalog, the fifteen `Mikrofonkabel`, an item already on the sheet, and a partial-failure batch
 - [x] 9.5 Write the outcome into `ROADMAP.md` (manual — `openspec archive` knows nothing about it)
 
 ## 10. Review findings, fixed
@@ -123,10 +123,8 @@ branch; the numbering is that report's.
 - [x] 10.12 After a partial failure the confirm read *Add line* where `design.md`
       says *Add 1 line*. It counts the remainder now
 
-## 11. Not done
+## 11. Verification
 
-- [ ] 11.1 **The browser walk (9.4) has not been run.** Everything above is gates
-      and unit tests; nobody has driven the real surface against a copy of the
-      338-item catalog — the fifteen `Mikrofonkabel`, an already-planned item, a
-      partial-failure batch, or the two stacked sheets on a handset. This is the
-      one task on this list that a green suite does not stand in for
+- [x] 11.1 **The browser walk was run by the user and the surface verified
+      working** (2026-08-10). It is the one task on this list a green suite does
+      not stand in for, and it is the step that closed the slice
