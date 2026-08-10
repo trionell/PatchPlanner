@@ -107,3 +107,25 @@ describe('overOwnedCount', () => {
     expect(overOwnedCount(rows)).toBe(1)
   })
 })
+
+describe('the description', () => {
+  it('carries from both sources, so two same-named lines are told apart', () => {
+    const rows = equipmentRows(
+      [
+        owned({ owned_item_id: 1, owned_item_name: 'Mikrofonkabel', description: '0,5m' }),
+        owned({ owned_item_id: 2, owned_item_name: 'Mikrofonkabel', description: '20m' }),
+      ],
+      [rental({ inventory_item_id: 10, inventory_item_name: 'Mikrofonkabel', description: '7,5m', manual_quantity_audio: 2 })],
+    )
+    expect(rows.map((row) => row.description)).toEqual(['0,5m', '20m', '7,5m'])
+  })
+
+  it('is undefined rather than empty when the catalog has none', () => {
+    const [ownedRow, rentedRow] = equipmentRows(
+      [owned({ owned_item_id: 1, description: '' })],
+      [rental({ inventory_item_id: 10, description: undefined, manual_quantity_audio: 1 })],
+    )
+    expect(ownedRow.description).toBeUndefined()
+    expect(rentedRow.description).toBeUndefined()
+  })
+})

@@ -21,7 +21,7 @@ common way a new screen ends up looking like it belongs to a different applicati
 | Table | `ui/SheetTable` | — see below |
 | Chip | `Pill` (from `ui/SheetTable`) | `ui/Badge` |
 | Label | `MICRO_LABEL` / `MicroLabel` | `FieldLabel` |
-| Field | `<Input size="sm">` · `<Select size="sm">` | `<Input>` · `<Select>` (md) |
+| Field | `<Input size="sm">` · `<Select size="sm">` · `<RecordField size="sm">` | `<Input>` · `<Select>` · `<RecordField>` (md) |
 | Section heading | `DrawerSection` | `CardTitle` |
 
 Both members of a pair live in one file wherever there are only two of them —
@@ -214,6 +214,32 @@ scattered-copies problem `xs` was added to end.
 `sm` is opt-in rather than the default, because it is the work-surface tier and the
 navigation surfaces legitimately want `md`.
 
+### `ui/RecordField`
+
+`sm` `h-8` · `md` `h-10`, on `ui/Button variant="outline"`'s frame, `justify-between`
+with a chevron at the end. It sits in a `FieldStack` beside `Input` and `Select`,
+and takes the same two tiers for the same reason.
+
+**It names what it holds rather than holding a value**, which is the whole
+difference between it and `Select`. Three states, and they are its entire
+contract: empty it **invites**, in the placeholder's muted ink; holding one record
+it **names it and its qualifier** — `name · qualifier`, ink then muted; holding
+several it **counts them**. It opens whatever overlay the caller passes and never
+opens one itself.
+
+It exists because a `Select` option is one string, and one string cannot tell
+apart fifteen catalog items all called `Mikrofonkabel` that differ only by a
+description. Where the thing being chosen is a **record** rather than a value —
+it has a name, a qualifier that disambiguates it, and more facts than a label can
+carry — this is the control, and the choosing happens in the overlay where those
+facts have room.
+
+**A count, not a list, when it holds several.** Truncating five names into a
+160 px field is the original disease with extra steps; the caller states them in
+full in the block below it. **And there is no clear control** — a field that names
+a record cannot be emptied, only replaced, and the editor it sits in already has a
+Cancel.
+
 ### `ui/Textarea`
 
 `sm` `min-h-20 px-2 py-1.5 text-xs` · `md` `min-h-32 px-3 py-2 text-sm`, on the same
@@ -352,6 +378,16 @@ centred is where the pointer already is — a right-anchored drawer would make a
 picker travel to the edge of the screen and back for every cable, which is
 `Drawer`'s own ergonomic argument read from the other end. **Trusses and the event
 access list are `Drawer`s**: nothing is waiting on either.
+
+**Where two pickers sit on either side of the line, the size of what is being
+picked from decides it.** The cable pickers offer a vocabulary of eight — it is
+*answered*, in one glance, and it is a `Dialog`. The equipment item picker offers
+a catalog of 338 across 27 categories, which is *worked in*: you filter it, search
+it by name and description, and accumulate several items before confirming. An
+overlay you tick five things in is not an interruption by any reading, and the
+read-only browse of those exact rows was already a `Drawer` on this reasoning
+(ROADMAP D4). The test is unchanged; this only says which side a picker falls on
+when it stops being one glance.
 
 **Slice 38 is where both halves were demonstrated at once**, which is why it is the
 slice that wrote this down. Its access list *accompanies* — you open it to work in

@@ -87,6 +87,21 @@ that wrap, confirm at `ml-auto`, delete kept apart from confirm.
   colleague, and the back button returns. It also carries *only* the tab: finding
   the row once you are there is still yours. Selection inside a destination
   panel is that panel's business.
+- **An overlay opened from inside an editor is rendered beside it, never within
+  it.** React events bubble the React tree, so a drawer among the editor's
+  children delivers one `Escape` to both handlers — closing the overlay *and*
+  discarding the edit. Sibling placement fixes it with no prop, no
+  `stopPropagation` and no dependence on which handler runs first; `Escape` then
+  closes the overlay, and a second `Escape` cancels the row.
+- **An editor may hold N lines under one confirm**, where the lines were chosen
+  together and differ only in a quantity — the equipment picker's batch is the
+  instance. The block is a full-width child of the editor's own flow, so the
+  confirm wraps below it rather than off the end of a row, and the confirm counts
+  what it will write (*Add 5 lines*). **At N = 1 it is the single-row editor
+  unchanged**, which is the constraint that keeps this from becoming a second
+  editor: the common case must not pay for the batch. Saving is one action and N
+  calls; it does not stop at the first failure, and what failed stays in the
+  editor so the confirm retries exactly the remainder.
 - Where confirming a value would collide with something already there, the editor
   **asks in place** rather than refusing or silently accepting. Lighting's address
   prompt is the instance: a full-width block in the editor's own amber body
@@ -156,14 +171,23 @@ forty, and the body scrolls.
 - **Zoom lives in the panel's bar.** It used to sit in a strip between the bar and
   the canvas, which is what broke the one-frame reading.
 
-### The filter rail, as the fourth
+### The filter rail, as the fifth
 
 `ui/PanelRail` is the same construction once more: `w-56 shrink-0`, bordered on
 the edge it shares with the sheet, scrolling on its own. The inventory catalog
-filters by category with it, the vocabulary panel picks a vocabulary with it, and
-the event's read-only browse of someone else's catalog filters by category with it
+filters by category with it, the vocabulary panel picks a vocabulary with it, the
+event's read-only browse of someone else's catalog filters by category with it
 too — the same rows, the same rail, one of them owned and one of them not, which
-is the point (ROADMAP D4).
+is the point (ROADMAP D4) — and the equipment item picker is that same browse
+with its rows switched on, which is why choosing a catalog item added no pattern
+to this file.
+
+**The rail takes rows, so it does not care where they came from.** The picker
+lists owned gear grouped by a fixed five-value `category_type` and rented gear
+grouped by the inventory's own free-form category names, through one rail that is
+handed `{label, qualifier?, count}` and never asked which catalog it is looking
+at. Where two sources differ only in how a label is derived, the derivation is
+the caller's and the component stays one.
 
 **A rail inside a `Drawer` is still a rail.** It goes in a `flush` body so it can
 be bordered on the edge it shares with the sheet rather than floating 20 px inside
@@ -458,6 +482,13 @@ P1 does not have a width condition. A phone surface is one bordered thing:
   nothing else. Opening focuses the field; `Escape`, the clear control, or an emptied
   field closes the row and clears the query — **a closed row and a non-empty query must
   not coexist**, or the list is filtered by something the user cannot see.
+  - **The exception is a surface whose entire job is finding**, where the rule's own
+    justification runs the other way: the item picker's sheet keeps its search field
+    open, because a picker over a 338-row catalog is not a list that *can* be searched,
+    it is a list that has to be. The cost the rule refuses to pay — 44 px "to serve
+    something done on some screens" — is not being paid here, since it is what every
+    screen is for. This is the only surface that qualifies; a list you are reading takes
+    the target.
 - **A search box that filters nothing is absent**, as on the desktop.
 - **The strip is not optional here.** It is the only thing on the phone that says
   whether the plan holds, and the phone is where someone is standing in the room
