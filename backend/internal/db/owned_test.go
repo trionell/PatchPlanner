@@ -161,3 +161,62 @@ func TestOwnedGearNeverOnRentalOrder(t *testing.T) {
 		t.Errorf("rental summary changed by owned gear:\nbefore %+v\nafter  %+v", before, after)
 	}
 }
+
+// TestEventOwnedEquipmentCarriesDescription is the regression this change
+// exists to prevent: two catalog items may share a name and differ only by
+// description — the live catalog has fifteen called "Mikrofonkabel" — so a
+// line that carries only the name names nothing.
+//
+// It asserts what the query returns rather than recomputing it: reverting
+// either select list or the scan makes this fail.
+func TestEventOwnedEquipmentCarriesDescription(t *testing.T) {
+	database := openTestDB(t)
+	eventID := createTestEvent(t, database)
+
+	short, err := CreateOwnedItem(database, domain.OwnedItem{
+		Name: "Mikrofonkabel", Description: "0,5m", CategoryType: "audio", QuantityOwned: 6,
+	})
+	if err != nil {
+		t.Fatalf("create short cable: %v", err)
+	}
+	long, err := CreateOwnedItem(database, domain.OwnedItem{
+		Name: "Mikrofonkabel", Description: "20m", CategoryType: "audio", QuantityOwned: 4,
+	})
+	if err != nil {
+		t.Fatalf("create long cable: %v", err)
+	}
+	// No description at all — the column is nullable, and the line must come
+	// back as "" rather than failing the scan.
+	bare := createTestOwnedItem(t, database, "Stativ", 3)
+
+	for _, item := range []domain.OwnedItem{short, long, bare} {
+		if err := UpsertEventOwnedEquipment(database, eventID, item.ID, domain.OwnedEquipmentRequest{Quantity: 1}); err != nil {
+			t.Fatalf("plan %d: %v", item.ID, err)
+		}
+	}
+
+	lines, err := ListEventOwnedEquipment(database, eventID)
+	if err != nil {
+		t.Fatalf("list lines: %v", err)
+	}
+	got := make(map[int64]string, len(lines))
+	for _, line := range lines {
+		got[line.OwnedItemID] = line.Description
+	}
+	if got[short.ID] != "0,5m" || got[long.ID] != "20m" {
+		t.Errorf("the two cables are not told apart: %+v", got)
+	}
+	if got[bare.ID] != "" {
+		t.Errorf("missing description should be empty, got %q", got[bare.ID])
+	}
+
+	// The single-row read is a second select list, and it has been wrong
+	// independently of the list before.
+	one, err := GetEventOwnedEquipment(database, eventID, long.ID)
+	if err != nil {
+		t.Fatalf("get line: %v", err)
+	}
+	if one.Description != "20m" {
+		t.Errorf("single-row read lost the description: %+v", one)
+	}
+}
