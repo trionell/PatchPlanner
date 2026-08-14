@@ -8,6 +8,12 @@ non-scaling stroke — so the sheet can be looked at instead of the JSON.
   python3 scripts/render_glyphs.py out.png                   # all icons
   python3 scripts/render_glyphs.py out.png --only mic,cello  # a subset
   python3 scripts/render_glyphs.py out.png --plan            # at plan scale
+  python3 scripts/render_glyphs.py out.png --blind           # no labels
+  python3 scripts/render_glyphs.py out.png --glyphs old.json # another version
+
+--blind drops the labels and prints the answer key to stdout instead. An icon
+is meant to be identified from its drawing, and a reviewer who can read the
+word "saxophone" under a cell is no longer testing that.
 
 Two scales, because they ask different questions.
 
@@ -117,10 +123,11 @@ def cell_svg(icon, view, x0, y0, cell, upscale, stroke, label_h, px_per_cm=None)
             f'<text x="{x0 + cell/2}" y="{y0 + cell/2}" fill="#71717a" '
             f'font-size="{14*upscale}" text-anchor="middle" font-family="sans-serif">no glyph</text>'
         )
-    out.append(
-        f'<text x="{x0 + cell/2}" y="{y0 + cell + label_h*0.65}" fill="#a1a1aa" '
-        f'font-size="{13*upscale}" text-anchor="middle" font-family="sans-serif">{escape(label)}</text>'
-    )
+    if label_h:
+        out.append(
+            f'<text x="{x0 + cell/2}" y="{y0 + cell + label_h*0.65}" fill="#a1a1aa" '
+            f'font-size="{13*upscale}" text-anchor="middle" font-family="sans-serif">{escape(label)}</text>'
+        )
     return "".join(out)
 
 
@@ -148,11 +155,19 @@ def main():
     plan = "--plan" in args
     if plan:
         args.remove("--plan")
+    blind = "--blind" in args
+    if blind:
+        args.remove("--blind")
     wanted = None
     if "--only" in args:
         wanted = set(args[args.index("--only") + 1].split(","))
+    # --glyphs renders a different copy of the file, which is how a redraw is
+    # put beside what it replaced.
+    source = GLYPHS
+    if "--glyphs" in args:
+        source = args[args.index("--glyphs") + 1]
 
-    data = json.load(open(GLYPHS))
+    data = json.load(open(source))
     icons = [i for i in data["icons"] if wanted is None or i["id"] in wanted]
     if not icons:
         raise SystemExit("no icons matched")
@@ -162,10 +177,10 @@ def main():
         # Nothing is upscaled before rasterising — the magnification afterwards
         # is nearest-neighbour, so what is counted is the pixels the canvas has.
         svg, width, height = sheet(icons, cell=150, upscale=1, stroke=3.5,
-                                   label_h=16, px_per_cm=PLAN_PX_PER_CM)
+                                   label_h=0 if blind else 16, px_per_cm=PLAN_PX_PER_CM)
     else:
         svg, width, height = sheet(icons, cell=CELL, upscale=UPSCALE,
-                                   stroke=STROKE, label_h=LABEL_H)
+                                   stroke=STROKE, label_h=0 if blind else LABEL_H)
 
     svg_path = out_png.rsplit(".", 1)[0] + ".svg"
     with open(svg_path, "w") as fh:
@@ -177,6 +192,8 @@ def main():
         width, height = width * 3, height * 3
     print(f"{out_png}  ({width}x{height}, {len(icons)} icons"
           f"{', plan scale' if plan else ''})")
+    if blind:
+        print("answer key, rows top to bottom: " + ", ".join(i["id"] for i in icons))
 
 
 if __name__ == "__main__":
