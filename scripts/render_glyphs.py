@@ -10,10 +10,17 @@ non-scaling stroke — so the sheet can be looked at instead of the JSON.
   python3 scripts/render_glyphs.py out.png --plan            # at plan scale
   python3 scripts/render_glyphs.py out.png --blind           # no labels
   python3 scripts/render_glyphs.py out.png --glyphs old.json # another version
+  python3 scripts/render_glyphs.py --measure                 # ink vs box, no image
 
 --blind drops the labels and prints the answer key to stdout instead. An icon
 is meant to be identified from its drawing, and a reviewer who can read the
 word "saxophone" under a cell is no longer testing that.
+
+--measure prints, for every glyph, the box its ink actually occupies against the
+box it is drawn in. Measured off the raster rather than off the path data,
+because bounding a Bezier or an arc by arithmetic is its own source of wrong
+answers. A glyph that under-fills is drawing an element smaller than the
+footprint the user gave it; one that overflows is drawing outside it.
 
 Two scales, because they ask different questions.
 
@@ -147,11 +154,61 @@ def sheet(icons, cell, upscale, stroke, label_h, px_per_cm=None):
     ), width, height
 
 
+def measure(icons):
+    """Ink extent against coordinate box, read off a rendered bitmap."""
+    import tempfile
+    scale = 6
+    print(f"{'icon':17} {'view':6} {'box':>11}  {'fills':>11}  note")
+    worst = 0
+    for icon in icons:
+        for view in VIEWS:
+            marks = icon["glyphs"].get(view)
+            if not marks:
+                continue
+            bw, bh = box_for(icon, view)
+            w, h = round(bw * scale), round(bh * scale)
+            body = "".join(mark_svg(m, 3.5) for m in marks)
+            svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}">'
+                   f'<svg width="{w}" height="{h}" viewBox="0 0 {bw} {bh}" '
+                   f'preserveAspectRatio="none" overflow="visible" color="#000">'
+                   f'{body}</svg></svg>')
+            with tempfile.NamedTemporaryFile("w", suffix=".svg", delete=False) as fh:
+                fh.write(svg)
+                path = fh.name
+            png = path[:-4] + ".png"
+            subprocess.run(["rsvg-convert", "-o", png, path], check=True)
+            # %@ is the trim box: the smallest rectangle holding every non-blank
+            # pixel, in WxH+X+Y.
+            box = subprocess.run(["magick", "identify", "-format", "%@", png],
+                                 capture_output=True, text=True, check=True).stdout
+            iw, rest = box.split("x", 1)
+            ih, ix, iy = rest.replace("+", " ").split()
+            fx, fy = int(iw) / w, int(ih) / h
+            over = (int(ix) < 0 or int(iy) < 0
+                    or int(ix) + int(iw) > w + 1 or int(iy) + int(ih) > h + 1)
+            note = []
+            if over:
+                note.append("OVERFLOWS its footprint")
+            if max(fx, fy) < 0.90:
+                note.append(f"under-fills: longest axis {max(fx, fy):.0%}")
+                worst += 1
+            print(f"{icon['id']:17} {view:6} {bw:5.0f}x{bh:<5.0f}  "
+                  f"{fx:5.0%} {fy:5.0%}  {'; '.join(note)}")
+            os.unlink(path)
+            os.unlink(png)
+    return worst
+
+
 def main():
     args = [a for a in sys.argv[1:]]
     if not args:
         raise SystemExit(__doc__)
-    out_png = args.pop(0)
+    measuring = "--measure" in args
+    if measuring:
+        args.remove("--measure")
+        out_png = None
+    else:
+        out_png = args.pop(0)
     plan = "--plan" in args
     if plan:
         args.remove("--plan")
@@ -171,6 +228,10 @@ def main():
     icons = [i for i in data["icons"] if wanted is None or i["id"] in wanted]
     if not icons:
         raise SystemExit("no icons matched")
+
+    if measuring:
+        measure(icons)
+        return
 
     if plan:
         # Drawn at the real thing's real size: 1x, 0.7 px/cm, a 3.5 px stroke.
