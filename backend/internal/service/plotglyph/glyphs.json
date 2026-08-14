@@ -5,58 +5,19 @@
       "id": "person",
       "label": "Person",
       "group": "resource",
-      "defaults": {
-        "width_cm": 60,
-        "depth_cm": 40,
-        "height_cm": 180
-      },
+      "defaults": {"width_cm": 60, "depth_cm": 40, "height_cm": 180},
       "glyphs": {
         "top": [
-          {
-            "kind": "path",
-            "d": "M6 16 C6 8 16 6 30 6 C44 6 54 8 54 16 C54 22 48 25 44 25 L16 25 C12 25 6 22 6 16 Z",
-            "fill": false
-          },
-          {
-            "kind": "circle",
-            "cx": 30,
-            "cy": 22,
-            "r": 8,
-            "fill": true
-          },
-          {
-            "kind": "path",
-            "d": "M27 31 L30 36 L33 31",
-            "fill": false
-          }
+          {"kind": "path", "d": "M3 25 A27 18 0 0 1 57 25 L43 25 A13 13 0 0 0 17 25 Z", "fill": true},
+          {"kind": "circle", "cx": 30, "cy": 25, "r": 10, "fill": true}
         ],
         "front": [
-          {
-            "kind": "circle",
-            "cx": 30,
-            "cy": 16,
-            "r": 11,
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M30 27 L30 95 M30 44 L8 72 M30 44 L52 72 M30 95 L16 172 M30 95 L44 172",
-            "fill": false
-          }
+          {"kind": "circle", "cx": 30, "cy": 16, "r": 12, "fill": true},
+          {"kind": "path", "d": "M23 27 C16 29 11 36 10 46 L5 92 L13 95 L19 53 L22 102 L15 176 L26 176 L28 113 L30 107 L32 113 L34 176 L45 176 L38 102 L41 53 L47 95 L55 92 L50 46 C49 36 44 29 37 27 Z", "fill": true}
         ],
         "side": [
-          {
-            "kind": "circle",
-            "cx": 24,
-            "cy": 16,
-            "r": 11,
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M22 27 C20 50 20 70 20 95 M21 46 L32 74 M20 95 L13 172 M20 95 L28 172",
-            "fill": false
-          }
+          {"kind": "circle", "cx": 19, "cy": 16, "r": 12, "fill": true},
+          {"kind": "path", "d": "M13 27 C10 31 8 38 8 47 L7 102 L10 176 L20 176 L21 122 L24 122 L25 176 L35 176 L31 121 L34 113 L29 111 L30 58 C30 42 28 30 24 27 Z", "fill": true}
         ]
       }
     },
@@ -64,62 +25,21 @@
       "id": "mic",
       "label": "Mic",
       "group": "resource",
-      "defaults": {
-        "width_cm": 30,
-        "depth_cm": 30,
-        "height_cm": 160
-      },
+      "defaults": {"width_cm": 30, "depth_cm": 30, "height_cm": 160},
       "glyphs": {
         "top": [
-          {
-            "kind": "circle",
-            "cx": 15,
-            "cy": 15,
-            "r": 7,
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M15 15 L4 27 M15 15 L26 27 M15 15 L15 2",
-            "fill": false
-          }
+          {"kind": "path", "d": "M13.6 15 L14.2 1.5 L15.8 1.5 L16.4 15 L28.3 21.9 L27.5 23.3 L15 16.1 L2.5 23.3 L1.7 21.9 Z", "fill": true},
+          {"kind": "circle", "cx": 15, "cy": 15, "r": 5, "fill": true}
         ],
         "front": [
-          {
-            "kind": "rect",
-            "x": 11,
-            "y": 2,
-            "w": 8,
-            "h": 16,
-            "fill": false,
-            "rx": 4
-          },
-          {
-            "kind": "path",
-            "d": "M15 18 L15 138 M15 138 L4 156 M15 138 L26 156 M15 138 L15 158",
-            "fill": false
-          }
+          {"kind": "rect", "x": 11, "y": 2, "w": 8, "h": 18, "rx": 4, "fill": true, "rotate": [16, 15, 11]},
+          {"kind": "path", "d": "M15 19 L15 139", "fill": false},
+          {"kind": "path", "d": "M11 136 L19 136 L19 147 L28 156 L25.5 159 L17 150.5 L17 158 L13 158 L13 150.5 L4.5 159 L2 156 L11 147 Z", "fill": true}
         ],
         "side": [
-          {
-            "kind": "rect",
-            "x": 19,
-            "y": 4,
-            "w": 8,
-            "h": 14,
-            "fill": false,
-            "rx": 4,
-            "rotate": [
-              35,
-              23,
-              11
-            ]
-          },
-          {
-            "kind": "path",
-            "d": "M13 40 L24 16 M13 40 L13 138 M13 138 L3 156 M13 138 L23 156",
-            "fill": false
-          }
+          {"kind": "rect", "x": 11, "y": 2, "w": 8, "h": 18, "rx": 4, "fill": true, "rotate": [16, 15, 11]},
+          {"kind": "path", "d": "M15 19 L15 139", "fill": false},
+          {"kind": "path", "d": "M11 136 L19 136 L19 147 L28 156 L25.5 159 L17 150.5 L17 158 L13 158 L13 150.5 L4.5 159 L2 156 L11 147 Z", "fill": true}
         ]
       }
     },
@@ -127,65 +47,16 @@
       "id": "speaker",
       "label": "Speaker",
       "group": "resource",
-      "defaults": {
-        "width_cm": 40,
-        "depth_cm": 35,
-        "height_cm": 70
-      },
+      "defaults": {"width_cm": 40, "depth_cm": 35, "height_cm": 70},
       "glyphs": {
         "top": [
-          {
-            "kind": "rect",
-            "x": 2,
-            "y": 2,
-            "w": 36,
-            "h": 31,
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M2 2 L38 33 M38 2 L2 33",
-            "fill": false
-          }
+          {"kind": "path", "d": "M8 2 L32 2 L38 33 L2 33 Z M27 24 A7 7 0 1 0 13 24 A7 7 0 1 0 27 24 Z", "fill": true}
         ],
         "front": [
-          {
-            "kind": "rect",
-            "x": 2,
-            "y": 2,
-            "w": 36,
-            "h": 66,
-            "fill": false
-          },
-          {
-            "kind": "circle",
-            "cx": 20,
-            "cy": 46,
-            "r": 13,
-            "fill": false
-          },
-          {
-            "kind": "circle",
-            "cx": 20,
-            "cy": 16,
-            "r": 6,
-            "fill": false
-          }
+          {"kind": "path", "d": "M2 2 L38 2 L38 68 L2 68 Z M33 45 A13 13 0 1 0 7 45 A13 13 0 1 0 33 45 Z M11 11 L11 23 L29 23 L29 11 Z", "fill": true}
         ],
         "side": [
-          {
-            "kind": "rect",
-            "x": 3,
-            "y": 2,
-            "w": 29,
-            "h": 66,
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M9 2 L9 68",
-            "fill": false
-          }
+          {"kind": "path", "d": "M4 2 L31 2 L31 68 L4 68 Z M28 45 A2.6 13 0 1 0 22.8 45 A2.6 13 0 1 0 28 45 Z M9 13 L9 20 L18 20 L18 13 Z", "fill": true}
         ]
       }
     },
@@ -193,44 +64,16 @@
       "id": "monitor",
       "label": "Monitor",
       "group": "resource",
-      "defaults": {
-        "width_cm": 50,
-        "depth_cm": 40,
-        "height_cm": 35
-      },
+      "defaults": {"width_cm": 50, "depth_cm": 40, "height_cm": 35},
       "glyphs": {
         "top": [
-          {
-            "kind": "path",
-            "d": "M4 6 L46 6 L38 36 L12 36 Z",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M11 14 L39 14",
-            "fill": false
-          }
+          {"kind": "path", "d": "M3 3 L47 3 L47 37 L3 37 Z M8 8 L8 11.5 L42 11.5 L42 8 Z M35 25 A10 10 0 1 0 15 25 A10 10 0 1 0 35 25 Z", "fill": true}
         ],
         "front": [
-          {
-            "kind": "path",
-            "d": "M2 33 L48 33 L41 10 L9 10 Z",
-            "fill": false
-          },
-          {
-            "kind": "circle",
-            "cx": 25,
-            "cy": 23,
-            "r": 7,
-            "fill": false
-          }
+          {"kind": "path", "d": "M8 2 L42 2 L48 33 L2 33 Z M34 20 A9 9 0 1 0 16 20 A9 9 0 1 0 34 20 Z", "fill": true}
         ],
         "side": [
-          {
-            "kind": "path",
-            "d": "M3 33 L37 33 L37 20 L10 4 Z",
-            "fill": false
-          }
+          {"kind": "path", "d": "M3 2 L36 24 L36 33 L3 33 Z", "fill": true}
         ]
       }
     },
@@ -238,89 +81,16 @@
       "id": "rack",
       "label": "Rack",
       "group": "resource",
-      "defaults": {
-        "width_cm": 60,
-        "depth_cm": 60,
-        "height_cm": 100
-      },
+      "defaults": {"width_cm": 60, "depth_cm": 60, "height_cm": 100},
       "glyphs": {
         "top": [
-          {
-            "kind": "rect",
-            "x": 3,
-            "y": 3,
-            "w": 54,
-            "h": 54,
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M12 3 L12 57 M48 3 L48 57",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M12 21 L48 21 M12 39 L48 39",
-            "fill": false
-          }
+          {"kind": "path", "d": "M2 2 L58 2 L58 58 L2 58 Z M8 8 L8 42 L52 42 L52 8 Z M22 48 L22 54 L38 54 L38 48 Z", "fill": true}
         ],
         "front": [
-          {
-            "kind": "rect",
-            "x": 3,
-            "y": 2,
-            "w": 54,
-            "h": 96,
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M3 22 L57 22 M3 42 L57 42 M3 62 L57 62 M3 82 L57 82",
-            "fill": false
-          },
-          {
-            "kind": "circle",
-            "cx": 10,
-            "cy": 12,
-            "r": 1.6,
-            "fill": true
-          },
-          {
-            "kind": "circle",
-            "cx": 50,
-            "cy": 12,
-            "r": 1.6,
-            "fill": true
-          },
-          {
-            "kind": "circle",
-            "cx": 10,
-            "cy": 32,
-            "r": 1.6,
-            "fill": true
-          },
-          {
-            "kind": "circle",
-            "cx": 50,
-            "cy": 32,
-            "r": 1.6,
-            "fill": true
-          }
+          {"kind": "path", "d": "M2 2 L58 2 L58 98 L2 98 Z M11 11 L11 26 L49 26 L49 11 Z M11 31 L11 46 L49 46 L49 31 Z M11 51 L11 66 L49 66 L49 51 Z M11 71 L11 89 L49 89 L49 71 Z", "fill": true}
         ],
         "side": [
-          {
-            "kind": "rect",
-            "x": 6,
-            "y": 2,
-            "w": 48,
-            "h": 96,
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M22 14 L38 14",
-            "fill": false
-          }
+          {"kind": "path", "d": "M3 2 L57 2 L57 98 L3 98 Z M9 24 L9 28 L51 28 L51 24 Z M19 44 L19 58 L41 58 L41 44 Z", "fill": true}
         ]
       }
     },
@@ -328,50 +98,21 @@
       "id": "truss",
       "label": "Truss",
       "group": "lighting",
-      "defaults": {
-        "width_cm": 200,
-        "depth_cm": 30,
-        "height_cm": 30
-      },
+      "defaults": {"width_cm": 200, "depth_cm": 30, "height_cm": 30},
       "glyphs": {
         "top": [
-          {
-            "kind": "path",
-            "d": "M2 5 L198 5 M2 25 L198 25",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M2 5 L22 25 L42 5 L62 25 L82 5 L102 25 L122 5 L142 25 L162 5 L182 25 L198 9",
-            "fill": false
-          }
+          {"kind": "path", "d": "M2 2 L198 2 L198 7 L2 7 Z M2 23 L198 23 L198 28 L2 28 Z M2 23 L6 23 L30 7 L26 7 Z M26 7 L30 7 L54 23 L50 23 Z M50 23 L54 23 L78 7 L74 7 Z M74 7 L78 7 L102 23 L98 23 Z M98 23 L102 23 L126 7 L122 7 Z M122 7 L126 7 L150 23 L146 23 Z M146 23 L150 23 L174 7 L170 7 Z M170 7 L174 7 L198 23 L194 23 Z", "fill": true}
         ],
         "front": [
-          {
-            "kind": "path",
-            "d": "M2 5 L198 5 M2 25 L198 25",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M2 5 L22 25 L42 5 L62 25 L82 5 L102 25 L122 5 L142 25 L162 5 L182 25 L198 9",
-            "fill": false
-          }
+          {"kind": "path", "d": "M2 2 L198 2 L198 7 L2 7 Z M2 23 L198 23 L198 28 L2 28 Z M2 23 L6 23 L30 7 L26 7 Z M26 7 L30 7 L54 23 L50 23 Z M50 23 L54 23 L78 7 L74 7 Z M74 7 L78 7 L102 23 L98 23 Z M98 23 L102 23 L126 7 L122 7 Z M122 7 L126 7 L150 23 L146 23 Z M146 23 L150 23 L174 7 L170 7 Z M170 7 L174 7 L198 23 L194 23 Z", "fill": true}
         ],
         "side": [
-          {
-            "kind": "rect",
-            "x": 3,
-            "y": 3,
-            "w": 24,
-            "h": 24,
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M3 3 L27 27 M27 3 L3 27",
-            "fill": false
-          }
+          {"kind": "path", "d": "M8.4 9.3 L9.3 8.4 L21.6 20.7 L20.7 21.6 Z M20.7 8.4 L21.6 9.3 L9.3 21.6 L8.4 20.7 Z", "fill": true},
+          {"kind": "path", "d": "M5.5 6 L24.5 6 L24.5 7.6 L5.5 7.6 Z M5.5 22.4 L24.5 22.4 L24.5 24 L5.5 24 Z M5.5 6 L7.1 6 L7.1 24 L5.5 24 Z M22.9 6 L24.5 6 L24.5 24 L22.9 24 Z", "fill": true},
+          {"kind": "circle", "cx": 6.3, "cy": 6.3, "r": 3.3, "fill": true},
+          {"kind": "circle", "cx": 23.7, "cy": 6.3, "r": 3.3, "fill": true},
+          {"kind": "circle", "cx": 6.3, "cy": 23.7, "r": 3.3, "fill": true},
+          {"kind": "circle", "cx": 23.7, "cy": 23.7, "r": 3.3, "fill": true}
         ]
       }
     },
@@ -379,79 +120,17 @@
       "id": "fixture",
       "label": "Fixture",
       "group": "lighting",
-      "defaults": {
-        "width_cm": 30,
-        "depth_cm": 25,
-        "height_cm": 35
-      },
+      "defaults": {"width_cm": 30, "depth_cm": 25, "height_cm": 35},
       "glyphs": {
         "top": [
-          {
-            "kind": "rect",
-            "x": 7,
-            "y": 3,
-            "w": 16,
-            "h": 13,
-            "fill": false,
-            "rx": 2
-          },
-          {
-            "kind": "path",
-            "d": "M7 22 A11 5 0 0 1 23 22",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M2 3 L2 13 M28 3 L28 13",
-            "fill": false
-          }
+          {"kind": "path", "d": "M25 12.5 A10 10 0 1 1 5 12.5 A10 10 0 1 1 25 12.5 Z M21.5 12.5 A6.5 6.5 0 1 0 8.5 12.5 A6.5 6.5 0 1 0 21.5 12.5 Z M1.5 7 L4 7 L4 18 L1.5 18 Z M26 7 L28.5 7 L28.5 18 L26 18 Z", "fill": true}
         ],
         "front": [
-          {
-            "kind": "path",
-            "d": "M9 2 L21 2 M15 2 L15 7",
-            "fill": false
-          },
-          {
-            "kind": "rect",
-            "x": 8,
-            "y": 7,
-            "w": 14,
-            "h": 18,
-            "fill": false,
-            "rx": 3
-          },
-          {
-            "kind": "path",
-            "d": "M8 31 A9 5 0 0 1 22 31",
-            "fill": false
-          }
+          {"kind": "path", "d": "M12 1 L18 1 L18 5 L12 5 Z M9 5 L21 5 L21 8.5 L9 8.5 Z M27 21 A12 12 0 1 1 3 21 A12 12 0 1 1 27 21 Z M20 21 A5 5 0 1 0 10 21 A5 5 0 1 0 20 21 Z", "fill": true}
         ],
         "side": [
-          {
-            "kind": "path",
-            "d": "M6 2 L18 2 M12 2 L12 6",
-            "fill": false
-          },
-          {
-            "kind": "rect",
-            "x": 6,
-            "y": 6,
-            "w": 11,
-            "h": 17,
-            "fill": false,
-            "rx": 3,
-            "rotate": [
-              22,
-              11.5,
-              14.5
-            ]
-          },
-          {
-            "kind": "path",
-            "d": "M6 27 L19 33",
-            "fill": false
-          }
+          {"kind": "path", "d": "M6.5 1 L18.5 1 L18.5 4 L6.5 4 Z M10.5 4 L14.5 4 L14.5 31 L10.5 31 Z", "fill": true},
+          {"kind": "path", "d": "M9 6 L16 6 C17 6 17.5 6.5 17.7 7.5 L20 28 C20.2 29.3 19.5 30 18.3 30 L6.7 30 C5.5 30 4.8 29.3 5 28 L7.3 7.5 C7.5 6.5 8 6 9 6 Z M6.4 24 L6 27.5 L19 27.5 L18.6 24 Z", "fill": true, "rotate": [24, 12.5, 18]}
         ]
       }
     },
@@ -459,136 +138,23 @@
       "id": "drums",
       "label": "Drums",
       "group": "instrument",
-      "defaults": {
-        "width_cm": 200,
-        "depth_cm": 150,
-        "height_cm": 120
-      },
+      "defaults": {"width_cm": 200, "depth_cm": 150, "height_cm": 120},
       "glyphs": {
         "top": [
-          {
-            "kind": "circle",
-            "cx": 100,
-            "cy": 96,
-            "r": 36,
-            "fill": false
-          },
-          {
-            "kind": "circle",
-            "cx": 46,
-            "cy": 62,
-            "r": 23,
-            "fill": false
-          },
-          {
-            "kind": "circle",
-            "cx": 79,
-            "cy": 36,
-            "r": 19,
-            "fill": false
-          },
-          {
-            "kind": "circle",
-            "cx": 121,
-            "cy": 36,
-            "r": 19,
-            "fill": false
-          },
-          {
-            "kind": "circle",
-            "cx": 153,
-            "cy": 64,
-            "r": 25,
-            "fill": false
-          },
-          {
-            "kind": "circle",
-            "cx": 19,
-            "cy": 102,
-            "r": 15,
-            "fill": false
-          },
-          {
-            "kind": "circle",
-            "cx": 180,
-            "cy": 102,
-            "r": 18,
-            "fill": false
-          }
+          {"kind": "path", "d": "M136 96 A36 36 0 1 1 64 96 A36 36 0 1 1 136 96 Z M131 96 A31 31 0 1 0 69 96 A31 31 0 1 0 131 96 Z M69 62 A23 23 0 1 1 23 62 A23 23 0 1 1 69 62 Z M64 62 A18 18 0 1 0 28 62 A18 18 0 1 0 64 62 Z M97 36 A18 18 0 1 1 61 36 A18 18 0 1 1 97 36 Z M92 36 A13 13 0 1 0 66 36 A13 13 0 1 0 92 36 Z M139 36 A18 18 0 1 1 103 36 A18 18 0 1 1 139 36 Z M134 36 A13 13 0 1 0 108 36 A13 13 0 1 0 134 36 Z M181 60 A24 24 0 1 1 133 60 A24 24 0 1 1 181 60 Z M176 60 A19 19 0 1 0 138 60 A19 19 0 1 0 176 60 Z M34 102 A15 15 0 1 1 4 102 A15 15 0 1 1 34 102 Z M30 102 A11 11 0 1 0 8 102 A11 11 0 1 0 30 102 Z M198 102 A18 18 0 1 1 162 102 A18 18 0 1 1 198 102 Z M194 102 A14 14 0 1 0 166 102 A14 14 0 1 0 194 102 Z", "fill": true}
         ],
         "front": [
-          {
-            "kind": "circle",
-            "cx": 100,
-            "cy": 78,
-            "r": 34,
-            "fill": false
-          },
-          {
-            "kind": "circle",
-            "cx": 100,
-            "cy": 78,
-            "r": 6,
-            "fill": false
-          },
-          {
-            "kind": "rect",
-            "x": 48,
-            "y": 20,
-            "w": 38,
-            "h": 24,
-            "fill": false,
-            "rx": 4
-          },
-          {
-            "kind": "rect",
-            "x": 114,
-            "y": 20,
-            "w": 38,
-            "h": 24,
-            "fill": false,
-            "rx": 4
-          },
-          {
-            "kind": "path",
-            "d": "M8 8 L48 16 M28 12 L28 112 M192 8 L152 16 M172 12 L172 112",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M74 104 L60 116 M126 104 L140 116",
-            "fill": false
-          }
+          {"kind": "path", "d": "M134 78 A34 34 0 1 1 66 78 A34 34 0 1 1 134 78 Z M129 78 A29 29 0 1 0 71 78 A29 29 0 1 0 129 78 Z", "fill": true},
+          {"kind": "circle", "cx": 100, "cy": 78, "r": 7, "fill": true},
+          {"kind": "path", "d": "M55 22 L81 22 A5 5 0 0 1 86 27 L86 43 A5 5 0 0 1 81 48 L55 48 A5 5 0 0 1 50 43 L50 27 A5 5 0 0 1 55 22 Z M55 26.5 A0.5 0.5 0 0 0 54.5 27 L54.5 43 A0.5 0.5 0 0 0 55 43.5 L81 43.5 A0.5 0.5 0 0 0 81.5 43 L81.5 27 A0.5 0.5 0 0 0 81 26.5 Z M119 22 L145 22 A5 5 0 0 1 150 27 L150 43 A5 5 0 0 1 145 48 L119 48 A5 5 0 0 1 114 43 L114 27 A5 5 0 0 1 119 22 Z M119 26.5 A0.5 0.5 0 0 0 118.5 27 L118.5 43 A0.5 0.5 0 0 0 119 43.5 L145 43.5 A0.5 0.5 0 0 0 145.5 43 L145.5 27 A0.5 0.5 0 0 0 145 26.5 Z", "fill": true},
+          {"kind": "path", "d": "M6 12 L46 20 L46 25 L6 17 Z M194 12 L154 20 L154 25 L194 17 Z", "fill": true},
+          {"kind": "path", "d": "M26 20 L26 112 M26 112 L16 118 M26 112 L36 118 M174 20 L174 112 M174 112 L164 118 M174 112 L184 118", "fill": false},
+          {"kind": "path", "d": "M74 104 L60 116 M126 104 L140 116", "fill": false}
         ],
         "side": [
-          {
-            "kind": "rect",
-            "x": 94,
-            "y": 44,
-            "w": 34,
-            "h": 70,
-            "fill": false,
-            "rx": 8
-          },
-          {
-            "kind": "rect",
-            "x": 38,
-            "y": 58,
-            "w": 34,
-            "h": 14,
-            "fill": false,
-            "rx": 3
-          },
-          {
-            "kind": "path",
-            "d": "M55 72 L55 114",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M14 28 L58 28 M36 28 L36 114",
-            "fill": false
-          }
+          {"kind": "path", "d": "M134 80 A36 36 0 1 1 62 80 A36 36 0 1 1 134 80 Z M129 80 A31 31 0 1 0 67 80 A31 31 0 1 0 129 80 Z M108 26 A14 14 0 1 1 80 26 A14 14 0 1 1 108 26 Z M103.5 26 A9.5 9.5 0 1 0 84.5 26 A9.5 9.5 0 1 0 103.5 26 Z", "fill": true},
+          {"kind": "path", "d": "M6 32 L58 20 L58 25 L6 37 Z", "fill": true},
+          {"kind": "path", "d": "M32 28 L32 114 M32 114 L23 119 M32 114 L41 119", "fill": false}
         ]
       }
     },
@@ -596,58 +162,52 @@
       "id": "piano_grand",
       "label": "Grand piano",
       "group": "instrument",
-      "defaults": {
-        "width_cm": 150,
-        "depth_cm": 250,
-        "height_cm": 100
-      },
+      "defaults": {"width_cm": 150, "depth_cm": 250, "height_cm": 100},
       "glyphs": {
         "top": [
-          {
-            "kind": "path",
-            "d": "M12 6 L138 6 L138 120 C138 200 104 242 58 242 L12 242 Z",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M12 30 L138 30",
-            "fill": false
-          }
+          {"kind": "path", "d": "M5 247 L5 40 C5 20 18 6 42 6 L72 6 C112 8 138 55 143 125 C145 155 145 200 145 230 L145 247 Z M14 220 L14 242 L136 242 L136 220 Z", "fill": true},
+          {"kind": "rect", "x": 19.48, "y": 220, "w": 3.26, "h": 12, "fill": true},
+          {"kind": "rect", "x": 25.44, "y": 220, "w": 3.26, "h": 12, "fill": true},
+          {"kind": "rect", "x": 36.23, "y": 220, "w": 3.26, "h": 12, "fill": true},
+          {"kind": "rect", "x": 42.13, "y": 220, "w": 3.26, "h": 12, "fill": true},
+          {"kind": "rect", "x": 48.03, "y": 220, "w": 3.26, "h": 12, "fill": true},
+          {"kind": "rect", "x": 58.82, "y": 220, "w": 3.26, "h": 12, "fill": true},
+          {"kind": "rect", "x": 64.77, "y": 220, "w": 3.26, "h": 12, "fill": true},
+          {"kind": "rect", "x": 75.56, "y": 220, "w": 3.26, "h": 12, "fill": true},
+          {"kind": "rect", "x": 81.46, "y": 220, "w": 3.26, "h": 12, "fill": true},
+          {"kind": "rect", "x": 87.36, "y": 220, "w": 3.26, "h": 12, "fill": true},
+          {"kind": "rect", "x": 98.15, "y": 220, "w": 3.26, "h": 12, "fill": true},
+          {"kind": "rect", "x": 104.11, "y": 220, "w": 3.26, "h": 12, "fill": true},
+          {"kind": "rect", "x": 114.9, "y": 220, "w": 3.26, "h": 12, "fill": true},
+          {"kind": "rect", "x": 120.8, "y": 220, "w": 3.26, "h": 12, "fill": true},
+          {"kind": "rect", "x": 126.7, "y": 220, "w": 3.26, "h": 12, "fill": true}
         ],
         "front": [
-          {
-            "kind": "rect",
-            "x": 6,
-            "y": 10,
-            "w": 138,
-            "h": 28,
-            "fill": false
-          },
-          {
-            "kind": "rect",
-            "x": 6,
-            "y": 38,
-            "w": 138,
-            "h": 16,
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M20 54 L20 94 M75 54 L75 94 M130 54 L130 94",
-            "fill": false
-          }
+          {"kind": "path", "d": "M8 27 L142 4 L142 27 Z", "fill": true},
+          {"kind": "path", "d": "M5 30 L145 30 L145 52 L5 52 Z M14 34 L14 49 L136 49 L136 34 Z", "fill": true},
+          {"kind": "rect", "x": 19.48, "y": 34, "w": 3.26, "h": 8, "fill": true},
+          {"kind": "rect", "x": 25.44, "y": 34, "w": 3.26, "h": 8, "fill": true},
+          {"kind": "rect", "x": 36.23, "y": 34, "w": 3.26, "h": 8, "fill": true},
+          {"kind": "rect", "x": 42.13, "y": 34, "w": 3.26, "h": 8, "fill": true},
+          {"kind": "rect", "x": 48.03, "y": 34, "w": 3.26, "h": 8, "fill": true},
+          {"kind": "rect", "x": 58.82, "y": 34, "w": 3.26, "h": 8, "fill": true},
+          {"kind": "rect", "x": 64.77, "y": 34, "w": 3.26, "h": 8, "fill": true},
+          {"kind": "rect", "x": 75.56, "y": 34, "w": 3.26, "h": 8, "fill": true},
+          {"kind": "rect", "x": 81.46, "y": 34, "w": 3.26, "h": 8, "fill": true},
+          {"kind": "rect", "x": 87.36, "y": 34, "w": 3.26, "h": 8, "fill": true},
+          {"kind": "rect", "x": 98.15, "y": 34, "w": 3.26, "h": 8, "fill": true},
+          {"kind": "rect", "x": 104.11, "y": 34, "w": 3.26, "h": 8, "fill": true},
+          {"kind": "rect", "x": 114.9, "y": 34, "w": 3.26, "h": 8, "fill": true},
+          {"kind": "rect", "x": 120.8, "y": 34, "w": 3.26, "h": 8, "fill": true},
+          {"kind": "rect", "x": 126.7, "y": 34, "w": 3.26, "h": 8, "fill": true},
+          {"kind": "path", "d": "M14 52 L24 52 L22 96 L16 96 Z M70 52 L80 52 L78 96 L72 96 Z M126 52 L136 52 L134 96 L128 96 Z", "fill": true}
         ],
         "side": [
-          {
-            "kind": "path",
-            "d": "M12 36 L160 36 L238 8 L238 52 L12 52 Z",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M28 52 L28 94 M215 52 L215 94 M110 52 L110 78 L130 78",
-            "fill": false
-          }
+          {"kind": "path", "d": "M16 36 L204 4 L212 13 L24 45 Z", "fill": true},
+          {"kind": "path", "d": "M118 24 L122 24 L122 40 L118 40 Z", "fill": true},
+          {"kind": "path", "d": "M8 40 L244 40 L244 58 L8 58 Z", "fill": true},
+          {"kind": "path", "d": "M24 58 L34 58 L32 96 L26 96 Z M212 58 L222 58 L220 96 L214 96 Z", "fill": true},
+          {"kind": "path", "d": "M232 44 L246 44 L246 54 L232 54 Z", "fill": true}
         ]
       }
     },
@@ -655,82 +215,46 @@
       "id": "piano_upright",
       "label": "Upright piano",
       "group": "instrument",
-      "defaults": {
-        "width_cm": 150,
-        "depth_cm": 60,
-        "height_cm": 125
-      },
+      "defaults": {"width_cm": 150, "depth_cm": 60, "height_cm": 125},
       "glyphs": {
         "top": [
-          {
-            "kind": "rect",
-            "x": 4,
-            "y": 4,
-            "w": 142,
-            "h": 34,
-            "fill": false
-          },
-          {
-            "kind": "rect",
-            "x": 14,
-            "y": 38,
-            "w": 122,
-            "h": 16,
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M38 38 L38 54 M63 38 L63 54 M87 38 L87 54 M112 38 L112 54",
-            "fill": false
-          }
+          {"kind": "path", "d": "M4 4 L146 4 L146 40 L136 40 L136 55 L14 55 L14 40 L4 40 Z M18 42 L18 53 L132 53 L132 42 Z", "fill": true},
+          {"kind": "rect", "x": 23.25, "y": 42, "w": 3.04, "h": 6, "fill": true},
+          {"kind": "rect", "x": 28.8, "y": 42, "w": 3.04, "h": 6, "fill": true},
+          {"kind": "rect", "x": 38.86, "y": 42, "w": 3.04, "h": 6, "fill": true},
+          {"kind": "rect", "x": 44.36, "y": 42, "w": 3.04, "h": 6, "fill": true},
+          {"kind": "rect", "x": 49.86, "y": 42, "w": 3.04, "h": 6, "fill": true},
+          {"kind": "rect", "x": 59.91, "y": 42, "w": 3.04, "h": 6, "fill": true},
+          {"kind": "rect", "x": 65.47, "y": 42, "w": 3.04, "h": 6, "fill": true},
+          {"kind": "rect", "x": 75.52, "y": 42, "w": 3.04, "h": 6, "fill": true},
+          {"kind": "rect", "x": 81.02, "y": 42, "w": 3.04, "h": 6, "fill": true},
+          {"kind": "rect", "x": 86.52, "y": 42, "w": 3.04, "h": 6, "fill": true},
+          {"kind": "rect", "x": 96.58, "y": 42, "w": 3.04, "h": 6, "fill": true},
+          {"kind": "rect", "x": 102.13, "y": 42, "w": 3.04, "h": 6, "fill": true},
+          {"kind": "rect", "x": 112.19, "y": 42, "w": 3.04, "h": 6, "fill": true},
+          {"kind": "rect", "x": 117.69, "y": 42, "w": 3.04, "h": 6, "fill": true},
+          {"kind": "rect", "x": 123.19, "y": 42, "w": 3.04, "h": 6, "fill": true}
         ],
         "front": [
-          {
-            "kind": "rect",
-            "x": 4,
-            "y": 4,
-            "w": 142,
-            "h": 68,
-            "fill": false
-          },
-          {
-            "kind": "rect",
-            "x": 4,
-            "y": 72,
-            "w": 142,
-            "h": 16,
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M30 72 L30 88 M60 72 L60 88 M90 72 L90 88 M120 72 L120 88",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M14 88 L14 121 M136 88 L136 121",
-            "fill": false
-          }
+          {"kind": "path", "d": "M6 3 L144 3 L144 121 L6 121 Z M12 9 L12 13 L138 13 L138 9 Z M16 18 L16 48 L134 48 L134 18 Z M12 56 L12 78 L138 78 L138 56 Z M16 86 L16 112 L134 112 L134 86 Z", "fill": true},
+          {"kind": "rect", "x": 17.6, "y": 56, "w": 3.37, "h": 13, "fill": true},
+          {"kind": "rect", "x": 23.76, "y": 56, "w": 3.37, "h": 13, "fill": true},
+          {"kind": "rect", "x": 34.91, "y": 56, "w": 3.37, "h": 13, "fill": true},
+          {"kind": "rect", "x": 41.01, "y": 56, "w": 3.37, "h": 13, "fill": true},
+          {"kind": "rect", "x": 47.11, "y": 56, "w": 3.37, "h": 13, "fill": true},
+          {"kind": "rect", "x": 58.27, "y": 56, "w": 3.37, "h": 13, "fill": true},
+          {"kind": "rect", "x": 64.43, "y": 56, "w": 3.37, "h": 13, "fill": true},
+          {"kind": "rect", "x": 75.58, "y": 56, "w": 3.37, "h": 13, "fill": true},
+          {"kind": "rect", "x": 81.68, "y": 56, "w": 3.37, "h": 13, "fill": true},
+          {"kind": "rect", "x": 87.78, "y": 56, "w": 3.37, "h": 13, "fill": true},
+          {"kind": "rect", "x": 98.94, "y": 56, "w": 3.37, "h": 13, "fill": true},
+          {"kind": "rect", "x": 105.09, "y": 56, "w": 3.37, "h": 13, "fill": true},
+          {"kind": "rect", "x": 116.25, "y": 56, "w": 3.37, "h": 13, "fill": true},
+          {"kind": "rect", "x": 122.35, "y": 56, "w": 3.37, "h": 13, "fill": true},
+          {"kind": "rect", "x": 128.45, "y": 56, "w": 3.37, "h": 13, "fill": true}
         ],
         "side": [
-          {
-            "kind": "rect",
-            "x": 14,
-            "y": 4,
-            "w": 30,
-            "h": 70,
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M44 60 L54 60 L54 74 L44 74",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M20 74 L20 121 M48 74 L48 121",
-            "fill": false
-          }
+          {"kind": "path", "d": "M4 3 L48 3 L48 56 L57 56 L57 70 L48 70 L48 121 L4 121 Z M10 10 L10 50 L42 50 L42 10 Z M10 78 L10 114 L42 114 L42 78 Z", "fill": true}
         ]
       }
     },
@@ -738,66 +262,58 @@
       "id": "keyboard",
       "label": "Keyboard",
       "group": "instrument",
-      "defaults": {
-        "width_cm": 130,
-        "depth_cm": 40,
-        "height_cm": 95
-      },
+      "defaults": {"width_cm": 130, "depth_cm": 40, "height_cm": 95},
       "glyphs": {
         "top": [
-          {
-            "kind": "rect",
-            "x": 3,
-            "y": 4,
-            "w": 124,
-            "h": 32,
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M3 17 L127 17",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M19 17 L19 36 M35 17 L35 36 M51 17 L51 36 M67 17 L67 36 M83 17 L83 36 M99 17 L99 36 M115 17 L115 36",
-            "fill": false
-          }
+          {"kind": "path", "d": "M3 3 L127 3 L127 37 L3 37 Z M9 8 L9 17 L121 17 L121 8 Z M8 21 L8 34 L122 34 L122 21 Z", "fill": true},
+          {"kind": "rect", "x": 12.44, "y": 21, "w": 2.28, "h": 8, "fill": true},
+          {"kind": "rect", "x": 16.6, "y": 21, "w": 2.28, "h": 8, "fill": true},
+          {"kind": "rect", "x": 24.14, "y": 21, "w": 2.28, "h": 8, "fill": true},
+          {"kind": "rect", "x": 28.27, "y": 21, "w": 2.28, "h": 8, "fill": true},
+          {"kind": "rect", "x": 32.39, "y": 21, "w": 2.28, "h": 8, "fill": true},
+          {"kind": "rect", "x": 39.94, "y": 21, "w": 2.28, "h": 8, "fill": true},
+          {"kind": "rect", "x": 44.1, "y": 21, "w": 2.28, "h": 8, "fill": true},
+          {"kind": "rect", "x": 51.64, "y": 21, "w": 2.28, "h": 8, "fill": true},
+          {"kind": "rect", "x": 55.77, "y": 21, "w": 2.28, "h": 8, "fill": true},
+          {"kind": "rect", "x": 59.89, "y": 21, "w": 2.28, "h": 8, "fill": true},
+          {"kind": "rect", "x": 67.44, "y": 21, "w": 2.28, "h": 8, "fill": true},
+          {"kind": "rect", "x": 71.6, "y": 21, "w": 2.28, "h": 8, "fill": true},
+          {"kind": "rect", "x": 79.14, "y": 21, "w": 2.28, "h": 8, "fill": true},
+          {"kind": "rect", "x": 83.27, "y": 21, "w": 2.28, "h": 8, "fill": true},
+          {"kind": "rect", "x": 87.39, "y": 21, "w": 2.28, "h": 8, "fill": true},
+          {"kind": "rect", "x": 94.94, "y": 21, "w": 2.28, "h": 8, "fill": true},
+          {"kind": "rect", "x": 99.1, "y": 21, "w": 2.28, "h": 8, "fill": true},
+          {"kind": "rect", "x": 106.64, "y": 21, "w": 2.28, "h": 8, "fill": true},
+          {"kind": "rect", "x": 110.77, "y": 21, "w": 2.28, "h": 8, "fill": true},
+          {"kind": "rect", "x": 114.89, "y": 21, "w": 2.28, "h": 8, "fill": true}
         ],
         "front": [
-          {
-            "kind": "rect",
-            "x": 8,
-            "y": 34,
-            "w": 114,
-            "h": 12,
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M26 46 L26 34 M46 46 L46 34 M66 46 L66 34 M86 46 L86 34 M106 46 L106 34",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M35 46 L95 90 M95 46 L35 90 M24 90 L46 90 M84 90 L106 90",
-            "fill": false
-          }
+          {"kind": "path", "d": "M3 28 L127 28 L127 48 L3 48 Z M9 32 L9 37 L121 37 L121 32 Z M8 39 L8 46 L122 46 L122 39 Z", "fill": true},
+          {"kind": "rect", "x": 12.44, "y": 39, "w": 2.28, "h": 4.2, "fill": true},
+          {"kind": "rect", "x": 16.6, "y": 39, "w": 2.28, "h": 4.2, "fill": true},
+          {"kind": "rect", "x": 24.14, "y": 39, "w": 2.28, "h": 4.2, "fill": true},
+          {"kind": "rect", "x": 28.27, "y": 39, "w": 2.28, "h": 4.2, "fill": true},
+          {"kind": "rect", "x": 32.39, "y": 39, "w": 2.28, "h": 4.2, "fill": true},
+          {"kind": "rect", "x": 39.94, "y": 39, "w": 2.28, "h": 4.2, "fill": true},
+          {"kind": "rect", "x": 44.1, "y": 39, "w": 2.28, "h": 4.2, "fill": true},
+          {"kind": "rect", "x": 51.64, "y": 39, "w": 2.28, "h": 4.2, "fill": true},
+          {"kind": "rect", "x": 55.77, "y": 39, "w": 2.28, "h": 4.2, "fill": true},
+          {"kind": "rect", "x": 59.89, "y": 39, "w": 2.28, "h": 4.2, "fill": true},
+          {"kind": "rect", "x": 67.44, "y": 39, "w": 2.28, "h": 4.2, "fill": true},
+          {"kind": "rect", "x": 71.6, "y": 39, "w": 2.28, "h": 4.2, "fill": true},
+          {"kind": "rect", "x": 79.14, "y": 39, "w": 2.28, "h": 4.2, "fill": true},
+          {"kind": "rect", "x": 83.27, "y": 39, "w": 2.28, "h": 4.2, "fill": true},
+          {"kind": "rect", "x": 87.39, "y": 39, "w": 2.28, "h": 4.2, "fill": true},
+          {"kind": "rect", "x": 94.94, "y": 39, "w": 2.28, "h": 4.2, "fill": true},
+          {"kind": "rect", "x": 99.1, "y": 39, "w": 2.28, "h": 4.2, "fill": true},
+          {"kind": "rect", "x": 106.64, "y": 39, "w": 2.28, "h": 4.2, "fill": true},
+          {"kind": "rect", "x": 110.77, "y": 39, "w": 2.28, "h": 4.2, "fill": true},
+          {"kind": "rect", "x": 114.89, "y": 39, "w": 2.28, "h": 4.2, "fill": true},
+          {"kind": "path", "d": "M31 48 L37 48 L103 90 L97 90 Z M97 48 L103 48 L37 90 L31 90 Z M22 88 L48 88 L48 93 L22 93 Z M86 88 L112 88 L112 93 L86 93 Z", "fill": true}
         ],
         "side": [
-          {
-            "kind": "rect",
-            "x": 7,
-            "y": 36,
-            "w": 26,
-            "h": 8,
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M11 44 L29 88 M29 44 L11 88",
-            "fill": false
-          }
+          {"kind": "path", "d": "M6 34 L34 34 L34 44 L6 44 Z", "fill": true},
+          {"kind": "path", "d": "M9 44 L14 44 L31 88 L26 88 Z M26 44 L31 44 L14 88 L9 88 Z M5 86 L17 86 L17 90 L5 90 Z M23 86 L35 86 L35 90 L23 90 Z", "fill": true}
         ]
       }
     },
@@ -805,89 +321,16 @@
       "id": "guitar_acoustic",
       "label": "Acoustic guitar",
       "group": "instrument",
-      "defaults": {
-        "width_cm": 45,
-        "depth_cm": 40,
-        "height_cm": 110
-      },
+      "defaults": {"width_cm": 45, "depth_cm": 40, "height_cm": 110},
       "glyphs": {
         "top": [
-          {
-            "kind": "circle",
-            "cx": 16,
-            "cy": 26,
-            "r": 12,
-            "fill": false
-          },
-          {
-            "kind": "circle",
-            "cx": 23,
-            "cy": 17,
-            "r": 8,
-            "fill": false
-          },
-          {
-            "kind": "circle",
-            "cx": 19,
-            "cy": 22,
-            "r": 3.5,
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M29 11 L43 2",
-            "fill": false
-          }
+          {"kind": "path", "d": "M 22.5 20.75 C 25.7 20.75 28.52 22.45 29.47 25.65 C 30.03 27.72 29.28 29.23 28.34 30.36 C 27.4 31.49 26.83 32.43 27.02 33.93 C 27.4 36.76 25.14 39.2 22.5 39.2 C 19.86 39.2 17.6 36.76 17.98 33.93 C 18.17 32.43 17.6 31.49 16.66 30.36 C 15.72 29.23 14.97 27.72 15.53 25.65 C 16.48 22.45 19.3 20.75 22.5 20.75 Z M 24.83 26.78 A 2.33467 2.33467 0 1 0 20.17 26.78 A 2.33467 2.33467 0 1 0 24.83 26.78 Z M 19.68 33.18 L 19.68 34.5 L 25.32 34.5 L 25.32 33.18 Z M 21.11 6.82 L 23.89 6.82 L 23.89 21.88 L 21.11 21.88 Z M 20.24 0.8 L 24.76 0.8 L 24.42 7.2 L 20.58 7.2 Z M 21.26 2.11 L 21.26 5.88 L 22.09 5.88 L 22.09 2.11 Z M 22.91 2.11 L 22.91 5.88 L 23.74 5.88 L 23.74 2.11 Z", "fill": true, "rotate": [55, 22.5, 20.0]}
         ],
         "front": [
-          {
-            "kind": "circle",
-            "cx": 22,
-            "cy": 82,
-            "r": 19,
-            "fill": false
-          },
-          {
-            "kind": "circle",
-            "cx": 22,
-            "cy": 57,
-            "r": 13,
-            "fill": false
-          },
-          {
-            "kind": "circle",
-            "cx": 22,
-            "cy": 68,
-            "r": 5,
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M19 4 L19 44 M25 4 L25 44 M16 4 L28 4",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M8 106 L17 94 M36 106 L27 94",
-            "fill": false
-          }
+          {"kind": "path", "d": "M22.5 57 C31 57 38.5 61.5 41 70 C42.5 75.5 40.5 79.5 38 82.5 C35.5 85.5 34 88 34.5 92 C35.5 99.5 29.5 106 22.5 106 C15.5 106 9.5 99.5 10.5 92 C11 88 9.5 85.5 7 82.5 C4.5 79.5 2.5 75.5 4 70 C6.5 61.5 14 57 22.5 57 Z M28.7 73 A6.2 6.2 0 1 0 16.3 73 A6.2 6.2 0 1 0 28.7 73 Z M15 90 L15 93.5 L30 93.5 L30 90 Z M18.8 20 L26.2 20 L26.2 60 L18.8 60 Z M16.5 4 L28.5 4 L27.6 21 L17.4 21 Z M19.2 7.5 L19.2 17.5 L21.4 17.5 L21.4 7.5 Z M23.6 7.5 L23.6 17.5 L25.8 17.5 L25.8 7.5 Z", "fill": true}
         ],
         "side": [
-          {
-            "kind": "path",
-            "d": "M17 50 L26 50 L28 100 L14 100 Z",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M21 4 L20 50",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M8 106 L15 96 M32 106 L27 98",
-            "fill": false
-          }
+          {"kind": "path", "d": "M 20 57 C 27.5556 57 34.2222 61.5 36.4444 70 C 37.7778 75.5 36 79.5 33.7778 82.5 C 31.5556 85.5 30.2222 88 30.6667 92 C 31.5556 99.5 26.2222 106 20 106 C 13.7778 106 8.44444 99.5 9.33333 92 C 9.77778 88 8.44444 85.5 6.22222 82.5 C 4 79.5 2.22222 75.5 3.55556 70 C 5.77778 61.5 12.4444 57 20 57 Z M 25.5111 73 A 5.51111 6.2 0 1 0 14.4889 73 A 5.51111 6.2 0 1 0 25.5111 73 Z M 13.3333 90 L 13.3333 93.5 L 26.6667 93.5 L 26.6667 90 Z M 16.7111 20 L 23.2889 20 L 23.2889 60 L 16.7111 60 Z M 14.6667 4 L 25.3333 4 L 24.5333 21 L 15.4667 21 Z M 17.0667 7.5 L 17.0667 17.5 L 19.0222 17.5 L 19.0222 7.5 Z M 20.9778 7.5 L 20.9778 17.5 L 22.9333 17.5 L 22.9333 7.5 Z", "fill": true}
         ]
       }
     },
@@ -895,57 +338,16 @@
       "id": "guitar_electric",
       "label": "Electric guitar",
       "group": "instrument",
-      "defaults": {
-        "width_cm": 40,
-        "depth_cm": 35,
-        "height_cm": 100
-      },
+      "defaults": {"width_cm": 40, "depth_cm": 35, "height_cm": 100},
       "glyphs": {
         "top": [
-          {
-            "kind": "path",
-            "d": "M8 30 C3 30 2 24 6 21 C2 18 4 12 9 13 C12 13 14 15 15 17 L18 22 C19 26 15 30 8 30 Z",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M17 18 L38 3",
-            "fill": false
-          }
+          {"kind": "path", "d": "M 18.7 21.2 C 18.15 18.61 16.67 16.02 15.37 16.57 C 13.89 17.31 13.34 20.09 13.34 23.05 C 13.34 26.38 14.26 30.08 15.74 32.3 C 16.85 33.97 18.33 34.89 20 34.89 C 21.67 34.89 23.15 33.97 24.26 32.3 C 25.74 30.08 26.66 26.38 26.66 23.05 C 26.66 20.09 26.11 17.31 24.63 16.57 C 23.33 16.02 21.85 18.61 21.3 21.2 Z M 16.67 24.16 L 23.33 24.16 L 23.33 25.83 L 16.67 25.83 Z M 16.67 27.86 L 23.33 27.86 L 23.33 29.53 L 16.67 29.53 Z M 18.89 4.92 L 21.11 4.92 L 21.11 24.16 L 18.89 24.16 Z M 18.7 0.11 L 22.59 0.11 L 22.59 2.14 L 21.11 2.14 L 21.11 5.29 L 18.89 5.29 Z", "fill": true, "rotate": [55, 20.0, 17.5]}
         ],
         "front": [
-          {
-            "kind": "path",
-            "d": "M20 50 C29 50 33 58 29 64 C36 68 34 82 26 87 C22 91 18 91 14 87 C6 82 4 68 11 64 C7 58 11 50 20 50 Z",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M17 4 L17 50 M23 4 L23 50 M14 4 L26 4",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M7 96 L14 88 M33 96 L26 88",
-            "fill": false
-          }
+          {"kind": "path", "d": "M16.5 60 C15 53 11 46 7.5 47.5 C3.5 49.5 2 57 2 65 C2 74 4.5 84 8.5 90 C11.5 94.5 15.5 97 20 97 C24.5 97 28.5 94.5 31.5 90 C35.5 84 38 74 38 65 C38 57 36.5 49.5 32.5 47.5 C29 46 25 53 23.5 60 Z M11 68 L29 68 L29 72.5 L11 72.5 Z M11 78 L29 78 L29 82.5 L11 82.5 Z M17 16 L23 16 L23 68 L17 68 Z M16.5 3 L27 3 L27 8.5 L23 8.5 L23 17 L17 17 Z", "fill": true}
         ],
         "side": [
-          {
-            "kind": "path",
-            "d": "M15 52 L22 52 L24 88 L13 88 Z",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M18 4 L17 52",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M8 96 L14 89 M28 96 L23 90",
-            "fill": false
-          }
+          {"kind": "path", "d": "M 14.4375 60 C 13.125 53 9.625 46 6.5625 47.5 C 3.0625 49.5 1.75 57 1.75 65 C 1.75 74 3.9375 84 7.4375 90 C 10.0625 94.5 13.5625 97 17.5 97 C 21.4375 97 24.9375 94.5 27.5625 90 C 31.0625 84 33.25 74 33.25 65 C 33.25 57 31.9375 49.5 28.4375 47.5 C 25.375 46 21.875 53 20.5625 60 Z M 9.625 68 L 25.375 68 L 25.375 72.5 L 9.625 72.5 Z M 9.625 78 L 25.375 78 L 25.375 82.5 L 9.625 82.5 Z M 14.875 16 L 20.125 16 L 20.125 68 L 14.875 68 Z M 14.4375 3 L 23.625 3 L 23.625 8.5 L 20.125 8.5 L 20.125 17 L 14.875 17 Z", "fill": true}
         ]
       }
     },
@@ -953,57 +355,16 @@
       "id": "bass",
       "label": "Bass",
       "group": "instrument",
-      "defaults": {
-        "width_cm": 45,
-        "depth_cm": 35,
-        "height_cm": 120
-      },
+      "defaults": {"width_cm": 45, "depth_cm": 35, "height_cm": 120},
       "glyphs": {
         "top": [
-          {
-            "kind": "path",
-            "d": "M8 30 C3 30 2 24 6 21 C3 18 5 13 10 14 C13 14 15 16 16 18 L18 23 C19 27 14 30 8 30 Z",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M17 19 L43 2",
-            "fill": false
-          }
+          {"kind": "path", "d": "M 21 23.51 C 20.33 20.17 18.66 17.5 17.33 18.33 C 15.99 19.17 15.66 22.17 15.83 25.51 C 16.16 29.18 17.33 32.51 18.83 34.52 C 20 36.02 21.33 36.85 22.67 36.85 C 24 36.85 25.34 36.02 26.5 34.52 C 28.01 32.51 29.17 29.51 29.34 26.84 C 29.51 24.17 28.84 22.17 27.67 22 C 26.5 21.84 25.17 23.17 24.5 24.84 Z M 19.33 27.51 L 26 27.51 L 26 29.34 L 19.33 29.34 Z M 21.67 3.49 L 24 3.49 L 24 26.84 L 21.67 26.84 Z M 21.17 -1.52 L 25.67 -1.52 L 25.67 1.15 L 24 1.15 L 24 3.82 L 21.67 3.82 L 21.67 1.15 Z", "fill": true, "rotate": [58, 22.5, 17.5]}
         ],
         "front": [
-          {
-            "kind": "path",
-            "d": "M22 66 C30 66 34 73 31 79 C37 83 35 95 27 100 C24 103 20 103 17 100 C9 95 7 83 13 79 C10 73 14 66 22 66 Z",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M19 4 L19 66 M25 4 L25 66 M16 4 L28 4",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M9 114 L16 102 M35 114 L28 102",
-            "fill": false
-          }
+          {"kind": "path", "d": "M18 78 C16 68 11 60 7 62.5 C3 65 2 74 2.5 84 C3.5 95 7 105 11.5 111 C15 115.5 19 118 23 118 C27 118 31 115.5 34.5 111 C39 105 42.5 96 43 88 C43.5 80 41.5 74 38 73.5 C34.5 73 30.5 77 28.5 82 Z M13 90 L33 90 L33 95.5 L13 95.5 Z M20 18 L27 18 L27 88 L20 88 Z M18.5 3 L32 3 L32 11 L27 11 L27 19 L20 19 L20 11 Z", "fill": true}
         ],
         "side": [
-          {
-            "kind": "path",
-            "d": "M15 68 L22 68 L24 102 L13 102 Z",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M18 4 L17 68",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M8 114 L14 104 M28 114 L23 104",
-            "fill": false
-          }
+          {"kind": "path", "d": "M 14 78 C 12.4444 68 8.55556 60 5.44444 62.5 C 2.33333 65 1.55556 74 1.94444 84 C 2.72222 95 5.44444 105 8.94444 111 C 11.6667 115.5 14.7778 118 17.8889 118 C 21 118 24.1111 115.5 26.8333 111 C 30.3333 105 33.0556 96 33.4444 88 C 33.8333 80 32.2778 74 29.5556 73.5 C 26.8333 73 23.7222 77 22.1667 82 Z M 10.1111 90 L 25.6667 90 L 25.6667 95.5 L 10.1111 95.5 Z M 15.5556 18 L 21 18 L 21 88 L 15.5556 88 Z M 14.3889 3 L 24.8889 3 L 24.8889 11 L 21 11 L 21 19 L 15.5556 19 L 15.5556 11 Z", "fill": true}
         ]
       }
     },
@@ -1011,69 +372,19 @@
       "id": "cello",
       "label": "Cello",
       "group": "instrument",
-      "defaults": {
-        "width_cm": 50,
-        "depth_cm": 45,
-        "height_cm": 130
-      },
+      "defaults": {"width_cm": 50, "depth_cm": 45, "height_cm": 130},
       "glyphs": {
         "top": [
-          {
-            "kind": "path",
-            "d": "M25 12 C33 12 37 16 37 21 C37 24 35 26 35 29 C35 34 40 36 40 40 C40 43 33 43 25 43 C17 43 10 43 10 40 C10 36 15 34 15 29 C15 26 13 24 13 21 C13 16 17 12 25 12 Z",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M25 12 L25 2",
-            "fill": false
-          }
+          {"kind": "path", "d": "M 25 17.84 C 27.87 17.84 30.74 19.63 31.64 22.86 C 32.18 24.83 31.28 26.09 30.02 26.99 C 28.95 27.77 28.59 28.42 28.59 29.32 C 28.59 30.21 28.95 30.86 30.02 31.65 C 31.28 32.55 32.18 33.8 31.64 35.78 C 30.74 39.01 27.87 40.8 25 40.8 C 22.13 40.8 19.26 39.01 18.36 35.78 C 17.82 33.8 18.72 32.55 19.98 31.65 C 21.05 30.86 21.41 30.21 21.41 29.32 C 21.41 28.42 21.05 27.77 19.98 26.99 C 18.72 26.09 17.82 24.83 18.36 22.86 C 19.26 19.63 22.13 17.84 25 17.84 Z M 22.31 25.73 C 21.77 27.16 21.77 30.04 22.31 32.19 C 22.7 32.19 22.99 32.19 23.39 32.19 C 22.85 30.04 22.85 27.16 23.39 25.73 C 22.99 25.73 22.7 25.73 22.31 25.73 Z M 27.69 25.73 C 27.15 27.16 27.15 30.04 27.69 32.19 C 28.09 32.19 28.37 32.19 28.77 32.19 C 28.23 30.04 28.23 27.16 28.77 25.73 C 28.37 25.73 28.09 25.73 27.69 25.73 Z M 23.74 6.35 L 26.26 6.35 L 26.26 18.91 L 23.74 18.91 Z M 23.92 0.61 C 25.54 0.07 26.97 0.97 26.97 2.59 C 26.97 4.02 26.08 4.92 25 5.1 L 26.26 5.28 L 26.26 6.71 L 23.74 6.71 L 23.74 2.41 C 23.74 1.51 23.39 0.79 23.92 0.61 Z", "fill": true, "rotate": [55, 25.0, 22.5]},
+          {"kind": "path", "d": "M 25 40.8 L 25 45.11", "fill": false, "rotate": [55, 25.0, 22.5]}
         ],
         "front": [
-          {
-            "kind": "path",
-            "d": "M25 34 C36 34 41 41 41 48 C41 53 37 56 37 61 C37 68 44 71 44 79 C44 92 35 100 25 100 C15 100 6 92 6 79 C6 71 13 68 13 61 C13 56 9 53 9 48 C9 41 14 34 25 34 Z",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M25 34 L25 8 M20 8 L30 8",
-            "fill": false
-          },
-          {
-            "kind": "circle",
-            "cx": 25,
-            "cy": 5,
-            "r": 2.5,
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M25 100 L25 126 M20 126 L30 126",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M19 58 L19 72 M31 58 L31 72",
-            "fill": false
-          }
+          {"kind": "path", "d": "M25 52 C33 52 41 57 43.5 66 C45 71.5 42.5 75 39 77.5 C36 79.7 35 81.5 35 84 C35 86.5 36 88.3 39 90.5 C42.5 93 45 96.5 43.5 102 C41 111 33 116 25 116 C17 116 9 111 6.5 102 C5 96.5 7.5 93 11 90.5 C14 88.3 15 86.5 15 84 C15 81.5 14 79.7 11 77.5 C7.5 75 5 71.5 6.5 66 C9 57 17 52 25 52 Z M17.5 74 C16 78 16 86 17.5 92 C18.6 92 19.4 92 20.5 92 C19 86 19 78 20.5 74 C19.4 74 18.6 74 17.5 74 Z M32.5 74 C31 78 31 86 32.5 92 C33.6 92 34.4 92 35.5 92 C34 86 34 78 35.5 74 C34.4 74 33.6 74 32.5 74 Z M21.5 20 L28.5 20 L28.5 55 L21.5 55 Z M22 4 C26.5 2.5 30.5 5 30.5 9.5 C30.5 13.5 28 16 25 16.5 L28.5 17 L28.5 21 L21.5 21 L21.5 9 C21.5 6.5 20.5 4.5 22 4 Z", "fill": true},
+          {"kind": "path", "d": "M25 116 L25 128", "fill": false}
         ],
         "side": [
-          {
-            "kind": "path",
-            "d": "M19 36 L27 36 L31 98 L15 98 Z",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M23 36 L23 8",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M23 98 L24 126",
-            "fill": false
-          }
+          {"kind": "path", "d": "M 22.5 52 C 29.7 52 36.9 57 39.15 66 C 40.5 71.5 38.25 75 35.1 77.5 C 32.4 79.7 31.5 81.5 31.5 84 C 31.5 86.5 32.4 88.3 35.1 90.5 C 38.25 93 40.5 96.5 39.15 102 C 36.9 111 29.7 116 22.5 116 C 15.3 116 8.1 111 5.85 102 C 4.5 96.5 6.75 93 9.9 90.5 C 12.6 88.3 13.5 86.5 13.5 84 C 13.5 81.5 12.6 79.7 9.9 77.5 C 6.75 75 4.5 71.5 5.85 66 C 8.1 57 15.3 52 22.5 52 Z M 15.75 74 C 14.4 78 14.4 86 15.75 92 C 16.74 92 17.46 92 18.45 92 C 17.1 86 17.1 78 18.45 74 C 17.46 74 16.74 74 15.75 74 Z M 29.25 74 C 27.9 78 27.9 86 29.25 92 C 30.24 92 30.96 92 31.95 92 C 30.6 86 30.6 78 31.95 74 C 30.96 74 30.24 74 29.25 74 Z M 19.35 20 L 25.65 20 L 25.65 55 L 19.35 55 Z M 19.8 4 C 23.85 2.5 27.45 5 27.45 9.5 C 27.45 13.5 25.2 16 22.5 16.5 L 25.65 17 L 25.65 21 L 19.35 21 L 19.35 9 C 19.35 6.5 18.45 4.5 19.8 4 Z", "fill": true},
+          {"kind": "path", "d": "M 22.5 116 L 22.5 128", "fill": false}
         ]
       }
     },
@@ -1081,79 +392,16 @@
       "id": "trumpet",
       "label": "Trumpet",
       "group": "instrument",
-      "defaults": {
-        "width_cm": 55,
-        "depth_cm": 20,
-        "height_cm": 15
-      },
+      "defaults": {"width_cm": 55, "depth_cm": 20, "height_cm": 15},
       "glyphs": {
         "top": [
-          {
-            "kind": "path",
-            "d": "M3 7 L36 7 M3 13 L36 13 M3 7 L3 13",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M36 7 C45 7 46 2 53 2 L53 18 C46 18 45 13 36 13",
-            "fill": false
-          },
-          {
-            "kind": "circle",
-            "cx": 15,
-            "cy": 10,
-            "r": 1.8,
-            "fill": true
-          },
-          {
-            "kind": "circle",
-            "cx": 21,
-            "cy": 10,
-            "r": 1.8,
-            "fill": true
-          },
-          {
-            "kind": "circle",
-            "cx": 27,
-            "cy": 10,
-            "r": 1.8,
-            "fill": true
-          }
+          {"kind": "path", "d": "M2 7.5 L5 7.5 L5 12.5 L2 12.5 Z M5 8.8 L29 8.8 L29 11.2 L5 11.2 Z M28 5.5 L41 5.5 L41 14.5 L28 14.5 Z M29.5 1.5 L32 1.5 L32 5.5 L29.5 5.5 Z M33.2 1.5 L35.7 1.5 L35.7 5.5 L33.2 5.5 Z M36.9 1.5 L39.4 1.5 L39.4 5.5 L36.9 5.5 Z M41 6.8 C46 7.2 49 8 53 1.5 L53 18.5 C49 12 46 12.8 41 13.2 Z", "fill": true}
         ],
         "front": [
-          {
-            "kind": "path",
-            "d": "M3 8 L39 8",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M15 8 L15 3 M21 8 L21 3 M27 8 L27 3",
-            "fill": false
-          },
-          {
-            "kind": "circle",
-            "cx": 47,
-            "cy": 8,
-            "r": 6,
-            "fill": false
-          }
+          {"kind": "path", "d": "M 2 5.62 L 5 5.62 L 5 9.38 L 2 9.38 Z M 5 6.6 L 29 6.6 L 29 8.4 L 5 8.4 Z M 28 4.12 L 41 4.12 L 41 10.88 L 28 10.88 Z M 29.5 1.12 L 32 1.12 L 32 4.12 L 29.5 4.12 Z M 33.2 1.12 L 35.7 1.12 L 35.7 4.12 L 33.2 4.12 Z M 36.9 1.12 L 39.4 1.12 L 39.4 4.12 L 36.9 4.12 Z M 41 5.1 C 46 5.4 49 6 53 1.12 L 53 13.88 C 49 9 46 9.6 41 9.9 Z", "fill": true}
         ],
         "side": [
-          {
-            "kind": "circle",
-            "cx": 10,
-            "cy": 7.5,
-            "r": 6,
-            "fill": false
-          },
-          {
-            "kind": "circle",
-            "cx": 10,
-            "cy": 7.5,
-            "r": 2,
-            "fill": false
-          }
+          {"kind": "path", "d": "M17.5 7.5 A7.5 6.5 0 1 1 2.5 7.5 A7.5 6.5 0 1 1 17.5 7.5 Z M14.5 7.5 A4.5 3.8 0 1 0 5.5 7.5 A4.5 3.8 0 1 0 14.5 7.5 Z M6.5 12 L13.5 12 L13.5 14 L6.5 14 Z", "fill": true}
         ]
       }
     },
@@ -1161,88 +409,25 @@
       "id": "saxophone",
       "label": "Saxophone",
       "group": "instrument",
-      "defaults": {
-        "width_cm": 30,
-        "depth_cm": 40,
-        "height_cm": 80
-      },
+      "defaults": {"width_cm": 30, "depth_cm": 40, "height_cm": 80},
       "glyphs": {
         "top": [
-          {
-            "kind": "circle",
-            "cx": 13,
-            "cy": 28,
-            "r": 9,
-            "fill": false
-          },
-          {
-            "kind": "circle",
-            "cx": 13,
-            "cy": 28,
-            "r": 3,
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M13 19 C13 10 18 6 24 3",
-            "fill": false
-          }
+          {"kind": "path", "d": "M 12.83 34.09 C 11.21 34.09 10.3 32.46 10.49 30.11 C 10.67 27.58 11.75 25.42 13.19 24.15 C 13.74 23.68 14.28 23.43 14.82 23.43 L 15.72 23.43 L 15.72 25.42 C 15.18 25.42 14.64 25.6 14.28 25.96 C 13.56 26.68 13.19 27.95 13.19 29.21 C 13.19 30.66 13.74 31.74 14.64 32.1 L 14.64 34.09 Z M 14.64 21.44 L 16.99 21.44 L 16.99 34.09 L 14.64 34.09 Z M 14.82 14.94 C 14.82 12.42 15.36 10.25 16.44 8.98 C 17.17 8.15 18.07 7.72 18.97 7.9 L 18.97 9.89 C 18.43 9.89 17.89 10.18 17.53 10.61 C 16.99 11.33 16.81 12.78 16.81 14.58 L 16.81 21.81 L 14.82 21.81 Z M 18.43 6.64 L 19.88 6.64 L 19.88 10.07 L 18.43 10.07 Z M 15.18 16.39 L 15.18 17.65 L 16.44 17.65 L 16.44 16.39 Z M 15.18 19.28 L 15.18 20.54 L 16.44 20.54 L 16.44 19.28 Z M 15.18 25.42 L 15.18 26.68 L 16.44 26.68 L 16.44 25.42 Z M 15.18 28.31 L 15.18 29.57 L 16.44 29.57 L 16.44 28.31 Z", "fill": true, "rotate": [50, 15.0, 20.0]}
         ],
         "front": [
-          {
-            "kind": "path",
-            "d": "M19 6 L26 2",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M19 6 C17 20 17 34 17 46 C17 62 13 70 9 68 C4 66 4 58 8 54 C10 52 13 53 14 56",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M17 20 L13 20 M17 30 L13 30 M17 40 L13 40",
-            "fill": false
-          }
+          {"kind": "path", "d": "M9 79 C4.5 79 2 74.5 2.5 68 C3 61 6 55 10 51.5 C11.5 50.2 13 49.5 14.5 49.5 L17 49.5 L17 55 C15.5 55 14 55.5 13 56.5 C11 58.5 10 62 10 65.5 C10 69.5 11.5 72.5 14 73.5 L14 79 Z M14 44 L20.5 44 L20.5 79 L14 79 Z M14.5 26 C14.5 19 16 13 19 9.5 C21 7.2 23.5 6 26 6.5 L26 12 C24.5 12 23 12.8 22 14 C20.5 16 20 20 20 25 L20 45 L14.5 45 Z M24.5 3 L28.5 3 L28.5 12.5 L24.5 12.5 Z M15.5 30 L15.5 33.5 L19 33.5 L19 30 Z M15.5 38 L15.5 41.5 L19 41.5 L19 38 Z M15.5 55 L15.5 58.5 L19 58.5 L19 55 Z M15.5 63 L15.5 66.5 L19 66.5 L19 63 Z", "fill": true}
         ],
         "side": [
-          {
-            "kind": "path",
-            "d": "M22 6 L30 2",
-            "fill": false
-          },
-          {
-            "kind": "path",
-            "d": "M22 6 C20 22 20 36 20 46 C20 62 15 70 10 68 C4 66 4 56 10 53 C14 51 17 54 17 58",
-            "fill": false
-          }
+          {"kind": "path", "d": "M 12 79 C 6 79 2.66667 74.5 3.33333 68 C 4 61 8 55 13.3333 51.5 C 15.3333 50.2 17.3333 49.5 19.3333 49.5 L 22.6667 49.5 L 22.6667 55 C 20.6667 55 18.6667 55.5 17.3333 56.5 C 14.6667 58.5 13.3333 62 13.3333 65.5 C 13.3333 69.5 15.3333 72.5 18.6667 73.5 L 18.6667 79 Z M 18.6667 44 L 27.3333 44 L 27.3333 79 L 18.6667 79 Z M 19.3333 26 C 19.3333 19 21.3333 13 25.3333 9.5 C 28 7.2 31.3333 6 34.6667 6.5 L 34.6667 12 C 32.6667 12 30.6667 12.8 29.3333 14 C 27.3333 16 26.6667 20 26.6667 25 L 26.6667 45 L 19.3333 45 Z M 32.6667 3 L 38 3 L 38 12.5 L 32.6667 12.5 Z M 20.6667 30 L 20.6667 33.5 L 25.3333 33.5 L 25.3333 30 Z M 20.6667 38 L 20.6667 41.5 L 25.3333 41.5 L 25.3333 38 Z M 20.6667 55 L 20.6667 58.5 L 25.3333 58.5 L 25.3333 55 Z M 20.6667 63 L 20.6667 66.5 L 25.3333 66.5 L 25.3333 63 Z", "fill": true}
         ]
       }
     }
   ],
   "placeholder": {
-    "box": [
-      100,
-      100
-    ],
+    "box": [100, 100],
     "marks": [
-      {
-        "kind": "rect",
-        "x": 6,
-        "y": 6,
-        "w": 88,
-        "h": 88,
-        "fill": false,
-        "dash": [
-          8,
-          6
-        ]
-      },
-      {
-        "kind": "path",
-        "d": "M30 70 L50 30 L70 70 M38 56 L62 56",
-        "fill": false
-      }
+      {"kind": "rect", "x": 6, "y": 6, "w": 88, "h": 88, "fill": false, "dash": [8, 6]},
+      {"kind": "path", "d": "M30 70 L50 30 L70 70 M38 56 L62 56", "fill": false}
     ]
   }
 }

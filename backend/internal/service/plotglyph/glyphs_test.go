@@ -163,20 +163,27 @@ func TestAStretchedGlyphLandsOnItsFootprint(t *testing.T) {
 	}
 }
 
+// Fill and stroke reach the page as different operations. Asserted on marks
+// built here rather than on a glyph's mark count, so that redrawing an icon
+// cannot fail a test about how paint is applied.
 func TestFilledMarksArePaintedNotStroked(t *testing.T) {
 	rec := &recorder{}
-	// The person's top view is the only glyph here with a filled mark: the head.
-	if err := Draw(rec, Marks("person", Top), Transform{ScaleX: 1, ScaleY: 1}, 0.3); err != nil {
+	marks := []Mark{
+		{Kind: "rect", X: 0, Y: 0, W: 10, H: 10, Fill: true},
+		{Kind: "path", D: "M0 0 L10 10", Fill: false},
+		{Kind: "circle", Cx: 5, Cy: 5, R: 3, Fill: true},
+	}
+	if err := Draw(rec, marks, Transform{ScaleX: 1, ScaleY: 1}, 0.3); err != nil {
 		t.Fatalf("Draw: %v", err)
 	}
-	fills := 0
-	for _, style := range rec.styles {
-		if style == "F" {
-			fills++
-		}
+	want := []string{"F", "D", "F"}
+	if len(rec.styles) != len(want) {
+		t.Fatalf("drew %d marks, want %d", len(rec.styles), len(want))
 	}
-	if fills != 1 {
-		t.Errorf("expected exactly one filled mark in the person's plan, got %d", fills)
+	for i, style := range rec.styles {
+		if style != want[i] {
+			t.Errorf("mark %d drawn with %q, want %q", i, style, want[i])
+		}
 	}
 }
 
@@ -253,7 +260,10 @@ func TestPathParsingHandlesTheFileVerbatim(t *testing.T) {
 			}
 		}
 	}
-	if paths != 88 {
-		t.Errorf("expected 88 paths across the registry, parsed %d", paths)
+	// A count, not a fixed one: pinning the exact number made redrawing an
+	// icon fail a test about parsing. What this guards is that the file still
+	// holds a set of drawings and that every one of them parses.
+	if paths < 40 {
+		t.Errorf("parsed only %d paths across the registry; the file has lost its drawings", paths)
 	}
 }
