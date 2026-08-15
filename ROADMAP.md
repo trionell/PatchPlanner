@@ -2,12 +2,12 @@
 
 ## What remains
 
-**Slices 0–43 are delivered, and every recorded defect is fixed.** This file is a
-per-slice record written after delivery; everything below this section is history.
+**Slices 0–43 are delivered.** This file is a per-slice record written after
+delivery; everything below this section is history. One defect is open: D7.
 
 | | |
 |---|---|
-| *(nothing scheduled)* | |
+| **D7** — Resizing an element leaves the third dimension behind | open |
 
 The table is empty because the roadmap is **asking**, not because the tool is
 finished. Slices 40 and 41 — the audio plan and the stage plot as generated
@@ -2382,6 +2382,64 @@ of a traced fault; neither is yours to grant. Once it is approved, an open defec
 also takes a row in **What remains** at the top of this file, and loses that row
 when it is fixed. The section stays either way: the index is the worklist, the
 sections are the record.
+
+### D7 — Resizing an element leaves the third dimension behind
+
+**Found:** 2026-08-16, while reviewing the redrawn stage plot icons. The report
+was that scaling an element in one view distorts it in another, worst on the
+drum kit, whose drums turn to ellipses.
+
+The distortion is real but it is a symptom. An element carries three real
+dimensions and each view draws two of them — plan is width×depth, front
+width×height, side depth×height. `StagePlotCanvas.tsx`, in the `drag.kind ===
+'resize'` branch, writes exactly the two the current view shows:
+
+```
+if (view === 'top')        { patch.width_cm = newW; patch.depth_cm  = newH }
+else if (view === 'front') { patch.width_cm = newW; patch.height_cm = newH }
+else                       { patch.depth_cm = newW; patch.height_cm = newH }
+```
+
+The third is never touched. So dragging a kit to 1.5× in the front view takes
+width 200→300 and height 120→180 and leaves depth at 150 — and the plan, which
+the user did not touch, now draws a 300×150 footprint where a 200×150 one was.
+The glyph is stretched into that footprint with `preserveAspectRatio="none"`,
+so the drums come out 1.5× wide and round no longer.
+
+**The fix is in the resize handler, not in the icons.** No glyph is wrong; the
+same drawing would distort whatever it was.
+
+**The decision, already made:** width and depth move together as the footprint,
+and height stays independent.
+
+- Resizing in **front** scales depth by the same factor as width.
+- Resizing in **side** scales width by the same factor as depth.
+- Resizing in **top** scales height by the mean of the width and depth factors.
+
+So the plan keeps its shape whenever an elevation is resized, which is the
+behaviour that was asked for. Reshaping deliberately — a footprint that really
+is 300×150 — is still available by typing dimensions into the inspector, which
+this change must leave alone.
+
+**What a fix has to cover**
+
+- The three cases above, each rounded and clamped like the two already are
+  (`clampDimension`, `roundCm`), so a drag cannot drive a dimension below the
+  minimum by the back door.
+- Elements with a rotation: the handler already works in the element's unrotated
+  local frame, and the third dimension is out of that plane, so it scales without
+  reference to the rotation. Worth a test rather than an assumption.
+- Basic shapes — rectangle, ellipse, line, text — have no depth or height worth
+  linking and must keep resizing freely. Check what the handler does for
+  `kind === 'shape'` before changing it for everything.
+- Trusses carry their own length semantics and are resized through the truss
+  bar, not this handler. Confirm that path is untouched.
+- A frontend test: resize in each view, assert the third dimension moved by the
+  stated factor and that the untouched view's aspect is unchanged.
+
+**Not in scope.** `preserveAspectRatio="none"` stays. Stretching a glyph onto
+its footprint is what makes a 6 m truss draw as a 6 m truss, and once the three
+dimensions move together there is nothing left for it to distort.
 
 ### D1 — The legacy catalog can become permanently ownerless ✅ fixed 2026-07-30
 
