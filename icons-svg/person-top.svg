@@ -22,9 +22,9 @@
 -->
 
 <svg
-   viewBox="0 0 60 40"
+   viewBox="0 0 60 31"
    width="60"
-   height="40"
+   height="31"
    version="1.1"
    id="svg1"
    sodipodi:docname="person-top.svg"
@@ -53,6 +53,9 @@
      inkscape:window-y="0"
      inkscape:window-maximized="1"
      inkscape:current-layer="svg1" />
+  <g
+     id="widen"
+     transform="matrix(1.626,0,0,1.626,-19.5813,-12.1757)">
   <path
      fill="#111111"
      stroke="none"
@@ -80,4 +83,5 @@
      rx="7.0515127"
      cy="17.408712"
      cx="31.291191" />
+</g>
 </svg>
