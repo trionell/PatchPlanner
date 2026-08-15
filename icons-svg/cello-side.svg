@@ -1,0 +1,30 @@
+<!--
+  Cello — side view
+  Box is 45 x 130 cm: depth across (front of the object is rightward), height down the page. The artboard IS the element's footprint.
+
+  Drawing rules
+  - One colour. Everything is repainted in the layer's tint on import, so draw
+    in any colour you like; only fill-vs-stroke is read.
+  - A filled shape is a filled mark. A shape with fill:none and a stroke stays
+    a stroked line — use that only where the object really is a line (a stand's
+    shaft, a cymbal stand, an endpin). Stroke width here is preview only; the
+    app always draws strokes at a constant width on screen.
+  - Detail inside a filled body must be a HOLE, not a lighter shape on top:
+    same colour on same colour is invisible. Cut it with a subpath, or with
+    fill-rule="evenodd" — winding is fixed automatically on import.
+  - Fill the artboard. Space left around the drawing draws the element smaller
+    than the size the user gave it.
+
+  Anything is fine as geometry: relative commands, quadratic curves, transforms,
+  groups, rect/circle/ellipse/line/polygon/polyline. Not fine: text (outline it
+  first), images, gradients, clip paths, masks, filters.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 130"
+     width="45" height="130">
+  <path fill="#111111" stroke="none" d="M 22.5 50 C 31.05 50 38.7 56 40.95 65.5 C 42.3 71.5 39.6 75.5 36.45 78 C 33.3 80.5 32.4 82.5 32.4 85 C 32.4 87.5 33.3 89.5 36.45 92 C 39.6 94.5 42.3 98.5 40.95 104.5 C 38.7 114 31.05 120 22.5 120 C 13.95 120 6.3 114 4.05 104.5 C 2.7 98.5 5.4 94.5 8.55 92 C 11.7 89.5 12.6 87.5 12.6 85 C 12.6 82.5 11.7 80.5 8.55 78 C 5.4 75.5 2.7 71.5 4.05 65.5 C 6.3 56 13.95 50 22.5 50 Z M 14.85 74 C 13.5 79 13.5 88 14.85 94 C 15.93 94 16.65 94 17.73 94 C 16.38 88 16.38 79 17.73 74 C 16.65 74 15.93 74 14.85 74 Z M 27.27 74 C 25.92 79 25.92 88 27.27 94 C 28.35 94 29.07 94 30.15 94 C 28.8 88 28.8 79 30.15 74 C 29.07 74 28.35 74 27.27 74 Z"/>
+  <path fill="#111111" stroke="none" d="M 19.35 18 L 25.65 18 L 25.65 56 L 19.35 56 Z"/>
+  <path fill="#111111" stroke="none" d="M 19.8 3 C 24.3 1.5 27.9 4.5 27.9 9 C 27.9 13 25.65 15.5 22.95 16 L 26.1 17 L 26.1 21 L 18.9 21 L 18.9 8.5 C 18.9 6 18.45 4.5 19.8 3 Z M 16.2 6 L 18.9 6 L 18.9 8 L 16.2 8 Z M 16.2 10 L 18.9 10 L 18.9 12 L 16.2 12 Z M 26.1 6 L 29.25 6 L 29.25 8 L 26.1 8 Z M 26.1 10 L 29.25 10 L 29.25 12 L 26.1 12 Z"/>
+  <path fill="#111111" stroke="none" d="M 14.4 86 L 30.6 86 L 30.6 89 L 14.4 89 Z"/>
+  <path fill="#111111" stroke="none" d="M 19.8 92 L 25.2 92 L 24.3 112 L 20.7 112 Z"/>
+  <path fill="none" stroke="#111111" stroke-width="3.79" stroke-linecap="round" stroke-linejoin="round" d="M 22.5 120 L 22.5 128"/>
+</svg>

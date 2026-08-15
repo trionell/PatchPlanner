@@ -1,0 +1,30 @@
+<!--
+  Cello — top view
+  Box is 50 x 45 cm: width across, depth down the page (front of the object is downward). The artboard IS the element's footprint.
+
+  Drawing rules
+  - One colour. Everything is repainted in the layer's tint on import, so draw
+    in any colour you like; only fill-vs-stroke is read.
+  - A filled shape is a filled mark. A shape with fill:none and a stroke stays
+    a stroked line — use that only where the object really is a line (a stand's
+    shaft, a cymbal stand, an endpin). Stroke width here is preview only; the
+    app always draws strokes at a constant width on screen.
+  - Detail inside a filled body must be a HOLE, not a lighter shape on top:
+    same colour on same colour is invisible. Cut it with a subpath, or with
+    fill-rule="evenodd" — winding is fixed automatically on import.
+  - Fill the artboard. Space left around the drawing draws the element smaller
+    than the size the user gave it.
+
+  Anything is fine as geometry: relative commands, quadratic curves, transforms,
+  groups, rect/circle/ellipse/line/polygon/polyline. Not fine: text (outline it
+  first), images, gradients, clip paths, masks, filters.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 45"
+     width="50" height="45">
+  <path fill="#111111" stroke="none" d="M 25 16.31 C 28.64 16.31 31.89 18.61 32.85 22.24 C 33.42 24.54 32.27 26.07 30.93 27.03 C 29.59 27.99 29.21 28.75 29.21 29.71 C 29.21 30.66 29.59 31.43 30.93 32.39 C 32.27 33.34 33.42 34.87 32.85 37.17 C 31.89 40.81 28.64 43.1 25 43.1 C 21.36 43.1 18.11 40.81 17.15 37.17 C 16.58 34.87 17.73 33.34 19.07 32.39 C 20.41 31.43 20.79 30.66 20.79 29.71 C 20.79 28.75 20.41 27.99 19.07 27.03 C 17.73 26.07 16.58 24.54 17.15 22.24 C 18.11 18.61 21.36 16.31 25 16.31 Z M 21.75 25.5 C 21.17 27.41 21.17 30.86 21.75 33.15 C 22.21 33.15 22.51 33.15 22.97 33.15 C 22.4 30.86 22.4 27.41 22.97 25.5 C 22.51 25.5 22.21 25.5 21.75 25.5 Z M 27.03 25.5 C 26.45 27.41 26.45 30.86 27.03 33.15 C 27.49 33.15 27.79 33.15 28.25 33.15 C 27.68 30.86 27.68 27.41 28.25 25.5 C 27.79 25.5 27.49 25.5 27.03 25.5 Z" transform="rotate(49 25.0 22.5)"/>
+  <path fill="#111111" stroke="none" d="M 23.66 4.07 L 26.34 4.07 L 26.34 18.61 L 23.66 18.61 Z" transform="rotate(49 25.0 22.5)"/>
+  <path fill="#111111" stroke="none" d="M 23.85 -1.67 C 25.77 -2.25 27.3 -1.1 27.3 0.62 C 27.3 2.15 26.34 3.11 25.19 3.3 L 26.53 3.68 L 26.53 5.22 L 23.47 5.22 L 23.47 0.43 C 23.47 -0.53 23.28 -1.1 23.85 -1.67 Z M 22.32 -0.53 L 23.47 -0.53 L 23.47 0.24 L 22.32 0.24 Z M 22.32 1.01 L 23.47 1.01 L 23.47 1.77 L 22.32 1.77 Z M 26.53 -0.53 L 27.87 -0.53 L 27.87 0.24 L 26.53 0.24 Z M 26.53 1.01 L 27.87 1.01 L 27.87 1.77 L 26.53 1.77 Z" transform="rotate(49 25.0 22.5)"/>
+  <path fill="#111111" stroke="none" d="M 21.56 30.09 L 28.44 30.09 L 28.44 31.24 L 21.56 31.24 Z" transform="rotate(49 25.0 22.5)"/>
+  <path fill="#111111" stroke="none" d="M 23.85 32.39 L 26.15 32.39 L 25.77 40.04 L 24.23 40.04 Z" transform="rotate(49 25.0 22.5)"/>
+  <path fill="none" stroke="#111111" stroke-width="1.46" stroke-linecap="round" stroke-linejoin="round" d="M 25 43.1 L 25 46.16" transform="rotate(49 25.0 22.5)"/>
+</svg>

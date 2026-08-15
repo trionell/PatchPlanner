@@ -1,0 +1,28 @@
+<!--
+  Saxophone — side view
+  Box is 40 x 80 cm: depth across (front of the object is rightward), height down the page. The artboard IS the element's footprint.
+
+  Drawing rules
+  - One colour. Everything is repainted in the layer's tint on import, so draw
+    in any colour you like; only fill-vs-stroke is read.
+  - A filled shape is a filled mark. A shape with fill:none and a stroke stays
+    a stroked line — use that only where the object really is a line (a stand's
+    shaft, a cymbal stand, an endpin). Stroke width here is preview only; the
+    app always draws strokes at a constant width on screen.
+  - Detail inside a filled body must be a HOLE, not a lighter shape on top:
+    same colour on same colour is invisible. Cut it with a subpath, or with
+    fill-rule="evenodd" — winding is fixed automatically on import.
+  - Fill the artboard. Space left around the drawing draws the element smaller
+    than the size the user gave it.
+
+  Anything is fine as geometry: relative commands, quadratic curves, transforms,
+  groups, rect/circle/ellipse/line/polygon/polyline. Not fine: text (outline it
+  first), images, gradients, clip paths, masks, filters.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 80"
+     width="40" height="80">
+  <path fill="#111111" stroke="none" d="M 20 27 L 29.3333 27 L 29.3333 60 C 29.3333 64 27.3333 66 24.6667 66 C 22 66 20 64 20 60 Z M 21.7333 34 L 21.7333 37.6 L 26.5333 37.6 L 26.5333 34 Z M 21.7333 42 L 21.7333 45.6 L 26.5333 45.6 L 26.5333 42 Z M 21.7333 50 L 21.7333 53.6 L 26.5333 53.6 L 26.5333 50 Z"/>
+  <path fill="#111111" stroke="none" d="M 19.3333 25 C 19.3333 18 21.3333 12 25.3333 8.5 C 28 6.2 31.3333 5 34.6667 5.5 L 34.6667 11 C 32.6667 11 30.6667 11.8 29.3333 13 C 27.3333 15 26.6667 19 26.6667 24 L 26.6667 26 L 19.3333 26 Z"/>
+  <path fill="#111111" stroke="none" d="M 32.6667 2 L 38 2 L 38 11.5 L 32.6667 11.5 Z"/>
+  <path fill="#111111" stroke="none" d="M 18.4 73 C 11.3333 70.5 4.66667 62.5 2.13333 53.8 L 17.3333 48.4 C 17.7333 56.5 20.4 65 24.4 70.9 Z"/>
+</svg>

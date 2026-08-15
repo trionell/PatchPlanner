@@ -1,0 +1,45 @@
+<!--
+  Keyboard — top view
+  Box is 130 x 40 cm: width across, depth down the page (front of the object is downward). The artboard IS the element's footprint.
+
+  Drawing rules
+  - One colour. Everything is repainted in the layer's tint on import, so draw
+    in any colour you like; only fill-vs-stroke is read.
+  - A filled shape is a filled mark. A shape with fill:none and a stroke stays
+    a stroked line — use that only where the object really is a line (a stand's
+    shaft, a cymbal stand, an endpin). Stroke width here is preview only; the
+    app always draws strokes at a constant width on screen.
+  - Detail inside a filled body must be a HOLE, not a lighter shape on top:
+    same colour on same colour is invisible. Cut it with a subpath, or with
+    fill-rule="evenodd" — winding is fixed automatically on import.
+  - Fill the artboard. Space left around the drawing draws the element smaller
+    than the size the user gave it.
+
+  Anything is fine as geometry: relative commands, quadratic curves, transforms,
+  groups, rect/circle/ellipse/line/polygon/polyline. Not fine: text (outline it
+  first), images, gradients, clip paths, masks, filters.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 130 40"
+     width="130" height="40">
+  <path fill="#111111" stroke="none" d="M3 3 L127 3 L127 37 L3 37 Z M9 8 L9 17 L121 17 L121 8 Z M8 21 L8 34 L122 34 L122 21 Z"/>
+  <rect fill="#111111" stroke="none" x="12.44" y="21" width="2.28" height="8"/>
+  <rect fill="#111111" stroke="none" x="16.6" y="21" width="2.28" height="8"/>
+  <rect fill="#111111" stroke="none" x="24.14" y="21" width="2.28" height="8"/>
+  <rect fill="#111111" stroke="none" x="28.27" y="21" width="2.28" height="8"/>
+  <rect fill="#111111" stroke="none" x="32.39" y="21" width="2.28" height="8"/>
+  <rect fill="#111111" stroke="none" x="39.94" y="21" width="2.28" height="8"/>
+  <rect fill="#111111" stroke="none" x="44.1" y="21" width="2.28" height="8"/>
+  <rect fill="#111111" stroke="none" x="51.64" y="21" width="2.28" height="8"/>
+  <rect fill="#111111" stroke="none" x="55.77" y="21" width="2.28" height="8"/>
+  <rect fill="#111111" stroke="none" x="59.89" y="21" width="2.28" height="8"/>
+  <rect fill="#111111" stroke="none" x="67.44" y="21" width="2.28" height="8"/>
+  <rect fill="#111111" stroke="none" x="71.6" y="21" width="2.28" height="8"/>
+  <rect fill="#111111" stroke="none" x="79.14" y="21" width="2.28" height="8"/>
+  <rect fill="#111111" stroke="none" x="83.27" y="21" width="2.28" height="8"/>
+  <rect fill="#111111" stroke="none" x="87.39" y="21" width="2.28" height="8"/>
+  <rect fill="#111111" stroke="none" x="94.94" y="21" width="2.28" height="8"/>
+  <rect fill="#111111" stroke="none" x="99.1" y="21" width="2.28" height="8"/>
+  <rect fill="#111111" stroke="none" x="106.64" y="21" width="2.28" height="8"/>
+  <rect fill="#111111" stroke="none" x="110.77" y="21" width="2.28" height="8"/>
+  <rect fill="#111111" stroke="none" x="114.89" y="21" width="2.28" height="8"/>
+</svg>

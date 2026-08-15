@@ -1,0 +1,27 @@
+<!--
+  Acoustic guitar — side view
+  Box is 40 x 110 cm: depth across (front of the object is rightward), height down the page. The artboard IS the element's footprint.
+
+  Drawing rules
+  - One colour. Everything is repainted in the layer's tint on import, so draw
+    in any colour you like; only fill-vs-stroke is read.
+  - A filled shape is a filled mark. A shape with fill:none and a stroke stays
+    a stroked line — use that only where the object really is a line (a stand's
+    shaft, a cymbal stand, an endpin). Stroke width here is preview only; the
+    app always draws strokes at a constant width on screen.
+  - Detail inside a filled body must be a HOLE, not a lighter shape on top:
+    same colour on same colour is invisible. Cut it with a subpath, or with
+    fill-rule="evenodd" — winding is fixed automatically on import.
+  - Fill the artboard. Space left around the drawing draws the element smaller
+    than the size the user gave it.
+
+  Anything is fine as geometry: relative commands, quadratic curves, transforms,
+  groups, rect/circle/ellipse/line/polygon/polyline. Not fine: text (outline it
+  first), images, gradients, clip paths, masks, filters.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 110"
+     width="40" height="110">
+  <path fill="#111111" stroke="none" d="M 20 55 C 25.7778 55 30.6667 58 32.4444 64 C 33.7778 69 30.2222 73.5 28.4444 77 C 26.6667 80.5 29.3333 83 32.8889 86 C 36.8889 89.5 38.2222 95 36.4444 99.5 C 34.2222 105 27.1111 107.5 20 107.5 C 12.8889 107.5 5.77778 105 3.55556 99.5 C 1.77778 95 3.11111 89.5 7.11111 86 C 10.6667 83 13.3333 80.5 11.5556 77 C 9.77778 73.5 6.22222 69 7.55556 64 C 9.33333 58 14.2222 55 20 55 Z M 25.6889 70 A 5.68889 6.4 0 1 0 14.3111 70 A 5.68889 6.4 0 1 0 25.6889 70 Z M 12.4444 91 L 12.4444 94.5 L 27.5556 94.5 L 27.5556 91 Z"/>
+  <path fill="#111111" stroke="none" d="M 16.7111 18 L 23.2889 18 L 23.2889 60 L 16.7111 60 Z"/>
+  <path fill="#111111" stroke="none" d="M 14.6667 3 L 25.3333 3 L 24.5333 20 L 15.4667 20 Z M 17.0667 6.5 L 17.0667 16.5 L 19.0222 16.5 L 19.0222 6.5 Z M 20.9778 6.5 L 20.9778 16.5 L 22.9333 16.5 L 22.9333 6.5 Z"/>
+</svg>

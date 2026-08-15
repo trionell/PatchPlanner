@@ -1,0 +1,26 @@
+<!--
+  Fixture — side view
+  Box is 25 x 35 cm: depth across (front of the object is rightward), height down the page. The artboard IS the element's footprint.
+
+  Drawing rules
+  - One colour. Everything is repainted in the layer's tint on import, so draw
+    in any colour you like; only fill-vs-stroke is read.
+  - A filled shape is a filled mark. A shape with fill:none and a stroke stays
+    a stroked line — use that only where the object really is a line (a stand's
+    shaft, a cymbal stand, an endpin). Stroke width here is preview only; the
+    app always draws strokes at a constant width on screen.
+  - Detail inside a filled body must be a HOLE, not a lighter shape on top:
+    same colour on same colour is invisible. Cut it with a subpath, or with
+    fill-rule="evenodd" — winding is fixed automatically on import.
+  - Fill the artboard. Space left around the drawing draws the element smaller
+    than the size the user gave it.
+
+  Anything is fine as geometry: relative commands, quadratic curves, transforms,
+  groups, rect/circle/ellipse/line/polygon/polyline. Not fine: text (outline it
+  first), images, gradients, clip paths, masks, filters.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 25 35"
+     width="25" height="35">
+  <path fill="#111111" stroke="none" d="M5.5 1 L17.5 1 L17.5 4 L5.5 4 Z M10.5 4 L14.5 4 L14.5 31 L10.5 31 Z"/>
+  <path fill="#111111" stroke="none" d="M8 7 L17 7 C18.2 7 18.8 7.6 19 8.6 L21.8 29 C22 30.3 21.2 31 20 31 L5 31 C3.8 31 3 30.3 3.2 29 L6 8.6 C6.2 7.6 6.8 7 8 7 Z M4.3 24.5 L4.3 28 L21.7 28 L21.7 24.5 Z M6.6 9 L6.6 11.4 L19.4 11.4 L19.4 9 Z" transform="rotate(15 12.5 19)"/>
+</svg>

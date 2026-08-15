@@ -1,0 +1,27 @@
+<!--
+  Bass — side view
+  Box is 35 x 120 cm: depth across (front of the object is rightward), height down the page. The artboard IS the element's footprint.
+
+  Drawing rules
+  - One colour. Everything is repainted in the layer's tint on import, so draw
+    in any colour you like; only fill-vs-stroke is read.
+  - A filled shape is a filled mark. A shape with fill:none and a stroke stays
+    a stroked line — use that only where the object really is a line (a stand's
+    shaft, a cymbal stand, an endpin). Stroke width here is preview only; the
+    app always draws strokes at a constant width on screen.
+  - Detail inside a filled body must be a HOLE, not a lighter shape on top:
+    same colour on same colour is invisible. Cut it with a subpath, or with
+    fill-rule="evenodd" — winding is fixed automatically on import.
+  - Fill the artboard. Space left around the drawing draws the element smaller
+    than the size the user gave it.
+
+  Anything is fine as geometry: relative commands, quadratic curves, transforms,
+  groups, rect/circle/ellipse/line/polygon/polyline. Not fine: text (outline it
+  first), images, gradients, clip paths, masks, filters.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 35 120"
+     width="35" height="120">
+  <path fill="#111111" stroke="none" d="M 15.5556 84 C 14 74 9.33333 66 6.22222 68.5 C 3.11111 71 2.33333 80 2.72222 89 C 3.5 98 6.22222 106 9.72222 111 C 12.4444 115 15.5556 117.5 18.6667 117.5 C 21.7778 117.5 24.5 115 26.8333 111 C 29.9444 106 32.2778 98 32.6667 91 C 33.0556 84 31.5 79 28.7778 78.5 C 26.0556 78 22.5556 81 21 86 Z M 10.1111 94 L 25.6667 94 L 25.6667 99.5 L 10.1111 99.5 Z"/>
+  <path fill="#111111" stroke="none" d="M 15.5556 16 L 21 16 L 21 92 L 15.5556 92 Z"/>
+  <path fill="#111111" stroke="none" d="M 14.7778 3 L 23.3333 3 L 23.3333 17 L 14.7778 17 Z M 11.6667 4.5 L 14.7778 4.5 L 14.7778 6.4 L 11.6667 6.4 Z M 11.6667 7.8 L 14.7778 7.8 L 14.7778 9.7 L 11.6667 9.7 Z M 11.6667 11.1 L 14.7778 11.1 L 14.7778 13 L 11.6667 13 Z M 11.6667 14.4 L 14.7778 14.4 L 14.7778 16.3 L 11.6667 16.3 Z"/>
+</svg>

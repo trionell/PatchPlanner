@@ -1,0 +1,27 @@
+<!--
+  Electric guitar — side view
+  Box is 35 x 100 cm: depth across (front of the object is rightward), height down the page. The artboard IS the element's footprint.
+
+  Drawing rules
+  - One colour. Everything is repainted in the layer's tint on import, so draw
+    in any colour you like; only fill-vs-stroke is read.
+  - A filled shape is a filled mark. A shape with fill:none and a stroke stays
+    a stroked line — use that only where the object really is a line (a stand's
+    shaft, a cymbal stand, an endpin). Stroke width here is preview only; the
+    app always draws strokes at a constant width on screen.
+  - Detail inside a filled body must be a HOLE, not a lighter shape on top:
+    same colour on same colour is invisible. Cut it with a subpath, or with
+    fill-rule="evenodd" — winding is fixed automatically on import.
+  - Fill the artboard. Space left around the drawing draws the element smaller
+    than the size the user gave it.
+
+  Anything is fine as geometry: relative commands, quadratic curves, transforms,
+  groups, rect/circle/ellipse/line/polygon/polyline. Not fine: text (outline it
+  first), images, gradients, clip paths, masks, filters.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 35 100"
+     width="35" height="100">
+  <path fill="#111111" stroke="none" d="M 14.875 56 C 13.5625 51 10.0625 46 7 47.5 C 3.5 49.5 2.1875 56 2.1875 63 C 2.1875 70 3.5 77 6.125 83 C 8.75 89 12.6875 93 17.5 93 C 22.3125 93 26.25 89 28.875 83 C 31.5 77 32.8125 70 32.8125 63 C 32.8125 56 31.5 49.5 28 47.5 C 24.9375 46 21.4375 51 20.125 56 Z M 8.75 63 L 26.25 63 L 26.25 67.5 L 8.75 67.5 Z M 8.75 73 L 26.25 73 L 26.25 77.5 L 8.75 77.5 Z"/>
+  <path fill="#111111" stroke="none" d="M 14.875 15 L 20.125 15 L 20.125 64 L 14.875 64 Z"/>
+  <path fill="#111111" stroke="none" d="M 13.5625 3 L 21.4375 3 L 21.4375 16 L 13.5625 16 Z M 10.5 4.5 L 13.5625 4.5 L 13.5625 6.5 L 10.5 6.5 Z M 10.5 8 L 13.5625 8 L 13.5625 10 L 10.5 10 Z M 10.5 11.5 L 13.5625 11.5 L 13.5625 13.5 L 10.5 13.5 Z M 21.4375 4.5 L 24.5 4.5 L 24.5 6.5 L 21.4375 6.5 Z M 21.4375 8 L 24.5 8 L 24.5 10 L 21.4375 10 Z M 21.4375 11.5 L 24.5 11.5 L 24.5 13.5 L 21.4375 13.5 Z"/>
+</svg>

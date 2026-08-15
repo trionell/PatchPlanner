@@ -1,0 +1,27 @@
+<!--
+  Electric guitar — top view
+  Box is 40 x 35 cm: width across, depth down the page (front of the object is downward). The artboard IS the element's footprint.
+
+  Drawing rules
+  - One colour. Everything is repainted in the layer's tint on import, so draw
+    in any colour you like; only fill-vs-stroke is read.
+  - A filled shape is a filled mark. A shape with fill:none and a stroke stays
+    a stroked line — use that only where the object really is a line (a stand's
+    shaft, a cymbal stand, an endpin). Stroke width here is preview only; the
+    app always draws strokes at a constant width on screen.
+  - Detail inside a filled body must be a HOLE, not a lighter shape on top:
+    same colour on same colour is invisible. Cut it with a subpath, or with
+    fill-rule="evenodd" — winding is fixed automatically on import.
+  - Fill the artboard. Space left around the drawing draws the element smaller
+    than the size the user gave it.
+
+  Anything is fine as geometry: relative commands, quadratic curves, transforms,
+  groups, rect/circle/ellipse/line/polygon/polyline. Not fine: text (outline it
+  first), images, gradients, clip paths, masks, filters.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 35"
+     width="40" height="35">
+  <path fill="#111111" stroke="none" d="M 18.76 20.81 C 18.14 18.74 16.49 16.67 15.04 17.29 C 13.39 18.12 12.77 20.81 12.77 23.7 C 12.77 26.59 13.39 29.49 14.63 31.97 C 15.87 34.45 17.73 36.1 20 36.1 C 22.27 36.1 24.13 34.45 25.37 31.97 C 26.61 29.49 27.23 26.59 27.23 23.7 C 27.23 20.81 26.61 18.12 24.96 17.29 C 23.51 16.67 21.86 18.74 21.24 20.81 Z M 15.87 23.7 L 24.13 23.7 L 24.13 25.56 L 15.87 25.56 Z M 15.87 27.83 L 24.13 27.83 L 24.13 29.69 L 15.87 29.69 Z" transform="rotate(52 20.0 17.5)"/>
+  <path fill="#111111" stroke="none" d="M 18.76 3.86 L 21.24 3.86 L 21.24 24.11 L 18.76 24.11 Z" transform="rotate(52 20.0 17.5)"/>
+  <path fill="#111111" stroke="none" d="M 18.14 -1.1 L 21.86 -1.1 L 21.86 4.27 L 18.14 4.27 Z M 16.69 -0.48 L 18.14 -0.48 L 18.14 0.35 L 16.69 0.35 Z M 16.69 0.97 L 18.14 0.97 L 18.14 1.79 L 16.69 1.79 Z M 16.69 2.41 L 18.14 2.41 L 18.14 3.24 L 16.69 3.24 Z M 21.86 -0.48 L 23.31 -0.48 L 23.31 0.35 L 21.86 0.35 Z M 21.86 0.97 L 23.31 0.97 L 23.31 1.79 L 21.86 1.79 Z M 21.86 2.41 L 23.31 2.41 L 23.31 3.24 L 21.86 3.24 Z" transform="rotate(52 20.0 17.5)"/>
+</svg>

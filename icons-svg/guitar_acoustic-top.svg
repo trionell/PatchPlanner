@@ -1,0 +1,27 @@
+<!--
+  Acoustic guitar — top view
+  Box is 45 x 40 cm: width across, depth down the page (front of the object is downward). The artboard IS the element's footprint.
+
+  Drawing rules
+  - One colour. Everything is repainted in the layer's tint on import, so draw
+    in any colour you like; only fill-vs-stroke is read.
+  - A filled shape is a filled mark. A shape with fill:none and a stroke stays
+    a stroked line — use that only where the object really is a line (a stand's
+    shaft, a cymbal stand, an endpin). Stroke width here is preview only; the
+    app always draws strokes at a constant width on screen.
+  - Detail inside a filled body must be a HOLE, not a lighter shape on top:
+    same colour on same colour is invisible. Cut it with a subpath, or with
+    fill-rule="evenodd" — winding is fixed automatically on import.
+  - Fill the artboard. Space left around the drawing draws the element smaller
+    than the size the user gave it.
+
+  Anything is fine as geometry: relative commands, quadratic curves, transforms,
+  groups, rect/circle/ellipse/line/polygon/polyline. Not fine: text (outline it
+  first), images, gradients, clip paths, masks, filters.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 40"
+     width="45" height="40">
+  <path fill="#111111" stroke="none" d="M 22.5 19.9 C 25.18 19.9 27.45 21.13 28.27 23.61 C 28.89 25.67 27.24 27.53 26.42 28.97 C 25.59 30.41 26.83 31.44 28.48 32.68 C 30.33 34.12 30.95 36.39 30.13 38.25 C 29.1 40.51 25.8 41.54 22.5 41.54 C 19.2 41.54 15.9 40.51 14.87 38.25 C 14.05 36.39 14.67 34.12 16.52 32.68 C 18.17 31.44 19.41 30.41 18.58 28.97 C 17.76 27.53 16.11 25.67 16.73 23.61 C 17.55 21.13 19.82 19.9 22.5 19.9 Z M 25.14 26.08 A 2.63892 2.63892 0 1 0 19.86 26.08 A 2.63892 2.63892 0 1 0 25.14 26.08 Z M 19 34.74 L 19 36.18 L 26 36.18 L 26 34.74 Z" transform="rotate(52 22.5 20.0)"/>
+  <path fill="#111111" stroke="none" d="M 20.97 4.64 L 24.03 4.64 L 24.03 21.96 L 20.97 21.96 Z" transform="rotate(52 22.5 20.0)"/>
+  <path fill="#111111" stroke="none" d="M 20.03 -1.54 L 24.97 -1.54 L 24.6 5.47 L 20.4 5.47 Z M 21.14 -0.1 L 21.14 4.02 L 22.05 4.02 L 22.05 -0.1 Z M 22.95 -0.1 L 22.95 4.02 L 23.86 4.02 L 23.86 -0.1 Z" transform="rotate(52 22.5 20.0)"/>
+</svg>
