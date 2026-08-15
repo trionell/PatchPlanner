@@ -117,6 +117,29 @@ footprint allows.
 - **WHEN** any glyph is drawn
 - **THEN** its marks reach the edges of its coordinate box on the box's long axis
 
+### Requirement: An icon's views agree about the object
+
+Where two views of one icon both measure a real dimension — front and side both
+show its height, top and front its width, top and side its depth — they SHALL
+agree about that dimension. An element is drawn from one glyph box stretched
+onto its real rectangle, so views that disagree draw the same object at
+different sizes in two elevations that share a floor datum.
+
+This SHALL NOT apply to an icon whose views deliberately carry one drawing
+rather than three projections; there the same picture is fitted to each
+footprint, and the views do not agree by construction.
+
+#### Scenario: Two elevations of one object
+
+- **WHEN** an icon's front and side views are drawn for the same element
+- **THEN** the object is the same height in both
+
+#### Scenario: An icon whose views share one drawing
+
+- **WHEN** an icon carries one drawing in all three views
+- **THEN** each view is fitted to its own footprint, and the views may differ in
+  the size they imply
+
 ### Requirement: Icons that name different things look different
 
 Two icons that a user chooses between SHALL be distinguishable from each other

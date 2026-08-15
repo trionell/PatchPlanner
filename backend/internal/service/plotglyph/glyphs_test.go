@@ -124,41 +124,53 @@ func (r *recorder) bounds() (minX, minY, maxX, maxY float64) {
 	return
 }
 
-// A glyph stretched into an element's footprint must land inside that
-// footprint. The speaker's top view fills its box corner to corner, so its
-// drawn extremes are the box's.
+// A glyph stretched into an element's footprint must land on that footprint,
+// each axis scaled by its own factor and nothing pushed outside.
+//
+// The expected edges are derived from where the glyph sits in its own
+// coordinate box rather than written down here. Written down, the assertion
+// is about one drawing of a loudspeaker and fails the next time the icon is
+// redrawn; derived, it is about the projection, which is what the test is for.
 func TestAStretchedGlyphLandsOnItsFootprint(t *testing.T) {
-	const boxW, boxH = 40.0, 35.0 // the speaker's top-view coordinate box
-	width, height := Box("speaker", Top)
-	if width != boxW || height != boxH {
-		t.Fatalf("speaker top box = %v x %v, want %v x %v", width, height, boxW, boxH)
+	boxW, boxH := Box("speaker", Top)
+	marks := Marks("speaker", Top)
+
+	unit := &recorder{}
+	if err := Draw(unit, marks, Transform{ScaleX: 1, ScaleY: 1}, 0.3); err != nil {
+		t.Fatalf("Draw: %v", err)
+	}
+	gMinX, gMinY, gMaxX, gMaxY := unit.bounds()
+	if gMinX < 0 || gMinY < 0 || gMaxX > boxW || gMaxY > boxH {
+		t.Errorf("glyph reaches [%.2f %.2f]-[%.2f %.2f], outside its %gx%g box",
+			gMinX, gMinY, gMaxX, gMaxY, boxW, boxH)
 	}
 
-	// Draw it into a 90 x 12 mm footprint at (10, 20) — a hard non-uniform stretch.
-	transform := Transform{ScaleX: 90 / boxW, ScaleY: 12 / boxH, OriginX: 10, OriginY: 20}
+	// A hard non-uniform stretch: 90 x 12 mm at (10, 20).
+	const w, h, ox, oy = 90.0, 12.0, 10.0, 20.0
+	sx, sy := w/boxW, h/boxH
 	rec := &recorder{}
-	if err := Draw(rec, Marks("speaker", Top), transform, 0.3); err != nil {
+	if err := Draw(rec, marks, Transform{ScaleX: sx, ScaleY: sy, OriginX: ox, OriginY: oy}, 0.3); err != nil {
 		t.Fatalf("Draw: %v", err)
 	}
 	minX, minY, maxX, maxY := rec.bounds()
-	// The speaker's outline insets 2 units on each side of its box.
-	if got, want := minX, 10+2*(90/boxW); math.Abs(got-want) > 0.01 {
-		t.Errorf("left edge = %.3f, want %.3f", got, want)
-	}
-	if got, want := maxX, 10+38*(90/boxW); math.Abs(got-want) > 0.01 {
-		t.Errorf("right edge = %.3f, want %.3f", got, want)
-	}
-	if got, want := minY, 20+2*(12/boxH); math.Abs(got-want) > 0.01 {
-		t.Errorf("top edge = %.3f, want %.3f", got, want)
-	}
-	if got, want := maxY, 20+33*(12/boxH); math.Abs(got-want) > 0.01 {
-		t.Errorf("bottom edge = %.3f, want %.3f", got, want)
+	for _, c := range []struct {
+		name      string
+		got, want float64
+	}{
+		{"left", minX, ox + gMinX*sx},
+		{"right", maxX, ox + gMaxX*sx},
+		{"top", minY, oy + gMinY*sy},
+		{"bottom", maxY, oy + gMaxY*sy},
+	} {
+		if math.Abs(c.got-c.want) > 0.01 {
+			t.Errorf("%s edge = %.3f, want %.3f", c.name, c.got, c.want)
+		}
 	}
 
 	// The whole point of flattening: one pen width, whatever the stretch.
-	for _, w := range rec.lineWidths {
-		if w != 0.3 {
-			t.Errorf("line width = %v, want a constant 0.3 mm", w)
+	for _, width := range rec.lineWidths {
+		if width != 0.3 {
+			t.Errorf("line width = %v, want a constant 0.3 mm", width)
 		}
 	}
 }

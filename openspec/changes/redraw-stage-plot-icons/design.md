@@ -20,6 +20,8 @@ See proposal.md — Why. The constraints that shape the drawing:
 **Goals**
 
 - One drawing style across all seventeen icons and all three views.
+- A round trip: the drawings can leave as SVG, be edited by hand, and come
+  back without losing what was drawn.
 - Every glyph identifiable at plan scale, from its shape alone.
 - No change to either renderer, to `stagePlotIcons.tsx`, or to the canvas.
 - A harness that renders the set so it can be reviewed by eye.
@@ -58,7 +60,15 @@ thing. A stroke in the background colour cannot work: the background is a theme
 and a layer tint, not a value a glyph knows. An SVG mask has no counterpart in
 fpdf at all.
 
-*Consequence to respect while drawing.* A hole must be big enough to survive.
+*Consequence to respect while drawing.* Shapes that **overlap** go in separate
+marks, never in one path: under nonzero two overlapping subpaths wound against
+each other cancel, and the overlap comes out as a hole — which is how a guitar's
+neck cut a wedge out of its own body. Only a shape wholly *inside* another
+belongs in the same path. And a filled mark laid over a filled body in the same
+colour is invisible, which is not a rule about holes but the same fact from the
+other side; it swallowed a stage monitor's driver whole.
+
+A hole must also be big enough to survive.
 Below roughly 8% of the box's short side it closes up at plan scale, so a glyph
 gets two to four identifying holes, never a scatter of small ones.
 
@@ -84,38 +94,69 @@ says the same ("a guitar might be fine to be the same in all views"). So:
   diagonal is not decoration: it fills a square box with a long object without
   the `preserveAspectRatio="none"` stretch squashing it, and an instrument on a
   stand does lean. The user's own electric guitar reference is drawn this way.
-- **Trumpet** is already horizontal in every box (55×20, 55×15, 20×15), so top
-  and front share one drawing and side is the bell end-on.
+- **Trumpet** lies flat in every box (55×20, 55×15, 20×15) and carries one
+  drawing in all three. The bell end-on was tried for the side and rejected: a
+  ring on a foot is unnameable on its own, and a trumpet that is recognisably a
+  trumpet in a view that is not quite a projection beats a correct view of
+  nothing.
 
-### What each icon becomes
+### The drawings are drawn by hand, and travel by SVG
 
-Read as: what identifies it, and what is a hole. Views listed together share one
-drawing.
+Three rounds of drawing them from a description ended with the reviewer
+concluding the improvement was not worth the rounds, and taking the pencil.
+That is the right outcome and the workflow now supports it: `export_glyphs.py`
+writes one SVG per icon per view and `import_glyphs.py` reads them back.
 
-| Icon | Top | Front / Side |
-|---|---|---|
-| person | shoulder mass, head a filled disc inside a ring gap | filled figure, the accepted stick-figure pose given a body |
-| mic | capsule disc, three tapered legs at 120° | front = side (boxes are both 30×160): tripod feet, stroked shaft, capsule angled at the top |
-| speaker | trapezoid narrowing to the back, driver hole on the wide front edge — so the plan says which way it aims | front: cabinet, big driver hole low, horn slot high. side: cabinet profile with the baffle edge |
-| monitor | wedge plan, the low front edge banded | front: the tilted baffle, trapezoid, driver hole. side: the wedge profile — the shape that names it |
-| rack | square, ball corners and a handle slot | front: rack ears and unit slots. side: flight case, corners and handle |
-| truss | two chords with diagonal bracing between them, gaps as the lattice | front = top. side: the end-on square — four corner tubes and the cross brace |
-| fixture | lens disc between two yoke arms | front: lens disc in a yoke. side: barrel tilted in a yoke |
-| drums | accepted plan, filled | front: accepted elevation, filled. side: bass drum, tom above, cymbal on a stroked stand |
-| piano_grand | the wing — straight keyboard edge, curved bent side, keys as a hole comb | front: body slab, three legs, raised lid triangle. side: profile with the lid up on its stick |
-| piano_upright | cabinet rectangle, keyboard band projecting from the front edge with a black-key comb | front: tall cabinet, fallboard, keyboard band, music desk. side: tall cabinet with the keyboard shelf jutting forward |
-| keyboard | slab, black-key comb along the front edge, control panel band behind it — the band is what separates it from the upright's plan | front: slab on an X-stand. side: accepted, filled |
-| guitar_acoustic | itself, diagonal | body with waist, soundhole and bridge as holes, slotted headstock. front = side |
-| guitar_electric | itself, diagonal | double cutaway, pickguard as a hole, six-in-line headstock, no soundhole. front = side |
-| bass | itself, diagonal | offset body with the long horn, one pickup hole, four-in-line headstock, neck longer against the body than the guitars' |
-| cello | itself, diagonal | C-bouts, two f-holes, scroll, stroked endpin. front = side |
-| saxophone | itself, diagonal | the J — flared bell low, body rising, crook and mouthpiece at the top, a few key touches as holes |
-| trumpet | top = front: bell flare right, valve block with three pistons, wrap loop, mouthpiece left | side: the bell end-on, a ring with the valve block below |
+One file per icon per view, not one per icon. Each view has its own coordinate
+box in real centimetres — a person's plan is 60×40, its front 60×180 — so three
+views cannot share a canvas. One file per view makes the `viewBox` the
+footprint: the artboard edge is the element's real size.
 
-The four accepted glyphs (person front/side, drums top/front, keyboard side)
-keep their composition exactly and change only from outline to fill. They were
-accepted for what they show, not for how they were drawn, and a set that is
-half outline is not a set.
+The import is not a copy. A drawing program emits relative commands,
+transforms, quadratics, rounded rects, ellipses, even-odd fills and hidden
+leftovers; the glyph file holds absolute M/L/C/Z in one flat space, filled
+nonzero. Three things the conversion has to get right, each learned by getting
+it wrong:
+
+- **Winding is rebuilt, not trusted.** Each subpath is wound by its nesting
+  depth, which makes nonzero agree with even-odd whichever the source used. The
+  author never has to think about direction.
+- **Hidden shapes are not shapes.** A drawing program hides an old version
+  rather than deleting it. Importing one drew the previous person on top of the
+  new one.
+- **Paint in the background colour becomes geometry.** A white stroke over two
+  overlapping black shapes is the ordinary way to hold them apart, and the
+  ordinary way to draw the gap this language calls for — but one colour cannot
+  carry it. Such a file is rendered exactly as the drawing program shows it and
+  the black regions traced back out, so the result is what the eye was shown by
+  construction. Marching squares over the raster; there is no geometry library
+  on this machine and this needs none.
+
+Every import is verified: each glyph is rasterised beside the SVG it came from
+and compared. The measure discounts a pixel of edge, because two identical
+drawings still disagree along every contour by about that much and an icon with
+a lot of perimeter for its area would otherwise fail for no reason.
+
+### Views of one icon are reconciled before they are fitted
+
+A hand-drawn set disagrees with itself. A saxophone drawn to fill the width of
+both elevations comes out a third taller in one than the other, because those
+boxes are 30 cm and 40 cm wide but both 80 cm tall — and the canvas stretches
+each glyph box onto the element's real rectangle, so that lands on paper as an
+instrument two different heights in two elevations that share a floor datum.
+
+So each view gets its own factor, chosen so the axes the views share measure
+the same object: front and side share its height, top and front its width, top
+and side its depth. Three views give three shared-axis equations for two free
+ratios, so the fit is least-squares in log space — no drawing is taken as
+correct, and each moves as little as the others allow. Only then does one
+common factor scale all three into their footprints.
+
+The exception is the icons whose three views are deliberately one drawing —
+the held instruments and the mic. There the views *cannot* agree: the same
+picture would have to measure 55 cm along the box that is 55 cm and along the
+box that is 20 cm. Those are fitted view by view, and their disagreement is
+the point of them.
 
 ### The harness is a script, not a test
 
