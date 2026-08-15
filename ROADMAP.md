@@ -2,12 +2,14 @@
 
 ## What remains
 
-**Slices 0–43 are delivered, and every recorded defect is fixed.** This file is a
-per-slice record written after delivery; everything below this section is history.
+**Slices 0–43 and 46 are delivered.** This file is a per-slice record written
+after delivery; everything below this section is history. One defect is open: D7.
+Slice 46 — the stage plot icon set redrawn by hand — is on
+`redraw-stage-plot-icons` and awaiting the user's decision to merge.
 
 | | |
 |---|---|
-| *(nothing scheduled)* | |
+| **D7** — Resizing an element leaves the third dimension behind | open |
 
 The table is empty because the roadmap is **asking**, not because the tool is
 finished. Slices 40 and 41 — the audio plan and the stage plot as generated
@@ -61,6 +63,69 @@ the rental order and in every export format** (price-list xlsx where the
 inventory earns it, plus the PDF and generic spreadsheet from Slice 22) —
 any later slice that adds a new place where equipment is selected must
 extend the rental aggregation in the same slice.
+
+## Slice 46 — The stage plot icon set, redrawn by hand (spec: `stage-plot-icon-set`, OpenSpec)
+
+**Delivered** on `redraw-stage-plot-icons`. Seventeen icons, three views each.
+
+The set was drawn once alongside the machinery that renders it and most of it
+did not look like the thing it named. Three rounds of redrawing it from written
+direction produced "barely any improvement" and the reviewer asked for the SVG
+files. That is the finding this slice is really about: **when the deliverable is
+a drawing, the round trip beats the loop.** `scripts/export_glyphs.py` writes one
+SVG per icon per view — `viewBox` is the element's real footprint in centimetres,
+so the artboard edge is the size on stage — and `scripts/import_glyphs.py` reads
+them back.
+
+The import is not a copy, and four things in it are not obvious:
+
+- **Winding is rebuilt by nesting depth**, so nonzero agrees with even-odd
+  whichever the source used and the author never thinks about direction.
+- **Hidden shapes are skipped.** A drawing program hides an old version rather
+  than deleting it; importing one drew the previous person on top of the new one.
+- **Background-colour paint becomes geometry.** A white stroke holding two
+  overlapping black shapes apart is the ordinary way to draw the gap this
+  language calls for, and one colour cannot carry it. Those files are rendered
+  as the drawing program shows them and the ink traced back out — marching
+  squares over the raster, no geometry library needed, and the result is what
+  the eye was shown by construction.
+- **The views are reconciled before they are fitted.** Front and side share the
+  object's height, top and front its width, top and side its depth. A hand-drawn
+  saxophone filling the width of both elevations came out a third taller in one
+  than the other, which lands on paper as one instrument at two heights against a
+  shared floor datum. Least-squares in log space over the three shared-axis
+  equations, then one common factor. Icons whose views are deliberately one
+  drawing — the held instruments and the mic — are exempt, because theirs cannot
+  agree.
+
+Every glyph is verified against the SVG it came from, with a difference measure
+that erodes the disagreement first: two identical drawings differ along every
+contour by about a pixel, and an icon with a lot of perimeter for its area fails
+for no reason otherwise. Worst across the set is 0.16% of one artboard.
+
+**Two footprints were wrong, and the drawings found them.** The grand piano
+declared 250 cm of depth against a plan drawing 165 cm deep — set to 170, with
+the side profile squeezed along that axis rather than scaled whole, which would
+have stood it two thirds as tall as the front elevation of the same instrument.
+The person's box was one and a half times as wide as deep where all three
+drawings agreed on twice — depth 40 → 31.
+
+**Style.** A filled body; detail cut out of it, never painted on, because one
+colour means same-on-same is invisible. A stroke only where the object is a line.
+Two mechanisms cost real time and are written into `design.md`: shapes that
+overlap go in separate marks, never one path, or nonzero cancels them into a
+hole; and a filled mark over a filled body disappears, which swallowed a stage
+monitor's driver whole.
+
+**Renderers untouched.** `stagePlotIcons.tsx`, the canvas and the Go document
+renderer all read the file and none of them knows what is in it. `design/` is
+untouched too — it does not describe these glyphs.
+
+Two older tests were rewritten: both pinned a drawing rather than a renderer
+property, and failed the moment an icon changed.
+
+**Found on the way, not fixed here:** D7. The distortion reported against the
+icons is the resize handler writing two dimensions and leaving the third.
 
 ## Slice 0 — Hardening & tooling (no spec needed; bug fixes) ✅ done 2026-07-07
 
@@ -2382,6 +2447,64 @@ of a traced fault; neither is yours to grant. Once it is approved, an open defec
 also takes a row in **What remains** at the top of this file, and loses that row
 when it is fixed. The section stays either way: the index is the worklist, the
 sections are the record.
+
+### D7 — Resizing an element leaves the third dimension behind
+
+**Found:** 2026-08-16, while reviewing the redrawn stage plot icons. The report
+was that scaling an element in one view distorts it in another, worst on the
+drum kit, whose drums turn to ellipses.
+
+The distortion is real but it is a symptom. An element carries three real
+dimensions and each view draws two of them — plan is width×depth, front
+width×height, side depth×height. `StagePlotCanvas.tsx`, in the `drag.kind ===
+'resize'` branch, writes exactly the two the current view shows:
+
+```
+if (view === 'top')        { patch.width_cm = newW; patch.depth_cm  = newH }
+else if (view === 'front') { patch.width_cm = newW; patch.height_cm = newH }
+else                       { patch.depth_cm = newW; patch.height_cm = newH }
+```
+
+The third is never touched. So dragging a kit to 1.5× in the front view takes
+width 200→300 and height 120→180 and leaves depth at 150 — and the plan, which
+the user did not touch, now draws a 300×150 footprint where a 200×150 one was.
+The glyph is stretched into that footprint with `preserveAspectRatio="none"`,
+so the drums come out 1.5× wide and round no longer.
+
+**The fix is in the resize handler, not in the icons.** No glyph is wrong; the
+same drawing would distort whatever it was.
+
+**The decision, already made:** width and depth move together as the footprint,
+and height stays independent.
+
+- Resizing in **front** scales depth by the same factor as width.
+- Resizing in **side** scales width by the same factor as depth.
+- Resizing in **top** scales height by the mean of the width and depth factors.
+
+So the plan keeps its shape whenever an elevation is resized, which is the
+behaviour that was asked for. Reshaping deliberately — a footprint that really
+is 300×150 — is still available by typing dimensions into the inspector, which
+this change must leave alone.
+
+**What a fix has to cover**
+
+- The three cases above, each rounded and clamped like the two already are
+  (`clampDimension`, `roundCm`), so a drag cannot drive a dimension below the
+  minimum by the back door.
+- Elements with a rotation: the handler already works in the element's unrotated
+  local frame, and the third dimension is out of that plane, so it scales without
+  reference to the rotation. Worth a test rather than an assumption.
+- Basic shapes — rectangle, ellipse, line, text — have no depth or height worth
+  linking and must keep resizing freely. Check what the handler does for
+  `kind === 'shape'` before changing it for everything.
+- Trusses carry their own length semantics and are resized through the truss
+  bar, not this handler. Confirm that path is untouched.
+- A frontend test: resize in each view, assert the third dimension moved by the
+  stated factor and that the untouched view's aspect is unchanged.
+
+**Not in scope.** `preserveAspectRatio="none"` stays. Stretching a glyph onto
+its footprint is what makes a 6 m truss draw as a 6 m truss, and once the three
+dimensions move together there is nothing left for it to distort.
 
 ### D1 — The legacy catalog can become permanently ownerless ✅ fixed 2026-07-30
 

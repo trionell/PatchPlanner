@@ -1,0 +1,30 @@
+<!--
+  Drums — front view
+  Box is 200 x 120 cm: width across, height down the page (top of the object is upward). The artboard IS the element's footprint.
+
+  Drawing rules
+  - One colour. Everything is repainted in the layer's tint on import, so draw
+    in any colour you like; only fill-vs-stroke is read.
+  - A filled shape is a filled mark. A shape with fill:none and a stroke stays
+    a stroked line — use that only where the object really is a line (a stand's
+    shaft, a cymbal stand, an endpin). Stroke width here is preview only; the
+    app always draws strokes at a constant width on screen.
+  - Detail inside a filled body must be a HOLE, not a lighter shape on top:
+    same colour on same colour is invisible. Cut it with a subpath, or with
+    fill-rule="evenodd" — winding is fixed automatically on import.
+  - Fill the artboard. Space left around the drawing draws the element smaller
+    than the size the user gave it.
+
+  Anything is fine as geometry: relative commands, quadratic curves, transforms,
+  groups, rect/circle/ellipse/line/polygon/polyline. Not fine: text (outline it
+  first), images, gradients, clip paths, masks, filters.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120"
+     width="200" height="120">
+  <path fill="#111111" stroke="none" d="M134 78 A34 34 0 1 1 66 78 A34 34 0 1 1 134 78 Z M127 78 A27 27 0 1 0 73 78 A27 27 0 1 0 127 78 Z"/>
+  <circle fill="#111111" stroke="none" cx="100" cy="78" r="7"/>
+  <path fill="#111111" stroke="none" d="M55 22 L81 22 A5 5 0 0 1 86 27 L86 43 A5 5 0 0 1 81 48 L55 48 A5 5 0 0 1 50 43 L50 27 A5 5 0 0 1 55 22 Z M55 27.5 A0.5 0.5 0 0 0 54.5 28 L54.5 42 A0.5 0.5 0 0 0 55 42.5 L81 42.5 A0.5 0.5 0 0 0 81.5 42 L81.5 28 A0.5 0.5 0 0 0 81 27.5 Z M119 22 L145 22 A5 5 0 0 1 150 27 L150 43 A5 5 0 0 1 145 48 L119 48 A5 5 0 0 1 114 43 L114 27 A5 5 0 0 1 119 22 Z M119 27.5 A0.5 0.5 0 0 0 118.5 28 L118.5 42 A0.5 0.5 0 0 0 119 42.5 L145 42.5 A0.5 0.5 0 0 0 145.5 42 L145.5 28 A0.5 0.5 0 0 0 145 27.5 Z"/>
+  <path fill="#111111" stroke="none" d="M6 12 L46 20 L46 25 L6 17 Z M194 12 L154 20 L154 25 L194 17 Z"/>
+  <path fill="none" stroke="#111111" stroke-width="5.83" stroke-linecap="round" stroke-linejoin="round" d="M26 20 L26 112 M26 112 L16 118 M26 112 L36 118 M174 20 L174 112 M174 112 L164 118 M174 112 L184 118"/>
+  <path fill="none" stroke="#111111" stroke-width="5.83" stroke-linecap="round" stroke-linejoin="round" d="M74 104 L60 116 M126 104 L140 116"/>
+</svg>

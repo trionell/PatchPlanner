@@ -1,0 +1,25 @@
+<!--
+  Drums — top view
+  Box is 200 x 150 cm: width across, depth down the page (front of the object is downward). The artboard IS the element's footprint.
+
+  Drawing rules
+  - One colour. Everything is repainted in the layer's tint on import, so draw
+    in any colour you like; only fill-vs-stroke is read.
+  - A filled shape is a filled mark. A shape with fill:none and a stroke stays
+    a stroked line — use that only where the object really is a line (a stand's
+    shaft, a cymbal stand, an endpin). Stroke width here is preview only; the
+    app always draws strokes at a constant width on screen.
+  - Detail inside a filled body must be a HOLE, not a lighter shape on top:
+    same colour on same colour is invisible. Cut it with a subpath, or with
+    fill-rule="evenodd" — winding is fixed automatically on import.
+  - Fill the artboard. Space left around the drawing draws the element smaller
+    than the size the user gave it.
+
+  Anything is fine as geometry: relative commands, quadratic curves, transforms,
+  groups, rect/circle/ellipse/line/polygon/polyline. Not fine: text (outline it
+  first), images, gradients, clip paths, masks, filters.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 150"
+     width="200" height="150">
+  <path fill="#111111" stroke="none" d="M136 96 A36 36 0 1 1 64 96 A36 36 0 1 1 136 96 Z M129 96 A29 29 0 1 0 71 96 A29 29 0 1 0 129 96 Z M69 62 A23 23 0 1 1 23 62 A23 23 0 1 1 69 62 Z M62 62 A16 16 0 1 0 30 62 A16 16 0 1 0 62 62 Z M97 34 A18 18 0 1 1 61 34 A18 18 0 1 1 97 34 Z M90 34 A11 11 0 1 0 68 34 A11 11 0 1 0 90 34 Z M139 34 A18 18 0 1 1 103 34 A18 18 0 1 1 139 34 Z M132 34 A11 11 0 1 0 110 34 A11 11 0 1 0 132 34 Z M181 58 A24 24 0 1 1 133 58 A24 24 0 1 1 181 58 Z M174 58 A17 17 0 1 0 140 58 A17 17 0 1 0 174 58 Z M34 104 A15 15 0 1 1 4 104 A15 15 0 1 1 34 104 Z M29 104 A10 10 0 1 0 9 104 A10 10 0 1 0 29 104 Z M198 104 A18 18 0 1 1 162 104 A18 18 0 1 1 198 104 Z M193 104 A13 13 0 1 0 167 104 A13 13 0 1 0 193 104 Z"/>
+</svg>

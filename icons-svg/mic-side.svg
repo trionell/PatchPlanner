@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+  Mic — side view
+  Box is 30 x 160 cm: depth across (front of the object is rightward), height down the page. The artboard IS the element's footprint.
+
+  Drawing rules
+  - One colour. Everything is repainted in the layer's tint on import, so draw
+    in any colour you like; only fill-vs-stroke is read.
+  - A filled shape is a filled mark. A shape with fill:none and a stroke stays
+    a stroked line — use that only where the object really is a line (a stand's
+    shaft, a cymbal stand, an endpin). Stroke width here is preview only; the
+    app always draws strokes at a constant width on screen.
+  - Detail inside a filled body must be a HOLE, not a lighter shape on top:
+    same colour on same colour is invisible. Cut it with a subpath, or with
+    fill-rule="evenodd" — winding is fixed automatically on import.
+  - Fill the artboard. Space left around the drawing draws the element smaller
+    than the size the user gave it.
+
+  Anything is fine as geometry: relative commands, quadratic curves, transforms,
+  groups, rect/circle/ellipse/line/polygon/polyline. Not fine: text (outline it
+  first), images, gradients, clip paths, masks, filters.
+-->
+
+<svg
+   viewBox="0 0 30 160"
+   width="30"
+   height="160"
+   version="1.1"
+   id="svg5"
+   sodipodi:docname="mic-side.svg"
+   xml:space="preserve"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"><defs
+     id="defs5" /><sodipodi:namedview
+     id="namedview5"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="10.244209"
+     inkscape:cx="-46.221234"
+     inkscape:cy="39.388105"
+     inkscape:window-width="2560"
+     inkscape:window-height="1368"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg5" /><path
+     id="rect6"
+     style="display:inline;fill:#000000;fill-opacity:1;stroke-width:0.522"
+     d="m 15.099609,10.287109 c -0.597508,0 -1.078125,0.823039 -1.078125,1.845703 v 60.457032 c -0.645677,0.318267 -1.078125,0.915589 -1.078125,1.601562 V 144.70508 L 1.2558594,154.3125 c -0.78995915,0.64947 -1.09615172,1.57326 -0.68750002,2.07031 0.40865169,0.49705 1.37410332,0.37408 2.16406252,-0.27539 l 10.8750001,-8.9414 c 0.174226,0.14256 0.376876,0.25942 0.599609,0.3457 l 3.359375,11.06836 c 0.255384,0.84157 0.948557,1.40601 1.554688,1.26562 0.606131,-0.14038 0.888196,-0.93186 0.632812,-1.77343 l -3.28125,-10.81641 c 0.10989,-0.0774 0.208868,-0.16337 0.298828,-0.25781 l 10.447266,6.47656 c 0.811557,0.50321 1.717588,0.49398 2.03125,-0.0215 0.313662,-0.51546 -0.08688,-1.33468 -0.898438,-1.83789 L 17.255859,144.73438 V 74.191406 c 0,-0.685972 -0.432448,-1.283295 -1.078125,-1.601562 V 12.132812 c 0,-1.022664 -0.480616,-1.845703 -1.078125,-1.845703 z"
+     inkscape:label="Stand" /><path
+     id="path7"
+     style="fill:#000000;fill-opacity:1;stroke-width:0.367214"
+     d="M 25.2529,5.4585616 A 3.5667452,3.4602749 67.484361 0 0 20.691078,3.4884367 3.5667452,3.4602749 67.484361 0 0 18.674891,5.8903895 C 16.219686,6.951716 6.3550015,11.214657 5.5374054,11.556443 c -0.5143799,0.21501 -0.4126772,0.81479 -0.2624868,1.193085 0.2830163,0.712934 0.5196564,1.23559 0.8050548,1.924071 0.2853969,0.688477 0.953106,0.354528 0.953106,0.354528 L 20.293206,9.8050336 a 3.5667452,3.4602749 67.484361 0 0 3.129631,0.2733024 3.5667452,3.4602749 67.484361 0 0 1.830086,-4.6197835 z m -3.480013,-1.8325562 2.316609,5.588476 c 0.07408,0.1787072 -0.125587,0.4298462 -0.447672,0.5633615 l -0.03807,0.015786 c -0.322085,0.1335146 -0.640873,0.097293 -0.714953,-0.081415 L 20.572186,4.1237355 C 20.498106,3.945029 20.697774,3.69389 21.019859,3.5603747 l 0.03807,-0.015786 c 0.322084,-0.1335153 0.640873,-0.097293 0.714953,0.081414 z m -2.447226,2.4780061 1.281159,3.0906059 c 0.07408,0.1787079 -0.02692,0.3904347 -0.227567,0.4736079 -0.200643,0.083173 -0.421821,0.00499 -0.495901,-0.1737061 l -1.28116,-3.0906059 c -0.07408,-0.1787072 0.02745,-0.3891657 0.228094,-0.4723389 0.200643,-0.083172 0.421294,-0.00626 0.495375,0.1724371 z M 7.5725398,11.288415 8.632719,13.84594 c 0.07408,0.178707 -0.027451,0.389164 -0.2280941,0.472337 l -0.038075,0.01579 c -0.2006426,0.08317 -0.4212938,0.0063 -0.495374,-0.172436 l -1.060179,-2.557528 c -0.07408,-0.178708 0.027452,-0.389166 0.2280932,-0.472339 l 0.038075,-0.01579 c 0.2006432,-0.08317 0.4212947,-0.0063 0.4953747,0.172437 z"
+     inkscape:label="Microphone" /></svg>

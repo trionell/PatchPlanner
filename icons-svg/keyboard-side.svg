@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+  Keyboard — side view
+  Box is 40 x 95 cm: depth across (front of the object is rightward), height down the page. The artboard IS the element's footprint.
+
+  Drawing rules
+  - One colour. Everything is repainted in the layer's tint on import, so draw
+    in any colour you like; only fill-vs-stroke is read.
+  - A filled shape is a filled mark. A shape with fill:none and a stroke stays
+    a stroked line — use that only where the object really is a line (a stand's
+    shaft, a cymbal stand, an endpin). Stroke width here is preview only; the
+    app always draws strokes at a constant width on screen.
+  - Detail inside a filled body must be a HOLE, not a lighter shape on top:
+    same colour on same colour is invisible. Cut it with a subpath, or with
+    fill-rule="evenodd" — winding is fixed automatically on import.
+  - Fill the artboard. Space left around the drawing draws the element smaller
+    than the size the user gave it.
+
+  Anything is fine as geometry: relative commands, quadratic curves, transforms,
+  groups, rect/circle/ellipse/line/polygon/polyline. Not fine: text (outline it
+  first), images, gradients, clip paths, masks, filters.
+-->
+
+<svg
+   viewBox="0 0 40 95"
+   width="40"
+   height="95"
+   version="1.1"
+   id="svg2"
+   sodipodi:docname="keyboard-side.svg"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs2" />
+  <sodipodi:namedview
+     id="namedview2"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="20.737644"
+     inkscape:cx="9.8371831"
+     inkscape:cy="67.82352"
+     inkscape:window-width="2560"
+     inkscape:window-height="1368"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg2" />
+  <path
+     fill="#111111"
+     stroke="none"
+     d="M 4,4.3770492 H 23.299181 L 25.758197,2 H 36 V 15 H 4 Z M 7,6.1393443 V 8.5122951 H 33 V 4.5 H 26.885246 L 25.163934,6.0983607 Z M 7,10.512295 V 13.5 h 26 v -2.987705 z"
+     id="path1"
+     sodipodi:nodetypes="ccccccccccccccccccc" />
+  <path
+     fill="#111111"
+     stroke="none"
+     d="M9 15 L14 15 L32 87 L27 87 Z M27 15 L32 15 L14 87 L9 87 Z M4 86 L17 86 L17 91 L4 91 Z M23 86 L36 86 L36 91 L23 91 Z"
+     id="path2" />
+</svg>

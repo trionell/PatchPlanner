@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+  Drums — side view
+  Box is 150 x 120 cm: depth across (front of the object is rightward), height down the page. The artboard IS the element's footprint.
+
+  Drawing rules
+  - One colour. Everything is repainted in the layer's tint on import, so draw
+    in any colour you like; only fill-vs-stroke is read.
+  - A filled shape is a filled mark. A shape with fill:none and a stroke stays
+    a stroked line — use that only where the object really is a line (a stand's
+    shaft, a cymbal stand, an endpin). Stroke width here is preview only; the
+    app always draws strokes at a constant width on screen.
+  - Detail inside a filled body must be a HOLE, not a lighter shape on top:
+    same colour on same colour is invisible. Cut it with a subpath, or with
+    fill-rule="evenodd" — winding is fixed automatically on import.
+  - Fill the artboard. Space left around the drawing draws the element smaller
+    than the size the user gave it.
+
+  Anything is fine as geometry: relative commands, quadratic curves, transforms,
+  groups, rect/circle/ellipse/line/polygon/polyline. Not fine: text (outline it
+  first), images, gradients, clip paths, masks, filters.
+-->
+
+<svg
+   viewBox="0 0 150 120"
+   width="150"
+   height="120"
+   version="1.1"
+   id="svg7"
+   sodipodi:docname="drums-side.svg"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs7" />
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="4.2399788"
+     inkscape:cx="27.948253"
+     inkscape:cy="97.052372"
+     inkscape:window-width="2560"
+     inkscape:window-height="1368"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg7" />
+  <path
+     id="path12"
+     style="fill:#000000;stroke:#ffffff;stroke-width:1.41014;stroke-opacity:1"
+     d="M 135.52781,2.1159795 A 3.4638883,29.625362 76.048409 0 0 108.44874,6.6383375 3.4638883,29.625362 76.048409 0 0 80.532417,17.142766 3.4638883,29.625362 76.048409 0 0 105.94244,14.361048 v 87.334922 l -9.419278,9.90953 c -0.559165,0.58819 -0.106606,1.92078 1.016292,2.98828 1.122896,1.0675 2.478696,1.45301 3.037856,0.86482 l 7.71445,-8.1138 7.52991,7.92377 c 0.55917,0.58817 1.91221,0.20266 3.03511,-0.86481 1.12289,-1.06751 1.57821,-2.40287 1.01904,-2.99105 l -8.739,-9.19067 V 13.107897 A 3.4638883,29.625362 76.048409 0 0 138.03686,2.8568536 3.4638883,29.625362 76.048409 0 0 135.52781,2.1159795 Z"
+     inkscape:label="Cymbal" />
+  <g
+     id="g11"
+     inkscape:label="Hihat"
+     transform="matrix(1.4101382,0,0,1.4101382,1.2908606,-48.861888)">
+    <path
+       id="rect10"
+       style="fill:#000000;stroke:#ffffff;stroke-opacity:1"
+       d="m 20.491533,54.585938 c -1.020234,0 -1.841797,0.463545 -1.841797,1.039062 v 52.6543 l -6.679688,7.02734 c -0.396532,0.41711 -0.0756,1.36212 0.720704,2.11914 0.796302,0.75702 1.757764,1.03039 2.154296,0.61328 l 5.470704,-5.7539 5.339843,5.61914 c 0.396533,0.41711 1.356041,0.14373 2.152344,-0.61328 0.796303,-0.75702 1.119189,-1.70399 0.722656,-2.1211 L 22.33333,108.65234 V 55.625 c 0,-0.575517 -0.821563,-1.039062 -1.841797,-1.039062 z" />
+    <path
+       id="path11"
+       style="fill:#000000;stroke:none;stroke-opacity:1"
+       d="m 20.256999,56.874793 a 14.184642,1.1389128 0 0 0 -14.183594,1.138672 14.184642,1.1389128 0 0 0 8.96875,1.058594 14.184642,1.1389128 0 0 0 -8.984375,1.058594 14.184642,1.1389128 0 0 0 14.185547,1.138671 14.184642,1.1389128 0 0 0 14.183594,-1.138671 14.184642,1.1389128 0 0 0 -8.96875,-1.058594 14.184642,1.1389128 0 0 0 8.984375,-1.058594 14.184642,1.1389128 0 0 0 -14.185547,-1.138672 z" />
+  </g>
+  <rect
+     style="fill:#000000;stroke:#ffffff;stroke-width:1.52913;stroke-opacity:1"
+     id="rect8"
+     width="42.581802"
+     height="43.672726"
+     x="14.686215"
+     y="59.255444"
+     transform="rotate(-13.790677)"
+     ry="2.3233113"
+     inkscape:label="Snare" />
+  <rect
+     style="fill:#000000;stroke:#ffffff;stroke-width:1.41014;stroke-opacity:1"
+     id="rect7"
+     width="76.981216"
+     height="61.257511"
+     x="59.287865"
+     y="57.780861"
+     ry="4.6159267"
+     inkscape:label="Kick" />
+  <rect
+     style="fill:#000000;stroke:#ffffff;stroke-width:1.41014;stroke-opacity:1"
+     id="rect9"
+     width="31.280447"
+     height="36.132492"
+     x="11.888385"
+     y="73.459824"
+     transform="rotate(-45.786822)"
+     ry="3.5006893"
+     inkscape:label="Tom1" />
+</svg>

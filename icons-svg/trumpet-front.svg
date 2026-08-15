@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+  Trumpet — front view
+  Box is 55 x 15 cm: width across, height down the page (top of the object is upward). The artboard IS the element's footprint.
+
+  Drawing rules
+  - One colour. Everything is repainted in the layer's tint on import, so draw
+    in any colour you like; only fill-vs-stroke is read.
+  - A filled shape is a filled mark. A shape with fill:none and a stroke stays
+    a stroked line — use that only where the object really is a line (a stand's
+    shaft, a cymbal stand, an endpin). Stroke width here is preview only; the
+    app always draws strokes at a constant width on screen.
+  - Detail inside a filled body must be a HOLE, not a lighter shape on top:
+    same colour on same colour is invisible. Cut it with a subpath, or with
+    fill-rule="evenodd" — winding is fixed automatically on import.
+  - Fill the artboard. Space left around the drawing draws the element smaller
+    than the size the user gave it.
+
+  Anything is fine as geometry: relative commands, quadratic curves, transforms,
+  groups, rect/circle/ellipse/line/polygon/polyline. Not fine: text (outline it
+  first), images, gradients, clip paths, masks, filters.
+-->
+
+<svg
+   viewBox="0 0 55 15"
+   width="55"
+   height="15"
+   version="1.1"
+   id="svg1"
+   sodipodi:docname="trumpet-front.svg"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="28.359109"
+     inkscape:cx="22.885063"
+     inkscape:cy="8.7626167"
+     inkscape:window-width="2560"
+     inkscape:window-height="1368"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg1" />
+  <g
+     id="g2"
+     transform="matrix(0.86396768,0.86492579,-0.86492579,0.86396768,28.934206,-11.501478)">
+	<path
+   style="fill:#030104"
+   d="M 13.516,0.129 C 13.884,1.296 12.92,5.325 12.92,5.325 L 9.857,8.388 C 9.855,8.39 9.853,8.392 9.851,8.393 9.851,8.394 9.849,8.396 9.847,8.397 L 8.547,9.699 7.88,9.032 7.943,8.969 C 8.012,8.9 7.981,8.759 7.876,8.651 7.77,8.546 7.626,8.515 7.558,8.583 L 6.842,9.3 C 6.774,9.368 6.805,9.51 6.909,9.617 7.015,9.723 7.159,9.754 7.227,9.685 L 7.29,9.622 7.957,10.288 7.421,10.824 6.754,10.159 6.811,10.099 C 6.88,10.032 6.85,9.889 6.744,9.783 6.638,9.677 6.496,9.646 6.427,9.716 l -0.716,0.715 c -0.069,0.069 -0.039,0.213 0.068,0.318 0.105,0.105 0.249,0.136 0.317,0.068 l 0.068,-0.068 0.667,0.667 -0.51,0.508 -0.666,-0.666 0.063,-0.063 C 5.787,11.126 5.757,10.984 5.651,10.878 5.545,10.772 5.402,10.741 5.334,10.81 l -0.716,0.715 c -0.069,0.07 -0.039,0.213 0.067,0.318 0.106,0.105 0.249,0.137 0.318,0.068 L 5.066,11.848 5.732,12.515 4.757,13.49 C 4.723,13.523 4.695,13.56 4.67,13.596 4.632,13.621 4.597,13.65 4.563,13.683 4.52,13.726 4.482,13.773 4.441,13.818 L 4.437,13.813 0.781,17.47 C 0.669,17.383 0.51,17.387 0.408,17.49 c -0.11,0.11 -0.111,0.291 0,0.403 l 1.151,1.15 c 0.111,0.111 0.293,0.111 0.404,0 0.111,-0.11 0.11,-0.291 -0.001,-0.403 L 1.843,18.522 3.608,16.756 c 0.121,0.671 0.439,1.312 0.956,1.829 1.334,1.334 3.491,1.349 4.847,0.05 l 0.001,0.004 C 9.418,18.632 9.423,18.625 9.429,18.618 9.442,18.606 9.454,18.597 9.467,18.585 9.497,18.554 9.522,18.521 9.548,18.486 9.553,18.48 9.557,18.476 9.565,18.469 9.597,18.446 9.631,18.42 9.661,18.391 L 9.665,18.37 c 0.188,-0.187 0.529,-0.525 0.946,-0.94 l 0.974,0.973 c 0.145,0.146 0.402,0.123 0.575,-0.05 0.174,-0.174 0.195,-0.432 0.051,-0.576 l -0.972,-0.973 c 0.148,-0.147 0.301,-0.299 0.455,-0.453 l 0.971,0.971 c 0.146,0.146 0.404,0.123 0.577,-0.05 0.173,-0.174 0.195,-0.431 0.05,-0.577 l -0.97,-0.971 C 12.5,15.547 12.676,15.371 12.847,15.2 l 0.971,0.97 c 0.145,0.146 0.403,0.122 0.576,-0.05 0.173,-0.174 0.195,-0.432 0.05,-0.576 l -0.969,-0.97 c 0.729,-0.728 1.271,-1.268 1.282,-1.278 1.35,-1.352 1.35,-3.551 -10e-4,-4.902 -0.497,-0.496 -1.108,-0.81 -1.751,-0.94 l 1.036,-1.037 c 0,0 3.851,-1.043 5.053,-0.438 1.402,0.125 -5.948,-7.016 -5.578,-5.85 z M 8.444,17.413 c -0.029,0.021 -0.059,0.042 -0.084,0.068 -0.742,0.742 -1.95,0.742 -2.692,0 -0.743,-0.742 -0.743,-1.95 0,-2.693 10e-4,-10e-4 0.002,-10e-4 0.003,-0.002 l 0.191,-0.19 0.313,-0.314 0.641,-0.642 2.699,2.699 z m 2.115,-2.112 c -0.038,0.026 -0.107,0.088 -0.107,0.088 l -0.308,0.319 -0.002,0.003 -2.699,-2.698 0.455,-0.455 2.702,2.702 c -0.024,0.023 -0.04,0.04 -0.041,0.041 z m 0.663,-0.672 -2.698,-2.697 0.526,-0.525 2.697,2.695 c -0.188,0.187 -0.366,0.366 -0.525,0.527 z M 13.65,9.5 c 0.681,0.681 0.729,1.751 0.159,2.496 l -1.027,1.066 c -0.13,0.13 -0.27,0.27 -0.411,0.412 l -2.694,-2.694 0.774,-0.773 0.312,-0.314 0.192,-0.19 c 10e-4,-0.002 10e-4,-0.002 0.002,-0.003 0.742,-0.744 1.949,-0.744 2.693,0 z"
+   id="path1-5" />
+
+</g>
+</svg>

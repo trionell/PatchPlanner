@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+  Truss — side view
+  Box is 30 x 30 cm: depth across (front of the object is rightward), height down the page. The artboard IS the element's footprint.
+
+  Drawing rules
+  - One colour. Everything is repainted in the layer's tint on import, so draw
+    in any colour you like; only fill-vs-stroke is read.
+  - A filled shape is a filled mark. A shape with fill:none and a stroke stays
+    a stroked line — use that only where the object really is a line (a stand's
+    shaft, a cymbal stand, an endpin). Stroke width here is preview only; the
+    app always draws strokes at a constant width on screen.
+  - Detail inside a filled body must be a HOLE, not a lighter shape on top:
+    same colour on same colour is invisible. Cut it with a subpath, or with
+    fill-rule="evenodd" — winding is fixed automatically on import.
+  - Fill the artboard. Space left around the drawing draws the element smaller
+    than the size the user gave it.
+
+  Anything is fine as geometry: relative commands, quadratic curves, transforms,
+  groups, rect/circle/ellipse/line/polygon/polyline. Not fine: text (outline it
+  first), images, gradients, clip paths, masks, filters.
+-->
+
+<svg
+   viewBox="0 0 30 30"
+   width="30"
+   height="30"
+   version="1.1"
+   id="svg2"
+   sodipodi:docname="truss-side.svg"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs2" />
+  <sodipodi:namedview
+     id="namedview2"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="38.633333"
+     inkscape:cx="13.770492"
+     inkscape:cy="14.508197"
+     inkscape:window-width="2560"
+     inkscape:window-height="1368"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg2" />
+  <path
+     fill="#111111"
+     stroke="none"
+     d="m 2.5,2.5 h 25 v 25 H 2.5 Z M 4.7057808,4.3951682 V 25.397757 H 25.294219 V 4.3951682 Z"
+     id="path1"
+     style="display:inline"
+     sodipodi:nodetypes="cccccccccc" />
+  <path
+     fill="#111111"
+     stroke="none"
+     d="M 2.5,4.3011217 4.5599655,2.5258844 27.5,25.517688 25.517688,27.5 Z M 25.698878,2.5 27.344694,4.119931 4.327006,27.5 2.5258844,25.517688 Z"
+     id="path2"
+     inkscape:label="path2"
+     style="display:inline"
+     sodipodi:nodetypes="cccccccccc" />
+</svg>

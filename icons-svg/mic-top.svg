@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+  Mic — top view
+  Box is 30 x 30 cm: width across, depth down the page (front of the object is downward). The artboard IS the element's footprint.
+
+  Drawing rules
+  - One colour. Everything is repainted in the layer's tint on import, so draw
+    in any colour you like; only fill-vs-stroke is read.
+  - A filled shape is a filled mark. A shape with fill:none and a stroke stays
+    a stroked line — use that only where the object really is a line (a stand's
+    shaft, a cymbal stand, an endpin). Stroke width here is preview only; the
+    app always draws strokes at a constant width on screen.
+  - Detail inside a filled body must be a HOLE, not a lighter shape on top:
+    same colour on same colour is invisible. Cut it with a subpath, or with
+    fill-rule="evenodd" — winding is fixed automatically on import.
+  - Fill the artboard. Space left around the drawing draws the element smaller
+    than the size the user gave it.
+
+  Anything is fine as geometry: relative commands, quadratic curves, transforms,
+  groups, rect/circle/ellipse/line/polygon/polyline. Not fine: text (outline it
+  first), images, gradients, clip paths, masks, filters.
+-->
+
+<svg
+   viewBox="0 0 30 30"
+   width="30"
+   height="30"
+   version="1.1"
+   id="svg2"
+   sodipodi:docname="mic-top.svg"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs2" />
+  <sodipodi:namedview
+     id="namedview2"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="21.17749"
+     inkscape:cx="10.388389"
+     inkscape:cy="14.520135"
+     inkscape:window-width="2560"
+     inkscape:window-height="1368"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg2" />
+  <path
+     id="path7"
+     style="fill:#000000;fill-opacity:1;stroke-width:0.598981"
+     d="m 28.067769,3.4583287 a 5.8178925,5.6442236 48.806503 0 0 -8.078258,-0.6613616 5.8178925,5.6442236 48.806503 0 0 -1.86079,4.764796 C 14.889239,10.484298 1.8727373,22.224597 0.78789157,23.179827 c -0.68252706,0.600941 -0.21206569,1.47462 0.21762603,1.980722 0.8097443,0.953817 1.4484306,1.637835 2.2490835,2.552621 0.8006463,0.914782 1.6579755,0.04996 1.6579755,0.04996 L 22.674305,12.765482 A 5.8178925,5.6442236 48.806503 0 0 27.653111,11.552973 5.8178925,5.6442236 48.806503 0 0 28.0678,3.4583016 Z m -6.334738,-1.0138898 6.498978,7.4254253 c 0.207822,0.2374498 0.03047,0.7298198 -0.397479,1.1043818 l -0.05059,0.0443 c -0.427952,0.374558 -0.93948,0.485107 -1.1473,0.24767 L 20.137655,3.8407674 c -0.207823,-0.2374472 -0.03048,-0.7298181 0.39748,-1.1043792 l 0.05059,-0.044288 c 0.427951,-0.374562 0.93948,-0.4851102 1.1473,-0.2476727 z m -2.487122,5.1074797 3.594143,4.1064984 c 0.207823,0.23745 0.162357,0.617377 -0.104244,0.850714 -0.266596,0.233329 -0.649194,0.228103 -0.857027,-0.0093 L 18.284634,8.3932599 c -0.207823,-0.2374501 -0.160876,-0.6156934 0.105723,-0.8490286 0.266596,-0.2333284 0.647724,-0.2297668 0.855551,0.00774 z M 3.7926582,21.702566 6.7668676,25.100757 c 0.2078231,0.237449 0.160871,0.615693 -0.1057256,0.849025 l -0.050594,0.0443 c -0.2665951,0.233323 -0.6477238,0.229763 -0.8555488,-0.0077 L 2.7807877,22.58819 C 2.5729642,22.350741 2.6199157,21.972495 2.8865111,21.739162 l 0.05058,-0.0443 c 0.2665965,-0.233329 0.6477254,-0.229767 0.8555505,0.0078 z"
+     inkscape:label="Microphone" />
+</svg>

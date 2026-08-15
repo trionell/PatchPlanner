@@ -1,0 +1,25 @@
+<!--
+  Truss — top view
+  Box is 200 x 30 cm: width across, depth down the page (front of the object is downward). The artboard IS the element's footprint.
+
+  Drawing rules
+  - One colour. Everything is repainted in the layer's tint on import, so draw
+    in any colour you like; only fill-vs-stroke is read.
+  - A filled shape is a filled mark. A shape with fill:none and a stroke stays
+    a stroked line — use that only where the object really is a line (a stand's
+    shaft, a cymbal stand, an endpin). Stroke width here is preview only; the
+    app always draws strokes at a constant width on screen.
+  - Detail inside a filled body must be a HOLE, not a lighter shape on top:
+    same colour on same colour is invisible. Cut it with a subpath, or with
+    fill-rule="evenodd" — winding is fixed automatically on import.
+  - Fill the artboard. Space left around the drawing draws the element smaller
+    than the size the user gave it.
+
+  Anything is fine as geometry: relative commands, quadratic curves, transforms,
+  groups, rect/circle/ellipse/line/polygon/polyline. Not fine: text (outline it
+  first), images, gradients, clip paths, masks, filters.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 30"
+     width="200" height="30">
+  <path fill="#111111" stroke="none" d="M2 2 L198 2 L198 7 L2 7 Z M2 23 L198 23 L198 28 L2 28 Z M2 23 L6 23 L30 7 L26 7 Z M26 7 L30 7 L54 23 L50 23 Z M50 23 L54 23 L78 7 L74 7 Z M74 7 L78 7 L102 23 L98 23 Z M98 23 L102 23 L126 7 L122 7 Z M122 7 L126 7 L150 23 L146 23 Z M146 23 L150 23 L174 7 L170 7 Z M170 7 L174 7 L198 23 L194 23 Z"/>
+</svg>
