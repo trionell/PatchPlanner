@@ -6,3 +6,7 @@ frontend/.baseline/
 # LibreOffice's lock file, present whenever LL.xlsx is open. Slice 31 committed
 # one by accident through `git add -A`; this is so the next one cannot.
 .~lock.*#
+
+# Python bytecode from the glyph scripts
+__pycache__/
+*.pyc
