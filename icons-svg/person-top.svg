@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!--
   Person — top view
   Box is 60 x 40 cm: width across, depth down the page (front of the object is downward). The artboard IS the element's footprint.
@@ -19,8 +20,64 @@
   groups, rect/circle/ellipse/line/polygon/polyline. Not fine: text (outline it
   first), images, gradients, clip paths, masks, filters.
 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"
-     width="60" height="40">
-  <path fill="#111111" stroke="none" d="M4 17 C4 8 15 3 30 3 C45 3 56 8 56 17 C56 21 55.5 27 53 29.5 C50.5 32 47 30.5 46.5 27 C46 23.5 43 19.5 37 18 C34.7 17.4 32.4 17.2 30 17.2 C27.6 17.2 25.3 17.4 23 18 C17 19.5 14 23.5 13.5 27 C13 30.5 9.5 32 7 29.5 C4.5 27 4 21 4 17 Z"/>
-  <circle fill="#111111" stroke="none" cx="30" cy="26" r="9.5"/>
+
+<svg
+   viewBox="0 0 60 40"
+   width="60"
+   height="40"
+   version="1.1"
+   id="svg1"
+   sodipodi:docname="person-top.svg"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="15.883117"
+     inkscape:cx="31.448487"
+     inkscape:cy="23.137775"
+     inkscape:window-width="2560"
+     inkscape:window-height="1368"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg1" />
+  <path
+     fill="#111111"
+     stroke="none"
+     d="M 4,17 C 4,8 15,3 30,3 45,3 56,8 56,17 56,21 55.5,27 53,29.5 50.5,32 47,30.5 46.5,27 46,23.5 43,19.5 37,18 c -2.3,-0.6 -4.6,-0.8 -7,-0.8 -2.4,0 -4.7,0.2 -7,0.8 -6,1.5 -9,5.5 -9.5,9 C 13,30.5 9.5,32 7,29.5 4.5,27 4,21 4,17 Z"
+     id="path1"
+     style="display:none" />
+  <circle
+     fill="#111111"
+     stroke="none"
+     cx="30"
+     cy="26"
+     r="9.5"
+     id="circle1"
+     style="display:none" />
+  <path
+     id="path2"
+     style="fill:#000000;fill-opacity:1;stroke-width:0.522"
+     d="M -35.583984 -11.216797 A 7.555192 7.5237122 0 0 1 -38.845703 -17.408203 A 7.555192 7.5237122 0 0 1 -31.291016 -24.931641 A 7.555192 7.5237122 0 0 1 -23.736328 -17.408203 A 7.555192 7.5237122 0 0 1 -26.900391 -11.285156 A 11.708601 8.1470499 0 0 0 -24.244141 -12.349609 A 8.468111 6.1071134 0 0 0 -22.068359 -12.144531 A 8.468111 6.1071134 0 0 0 -13.599609 -18.251953 A 8.468111 6.1071134 0 0 0 -19.691406 -24.113281 A 2.0003018 3.2206655 21.323958 0 0 -19.392578 -24.814453 A 2.0003018 3.2206655 21.323958 0 0 -20.291016 -28.376953 A 2.0003018 3.2206655 21.323958 0 0 -23.271484 -25.853516 A 2.0003018 3.2206655 21.323958 0 0 -23.501953 -24.853516 A 11.708601 8.1470499 0 0 0 -31.365234 -26.962891 A 11.708601 8.1470499 0 0 0 -39.804688 -24.462891 A 3.2206655 2.0003018 68.676042 0 0 -40.064453 -25.884766 A 3.2206655 2.0003018 68.676042 0 0 -43.044922 -28.408203 A 3.2206655 2.0003018 68.676042 0 0 -43.943359 -24.84375 A 3.2206655 2.0003018 68.676042 0 0 -43.490234 -23.867188 A 8.468111 6.1071134 0 0 0 -48.960938 -18.15625 A 8.468111 6.1071134 0 0 0 -40.494141 -12.048828 A 8.468111 6.1071134 0 0 0 -38.306641 -12.255859 A 11.708601 8.1470499 0 0 0 -35.583984 -11.216797 z "
+     transform="scale(-1)" />
+  <ellipse
+     style="display:inline;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.522;stroke-opacity:1"
+     id="path5-2"
+     inkscape:label="Head"
+     ry="6.9570732"
+     rx="7.0515127"
+     cy="17.408712"
+     cx="31.291191" />
 </svg>

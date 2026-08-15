@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!--
   Fixture — front view
   Box is 30 x 35 cm: width across, height down the page (top of the object is upward). The artboard IS the element's footprint.
@@ -19,8 +20,49 @@
   groups, rect/circle/ellipse/line/polygon/polyline. Not fine: text (outline it
   first), images, gradients, clip paths, masks, filters.
 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 35"
-     width="30" height="35">
-  <path fill="#111111" stroke="none" d="M12.9 1 L17.1 1 L17.1 4.6 L12.9 4.6 Z M14.1 4.6 L15.9 4.6 L15.9 8.2 L14.1 8.2 Z"/>
-  <path fill="#111111" stroke="none" d="M 9.6 7 L 20.4 7 C 21.84 7 22.56 7.6 22.8 8.6 L 26.16 29 C 26.4 30.3 25.44 31 24 31 L 6 31 C 4.56 31 3.6 30.3 3.84 29 L 7.2 8.6 C 7.44 7.6 8.16 7 9.6 7 Z M 5.16 24.5 L 5.16 28 L 26.04 28 L 26.04 24.5 Z M 7.92 9 L 7.92 11.4 L 23.28 11.4 L 23.28 9 Z" transform="rotate(8 15 20)"/>
+
+<svg
+   viewBox="0 0 30 35"
+   width="30"
+   height="35"
+   version="1.1"
+   id="svg2"
+   sodipodi:docname="fixture-front.svg"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs2" />
+  <sodipodi:namedview
+     id="namedview2"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="33.114286"
+     inkscape:cx="15.008628"
+     inkscape:cy="17.5"
+     inkscape:window-width="2560"
+     inkscape:window-height="1368"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg2" />
+  <path
+     fill="#111111"
+     stroke="none"
+     d="M12.9 1 L17.1 1 L17.1 4.6 L12.9 4.6 Z M14.1 4.6 L15.9 4.6 L15.9 8.2 L14.1 8.2 Z"
+     id="path1" />
+  <path
+     fill="#111111"
+     stroke="none"
+     d="m 9.6,7 h 10.8 c 1.44,0 2.16,0.6 2.4,1.6 L 26.16,29 C 26.4,30.3 25.44,31 24,31 H 6 C 4.56,31 3.6,30.3 3.84,29 L 7.2,8.6 C 7.44,7.6 8.16,7 9.6,7 Z m -4.44,17.5 0,3.5 19.534295,0.189127 0,-3.5 z M 7.92,9 v 2.4 l 14.34276,0.35643 V 9.3564303 Z"
+     transform="rotate(8,15,20)"
+     id="path2"
+     sodipodi:nodetypes="ssccssccscccccccccc" />
 </svg>

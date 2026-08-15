@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!--
   Fixture — top view
   Box is 30 x 25 cm: width across, depth down the page (front of the object is downward). The artboard IS the element's footprint.
@@ -19,10 +20,50 @@
   groups, rect/circle/ellipse/line/polygon/polyline. Not fine: text (outline it
   first), images, gradients, clip paths, masks, filters.
 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 25"
-     width="30" height="25">
-  <path fill="#111111" stroke="none" d="M11 1 L19 1 L19 5 L11 5 Z M13.5 5 L16.5 5 L16.5 8 L13.5 8 Z"/>
-  <path fill="#111111" stroke="none" d="M1 10 L7 10 L7 17 L1 17 Z M23 10 L29 10 L29 17 L23 17 Z"/>
-  <path fill="#111111" stroke="none" d="M25 13.5 A10 10 0 1 1 5 13.5 A10 10 0 1 1 25 13.5 Z M22 13.5 A7 7 0 1 0 8 13.5 A7 7 0 1 0 22 13.5 Z"/>
-  <circle fill="#111111" stroke="none" cx="15" cy="13.5" r="4.5"/>
+
+<svg
+   viewBox="0 0 30 25"
+   width="30"
+   height="25"
+   version="1.1"
+   id="svg3"
+   sodipodi:docname="fixture-top.svg"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs3" />
+  <sodipodi:namedview
+     id="namedview3"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="21.083701"
+     inkscape:cx="-11.217195"
+     inkscape:cy="18.426556"
+     inkscape:window-width="2560"
+     inkscape:window-height="1368"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg3" />
+  <path
+     id="path4"
+     style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.522;stroke-dasharray:none;stroke-opacity:1"
+     d="M 13.830078 2.0957031 C 11.376779 2.0461619 1.6865974 2.3861761 3.6601562 10.992188 C 5.9156523 20.827627 10.353516 24.082031 10.353516 24.082031 C 12.460703 24.784427 14.199784 24.617928 14.369141 24.599609 L 14.371094 24.599609 C 14.375367 24.599146 14.380951 24.599493 14.382812 24.599609 C 14.470806 24.60976 16.235724 24.802936 18.398438 24.082031 C 18.398438 24.082031 22.836301 20.829581 25.091797 10.994141 C 27.303531 1.3495297 14.866247 2.0868998 14.382812 2.1191406 L 14.382812 2.1171875 C 14.382812 2.1171875 14.180549 2.1027804 13.830078 2.0957031 z M 14.404297 23.269531 A 3.4319375 0.50699079 0 0 1 17.835938 23.777344 A 3.4319375 0.50699079 0 0 1 14.404297 24.283203 A 3.4319375 0.50699079 0 0 1 10.972656 23.777344 A 3.4319375 0.50699079 0 0 1 14.404297 23.269531 z " />
+  <rect
+     style="display:inline;fill:#000000;fill-opacity:1;stroke:#ffffff;stroke-width:0.522;stroke-dasharray:none;stroke-opacity:1"
+     id="rect3"
+     width="17.549583"
+     height="14.171376"
+     x="5.6011834"
+     y="3.5181453"
+     rx="2.5203149"
+     ry="2.3165288" />
 </svg>
