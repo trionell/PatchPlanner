@@ -2,8 +2,10 @@
 
 ## What remains
 
-**Slices 0–43 are delivered.** This file is a per-slice record written after
-delivery; everything below this section is history. One defect is open: D7.
+**Slices 0–43 and 46 are delivered.** This file is a per-slice record written
+after delivery; everything below this section is history. One defect is open: D7.
+Slice 46 — the stage plot icon set redrawn by hand — is on
+`redraw-stage-plot-icons` and awaiting the user's decision to merge.
 
 | | |
 |---|---|
@@ -61,6 +63,69 @@ the rental order and in every export format** (price-list xlsx where the
 inventory earns it, plus the PDF and generic spreadsheet from Slice 22) —
 any later slice that adds a new place where equipment is selected must
 extend the rental aggregation in the same slice.
+
+## Slice 46 — The stage plot icon set, redrawn by hand (spec: `stage-plot-icon-set`, OpenSpec)
+
+**Delivered** on `redraw-stage-plot-icons`. Seventeen icons, three views each.
+
+The set was drawn once alongside the machinery that renders it and most of it
+did not look like the thing it named. Three rounds of redrawing it from written
+direction produced "barely any improvement" and the reviewer asked for the SVG
+files. That is the finding this slice is really about: **when the deliverable is
+a drawing, the round trip beats the loop.** `scripts/export_glyphs.py` writes one
+SVG per icon per view — `viewBox` is the element's real footprint in centimetres,
+so the artboard edge is the size on stage — and `scripts/import_glyphs.py` reads
+them back.
+
+The import is not a copy, and four things in it are not obvious:
+
+- **Winding is rebuilt by nesting depth**, so nonzero agrees with even-odd
+  whichever the source used and the author never thinks about direction.
+- **Hidden shapes are skipped.** A drawing program hides an old version rather
+  than deleting it; importing one drew the previous person on top of the new one.
+- **Background-colour paint becomes geometry.** A white stroke holding two
+  overlapping black shapes apart is the ordinary way to draw the gap this
+  language calls for, and one colour cannot carry it. Those files are rendered
+  as the drawing program shows them and the ink traced back out — marching
+  squares over the raster, no geometry library needed, and the result is what
+  the eye was shown by construction.
+- **The views are reconciled before they are fitted.** Front and side share the
+  object's height, top and front its width, top and side its depth. A hand-drawn
+  saxophone filling the width of both elevations came out a third taller in one
+  than the other, which lands on paper as one instrument at two heights against a
+  shared floor datum. Least-squares in log space over the three shared-axis
+  equations, then one common factor. Icons whose views are deliberately one
+  drawing — the held instruments and the mic — are exempt, because theirs cannot
+  agree.
+
+Every glyph is verified against the SVG it came from, with a difference measure
+that erodes the disagreement first: two identical drawings differ along every
+contour by about a pixel, and an icon with a lot of perimeter for its area fails
+for no reason otherwise. Worst across the set is 0.16% of one artboard.
+
+**Two footprints were wrong, and the drawings found them.** The grand piano
+declared 250 cm of depth against a plan drawing 165 cm deep — set to 170, with
+the side profile squeezed along that axis rather than scaled whole, which would
+have stood it two thirds as tall as the front elevation of the same instrument.
+The person's box was one and a half times as wide as deep where all three
+drawings agreed on twice — depth 40 → 31.
+
+**Style.** A filled body; detail cut out of it, never painted on, because one
+colour means same-on-same is invisible. A stroke only where the object is a line.
+Two mechanisms cost real time and are written into `design.md`: shapes that
+overlap go in separate marks, never one path, or nonzero cancels them into a
+hole; and a filled mark over a filled body disappears, which swallowed a stage
+monitor's driver whole.
+
+**Renderers untouched.** `stagePlotIcons.tsx`, the canvas and the Go document
+renderer all read the file and none of them knows what is in it. `design/` is
+untouched too — it does not describe these glyphs.
+
+Two older tests were rewritten: both pinned a drawing rather than a renderer
+property, and failed the moment an icon changed.
+
+**Found on the way, not fixed here:** D7. The distortion reported against the
+icons is the resize handler writing two dimensions and leaving the third.
 
 ## Slice 0 — Hardening & tooling (no spec needed; bug fixes) ✅ done 2026-07-07
 
