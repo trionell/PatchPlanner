@@ -19,8 +19,11 @@
   groups, rect/circle/ellipse/line/polygon/polyline. Not fine: text (outline it
   first), images, gradients, clip paths, masks, filters.
 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 250 100"
-     width="250" height="100">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 170 100"
+     width="170" height="100">
+  <g
+     id="refit"
+     transform="matrix(0.68,0,0,1,0,0)">
   <path fill="#111111" stroke="none" d="M14 36 L206 4 L214 13 L22 45 Z"/>
   <path fill="#111111" stroke="none" d="M118 24 L122 24 L122 40 L118 40 Z"/>
   <path fill="#111111" stroke="none" d="M8 40 L240 40 L240 56 L8 56 Z"/>
@@ -28,4 +31,5 @@
   <path fill="#111111" stroke="none" d="M228 45 L246 45 L246 54 L228 54 Z M230 47 L230 52 L244 52 L244 47 Z"/>
   <path fill="none" stroke="#111111" stroke-width="7.29" stroke-linecap="round" stroke-linejoin="round" d="M232 47 L232 52 M235 47 L235 52 M238 47 L238 52 M241 47 L241 52"/>
   <path fill="#111111" stroke="none" d="M24 56 L34 56 L32 96 L26 96 Z M206 56 L216 56 L214 96 L208 96 Z"/>
+</g>
 </svg>

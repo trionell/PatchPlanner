@@ -630,6 +630,16 @@ def trace_file(path, box, scale=18, margin=4.0, tol_units=0.09):
 
 # ------------------------------------------------------------------ geometry
 
+def box_for(icon, view):
+    """The coordinate box a view is drawn in, from the icon's real size."""
+    d = icon["defaults"]
+    if view == "top":
+        return d["width_cm"], d["depth_cm"]
+    if view == "front":
+        return d["width_cm"], d["height_cm"]
+    return d["depth_cm"], d["height_cm"]
+
+
 def ink_bounds(shapes):
     xs, ys = [], []
     for subs, filled, width in shapes:
@@ -838,6 +848,15 @@ def main():
                 missing.append(f'{icon["id"]}-{view}')
                 continue
             shapes, box = read_svg(path)
+            # The artboard is the footprint. If the two ever drift apart the
+            # glyph lands in the wrong coordinate space and draws at the wrong
+            # size, silently — so a mismatch is an error, not a warning.
+            want = box_for(icon, view)
+            if abs(box[0] - want[0]) > 0.01 or abs(box[1] - want[1]) > 0.01:
+                failures.append((f'{icon["id"]}-{view}',
+                                 f"artboard {box[0]:g}x{box[1]:g} but the icon's "
+                                 f"footprint says {want[0]:g}x{want[1]:g}"))
+                continue
             traced = False
             if paints_background(path):
                 shapes = trace_file(path, box)
