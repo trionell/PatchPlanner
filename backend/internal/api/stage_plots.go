@@ -513,7 +513,7 @@ type stagePlotElementPatch struct {
 }
 
 func (h StagePlotsHandler) updateElement(w http.ResponseWriter, r *http.Request) {
-	_, plot, ok := h.eventAndPlot(w, r)
+	eventID, plot, ok := h.eventAndPlot(w, r)
 	if !ok {
 		return
 	}
@@ -595,7 +595,7 @@ func (h StagePlotsHandler) updateElement(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	updated, err := dbstore.GetStagePlotElement(h.DB, plot.ID, elementID)
+	updated, err := dbstore.GetStagePlotElementWithLinks(h.DB, eventID, plot.ID, elementID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

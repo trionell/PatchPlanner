@@ -250,6 +250,26 @@ func GetStagePlotElement(db *sql.DB, plotID, elementID int64) (domain.StagePlotE
 	return element, nil
 }
 
+// GetStagePlotElementWithLinks reads one element with its assignments and
+// stack entries resolved, the way the aggregate plot read resolves them.
+// A single-element response has to carry its links: a client that merges
+// the response into its cache would otherwise blank the element's
+// assignments on every edit.
+func GetStagePlotElementWithLinks(db *sql.DB, eventID, plotID, elementID int64) (domain.StagePlotElement, error) {
+	element, err := GetStagePlotElement(db, plotID, elementID)
+	if err != nil {
+		return domain.StagePlotElement{}, err
+	}
+	linksByElement, err := listStagePlotLinksFiltered(db, eventID, plotID, elementID)
+	if err != nil {
+		return domain.StagePlotElement{}, err
+	}
+	if links, ok := linksByElement[elementID]; ok {
+		element.Links = links
+	}
+	return element, nil
+}
+
 func CreateStagePlotElement(db *sql.DB, element domain.StagePlotElement) (domain.StagePlotElement, error) {
 	// The layer must belong to the element's plot — a cross-plot layer id
 	// would silently orphan the element from its own plot's cascade.
@@ -426,11 +446,24 @@ func clearStagePlotLinksTo(execer interface {
 // current display name, dropping (and deleting, defense in depth against
 // a forgotten delete path) rows whose target no longer exists — FR-014.
 func listStagePlotLinks(db *sql.DB, eventID, plotID int64) (map[int64][]domain.StagePlotLink, error) {
+	return listStagePlotLinksFiltered(db, eventID, plotID, 0)
+}
+
+// listStagePlotLinksFiltered resolves the links of a whole plot, or of one
+// element when elementID is non-zero. Both reads share the dangling-link
+// cleanup and the fixture detail lookup, so a single-element response
+// carries exactly what the aggregate read would have given it.
+func listStagePlotLinksFiltered(db *sql.DB, eventID, plotID, elementID int64) (map[int64][]domain.StagePlotLink, error) {
+	where, args := `e.plot_id = ?`, []any{plotID}
+	if elementID != 0 {
+		where += ` AND l.element_id = ?`
+		args = append(args, elementID)
+	}
 	rows, err := db.Query(`SELECT l.id, l.element_id, l.role, l.entity_kind, l.entity_id, l.sort_order
 		FROM stage_plot_element_links l
 		JOIN stage_plot_elements e ON e.id = l.element_id
-		WHERE e.plot_id = ?
-		ORDER BY l.element_id, l.role, l.sort_order, l.id`, plotID)
+		WHERE `+where+`
+		ORDER BY l.element_id, l.role, l.sort_order, l.id`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list stage plot links: %w", err)
 	}

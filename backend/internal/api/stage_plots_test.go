@@ -249,6 +249,78 @@ func TestStagePlotElementLinks(t *testing.T) {
 	}
 }
 
+// TestStagePlotElementPatchKeepsLinks pins the PATCH response to the same
+// shape the aggregate read gives: an edited element carries its resolved
+// links. The single-element read used to return them always empty, so a
+// client merging the response into its cache lost every assignment on the
+// element the moment it was moved.
+func TestStagePlotElementPatchKeepsLinks(t *testing.T) {
+	server, database := newTestServer(t)
+	eventID := seedEvent(t, server.URL)
+	micID := seedRoleItem(t, database, "", "Shure SM58", "", 4, 150)
+	plot := seedStagePlot(t, server.URL, eventID, "Main stage")
+	base := fmt.Sprintf("%s/events/%d/stage-plots/%d", server.URL, eventID, plot.ID)
+	layerID := getPlotResponse(t, server.URL, eventID, plot.ID).Layers[0].ID
+
+	status, raw := doJSON(t, http.MethodPost, base+"/elements", map[string]any{
+		"layer_id": layerID, "kind": "resource", "icon": "person", "name": "Anna — Drums", "width_cm": 60, "depth_cm": 40})
+	if status != http.StatusCreated {
+		t.Fatalf("create element: status %d body %s", status, raw)
+	}
+	element := decodeJSON[domain.StagePlotElement](t, raw)
+
+	status, raw = doJSON(t, http.MethodPost, fmt.Sprintf("%s/events/%d/input-sources", server.URL, eventID), map[string]any{
+		"name": "Kick", "kind": "mic", "mic_item_id": micID, "connector_type": "xlr", "width": "mono"})
+	if status != http.StatusCreated {
+		t.Fatalf("create source: status %d body %s", status, raw)
+	}
+	source := decodeJSON[domain.InputSource](t, raw)
+
+	status, raw = doJSON(t, http.MethodPost, fmt.Sprintf("%s/elements/%d/links", base, element.ID),
+		map[string]any{"role": "assignment", "entity_kind": "input_source", "entity_id": source.ID})
+	if status != http.StatusCreated {
+		t.Fatalf("create link: status %d body %s", status, raw)
+	}
+
+	// The move: the response must still carry the assignment, resolved.
+	status, raw = doJSON(t, http.MethodPatch, fmt.Sprintf("%s/elements/%d", base, element.ID),
+		map[string]any{"x_cm": 250.0, "y_cm": 120.0})
+	if status != http.StatusOK {
+		t.Fatalf("move element: status %d body %s", status, raw)
+	}
+	moved := decodeJSON[domain.StagePlotElement](t, raw)
+	if moved.XCm != 250 || moved.YCm != 120 {
+		t.Errorf("move did not apply: x %v y %v", moved.XCm, moved.YCm)
+	}
+	if len(moved.Links) != 1 {
+		t.Fatalf("PATCH response dropped the assignment: %+v", moved.Links)
+	}
+	if moved.Links[0].Role != "assignment" || moved.Links[0].DisplayName != "Kick" {
+		t.Errorf("link came back unresolved: %+v", moved.Links[0])
+	}
+
+	// The response agrees with what the aggregate read reports.
+	after := getPlotResponse(t, server.URL, eventID, plot.ID)
+	if len(after.Elements) != 1 || len(after.Elements[0].Links) != 1 {
+		t.Fatalf("aggregate read disagrees: %+v", after.Elements)
+	}
+
+	// An element with no links still reports an empty array, not null.
+	status, raw = doJSON(t, http.MethodPost, base+"/elements", map[string]any{
+		"layer_id": layerID, "kind": "shape", "shape_kind": "rect", "name": "Riser", "width_cm": 200, "depth_cm": 100})
+	if status != http.StatusCreated {
+		t.Fatalf("create shape: status %d body %s", status, raw)
+	}
+	bare := decodeJSON[domain.StagePlotElement](t, raw)
+	status, raw = doJSON(t, http.MethodPatch, fmt.Sprintf("%s/elements/%d", base, bare.ID), map[string]any{"x_cm": 10.0})
+	if status != http.StatusOK {
+		t.Fatalf("move shape: status %d body %s", status, raw)
+	}
+	if decodeJSON[domain.StagePlotElement](t, raw).Links == nil {
+		t.Error("links array must be present on an unassigned element")
+	}
+}
+
 // TestPlotTrusses covers event-scoped truss CRUD, pieces (summed
 // length), fixture attach/move/detach, and plot placement rules (US5).
 func TestPlotTrusses(t *testing.T) {
