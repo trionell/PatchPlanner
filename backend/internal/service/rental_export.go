@@ -152,6 +152,23 @@ func (s ExportService) BuildRentalExport(eventID int64) (*excelize.File, domain.
 	}
 
 	writePricingCells(file, summary.Pricing, &report)
+
+	// The template's Summa-columns, and everything Sammanställning derives from
+	// them, are formulas carrying the cached results Excel last wrote. With our
+	// quantities in they are stale, and a reader that trusts the cache shows a
+	// zero next to a placed count. Dropping the caches and asking for a full
+	// recalculation on load makes the supplier's own formulas run against the
+	// numbers we placed - we still compute nothing on their behalf. Order
+	// matters: UpdateLinkedValue clears calcPr, so the flag goes on after it.
+	if err := file.UpdateLinkedValue(); err != nil {
+		closeOnError()
+		return nil, domain.RentalExportReport{}, fmt.Errorf("clear cached formula results: %w", err)
+	}
+	fullCalcOnLoad := true
+	if err := file.SetCalcProps(&excelize.CalcPropsOptions{FullCalcOnLoad: &fullCalcOnLoad}); err != nil {
+		closeOnError()
+		return nil, domain.RentalExportReport{}, fmt.Errorf("request recalculation on load: %w", err)
+	}
 	return file, report, nil
 }
 

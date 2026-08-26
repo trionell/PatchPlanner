@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -41,6 +42,21 @@ func writeRenterFixtureXLSX(t *testing.T, dir string) string {
 		}
 		if err := file.SetSheetRow(priceListSheet, cellName, &row); err != nil {
 			t.Fatalf("write row %d: %v", i+1, err)
+		}
+	}
+	// Summa Ljud/Ljus are formulas over the quantity columns, and the file
+	// ships carrying the results Excel cached the last time it was open. The
+	// stale cache is the point of having them here: an export that leaves it
+	// in place shows a zero beside a quantity it just placed.
+	for _, row := range []int{4, 5, 7} {
+		for _, sum := range []struct{ column, quantityColumn string }{{"H", "F"}, {"I", "G"}} {
+			ref := fmt.Sprintf("%s%d", sum.column, row)
+			if err := file.SetCellValue(priceListSheet, ref, 0); err != nil {
+				t.Fatalf("write stale %s: %v", ref, err)
+			}
+			if err := file.SetCellFormula(priceListSheet, ref, fmt.Sprintf("E%d*%s%d", row, sum.quantityColumn, row)); err != nil {
+				t.Fatalf("set formula %s: %v", ref, err)
+			}
 		}
 	}
 	writeRenterSummarySheet(t, file)
@@ -83,10 +99,15 @@ func writeRenterSummarySheet(t *testing.T, file *excelize.File) {
 			t.Fatalf("write summary row %d: %v", index+1, err)
 		}
 	}
+	// Cached first, formula second: that order is what leaves a formula cell
+	// carrying a stale result, the way the renter's own file arrives.
 	for ref, formula := range map[string]string{
 		"B6": "(B2-(B2*B4))*B5",
 		"B7": "B6*1.25",
 	} {
+		if err := file.SetCellValue(summarySheet, ref, 0); err != nil {
+			t.Fatalf("write stale %s: %v", ref, err)
+		}
 		if err := file.SetCellFormula(summarySheet, ref, formula); err != nil {
 			t.Fatalf("set formula %s: %v", ref, err)
 		}
@@ -214,6 +235,15 @@ func TestExportPlacesQuantities(t *testing.T) {
 			if colIndex == colAntalLjud || colIndex == colAntalLjus {
 				continue
 			}
+			cellName, err := excelize.CoordinatesToCellName(colIndex+1, rowIndex+1)
+			if err != nil {
+				t.Fatalf("cell name: %v", err)
+			}
+			// A formula cell's cached result is dropped on purpose so the
+			// file recalculates on load; its formula is compared instead.
+			if formula, err := original.GetCellFormula(priceListSheet, cellName); err == nil && formula != "" {
+				continue
+			}
 			if got, want := cellAt(rows, rowIndex+1, colIndex), cell(originalRows[rowIndex], colIndex); got != want {
 				t.Errorf("cell (%d,%d) changed: %q → %q", rowIndex+1, colIndex, want, got)
 			}
@@ -234,6 +264,60 @@ func TestExportPlacesQuantities(t *testing.T) {
 	}
 	if !bytes.Equal(sourceBefore, sourceAfter) {
 		t.Errorf("source file was modified by the export")
+	}
+}
+
+// TestExportRecalculatesFormulas: the renter's file computes Summa Ljud/Ljus
+// and its whole Sammanställning from the quantity columns, but ships the
+// results Excel cached. Writing quantities under a stale cache produced a file
+// showing 0 next to every placed count, so the export drops the cached results
+// and asks for a full recalculation on load. The formulas themselves are the
+// supplier's and stay untouched.
+func TestExportRecalculatesFormulas(t *testing.T) {
+	database, _, eventID, ids := exportSetup(t)
+	if err := db.UpsertManualRental(database, eventID, ids["Shure SM58"], domain.ManualRentalRequest{QuantityAudio: 3}); err != nil {
+		t.Fatalf("manual line: %v", err)
+	}
+	_, _, exported := exportToRows(t, database, eventID)
+
+	reopened, err := excelize.OpenReader(bytes.NewReader(exported))
+	if err != nil {
+		t.Fatalf("reopen export: %v", err)
+	}
+	defer func() { _ = reopened.Close() }()
+
+	for _, cached := range []struct{ sheet, ref string }{
+		{priceListSheet, "H4"},
+		{summarySheet, "B6"},
+		{summarySheet, "B7"},
+	} {
+		formula, err := reopened.GetCellFormula(cached.sheet, cached.ref)
+		if err != nil {
+			t.Fatalf("read formula %s!%s: %v", cached.sheet, cached.ref, err)
+		}
+		if formula == "" {
+			t.Errorf("%s!%s lost its formula", cached.sheet, cached.ref)
+		}
+		value, err := reopened.GetCellValue(cached.sheet, cached.ref, excelize.Options{RawCellValue: true})
+		if err != nil {
+			t.Fatalf("read value %s!%s: %v", cached.sheet, cached.ref, err)
+		}
+		if value != "" {
+			t.Errorf("%s!%s kept a stale cached result %q", cached.sheet, cached.ref, value)
+		}
+	}
+
+	props, err := reopened.GetCalcProps()
+	if err != nil {
+		t.Fatalf("read calc props: %v", err)
+	}
+	if props.FullCalcOnLoad == nil || !*props.FullCalcOnLoad {
+		t.Error("workbook does not ask Excel to recalculate on load")
+	}
+
+	// What a recalculating reader lands on: 3 mics at 187.5 inc VAT.
+	if got, err := reopened.CalcCellValue(priceListSheet, "H4"); err != nil || got != "562.5" {
+		t.Errorf("recalculated Summa Ljud = %q (err %v), want 562.5", got, err)
 	}
 }
 
