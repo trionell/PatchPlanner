@@ -547,8 +547,8 @@ func MapMixes(mixes []domain.DeskMix, routes []domain.DeskRoute, from, to DeskSi
 		return fmt.Sprintf("%s %d", kind, id)
 	}
 	for _, route := range routes {
-		switch {
-		case route.DstKind == domain.PortMix:
+		switch route.DstKind {
+		case domain.PortMix:
 			dst, ok := byID[route.DstID]
 			if !ok {
 				continue
@@ -570,7 +570,7 @@ func MapMixes(mixes []domain.DeskMix, routes []domain.DeskRoute, from, to DeskSi
 					refused = append(refused, fmt.Sprintf("a channel → %s", mixLabel(*dst)))
 				}
 			}
-		case route.DstKind == domain.PortOutput:
+		case domain.PortOutput:
 			if route.SrcKind == domain.PortMix {
 				if src, ok := byID[route.SrcID]; ok && !target.FedByAllowed(src.Kind) {
 					fedBy = append(fedBy, fmt.Sprintf("output %d from %s", route.DstID, mixLabel(*src)))

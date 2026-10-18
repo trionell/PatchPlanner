@@ -191,9 +191,8 @@ func TestPlaceRows(t *testing.T) {
 	if len(free.Lines) != 0 {
 		t.Errorf("free placing has lines: %+v", free.Lines)
 	}
-	taken := PlaceRows(existing, []domain.StripRow{ch(50, 5, "mono", "Z")}, to)
 	existingGap := append(monoRun(2, 5), ch(9, 9, "mono", "x"))
-	taken = PlaceRows(existingGap, []domain.StripRow{ch(50, 5, "mono", "Z")}, to)
+	taken := PlaceRows(existingGap, []domain.StripRow{ch(50, 5, "mono", "Z")}, to)
 	if r := rowByID(t, taken, 50); r.ToNumber != 1 {
 		t.Errorf("Z on %d, want the lowest free strip, 1", r.ToNumber)
 	}

@@ -89,7 +89,7 @@ type MainSlot struct {
 	Width string `json:"width"`
 }
 
-// Mains lists the mains a desk of this model always has: LR everywhere, M/C
+// MainSlots lists the mains a desk of this model always has: LR everywhere, M/C
 // on X32 · M32, C and Mono on LV1 32 and up and on Generic.
 func (m DeskModel) MainSlots() []MainSlot {
 	lr := MainSlot{1, "LR", "stereo"}

@@ -89,9 +89,6 @@ type StripPlacement struct {
 	MixerBehavior string
 }
 
-// ApplyDeskSwitch writes a model switch in one transaction: the console's
-// model, bus mode and counts, and every channel's new number, pool and
-// stereo behaviour. Nothing is deleted.
 // MixPlacement is where a switch puts one mix.
 type MixPlacement struct {
 	ID    int64
@@ -102,6 +99,9 @@ type MixPlacement struct {
 	Drop bool
 }
 
+// ApplyDeskSwitch writes a model switch in one transaction: the console's
+// model, bus mode and counts, and every channel's new number, pool and
+// stereo behaviour. Nothing is deleted.
 func ApplyDeskSwitch(db *sql.DB, console domain.Console, rows []StripPlacement, mixes []MixPlacement) (domain.Console, error) {
 	tx, err := db.Begin()
 	if err != nil {

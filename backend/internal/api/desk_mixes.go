@@ -205,7 +205,7 @@ func (h AudioPatchHandler) updateDeskMix(w http.ResponseWriter, r *http.Request)
 					writeError(w, http.StatusBadRequest, "a source mix is not on this desk")
 					return
 				}
-				if source.Port != 0 && !(source.Port == 1 && mixes[i].Width == "stereo") {
+				if source.Port != 0 && (source.Port != 1 || mixes[i].Width != "stereo") {
 					writeError(w, http.StatusBadRequest, "a mix source's port is its side: 0, or 1 on a stereo mix")
 					return
 				}
@@ -434,7 +434,7 @@ func (h AudioPatchHandler) validRecorderRoutes(w http.ResponseWriter, console do
 					writeError(w, http.StatusBadRequest, "a recorded mix is not on this desk")
 					return false
 				}
-				if route.SrcPort != 0 && !(route.SrcPort == 1 && mixes[i].Width == "stereo") {
+				if route.SrcPort != 0 && (route.SrcPort != 1 || mixes[i].Width != "stereo") {
 					writeError(w, http.StatusBadRequest, "a recorded mix's port is its side: 0, or 1 on a stereo mix")
 					return false
 				}

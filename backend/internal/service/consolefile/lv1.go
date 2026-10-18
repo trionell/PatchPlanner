@@ -136,7 +136,7 @@ func WriteLV1(show Show) ([]byte, []Notice, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 	work := filepath.Join(dir, "work.emo")
 	if err := os.WriteFile(work, lv1Template, 0o600); err != nil {
 		return nil, nil, err
@@ -145,7 +145,7 @@ func WriteLV1(show Show) ([]byte, []Notice, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	var major, minor int
 	if err := db.QueryRow(`SELECT schema_version_major, schema_version_minor FROM info LIMIT 1`).Scan(&major, &minor); err != nil {
@@ -182,7 +182,7 @@ func WriteLV1(show Show) ([]byte, []Notice, error) {
 	}
 	var mode string
 	if err := final.QueryRow(`PRAGMA journal_mode=WAL`).Scan(&mode); err != nil {
-		final.Close()
+		_ = final.Close()
 		return nil, nil, err
 	}
 	if err := final.Close(); err != nil {

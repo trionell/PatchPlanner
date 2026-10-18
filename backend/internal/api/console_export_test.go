@@ -60,7 +60,7 @@ func TestConsoleExportScene(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	body, _ := io.ReadAll(response.Body)
 	if response.StatusCode != http.StatusOK || !strings.HasPrefix(string(body), "#4.0#") || !strings.Contains(string(body), `/ch/01/config "Gitarr Johan"`) {
 		t.Errorf("scene: %d %.80q", response.StatusCode, body)
@@ -91,7 +91,7 @@ func TestConsoleExportSessionAndViewer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	body, _ := io.ReadAll(response.Body)
 	if response.StatusCode != http.StatusOK || !strings.HasPrefix(string(body), "SQLite format 3") {
 		t.Errorf("a viewer's LV1 export: %d %.20q", response.StatusCode, body)
@@ -129,7 +129,7 @@ func TestConsoleExportResolvesStageboxPorts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	body, _ := io.ReadAll(response.Body)
 	for _, line := range strings.Split(string(body), "\n") {
 		if strings.HasPrefix(line, "/config/userrout/in ") {

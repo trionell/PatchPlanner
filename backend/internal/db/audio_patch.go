@@ -946,24 +946,6 @@ type scanner interface {
 	Scan(dest ...any) error
 }
 
-// listOneInputBusIDs collects one input's membership ids from a join table.
-func listOneInputBusIDs(db *sql.DB, query string, inputID int64) ([]int64, error) {
-	rows, err := db.Query(query, inputID)
-	if err != nil {
-		return nil, fmt.Errorf("list input bus ids: %w", err)
-	}
-	defer rows.Close()
-	ids := make([]int64, 0)
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			return nil, fmt.Errorf("scan input bus id: %w", err)
-		}
-		ids = append(ids, id)
-	}
-	return ids, rows.Err()
-}
-
 // nonNilIDs keeps JSON responses at [] instead of null for empty sets.
 func nonNilIDs(ids []int64) []int64 {
 	if ids == nil {
