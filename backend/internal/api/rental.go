@@ -32,6 +32,7 @@ func (h RentalHandler) Register(r chi.Router) {
 	// router as the rest, so RequireEventAccess already covers it: an export
 	// reads, and a viewer may read.
 	r.Get("/audio-export/pdf", h.exportAudioPDF)
+	h.registerConsoleExport(r)
 }
 
 func (h RentalHandler) exportAudioPDF(w http.ResponseWriter, r *http.Request) {

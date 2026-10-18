@@ -34,7 +34,6 @@ func (m DeskModel) FedByAllowed(kind string) bool {
 	return kind == MixMain || kind == MixSubgroup || kind == MixMonitor || kind == MixMatrix
 }
 
-
 // DeskMix is one mix, DCA or mute group on one desk. ConsoleID is nil only for
 // the groups migration 055 found on an event with no desk; the first desk
 // added adopts them.
