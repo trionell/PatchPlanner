@@ -394,6 +394,10 @@ type MappedMix struct {
 	FromWidth string `json:"from_width"`
 	ToWidth   string `json:"to_width"`
 	Over      bool   `json:"over"`
+	WasOver   bool   `json:"was_over"`
+	// Drop is a main the new desk has not got and nothing routes to: the switch
+	// removes it rather than leave an over column nobody can delete.
+	Drop bool `json:"drop"`
 }
 
 // MixMapping is what a switch does to a desk's mixes, routes, Fed by and
@@ -444,9 +448,16 @@ func MapMixes(mixes []domain.DeskMix, routes []domain.DeskRoute, from, to DeskSi
 		}
 		m := MappedMix{ID: mix.ID, Kind: mix.Kind, Name: mix.Name, ToName: mix.Name, FromSlot: mix.Slot, ToSlot: mix.Slot, FromWidth: mix.Width, ToWidth: mix.Width}
 		if main, ok := mains[mix.Slot]; ok {
-			m.ToName, m.ToWidth = main.Name, main.Width
-		} else {
+			m.ToWidth = main.Width
+			// A main keeps a name the planner gave it; only the old model's own
+			// name ("C") becomes the new one's ("M/C").
+			if mix.Name == "" || mix.Name == defaultMainName(from.Model, mix.Slot) {
+				m.ToName = main.Name
+			}
+		} else if routed(routes, mix.ID) {
 			m.Over = true
+		} else {
+			m.Drop = true
 		}
 		mapped = append(mapped, m)
 	}
@@ -487,7 +498,9 @@ func MapMixes(mixes []domain.DeskMix, routes []domain.DeskRoute, from, to DeskSi
 				}
 			}
 			placed = append(placed, domain.DeskMix{ID: mix.ID, Kind: kind, Slot: slot, Width: w})
-			mapped = append(mapped, MappedMix{ID: mix.ID, Kind: kind, Name: mix.Name, ToName: mix.Name, FromSlot: mix.Slot, ToSlot: slot, FromWidth: mix.Width, ToWidth: w, Over: over})
+			fromPool := from.Model.PoolOf(kind)
+			wasOver := !fromPool.Unbounded && mix.Slot+from.Model.MixSlotWidth(kind, mix.Width)-1 > fromPool.Capacity
+			mapped = append(mapped, MappedMix{ID: mix.ID, Kind: kind, Name: mix.Name, ToName: mix.Name, FromSlot: mix.Slot, ToSlot: slot, FromWidth: mix.Width, ToWidth: w, Over: over, WasOver: wasOver})
 		}
 	}
 	for i := range mapped {
@@ -500,9 +513,11 @@ func MapMixes(mixes []domain.DeskMix, routes []domain.DeskRoute, from, to DeskSi
 	}
 
 	var lines []PreviewLine
-	var over, moved, widened, renamed []string
+	var over, moved, widened, renamed, dropped, fitsAgain []string
 	for _, m := range mapped {
 		switch {
+		case m.Drop:
+			dropped = append(dropped, mixLabel(m))
 		case m.Over:
 			over = append(over, mixLabel(m))
 		case m.Kind == domain.MixMain && m.ToName != m.Name:
@@ -510,7 +525,10 @@ func MapMixes(mixes []domain.DeskMix, routes []domain.DeskRoute, from, to DeskSi
 		case m.ToSlot != m.FromSlot:
 			moved = append(moved, fmt.Sprintf("%s %d → %d", mixLabel(m), m.FromSlot, m.ToSlot))
 		}
-		if !m.Over && m.FromWidth != m.ToWidth {
+		if !m.Over && m.WasOver {
+			fitsAgain = append(fitsAgain, mixLabel(m))
+		}
+		if !m.Over && !m.Drop && m.FromWidth != m.ToWidth {
 			widened = append(widened, fmt.Sprintf("%s becomes %s", mixLabel(m), m.ToWidth))
 		}
 	}
@@ -553,9 +571,6 @@ func MapMixes(mixes []domain.DeskMix, routes []domain.DeskRoute, from, to DeskSi
 				}
 			}
 		case route.DstKind == domain.PortOutput:
-			if route.SrcKind == domain.PortChannel && !target.DirectOutAllowed() {
-				fedBy = append(fedBy, fmt.Sprintf("output %d from a channel's direct out", route.DstID))
-			}
 			if route.SrcKind == domain.PortMix {
 				if src, ok := byID[route.SrcID]; ok && !target.FedByAllowed(src.Kind) {
 					fedBy = append(fedBy, fmt.Sprintf("output %d from %s", route.DstID, mixLabel(*src)))
@@ -594,6 +609,12 @@ func MapMixes(mixes []domain.DeskMix, routes []domain.DeskRoute, from, to DeskSi
 	}
 	if len(moved) > 0 {
 		lines = append(lines, PreviewLine{Word: WordMoved, Text: fmt.Sprintf("%s to a slot %s has free.", count(len(moved), "mix moves", "mixes move"), target.Label), Items: moved})
+	}
+	if len(dropped) > 0 {
+		lines = append(lines, PreviewLine{Word: WordChanged, Text: fmt.Sprintf("%s has no %s; nothing routes to %s, so %s.", target.Label, strings.Join(dropped, " or "), pick(len(dropped) == 1, "it", "them"), pick(len(dropped) == 1, "it goes", "they go")), Items: dropped})
+	}
+	if len(fitsAgain) > 0 {
+		lines = append(lines, PreviewLine{Word: WordFitsAgain, Text: fmt.Sprintf("%s that were left out fit again.", count(len(fitsAgain), "mix", "mixes")), Items: fitsAgain})
 	}
 	result.Lines = lines
 	result.Figures = mixFigures(mixes, mapped, from, to)
@@ -647,4 +668,29 @@ func mixFigures(mixes []domain.DeskMix, mapped []MappedMix, from, to DeskSide) [
 		figures = append(figures, Figure{Label: p.label, Before: before, BeforeCap: capacity(from.Model, p.kinds), After: after, AfterCap: capacity(to.Model, p.kinds)})
 	}
 	return figures
+}
+
+func pick(cond bool, a, b string) string {
+	if cond {
+		return a
+	}
+	return b
+}
+
+func routed(routes []domain.DeskRoute, mixID int64) bool {
+	for _, route := range routes {
+		if route.SrcKind == domain.PortMix && route.SrcID == mixID || route.DstKind == domain.PortMix && route.DstID == mixID {
+			return true
+		}
+	}
+	return false
+}
+
+func defaultMainName(model domain.DeskModel, slot int) string {
+	for _, main := range model.MainSlots() {
+		if main.Slot == slot {
+			return main.Name
+		}
+	}
+	return ""
 }

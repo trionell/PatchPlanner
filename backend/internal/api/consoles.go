@@ -379,7 +379,7 @@ func (h AudioPatchHandler) switchConsoleModel(w http.ResponseWriter, r *http.Req
 	if payload.Apply {
 		placedMixes := make([]dbstore.MixPlacement, len(mixMapping.Mixes))
 		for i, mix := range mixMapping.Mixes {
-			placedMixes[i] = dbstore.MixPlacement{ID: mix.ID, Slot: mix.ToSlot, Width: mix.ToWidth, Name: mix.ToName}
+			placedMixes[i] = dbstore.MixPlacement{ID: mix.ID, Slot: mix.ToSlot, Width: mix.ToWidth, Name: mix.ToName, Drop: mix.Drop}
 		}
 		if result.Console, err = dbstore.ApplyDeskSwitch(h.DB, next, placements(mapping.Rows), placedMixes); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())

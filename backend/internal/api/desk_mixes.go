@@ -167,6 +167,17 @@ func (h AudioPatchHandler) updateDeskMix(w http.ResponseWriter, r *http.Request)
 
 	var sources []domain.DeskRoute
 	if payload.Sources != nil {
+		// A route a model switch kept, though the new engine refuses it, stays
+		// saveable as it is: the switch promised to keep it (Slice 48 D6). Only a
+		// new route is checked against the engine.
+		stored := map[string]bool{}
+		if all, err := consoleRoutes(h.DB, console); err == nil {
+			for _, route := range all {
+				if route.DstKind == domain.PortMix && route.DstID == mix.ID {
+					stored[fmt.Sprintf("%s:%d:%d", route.SrcKind, route.SrcID, route.SrcPort)] = true
+				}
+			}
+		}
 		channels, err := dbstore.DeskStripRows(h.DB, console.ID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
@@ -180,7 +191,11 @@ func (h AudioPatchHandler) updateDeskMix(w http.ResponseWriter, r *http.Request)
 					writeError(w, http.StatusBadRequest, "a source channel is not on this desk")
 					return
 				}
-				if err := model.RouteAllowed(domain.RouteFromChannel, 0, mix.Kind, next.Slot); err != nil {
+				if source.Port != 0 {
+					writeError(w, http.StatusBadRequest, "a channel source has port 0")
+					return
+				}
+				if err := model.RouteAllowed(domain.RouteFromChannel, 0, mix.Kind, next.Slot); err != nil && !stored[fmt.Sprintf("channel:%d:0", source.ID)] {
 					writeError(w, http.StatusBadRequest, err.Error())
 					return
 				}
@@ -190,7 +205,11 @@ func (h AudioPatchHandler) updateDeskMix(w http.ResponseWriter, r *http.Request)
 					writeError(w, http.StatusBadRequest, "a source mix is not on this desk")
 					return
 				}
-				if err := model.RouteAllowed(mixes[i].Kind, mixes[i].Slot, mix.Kind, next.Slot); err != nil {
+				if source.Port != 0 && !(source.Port == 1 && mixes[i].Width == "stereo") {
+					writeError(w, http.StatusBadRequest, "a mix source's port is its side: 0, or 1 on a stereo mix")
+					return
+				}
+				if err := model.RouteAllowed(mixes[i].Kind, mixes[i].Slot, mix.Kind, next.Slot); err != nil && !stored[fmt.Sprintf("mix:%d:%d", source.ID, source.Port)] {
 					writeError(w, http.StatusBadRequest, err.Error())
 					return
 				}
@@ -289,7 +308,7 @@ func (h AudioPatchHandler) setFedBy(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if !model.FedByAllowed(mix.Kind) {
-			writeError(w, http.StatusBadRequest, "An FX send does not feed an output.")
+			writeError(w, http.StatusBadRequest, "An FX send, a DCA or a mute group does not feed an output.")
 			return
 		}
 		// A stereo mix on a mono output names its side; a mono mix plays on both.
@@ -305,10 +324,6 @@ func (h AudioPatchHandler) setFedBy(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	case domain.PortChannel:
-		if !model.DirectOutAllowed() {
-			writeError(w, http.StatusBadRequest, "An X32 · M32 cannot send a channel's direct out to an output.")
-			return
-		}
 		channel, err := dbstore.GetInputChannel(h.DB, payload.ID)
 		if err != nil || channel.ConsoleID == nil || *channel.ConsoleID != console.ID {
 			writeError(w, http.StatusBadRequest, "src_id is not a channel of this output's desk")
@@ -389,7 +404,19 @@ func (h AudioPatchHandler) validRecorderRoutes(w http.ResponseWriter, console do
 	onDesk := func(id int64) bool {
 		return slices.ContainsFunc(channels, func(row domain.StripRow) bool { return row.ID == id })
 	}
+	// Tracks past the recorder's count that a model switch kept are accepted as
+	// stored, so saving the table does not drop them (Slice 48 D6).
+	stored := map[string]bool{}
+	if all, err := consoleRoutes(h.DB, console); err == nil {
+		for _, route := range all {
+			if route.SrcKind == domain.PortRecorder || route.DstKind == domain.PortRecorder {
+				stored[routeKey(route)] = true
+			}
+		}
+	}
 	played := map[int64]bool{}
+	recordOn := map[int]bool{}
+	playOn := map[int]bool{}
 	for _, route := range routes {
 		var track int
 		switch {
@@ -407,8 +434,8 @@ func (h AudioPatchHandler) validRecorderRoutes(w http.ResponseWriter, console do
 					writeError(w, http.StatusBadRequest, "a recorded mix is not on this desk")
 					return false
 				}
-				if mixes[i].Width == "mono" && route.SrcPort != 0 {
-					writeError(w, http.StatusBadRequest, "a mono mix has no side")
+				if route.SrcPort != 0 && !(route.SrcPort == 1 && mixes[i].Width == "stereo") {
+					writeError(w, http.StatusBadRequest, "a recorded mix's port is its side: 0, or 1 on a stereo mix")
 					return false
 				}
 			default:
@@ -425,7 +452,12 @@ func (h AudioPatchHandler) validRecorderRoutes(w http.ResponseWriter, console do
 				writeError(w, http.StatusBadRequest, "A channel plays back from one track at most.")
 				return false
 			}
+			if playOn[track] {
+				writeError(w, http.StatusBadRequest, fmt.Sprintf("Track %d plays back into one channel at most.", track))
+				return false
+			}
 			played[route.DstID] = true
+			playOn[track] = true
 			if route.Mode != domain.PlaySoundcheck && route.Mode != domain.PlaySource {
 				writeError(w, http.StatusBadRequest, "playback mode is soundcheck or source")
 				return false
@@ -433,6 +465,16 @@ func (h AudioPatchHandler) validRecorderRoutes(w http.ResponseWriter, console do
 		default:
 			writeError(w, http.StatusBadRequest, "a recorder route starts or ends on this desk's recorder")
 			return false
+		}
+		if route.DstKind == domain.PortRecorder {
+			if recordOn[track] {
+				writeError(w, http.StatusBadRequest, fmt.Sprintf("Track %d records one source at most.", track))
+				return false
+			}
+			recordOn[track] = true
+		}
+		if track > tracks && stored[routeKey(route)] {
+			continue
 		}
 		if track < 1 || track > tracks {
 			writeError(w, http.StatusConflict, fmt.Sprintf("Track %d is past %s's %d tracks.", track, deskLabelOf(console, deskModelOf(console)), tracks))
@@ -494,6 +536,8 @@ func (h AudioPatchHandler) fillRecorder(w http.ResponseWriter, r *http.Request) 
 		if route.SrcKind == domain.PortRecorder && route.SrcID == console.ID {
 			kept = append(kept, route)
 			played[route.DstID] = true
+			// A track already playing into a channel is taken, even if it records nothing.
+			usedTrack[route.SrcPort] = true
 		}
 	}
 	patched, err := dbstore.PatchedChannels(h.DB, console.ID)
@@ -526,4 +570,8 @@ func (h AudioPatchHandler) fillRecorder(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func routeKey(route domain.DeskRoute) string {
+	return fmt.Sprintf("%s:%d:%d>%s:%d:%d", route.SrcKind, route.SrcID, route.SrcPort, route.DstKind, route.DstID, route.DstPort)
 }

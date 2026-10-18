@@ -182,9 +182,13 @@ export function OutputSheet({
     }),
     persist: (output, draft) => {
       const { fed_by, ...fields } = draft
-      saveOutput.mutate({ id: output.id, payload: { ...output, ...fields } })
-      // Fed by is a route, saved beside the row; a desk change has already cleared it.
-      if (fed_by !== fedByKey(routes, output.id) && draft.console_id === output.console_id) fedBy.mutate({ id: output.id, key: fed_by })
+      const changed = fed_by !== fedByKey(routes, output.id) && draft.console_id === output.console_id
+      // Fed by is a route, saved after the row: the server reads the output's width to
+      // know whether a side applies, so the row's new width has to be there first.
+      saveOutput.mutate(
+        { id: output.id, payload: { ...output, ...fields } },
+        { onSuccess: () => changed && fedBy.mutate({ id: output.id, key: fed_by }) },
+      )
     },
   })
   const saveRow = () => {
@@ -271,7 +275,7 @@ export function OutputSheet({
                     <TapeBar color={output.color} />
                     {output.output_name || <span className="text-zinc-500">unnamed</span>}
                   </SheetCell>
-                  <SheetCell className="whitespace-nowrap text-zinc-300">{fedByLabel(fedByKey(routes, output.id), mixes, channels)}</SheetCell>
+                  <SheetCell className="whitespace-nowrap text-zinc-300">{fedByLabel(fedByKey(routes, output.id), mixes, channels, output.width)}</SheetCell>
                   <SheetCell>
                     <Pill className={vocabularyTint(output.output_type)}>{output.output_type}</Pill>
                   </SheetCell>

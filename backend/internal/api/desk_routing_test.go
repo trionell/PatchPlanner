@@ -158,14 +158,15 @@ func TestFedBy(t *testing.T) {
 	if status, raw := doJSON(t, http.MethodPut, fedBy, map[string]any{"src_kind": "mix", "src_id": lr.ID}); status != http.StatusBadRequest || !strings.Contains(string(raw), "needs a side") {
 		t.Errorf("stereo LR on a mono output without a side: %d %s", status, raw)
 	}
-	if status, raw := doJSON(t, http.MethodPut, fedBy, map[string]any{"src_kind": "mix", "src_id": lr.ID, "side": "R"}); status != http.StatusNoContent {
-		t.Errorf("LR R: %d %s", status, raw)
-	}
 	if status, raw := doJSON(t, http.MethodPut, fedBy, map[string]any{"src_kind": "mix", "src_id": fx.ID}); status != http.StatusBadRequest {
 		t.Errorf("an FX send: %d %s", status, raw)
 	}
-	if status, raw := doJSON(t, http.MethodPut, fedBy, map[string]any{"src_kind": "channel", "src_id": kick.ID}); status != http.StatusBadRequest {
+	// An X32 output takes a channel's direct out (Maillot: /outputs/main src DirectOut Ch).
+	if status, raw := doJSON(t, http.MethodPut, fedBy, map[string]any{"src_kind": "channel", "src_id": kick.ID}); status != http.StatusNoContent {
 		t.Errorf("an X32 direct out: %d %s", status, raw)
+	}
+	if status, raw := doJSON(t, http.MethodPut, fedBy, map[string]any{"src_kind": "mix", "src_id": lr.ID, "side": "R"}); status != http.StatusNoContent {
+		t.Errorf("LR R: %d %s", status, raw)
 	}
 	var fed []domain.DeskRoute
 	for _, route := range f.patch().Routes {
@@ -302,6 +303,21 @@ func TestRecorder(t *testing.T) {
 	if record != 2 || play != 2 {
 		t.Errorf("filled %d record and %d playback routes, want 2 and 2", record, play)
 	}
+	// One source per record track, one channel per playback track (review H3).
+	twoOnOne := []map[string]any{
+		{"src_kind": "channel", "src_id": patched[0].ID, "dst_kind": "recorder", "dst_id": desk.ID, "dst_port": 5},
+		{"src_kind": "channel", "src_id": patched[1].ID, "dst_kind": "recorder", "dst_id": desk.ID, "dst_port": 5},
+	}
+	if status, raw := doJSON(t, http.MethodPut, recorder+"/routes", twoOnOne); status != http.StatusBadRequest {
+		t.Errorf("two sources on one track: %d %s", status, raw)
+	}
+	oneIntoTwo := []map[string]any{
+		{"src_kind": "recorder", "src_id": desk.ID, "src_port": 6, "dst_kind": "channel", "dst_id": patched[0].ID, "mode": "source"},
+		{"src_kind": "recorder", "src_id": desk.ID, "src_port": 6, "dst_kind": "channel", "dst_id": patched[1].ID, "mode": "source"},
+	}
+	if status, raw := doJSON(t, http.MethodPut, recorder+"/routes", oneIntoTwo); status != http.StatusBadRequest {
+		t.Errorf("one track into two channels: %d %s", status, raw)
+	}
 	// A track past the card's 32 is refused.
 	if status, raw := doJSON(t, http.MethodPut, recorder+"/routes", []map[string]any{{"src_kind": "channel", "src_id": patched[0].ID, "dst_kind": "recorder", "dst_id": desk.ID, "dst_port": 33}}); status != http.StatusConflict || !strings.Contains(string(raw), "past") {
 		t.Errorf("track 33: %d %s", status, raw)
@@ -327,22 +343,22 @@ func TestSwitchMapsMixes(t *testing.T) {
 		Mapping service.Mapping     `json:"mapping"`
 		Mixes   []service.MappedMix `json:"mixes"`
 	}](t, raw)
-	over, mainsOver := 0, 0
+	over, dropped := 0, 0
 	for _, mix := range preview.Mixes {
-		if mix.Over && mix.Kind == domain.MixMain {
-			mainsOver++
+		if mix.Drop {
+			dropped++
 		} else if mix.Over {
 			over++
 		}
 	}
-	// 2 stereo groups take 4 buses on an X32, then 12 monitors fit; 3 are over,
-	// and LV1's Mono main has no place on an M32.
-	if over != 3 || mainsOver != 1 {
-		t.Errorf("%d mixes and %d mains over, want 3 and 1", over, mainsOver)
+	// 2 stereo groups take 4 buses on an X32, then 12 monitors fit; 3 are over.
+	// LV1's Mono main has no place on an M32 and nothing routes to it: it goes.
+	if over != 3 || dropped != 1 {
+		t.Errorf("%d mixes over and %d mains dropped, want 3 and 1", over, dropped)
 	}
 	var sawGroupRoute bool
 	for _, line := range preview.Mapping.Lines {
-		if line.Word == service.WordLeftOut && strings.Contains(line.Text, "routes") || strings.Contains(line.Text, "route ") {
+		if line.Word == service.WordLeftOut && strings.Contains(line.Text, "cannot make") {
 			sawGroupRoute = true
 		}
 	}
@@ -365,8 +381,54 @@ func TestSwitchMapsMixes(t *testing.T) {
 			mains++
 		}
 	}
-	// LV1 64's L/R, C and Mono kept; Mono is over on an M32.
-	if mains != 3 {
-		t.Errorf("%d mains, want 3 kept", mains)
+	// LV1 64's L/R and C become LR and M/C; Mono went.
+	if mains != 2 {
+		t.Errorf("%d mains, want 2", mains)
+	}
+	// A kept route the M32 refuses does not stop the mix from being saved (review H1).
+	if status, raw := doJSON(t, http.MethodPatch, fmt.Sprintf("%s/events/%d/mixes/%d", f.base, f.eventID, g2.ID), map[string]any{"name": "Band", "sources": []map[string]any{mixSource(g1.ID)}}); status != http.StatusOK {
+		t.Errorf("renaming a mix that keeps a refused route: %d %s", status, raw)
+	}
+	// A new refused route is still refused.
+	if status, raw := f.setSources(g1, mixSource(g2.ID)); status != http.StatusBadRequest {
+		t.Errorf("a new bus → bus: %d %s", status, raw)
+	}
+}
+
+// Deleting a mix clears every route naming it: membership, Fed by and record.
+func TestDeleteMixClearsItsRoutes(t *testing.T) {
+	f, desk := newDeskFixture(t)
+	f.switchTo(desk, "m32", true)
+	kick := f.mustAddChannel(map[string]any{"channel_number": 1})
+	wedge := f.mustAddMix(desk, "monitor", "mono")
+	if status, raw := f.setSources(wedge, channelSource(kick.ID)); status != http.StatusOK {
+		t.Fatalf("source: %d %s", status, raw)
+	}
+	outputs := fmt.Sprintf("%s/events/%d/audio-outputs", f.base, f.eventID)
+	_, raw := doJSON(t, http.MethodPost, outputs, map[string]any{"output_number": 1, "output_type": "monitor"})
+	out := decodeJSON[domain.AudioPatchOutput](t, raw)
+	if status, raw := doJSON(t, http.MethodPut, fmt.Sprintf("%s/%d/fed-by", outputs, out.ID), map[string]any{"src_kind": "mix", "src_id": wedge.ID}); status != http.StatusNoContent {
+		t.Fatalf("fed by: %d %s", status, raw)
+	}
+	recorder := fmt.Sprintf("%s/%d/recorder", f.consoles, desk.ID)
+	doJSON(t, http.MethodPut, recorder, map[string]any{"recorder": true})
+	if status, raw := doJSON(t, http.MethodPut, recorder+"/routes", []map[string]any{{"src_kind": "mix", "src_id": wedge.ID, "dst_kind": "recorder", "dst_id": desk.ID, "dst_port": 1}}); status != http.StatusNoContent {
+		t.Fatalf("record: %d %s", status, raw)
+	}
+	if status, raw := doJSON(t, http.MethodDelete, fmt.Sprintf("%s/events/%d/mixes/%d", f.base, f.eventID, wedge.ID), nil); status != http.StatusNoContent {
+		t.Fatalf("delete: %d %s", status, raw)
+	}
+	for _, route := range f.patch().Routes {
+		if route.SrcKind == "mix" && route.SrcID == wedge.ID || route.DstKind == "mix" && route.DstID == wedge.ID {
+			t.Errorf("a route outlives the mix: %+v", route)
+		}
+	}
+	// Turning the recorder off clears what is left of it.
+	doJSON(t, http.MethodPut, recorder+"/routes", []map[string]any{{"src_kind": "channel", "src_id": kick.ID, "dst_kind": "recorder", "dst_id": desk.ID, "dst_port": 1}})
+	doJSON(t, http.MethodPut, recorder, map[string]any{"recorder": false})
+	for _, route := range f.patch().Routes {
+		if route.DstKind == "recorder" {
+			t.Errorf("a recorder route outlives the recorder: %+v", route)
+		}
 	}
 }

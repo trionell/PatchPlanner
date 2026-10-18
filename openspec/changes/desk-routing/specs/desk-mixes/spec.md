@@ -96,8 +96,9 @@ A channel created on a desk SHALL be routed to that desk's Main LR. It SHALL joi
 ### Requirement: An output is fed by a mix
 
 An output SHALL keep its type as its destination and SHALL have an optional **Fed by**: one mix on
-its own desk — on X32 · M32 Main LR, M/C, a subgroup or monitor bus, or a matrix; on LV1 a main (L/R,
-C, Mono), a group, a Mon mix, a matrix or a channel's direct out; never an FX send. Fed by SHALL be
+its own desk — its mains, subgroups or groups, monitor mixes and matrices, or a channel's direct out
+(every engine: X32 · M32 outputs take DirectOut Ch 1–32, per Maillot's protocol — corrected
+2026-10-18); never an FX send, a DCA or a mute group. Fed by SHALL be
 stored as a route from the mix to the output, like every other connection. Several outputs MAY be fed by one mix. A stereo mix feeding
 a mono output SHALL name its side (L or R); a mono mix feeding a stereo output SHALL play on both.
 An output fed by nothing SHALL show "—" and SHALL NOT warn. A Mon or Matrix mix that feeds no output
@@ -150,10 +151,12 @@ The upgrade SHALL keep every group, DCA and membership:
 Slice 47's switch preview SHALL also state the mix pools before and after and SHALL list mixes and
 routes in its four words: **Moved** (slot changes), **Changed** (a mono subgroup becomes a stereo LV1
 group; M/C becomes C/Mono or back), **Left out** (mixes past the pool; routes the new desk cannot
-make; direct-out feeds), **Fits again**. Mixes SHALL be mapped by type in order (subgroups, monitors,
+make), **Fits again**. A main the new desk has not got is removed when nothing routes to it, and
+kept flagged over when something does; a main keeps a name the planner gave it. Mixes SHALL be mapped by type in order (subgroups, monitors,
 FX, then matrices, DCAs, mute groups), each keeping its slot where legal and free, else the next
 legal one, else past the end flagged over. Left-out routes — including a Fed by the new desk cannot
-make — SHALL be kept and unused. Recorder tracks past the new desk's count SHALL be Left out and kept.
+make — SHALL be kept, unused, and SHALL stay saveable as they are: saving the mix that holds one
+SHALL NOT refuse it, though adding a new refused route SHALL be refused. Recorder tracks past the new desk's count SHALL be Left out and kept.
 Nothing SHALL be deleted.
 
 #### Scenario: LV1 to M32

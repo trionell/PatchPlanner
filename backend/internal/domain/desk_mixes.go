@@ -28,16 +28,12 @@ const (
 	RouteFromMix     = "mix"
 )
 
-// FedByAllowed says whether a mix kind can feed an output: never an FX send.
+// FedByAllowed says whether a mix kind can feed an output: never an FX send,
+// a DCA or a mute group.
 func (m DeskModel) FedByAllowed(kind string) bool {
 	return kind == MixMain || kind == MixSubgroup || kind == MixMonitor || kind == MixMatrix
 }
 
-// DirectOutAllowed says whether a channel's direct out can feed an output:
-// LV1 and Generic, never X32 · M32 (Slice 48 spec).
-func (m DeskModel) DirectOutAllowed() bool {
-	return m.Engine != EngineX32
-}
 
 // DeskMix is one mix, DCA or mute group on one desk. ConsoleID is nil only for
 // the groups migration 055 found on an event with no desk; the first desk

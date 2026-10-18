@@ -54,7 +54,7 @@ event_consoles + recorder INTEGER NOT NULL DEFAULT 0, + recorder_tracks INTEGER 
 | Connection | src | dst |
 |---|---|---|
 | Membership (channel or mix in a mix, DCA, mute) | `channel:id:0` or `mix:id:0` | `mix:id:0` |
-| Fed by | `mix:id:side` (0 = L or mono, 1 = R) or `channel:id:0` (LV1 direct out) | `output:id:0` |
+| Fed by | `mix:id:side` (0 = L or mono, 1 = R) or `channel:id:0` (a direct out, every engine) | `output:id:0` |
 | Record track N | `channel:id:0` (its preamp) or `mix:id:side` | `recorder:console:N` |
 | Playback track N | `recorder:console:N` | `channel:id:0`, `mode` soundcheck/source |
 
@@ -121,8 +121,11 @@ UI hatches cells from the same rules rather than re-deriving them. Unit tests en
 `service/deskmap.go` gains `MapMixes(mixes, routes, target)` beside Slice 47's `MapRows`; the
 switch endpoint returns and applies both. Order: subgroups, monitors, FX (sharing X32's bus pool),
 then matrices, DCAs, mutes; each keeps its slot if legal and free, else next legal, else past the
-end flagged `over`. Routes the target engine refuses — including Fed by from a kind it cannot send to an output and
-an X32 direct out — are reported as Left out and **kept**; recorder tracks past the target's count
+end flagged `over`. Routes the target engine refuses — including Fed by from a kind it cannot send to an output — are
+reported as Left out and **kept**, and the column Save accepts a stored source unchanged so a kept
+route never blocks a rename (review 2026-10-18); recorder routes past the count are kept the same
+way. A main the target has not got is dropped when nothing routes to it; a main keeps a planner's
+name; recorder tracks past the target's count
 are Left out and kept; a switch to a real model sets `recorder_tracks` from the model, and to
 Generic keeps the count as typed;
 `RouteAllowed` is applied when routes are *used* (tables hatch them, the export skips them), not

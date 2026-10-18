@@ -38,8 +38,8 @@ interface DrawerBaseProps {
  * is a note something has to remember, and this union is what stops a drawer
  * from having the one without the other.
  *
- * `info` used to be `footer` prose — a paragraph at the foot of Universes, Buses
- * and Groups & DCAs, correct and unread after the first time, and on a phone a
+ * `info` used to be `footer` prose — a paragraph at the foot of Universes and the
+ * old Buses drawer, correct and unread after the first time, and on a phone a
  * fifth of the screen. It sits beside the title now, closed, behind one `i`.
  *
  * **`noteId` is the note's identity, and `title` is not** (ROADMAP D5). The
@@ -58,7 +58,7 @@ type DrawerNoteProps = { info: ReactNode; noteId: string } | { info?: undefined;
 type DrawerProps = DrawerBaseProps & DrawerNoteProps
 
 /**
- * A right-anchored overlay panel — the audio tabs' Rig and Buses drawers
+ * A right-anchored overlay panel — the audio tabs' Rig drawer, Universes
  * (Slice 23). Deliberately an overlay rather than a flex sibling: it opens
  * over the sheet the user is cross-referencing, so the sheet's layout never
  * shifts, and narrowing the window can't squeeze the table
