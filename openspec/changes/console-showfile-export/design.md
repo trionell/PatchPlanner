@@ -148,15 +148,38 @@ resolved by following each channel's cable chain to a stagebox port (reusing
 
 ### D3. X32 · M32
 
-Always user in / user out (user, 2026-10-18): `/config/routing/IN` blocks select the user-in blocks
-and `/config/userrout/in` holds one source per channel (32 slots); output, AES50 and card blocks
-select user-out blocks and `/config/userrout/out` holds one source per slot (48), which may be any
-mix, matrix or main (user: "Yes, any mix"). The token and source values are confirmed against
-Maillot's protocol PDF before the writer is coded, and a golden file pins them. Routes: channel →
-LR/M/C on `/ch/NN/mix`; channel → bus as `/ch/NN/mix/MM ON +0.0` (0 dB, user 2026-10-18); bus →
-LR/M/C on `/bus/NN/mix`; bus/LR/M/C → matrix sends at 0 dB; DCA and mute bitmaps on `/ch/NN/grp` and
-`/bus/NN/grp`. Aux inputs on `/auxin/NN/config` and `/config/auxlink`. Recorder: record tracks through
-user-out slots on the card block; soundcheck playback through the `PLAY` routing.
+Facts from Maillot, *Unofficial X32/M32 OSC Remote Protocol* v4.06-09, pp. 21–22 and the outputs
+section, checked against `m32_default.scn` (2026-10-18):
+
+| Line | Values |
+|---|---|
+| `/config/routing/IN` 4 blocks + AUX | tokens `AN1-8…`, `A1-8…A41-48`, `B…`, `CARD1-8…`, **`UIN1-8`, `UIN9-16`, `UIN17-24`, `UIN25-32`**; AUX `AUX1-4…UIN1-6` |
+| `/config/userrout/in` 32 ints | 0 off, 1–32 local in, 33–80 AES50-A 1–48, 81–128 AES50-B 1–48, 129–160 card 1–32, 161–166 aux in, 167–168 TB |
+| `/config/userrout/out` 48 ints | as `in`, plus 169–184 **Outputs 1–16**, 185–200 **P16 1–16**, 201–206 **Aux 1–6**, 207–208 Monitor L/R |
+| `/config/routing/AES50A|AES50B|CARD` blocks of 8 | `AN…`, `A…`, `B…`, `CARD…`, `OUT1-8`, `OUT9-16`, `P161-8`, `P169-16`, `AUX1-6/Mon`, `AuxIN1-6/TB`, **`UOUT1-8…UOUT41-48`**, `UIN…` |
+| `/config/routing/OUT` blocks of 4 | `…OUT1-4…`, `P16…`, `AUX/CR`, `AUX/TB`, **`UOUT1-4…`**, `UIN…` |
+| `/config/routing/PLAY` | as `IN`; `/config/routing REC|PLAY` switches between them |
+| `/outputs/main|aux|p16/NN src` | 0 off, 1 Main L, 2 Main R, 3 M/C, 4–19 Bus 1–16, 20–25 Matrix 1–6, **26–57 direct out Ch 1–32**, 58–65 direct out Aux 1–8, 66–73 FX 1L–4R, 74–75 Monitor L/R, 76 TB |
+
+**Correction to the user's "Yes, any mix" (2026-10-18):** a user-out slot cannot name a bus, a
+matrix or a main. A mix reaches a socket only through one of **38 output signals** — Outputs 1–16
+(`/outputs/main`), P16 1–16 (`/outputs/p16`) and Aux 1–6 (`/outputs/aux`) — whose `src` can be any
+mix or direct out; user out then picks those signals per slot. So the writer: (1) gives each
+distinct Fed-by feed (mix and side, or direct out) one output signal, the local XLR outs first
+(local out N *is* Output N on a full-size desk); (2) routes every stagebox block through user
+out, each slot naming the output signal its port carries; (3) states under **Left out** any feed
+past the 38. A channel direct out can feed an output on X32 too — Slice 48's rule against it was
+wrong and is corrected there.
+
+Input patch: `/config/routing/IN` all four blocks = `UIN…`, `/config/userrout/in` slot N = the
+source code of the port feeding channel N. Aux inputs keep the template's `AUX1-4` routing (the
+rear aux sockets) unless an aux row has a stagebox port, which takes the AUX `UIN1-6` token and
+user in. Routes: channel → LR/M/C on `/ch/NN/mix` (`st`/`mono` flags); channel → bus as
+`/ch/NN/mix/MM ON +0.0`, monitor buses tapped `EQ->`, the rest `POST`; bus → LR/M/C on
+`/bus/NN/mix`; bus/LR/M/C → matrix as `/bus|main/…/mix/MM ON +0.0`; DCA and mute bitmaps on
+`grp` lines (group 1 the rightmost bit). Faders stay as the template. Recorder: record tracks
+through user out on the `CARD` blocks; a soundcheck track lines up with its channel through the
+`PLAY` blocks (`CARD…`); a track whose channel is not its own number is listed under **Changed**.
 
 ### D4. LV1
 

@@ -1,8 +1,8 @@
 ## 1. Templates and research gaps
 
-- [ ] 1.1 Copy `showfiles/m32_default.scn` and `showfiles/lv1_clean_17.3.50.135.emo` into `backend/internal/service/consolefile/templates/` and embed them (`go:embed`); leave `showfiles/` untracked
-- [ ] 1.2 Confirm the X32 user-routing tokens and source indices (`/config/routing/IN|OUT|AES50A|AES50B|CARD|PLAY` user blocks, `/config/userrout/in|out` source values for inputs, buses, matrices, mains, aux) against Maillot's protocol PDF; record them in design.md D3
-- [ ] 1.3 Confirm the X32 send, bus-assign, matrix-send and `/bus/NN/grp` line shapes in the template; record them in design.md
+- [x] 1.1 Copy `showfiles/m32_default.scn` and `showfiles/lv1_clean_17.3.50.135.emo` into `backend/internal/service/consolefile/templates/` and embed them (`go:embed`); leave `showfiles/` untracked
+- [x] 1.2 Confirm the X32 user-routing tokens and source indices (`/config/routing/IN|OUT|AES50A|AES50B|CARD|PLAY` user blocks, `/config/userrout/in|out` source values for inputs, buses, matrices, mains, aux) against Maillot's protocol PDF; record them in design.md D3
+- [x] 1.3 Confirm the X32 send, bus-assign, matrix-send and `/bus/NN/grp` line shapes in the template; record them in design.md
 
 ## 2. The show model
 
