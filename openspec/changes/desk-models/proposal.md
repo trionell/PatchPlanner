@@ -74,7 +74,7 @@ jacks), plus a model-switch dialog and a desk-selection hook.
 **`design/`.** `components.md` §ui/Dialog (A1, A2), §ui/GearList (B3); `patterns.md` §1 (B6),
 §2 (B7), §5 (A3, B1, B2, B4); `tokens.md` §7 (A2). Written in the same commit as the code.
 
-**Downstream.** Slice 48 (`desk-routing`) reads the mix pools stored here; Slice 49
+**Downstream.** Slice 48 (`desk-routing`) reads the model and bus mode and looks the mix pools up in the profile; Slice 49
 (`console-showfile-export`) reads the model, strip pools and numbering.
 
 ## Constitution Check — Principles I–V
