@@ -173,8 +173,15 @@ wrong and is corrected there.
 
 Input patch: `/config/routing/IN` all four blocks = `UIN…`, `/config/userrout/in` slot N = the
 source code of the port feeding channel N. Aux inputs keep the template's `AUX1-4` routing (the
-rear aux sockets) unless an aux row has a stagebox port, which takes the AUX `UIN1-6` token and
-user in. Routes: channel → LR/M/C on `/ch/NN/mix` (`st`/`mono` flags); channel → bus as
+rear aux sockets); an aux row patched to a stagebox is listed under **Changed** and not routed
+(review 2026-10-18 — the AUX `UIN1-6` token would share user-in slots 1–6 with channels 1–6). Local
+jacks always sit at Local 1 and the dialog states them; a box's first port is bounded by its socket
+(local 32, AES50 48, card 32), and ports past the end are **Left out**, never the next socket's.
+On LV1 an LV1 Classic's local jacks default to an LV1 Classic in the first free slot, and a new slot
+defaults to the box's recorded model, else Other. The session is written in WAL mode and the
+clock source is set to the first device, as LV1's own sessions are.
+
+Routes: channel → LR/M/C on `/ch/NN/mix` (`st`/`mono` flags); channel → bus as
 `/ch/NN/mix/MM ON +0.0`, monitor buses tapped `EQ->`, the rest `POST`; bus → LR/M/C on
 `/bus/NN/mix`; bus/LR/M/C → matrix as `/bus|main/…/mix/MM ON +0.0`; DCA and mute bitmaps on
 `grp` lines (group 1 the rightmost bit). Faders stay as the template. Recorder: record tracks

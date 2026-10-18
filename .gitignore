@@ -10,3 +10,7 @@ frontend/.baseline/
 # Python bytecode from the glyph scripts
 __pycache__/
 *.pyc
+
+# SQLite side files from opening a template
+*.emo-shm
+*.emo-wal

@@ -36,6 +36,8 @@ func x32Fixture() Show {
 			{FromStrip: 1, ToMix: 130},
 			{FromMix: 110, ToMix: 140},
 			{FromStrip: 1, ToMix: 120}, // an X32 matrix takes no channel
+			{FromStrip: 7, ToMix: 111}, // Piano 7–8 → Wedge 1: both strips send
+			{FromStrip: 7, ToMix: 130}, // and both are on DCA 1
 		},
 		Outputs: []Output{
 			{ID: 1, Name: "Sub", Port: &DeskPort{Socket: "local", Index: 0}, FedByMix: 110},
@@ -126,6 +128,8 @@ func TestX32Routes(t *testing.T) {
 		{"/main/st/mix/01", 2, "+0.0"}, // LR → Rec
 		{"/ch/01/grp", 1, "%00000001"}, // Kick on DCA 1
 		{"/bus/01/grp", 2, "%000001"},  // Drums in mute group 1
+		{"/ch/08/mix/03", 2, "+0.0"},   // the pair's second strip sends too
+		{"/ch/08/grp", 1, "%00000001"}, // and is on the DCA
 	}
 	for _, c := range cases {
 		if got := sc.field(c.path, c.field); got != c.want {
@@ -175,7 +179,7 @@ func TestX32Notices(t *testing.T) {
 	if find(LeftOut, "mixes past") == nil {
 		t.Errorf("over matrix: %+v", notices)
 	}
-	if n := find(LeftOut, "routes an X32 cannot make"); n == nil || len(n.Items) != 1 {
+	if n := find(LeftOut, "routes an X32 cannot make"); n == nil || len(n.Items) != 1 || n.Items[0] != "Kick → Rec" {
 		t.Errorf("channel into a matrix: %+v", notices)
 	}
 	if n := find(Changed, "names cut"); n == nil || n.Items[0] != "Gitarr Johannes → Gitarr Johan" {
@@ -183,5 +187,22 @@ func TestX32Notices(t *testing.T) {
 	}
 	if find(NoInput, "no input") == nil {
 		t.Errorf("no input: %+v", notices)
+	}
+}
+
+func TestX32LocalOutPast16RewritesNothing(t *testing.T) {
+	show := x32Fixture()
+	show.Outputs = []Output{{ID: 9, Name: "Far", Port: &DeskPort{Socket: "local", Index: 19}, FedByMix: 111}}
+	sc, notices := written(t, show)
+	template := parseScene(x32Template)
+	if sc.field("/outputs/main/01", 1) != template.field("/outputs/main/01", 1) {
+		t.Error("a refused output rewrote Output 1")
+	}
+	var found bool
+	for _, n := range notices {
+		found = found || n.Word == LeftOut && strings.Contains(n.Text, "local out past 16")
+	}
+	if !found {
+		t.Errorf("no Left out line: %+v", notices)
 	}
 }

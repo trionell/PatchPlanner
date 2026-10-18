@@ -117,9 +117,24 @@ export function ConsoleExportDialog({ open, onClose, eventId, desk, deskCount, r
             {(preview.data?.boxes ?? []).length > 0 && (
               <div className="space-y-2">
                 <MicroLabel>Where each box sits on the desk</MicroLabel>
-                {(preview.data?.boxes ?? []).map((box) => (
-                  <PortRow key={box.key} name={box.name} engine={engine} choice={ports[box.key]} onChange={(choice) => setBox(box.key, choice)} />
-                ))}
+                {(preview.data?.boxes ?? []).map((box) =>
+                  box.fixed ? (
+                    <div key={box.key} className="flex flex-wrap items-center gap-2">
+                      <span className="min-w-24 flex-1 truncate text-zinc-200">{box.name}</span>
+                      <span className="text-xs text-zinc-400">{box.fixed}</span>
+                    </div>
+                  ) : (
+                    <PortRow
+                      key={box.key}
+                      name={box.name}
+                      inputs={box.inputs}
+                      boxModel={box.model}
+                      engine={engine}
+                      choice={ports[box.key]}
+                      onChange={(choice) => setBox(box.key, choice)}
+                    />
+                  ),
+                )}
               </div>
             )}
 
@@ -165,7 +180,29 @@ export function ConsoleExportDialog({ open, onClose, eventId, desk, deskCount, r
   )
 }
 
-function PortRow({ name, engine, choice, onChange }: { name: string; engine: string; choice?: ExportPortChoice; onChange: (choice: ExportPortChoice | null) => void }) {
+const SOCKET_SIZE: Record<string, number> = { local: 32, a: 48, b: 48, card: 32 }
+
+/** The box's recorded model, when it is one LV1 knows; otherwise Other — never a guess. */
+function deviceOf(model?: string): NonNullable<ExportPortChoice['device']> {
+  const known = (['SG4000', 'SG1000', 'Classic'] as const).find((device) => model?.toUpperCase().includes(device.toUpperCase()))
+  return known ?? 'Other'
+}
+
+function PortRow({
+  name,
+  inputs,
+  boxModel,
+  engine,
+  choice,
+  onChange,
+}: {
+  name: string
+  inputs: number
+  boxModel?: string
+  engine: string
+  choice?: ExportPortChoice
+  onChange: (choice: ExportPortChoice | null) => void
+}) {
   if (engine === 'x32') {
     return (
       <div className="flex flex-wrap items-center gap-2">
@@ -185,11 +222,15 @@ function PortRow({ name, engine, choice, onChange }: { name: string; engine: str
         </Select>
         {choice?.socket && (
           <Select size="sm" aria-label={`${name} first port`} value={choice.start ?? 0} onChange={(event) => onChange({ ...choice, start: Number(event.target.value) })}>
-            {Array.from({ length: choice.socket === 'card' || choice.socket === 'local' ? 4 : 6 }, (_, i) => i * 8).map((start) => (
-              <option key={start} value={start}>
-                from {start + 1}
-              </option>
-            ))}
+            {/* Only starts the whole box fits after: a box past the socket's end would
+                spill onto the next socket's preamps. */}
+            {Array.from({ length: SOCKET_SIZE[choice.socket] / 8 }, (_, i) => i * 8)
+              .filter((start) => start + Math.max(1, inputs) <= SOCKET_SIZE[choice.socket!])
+              .map((start) => (
+                <option key={start} value={start}>
+                  {start + 1}–{start + Math.max(1, inputs)}
+                </option>
+              ))}
           </Select>
         )}
       </div>
@@ -206,7 +247,7 @@ function PortRow({ name, engine, choice, onChange }: { name: string; engine: str
         onChange={(event) => {
           if (!event.target.value) return onChange(null)
           const [bank, slot] = event.target.value.split('.').map(Number)
-          onChange({ bank, slot, start: 0, device: choice?.device ?? 'SG4000' })
+          onChange({ bank, slot, start: 0, device: choice?.device ?? deviceOf(boxModel) })
         }}
       >
         <option value="">Not connected</option>
@@ -219,7 +260,7 @@ function PortRow({ name, engine, choice, onChange }: { name: string; engine: str
         )}
       </Select>
       {slotValue && (
-        <Select size="sm" aria-label={`${name} device`} value={choice?.device ?? 'SG4000'} onChange={(event) => onChange({ ...choice, device: event.target.value as ExportPortChoice['device'] })}>
+        <Select size="sm" aria-label={`${name} device`} value={choice?.device ?? deviceOf(boxModel)} onChange={(event) => onChange({ ...choice, device: event.target.value as ExportPortChoice['device'] })}>
           {LV1_DEVICES.map((device) => (
             <option key={device} value={device}>
               {device === 'Classic' ? 'LV1 Classic' : device}

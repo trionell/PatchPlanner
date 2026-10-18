@@ -9,7 +9,7 @@
 - [x] 2.1 `consolefile/show.go`: `Show` (strips, mixes, routes, output sources, input patch, recorder) and `BuildShow(data, consoleID, ports)` from the audio patch and Slice 48 data
 - [x] 2.2 Port map parsing and resolution: stagebox → desk input via the cable chain (`inputSourcesByChannel`), 48 V from the source
 - [x] 2.3 Preview figures and lines (Left out / Changed / No input / No port) from the same pass; name cutting at the engine's length; nearest-colour mapping with merge detection
-- [x] 2.4 Table tests per engine: over rows and mixes left out, refused routes left out, X32 direct-out Fed by left out, names cut, colours merged, unknown LV1 device 48 V, no input, no port
+- [x] 2.4 Table tests per engine: over rows and mixes left out, refused routes left out, box ports past their socket, a local out past 16, names cut, colours merged, unknown LV1 device 48 V, no input, no port
 
 ## 3. The X32 · M32 writer
 
@@ -47,7 +47,7 @@
 
 ## 7. Close-out
 
-- [ ] 7.1 Real data on a `/tmp` copy: export the wedding's M32R scene and an LV1 session
-- [ ] 7.2 `reviewer` against specs and mockup; fix findings
+- [x] 7.1 Real data on a `/tmp` copy: export the wedding's M32R scene and an LV1 session
+- [x] 7.2 `reviewer` against specs and mockup; fix findings
 - [ ] 7.3 The user loads a generated `.scn` in M32-Edit and an `.emo` in LV1 17.3 (including the recorder device) before the slice is closed
 - [ ] 7.4 ROADMAP Slice 49 record; archive before any merge (merge is the user's call)

@@ -26,7 +26,8 @@ export interface ConsoleExportPreview {
   filename: string
   figures: { label: string; value: string }[]
   lines: { word: 'Left out' | 'Changed' | 'No input' | 'No port'; text: string; items?: string[] }[] | null
-  boxes: { key: string; name: string; inputs: number }[] | null
+  /** The boxes the desk uses; `fixed` is a row the desk decides (X32 local jacks), stated not chosen. */
+  boxes: { key: string; name: string; inputs: number; model?: string; fixed?: string }[] | null
 }
 
 const exportQuery = (consoleId: number, ports: ExportPorts) =>

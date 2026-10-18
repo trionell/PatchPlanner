@@ -53,6 +53,10 @@ type ExportBox struct {
 	Key    string `json:"key"`
 	Name   string `json:"name"`
 	Inputs int    `json:"inputs"`
+	// Model is the box's recorded model, which the dialog defaults an LV1 device to.
+	Model string `json:"model,omitempty"`
+	// Fixed is a row the desk decides (X32 local jacks): stated, never chosen.
+	Fixed string `json:"fixed,omitempty"`
 }
 
 // BuildConsoleExport writes one desk of an event as the file its model loads:
@@ -99,8 +103,15 @@ func (s ExportService) BuildConsoleExport(eventID, consoleID int64, ports Export
 	}
 	unmapped := map[string]bool{}
 	usedBoxes := map[string]bool{}
+	boxName["local"] = "Local jacks"
 
 	// resolve is a box port as a desk port, through the dialog's choices.
+	//
+	// X32 · M32's local jacks are the desk's own sockets and always sit at Local 1:
+	// the dialog states them rather than offering a choice (Slice 49 review). An LV1
+	// Classic's local jacks default to an LV1 Classic in the first slot no box takes.
+	socketSize := map[string]int{"local": 32, "a": 48, "b": 48, "card": 32}
+	var pastSocket []string
 	resolve := func(kind string, id int64, port int) *consolefile.DeskPort {
 		key := ""
 		switch kind {
@@ -116,15 +127,25 @@ func (s ExportService) BuildConsoleExport(eventID, consoleID int64, ports Export
 		}
 		usedBoxes[key] = true
 		choice, ok := ports[key]
-		if !ok && key == "local" && model.Engine == domain.EngineX32 {
+		if key == "local" && model.Engine == domain.EngineX32 {
 			choice, ok = PortChoice{Socket: "local"}, true
+		}
+		if !ok && key == "local" && model.Engine == domain.EngineLV1 && model.LocalIn > 0 {
+			choice, ok = classicSlot(ports), true
 		}
 		if !ok {
 			unmapped[key] = true
 			return nil
 		}
 		if model.Engine == domain.EngineX32 {
-			return &consolefile.DeskPort{Socket: choice.Socket, Index: choice.Start + port}
+			index := choice.Start + port
+			if size := socketSize[choice.Socket]; index >= size {
+				// A box past the end of its socket must not spill onto the next one —
+				// its preamps and 48 V would be another box's.
+				pastSocket = append(pastSocket, fmt.Sprintf("%s %d", boxName[key], port+1))
+				return nil
+			}
+			return &consolefile.DeskPort{Socket: choice.Socket, Index: index}
 		}
 		return &consolefile.DeskPort{Socket: "device", Bank: choice.Bank, Slot: choice.Slot, Index: choice.Start + port, Device: choice.Device}
 	}
@@ -146,6 +167,14 @@ func (s ExportService) BuildConsoleExport(eventID, consoleID int64, ports Export
 		if channel.ConsoleID == nil || *channel.ConsoleID != console.ID {
 			continue
 		}
+		capacity := model.PoolCapacity(channel.StripPool, 0)
+		width := model.StripWidth(channel.Width, channel.MixerBehavior)
+		// Checked before its ports are resolved, so a box only an over row uses is
+		// not reported as having no port.
+		if channel.ChannelNumber+width-1 > capacity {
+			overStrips = append(overStrips, channel.ChannelName)
+			continue
+		}
 		strip := consolefile.Strip{
 			ID: channel.ID, Aux: channel.StripPool == domain.PoolAux, Number: channel.ChannelNumber,
 			Stereo: channel.Width == "stereo", Name: channel.ChannelName, Color: channel.Color,
@@ -153,12 +182,6 @@ func (s ExportService) BuildConsoleExport(eventID, consoleID int64, ports Export
 		}
 		if strip.Stereo {
 			strip.InputR = inputOf(channel.ID, 1)
-		}
-		capacity := model.PoolCapacity(channel.StripPool, 0)
-		width := model.StripWidth(channel.Width, channel.MixerBehavior)
-		if strip.Number+width-1 > capacity {
-			overStrips = append(overStrips, channel.ChannelName)
-			continue
 		}
 		if strip.Aux {
 			auxCount++
@@ -295,6 +318,9 @@ func (s ExportService) BuildConsoleExport(eventID, consoleID int64, ports Export
 			return ConsoleExport{}, err
 		}
 	}
+	if len(pastSocket) > 0 {
+		notices = append(notices, consolefile.Notice{Word: consolefile.LeftOut, Text: fmt.Sprintf("%d box ports past the end of their socket; move the box's first port.", len(pastSocket)), Items: pastSocket})
+	}
 	notices = append(notices, written...)
 	keys := make([]string, 0, len(unmapped))
 	for key := range unmapped {
@@ -313,11 +339,21 @@ func (s ExportService) BuildConsoleExport(eventID, consoleID int64, ports Export
 	for _, box := range data.stageboxes {
 		key := fmt.Sprintf("stagebox:%d", box.ID)
 		if usedBoxes[key] {
-			boxes = append(boxes, ExportBox{Key: key, Name: box.Name, Inputs: box.OutputCount})
+			boxes = append(boxes, ExportBox{Key: key, Name: box.Name, Inputs: box.OutputCount, Model: box.Model})
 		}
 	}
 	if usedBoxes["local"] {
-		boxes = append(boxes, ExportBox{Key: "local", Name: "Local jacks", Inputs: console.LocalInputCount})
+		local := ExportBox{Key: "local", Name: "Local jacks", Inputs: console.LocalInputCount}
+		switch {
+		case model.Engine == domain.EngineX32:
+			local.Fixed = "Local 1 on, the desk's own sockets"
+		case model.LocalIn > 0:
+			local.Model = "Classic"
+		}
+		// An LV1 software desk has no local jacks to map.
+		if model.Engine == domain.EngineX32 || model.LocalIn > 0 {
+			boxes = append(boxes, local)
+		}
 	}
 
 	strips := fmt.Sprintf("%d", stripCount)
@@ -376,4 +412,21 @@ func fileSafe(name string) string {
 		}
 		return r
 	}, name)
+}
+
+// classicSlot is where an LV1 Classic's own local I/O sits when the dialog has not
+// said: the first I/O slot no box is mapped to.
+func classicSlot(ports ExportPorts) PortChoice {
+	taken := map[[2]int]bool{}
+	for _, choice := range ports {
+		taken[[2]int{choice.Bank, choice.Slot}] = true
+	}
+	for bank := 0; bank < 2; bank++ {
+		for slot := 0; slot < 8; slot++ {
+			if !taken[[2]int{bank, slot}] {
+				return PortChoice{Bank: bank, Slot: slot, Device: "Classic"}
+			}
+		}
+	}
+	return PortChoice{Device: "Classic"}
 }

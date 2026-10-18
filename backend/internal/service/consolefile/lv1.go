@@ -174,6 +174,20 @@ func WriteLV1(show Show) ([]byte, []Notice, error) {
 	if _, err := db.Exec(`VACUUM INTO ?`, out); err != nil {
 		return nil, nil, err
 	}
+	// LV1 saves its sessions in WAL mode; VACUUM INTO writes a rollback journal
+	// header, so the copy is switched back before it is read (review 2026-10-18).
+	final, err := sql.Open("sqlite", "file:"+out)
+	if err != nil {
+		return nil, nil, err
+	}
+	var mode string
+	if err := final.QueryRow(`PRAGMA journal_mode=WAL`).Scan(&mode); err != nil {
+		final.Close()
+		return nil, nil, err
+	}
+	if err := final.Close(); err != nil {
+		return nil, nil, err
+	}
 	bytes, err := os.ReadFile(out)
 	if err != nil {
 		return nil, nil, err
@@ -246,7 +260,11 @@ func (w *lv1Writer) nameAndColour(id int64, name, colour string) error {
 	if !ok {
 		return nil
 	}
-	param := w.params["PARAM_COLOR_VALUE"]
+	param, known := w.params["PARAM_COLOR_VALUE"]
+	if !known {
+		// Never write an id LV1 does not know: it would drop every param on the strip.
+		return nil
+	}
 	if index == lv1DefaultColour {
 		return w.exec(`DELETE FROM snapshot_chainer_params WHERE chainer_id = ? AND snapshot_id = -1 AND param_id = ?`, id, param)
 	}
@@ -445,6 +463,12 @@ func (w *lv1Writer) write(show Show) error {
 		}
 		mac++
 		counts[model]++
+		if mac == 1 {
+			// LV1 clocks from the first device it is given, as its own sessions show.
+			if err := w.exec(`UPDATE clock_source_master SET clock_type = 2, mac = 1 WHERE id = 0`); err != nil {
+				return err
+			}
+		}
 		if err := w.addDevice(at, mac, device, fmt.Sprintf("%s-%d", device.namePrefix, counts[model]), phantom[at]); err != nil {
 			return err
 		}
@@ -599,6 +623,8 @@ func (w *lv1Writer) writeRecorder(show Show, strips map[int64]Strip, mixes map[i
 			if err := w.route(lv1Inputs, lv1Slot{strip.Input.Bank, strip.Input.Slot}.index(), strip.Input.Index, lv1Outputs, at.index(), 0, -1, port, 0); err != nil {
 				return err
 			}
+		} else if _, ok := strips[track.FromStrip]; ok && track.FromStrip != 0 {
+			w.n.add(LeftOut, "%d recorder tracks record a preamp that is not on a device.", fmt.Sprintf("track %d", track.Number))
 		} else if mix, ok := mixes[track.FromMix]; ok && track.FromMix != 0 {
 			_, cluster, index, ok := w.mixObject(mix)
 			if ok {

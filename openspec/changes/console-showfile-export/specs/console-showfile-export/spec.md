@@ -78,9 +78,9 @@ exports as drawn. Lines the export does not own SHALL be the template's.
 The dialog SHALL show figures for what the file holds (channel strips, plus aux on X32; mixes;
 DCAs · mutes; 48 V; outputs patched; recorder tracks, labelled Card or SoundGrid) and, before the
 download, word-led lines for what it cannot: **Left out** — rows and mixes flagged over, routes the
-engine refuses, an X32 output fed by a direct out; **Changed** — names longer than the desk shows (cut
+engine refuses, box ports past the end of their socket, an X32 local out past 16; **Changed** — names longer than the desk shows (cut
 in the file, kept whole in PatchPlanner), two plan colours landing on one desk colour, 48 V on an LV1
-device of unknown model; **No input** — a channel with nothing patched; **No port** — a stagebox left
+device of unknown model, an aux input patched to a stagebox (the scene keeps the rear aux sockets), the LV1 recorder written unverified; **No input** — a channel with nothing patched; **No port** — a stagebox left
 not connected. The server SHALL compute both, from the code that writes the file. The download SHALL
 never be blocked by a line; an output with no Fed by SHALL not warn.
 

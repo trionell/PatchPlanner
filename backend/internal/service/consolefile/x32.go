@@ -465,10 +465,23 @@ func WriteX32(show Show) ([]byte, []Notice) {
 		}
 		return fmt.Sprintf("/bus/%02d", mix.Slot)
 	}
+	// A linked pair is two strips in the scene: both carry the same assigns and
+	// sends (Slice 49 review — the desk does not copy them across on load).
+	stripPaths := func(strip Strip) []string {
+		paths := []string{stripPath(strip)}
+		if strip.Stereo {
+			second := strip
+			second.Number++
+			paths = append(paths, stripPath(second))
+		}
+		return paths
+	}
 	// LR is on by default in the template; a strip or bus is on LR only when routed there.
 	for _, strip := range stripByID {
-		touch(stripPath(strip)+"/mix", 3, "OFF")
-		touch(stripPath(strip)+"/mix", 5, "OFF")
+		for _, path := range stripPaths(strip) {
+			touch(path+"/mix", 3, "OFF")
+			touch(path+"/mix", 5, "OFF")
+		}
 	}
 	for _, mix := range mixByID {
 		if mix.Kind == "subgroup" || mix.Kind == "monitor" || mix.Kind == "fx" {
@@ -481,20 +494,22 @@ func WriteX32(show Show) ([]byte, []Notice) {
 		if !ok {
 			continue
 		}
-		var src string
+		var srcs []string
+		var srcName string
 		srcIsStrip := false
 		if strip, ok := stripByID[route.FromStrip]; ok && route.FromStrip != 0 {
-			src, srcIsStrip = stripPath(strip), true
+			srcs, srcIsStrip, srcName = stripPaths(strip), true, strip.Name
 		} else if from, ok := mixByID[route.FromMix]; ok && route.FromMix != 0 {
-			src = mixPath(from)
+			srcs, srcName = []string{mixPath(from)}, from.Name
 			if from.Kind == "dca" || from.Kind == "mute" {
 				continue
 			}
 		} else {
 			continue
 		}
+		src := srcs[0]
 		refuse := func() {
-			n.add(LeftOut, "%d routes an X32 cannot make; kept in PatchPlanner.", fmt.Sprintf("%s → %s", src, to.Name))
+			n.add(LeftOut, "%d routes an X32 cannot make; kept in PatchPlanner.", fmt.Sprintf("%s → %s", srcName, to.Name))
 		}
 		switch to.Kind {
 		case "main":
@@ -502,19 +517,23 @@ func WriteX32(show Show) ([]byte, []Notice) {
 				refuse()
 				continue
 			}
-			if to.Slot == 1 {
-				touch(src+"/mix", 3, "ON")
-			} else {
-				touch(src+"/mix", 5, "ON")
-				touch(src+"/mix", 6, "+0.0")
+			for _, src := range srcs {
+				if to.Slot == 1 {
+					touch(src+"/mix", 3, "ON")
+				} else {
+					touch(src+"/mix", 5, "ON")
+					touch(src+"/mix", 6, "+0.0")
+				}
 			}
 		case "subgroup", "monitor", "fx":
 			if !srcIsStrip {
 				refuse()
 				continue
 			}
-			for s := 0; s < widthOf(to); s++ {
-				touch(fmt.Sprintf("%s/mix/%02d", src, to.Slot+s), 2, "+0.0")
+			for _, src := range srcs {
+				for s := 0; s < widthOf(to); s++ {
+					touch(fmt.Sprintf("%s/mix/%02d", src, to.Slot+s), 2, "+0.0")
+				}
 			}
 		case "matrix":
 			if srcIsStrip {
@@ -529,9 +548,13 @@ func WriteX32(show Show) ([]byte, []Notice) {
 				refuse()
 				continue
 			}
-			bits(src + "/grp")[0][to.Slot-1] = true
+			for _, src := range srcs {
+				bits(src + "/grp")[0][to.Slot-1] = true
+			}
 		case "mute":
-			bits(src + "/grp")[1][to.Slot-1] = true
+			for _, src := range srcs {
+				bits(src + "/grp")[1][to.Slot-1] = true
+			}
 		}
 	}
 	// Monitor buses are tapped before the fader; subgroups and FX after.
@@ -548,7 +571,9 @@ func WriteX32(show Show) ([]byte, []Notice) {
 			odd--
 		}
 		for _, strip := range stripByID {
-			touch(fmt.Sprintf("%s/mix/%02d", stripPath(strip), odd), 4, tap)
+			for _, path := range stripPaths(strip) {
+				touch(fmt.Sprintf("%s/mix/%02d", path, odd), 4, tap)
+			}
 		}
 	}
 	for path, values := range stripMix {
@@ -618,6 +643,11 @@ func WriteX32(show Show) ([]byte, []Notice) {
 	}
 	for _, p := range patches {
 		if p.port.Socket == "local" && p.port.Index < 16 {
+			continue
+		}
+		if p.port.Socket == "local" {
+			// Checked before a signal is taken, so a refused output rewrites nothing.
+			n.add(LeftOut, "%d outputs on a local out past 16, which an X32 has not got.", p.name)
 			continue
 		}
 		sig, ok := signalPath(p.feed)

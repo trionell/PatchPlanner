@@ -74,6 +74,10 @@ func openWritten(t *testing.T, show Show) (*sql.DB, []Notice) {
 	if err := db.QueryRow(`PRAGMA integrity_check`).Scan(&ok); err != nil || ok != "ok" {
 		t.Fatalf("integrity_check = %q %v", ok, err)
 	}
+	// WAL, as LV1 writes its own sessions: header bytes 18–19 are 2.
+	if out[18] != 2 || out[19] != 2 {
+		t.Errorf("file format bytes %d %d, want WAL (2 2)", out[18], out[19])
+	}
 	return db, notices
 }
 

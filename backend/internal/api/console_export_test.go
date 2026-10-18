@@ -140,3 +140,26 @@ func TestConsoleExportResolvesStageboxPorts(t *testing.T) {
 		}
 	}
 }
+
+// Someone with no access to the event gets nothing, not even the preview.
+func TestConsoleExportStranger(t *testing.T) {
+	server, database := newTestServer(t)
+	eventID := seedEvent(t, server.URL)
+	stranger, err := db.UpsertUserByGoogleSub(database, "stranger-sub", "stranger@example.com", "Stranger", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, _ := db.CreateSession(database, stranger.ID, time.Hour)
+	client := clientForSession(t, server.URL, token)
+	consoles, _ := db.ListConsoles(database, eventID)
+	for _, path := range []string{"console-export", "console-export/preview"} {
+		response, err := client.Get(fmt.Sprintf("%s/events/%d/%s?console=%d", server.URL, eventID, path, consoles[0].ID))
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = response.Body.Close()
+		if response.StatusCode != http.StatusForbidden && response.StatusCode != http.StatusNotFound {
+			t.Errorf("a stranger's %s: %d, want 403", path, response.StatusCode)
+		}
+	}
+}
