@@ -29,7 +29,7 @@ refused inline, naming the desk.
 
 ### Requirement: A track plays back into a channel
 
-A playback track MAY feed a channel on the same desk, either as **soundcheck** (it replaces that
+A playback track SHALL feed at most one channel on the same desk, either as **soundcheck** (it replaces that
 channel's preamp when virtual soundcheck is on) or as **source** (the channel's input, e.g. walk-in
 music).
 
