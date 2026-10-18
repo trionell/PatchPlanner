@@ -10,6 +10,9 @@ Slice 46 — the stage plot icon set redrawn by hand — is on
 | | |
 |---|---|
 | **D7** — Resizing an element leaves the third dimension behind | open |
+| **Slice 47** — Desk models (`desk-models`) | planned · mockup approved 2026-10-18 |
+| **Slice 48** — Desk routing (`desk-routing`) | planned · needs 47 |
+| **Slice 49** — Console showfile export (`console-showfile-export`) | planned · needs 47 and 48 |
 
 The table is empty because the roadmap is **asking**, not because the tool is
 finished. Slices 40 and 41 — the audio plan and the stage plot as generated
@@ -63,6 +66,23 @@ the rental order and in every export format** (price-list xlsx where the
 inventory earns it, plus the PDF and generic spreadsheet from Slice 22) —
 any later slice that adds a new place where equipment is selected must
 extend the rental aggregation in the same slice.
+
+## Slices 47–49 — From a desk's model to a file the desk loads (OpenSpec)
+
+Planned 2026-10-17/18. Built in order, each on its own branch: **47 → 48 → 49**.
+
+- **Slice 47 — Desk models** (`openspec/changes/desk-models`). A console gets a model (X32/M32
+  family, LV1 16/32/64/80, LV1 Classic 64/80, Generic) that derives its strips, aux inputs,
+  local jacks, mix pools and stereo style; hard block on add/edit; a previewed, never-blocked
+  model switch; one desk per sheet behind a desk selector. Existing consoles become Generic.
+- **Slice 48 — Desk routing** (`openspec/changes/desk-routing`). Needs 47's pools. Mixes per
+  desk (Main LR, Mono/Centre, Subgroup, Monitor, FX, Matrix), monitor membership, matrix
+  sources, group → Main and group → group, outputs "fed by" a mix, and device-to-device routing
+  (recording to the LV1 laptop or the X32/M32 card, the recorder as an input source). Table
+  views per mix type and a canvas.
+- **Slice 49 — Console showfile export** (`openspec/changes/console-showfile-export`). Needs 47
+  and 48. Writes an X32/M32 `.scn` and an LV1 17.3 `.emo` from built-in templates; the format
+  research is in that change's `design.md`.
 
 ## Slice 46 — The stage plot icon set, redrawn by hand (spec: `stage-plot-icon-set`, OpenSpec)
 
