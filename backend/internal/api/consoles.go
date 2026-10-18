@@ -210,7 +210,43 @@ func applyDeskProfile(console *domain.Console, model domain.DeskModel) {
 // listDeskModels serves the in-code model list (Slice 47 D1). It is the same
 // for everyone and changes only with a release.
 func listDeskModels(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, domain.DeskModels)
+	out := make([]servedDeskModel, len(domain.DeskModels))
+	for i, model := range domain.DeskModels {
+		out[i] = servedDeskModel{DeskModel: model, RouteRules: routeRules(model), Mains: model.MainSlots()}
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// servedDeskModel is a profile with the rules the Desk Routing tables hatch
+// their cells from (Slice 48 D4) — derived from the same RouteAllowed the
+// server checks, so a cell is never offered that a save would refuse.
+type servedDeskModel struct {
+	domain.DeskModel
+	// RouteRules[src][dst] is "yes", "no", or "forward": only to a
+	// higher-numbered destination (LV1 group → group).
+	RouteRules map[string]map[string]string `json:"route_rules"`
+	Mains      []domain.MainSlot            `json:"mains"`
+}
+
+func routeRules(model domain.DeskModel) map[string]map[string]string {
+	sources := append([]string{domain.RouteFromChannel}, domain.ValidMixKinds...)
+	rules := map[string]map[string]string{}
+	for _, src := range sources {
+		rules[src] = map[string]string{}
+		for _, dst := range domain.ValidMixKinds {
+			up := model.RouteAllowed(src, 1, dst, 2) == nil
+			down := model.RouteAllowed(src, 2, dst, 1) == nil
+			switch {
+			case up && down:
+				rules[src][dst] = "yes"
+			case up:
+				rules[src][dst] = "forward"
+			default:
+				rules[src][dst] = "no"
+			}
+		}
+	}
+	return rules
 }
 
 func plural(n int, singular, plural string) string {

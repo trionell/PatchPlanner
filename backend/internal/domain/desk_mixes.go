@@ -89,9 +89,9 @@ type DeskRoute struct {
 
 // MainSlot is one of the mains an engine always has.
 type MainSlot struct {
-	Slot  int
-	Name  string
-	Width string
+	Slot  int    `json:"slot"`
+	Name  string `json:"name"`
+	Width string `json:"width"`
 }
 
 // Mains lists the mains a desk of this model always has: LR everywhere, M/C

@@ -12,7 +12,7 @@
 - [x] 2.2 Slot allocation: first legal free slot, X32 odd–even pairs, LV1 consecutive stereo, LV1 groups one stereo slot, Generic unbounded; full/absent pool refusals with the X32 bus breakdown; tests
 - [x] 2.3 Ensure mains per engine on `CreateConsole` and on switch (D3); mains undeletable; the first desk on an event adopts waiting mixes
 - [x] 2.4 LV1 matrix 12-source limit; recorder track limit (32 X32 · M32, 64 LV1, typed Generic)
-- [ ] 2.5 Extend the profiles served by `GET /desk-models` with each engine's route matrix and pool membership
+- [x] 2.5 Extend the profiles served by `GET /desk-models` with each engine's route matrix and pool membership
 
 ## 3. Backend — API
 
