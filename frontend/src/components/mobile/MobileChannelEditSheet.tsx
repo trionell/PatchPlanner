@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { createInputCable, createInputChannel, deleteInputCable, updateInputChannel } from '../../api/audioPatch'
+import { ApiError } from '../../api/client'
+import { deskModelOf } from '../../hooks/useDeskModels'
+import { deskLabel } from '../../lib/deskStrips'
 import { computeRoutingSave, resolveChannelRouting, type ChannelRouting } from '../../lib/mobileChannelList'
 import { toOptionalNumber } from '../../lib/utils'
-import type { InputCable, InputChannel, InputSource, Stagebox } from '../../types'
+import type { Console, DeskModel, InputCable, InputChannel, InputSource, Stagebox, StripPool, StripRefusal } from '../../types'
 import { ColorSelect } from '../event/ColorSelect'
 import { Button } from '../ui/Button'
 import { FieldStack } from '../ui/GearList'
@@ -21,18 +24,23 @@ import { Sheet } from '../ui/Sheet'
 export function MobileChannelEditSheet({
   eventId,
   channel,
-  channels,
   sources,
   stageboxes,
   cables,
   onClose,
   onSaved,
   readOnly = false,
+  consoles,
+  models,
+  deskId,
 }: {
   eventId: number
+  consoles: Console[]
+  models: DeskModel[]
+  /** The desk a new channel is added to — the selected one (Slice 47). */
+  deskId?: number
   /** Omitted → creating a new channel. */
   channel?: InputChannel
-  channels: InputChannel[]
   sources: InputSource[]
   stageboxes: Stagebox[]
   cables: InputCable[]
@@ -55,18 +63,31 @@ export function MobileChannelEditSheet({
   const [port, setPort] = useState<number | undefined>(currentRouting.port)
   const [sourceId, setSourceId] = useState<number | undefined>(currentRouting.sourceId)
   const [error, setError] = useState<string | null>(null)
+  /* Required (Slice 47): a channel is always on a desk, and a save cannot take it off. */
+  const [consoleId, setConsoleId] = useState<number | undefined>(channel ? channel.console_id : deskId)
+  const [pool, setPool] = useState<StripPool>(channel?.strip_pool ?? 'channel')
+  const [number, setNumber] = useState(channel?.channel_number ?? 0)
+  const [fix, setFix] = useState<StripRefusal['fix']>()
+  const desk = consoles.find((candidate) => candidate.id === consoleId)
+  const hasAux = desk ? deskModelOf(models, desk).aux_in > 0 : false
   const [saving, setSaving] = useState(false)
 
   const selectedStagebox = stageboxes.find((sb) => sb.id === stageboxId)
 
   async function handleSave() {
     setError(null)
+    setFix(undefined)
+    if (consoleId == null) {
+      setError('Pick the desk this channel is on.')
+      return
+    }
     setSaving(true)
     try {
       let channelId = channel?.id
       if (channel) {
         await updateInputChannel(eventId, channel.id, {
-          channel_number: channel.channel_number,
+          channel_number: number,
+          strip_pool: hasAux ? pool : 'channel',
           channel_name: name,
           color,
           group_ids: channel.group_ids,
@@ -74,15 +95,15 @@ export function MobileChannelEditSheet({
           width: channel.width,
           mixer_behavior: channel.mixer_behavior,
           notes,
-          // A PATCH replaces the row's whole state, so an omitted console_id
-          // detached the channel from its desk (Slice 24 FR-001). Mobile has no
-          // desk picker — it carries what is already there.
-          console_id: channel.console_id,
+          // A PATCH replaces the row's whole state: the desk always travels.
+          console_id: consoleId,
         })
       } else {
-        const nextNumber = Math.max(0, ...channels.map((c) => c.channel_number)) + 1
+        // 0 asks the server for the desk's next strip, the same rule + Channel uses.
         const created = await createInputChannel(eventId, {
-          channel_number: nextNumber,
+          channel_number: 0,
+          console_id: consoleId,
+          strip_pool: hasAux ? pool : 'channel',
           channel_name: name,
           color,
           width: 'mono',
@@ -107,6 +128,7 @@ export function MobileChannelEditSheet({
       // Sheet stays open, form values (React state) are untouched — the
       // user's edit is never silently discarded on a failed save (FR-017).
       setError(err instanceof Error ? err.message : 'Failed to save channel.')
+      if (err instanceof ApiError) setFix((err.body as StripRefusal | undefined)?.fix)
     } finally {
       setSaving(false)
     }
@@ -125,12 +147,51 @@ export function MobileChannelEditSheet({
         )
       }
     >
-      {error && <div className="rounded-md border border-red-800 bg-red-950/50 px-3 py-2 text-sm text-red-300">{error}</div>}
+      {error && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-red-800 bg-red-950/50 px-3 py-2 text-sm text-red-300">
+          {error}
+          {fix && (
+            <Button
+              variant="outline"
+              className="h-11"
+              onClick={() => {
+                setNumber(fix.number)
+                setPool(fix.pool)
+                setError(null)
+                setFix(undefined)
+              }}
+            >
+              Use {fix.pool === 'aux' ? 'Aux ' : ''}
+              {fix.number}
+            </Button>
+          )}
+        </div>
+      )}
       {/* Inert rather than absent: the values are the point of opening it. */}
       <fieldset className="flex min-w-0 flex-col gap-3.5" disabled={readOnly}>
       <FieldStack label="Channel" width="full">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Kick In" autoFocus />
       </FieldStack>
+      <div className="flex gap-2.5">
+        <FieldStack label="Desk" width="grow">
+          <Select value={consoleId ?? ''} onChange={(e) => setConsoleId(toOptionalNumber(e.target.value))}>
+            {consoleId == null && <option value="">Pick a desk…</option>}
+            {consoles.map((option) => (
+              <option key={option.id} value={option.id}>
+                {deskLabel(option, deskModelOf(models, option))}
+              </option>
+            ))}
+          </Select>
+        </FieldStack>
+        {hasAux && (
+          <FieldStack label="Strip" width="short">
+            <Select value={pool} onChange={(e) => setPool(e.target.value as StripPool)}>
+              <option value="channel">Channel</option>
+              <option value="aux">Aux in</option>
+            </Select>
+          </FieldStack>
+        )}
+      </div>
       <FieldStack label="Tape" width="full">
         <ColorSelect eventId={eventId} value={color} onChange={setColor} />
       </FieldStack>

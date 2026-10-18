@@ -45,11 +45,11 @@
 
 ## 6. Frontend — the switch dialog
 
-- [ ] 6.1 `ui/Dialog` pinned footer (A1) and phone close target (A2); write A1 into `components.md` §ui/Dialog and A2 into `tokens.md` §7 + `components.md` in the same commit
+- [x] 6.1 `ui/Dialog` pinned footer (A1) and phone close target (A2); write A1 into `components.md` §ui/Dialog and A2 into `tokens.md` §7 + `components.md` in the same commit
 - [x] 6.2 `ModelSwitchDialog`: figures table (red where the new desk cannot hold it), word-led lines (Left out / Changed / Moved / Fits again), folded Moved list, "Nothing is deleted…" line, primary "Switch to <model>"; Cancel changes nothing
 - [x] 6.3 The dialog opens whenever the preview has any line; only a preview with no line (empty desk, nothing moves) applies at once
-- [ ] 6.4 Write A3 + B1 into `patterns.md` §5
-- [ ] 6.5 Render tests: each line type, the untinted Fits-again-only box, the primary label
+- [x] 6.4 Write A3 + B1 into `patterns.md` §5
+- [x] 6.5 Render tests: each line type, the untinted Fits-again-only box, the primary label
 
 ## 7. Frontend — the desk selector and the sheets
 
@@ -59,22 +59,22 @@
 - [x] 7.4 `InputSheet`: only the selected desk's rows; X32 Channels / Aux in sections with MicroLabel headings and counts, "No aux inputs used.", + Aux in the aux heading; number cell from `lib/deskStrips` with the over flag (B2)
 - [x] 7.5 Row editor: Desk required (no "No desk" option), Strip field on X32 · M32 only; 409 inline error with the "Use N" fix; deskless save refused
 - [x] 7.6 Moved-row line (B7) with Show <desk>, cleared by the next action; write B7 into `patterns.md` §2
-- [ ] 7.7 No desk list: grey numbers, amber note with one "Put on <desk>" per desk, place preview via the switch dialog when anything moves or lands over; entry disappears and the sheet returns to the first desk when emptied; write B2, B4 and B6 into `patterns.md` §5 / §1
+- [x] 7.7 No desk list: grey numbers, amber note with one "Put on <desk>" per desk, place preview via the switch dialog when anything moves or lands over; entry disappears and the sheet returns to the first desk when emptied; write B2, B4 and B6 into `patterns.md` §5 / §1
 - [x] 7.8 `OutputSheet`: "All desks" filter and Desk column removed in favour of the selector; Desk required in the editor; no output cap (the mockup's "An output past 16" row is void — user, 2026-10-18)
 - [x] 7.9 `PatchStatusRail`: one-desk label and the amber "N on no desk ›" control
 - [x] 7.10 Input and output canvases: local jack panels draw over-count jacks flagged over (design D9)
-- [ ] 7.11 Render tests: two-desk sheet lists one desk; X32 sections; over row; No desk list and note; selector absent on one desk; viewer sees the selector
+- [x] 7.11 Render tests: two-desk sheet lists one desk; X32 sections; over row; No desk list and note; selector absent on one desk; viewer sees the selector
 
 ## 8. Frontend — the phone
 
-- [ ] 8.1 Panel title is a `MobilePicker` over the desks (+ No desk); list rows for the selected desk; + adds to it
-- [ ] 8.2 `MobileChannelEditSheet` / `MobileOutputEditSheet`: Desk required, Strip as `h-10` Select on X32 · M32; 409 error inline; the no-desk note's buttons 44 px
-- [ ] 8.2a Phone list: X32 Channels / Aux in sections, over flag, No desk list with its note and Put on (44 px), moved-row line, selector entries with fill (design D10)
-- [ ] 8.3 Rig sheet's console form gains Model (and Bus mode); the switch dialog stays a centred Dialog
+- [x] 8.1 Panel title is a `MobilePicker` over the desks (+ No desk); list rows for the selected desk; + adds to it
+- [x] 8.2 `MobileChannelEditSheet` / `MobileOutputEditSheet`: Desk required, Strip as `h-10` Select on X32 · M32; 409 error inline; the no-desk note's buttons 44 px
+- [x] 8.2a Phone list: X32 Channels / Aux in sections, over flag, No desk list with its note and Put on (44 px), moved-row line, selector entries with fill (design D10)
+- [x] 8.3 Rig sheet's console form gains Model (and Bus mode); the switch dialog stays a centred Dialog
 
 ## 9. Close-out
 
-- [ ] 9.1 `cd frontend && npx tsc -b && npx eslint src && npx vitest run && npx vite build` and the backend gates (validator)
-- [ ] 9.2 Real data: copy `backend/patchplanner.db` to `/tmp`, `PATCHPLANNER_DB=…`, switch the wedding's M23R to M32R and check the preview and result in the browser; a two-desk event lists one desk at a time
+- [x] 9.1 `cd frontend && npx tsc -b && npx eslint src && npx vitest run && npx vite build` and the backend gates (validator)
+- [x] 9.2 Real data (API-level on a scratchpad copy; no browser walk — sign-in needs Google): copy `backend/patchplanner.db` to `/tmp`, `PATCHPLANNER_DB=…`, switch the wedding's M23R to M32R and check the preview and result in the browser; a two-desk event lists one desk at a time
 - [ ] 9.3 `reviewer` against the specs and the mockup; fix what it finds
 - [ ] 9.4 Record Slice 47 in `ROADMAP.md` (with 48 and 49 depending on it); archive the change before any merge (merge is the user's call)

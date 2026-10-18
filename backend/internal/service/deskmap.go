@@ -258,10 +258,10 @@ func switchLines(rows []MappedRow, source []domain.StripRow, jacks LocalUse, fro
 	}
 
 	if len(toPairs) > 0 {
-		lines = append(lines, PreviewLine{Word: WordChanged, Text: fmt.Sprintf("%s become linked pairs, odd to even.", count(len(toPairs), "stereo channel", "stereo channels")), Items: names(toPairs)})
+		lines = append(lines, PreviewLine{Word: WordChanged, Text: count(len(toPairs), "stereo channel becomes a linked pair, odd to even.", "stereo channels become linked pairs, odd to even."), Items: names(toPairs)})
 	}
 	if len(toStrips) > 0 {
-		lines = append(lines, PreviewLine{Word: WordChanged, Text: fmt.Sprintf("%s become stereo strips.", count(len(toStrips), "linked pair", "linked pairs")), Items: names(toStrips)})
+		lines = append(lines, PreviewLine{Word: WordChanged, Text: count(len(toStrips), "linked pair becomes a stereo strip.", "linked pairs become stereo strips."), Items: names(toStrips)})
 	}
 	if limit := to.Model.NameLength; limit > 0 {
 		var long []string

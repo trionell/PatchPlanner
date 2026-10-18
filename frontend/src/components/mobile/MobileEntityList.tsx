@@ -44,10 +44,13 @@ export function MobileEntityList({
   titleAdornment,
   search,
   onSearch,
+  notice,
   children,
 }: {
-  /** The surface's name, repeated in the bar (patterns.md §1). */
-  title: string
+  /** The surface's name, repeated in the bar (patterns.md §1) — or, for a per-desk list, the desk picker (B6). */
+  title: ReactNode
+  /** Above the rows: a refusal, the moved-row line, the No desk note (Slice 47). */
+  notice?: ReactNode
   items: MobileEntityRow[]
   onSelect: (id: number) => void
   onAdd?: () => void
@@ -134,6 +137,7 @@ export function MobileEntityList({
     >
       {children ?? (
         <>
+      {notice && <div className="space-y-2 px-3 py-2.5">{notice}</div>}
       {visible.map((item) => (
         <CondensedListRow
           key={item.id}

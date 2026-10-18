@@ -7,7 +7,7 @@ import { ApiError } from '../../api/client'
 import { useDeskModels } from '../../hooks/useDeskModels'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { useSelectedDesk } from '../../hooks/useSelectedDesk'
-import { deskLabel, poolCapacity, poolUsage } from '../../lib/deskStrips'
+import { deskLabel, isOver, orderChannels, poolCapacity, poolUsage, stripLabel } from '../../lib/deskStrips'
 import type { SelectedDesk } from '../../lib/patchCapacity'
 import { usePatchView } from '../../hooks/usePatchView'
 import { buildMobileChannelList } from '../../lib/mobileChannelList'
@@ -16,6 +16,9 @@ import { itemLabel } from '../../lib/utils'
 import type { SegmentNode } from '../../lib/patchSheet'
 import type { InputChannel, InventoryItem, OwnedItem, StripPool, StripRefusal } from '../../types'
 import { DeskSelector } from './DeskSelector'
+import { DesklessNote } from './DesklessNote'
+import { RefusalNotice } from './RefusalNotice'
+import { MobilePicker } from '../mobile/MobilePicker'
 import type { SheetRefusal } from './RefusalNotice'
 import { MobileChannelEditSheet } from '../mobile/MobileChannelEditSheet'
 import { Boxes, Layers, Printer } from 'lucide-react'
@@ -172,21 +175,48 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
   )
 
   if (isMobile) {
-    const listed = buildMobileChannelList(channels, { sources, devices, stageboxes, stageMultis, cables, itemLabelById })
+    const listed = buildMobileChannelList(orderChannels(listedChannels), { sources, devices, stageboxes, stageMultis, cables, itemLabelById })
+    const byId = new Map(listedChannels.map((channel) => [channel.id, channel]))
+    /* The number reads as the desk prints it, aux and over included (B2); grey on No desk. */
+    const numberOf = (id: number, fallback: number) => {
+      const channel = byId.get(id)
+      if (!channel || !selectedDesk) return fallback
+      const label = stripLabel(selectedDesk.model, channel)
+      return isOver(selectedDesk.model, selectedDesk.console, channel) ? `${label} over` : label
+    }
+    const deskOptions = [
+      ...deskEntries.map((entry) => ({ id: entry.desk.id, label: deskLabel(entry.desk, modelOf(entry.desk)), hint: entry.label.split(' ').at(-1) })),
+      ...(desklessChannels.length > 0 ? [{ id: 'none' as const, label: 'No desk', hint: String(desklessChannels.length) }] : []),
+    ]
+    const title =
+      deskOptions.length > 1 ? (
+        <MobilePicker
+          label="Desk"
+          title="Desk"
+          variant="title"
+          options={deskOptions}
+          value={deskSelection}
+          onChange={(id) => setDeskSelection(id === 'none' ? 'none' : Number(id))}
+        />
+      ) : (
+        'Audio Inputs'
+      )
     const gapNumbers = new Set(listed.filter((item) => item.hasGap).map((item) => item.channelNumber))
     const items = listed
       .filter((item) => !gapsOnly || item.hasGap)
       .map((item) => ({
         id: item.id,
-        number: item.channelNumber,
+        number: numberOf(item.id, item.channelNumber),
         name: item.name,
         subtitle: `${item.sourceLabel} · ${item.routingLabel}`,
         color: item.color,
       }))
     // The same verdict the desk states, from the same assembly (research.md R6).
     const status = inputPatchStatus({
-      channels,
-      gaps: channels.filter((channel) => gapNumbers.has(channel.channel_number)),
+      channels: listedChannels,
+      desk: selectedDesk,
+      deskless: desklessChannels.length,
+      gaps: listedChannels.filter((channel) => gapNumbers.has(channel.channel_number)),
       consoles,
       stageboxes,
       stageMultis,
@@ -199,7 +229,26 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
           inside it fills what this gives it (Wave 6c). */}
       <div className="flex min-h-0 flex-1 flex-col print:hidden">
         <MobileEntityList
-          title="Audio Inputs"
+          title={title}
+          notice={
+            (addRefusal || !selectedDesk) && view === 'sheet' ? (
+              <>
+                {addRefusal && <RefusalNotice refusal={addRefusal} />}
+                {!selectedDesk && (
+                  <DesklessNote
+                    eventId={eventId}
+                    kind="channels"
+                    ids={desklessChannels.map((channel) => channel.id)}
+                    consoles={consoles}
+                    readOnly={readOnly}
+                    onOpenRig={() => setDrawer('rig')}
+                    onPlaced={invalidate}
+                    hand
+                  />
+                )}
+              </>
+            ) : undefined
+          }
           /*
             The rig, in the hand (audit.md M5). Every one of these opens something that
             has had a phone form since Wave 6a — `ui/Drawer` branches internally — and
@@ -278,7 +327,17 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
           /* No primary action in Flow (Slice 36 FR-022): `＋` adds a **row**, Flow has no
              rows, and a channel added where it cannot be cabled reaches nothing until
              someone is at a desk. The Sheet view is one tap away and has the control. */
-          onAdd={view === 'sheet' ? () => setEditingChannelId('new') : undefined}
+          onAdd={
+            view !== 'sheet' || deskSelection === 'none' && consoles.length > 0
+              ? undefined
+              : () => {
+                  if (!selectedConsole) {
+                    setAddRefusal({ message: 'A channel is added to a desk, and this event has none yet. Add the desk in Rig first.' })
+                    return
+                  }
+                  setEditingChannelId('new')
+                }
+          }
           readOnly={readOnly}
           search={search}
           onSearch={setSearch}
@@ -332,9 +391,11 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
         {editingChannelId != null && (
           <MobileChannelEditSheet
             eventId={eventId}
+            consoles={consoles}
+            models={models}
+            deskId={selectedConsole?.id}
             readOnly={readOnly}
             channel={editingChannel}
-            channels={channels}
             sources={sources}
             stageboxes={stageboxes}
             cables={cables}

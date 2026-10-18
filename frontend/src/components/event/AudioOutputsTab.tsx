@@ -62,8 +62,10 @@ import { ZoomControl, ZOOM_MAX, ZOOM_STEP } from './graph/ZoomControl'
 import { stepZoomAdditive } from '../../lib/canvasFit'
 import { ConsoleSection } from './ConsoleSection'
 import { DeskSelector } from './DeskSelector'
+import { DesklessNote } from './DesklessNote'
+import { MobilePicker } from '../mobile/MobilePicker'
 import { OutputSheet } from './OutputSheet'
-import type { SheetRefusal } from './RefusalNotice'
+import { RefusalNotice, type SheetRefusal } from './RefusalNotice'
 import { PatchStatusRail } from './PatchStatusRail'
 import { ProcessingDeviceSection } from './ProcessingDeviceSection'
 import { RigDrawer } from './RigDrawer'
@@ -231,7 +233,11 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
   }
 
   if (isMobile) {
-    const listed = buildMobileOutputList(outputs, { stageboxes, stageMultis, devices: outputDevices, cables: outputCables, itemLabelById })
+    const listed = buildMobileOutputList(listedOutputs, { stageboxes, stageMultis, devices: outputDevices, cables: outputCables, itemLabelById })
+    const deskOptions = [
+      ...deskEntries.map((entry) => ({ id: entry.desk.id, label: deskLabel(entry.desk, modelOf(entry.desk)), hint: String(outputs.filter((output) => output.console_id === entry.desk.id).length) })),
+      ...(desklessOutputs.length > 0 ? [{ id: 'none' as const, label: 'No desk', hint: String(desklessOutputs.length) }] : []),
+    ]
     const gapNumbers = new Set(listed.filter((item) => item.hasGap).map((item) => item.outputNumber))
     const items = listed
       .filter((item) => !gapsOnly || item.hasGap)
@@ -243,8 +249,10 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
         color: item.color,
       }))
     const status = outputPatchStatus({
-      outputs,
-      gaps: outputs.filter((output) => gapNumbers.has(output.output_number)),
+      outputs: listedOutputs,
+      desk: selectedDesk,
+      deskless: desklessOutputs.length,
+      gaps: listedOutputs.filter((output) => gapNumbers.has(output.output_number)),
       consoles,
       stageboxes,
       stageMultis,
@@ -257,7 +265,23 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
           inside it fills what this gives it (Wave 6c). */}
       <div className="flex min-h-0 flex-1 flex-col print:hidden">
         <MobileEntityList
-          title="Audio Outputs"
+          title={
+            deskOptions.length > 1 ? (
+              <MobilePicker label="Desk" title="Desk" variant="title" options={deskOptions} value={deskSelection} onChange={(id) => setDeskSelection(id === 'none' ? 'none' : Number(id))} />
+            ) : (
+              'Audio Outputs'
+            )
+          }
+          notice={
+            (addRefusal || !selectedDesk) && view === 'sheet' ? (
+              <>
+                {addRefusal && <RefusalNotice refusal={addRefusal} />}
+                {!selectedDesk && (
+                  <DesklessNote eventId={eventId} kind="outputs" ids={desklessOutputs.map((output) => output.id)} consoles={consoles} readOnly={readOnly} onOpenRig={() => setRigOpen(true)} onPlaced={invalidate} hand />
+                )}
+              </>
+            ) : undefined
+          }
           /* The rig, in the hand (audit.md M5) — `ui/Drawer` has had a phone form since
              6a and this branch simply returned before reaching it. Print is M11. */
           overflow={[
@@ -313,7 +337,17 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
           filtered={gapsOnly}
           onSelect={setEditingOutputId}
           /* No primary action in Flow (FR-022) — see Audio Inputs for the argument. */
-          onAdd={view === 'sheet' ? () => setEditingOutputId('new') : undefined}
+          onAdd={
+            view !== 'sheet' || (deskSelection === 'none' && consoles.length > 0)
+              ? undefined
+              : () => {
+                  if (!selectedConsole) {
+                    setAddRefusal({ message: 'An output comes off a desk, and this event has none yet. Add the desk in Rig first.' })
+                    return
+                  }
+                  setEditingOutputId('new')
+                }
+          }
           readOnly={readOnly}
           search={search}
           onSearch={setSearch}
@@ -357,6 +391,9 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
         {editingOutputId != null && (
           <MobileOutputEditSheet
             eventId={eventId}
+            consoles={consoles}
+            models={models}
+            deskId={selectedConsole?.id}
             readOnly={readOnly}
             output={editingOutput}
             outputs={outputs}

@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { deleteAudioOutput, deleteOutputCable, placeOnConsole, updateAudioOutput, updateOutputCable } from '../../api/audioPatch'
+import { deleteAudioOutput, deleteOutputCable, updateAudioOutput, updateOutputCable } from '../../api/audioPatch'
 import { deskModelOf } from '../../hooks/useDeskModels'
 import { deskLabel } from '../../lib/deskStrips'
 import { useReferenceData } from '../../hooks/useReferenceData'
@@ -20,6 +20,7 @@ import { Select } from '../ui/Select'
 import { NumCell, Pill, SheetBody, SheetCell, SheetHead, SheetHeadCell, SheetRow, SheetTable, TapeBar } from '../ui/SheetTable'
 import { ChainCell, type HopCable } from './ChainCell'
 import { ColorSelect } from './ColorSelect'
+import { DesklessNote } from './DesklessNote'
 import { RefusalNotice, type SheetRefusal } from './RefusalNotice'
 import { PatchStatusRail } from './PatchStatusRail'
 import { RowEditor } from './RowEditor'
@@ -126,10 +127,6 @@ export function OutputSheet({
       await invalidate()
     },
   })
-  const placeOutputs = useMutation({
-    mutationFn: (deskId: number) => placeOnConsole(eventId, deskId, { output_ids: outputs.map((output) => output.id), apply: true }),
-    onSuccess: invalidate,
-  })
   const removeOutput = useMutation({ mutationFn: (id: number) => deleteAudioOutput(eventId, id), onSuccess: invalidate })
   const setCableItem = useMutation({
     mutationFn: ({ id, cableItemId }: { id: number; cableItemId?: number }) => updateOutputCable(eventId, id, cableItemId),
@@ -222,20 +219,9 @@ export function OutputSheet({
           )}
         </p>
       )}
-      {!desk && outputs.length > 0 && (
-        <div className="mx-3 mt-3 flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/[0.05] px-3 py-2 text-xs text-amber-200">
-          {outputs.length === 1 ? 'This output is' : `These ${outputs.length} outputs are`} on no desk.
-          {!readOnly &&
-            consoles.map((target) => (
-              <Button key={target.id} size="xs" variant="outline" disabled={placeOutputs.isPending} onClick={() => placeOutputs.mutate(target.id)}>
-                Put on {target.name || 'Console'}
-              </Button>
-            ))}
-          {!readOnly && consoles.length === 0 && onOpenRig && (
-            <Button size="xs" variant="outline" onClick={onOpenRig}>
-              Open Rig
-            </Button>
-          )}
+      {!desk && (
+        <div className="mx-3 mt-3">
+          <DesklessNote eventId={eventId} kind="outputs" ids={outputs.map((output) => output.id)} consoles={consoles} readOnly={readOnly} onOpenRig={onOpenRig} onPlaced={invalidate} />
         </div>
       )}
       <div className="overflow-x-auto">

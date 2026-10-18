@@ -95,6 +95,13 @@ to read than the sections it replaced.
 | `FieldStack` | Label above control — a `MicroLabel`, and a real `<label>` wrapping the control. Widths `default` `w-40` · `grow` · `count` `w-20` · `short` `w-28` · `full` `w-full`. Never a fixed column track — that is what compressed these into unusability in the first place. `full` is the phone's, added in Wave 6a: `grow`'s `flex-1` grows the *height* inside the `flex-col` a bottom sheet stacks its fields in. |
 | `FormActions` | `ml-auto`: confirm, and a labelled delete kept apart from it. |
 
+**A derived count is a `Spec`, never a field** (Slice 47, B3). When a count can be
+read from something already declared — a desk's model — the card shows it as a
+`Spec` and the form shows it in a read-only block naming its source (*from M32R*). A
+count is a `FieldStack width="count"` only where nothing declares it: a Generic
+desk. The Consoles section is the first instance; a stagebox model would be the
+second.
+
 ### `event/graph/` — the canvas
 
 | Export | Notes |
@@ -351,6 +358,13 @@ continue to.
 gave it `Escape` and an internal scroll at the sheet's own `max-h-[85svh]`, both
 things `Drawer` already had, so a tall overlay behaves the same way whichever
 anchor it has.
+
+**A `Dialog` may pin a footer** (Slice 47, A1): `footer` renders `flex-none
+border-t border-zinc-800` below the body that scrolls, as `ui/Sheet`'s does, so the
+action stays on screen however long the body grows — a model switch's preview with
+five lines put its button below the fold on a short laptop screen. Callers without
+one are unchanged: their buttons stay the body's last child. Its close target is
+44 px in a hand ([tokens.md](tokens.md) §7, A2).
 
 The rule, stated once so it stops being decided per call site. **It turns on what
 the overlay is _for_, not on what it contains:**

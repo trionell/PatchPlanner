@@ -1,9 +1,8 @@
 import { Fragment, useMemo, useState, type ReactNode } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { deleteInputCable, deleteInputChannel, placeOnConsole, updateInputCable, updateInputChannel } from '../../api/audioPatch'
+import { deleteInputCable, deleteInputChannel, updateInputCable, updateInputChannel } from '../../api/audioPatch'
 import { ApiError } from '../../api/client'
 import { deskModelOf } from '../../hooks/useDeskModels'
-import { previewHasLines } from '../../lib/deskPreview'
 import { deskLabel, isOver, orderChannels, poolCapacity, poolOf, poolUsage, stripLabel } from '../../lib/deskStrips'
 import type { SelectedDesk } from '../../lib/patchCapacity'
 import { useRowEditor } from '../../hooks/useRowEditor'
@@ -13,7 +12,7 @@ import { matchesSearch } from '../../lib/patchSearch'
 import { chainSourceNode, inputChainSegments, type ChainCellModel, type SegmentNode } from '../../lib/patchSheet'
 import type { InputFlowContext } from '../../lib/inputSignalFlow'
 import { busTint } from '../../lib/utils'
-import type { Console, DeskMapping, DeskModel, InputCable, InputChannel, InputDevice, InputSource, InventoryItem, MixerDCA, MixerGroup, StageMulti, Stagebox, StripPool, StripRefusal } from '../../types'
+import type { Console, DeskModel, InputCable, InputChannel, InputDevice, InputSource, InventoryItem, MixerDCA, MixerGroup, StageMulti, Stagebox, StripPool, StripRefusal } from '../../types'
 import { Button } from '../ui/Button'
 import { MicroLabel } from '../ui/Label'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
@@ -24,7 +23,7 @@ import { NumCell, PhantomBar, Pill, SheetBody, SheetCell, SheetHead, SheetHeadCe
 import { BusMultiSelect } from './BusMultiSelect'
 import { ChainCell, type HopCable } from './ChainCell'
 import { ColorSelect } from './ColorSelect'
-import { DeskMappingDialog } from './DeskMappingDialog'
+import { DesklessNote } from './DesklessNote'
 import { RefusalNotice, type SheetRefusal } from './RefusalNotice'
 import { PatchStatusRail } from './PatchStatusRail'
 import { RowEditor } from './RowEditor'
@@ -125,7 +124,6 @@ export function InputSheet({
   const [rowRefusal, setRowRefusal] = useState<{ id: number; refusal: SheetRefusal } | null>(null)
   /* B7: one line where a row that left this list went; the next action clears it. */
   const [moved, setMoved] = useState<{ text: string; deskId: number; deskName: string } | null>(null)
-  const [placing, setPlacing] = useState<{ deskId: number; mapping: DeskMapping | null } | null>(null)
   const deskless = !desk
   const modelOf = (target: Pick<Console, 'desk_model' | 'bus_mode'>) => deskModelOf(models, target)
 
@@ -146,23 +144,6 @@ export function InputSheet({
       await invalidate()
     },
   })
-  const placeRows = useMutation({
-    mutationFn: ({ deskId, apply }: { deskId: number; apply: boolean }) => placeOnConsole(eventId, deskId, { apply }),
-  })
-
-  /* Put on <desk>: previewed only when something would move or land over (B4). */
-  const putOn = async (deskId: number) => {
-    setPlacing({ deskId, mapping: null })
-    const preview = await placeRows.mutateAsync({ deskId, apply: false }).catch(() => null)
-    if (!preview) return setPlacing(null)
-    if (!previewHasLines(preview.mapping)) {
-      await placeRows.mutateAsync({ deskId, apply: true })
-      setPlacing(null)
-      await invalidate()
-      return
-    }
-    setPlacing({ deskId, mapping: preview.mapping })
-  }
   const removeChannel = useMutation({ mutationFn: (id: number) => deleteInputChannel(eventId, id), onSuccess: invalidate })
   const setCableItem = useMutation({
     mutationFn: ({ id, cableItemId }: { id: number; cableItemId?: number }) => updateInputCable(eventId, id, cableItemId),
@@ -297,23 +278,9 @@ export function InputSheet({
           )}
         </p>
       )}
-      {deskless && channels.length > 0 && (
-        /* B4: a fact about the plan, not an error in it — amber, in the gaps tint. */
-        <div className="mx-3 mt-3 flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/[0.05] px-3 py-2 text-xs text-amber-200">
-          {consoles.length === 0
-            ? 'These channels are on no desk. Add the desk in Rig first.'
-            : `${channels.length === 1 ? 'This channel is' : `These ${channels.length} channels are`} on no desk, and nothing checks ${channels.length === 1 ? 'it' : 'them'} until ${channels.length === 1 ? 'it is' : 'they are'} put on one.`}
-          {!readOnly &&
-            consoles.map((target) => (
-              <Button key={target.id} size="xs" variant="outline" disabled={placeRows.isPending} onClick={() => void putOn(target.id)}>
-                Put on {target.name || 'Console'}
-              </Button>
-            ))}
-          {!readOnly && consoles.length === 0 && onOpenRig && (
-            <Button size="xs" variant="outline" onClick={onOpenRig}>
-              Open Rig
-            </Button>
-          )}
+      {deskless && (
+        <div className="mx-3 mt-3">
+          <DesklessNote eventId={eventId} kind="channels" ids={channels.map((channel) => channel.id)} consoles={consoles} readOnly={readOnly} onOpenRig={onOpenRig} onPlaced={invalidate} />
         </div>
       )}
       <div className="overflow-x-auto">
@@ -537,21 +504,6 @@ export function InputSheet({
         )}
       </ConfirmDialog>
 
-      <DeskMappingDialog
-        open={placing?.mapping != null}
-        title={`Put on ${consoles.find((candidate) => candidate.id === placing?.deskId)?.name || 'desk'}`}
-        confirmLabel={`Put ${channels.length} on ${consoles.find((candidate) => candidate.id === placing?.deskId)?.name || 'desk'}`}
-        mapping={placing?.mapping ?? null}
-        pending={placeRows.isPending}
-        error={placeRows.error?.message}
-        onCancel={() => setPlacing(null)}
-        onConfirm={async () => {
-          if (!placing) return
-          await placeRows.mutateAsync({ deskId: placing.deskId, apply: true })
-          setPlacing(null)
-          await invalidate()
-        }}
-      />
     </>
   )
 }

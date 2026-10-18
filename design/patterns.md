@@ -45,6 +45,21 @@ action. Same order on every tab; only the nouns change.
   its paper. A bar carrying three secondary actions is the exception, not the
   rule, and the reason has to be that the tab's whole output is those files.
 
+**A sheet shows one container at a time** where every row belongs to one of several
+containers planned separately (Slice 47, B6). The audio Inputs and Outputs sheets are
+the instances, one desk at a time:
+
+- The selector is a trough after the view toggle, built like it, each entry naming
+  the container and its fill (*FOH · M32 Live 30/32*). With one container and no
+  unassigned rows it is absent. A fifth container turns it into a `Select size="sm"`.
+  In a hand it is the panel's title, `MobilePicker variant="title"`.
+- It opens on the first container in Rig order, is remembered per viewer and per
+  event on the device — never on the event — and is shared by the event's tabs that
+  are per container, so switching tab keeps the desk.
+- The primary action, the search and the strip act on the selected container. The
+  canvas is **not** filtered: Flow shows every desk.
+- Viewers have it: choosing what to read is not an edit (P7).
+
 **Toggling a view preserves state.** The selected row or node survives the switch,
 so Flow opens on the channel you were editing; search stays applied and dims
 non-matching nodes rather than hiding them; the chosen view is remembered per tab,
@@ -102,6 +117,11 @@ that wrap, confirm at `ml-auto`, delete kept apart from confirm.
   editor: the common case must not pay for the batch. Saving is one action and N
   calls; it does not stop at the first failure, and what failed stays in the
   editor so the confirm retries exactly the remainder.
+- **A row that leaves the list says where it went** (Slice 47, B7). When saving moves
+  the row out of the container being looked at, one line takes the editor's place
+  above the rows — *Kick is now on Monitor · LV1 64, as 37.* — with one action to go
+  there (*Show Monitor*). The next action on the panel clears it. Never a toast, for
+  §5 Error's reason: it is said next to where the row was.
 - Where confirming a value would collide with something already there, the editor
   **asks in place** rather than refusing or silently accepting. Lighting's address
   prompt is the instance: a full-width block in the editor's own amber body
@@ -335,6 +355,9 @@ the instance.
 | Empty, actionable | One sentence saying what to do, and the control that does it. *"Your owned-gear catalog is empty — add items on the Inventory page first."* |
 | Empty, expected | `—` in `text-zinc-600`. A cell with nothing in it says so; it does not sit blank. |
 | Undeclared | Nothing at all. A capacity of 0 means nobody has said yet: it renders `—`, draws no meter, and **must never warn**. This is distinct from empty, and conflating them is how a desk nobody has measured appears to be over capacity. Overview's numbers band draws the same distinction at 26 px: an event with no patch has not got zero channels, it has no patch. |
+| Over capacity, kept | A row past its container's capacity is **not hidden and not deleted** (Slice 47, B2). It keeps its place in the order; its number turns `red-400` and is followed by the word *over* in 10 px mono, so the state does not rest on the hue (P4); the panel's strip takes the over-capacity tint. Every other field stays editable, and a free number clears it. |
+| Unassigned | A row that must belong to a container and belongs to none is **shown, not hidden or moved** (Slice 47, B4). Where a surface shows one container at a time, these rows are the selector's last entry, *No desk · 2* in `amber-300`, present only while any exist, and every container's strip ends with the same count, which selects them. In that list numbers are `zinc-500` and nothing checks them; an amber note in the gaps tint, inline above the rows, offers one action per container (*Put on FOH*), and the container field is required in the editor. Amber, not red ([tokens.md](tokens.md) §5's collision rule): a fact about the plan, not an error in it. |
+| A loss, stated before an action | Lines led by a word, in a note box that takes the alert tint of its **worst** line (A3, B1): **Left out** red — what the target cannot hold; **Changed** amber — what it does differently; **Moved** amber — a row whose number changes, counted, with the full list folded below; **Fits again**, untinted — rows a previous change left out that now fit. A box with only *Fits again* lines is untinted. One quiet sentence after them says what is kept. Never a toast and never blocking: the primary names what happens and is never disabled for a loss. A preview with no line is not shown — the change is applied at once. The desk model switch and placing deskless rows are the instances; the console export (Slice 49) is the next. |
 | Read-only | Controls absent (P7). A banner states the role once — `ReadOnlyBanner` — rather than each control explaining itself. |
 
 ## 6 · App chrome

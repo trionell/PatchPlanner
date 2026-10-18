@@ -74,7 +74,7 @@ func TestMapRowsWeddingToM32R(t *testing.T) {
 	if l := line(m, WordMoved, "2 channels move"); l == nil || l.Items[0] != "Trumpet 8 → 9" {
 		t.Errorf("Moved line = %+v, lines %+v", l, m.Lines)
 	}
-	if line(m, WordChanged, "1 stereo channel become") == nil && line(m, WordChanged, "stereo channel") == nil {
+	if line(m, WordChanged, "1 stereo channel becomes a linked pair") == nil {
 		t.Errorf("no Changed line for Piano: %+v", m.Lines)
 	}
 	if line(m, WordChanged, "typed counts are replaced") == nil {
