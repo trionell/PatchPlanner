@@ -401,8 +401,10 @@ func orderNotices(notices []consolefile.Notice) []consolefile.Notice {
 	return notices
 }
 
+// fileSafe is a name fit for the downloaded file: English letters only (see
+// consolefile.ASCII), and none of the characters a file system refuses.
 func fileSafe(name string) string {
-	name = strings.TrimSpace(name)
+	name = strings.TrimSpace(consolefile.ASCII(name))
 	if name == "" {
 		return "desk"
 	}

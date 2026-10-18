@@ -273,7 +273,7 @@ func WriteX32(show Show) ([]byte, []Notice) {
 
 	// The header names the scene after the event.
 	if fields := tokenize(sc.lines[0]); len(fields) > 1 && strings.HasPrefix(sc.lines[0], "#4.0#") {
-		title, _ := cut(show.EventName)
+		title, _ := cut(ASCII(show.EventName))
 		sc.lines[0] = sc.lines[0][:fields[1].start] + quote(title) + sc.lines[0][fields[1].end:]
 	}
 
@@ -290,7 +290,11 @@ func WriteX32(show Show) ([]byte, []Notice) {
 		return c
 	}
 	name := func(full, owner string) string {
-		short, didCut := cut(full)
+		spelled := ASCII(full)
+		if spelled != full {
+			n.add(Changed, "%d names respelled in English letters.", fmt.Sprintf("%s → %s", full, spelled))
+		}
+		short, didCut := cut(spelled)
 		if didCut {
 			n.add(Changed, "%d names cut to 12 characters.", fmt.Sprintf("%s → %s", full, short))
 		}

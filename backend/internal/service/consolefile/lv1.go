@@ -253,6 +253,11 @@ func (w *lv1Writer) mixObject(mix Mix) (int64, int, int, bool) {
 }
 
 func (w *lv1Writer) nameAndColour(id int64, name, colour string) error {
+	// English letters only, as on the X32 (see ASCII).
+	if spelled := ASCII(name); spelled != name {
+		w.n.add(Changed, "%d names respelled in English letters.", name+" → "+spelled)
+		name = spelled
+	}
 	if err := w.exec(`UPDATE snapshot_chainer SET name = ? WHERE chainer_id = ? AND snapshot_id = -1`, name, id); err != nil {
 		return err
 	}

@@ -209,3 +209,18 @@ func TestLV1DevicesPatchAndRecorder(t *testing.T) {
 		t.Errorf("the recorder is not flagged unverified: %+v", notices)
 	}
 }
+
+// Names are written in English letters only, as on the X32: "Sång" → "Sang".
+func TestLV1NamesAreASCII(t *testing.T) {
+	db, notices := openWritten(t, lv1Fixture())
+	if got := one[string](t, db, `SELECT name FROM snapshot_chainer WHERE chainer_id = ? AND snapshot_id = -1`, objectID(t, db, lv1Input, 1)); got != "Sang" {
+		t.Errorf("Sång written as %q", got)
+	}
+	var found bool
+	for _, n := range notices {
+		found = found || n.Word == Changed && strings.Contains(n.Text, "respelled") && n.Items[0] == "Sång → Sang"
+	}
+	if !found {
+		t.Errorf("no respelled line: %+v", notices)
+	}
+}

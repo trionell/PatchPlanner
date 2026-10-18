@@ -9,6 +9,7 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/xuri/excelize/v2 v2.10.1
 	golang.org/x/oauth2 v0.36.0
+	golang.org/x/text v0.34.0
 	modernc.org/sqlite v1.53.0
 )
 
@@ -27,7 +28,6 @@ require (
 	golang.org/x/crypto v0.48.0 // indirect
 	golang.org/x/net v0.50.0 // indirect
 	golang.org/x/sys v0.44.0 // indirect
-	golang.org/x/text v0.34.0 // indirect
 	modernc.org/libc v1.73.4 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect

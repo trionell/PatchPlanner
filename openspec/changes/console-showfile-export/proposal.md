@@ -23,9 +23,11 @@ console's own file holds. This slice writes that file.
   carry any mix (user, 2026-10-18).
 - **The preview states what the file cannot hold** before the download, in A3/B1's words: Left
   out (rows and mixes flagged over, routes the engine refuses, X32 direct-out Fed by), Changed
-  (names past 12 characters on X32, colour merges, 48 V on an unknown LV1 device), No input,
+  (names past 12 characters on X32, names respelled in English letters on both, colour merges, 48 V on an unknown LV1 device), No input,
   No port. Downloading is never blocked.
-- File name `<event>-<desk>.<scn|emo>`.
+- File name `<event>-<desk>.<scn|emo>`, in English letters only (å ä → a, ö → o): M32-Edit
+  silently loads nothing from a file whose name or folder has a Swedish letter (2026-10-18).
+  Names written inside both files follow the same rule.
 
 ## Capabilities
 
