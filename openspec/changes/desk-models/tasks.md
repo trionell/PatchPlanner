@@ -29,10 +29,10 @@
 
 ## 4. Frontend — types, profiles, strips
 
-- [ ] 4.1 Types: `Console.desk_model`, `bus_mode`; `InputChannel.strip_pool`; `DeskModel`; switch/place preview types; API functions in `api/audioPatch.ts`
-- [ ] 4.2 `useDeskModels()` (React Query, `staleTime: Infinity`)
-- [ ] 4.3 `lib/deskStrips.ts`: number label ("5–6", "6 S", "Aux 1–2"), strip width per engine, usage per pool, `isOver`; delete `channelNumberLabel` / `suggestNextChannelNumber` from `lib/channelWidth.ts` (zero callers, no tests); unit tests
-- [ ] 4.4 `lib/patchCapacity.ts`: per-desk strip counting, the one-desk label, `deskless` count; Generic wording unchanged; tests including 28 mono + 4 stereo on X32 = 36/32
+- [x] 4.1 Types: `Console.desk_model`, `bus_mode`; `InputChannel.strip_pool`; `DeskModel`; switch/place preview types; API functions in `api/audioPatch.ts`
+- [x] 4.2 `useDeskModels()` (React Query, `staleTime: Infinity`)
+- [x] 4.3 `lib/deskStrips.ts`: number label ("5–6", "6 S", "Aux 1–2"), strip width per engine, usage per pool, `isOver`; delete `channelNumberLabel` / `suggestNextChannelNumber` from `lib/channelWidth.ts` (zero callers, no tests); unit tests
+- [x] 4.4 `lib/patchCapacity.ts`: per-desk strip counting, the one-desk label, `deskless` count; Generic wording unchanged; tests including 28 mono + 4 stereo on X32 = 36/32
 
 ## 5. Frontend — the console card and form (Rig drawer)
 
@@ -53,7 +53,7 @@
 
 ## 7. Frontend — the desk selector and the sheets
 
-- [ ] 7.1 `hooks/useSelectedDesk` (design D7) with tests for fallback and the stored `'none'`
+- [x] 7.1 `hooks/useSelectedDesk` (design D7) with tests for fallback and the stored `'none'`
 - [ ] 7.2 Selector trough in `AudioPatchShell` after the view toggle (Sheet only), absent with one desk and no deskless rows, `Select` from five desks; entries name desk and fill; No desk entry in amber; shown to viewers too
 - [ ] 7.3 `AudioInputsTab` / `AudioOutputsTab` own the selection and pass it to sheet, strip and + action; + Channel sends `console_id` + `channel_number: 0`; no-desk event refusal with Open Rig; Flow unchanged
 - [ ] 7.4 `InputSheet`: only the selected desk's rows; X32 Channels / Aux in sections with MicroLabel headings and counts, "No aux inputs used.", + Aux in the aux heading; number cell from `lib/deskStrips` with the over flag (B2)

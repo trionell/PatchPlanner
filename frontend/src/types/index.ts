@@ -224,8 +224,80 @@ export interface InputChannel {
   /** Meaningful only when width is 'stereo'; console-number display only, never affects routing/counting. */
   mixer_behavior: 'stereo_channel' | 'linked_channels'
   notes?: string
-  /** Which desk this channel is a strip on; absent when the event has no console. */
+  /** Which desk this channel is a strip on; absent only on rows left by a deleted desk (Slice 47). */
   console_id?: number
+  /** Which of an X32 · M32 desk's two strip pools the channel sits on; the server always sends it, a create may omit it (= channel). */
+  strip_pool?: StripPool
+}
+
+export type StripPool = 'channel' | 'aux'
+
+/** One entry of the in-code desk model list, served by `GET /desk-models` (Slice 47). */
+export interface DeskModel {
+  key: string
+  family: string
+  label: string
+  sub?: string
+  engine: 'x32' | 'lv1' | 'generic'
+  stereo: 'linked' | 'strip' | 'asis'
+  strips: number
+  aux_in: number
+  local_in: number
+  local_out: number
+  buses: number
+  groups: number
+  mon: number
+  fx_aux: number
+  matrix: number
+  dca: number
+  mute: number
+  fx_returns: number
+  mains: string
+  name_length: number
+  colours: number
+  has_bus_modes: boolean
+}
+
+export interface StripRefusal {
+  error: string
+  fix?: { number: number; pool: StripPool }
+}
+
+export interface MappedRow {
+  id: number
+  name: string
+  from_number: number
+  from_pool: StripPool
+  from_width: number
+  to_number: number
+  to_pool: StripPool
+  to_width: number
+  mixer_behavior: InputChannel['mixer_behavior']
+  over: boolean
+  was_over: boolean
+}
+
+export interface PreviewFigure {
+  label: string
+  before: number
+  before_capacity: number
+  after: number
+  after_capacity: number
+}
+
+export type PreviewWord = 'Left out' | 'Changed' | 'Moved' | 'Fits again'
+
+export interface PreviewLine {
+  word: PreviewWord
+  text: string
+  items?: string[]
+}
+
+/** What a model switch or a placing will do — the preview and, applied, the result. */
+export interface DeskMapping {
+  rows: MappedRow[]
+  figures: PreviewFigure[] | null
+  lines: PreviewLine[] | null
 }
 
 /**
@@ -369,6 +441,10 @@ export interface Console {
   output_count: number
   local_input_count: number
   local_output_count: number
+  /** A key of the served desk models (Slice 47); every console that predates them is `generic`. */
+  desk_model: string
+  /** LV1 80's groups/monitors split; `''` on every other model. */
+  bus_mode: '' | 'groups' | 'monitors'
   /**
    * The desk's bus rail on the output canvas (`position_*`) and its channel rail on the
    * input canvas (`input_position_*`) — a pair each, placed freely since Slice 37. Both
