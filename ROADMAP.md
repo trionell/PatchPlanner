@@ -2,17 +2,15 @@
 
 ## What remains
 
-**Slices 0–43 and 46 are delivered.** This file is a per-slice record written
-after delivery; everything below this section is history. One defect is open: D7.
+**Slices 0–43 and 46–49 are delivered.** This file is a per-slice record written
+after delivery; everything below this section is history. Two defects are open: D7 and D9.
 Slice 46 — the stage plot icon set redrawn by hand — is on
 `redraw-stage-plot-icons` and awaiting the user's decision to merge.
 
 | | |
 |---|---|
 | **D7** — Resizing an element leaves the third dimension behind | open |
-| **Slice 47** — Desk models (`desk-models`) | delivered on `desk-models` · awaiting merge |
-| **Slice 48** — Desk routing (`desk-routing`) | delivered on `desk-routing` (contains 47) · awaiting merge |
-| **Slice 49** — Console showfile export (`console-showfile-export`) | built on `console-showfile-export` (contains 47, 48) · waiting for the user's load test on M32-Edit and LV1 |
+| **D9** — An X32 · M32's aux input sockets cannot be patched in the graph | open |
 
 The table is empty because the roadmap is **asking**, not because the tool is
 finished. Slices 40 and 41 — the audio plan and the stage plot as generated
@@ -71,16 +69,16 @@ extend the rental aggregation in the same slice.
 
 Planned 2026-10-17/18. Built in order, each on its own branch: **47 → 48 → 49**.
 
-- **Slice 47 — Desk models** (`openspec/changes/desk-models`). **Delivered 2026-10-18 on `desk-models`**, gates green, reviewed; merge is the user's call. A console gets a model (X32/M32
+- **Slice 47 — Desk models** (`openspec/changes/archive/2026-10-18-desk-models`). **✅ Merged to main 2026-10-18.** A console gets a model (X32/M32
   family, LV1 16/32/64/80, LV1 Classic 64/80, Generic) that derives its strips, aux inputs,
   local jacks, mix pools and stereo style; hard block on add/edit; a previewed, never-blocked
   model switch; one desk per sheet behind a desk selector. Existing consoles become Generic.
-- **Slice 48 — Desk routing** (`openspec/changes/desk-routing`). **Delivered 2026-10-18 on `desk-routing`**, gates green, reviewed; merge is the user's call. Needs 47's pools. Mixes per
+- **Slice 48 — Desk routing** (`openspec/changes/archive/2026-10-18-desk-routing`). **✅ Merged to main 2026-10-18.** Needs 47's pools. Mixes per
   desk (Main LR, Mono/Centre, Subgroup, Monitor, FX, Matrix), monitor membership, matrix
   sources, group → Main and group → group, outputs "fed by" a mix, and device-to-device routing
   (recording to the LV1 laptop or the X32/M32 card, the recorder as an input source). Table
   views per mix type and a canvas.
-- **Slice 49 — Console showfile export** (`openspec/changes/console-showfile-export`). **Built 2026-10-18**, gates green; closes once the user has loaded a generated `.scn` in M32-Edit and an `.emo` in LV1 17.3 (the LV1 recorder device is unverified). Needs 47
+- **Slice 49 — Console showfile export** (`openspec/changes/archive/2026-10-18-console-showfile-export`). **✅ Merged to main 2026-10-18** on the user's call. The `.scn` loads in M32-Edit once its path has no Swedish letter (every exported name is now ASCII). Still not checked: an `.emo` loaded in LV1 17.3, and the LV1 recorder device. Open from it: D9 (aux sockets), and the export unlinking aux 7–8. Needs 47
   and 48. Writes an X32/M32 `.scn` and an LV1 17.3 `.emo` from built-in templates; the format
   research is in that change's `design.md`.
 
@@ -2525,6 +2523,48 @@ this change must leave alone.
 **Not in scope.** `preserveAspectRatio="none"` stays. Stretching a glyph onto
 its footprint is what makes a 6 m truss draw as a 6 m truss, and once the three
 dimensions move together there is nothing left for it to distort.
+
+### D9 — An X32 · M32's aux input sockets cannot be patched in the graph
+
+**Found:** 2026-10-18 by the user, testing Slice 49's M32 export, and recorded on the
+user's call. On an X32 or M32 profile the desk's **local** panel in the Inputs graph
+draws only the local mic inputs. The rear **aux in** sockets have no jacks, so a
+source plugged into them can't be patched, and an aux strip's input can only come
+from a stagebox.
+
+**Cause.**
+
+- `domain/desk_models.go` `x32()` gives each model `AuxIn: 8`, but that is the aux
+  *strip* pool (Slice 47). Nothing in the model counts the aux *sockets*.
+- The local panel is sized by `local_input_count` alone: `lib/inputGraph.ts`
+  `consoleLocalPorts`, and `service/audio_graph.go` ~line 327 for the PDF's copy.
+- The export does the matching thing. `consolefile/x32.go` ~line 349 leaves every
+  aux strip on the rear aux sockets ("aux inputs keep the rear aux sockets; their
+  stagebox patch is not written"). That is correct only because the graph can't say
+  anything else.
+
+**A fix has to cover:**
+
+- **The socket count per model, checked against the manuals.** As far as known:
+  X32 and M32 full size have 6 aux in plus the USB/card pair on aux 7–8; the
+  Compact, Producer, Rack and M32R differ, and Core and M32C have none. None of
+  this is verified.
+- **An aux section on the local panel, kept apart from the mic inputs.** It needs its
+  own labels (`Aux in 1…`), and those ports must not count against the local
+  inputs.
+- **The export:** a patched aux socket written as the aux strip's source, or as
+  user-in codes 161–166 when it feeds an ordinary channel.
+- **The phone's channel sheet and the PDF graph,** which draw the same panel.
+
+**Decide first:**
+
+- **How the sockets are stored.** Either as `console_local` ports numbered after the
+  local inputs, or as a port kind of their own. The first needs no migration but
+  shifts meaning when a model switch changes `local_input_count`. The second is a
+  migration and a new kind in both graphs. That choice decides whether this is a
+  defect or a slice.
+- **Whether an aux socket may feed an ordinary channel.** The X32's user-in routing
+  allows it.
 
 ### D8 — A stagebox's counts would not stay put, and Inputs sized nothing ✅ fixed 2026-10-18
 
