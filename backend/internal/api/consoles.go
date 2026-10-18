@@ -212,7 +212,7 @@ func applyDeskProfile(console *domain.Console, model domain.DeskModel) {
 func listDeskModels(w http.ResponseWriter, _ *http.Request) {
 	out := make([]servedDeskModel, len(domain.DeskModels))
 	for i, model := range domain.DeskModels {
-		out[i] = servedDeskModel{DeskModel: model, RouteRules: routeRules(model), Mains: model.MainSlots()}
+		out[i] = servedDeskModel{DeskModel: model, RouteRules: routeRules(model), MainSlots: model.MainSlots()}
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -225,7 +225,7 @@ type servedDeskModel struct {
 	// RouteRules[src][dst] is "yes", "no", or "forward": only to a
 	// higher-numbered destination (LV1 group → group).
 	RouteRules map[string]map[string]string `json:"route_rules"`
-	Mains      []domain.MainSlot            `json:"mains"`
+	MainSlots  []domain.MainSlot            `json:"main_slots"`
 }
 
 func routeRules(model domain.DeskModel) map[string]map[string]string {
