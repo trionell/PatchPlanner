@@ -12,7 +12,7 @@ Slice 46 — the stage plot icon set redrawn by hand — is on
 | **D7** — Resizing an element leaves the third dimension behind | open |
 | **Slice 47** — Desk models (`desk-models`) | delivered on `desk-models` · awaiting merge |
 | **Slice 48** — Desk routing (`desk-routing`) | delivered on `desk-routing` (contains 47) · awaiting merge |
-| **Slice 49** — Console showfile export (`console-showfile-export`) | planned · needs 47 and 48 |
+| **Slice 49** — Console showfile export (`console-showfile-export`) | built on `console-showfile-export` (contains 47, 48) · waiting for the user's load test on M32-Edit and LV1 |
 
 The table is empty because the roadmap is **asking**, not because the tool is
 finished. Slices 40 and 41 — the audio plan and the stage plot as generated
@@ -80,7 +80,7 @@ Planned 2026-10-17/18. Built in order, each on its own branch: **47 → 48 → 4
   sources, group → Main and group → group, outputs "fed by" a mix, and device-to-device routing
   (recording to the LV1 laptop or the X32/M32 card, the recorder as an input source). Table
   views per mix type and a canvas.
-- **Slice 49 — Console showfile export** (`openspec/changes/console-showfile-export`). Needs 47
+- **Slice 49 — Console showfile export** (`openspec/changes/console-showfile-export`). **Built 2026-10-18**, gates green; closes once the user has loaded a generated `.scn` in M32-Edit and an `.emo` in LV1 17.3 (the LV1 recorder device is unverified). Needs 47
   and 48. Writes an X32/M32 `.scn` and an LV1 17.3 `.emo` from built-in templates; the format
   research is in that change's `design.md`.
 
