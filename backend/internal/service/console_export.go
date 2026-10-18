@@ -304,9 +304,9 @@ func (s ExportService) BuildConsoleExport(eventID, consoleID int64, ports Export
 	for _, key := range keys {
 		name := boxName[key]
 		if key == "local" {
-			name = "The desk's local jacks"
+			name = "the desk's local jacks"
 		}
-		notices = append(notices, consolefile.Notice{Word: consolefile.NoPort, Text: fmt.Sprintf("%s has no port: its channels and outputs are written with no patch, 48 V or recording.", name)})
+		notices = append(notices, consolefile.Notice{Word: consolefile.NoPort, Text: fmt.Sprintf("No port for %s: what it carries is written with no patch, 48 V or recording.", name)})
 	}
 
 	var boxes []ExportBox
