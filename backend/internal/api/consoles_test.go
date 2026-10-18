@@ -34,7 +34,7 @@ func TestConsoleCRUD(t *testing.T) {
 	}
 
 	status, raw = doJSON(t, http.MethodPost, consolesURL, map[string]any{
-		"name": "FOH · SD10", "role": "foh", "inventory_item_id": deskItem,
+		"name": "FOH · SD10", "role": "foh", "inventory_item_id": deskItem, "desk_model": "generic",
 		"input_count": 96, "output_count": 48, "local_input_count": 8, "local_output_count": 8,
 	})
 	if status != http.StatusCreated {
@@ -51,9 +51,12 @@ func TestConsoleCRUD(t *testing.T) {
 		name    string
 		payload map[string]any
 	}{
-		{"unknown role", map[string]any{"name": "X", "role": "playback"}},
-		{"both item kinds", map[string]any{"name": "X", "inventory_item_id": deskItem, "owned_item_id": 1}},
-		{"negative count", map[string]any{"name": "X", "input_count": -1}},
+		{"unknown role", map[string]any{"name": "X", "role": "playback", "desk_model": "generic"}},
+		{"both item kinds", map[string]any{"name": "X", "inventory_item_id": deskItem, "owned_item_id": 1, "desk_model": "generic"}},
+		{"negative count", map[string]any{"name": "X", "input_count": -1, "desk_model": "generic"}},
+		{"no model", map[string]any{"name": "X"}},
+		{"unknown model", map[string]any{"name": "X", "desk_model": "sd10"}},
+		{"bus mode on a 64", map[string]any{"name": "X", "desk_model": "lv1_64", "bus_mode": "groups"}},
 	} {
 		status, raw = doJSON(t, http.MethodPost, consolesURL, tc.payload)
 		if status != http.StatusBadRequest {
@@ -152,7 +155,7 @@ func TestConsoleLocalJacksAndGuards(t *testing.T) {
 	cablesURL := fmt.Sprintf("%s/events/%d/input-cables", server.URL, eventID)
 
 	status, raw := doJSON(t, http.MethodPost, consolesURL, map[string]any{
-		"name": "FOH · SD10", "role": "foh", "input_count": 96, "local_input_count": 8, "local_output_count": 8,
+		"name": "FOH · SD10", "role": "foh", "desk_model": "generic", "input_count": 96, "local_input_count": 8, "local_output_count": 8,
 	})
 	if status != http.StatusCreated {
 		t.Fatalf("POST console: status %d body %s", status, raw)
@@ -167,7 +170,7 @@ func TestConsoleLocalJacksAndGuards(t *testing.T) {
 	}
 	source := decodeJSON[domain.InputSource](t, raw)
 
-	status, raw = doJSON(t, http.MethodPost, channelsURL, map[string]any{"channel_number": 15, "channel_name": "Talkback"})
+	status, raw = doJSON(t, http.MethodPost, channelsURL, map[string]any{"channel_number": 15, "channel_name": "Talkback", "console_id": console.ID})
 	if status != http.StatusCreated {
 		t.Fatalf("POST channel: status %d body %s", status, raw)
 	}

@@ -1,31 +1,31 @@
 ## 1. Backend — profiles and schema
 
-- [ ] 1.1 `internal/domain/desk_models.go`: the ordered `DeskModel` list and LV1 80 bus modes (design D1); `Engine` helpers; unit test that every key is unique, every family is one of the five, and the table in `specs/console-desk-model` matches
-- [ ] 1.2 `Console` gains `DeskModel string` and `BusMode string`; `InputChannel` gains `StripPool string` (`channel` | `aux`); validation lists in `domain`
-- [ ] 1.3 Migration `054_desk_models` up/down (design D2), including the single-desk attach of deskless channels and outputs
-- [ ] 1.4 `db/console_migration_test.go`-style test: an event with one desk and deskless rows → attached; two desks → untouched; every console `generic`; no number changed
-- [ ] 1.5 `db/consoles.go` and `db/audio_patch.go` select/insert/update/scan the new columns
-- [ ] 1.6 `GET /api/desk-models` (static) with a handler test
+- [x] 1.1 `internal/domain/desk_models.go`: the ordered `DeskModel` list and LV1 80 bus modes (design D1); `Engine` helpers; unit test that every key is unique, every family is one of the five, and the table in `specs/console-desk-model` matches
+- [x] 1.2 `Console` gains `DeskModel string` and `BusMode string`; `InputChannel` gains `StripPool string` (`channel` | `aux`); validation lists in `domain`
+- [x] 1.3 Migration `054_desk_models` up/down (design D2), including the single-desk attach of deskless channels and outputs
+- [x] 1.4 `db/console_migration_test.go`-style test: an event with one desk and deskless rows → attached; two desks → untouched; every console `generic`; no number changed
+- [x] 1.5 `db/consoles.go` and `db/audio_patch.go` select/insert/update/scan the new columns
+- [x] 1.6 `GET /api/desk-models` (static) with a handler test
 
 ## 2. Backend — console model and the mapping
 
-- [ ] 2.1 `createConsole`: `desk_model` required (400 "Pick the desk's model, or Generic."), known key; real model writes derived counts and default bus mode from role (D3)
-- [ ] 2.2 `updateConsole`: `desk_model` read-only; `bus_mode` writable on 80s only; typed counts overwritten from the profile on a real model; local-port 409 kept for Generic only
-- [ ] 2.3 `service/deskmap.go` `MapRows` with `LocalUse` (design D4 algorithm) — pure, table-tested: wedding M23R → M32R (Piano 7 → 7–8, Trumpet 8 → 9); LV1 64 → X32 Compact overflow; 40 ch LV1 → M32 (8 over, aux empty); M32 aux → LV1 64 (Moved after last channel); X32 → X32 aux stays aux; round trip LV1 → X32 → LV1 moves nothing back; Fits again; names > 12 under Changed; local jacks past the new count under Left out
-- [ ] 2.4 Verify each table test by breaking the rule it guards (odd start, order preservation, never-fill-aux) and seeing it fail
-- [ ] 2.4a Real → Generic keeps the derived values as typed counts, listed under Changed (design D3)
-- [ ] 2.5 `POST /consoles/{cid}/switch` `{desk_model, bus_mode, apply}`: preview without `apply`; one transaction with it (console model + counts, row numbers, pools, `mixer_behavior`); test that applied numbers equal the previewed ones
-- [ ] 2.6 `POST /consoles/{cid}/place` `{kind, ids, apply}` for deskless channels and outputs (own number if free → lowest free → past the end; never aux); tests
+- [x] 2.1 `createConsole`: `desk_model` required (400 "Pick the desk's model, or Generic."), known key; real model writes derived counts and default bus mode from role (D3)
+- [x] 2.2 `updateConsole`: `desk_model` read-only; `bus_mode` writable on 80s only; typed counts overwritten from the profile on a real model; local-port 409 kept for Generic only
+- [x] 2.3 `service/deskmap.go` `MapRows` with `LocalUse` (design D4 algorithm) — pure, table-tested: wedding M23R → M32R (Piano 7 → 7–8, Trumpet 8 → 9); LV1 64 → X32 Compact overflow; 40 ch LV1 → M32 (8 over, aux empty); M32 aux → LV1 64 (Moved after last channel); X32 → X32 aux stays aux; round trip LV1 → X32 → LV1 moves nothing back; Fits again; names > 12 under Changed; local jacks past the new count under Left out
+- [x] 2.4 Verify each table test by breaking the rule it guards (odd start, order preservation, never-fill-aux) and seeing it fail
+- [x] 2.4a Real → Generic keeps the derived values as typed counts, listed under Changed (design D3)
+- [x] 2.5 `POST /consoles/{cid}/switch` `{desk_model, bus_mode, apply}`: preview without `apply`; one transaction with it (console model + counts, row numbers, pools, `mixer_behavior`); test that applied numbers equal the previewed ones
+- [x] 2.6 `POST /consoles/{cid}/place` `{kind, ids, apply}` for deskless channels and outputs (own number if free → lowest free → past the end; never aux); tests
 
 ## 3. Backend — rows on a desk and strip checks
 
-- [ ] 3.1 `domain.CheckStrip` (design D5): past the end, taken strip (occupancy by width per engine), x32 even stereo start; returns message + fix; unit tests for each refusal and its fix
-- [ ] 3.2 Channel create: `console_id` required when the event has consoles (400), refused when it has none (409, refusal text); `channel_number = 0` → suggested number per spec; strip check on real models (409 with `fix`)
-- [ ] 3.3 Channel update: strip check only when number, width, pool or desk changed; deskless save refused unless the single-desk repair applies; real model forces `mixer_behavior`
-- [ ] 3.2a Channel create on a pool with no legal strip → 409 with `FullRefusal` text
-- [ ] 3.4 Output create/update: the same desk requirement, no capacity check
-- [ ] 3.5 API tests: create on a full M32 (409 names the desk), even stereo start (fix 5–6), Aux 9, taken aux, over row renamed (200), Generic never refuses, no-desk event (409), multi-desk without `console_id` (400), full channel pool with aux free (409, FullRefusal text), viewer 403
-- [ ] 3.6 `cd backend && gofmt -l . && go vet ./... && go test ./...`
+- [x] 3.1 `domain.CheckStrip` (design D5): past the end, taken strip (occupancy by width per engine), x32 even stereo start; returns message + fix; unit tests for each refusal and its fix
+- [x] 3.2 Channel create: `console_id` required when the event has consoles (400), refused when it has none (409, refusal text); `channel_number = 0` → suggested number per spec; strip check on real models (409 with `fix`)
+- [x] 3.3 Channel update: strip check only when number, width, pool or desk changed; deskless save refused unless the single-desk repair applies; real model forces `mixer_behavior`
+- [x] 3.2a Channel create on a pool with no legal strip → 409 with `FullRefusal` text
+- [x] 3.4 Output create/update: the same desk requirement, no capacity check
+- [x] 3.5 API tests: create on a full M32 (409 names the desk), even stereo start (fix 5–6), Aux 9, taken aux, over row renamed (200), Generic never refuses, no-desk event (409), multi-desk without `console_id` (400), full channel pool with aux free (409, FullRefusal text), viewer 403
+- [x] 3.6 `cd backend && gofmt -l . && go vet ./... && go test ./...`
 
 ## 4. Frontend — types, profiles, strips
 
