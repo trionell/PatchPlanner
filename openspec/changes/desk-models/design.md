@@ -71,7 +71,7 @@ Fits again lines and the before/after figures. Two endpoints call it:
 
 - `POST /events/{id}/consoles/{cid}/switch` `{desk_model, bus_mode, apply}` — maps the desk's
   channels to the target model.
-- `POST /events/{id}/consoles/{cid}/place` `{kind: "channels"|"outputs", ids, apply}` — maps
+- `POST /events/{id}/consoles/{cid}/place` `{channel_ids?, output_ids?, apply}` — maps
   deskless rows *onto* the desk alongside the rows already there (existing rows never move).
 
 Without `apply` they return the preview; with it they run the same mapping in one transaction and

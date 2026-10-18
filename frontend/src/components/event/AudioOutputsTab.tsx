@@ -184,8 +184,11 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
   const listedOutputs = selectedConsole ? outputs.filter((output) => output.console_id === selectedConsole.id) : desklessOutputs
   const deskEntries = consoles.map((desk) => ({ desk, label: `${deskLabel(desk, modelOf(desk))} ${outputs.filter((output) => output.console_id === desk.id).length} out` }))
   const [addRefusal, setAddRefusal] = useState<SheetRefusal | undefined>()
+  const [actionCount, setActionCount] = useState(0)
+  const [movedLine, setMovedLine] = useState<{ text: string; deskId: number; deskName: string } | null>(null)
   const setDeskSelection = (next: typeof deskSelection) => {
     setAddRefusal(undefined)
+    setMovedLine(null)
     selectDesk(next)
   }
 
@@ -221,6 +224,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
 
   const addOutputRow = () => {
     setAddRefusal(undefined)
+    setActionCount((n) => n + 1)
     if (!selectedConsole) {
       setAddRefusal({ message: 'An output comes off a desk, and this event has none yet. Add the desk in Rig first.', fix: readOnly ? undefined : { label: 'Open Rig', apply: () => setRigOpen(true) } })
       return
@@ -273,9 +277,17 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
             )
           }
           notice={
-            (addRefusal || !selectedDesk) && view === 'sheet' ? (
+            (addRefusal || movedLine || !selectedDesk) && view === 'sheet' ? (
               <>
                 {addRefusal && <RefusalNotice refusal={addRefusal} />}
+                {movedLine && (
+                  <p className="flex flex-wrap items-center gap-2 text-sm text-zinc-300">
+                    {movedLine.text}
+                    <Button variant="outline" className="h-11 px-3 text-sm" onClick={() => setDeskSelection(movedLine.deskId)}>
+                      Show {movedLine.deskName}
+                    </Button>
+                  </p>
+                )}
                 {!selectedDesk && (
                   <DesklessNote eventId={eventId} kind="outputs" ids={desklessOutputs.map((output) => output.id)} consoles={consoles} readOnly={readOnly} onOpenRig={() => setRigOpen(true)} onPlaced={invalidate} hand />
                 )}
@@ -335,7 +347,10 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
           }
           items={items}
           filtered={gapsOnly}
-          onSelect={setEditingOutputId}
+          onSelect={(id) => {
+            setMovedLine(null)
+            setEditingOutputId(id)
+          }}
           /* No primary action in Flow (FR-022) — see Audio Inputs for the argument. */
           onAdd={
             view !== 'sheet' || (deskSelection === 'none' && consoles.length > 0)
@@ -394,6 +409,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
             consoles={consoles}
             models={models}
             deskId={selectedConsole?.id}
+            onMoved={setMovedLine}
             readOnly={readOnly}
             output={editingOutput}
             outputs={outputs}
@@ -496,6 +512,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
         {view === 'sheet' ? (
           <OutputSheet
             key={String(deskSelection)}
+            actionCount={actionCount}
             eventId={eventId}
             outputs={listedOutputs}
             desk={selectedDesk}

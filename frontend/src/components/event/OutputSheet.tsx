@@ -73,6 +73,8 @@ interface OutputSheetProps {
   onSelectDeskless?: () => void
   onShowDesk?: (deskId: number) => void
   addRefusal?: SheetRefusal
+  /** Bumped by every add: the next action clears the moved-row line (B7). */
+  actionCount?: number
 }
 
 /**
@@ -100,6 +102,7 @@ export function OutputSheet({
   onSelectDeskless,
   onShowDesk,
   addRefusal,
+  actionCount = 0,
 }: OutputSheetProps) {
   const queryClient = useQueryClient()
   const { options } = useReferenceData(eventId)
@@ -111,6 +114,11 @@ export function OutputSheet({
   }
   const [moved, setMoved] = useState<{ text: string; deskId: number; deskName: string } | null>(null)
   const [rowRefusal, setRowRefusal] = useState<{ id: number; message: string } | null>(null)
+  const [seenActions, setSeenActions] = useState(actionCount)
+  if (seenActions !== actionCount) {
+    setSeenActions(actionCount)
+    setMoved(null)
+  }
   const saveOutput = useMutation({
     mutationFn: ({ id, payload }: { id: number; payload: Omit<AudioPatchOutput, 'id'> }) => updateAudioOutput(eventId, id, payload),
     onSuccess: async (saved) => {

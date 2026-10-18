@@ -26,7 +26,10 @@ export function MobileOutputEditSheet({
   consoles,
   models,
   deskId,
+  onMoved,
 }: {
+  /** Called when a save moves the output to another desk, with B7's line. */
+  onMoved?: (line: { text: string; deskId: number; deskName: string }) => void
   eventId: number
   consoles: Console[]
   models: DeskModel[]
@@ -103,6 +106,10 @@ export function MobileOutputEditSheet({
         for (const data of ops.cablesToCreate) await createOutputCable(eventId, data)
       }
 
+      const target = consoles.find((candidate) => candidate.id === consoleId)
+      if (output && target && consoleId !== output.console_id) {
+        onMoved?.({ text: `${name || 'The output'} is now on ${deskLabel(target, deskModelOf(models, target))}, as ${output.output_number}.`, deskId: target.id, deskName: target.name || 'that desk' })
+      }
       await queryClient.invalidateQueries({ queryKey: ['audio-patch', eventId] })
       await queryClient.invalidateQueries({ queryKey: ['rental-summary', eventId] })
       await onSaved()

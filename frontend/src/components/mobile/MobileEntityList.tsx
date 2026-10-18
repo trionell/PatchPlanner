@@ -210,7 +210,7 @@ export function MobileEntityList({
           </div>
         )
       })}
-      {visible.length === 0 && (
+      {visible.length === 0 && !(sections && items.length === 0) && (
         <p className="px-3 py-3 text-sm text-zinc-500">
           {items.length > 0 ? 'No matches.' : filtered ? 'Nothing left to fix — tap the strip to show everything.' : emptyLabel}
         </p>

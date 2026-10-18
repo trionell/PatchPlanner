@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { createInputCable, createInputChannel, deleteInputCable, updateInputChannel } from '../../api/audioPatch'
 import { ApiError } from '../../api/client'
 import { deskModelOf } from '../../hooks/useDeskModels'
-import { deskLabel } from '../../lib/deskStrips'
+import { deskLabel, stripLabel } from '../../lib/deskStrips'
 import { computeRoutingSave, resolveChannelRouting, type ChannelRouting } from '../../lib/mobileChannelList'
 import { toOptionalNumber } from '../../lib/utils'
 import type { Console, DeskModel, InputCable, InputChannel, InputSource, Stagebox, StripPool, StripRefusal } from '../../types'
@@ -87,8 +87,9 @@ export function MobileChannelEditSheet({
     setSaving(true)
     try {
       let channelId = channel?.id
+      let saved: InputChannel | undefined
       if (channel) {
-        await updateInputChannel(eventId, channel.id, {
+        saved = await updateInputChannel(eventId, channel.id, {
           channel_number: number,
           strip_pool: hasAux ? pool : 'channel',
           channel_name: name,
@@ -123,8 +124,9 @@ export function MobileChannelEditSheet({
         for (const data of ops.cablesToCreate) await createInputCable(eventId, data)
       }
 
-      if (channel && desk && consoleId !== channel.console_id) {
-        onMoved?.({ text: `${name || 'The channel'} is now on ${deskLabel(desk, deskModelOf(models, desk))}.`, deskId: desk.id, deskName: desk.name || 'that desk' })
+      if (channel && saved && desk && consoleId !== channel.console_id) {
+        const model = deskModelOf(models, desk)
+        onMoved?.({ text: `${name || 'The channel'} is now on ${deskLabel(desk, model)}, as ${stripLabel(model, saved)}.`, deskId: desk.id, deskName: desk.name || 'that desk' })
       }
       await queryClient.invalidateQueries({ queryKey: ['audio-patch', eventId] })
       await queryClient.invalidateQueries({ queryKey: ['rental-summary', eventId] })
