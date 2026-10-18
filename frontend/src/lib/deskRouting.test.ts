@@ -4,7 +4,7 @@ import { EVENT_TABS } from '../hooks/useEventTab'
 import { MOBILE_SECTIONS } from '../types/mobile'
 import type { DeskMix, DeskModel, DeskRoute, InputChannel } from '../types'
 import { cellAllowed, channelRoutes, groupDepths, playsNowhere, poolFill } from './deskRouting'
-import { fedByKey, fedByOptions } from './fedBy'
+import { fedByKey, fedByLabel, fedByOptions } from './fedBy'
 
 const rules = (forwardGroups: boolean, channelMatrix: boolean) => ({
   channel: { main: 'yes', subgroup: 'yes', monitor: 'yes', fx: 'yes', matrix: channelMatrix ? 'yes' : 'no', dca: 'yes', mute: 'yes' },
@@ -62,14 +62,17 @@ describe('reading routes', () => {
 })
 
 describe('Fed by', () => {
-  it('offers no FX, asks the side of a stereo mix on a mono output, and no direct out on X32', () => {
+  it('offers no FX, asks the side of a stereo mix on a mono output, and direct outs on every engine', () => {
     const mixes = [mix(1, 'main', 1, { name: 'LR', width: 'stereo' }), mix(5, 'fx', 1), mix(6, 'matrix', 1, { name: 'Mtx 1' })]
     const channels = [{ id: 7, console_id: 1, channel_number: 1, width: 'mono', mixer_behavior: 'stereo_channel' } as InputChannel]
     const x32 = fedByOptions({ console: { id: 1 } as never, model: M32 }, mixes, channels, 'mono').map((option) => option.label)
-    expect(x32).toEqual(['LR · L', 'LR · R', 'Mtx 1'])
+    expect(x32.slice(0, 3)).toEqual(['LR · L', 'LR · R', 'Mtx 1'])
+    expect(x32.at(-1)).toContain('direct out')
     const lv1 = fedByOptions({ console: { id: 1 } as never, model: LV1 }, mixes, channels, 'stereo').map((option) => option.label)
     expect(lv1.at(-1)).toContain('direct out')
     expect(fedByKey([route('mix', 1, 'output', 3)], 3)).toBe('mix:1:0')
+    expect(fedByLabel('mix:1:0', mixes, channels, 'mono')).toBe('LR · L')
+    expect(fedByLabel('mix:1:0', mixes, channels, 'stereo')).toBe('LR')
   })
 })
 

@@ -83,6 +83,14 @@ export function RecorderTable({ desk, model, channels, mixes, routes, readOnly, 
         next.push({ src_kind: 'recorder', src_id: desk.id, src_port: track, dst_kind: 'channel', dst_id: draft.play, dst_port: 0, mode: draft.mode })
       }
     })
+    // Tracks past the recorder's count that a model switch kept are sent back as they
+    // are, so saving the table never drops them (Slice 48 D6).
+    for (const route of routes) {
+      const track = route.dst_kind === 'recorder' ? route.dst_port : route.src_kind === 'recorder' ? route.src_port : 0
+      if (track > tracks) {
+        next.push({ src_kind: route.src_kind, src_id: route.src_id, src_port: route.src_port, dst_kind: route.dst_kind, dst_id: route.dst_id, dst_port: route.dst_port, mode: route.mode ?? '' })
+      }
+    }
     onSave(next)
     setDrafts(null)
   }

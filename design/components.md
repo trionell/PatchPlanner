@@ -262,7 +262,7 @@ navigation surfaces. One file, both tiers, for the reason in §1.
 ### `ui/Drawer`
 
 Right-anchored overlay. `wide` (`max-w-3xl`, the Rig) · `narrow` (`max-w-md`,
-Buses). Backdrop click and `Escape` close it; nothing renders when closed.
+Universes). Backdrop click and `Escape` close it; nothing renders when closed.
 
 An overlay rather than a flex sibling, deliberately: it opens over the sheet the
 user is cross-referencing, so the sheet's layout never shifts and narrowing the
@@ -577,7 +577,7 @@ the geometry a finger has to hit:
   confirm ([patterns.md](patterns.md) §2), a draft confirmed by one **Save**.
 - **The drawer** is `DrawerSection` + `GearCard` + `GearSpecs`, unchanged — mono
   micro-label headings, 10 px mono spec lines, `Pill` chips, one filled primary
-  among `outline` and `ghost`. The Rig, Buses and Universes drawers are the same
+  among `outline` and `ghost`. The Rig and Universes drawers are the same
   component tree they are on a desk, at `h-10` instead of `h-8`.
 - **The plot inspector** is `StagePlotInspector` unchanged, in a sheet. Its root is
   already a bare `<section>` — the `w-60 border-l` frame belongs to `StagePlotTab` — so it
@@ -619,8 +619,8 @@ was right and the code was not, which is the reverse of the two times this proje
 the opposite, and `Sheet.test.tsx` now asserts both branches.
 
 **`ui/Drawer` is `Sheet` on a phone.** The branch is in the component, so all
-six drawers — Rig, Buses, Universes, Categories, Import, the catalog's manage
-drawer — got a phone form in Wave 6a without one of their files being touched.
+six drawers — Rig, Buses (deleted in Slice 48), Universes, Categories, Import, the
+catalog's manage drawer — got a phone form in Wave 6a without one of their files being touched.
 `width` is not forwarded: a phone has one width, and a sheet that accepted it
 would carry an API it must never use. Six call sites each answering that
 question is how `NodeShell` ended up with two copies.

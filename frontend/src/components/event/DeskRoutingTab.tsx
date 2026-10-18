@@ -120,11 +120,12 @@ export function DeskRoutingTab({ eventId, readOnly = false }: { eventId: number;
 
   if (!desk || !model) {
     return (
-      <div className="rounded-md border border-red-800 bg-red-950/50 px-4 py-3 text-sm text-red-300">
-        Desk routing belongs to a desk, and this event has none yet. Add the desk in Rig, on Audio Inputs.
+      /* A fact about the plan, not an error: amber (tokens.md §5). Rig lives on the audio tabs. */
+      <div className="rounded-md border border-amber-500/40 bg-amber-500/[0.05] px-4 py-3 text-sm text-amber-200">
+        Desk routing belongs to a desk, and this event has none yet. Add the desk in Rig first.
         {!readOnly && (
           <Button size="xs" variant="outline" className="ml-2" onClick={() => openTab('audio-inputs')}>
-            Open Audio Inputs
+            Open Rig
           </Button>
         )}
       </div>

@@ -56,6 +56,6 @@
 ## 7. Close-out
 
 - [x] 7.1 Frontend and backend gates (validator)
-- [ ] 7.2 Real data on a `/tmp` copy: the wedding's LR, groups and DCAs survive; Inputs, Desk Routing, the PDF and Signal Flow agree; a two-desk copy shows separate mixes
-- [ ] 7.3 `reviewer` against the specs and the mockup; fix findings
-- [ ] 7.4 ROADMAP Slice 48 record; archive before any merge (merge is the user's call)
+- [x] 7.2 Real data on a `/tmp` copy: the wedding's LR, groups and DCAs survive; Inputs, Desk Routing, the PDF and Signal Flow agree; a two-desk copy shows separate mixes
+- [x] 7.3 `reviewer` against the specs and the mockup; fix findings
+- [x] 7.4 ROADMAP Slice 48 record; archive before any merge (merge is the user's call)

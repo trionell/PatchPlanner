@@ -98,6 +98,8 @@ type MixPlacement struct {
 	Slot  int
 	Width string
 	Name  string
+	// Drop removes a main the new desk has not got and nothing routes to.
+	Drop bool
 }
 
 func ApplyDeskSwitch(db *sql.DB, console domain.Console, rows []StripPlacement, mixes []MixPlacement) (domain.Console, error) {
@@ -114,6 +116,15 @@ func ApplyDeskSwitch(db *sql.DB, console domain.Console, rows []StripPlacement, 
 		return domain.Console{}, err
 	}
 	for _, mix := range mixes {
+		if mix.Drop {
+			if err := clearPortRoutes(tx, domain.PortMix, mix.ID); err != nil {
+				return domain.Console{}, err
+			}
+			if _, err := tx.Exec(`DELETE FROM desk_mixes WHERE id = ?`, mix.ID); err != nil {
+				return domain.Console{}, fmt.Errorf("drop main %d: %w", mix.ID, err)
+			}
+			continue
+		}
 		if _, err := tx.Exec(`UPDATE desk_mixes SET slot = ?, width = ?, name = ? WHERE id = ?`, mix.Slot, mix.Width, mix.Name, mix.ID); err != nil {
 			return domain.Console{}, fmt.Errorf("place mix %d: %w", mix.ID, err)
 		}

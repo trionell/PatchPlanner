@@ -222,3 +222,114 @@ func TestMapRowsCompactsIntoRoom(t *testing.T) {
 		t.Errorf("Left out on a desk with room: %+v", m.Lines)
 	}
 }
+
+func dmix(id int64, kind string, slot int, width, name string) domain.DeskMix {
+	console := int64(1)
+	return domain.DeskMix{ID: id, ConsoleID: &console, Kind: kind, Slot: slot, Width: width, Name: name}
+}
+
+func mixRow(t *testing.T, m MixMapping, id int64) MappedMix {
+	t.Helper()
+	for _, mix := range m.Mixes {
+		if mix.ID == id {
+			return mix
+		}
+	}
+	t.Fatalf("mix %d not mapped", id)
+	return MappedMix{}
+}
+
+func mixLine(m MixMapping, word, contains string) bool {
+	for _, l := range m.Lines {
+		if l.Word == word && strings.Contains(l.Text, contains) {
+			return true
+		}
+	}
+	return false
+}
+
+func TestMapMixesM32ToLV1(t *testing.T) {
+	mixes := []domain.DeskMix{
+		dmix(1, "main", 1, "stereo", "LR"), dmix(2, "main", 2, "mono", "M/C"),
+		dmix(10, "subgroup", 1, "mono", "Drums"), dmix(11, "monitor", 2, "stereo", "IEM"),
+	}
+	routes := []domain.DeskRoute{{SrcKind: "mix", SrcID: 10, DstKind: "mix", DstID: 1}}
+	m := MapMixes(mixes, routes, side(t, "m32", 0), side(t, "lv1_64", 0), false, 0)
+	if g := mixRow(t, m, 10); g.ToWidth != "stereo" {
+		t.Errorf("an LV1 group is stereo: %+v", g)
+	}
+	if c := mixRow(t, m, 2); c.ToName != "C" {
+		t.Errorf("M/C → %q, want C", c.ToName)
+	}
+	if !mixLine(m, WordChanged, "change width") || !mixLine(m, WordChanged, "names") {
+		t.Errorf("Changed lines: %+v", m.Lines)
+	}
+}
+
+func TestMapMixesKeepsAPlannersMainName(t *testing.T) {
+	mixes := []domain.DeskMix{dmix(1, "main", 1, "stereo", "PA"), dmix(2, "main", 2, "mono", "C")}
+	m := MapMixes(mixes, nil, side(t, "lv1_64", 0), side(t, "m32", 0), false, 0)
+	if lr := mixRow(t, m, 1); lr.ToName != "PA" {
+		t.Errorf("a renamed main became %q", lr.ToName)
+	}
+	if mc := mixRow(t, m, 2); mc.ToName != "M/C" {
+		t.Errorf("C → %q, want M/C", mc.ToName)
+	}
+}
+
+func TestMapMixesRoundTripAndFitsAgain(t *testing.T) {
+	var mixes []domain.DeskMix
+	for i := 1; i <= 20; i++ {
+		mixes = append(mixes, dmix(int64(i), "monitor", i, "mono", fmt.Sprintf("Mon %d", i)))
+	}
+	monitors := side(t, "lv1_80", 0)
+	monitors.Model = monitors.Model.WithBusMode(domain.BusModeMonitors)
+	there := MapMixes(mixes, nil, monitors, side(t, "m32", 0), false, 0)
+	over := 0
+	var back []domain.DeskMix
+	for _, m := range there.Mixes {
+		if m.Over {
+			over++
+		}
+		back = append(back, dmix(m.ID, m.Kind, m.ToSlot, m.ToWidth, m.Name))
+	}
+	if over != 4 {
+		t.Errorf("%d of 20 monitors over 16 buses, want 4", over)
+	}
+	again := MapMixes(back, nil, side(t, "m32", 0), monitors, false, 0)
+	for _, m := range again.Mixes {
+		if m.ToSlot != m.FromSlot {
+			t.Errorf("mix %d moved %d → %d on the way back", m.ID, m.FromSlot, m.ToSlot)
+		}
+	}
+	if !mixLine(again, WordFitsAgain, "4 mixes") {
+		t.Errorf("no Fits again: %+v", again.Lines)
+	}
+}
+
+func TestMapMixesFedByAndRecorder(t *testing.T) {
+	mixes := []domain.DeskMix{dmix(1, "main", 1, "stereo", "LR"), dmix(5, "fx", 1, "mono", "Verb")}
+	routes := []domain.DeskRoute{
+		{SrcKind: "mix", SrcID: 5, DstKind: "output", DstID: 9},                    // an FX send feeding an output
+		{SrcKind: "channel", SrcID: 3, DstKind: "recorder", DstID: 1, DstPort: 40}, // past the card
+	}
+	m := MapMixes(mixes, routes, side(t, "lv1_64", 0), side(t, "m32", 0), true, 64)
+	if m.RecorderTracks != 32 {
+		t.Errorf("recorder tracks %d, want the card's 32", m.RecorderTracks)
+	}
+	if !mixLine(m, WordLeftOut, "cannot send to an output") {
+		t.Errorf("FX Fed by not Left out: %+v", m.Lines)
+	}
+	if !mixLine(m, WordLeftOut, "recorder route") {
+		t.Errorf("track 40 not Left out: %+v", m.Lines)
+	}
+}
+
+func TestMapMixesKeepsSlotOrder(t *testing.T) {
+	// Buses taken by subgroups first; monitors keep their slots where free.
+	mixes := []domain.DeskMix{dmix(1, "subgroup", 1, "mono", "A"), dmix(2, "monitor", 1, "mono", "B"), dmix(3, "monitor", 3, "mono", "C")}
+	m := MapMixes(mixes, nil, side(t, "lv1_64", 0), side(t, "x32", 0), false, 0)
+	if b, c := mixRow(t, m, 2), mixRow(t, m, 3); b.ToSlot != 2 || c.ToSlot != 3 {
+		t.Errorf("monitors on %d and %d, want 2 (next free) and 3 (kept)", b.ToSlot, c.ToSlot)
+	}
+}

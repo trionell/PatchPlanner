@@ -140,7 +140,6 @@ export function fedByKinds(): MixKind[] {
   return ['main', 'subgroup', 'monitor', 'matrix']
 }
 
-export const directOutAllowed = (model: DeskModel) => model.engine !== 'x32'
 
 /** The recorder's track count each way: the card's 32, LV1's 64, or Generic's typed count. */
 export function recorderTracks(model: DeskModel, desk: { recorder_tracks?: number }): number {

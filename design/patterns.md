@@ -658,7 +658,7 @@ the form.**
 
 ### 7e · The section switcher
 
-Nine tabs do not fit, so the phone names the current section and opens the list on
+Ten tabs do not fit, so the phone names the current section and opens the list on
 a tap. It is `ui/Tabs`'s job in a different shape — *what you are looking at* — so
 it takes no trough, and the current section is amber in the open list, not on the
 closed control. **A control that is amber whether or not anything is selected has

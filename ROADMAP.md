@@ -11,7 +11,7 @@ Slice 46 — the stage plot icon set redrawn by hand — is on
 |---|---|
 | **D7** — Resizing an element leaves the third dimension behind | open |
 | **Slice 47** — Desk models (`desk-models`) | delivered on `desk-models` · awaiting merge |
-| **Slice 48** — Desk routing (`desk-routing`) | planned · needs 47 |
+| **Slice 48** — Desk routing (`desk-routing`) | delivered on `desk-routing` (contains 47) · awaiting merge |
 | **Slice 49** — Console showfile export (`console-showfile-export`) | planned · needs 47 and 48 |
 
 The table is empty because the roadmap is **asking**, not because the tool is
@@ -75,7 +75,7 @@ Planned 2026-10-17/18. Built in order, each on its own branch: **47 → 48 → 4
   family, LV1 16/32/64/80, LV1 Classic 64/80, Generic) that derives its strips, aux inputs,
   local jacks, mix pools and stereo style; hard block on add/edit; a previewed, never-blocked
   model switch; one desk per sheet behind a desk selector. Existing consoles become Generic.
-- **Slice 48 — Desk routing** (`openspec/changes/desk-routing`). Needs 47's pools. Mixes per
+- **Slice 48 — Desk routing** (`openspec/changes/desk-routing`). **Delivered 2026-10-18 on `desk-routing`**, gates green, reviewed; merge is the user's call. Needs 47's pools. Mixes per
   desk (Main LR, Mono/Centre, Subgroup, Monitor, FX, Matrix), monitor membership, matrix
   sources, group → Main and group → group, outputs "fed by" a mix, and device-to-device routing
   (recording to the LV1 laptop or the X32/M32 card, the recorder as an input source). Table

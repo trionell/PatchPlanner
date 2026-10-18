@@ -1,6 +1,6 @@
 import type { DeskMix, DeskRoute, InputChannel } from '../types'
 import type { SelectedDesk } from './patchCapacity'
-import { directOutAllowed, fedByKinds, mixLabel } from './deskRouting'
+import { fedByKinds, mixLabel } from './deskRouting'
 import { stripLabel } from './deskStrips'
 
 /**
@@ -21,8 +21,8 @@ export function fedBySource(key: string): { src_kind: 'mix' | 'channel'; src_id:
   return { src_kind: 'mix', src_id: Number(id), side: port === '1' ? 'R' : port === '0' ? 'L' : undefined }
 }
 
-/** The Fed by cell: the mix (with its side when one was picked), a direct out, or —. */
-export function fedByLabel(key: string, mixes: DeskMix[], channels: InputChannel[]): string {
+/** The Fed by cell: the mix (with its side when a mono output takes one side), a direct out, or —. */
+export function fedByLabel(key: string, mixes: DeskMix[], channels: InputChannel[], outputWidth: 'mono' | 'stereo' = 'stereo'): string {
   if (!key) return '—'
   const [kind, id, port] = key.split(':')
   if (kind === 'channel') {
@@ -31,12 +31,14 @@ export function fedByLabel(key: string, mixes: DeskMix[], channels: InputChannel
   }
   const mix = mixes.find((candidate) => candidate.id === Number(id))
   if (!mix) return '—'
-  return mix.width === 'stereo' && port === '1' ? `${mixLabel(mix)} · R` : mixLabel(mix)
+  if (mix.width === 'stereo' && outputWidth === 'mono') return `${mixLabel(mix)} · ${port === '1' ? 'R' : 'L'}`
+  return mixLabel(mix)
 }
 
 /**
  * What an output on this desk can be fed by: its mains, groups or buses, monitors
- * and matrices (never FX), and on LV1 and Generic a channel's direct out. A stereo
+ * and matrices (never FX), and a channel's direct out — every engine, X32 · M32 included
+ * (Maillot's protocol: an output's source can be DirectOut Ch 1–32). A stereo
  * mix on a mono output is offered side by side.
  */
 export function fedByOptions(desk: SelectedDesk, mixes: DeskMix[], channels: InputChannel[], outputWidth: 'mono' | 'stereo') {
@@ -52,10 +54,8 @@ export function fedByOptions(desk: SelectedDesk, mixes: DeskMix[], channels: Inp
           ]
         : [{ value: `mix:${mix.id}:0`, label: mixLabel(mix) }],
     )
-  if (directOutAllowed(desk.model)) {
-    for (const channel of channels.filter((candidate) => candidate.console_id === desk.console.id)) {
-      options.push({ value: `channel:${channel.id}`, label: `${stripLabel(desk.model, channel)} ${channel.channel_name ?? ''} · direct out` })
-    }
+  for (const channel of channels.filter((candidate) => candidate.console_id === desk.console.id)) {
+    options.push({ value: `channel:${channel.id}`, label: `${stripLabel(desk.model, channel)} ${channel.channel_name ?? ''} · direct out` })
   }
   return options
 }
