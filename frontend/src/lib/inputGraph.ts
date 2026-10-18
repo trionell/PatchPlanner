@@ -63,13 +63,13 @@ export function devicePorts(device: InputDevice): { inputs: PortRef[]; outputs: 
  * same shape a stagebox has here, which is why a direct-into-the-desk run
  * needed no new cabling rule.
  */
-export function consoleLocalPorts(desk: Console): { inputs: PortRef[]; outputs: PortRef[] } {
+export function consoleLocalPorts(desk: Console, count: number = desk.local_input_count): { inputs: PortRef[]; outputs: PortRef[] } {
   // Distinct labels per side (Slice 24). The side a cable lands on keeps the
   // "local in" wording the sheet and the printed sheets already use; the other
   // says which way the desk's own routing goes, so the two columns of the
   // pass-through cannot be mistaken for each other.
   const make = (direction: 'in' | 'out', prefix: string) =>
-    Array.from({ length: desk.local_input_count }, (_, i) => ({
+    Array.from({ length: count }, (_, i) => ({
       kind: 'console_local' as const,
       id: desk.id,
       port: i,
@@ -341,4 +341,18 @@ export function derivedSourceColor(source: InputSource, context: ColorContext): 
   const colors = sourcePorts(source).map((port) => derivedPortColor(port, context))
   const distinct = new Set(colors.filter((c): c is string => !!c))
   return distinct.size === 1 ? [...distinct][0] : undefined
+}
+
+/**
+ * How many jacks the desk's panel draws: its count, or more when a cable is
+ * still on a jack a model switch took away (Slice 47 D9). Those are kept and
+ * drawn flagged over; no new cable can reach one, the server refuses it.
+ */
+export function localJackCount(desk: Console, cables: { from_kind: string; from_id: number; from_port: number; to_kind: string; to_id: number; to_port: number }[]): number {
+  let highest = -1
+  for (const cable of cables) {
+    if (cable.from_kind === 'console_local' && cable.from_id === desk.id) highest = Math.max(highest, cable.from_port)
+    if (cable.to_kind === 'console_local' && cable.to_id === desk.id) highest = Math.max(highest, cable.to_port)
+  }
+  return Math.max(desk.local_input_count, highest + 1)
 }

@@ -10,7 +10,7 @@ Slice 46 — the stage plot icon set redrawn by hand — is on
 | | |
 |---|---|
 | **D7** — Resizing an element leaves the third dimension behind | open |
-| **Slice 47** — Desk models (`desk-models`) | planned · mockup approved 2026-10-18 |
+| **Slice 47** — Desk models (`desk-models`) | delivered on `desk-models` · awaiting merge |
 | **Slice 48** — Desk routing (`desk-routing`) | planned · needs 47 |
 | **Slice 49** — Console showfile export (`console-showfile-export`) | planned · needs 47 and 48 |
 
@@ -71,7 +71,7 @@ extend the rental aggregation in the same slice.
 
 Planned 2026-10-17/18. Built in order, each on its own branch: **47 → 48 → 49**.
 
-- **Slice 47 — Desk models** (`openspec/changes/desk-models`). A console gets a model (X32/M32
+- **Slice 47 — Desk models** (`openspec/changes/desk-models`). **Delivered 2026-10-18 on `desk-models`**, gates green, reviewed; merge is the user's call. A console gets a model (X32/M32
   family, LV1 16/32/64/80, LV1 Classic 64/80, Generic) that derives its strips, aux inputs,
   local jacks, mix pools and stereo style; hard block on add/edit; a previewed, never-blocked
   model switch; one desk per sheet behind a desk selector. Existing consoles become Generic.

@@ -609,7 +609,7 @@ func (h AudioPatchHandler) createInputChannel(w http.ResponseWriter, r *http.Req
 	}
 	payload.EventID = eventID
 	defaultInputChannelWidthFields(&payload)
-	if !h.validBusRefs(w, eventID, payload) || !h.validStereoEnums(w, payload) {
+	if !h.validBusRefs(w, eventID, payload) || !h.validStereoEnums(w, payload) || !h.placeChannel(w, eventID, &payload, nil) {
 		return
 	}
 	created, err := dbstore.CreateInputChannel(h.DB, payload)
@@ -640,6 +640,14 @@ func (h AudioPatchHandler) updateInputChannel(w http.ResponseWriter, r *http.Req
 	}
 	defaultInputChannelWidthFields(&payload)
 	if !h.validBusRefs(w, eventID, payload) || !h.validStereoEnums(w, payload) {
+		return
+	}
+	existing, err := dbstore.GetInputChannel(h.DB, channelID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !h.placeChannel(w, eventID, &payload, &existing) {
 		return
 	}
 	updated, err := dbstore.UpdateInputChannel(h.DB, channelID, payload)
@@ -1283,6 +1291,11 @@ func (h AudioPatchHandler) createOutput(w http.ResponseWriter, r *http.Request) 
 	if !h.validWidth(w, payload.Width) {
 		return
 	}
+	desk, ok := h.resolveRowDesk(w, eventID, payload.ConsoleID, "output")
+	if !ok {
+		return
+	}
+	payload.ConsoleID = &desk.ID
 	created, err := dbstore.CreateAudioPatchOutput(h.DB, payload)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -1315,6 +1328,11 @@ func (h AudioPatchHandler) updateOutput(w http.ResponseWriter, r *http.Request) 
 	if !h.validWidth(w, payload.Width) {
 		return
 	}
+	desk, ok := h.resolveRowDesk(w, eventID, payload.ConsoleID, "output")
+	if !ok {
+		return
+	}
+	payload.ConsoleID = &desk.ID
 	updated, err := dbstore.UpdateAudioPatchOutput(h.DB, outputID, payload)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

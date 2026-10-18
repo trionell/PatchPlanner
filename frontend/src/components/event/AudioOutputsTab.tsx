@@ -16,7 +16,10 @@ import {
 import { listEventInventoryItems } from '../../api/inventory'
 import { listOwnedItems } from '../../api/owned'
 import { useDraftState } from '../../hooks/useDraftState'
+import { useDeskModels } from '../../hooks/useDeskModels'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { useSelectedDesk } from '../../hooks/useSelectedDesk'
+import { deskLabel } from '../../lib/deskStrips'
 import { usePlaneView } from '../../hooks/usePlaneView'
 import { usePinchZoom } from '../../hooks/usePinchZoom'
 import { fitScale } from '../../lib/canvasFit'
@@ -24,7 +27,7 @@ import { firstMatch, focusOffset } from '../../lib/canvasFocus'
 import { originShift, planeExtent, planeOrigin } from '../../lib/canvasPlane'
 import { usePatchView } from '../../hooks/usePatchView'
 import { buildMobileOutputList } from '../../lib/mobileOutputList'
-import { outputPatchStatus } from '../../lib/patchCapacity'
+import { outputPatchStatus, type SelectedDesk } from '../../lib/patchCapacity'
 import { matchesSearch } from '../../lib/patchSearch'
 import type { SegmentNode } from '../../lib/patchSheet'
 import { MobileEntityList } from '../mobile/MobileEntityList'
@@ -33,6 +36,7 @@ import { MobileOutputEditSheet } from '../mobile/MobileOutputEditSheet'
 import {
   cableAtPort,
   consoleLocalPorts,
+  localJackCount,
   derivedCableColor,
   derivedOutputPortColor,
   devicePorts,
@@ -57,7 +61,11 @@ import { PortRow as SharedPortRow, SplitPortRow, type PortWiring } from './graph
 import { ZoomControl, ZOOM_MAX, ZOOM_STEP } from './graph/ZoomControl'
 import { stepZoomAdditive } from '../../lib/canvasFit'
 import { ConsoleSection } from './ConsoleSection'
+import { DeskSelector } from './DeskSelector'
+import { DesklessNote } from './DesklessNote'
+import { MobilePicker } from '../mobile/MobilePicker'
 import { OutputSheet } from './OutputSheet'
+import { RefusalNotice, type SheetRefusal } from './RefusalNotice'
 import { PatchStatusRail } from './PatchStatusRail'
 import { ProcessingDeviceSection } from './ProcessingDeviceSection'
 import { RigDrawer } from './RigDrawer'
@@ -166,6 +174,23 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
   const outputDevices = audioQuery.data?.output_devices ?? []
   const outputCables = audioQuery.data?.output_cables ?? []
   const consoles = audioQuery.data?.consoles ?? []
+  /* One desk per list, shared with Inputs (Slice 47, B6). No model caps outputs, so the
+     selector names the desk and how many outputs come off it. */
+  const { models, modelOf } = useDeskModels()
+  const desklessOutputs = outputs.filter((output) => output.console_id == null)
+  const [deskSelection, selectDesk] = useSelectedDesk(eventId, consoles, desklessOutputs.length > 0)
+  const selectedConsole = typeof deskSelection === 'number' ? consoles.find((desk) => desk.id === deskSelection) : undefined
+  const selectedDesk: SelectedDesk | undefined = selectedConsole ? { console: selectedConsole, model: modelOf(selectedConsole) } : undefined
+  const listedOutputs = selectedConsole ? outputs.filter((output) => output.console_id === selectedConsole.id) : desklessOutputs
+  const deskEntries = consoles.map((desk) => ({ desk, label: `${deskLabel(desk, modelOf(desk))} ${outputs.filter((output) => output.console_id === desk.id).length} out` }))
+  const [addRefusal, setAddRefusal] = useState<SheetRefusal | undefined>()
+  const [actionCount, setActionCount] = useState(0)
+  const [movedLine, setMovedLine] = useState<{ text: string; deskId: number; deskName: string } | null>(null)
+  const setDeskSelection = (next: typeof deskSelection) => {
+    setAddRefusal(undefined)
+    setMovedLine(null)
+    selectDesk(next)
+  }
 
   const itemLabelById = useMemo(
     () => new Map([...allAudioItems, ...cableItems].map((item) => [item.id, itemLabel(item)])),
@@ -198,12 +223,25 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
   }
 
   const addOutputRow = () => {
-    const lastNumber = outputs.at(-1)?.output_number ?? 0
-    addOutputMutation.mutate({ event_id: eventId, output_number: lastNumber + 1, output_name: '', output_type: 'foh', width: 'mono', notes: '' })
+    setAddRefusal(undefined)
+    setActionCount((n) => n + 1)
+    if (!selectedConsole) {
+      setAddRefusal({ message: 'An output comes off a desk, and this event has none yet. Add the desk in Rig first.', fix: readOnly ? undefined : { label: 'Open Rig', apply: () => setRigOpen(true) } })
+      return
+    }
+    const lastNumber = listedOutputs.reduce((max, output) => Math.max(max, output.output_number), 0)
+    addOutputMutation.mutate(
+      { event_id: eventId, output_number: lastNumber + 1, output_name: '', output_type: 'foh', width: 'mono', notes: '', console_id: selectedConsole.id },
+      { onError: (error) => setAddRefusal({ message: error.message }) },
+    )
   }
 
   if (isMobile) {
-    const listed = buildMobileOutputList(outputs, { stageboxes, stageMultis, devices: outputDevices, cables: outputCables, itemLabelById })
+    const listed = buildMobileOutputList(listedOutputs, { stageboxes, stageMultis, devices: outputDevices, cables: outputCables, itemLabelById })
+    const deskOptions = [
+      ...deskEntries.map((entry) => ({ id: entry.desk.id, label: deskLabel(entry.desk, modelOf(entry.desk)), hint: String(outputs.filter((output) => output.console_id === entry.desk.id).length) })),
+      ...(desklessOutputs.length > 0 ? [{ id: 'none' as const, label: 'No desk', hint: String(desklessOutputs.length) }] : []),
+    ]
     const gapNumbers = new Set(listed.filter((item) => item.hasGap).map((item) => item.outputNumber))
     const items = listed
       .filter((item) => !gapsOnly || item.hasGap)
@@ -215,8 +253,10 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
         color: item.color,
       }))
     const status = outputPatchStatus({
-      outputs,
-      gaps: outputs.filter((output) => gapNumbers.has(output.output_number)),
+      outputs: listedOutputs,
+      desk: selectedDesk,
+      deskless: desklessOutputs.length,
+      gaps: listedOutputs.filter((output) => gapNumbers.has(output.output_number)),
       consoles,
       stageboxes,
       stageMultis,
@@ -229,7 +269,31 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
           inside it fills what this gives it (Wave 6c). */}
       <div className="flex min-h-0 flex-1 flex-col print:hidden">
         <MobileEntityList
-          title="Audio Outputs"
+          title={
+            deskOptions.length > 1 ? (
+              <MobilePicker label="Desk" title="Desk" variant="title" options={deskOptions} value={deskSelection} onChange={(id) => setDeskSelection(id === 'none' ? 'none' : Number(id))} />
+            ) : (
+              'Audio Outputs'
+            )
+          }
+          notice={
+            (addRefusal || movedLine || !selectedDesk) && view === 'sheet' ? (
+              <>
+                {addRefusal && <RefusalNotice refusal={addRefusal} />}
+                {movedLine && (
+                  <p className="flex flex-wrap items-center gap-2 text-sm text-zinc-300">
+                    {movedLine.text}
+                    <Button variant="outline" className="h-11 px-3 text-sm" onClick={() => setDeskSelection(movedLine.deskId)}>
+                      Show {movedLine.deskName}
+                    </Button>
+                  </p>
+                )}
+                {!selectedDesk && (
+                  <DesklessNote eventId={eventId} kind="outputs" ids={desklessOutputs.map((output) => output.id)} consoles={consoles} readOnly={readOnly} onOpenRig={() => setRigOpen(true)} onPlaced={invalidate} hand />
+                )}
+              </>
+            ) : undefined
+          }
           /* The rig, in the hand (audit.md M5) — `ui/Drawer` has had a phone form since
              6a and this branch simply returned before reaching it. Print is M11. */
           overflow={[
@@ -283,9 +347,22 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
           }
           items={items}
           filtered={gapsOnly}
-          onSelect={setEditingOutputId}
+          onSelect={(id) => {
+            setMovedLine(null)
+            setEditingOutputId(id)
+          }}
           /* No primary action in Flow (FR-022) — see Audio Inputs for the argument. */
-          onAdd={view === 'sheet' ? () => setEditingOutputId('new') : undefined}
+          onAdd={
+            view !== 'sheet' || (deskSelection === 'none' && consoles.length > 0)
+              ? undefined
+              : () => {
+                  if (!selectedConsole) {
+                    setAddRefusal({ message: 'An output comes off a desk, and this event has none yet. Add the desk in Rig first.', fix: readOnly ? undefined : { label: 'Open Rig', apply: () => setRigOpen(true) } })
+                    return
+                  }
+                  setEditingOutputId('new')
+                }
+          }
           readOnly={readOnly}
           search={search}
           onSearch={setSearch}
@@ -329,6 +406,10 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
         {editingOutputId != null && (
           <MobileOutputEditSheet
             eventId={eventId}
+            consoles={consoles}
+            models={models}
+            deskId={selectedConsole?.id}
+            onMoved={setMovedLine}
             readOnly={readOnly}
             output={editingOutput}
             outputs={outputs}
@@ -384,7 +465,8 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
         search={search}
         onSearchChange={setSearch}
         onOpenRig={readOnly ? undefined : () => setRigOpen(true)}
-        onAdd={readOnly ? undefined : addOutputRow}
+        onAdd={readOnly || (deskSelection === 'none' && consoles.length > 0) ? undefined : addOutputRow}
+        deskSelector={<DeskSelector entries={deskEntries} deskless={desklessOutputs.length} selection={deskSelection} onSelect={setDeskSelection} />}
         toolbarExtras={
           view === 'flow' ? (
             <ZoomControl
@@ -429,8 +511,16 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
       >
         {view === 'sheet' ? (
           <OutputSheet
+            key={String(deskSelection)}
+            actionCount={actionCount}
             eventId={eventId}
-            outputs={outputs}
+            outputs={listedOutputs}
+            desk={selectedDesk}
+            models={models}
+            desklessCount={desklessOutputs.length}
+            onSelectDeskless={() => setDeskSelection('none')}
+            onShowDesk={setDeskSelection}
+            addRefusal={addRefusal}
             stageboxes={stageboxes}
             stageMultis={stageMultis}
             devices={outputDevices}
@@ -726,7 +816,7 @@ function OutputGraphCanvas({
       // canvas's. Before Slice 24 these were out-side-only ports on the desk
       // node, so a bus had no in-side port to land on and the desk's sockets
       // could not be used at all (FR-011, research.md R6). No jacks, no node.
-      if (desk.local_output_count > 0) {
+      if (localJackCount(desk, cables) > 0) {
         const jackPos = positions.get(`console_local:${desk.id}`)
         nodes.push({
           kind: 'console_local',
@@ -1695,12 +1785,20 @@ function LocalJackNode({ x, y, desk, cables, pendingPort, onPortClick, onPortPoi
   selected?: boolean
   onSelect?: () => void
 }) {
-  const { inputs, outputs } = consoleLocalPorts(desk)
+  const { inputs, outputs } = consoleLocalPorts(desk, localJackCount(desk, cables))
   const wiring = wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)
   return (
     <NodeShell x={x} y={y} title={desk.name || 'Console'} badge="LOCAL" onDragStart={onDragStart} dimmed={dimmed} selected={selected} onSelect={onSelect}>
       {inputs.map((inPort, index) => (
-        <SplitPortRow key={inPort.port} inPort={inPort} outPort={outputs[index]} label={String(inPort.port + 1)} wiring={wiring} />
+        <SplitPortRow
+          key={inPort.port}
+          inPort={inPort}
+          outPort={outputs[index]}
+          label={String(inPort.port + 1)}
+          // Past the model's count: kept from before a switch, and said so (B2).
+          over={inPort.port >= desk.local_output_count}
+          wiring={wiring}
+        />
       ))}
     </NodeShell>
   )

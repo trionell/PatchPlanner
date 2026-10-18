@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { createAudioOutput, createOutputCable, deleteOutputCable, updateAudioOutput } from '../../api/audioPatch'
 import { computeOutputRoutingSave, resolveOutputRouting, type OutputRouting } from '../../lib/mobileOutputList'
+import { deskModelOf } from '../../hooks/useDeskModels'
+import { deskLabel } from '../../lib/deskStrips'
 import { toOptionalNumber } from '../../lib/utils'
-import type { AudioPatchOutput, OutputCable, Stagebox } from '../../types'
+import type { AudioPatchOutput, Console, DeskModel, OutputCable, Stagebox } from '../../types'
 import { ColorSelect } from '../event/ColorSelect'
 import { Button } from '../ui/Button'
 import { FieldStack } from '../ui/GearList'
@@ -21,8 +23,18 @@ export function MobileOutputEditSheet({
   onClose,
   onSaved,
   readOnly = false,
+  consoles,
+  models,
+  deskId,
+  onMoved,
 }: {
+  /** Called when a save moves the output to another desk, with B7's line. */
+  onMoved?: (line: { text: string; deskId: number; deskName: string }) => void
   eventId: number
+  consoles: Console[]
+  models: DeskModel[]
+  /** The desk a new output is added to — the selected one (Slice 47). */
+  deskId?: number
   /** Omitted → creating a new output. */
   output?: AudioPatchOutput
   outputs: AudioPatchOutput[]
@@ -46,12 +58,17 @@ export function MobileOutputEditSheet({
   const [stageboxId, setStageboxId] = useState<number | undefined>(currentRouting.stageboxId)
   const [port, setPort] = useState<number | undefined>(currentRouting.port)
   const [error, setError] = useState<string | null>(null)
+  const [consoleId, setConsoleId] = useState<number | undefined>(output ? output.console_id : deskId)
   const [saving, setSaving] = useState(false)
 
   const selectedStagebox = stageboxes.find((sb) => sb.id === stageboxId)
 
   async function handleSave() {
     setError(null)
+    if (consoleId == null) {
+      setError('Pick the desk this output is on.')
+      return
+    }
     setSaving(true)
     try {
       let outputId = output?.id
@@ -65,10 +82,10 @@ export function MobileOutputEditSheet({
           width: output.width,
           notes,
           // See MobileChannelEditSheet: carry the desk rather than clearing it.
-          console_id: output.console_id,
+          console_id: consoleId,
         })
       } else {
-        const nextNumber = Math.max(0, ...outputs.map((o) => o.output_number)) + 1
+        const nextNumber = Math.max(0, ...outputs.filter((o) => o.console_id === consoleId).map((o) => o.output_number)) + 1
         const created = await createAudioOutput(eventId, {
           event_id: eventId,
           output_number: nextNumber,
@@ -77,6 +94,7 @@ export function MobileOutputEditSheet({
           color,
           width: 'mono',
           notes,
+          console_id: consoleId,
         })
         outputId = created.id
       }
@@ -88,6 +106,10 @@ export function MobileOutputEditSheet({
         for (const data of ops.cablesToCreate) await createOutputCable(eventId, data)
       }
 
+      const target = consoles.find((candidate) => candidate.id === consoleId)
+      if (output && target && consoleId !== output.console_id) {
+        onMoved?.({ text: `${name || 'The output'} is now on ${deskLabel(target, deskModelOf(models, target))}, as ${output.output_number}.`, deskId: target.id, deskName: target.name || 'that desk' })
+      }
       await queryClient.invalidateQueries({ queryKey: ['audio-patch', eventId] })
       await queryClient.invalidateQueries({ queryKey: ['rental-summary', eventId] })
       await onSaved()
@@ -117,6 +139,16 @@ export function MobileOutputEditSheet({
       <fieldset className="flex min-w-0 flex-col gap-3.5" disabled={readOnly}>
       <FieldStack label="Output" width="full">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Monitor 2" autoFocus />
+      </FieldStack>
+      <FieldStack label="Desk" width="full">
+        <Select value={consoleId ?? ''} onChange={(e) => setConsoleId(toOptionalNumber(e.target.value))}>
+          {consoleId == null && <option value="">Pick a desk…</option>}
+          {consoles.map((option) => (
+            <option key={option.id} value={option.id}>
+              {deskLabel(option, deskModelOf(models, option))}
+            </option>
+          ))}
+        </Select>
       </FieldStack>
       <FieldStack label="Tape" width="full">
         <ColorSelect eventId={eventId} value={color} onChange={setColor} />

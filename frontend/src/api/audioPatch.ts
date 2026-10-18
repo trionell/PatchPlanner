@@ -1,4 +1,4 @@
-import type { AudioPatchOutput, AudioPatchResponse, BusRequest, Console, InputCable, InputChannel, InputDevice, InputSource, MixerDCA, MixerGroup, OutputCable, OutputDevice, Stagebox, StageMulti } from '../types'
+import type { AudioPatchOutput, AudioPatchResponse, BusRequest, Console, DeskMapping, DeskModel, InputCable, InputChannel, InputDevice, InputSource, MixerDCA, MixerGroup, OutputCable, OutputDevice, Stagebox, StageMulti } from '../types'
 import { get, request } from './client'
 
 // Forwards TanStack Query's AbortSignal — this query is invalidated very
@@ -90,5 +90,16 @@ export const createConsole = (eventId: number, data: Partial<Omit<Console, 'id' 
   request<Console>(`/events/${eventId}/consoles`, { method: 'POST', body: JSON.stringify(data) })
 export const updateConsole = (eventId: number, consoleId: number, data: Partial<Omit<Console, 'id' | 'event_id'>>) =>
   request<Console>(`/events/${eventId}/consoles/${consoleId}`, { method: 'PATCH', body: JSON.stringify(data) })
+/** The desk model list — the same for everyone, changing only with a release. */
+export const getDeskModels = () => get<DeskModel[]>('/desk-models')
+
+/** Previews a model switch, or with `apply` makes it; both run the same mapping. */
+export const switchConsoleModel = (eventId: number, consoleId: number, data: { desk_model: string; bus_mode?: string; apply: boolean }) =>
+  request<{ mapping: DeskMapping; console: Console }>(`/events/${eventId}/consoles/${consoleId}/switch`, { method: 'POST', body: JSON.stringify(data) })
+
+/** Previews, or with `apply` makes, putting rows that are on no desk onto this one. No ids means every such row. */
+export const placeOnConsole = (eventId: number, consoleId: number, data: { channel_ids?: number[]; output_ids?: number[]; apply: boolean }) =>
+  request<{ mapping: DeskMapping }>(`/events/${eventId}/consoles/${consoleId}/place`, { method: 'POST', body: JSON.stringify(data) })
+
 export const deleteConsole = (eventId: number, consoleId: number) =>
   request<{ cleared_cables: number }>(`/events/${eventId}/consoles/${consoleId}`, { method: 'DELETE' })

@@ -378,6 +378,7 @@ already mean something, and every one is gone as of Wave 6b. See
 | Bottom sheet | `rounded-t-xl`, bottom corners square | It is anchored to an edge, so it has two corners. |
 | Sheet height | `max-h-[85svh]`, no minimum | `svh` and not `dvh`: `dvh` is live, so the sheet would resize under the thumb as browser chrome collapses while a long form is being read. Not `vh` either — that is the *largest* viewport, so with the address bar showing the confirm can start below the fold. |
 | Sheet close target | `h-11 w-11` around an `h-5 w-5` icon | 44 px. A bare `×` glyph is a 14 px target, which is amendment 1 broken by the control that gets pressed when a form is abandoned. |
+| Dialog close target | `h-11 w-11` around an `h-5 w-5` icon in a hand, `h-8 w-8` around `h-4 w-4` on a desk | The Sheet's reason, for the overlay that stays centred at every width (Slice 47, A2). It was a bare `×`, about 14 px — the control pressed to back out of a choice. |
 | Overlay scrim | `bg-zinc-950/80` | The dialog's, not the drawer's: a sheet covers most of the screen. **One exception** — the canvas inspector takes none ([patterns.md](patterns.md) §7f), and taking none means **no backdrop element at all**, so the canvas behind stays live and the sheet is not modal. |
 
 **Anything anchored to the bottom edge carries `env(safe-area-inset-bottom)`** —

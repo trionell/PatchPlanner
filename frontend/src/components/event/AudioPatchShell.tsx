@@ -21,6 +21,8 @@ interface AudioPatchShellProps {
   onOpenBuses?: () => void
   /** Adds one row. Omitted for restricted roles. */
   onAdd?: () => void
+  /** The desk selector (Slice 47, B6), after the view toggle; the Sheet only, since Flow shows every desk. */
+  deskSelector?: ReactNode
   /** Extra toolbar controls, right of the search box — the canvas zoom in Flow. */
   toolbarExtras?: ReactNode
   /** The Sheet or the Flow canvas. */
@@ -59,6 +61,7 @@ export function AudioPatchShell({
   onOpenRig,
   onOpenBuses,
   onAdd,
+  deskSelector,
   toolbarExtras,
   children,
   drawers,
@@ -80,6 +83,8 @@ export function AudioPatchShell({
                 <LayoutGrid className="mr-1.5 h-3.5 w-3.5" />Flow
               </Button>
             </div>
+
+            {view === 'sheet' && deskSelector}
 
             <div className="relative min-w-[10rem] max-w-xs flex-1">
               <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />

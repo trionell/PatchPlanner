@@ -284,6 +284,9 @@ type InputChannel struct {
 	// console, or after its only desk was deleted, and the patch keeps
 	// working either way.
 	ConsoleID *int64 `json:"console_id,omitempty"`
+	// StripPool is "channel" or "aux" (ValidStripPools, Slice 47). Only an
+	// X32 · M32 desk has aux inputs; on every other desk it is "channel".
+	StripPool string `json:"strip_pool"`
 }
 
 // InputSource is the physical origin of a signal (Slice 12) — a
@@ -414,6 +417,12 @@ type Console struct {
 	OutputCount      int    `json:"output_count"`
 	LocalInputCount  int    `json:"local_input_count"`
 	LocalOutputCount int    `json:"local_output_count"`
+	// DeskModel is a key of DeskModels (Slice 47). Every console migrated by
+	// 054 is "generic", which is exactly the typed-count desk above; a real
+	// model derives the four counts and they are written here by the server.
+	DeskModel string `json:"desk_model"`
+	// BusMode is LV1 80's groups/monitors split; "" on every other model.
+	BusMode string `json:"bus_mode"`
 	// PositionX/PositionY place the desk on the output canvas;
 	// InputPositionX/Y on the input canvas — migration 031's convention.
 	// The desk's own node is pinned to its lane on both graphs, so only the

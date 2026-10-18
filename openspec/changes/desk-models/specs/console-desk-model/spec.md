@@ -101,7 +101,7 @@ aux inputs on X32 · M32, local in, local out, each as used / capacity) and line
 **Changed** (stereo style, typed counts replaced, names longer than the new desk shows),
 **Moved** (rows whose number changes, listed), **Fits again** (rows previously left out that now fit).
 Confirming SHALL apply exactly what the preview stated. The switch SHALL never be blocked and SHALL
-delete nothing. A console with no rows SHALL switch without a preview.
+delete nothing. A switch whose preview has no line (a desk with no rows, or nothing that changes) SHALL apply without a preview.
 
 #### Scenario: Switching to a smaller desk
 
@@ -118,8 +118,9 @@ delete nothing. A console with no rows SHALL switch without a preview.
 
 The mapping SHALL take rows in strip order and keep each row's number where it is legal and free on
 the new desk. A stereo row on X32 · M32 SHALL take the next free odd pair at or after its number, and
-later rows SHALL move along as far as needed; no row SHALL be placed ahead of a row above it. Rows
-that do not fit SHALL be kept past the last strip and flagged over. Switching to X32 · M32 SHALL never
+later rows SHALL move along as far as needed; no row SHALL be placed ahead of a row above it. A row
+past the last strip SHALL move up into the next free strip after the row above it when
+there is one; rows that still do not fit SHALL be kept past the last strip and flagged over. Switching to X32 · M32 SHALL never
 place a row on an aux input. Switching from X32 · M32 to LV1 or Generic SHALL put aux rows on strips
 after the last channel, in aux order, listed under Moved. Between two X32 · M32 models aux rows SHALL
 stay aux. Names SHALL be kept whole.

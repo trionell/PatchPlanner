@@ -3,13 +3,24 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createInputChannel, getAudioPatch } from '../../api/audioPatch'
 import { listEventInventoryItems } from '../../api/inventory'
 import { listOwnedItems } from '../../api/owned'
+import { ApiError } from '../../api/client'
+import { useDeskModels } from '../../hooks/useDeskModels'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { useSelectedDesk } from '../../hooks/useSelectedDesk'
+import { deskLabel, isOver, orderChannels, poolCapacity, poolOf, poolUsage, stripLabel } from '../../lib/deskStrips'
+import type { SelectedDesk } from '../../lib/patchCapacity'
 import { usePatchView } from '../../hooks/usePatchView'
 import { buildMobileChannelList } from '../../lib/mobileChannelList'
 import { inputPatchStatus } from '../../lib/patchCapacity'
 import { itemLabel } from '../../lib/utils'
 import type { SegmentNode } from '../../lib/patchSheet'
-import type { InputChannel, InventoryItem, OwnedItem } from '../../types'
+import type { InputChannel, InventoryItem, OwnedItem, StripPool, StripRefusal } from '../../types'
+import { DeskSelector } from './DeskSelector'
+import { DesklessNote } from './DesklessNote'
+import { RefusalNotice } from './RefusalNotice'
+import { Button } from '../ui/Button'
+import { MobilePicker } from '../mobile/MobilePicker'
+import type { SheetRefusal } from './RefusalNotice'
 import { MobileChannelEditSheet } from '../mobile/MobileChannelEditSheet'
 import { Boxes, Layers, Printer } from 'lucide-react'
 import { MobileEntityList } from '../mobile/MobileEntityList'
@@ -139,27 +150,109 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
   const groups = audioQuery.data?.groups ?? []
   const dcas = audioQuery.data?.dcas ?? []
 
+  /* One desk per list (Slice 47, B6); Flow still draws every desk. */
+  const { models, modelOf } = useDeskModels()
+  const desklessChannels = channels.filter((channel) => channel.console_id == null)
+  const [deskSelection, selectDesk] = useSelectedDesk(eventId, consoles, desklessChannels.length > 0)
+  const selectedConsole = typeof deskSelection === 'number' ? consoles.find((desk) => desk.id === deskSelection) : undefined
+  const selectedDesk: SelectedDesk | undefined = selectedConsole ? { console: selectedConsole, model: modelOf(selectedConsole) } : undefined
+  const listedChannels = selectedConsole ? channels.filter((channel) => channel.console_id === selectedConsole.id) : desklessChannels
+  const deskEntries = consoles.map((desk) => {
+    const model = modelOf(desk)
+    const used = poolUsage(model, channels.filter((channel) => channel.console_id === desk.id), 'channel')
+    const capacity = poolCapacity(model, desk, 'channel')
+    return { desk, label: `${deskLabel(desk, model)} ${capacity > 0 ? `${used}/${capacity}` : used}` }
+  })
+  const [addRefusal, setAddRefusal] = useState<SheetRefusal | undefined>()
+  const [actionCount, setActionCount] = useState(0)
+  /* B7 on the phone: the sheet closes on save, so the line is the tab's. */
+  const [movedLine, setMovedLine] = useState<{ text: string; deskId: number; deskName: string } | null>(null)
+  // A refusal belongs to the desk it was raised on.
+  const setDeskSelection = (next: typeof deskSelection) => {
+    setAddRefusal(undefined)
+    setMovedLine(null)
+    selectDesk(next)
+  }
+
   const itemLabelById = useMemo(
     () => new Map([...allAudioItems, ...cableItems, ...standItems, ...micItems].map((item) => [item.id, itemLabel(item)])),
     [allAudioItems, cableItems, standItems, micItems],
   )
 
+  /* + Channel adds to the selected desk, with no question, at the number the server
+     suggests; a full pool is refused there, in words that name the desk. */
+  const addToDesk = (pool: StripPool) => {
+    setAddRefusal(undefined)
+    setActionCount((n) => n + 1)
+    if (!selectedConsole) {
+      setAddRefusal({ message: 'A channel is added to a desk, and this event has none yet. Add the desk in Rig first.', fix: readOnly ? undefined : { label: 'Open Rig', apply: () => setDrawer('rig') } })
+      return
+    }
+    addChannelMutation.mutate(
+      { channel_number: 0, width: 'mono', mixer_behavior: 'stereo_channel', console_id: selectedConsole.id, strip_pool: pool },
+      { onError: (error) => setAddRefusal({ message: error instanceof ApiError ? ((error.body as StripRefusal | undefined)?.error ?? error.message) : error.message }) },
+    )
+  }
+  const addChannel = () => addToDesk('channel')
+
   if (isMobile) {
-    const listed = buildMobileChannelList(channels, { sources, devices, stageboxes, stageMultis, cables, itemLabelById })
+    const listed = buildMobileChannelList(orderChannels(listedChannels), { sources, devices, stageboxes, stageMultis, cables, itemLabelById })
+    const byId = new Map(listedChannels.map((channel) => [channel.id, channel]))
+    /* The number reads as the desk prints it, aux and over included (B2); grey on No desk. */
+    const numberOf = (id: number, fallback: number) => {
+      const channel = byId.get(id)
+      return channel && selectedDesk ? stripLabel(selectedDesk.model, channel) : fallback
+    }
+    const overOf = (id: number) => {
+      const channel = byId.get(id)
+      return !!channel && !!selectedDesk && isOver(selectedDesk.model, selectedDesk.console, channel)
+    }
+    const sections =
+      selectedDesk && selectedDesk.model.aux_in > 0
+        ? (['channel', 'aux'] as const).map((pool) => ({
+            key: pool,
+            label: pool === 'channel' ? 'Channels' : 'Aux in',
+            fill: `${poolUsage(selectedDesk.model, listedChannels, pool)}/${poolCapacity(selectedDesk.model, selectedDesk.console, pool)}`,
+            empty: pool === 'aux' ? 'No aux inputs used.' : 'No channels yet.',
+            action: pool === 'aux' && !readOnly ? { label: '+ Aux', onClick: () => addToDesk('aux') } : undefined,
+          }))
+        : undefined
+    const deskOptions = [
+      ...deskEntries.map((entry) => ({ id: entry.desk.id, label: deskLabel(entry.desk, modelOf(entry.desk)), hint: entry.label.split(' ').at(-1) })),
+      ...(desklessChannels.length > 0 ? [{ id: 'none' as const, label: 'No desk', hint: String(desklessChannels.length) }] : []),
+    ]
+    const title =
+      deskOptions.length > 1 ? (
+        <MobilePicker
+          label="Desk"
+          title="Desk"
+          variant="title"
+          options={deskOptions}
+          value={deskSelection}
+          onChange={(id) => setDeskSelection(id === 'none' ? 'none' : Number(id))}
+        />
+      ) : (
+        'Audio Inputs'
+      )
     const gapNumbers = new Set(listed.filter((item) => item.hasGap).map((item) => item.channelNumber))
     const items = listed
       .filter((item) => !gapsOnly || item.hasGap)
       .map((item) => ({
         id: item.id,
-        number: item.channelNumber,
+        number: numberOf(item.id, item.channelNumber),
+        over: overOf(item.id),
+        muted: !selectedDesk,
+        section: poolOf(byId.get(item.id) ?? { strip_pool: 'channel' }),
         name: item.name,
         subtitle: `${item.sourceLabel} · ${item.routingLabel}`,
         color: item.color,
       }))
     // The same verdict the desk states, from the same assembly (research.md R6).
     const status = inputPatchStatus({
-      channels,
-      gaps: channels.filter((channel) => gapNumbers.has(channel.channel_number)),
+      channels: listedChannels,
+      desk: selectedDesk,
+      deskless: desklessChannels.length,
+      gaps: listedChannels.filter((channel) => gapNumbers.has(channel.channel_number)),
       consoles,
       stageboxes,
       stageMultis,
@@ -172,7 +265,35 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
           inside it fills what this gives it (Wave 6c). */}
       <div className="flex min-h-0 flex-1 flex-col print:hidden">
         <MobileEntityList
-          title="Audio Inputs"
+          title={title}
+          sections={view === 'sheet' ? sections : undefined}
+          notice={
+            (addRefusal || movedLine || !selectedDesk) && view === 'sheet' ? (
+              <>
+                {addRefusal && <RefusalNotice refusal={addRefusal} />}
+                {movedLine && (
+                  <p className="flex flex-wrap items-center gap-2 text-sm text-zinc-300">
+                    {movedLine.text}
+                    <Button variant="outline" className="h-11 px-3 text-sm" onClick={() => setDeskSelection(movedLine.deskId)}>
+                      Show {movedLine.deskName}
+                    </Button>
+                  </p>
+                )}
+                {!selectedDesk && (
+                  <DesklessNote
+                    eventId={eventId}
+                    kind="channels"
+                    ids={desklessChannels.map((channel) => channel.id)}
+                    consoles={consoles}
+                    readOnly={readOnly}
+                    onOpenRig={() => setDrawer('rig')}
+                    onPlaced={invalidate}
+                    hand
+                  />
+                )}
+              </>
+            ) : undefined
+          }
           /*
             The rig, in the hand (audit.md M5). Every one of these opens something that
             has had a phone form since Wave 6a — `ui/Drawer` branches internally — and
@@ -247,11 +368,24 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
           }
           items={items}
           filtered={gapsOnly}
-          onSelect={setEditingChannelId}
+          onSelect={(id) => {
+            setMovedLine(null)
+            setEditingChannelId(id)
+          }}
           /* No primary action in Flow (Slice 36 FR-022): `＋` adds a **row**, Flow has no
              rows, and a channel added where it cannot be cabled reaches nothing until
              someone is at a desk. The Sheet view is one tap away and has the control. */
-          onAdd={view === 'sheet' ? () => setEditingChannelId('new') : undefined}
+          onAdd={
+            view !== 'sheet' || deskSelection === 'none' && consoles.length > 0
+              ? undefined
+              : () => {
+                  if (!selectedConsole) {
+                    setAddRefusal({ message: 'A channel is added to a desk, and this event has none yet. Add the desk in Rig first.', fix: readOnly ? undefined : { label: 'Open Rig', apply: () => setDrawer('rig') } })
+                    return
+                  }
+                  setEditingChannelId('new')
+                }
+          }
           readOnly={readOnly}
           search={search}
           onSearch={setSearch}
@@ -305,9 +439,12 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
         {editingChannelId != null && (
           <MobileChannelEditSheet
             eventId={eventId}
+            consoles={consoles}
+            models={models}
+            deskId={selectedConsole?.id}
+            onMoved={setMovedLine}
             readOnly={readOnly}
             channel={editingChannel}
-            channels={channels}
             sources={sources}
             stageboxes={stageboxes}
             cables={cables}
@@ -388,10 +525,6 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
     setView('flow')
   }
 
-  const addChannel = () => {
-    const highest = channels.reduce((max, channel) => Math.max(max, channel.channel_number), 0)
-    addChannelMutation.mutate({ channel_number: highest + 1, width: 'mono', mixer_behavior: 'stereo_channel' })
-  }
 
   return (
     <>
@@ -404,7 +537,8 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
         onSearchChange={setSearch}
         onOpenRig={readOnly ? undefined : () => setDrawer('rig')}
         onOpenBuses={readOnly ? undefined : () => setDrawer('buses')}
-        onAdd={readOnly ? undefined : addChannel}
+        onAdd={readOnly || (deskSelection === 'none' && consoles.length > 0) ? undefined : addChannel}
+        deskSelector={<DeskSelector entries={deskEntries} deskless={desklessChannels.length} selection={deskSelection} onSelect={setDeskSelection} />}
         toolbarExtras={
           view === 'flow' ? (
             <ZoomControl
@@ -457,8 +591,17 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
       >
         {view === 'sheet' ? (
           <InputSheet
+            key={String(deskSelection)}
+            actionCount={actionCount}
             eventId={eventId}
-            channels={channels}
+            channels={listedChannels}
+            desk={selectedDesk}
+            models={models}
+            desklessCount={desklessChannels.length}
+            onSelectDeskless={() => setDeskSelection('none')}
+            onShowDesk={setDeskSelection}
+            onAddAux={readOnly || !selectedDesk || selectedDesk.model.aux_in === 0 ? undefined : () => addToDesk('aux')}
+            addRefusal={addRefusal}
             sources={sources}
             devices={devices}
             stageboxes={stageboxes}
@@ -503,3 +646,4 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
     </>
   )
 }
+

@@ -15,6 +15,7 @@ import {
   cableAtPort,
   channelPorts,
   consoleLocalPorts,
+  localJackCount,
   derivedPortColor,
   derivedSourceColor,
   devicePorts,
@@ -356,7 +357,7 @@ export function InputGraphCanvas({
       // it on the way to a channel, and drawing it as a two-sided pass-through
       // is what lets a local jack reach a channel at all (FR-008 to FR-010).
       // No jacks declared, no node (FR-014).
-      if (desk.local_input_count > 0) {
+      if (localJackCount(desk, cables) > 0) {
         const jackOverride = positions.get(`console_local:${desk.id}`)
         nodes.push({
           kind: 'console_local',
@@ -387,7 +388,7 @@ export function InputGraphCanvas({
       nodes.push({ kind: 'device', id: device.id, x: override?.x ?? device.position_x, y: override?.y ?? device.position_y })
     }
     return nodes
-  }, [consoles, orphanChannels, stageboxes, stageMultis, devices, positions])
+  }, [consoles, orphanChannels, stageboxes, stageMultis, devices, positions, cables])
 
   /*
     Where the plane starts (Slice 37 R4).
@@ -1578,12 +1579,20 @@ function LocalJackNode({ x, y, desk, cables, pendingPort, onPortClick, onPortPoi
   selected?: boolean
   onSelect?: () => void
 }) {
-  const { inputs, outputs } = consoleLocalPorts(desk)
+  const { inputs, outputs } = consoleLocalPorts(desk, localJackCount(desk, cables))
   const wiring = wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)
   return (
     <NodeShell x={x} y={y} title={desk.name || 'Console'} badge="LOCAL" onDragStart={onDragStart} dimmed={dimmed} selected={selected} onSelect={onSelect}>
       {inputs.map((inPort, index) => (
-        <SplitPortRow key={inPort.port} inPort={inPort} outPort={outputs[index]} label={String(inPort.port + 1)} wiring={wiring} />
+        <SplitPortRow
+          key={inPort.port}
+          inPort={inPort}
+          outPort={outputs[index]}
+          label={String(inPort.port + 1)}
+          // Past the model's count: kept from before a switch, and said so (B2).
+          over={inPort.port >= desk.local_input_count}
+          wiring={wiring}
+        />
       ))}
     </NodeShell>
   )

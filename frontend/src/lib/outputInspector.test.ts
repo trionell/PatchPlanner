@@ -39,6 +39,8 @@ function desk(overrides: Partial<Console> = {}): Console {
     local_position_y: 320,
     local_input_position_x: 260,
     local_input_position_y: 320,
+    desk_model: 'generic',
+    bus_mode: '',
     ...overrides,
   }
 }
