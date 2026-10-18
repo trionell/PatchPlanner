@@ -30,7 +30,7 @@ A mix SHALL occupy a slot in its pool, read from the desk model and never typed:
 
 - X32 · M32: subgroups, monitors and FX share one pool of 16 buses; 6 matrices; 8 DCAs; 6 mute groups.
   A stereo bus or matrix SHALL occupy an odd–even pair.
-- LV1: groups, Mon mixes, FX sends and matrices each have their own pool per tier and bus mode;
+- LV1: groups and Mon mixes have their own pools per tier and bus mode; 8 FX sends; 8 matrices;
   16 DCAs; 8 mute groups. A group SHALL always be stereo and occupy one slot; a stereo Mon, FX or
   Matrix mix SHALL occupy two consecutive slots of either parity.
 - Generic: any count of every type, no pool checks.
@@ -63,7 +63,8 @@ Routes SHALL be membership only, with no level, pan or tap. Allowed routes per e
 - X32 · M32: bus → LR and → M/C; LR, M/C and bus → matrix; no bus → bus.
 - LV1 and Generic: group → main; group → any **higher-numbered** group only; mains, groups and Mon
   mixes → matrix.
-- Subgroups, groups and buses → mute group on every engine.
+- Mains, subgroups/groups, monitors, FX and matrices → mute group on every engine (user,
+  2026-10-18: mute groups hold mixes too).
 
 An LV1 matrix SHALL take at most 12 sources; the 13th SHALL be refused inline. A route the engine
 cannot make SHALL NOT be offered.
@@ -95,8 +96,9 @@ A channel created on a desk SHALL be routed to that desk's Main LR. It SHALL joi
 ### Requirement: An output is fed by a mix
 
 An output SHALL keep its type as its destination and SHALL have an optional **Fed by**: one mix on
-its own desk — on X32 · M32 Main LR, M/C, a bus or a matrix; on LV1 a main, group, Mon mix, matrix or
-a channel's direct out; never an FX send. Several outputs MAY be fed by one mix. A stereo mix feeding
+its own desk — on X32 · M32 Main LR, M/C, a subgroup or monitor bus, or a matrix; on LV1 a main (L/R,
+C, Mono), a group, a Mon mix, a matrix or a channel's direct out; never an FX send. Fed by SHALL be
+stored as a route from the mix to the output, like every other connection. Several outputs MAY be fed by one mix. A stereo mix feeding
 a mono output SHALL name its side (L or R); a mono mix feeding a stereo output SHALL play on both.
 An output fed by nothing SHALL show "—" and SHALL NOT warn. A Mon or Matrix mix that feeds no output
 SHALL be counted in the routing strip as "N mixes play nowhere".
@@ -105,6 +107,16 @@ SHALL be counted in the routing strip as "N mixes play nowhere".
 
 - **WHEN** Julkonsert's Sub output is set to be fed by Bus 15
 - **THEN** its type stays sub and the Outputs sheet shows Bus 15 under Fed by
+
+### Requirement: A channel on no desk has no routes
+
+A channel with no desk SHALL have no routes; its Routes cell SHALL read "—". Placing it on a desk
+SHALL route it to that desk's Main LR.
+
+#### Scenario: A deskless channel
+
+- **WHEN** a channel's desk is deleted
+- **THEN** its routes are removed and its Routes cell reads "—"
 
 ### Requirement: Moving a channel to another desk drops its routes
 
@@ -140,8 +152,9 @@ routes in its four words: **Moved** (slot changes), **Changed** (a mono subgroup
 group; M/C becomes C/Mono or back), **Left out** (mixes past the pool; routes the new desk cannot
 make; direct-out feeds), **Fits again**. Mixes SHALL be mapped by type in order (subgroups, monitors,
 FX, then matrices, DCAs, mute groups), each keeping its slot where legal and free, else the next
-legal one, else past the end flagged over. Left-out routes SHALL be kept and unused. Nothing SHALL be
-deleted.
+legal one, else past the end flagged over. Left-out routes — including a Fed by the new desk cannot
+make — SHALL be kept and unused. Recorder tracks past the new desk's count SHALL be Left out and kept.
+Nothing SHALL be deleted.
 
 #### Scenario: LV1 to M32
 

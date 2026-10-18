@@ -1,9 +1,10 @@
 ## 1. Backend — schema and migration
 
-- [ ] 1.1 `internal/domain`: `DeskMix`, `DeskRoute`, `RecorderTrack`; mix kinds, widths, sides, play modes as validated enums; `Console.Recorder`, `RecorderTracks`; output `FedBy*`
-- [ ] 1.2 Migration `055_desk_mixes` up (tables, columns, data move per design D2, drops) and down (rebuild event-level groups/DCAs)
+- [ ] 1.1 `internal/domain`: `DeskMix`, `DeskRoute` (port-to-port, design D1); mix kinds, port kinds, play modes as validated enums; `Console.Recorder`, `RecorderTracks`
+- [ ] 1.2 Migration `055_desk_mixes` up (tables, columns, data move per design D2, Fed by as routes, drops) and down (rebuild event-level groups/DCAs)
+- [ ] 1.2a `CreateEvent` stops seeding `mixer_groups` and ensures its default desk's mains; a fresh database migrates to the top
 - [ ] 1.3 Migration test: one desk (wedding shape), two desks sharing a group, memberless group, no desk (mixes wait with `console_id` NULL), Fed by exact match; read back every membership
-- [ ] 1.4 `db/desk_mixes.go` replaces `db/buses.go`: list/create/update(with sources)/delete mixes, routes, recorder tracks; channel and mix deletes clear routes in the same transaction (test: no orphans)
+- [ ] 1.4 `db/desk_mixes.go` replaces `db/buses.go`: list/create/update(with sources)/delete mixes and routes; channel, mix and output deletes clear every route naming them in the same transaction (test: no orphans, recorder and Fed by included)
 
 ## 2. Backend — rules
 
@@ -17,10 +18,10 @@
 
 - [ ] 3.1 Mix endpoints (design D5) with tests: add per type, full pool 409, PATCH writes fields + sources atomically, illegal source 400, delete main 409, viewer 403
 - [ ] 3.2 Channel create joins its desk's Main LR; `mix_ids` replaces `group_ids`/`dca_ids`; PATCH keeps monitor/FX/matrix routes; desk change drops old routes and joins the new Main LR; tests
-- [ ] 3.3 Output Fed by: same desk, allowed kinds per engine (no FX), side required for stereo → mono; tests
-- [ ] 3.4 Recorder endpoints: declare, tracks replace, Record every preamp (fills free tracks in channel order, refuses when they don't fit); tests
+- [ ] 3.3 Output Fed by as a route: same desk, allowed kinds per engine (X32: LR, M/C, subgroup/monitor buses, matrices; LV1: mains, groups, Mon, matrices, direct outs; never FX), side for stereo → mono; viewer 403; tests
+- [ ] 3.4 Recorder endpoints: declare, tracks replace (routes to/from `recorder` ports), Record every preamp (fills free tracks in channel order, refuses when they don't fit); one playback per channel; side only for stereo mixes; viewer 403; tests
 - [ ] 3.5 `GET /audio-patch` returns mixes, routes, recorder tracks; remove `/groups`, `/dcas`
-- [ ] 3.6 `service/deskmap.go` `MapMixes` (design D6) in the switch preview and apply; table tests: LV1 64 → M32 (16 placed in type order, 8 over, group → group Left out and kept), M32 → LV1 (mono subgroup → stereo group Changed, M/C → C/Mono), round trip; verify by breaking the order rule
+- [ ] 3.6 `service/deskmap.go` `MapMixes` (design D6) in the switch preview and apply; table tests: LV1 64 → M32 (16 placed in type order, 8 over, group → group Left out and kept), M32 → LV1 (mono subgroup → stereo group Changed, M/C → C/Mono), round trip; Fed by a refused kind and an X32 direct out Left out and kept; recorder tracks past the new count Left out; recorder count from the model; verify by breaking the order rule
 - [ ] 3.7 `audio_pdf_sections.go` `busLabel` and `audio_graph.go` read routes; PDF tests updated
 - [ ] 3.8 Backend gates
 
@@ -32,7 +33,7 @@
 
 ## 5. Frontend — the Desk Routing tab
 
-- [ ] 5.1 Tenth tab `desk-routing` in `useEventTab`, `EventDetail`, `MOBILE_SECTIONS` (C4 into `patterns.md` §6/§7e, `components.md` §5)
+- [ ] 5.1 Tenth tab `desk-routing` in `useEventTab` (fix the "same nine" comment), `EventDetail`, `types/mobile.ts` `MOBILE_SECTIONS`, between the audio tabs, with an order test (C4 into `patterns.md` §6/§7e, `components.md` §5)
 - [ ] 5.2 Panel bar: title, Sheet | Flow, desk selector (shared), search, + Mix (Sheet only); no-desk refusal with Open Rig
 - [ ] 5.3 `RoutingIndex` (C2 into `patterns.md` §1) with each table's pool fill
 - [ ] 5.4 `RoutingGrid` with squares, hatched inert cells, folded LV1 matrix channels with Show all (C3 into `patterns.md` §2)
@@ -45,11 +46,11 @@
 ## 6. Frontend — the other surfaces
 
 - [ ] 6.1 `InputSheet`: Routes column; editor Routes to / DCAs / Mute groups via `BusMultiSelect` on the channel's desk; monitor/FX sentence with Edit in Desk Routing; "Kick leaves N routes on FOH" before a desk change
-- [ ] 6.2 Delete `BusesDrawer`, `BusSection`, the Rig-bar Buses button and the phone's Groups & DCAs row; fix the `design/` lines that name them (C5)
+- [ ] 6.2 Delete `BusesDrawer`, `BusSection` (callers in `AudioInputsTab` only), `AudioPatchShell.onOpenBuses` and the phone's Groups & DCAs row; fix the `design/` lines that name them (C5)
 - [ ] 6.3 `OutputSheet`: Fed by before Type, editor field with side for stereo → mono; `MobileOutputEditSheet` likewise
 - [ ] 6.4 `ConsoleSection`: Recorder spec and declare control; track count read-only on real models
 - [ ] 6.5 `ModelSwitchDialog`: mix figures and mix lines
-- [ ] 6.6 `SignalFlowTab` bus pills from routes
+- [ ] 6.6 `SignalFlowTab` bus pills and its Buses header from routes
 - [ ] 6.7 Phone: table picker in the bar, mixes as rows, bottom sheet of 44 px tick rows; `MobileChannelEditSheet` Routes
 
 ## 7. Close-out

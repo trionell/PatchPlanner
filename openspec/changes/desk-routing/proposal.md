@@ -56,19 +56,22 @@ mix lines of the switch preview, stated here under `desk-mixes`.
 
 ## Impact
 
-**Backend.** Migration `055_desk_mixes` (tables `desk_mixes`, `desk_routes`, `desk_recorder_tracks`;
-`audio_patch_outputs.fed_by_*`; data moved from `mixer_groups`, `mixer_dcas`,
+**Backend.** Migration `055_desk_mixes` (tables `desk_mixes`, `desk_routes`;
+data moved from `mixer_groups`, `mixer_dcas`,
 `audio_input_groups`, `audio_input_dcas`, which are then dropped). `internal/domain` (mix kinds,
 pool rules on the Slice 47 profiles), `internal/db/buses.go` (replaced), `internal/db/audio_patch.go`
 (channel create joins Main LR; outputs' Fed by), `internal/api` (mix, route and recorder endpoints;
 the audio-patch payload), `service/deskmap.go` (mixes in the switch), `service/audio_pdf_sections.go`
 and `service/audio_graph.go` (bus labels from routes).
 
+`internal/db/events.go` (`CreateEvent` stops seeding the LR group).
+
 **Frontend.** New `DeskRoutingTab` and its tables, column editor, canvas and phone sheet;
 `useEventTab` / `EventDetail` (tenth tab); `InputSheet` and `MobileChannelEditSheet` (Routes);
 `OutputSheet` and `MobileOutputEditSheet` (Fed by); `SignalFlowTab` (bus pills); `ConsoleSection`
-(Recorder spec); `ModelSwitchDialog` (mix lines). Deleted: `BusesDrawer`, `BusSection`, the Rig-bar
-Buses button and the phone's Groups & DCAs row.
+(Recorder spec); `ModelSwitchDialog` (mix lines). Deleted: `BusesDrawer` and `BusSection`
+(callers only in `AudioInputsTab`), `AudioPatchShell`'s `onOpenBuses` button and the phone's Groups &
+DCAs row; `types/mobile.ts` `MOBILE_SECTIONS` gains the tab.
 
 **`design/`.** C1 (patterns.md §1, amends B6), C2 (§1), C3 (§2), C4 (§6, §7e, components.md §5),
 C5 (components.md §ui/Drawer, §ui/GearList), approved 2026-10-18, written with the code.
@@ -77,9 +80,11 @@ C5 (components.md §ui/Drawer, §ui/GearList), approved 2026-10-18, written with
 
 ## Constitution Check — Principles I–V
 
-**I. Domain-First Data Model.** Reinforced. A mix, a DCA and a recorder track are things on a
-particular desk; modelling them on the event was the approximation. Membership is a relation
-(`desk_routes`), never a free-text list.
+**I. Domain-First Data Model.** Reinforced. A mix, a DCA and a recorder are things on a particular
+desk; modelling them on the event was the approximation. Every connection inside the desk —
+membership, Fed by, record and playback — is a route between two `(kind, id, port)` ports in one
+traversable table, the convention the audio graphs already use, never a foreign key on the routed
+row (the first draft's flat Fed by columns were replaced for this, 2026-10-18).
 
 **II. Extensibility by Design.** Mix kinds are Go-validated enums because each carries pool and
 routing semantics in code (as `ValidWidths` does); the pools come from the Slice 47 profiles, so a
