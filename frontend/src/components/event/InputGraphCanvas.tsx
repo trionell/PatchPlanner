@@ -9,6 +9,7 @@ import {
   updateInputCable,
   updateInputDevice,
   updateStagebox,
+  type StageboxPatch,
   updateStageMulti,
 } from '../../api/audioPatch'
 import {
@@ -275,7 +276,7 @@ export function InputGraphCanvas({
     onSuccess: onChanged,
   })
   const moveStageboxMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Omit<Stagebox, 'id'> }) => updateStagebox(eventId, id, data),
+    mutationFn: ({ id, data }: { id: number; data: StageboxPatch }) => updateStagebox(eventId, id, data),
     onSuccess: onChanged,
   })
   const moveStageMultiMutation = useMutation({
@@ -652,9 +653,9 @@ export function InputGraphCanvas({
       return
     }
     if (kind === 'stagebox') {
-      const sb = stageboxes.find((s) => s.id === id)
-      if (!sb) return
-      moveStageboxMutation.mutate({ id, data: { ...sb, input_position_x: x, input_position_y: y } }, { onError })
+      // The position alone: a whole box copied from this render could write back
+      // a count the Rig drawer has just changed (D8).
+      moveStageboxMutation.mutate({ id, data: { input_position_x: x, input_position_y: y } }, { onError })
       return
     }
     if (kind === 'stage_multi') {
@@ -1613,7 +1614,7 @@ function StageboxNode({ x, y, stagebox, cables, pendingPort, onPortClick, onPort
   selected?: boolean
   onSelect?: () => void
 }) {
-  const { inputs, outputs } = stageboxPorts(stagebox)
+  const { inputs, outputs } = stageboxPorts(stagebox, stagebox.input_count)
   const wiring = wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)
   return (
     <NodeShell x={x} y={y} title={stagebox.name} badge="SB" onDragStart={onDragStart} dimmed={dimmed} selected={selected} onSelect={onSelect}>

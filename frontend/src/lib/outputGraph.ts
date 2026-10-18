@@ -28,21 +28,22 @@ export function mixerPorts(outputs: AudioPatchOutput[]): PortRef[] {
 }
 
 /**
- * A stagebox's ports: output_count sizes BOTH sides — it's a full
- * pass-through node, symmetric with a stage multi. A channel routes into
- * a specific jack (input side, pure console/network routing, never a
- * physical cable) and a real cable carries on from that same jack
- * (output side, unchanged from before).
+ * A stagebox's ports: one count sizes BOTH sides — it's a full pass-through
+ * node, symmetric with a stage multi. On this graph that count is
+ * `output_count`, the box's returns; the input graph passes `input_count`, its
+ * mic jacks. A channel routes into a specific jack (input side, pure
+ * console/network routing, never a physical cable) and a real cable carries on
+ * from that same jack (output side).
  */
-export function stageboxPorts(stagebox: Stagebox): { inputs: PortRef[]; outputs: PortRef[] } {
-  const inputs = Array.from({ length: stagebox.output_count }, (_, i) => ({
+export function stageboxPorts(stagebox: Stagebox, count: number = stagebox.output_count): { inputs: PortRef[]; outputs: PortRef[] } {
+  const inputs = Array.from({ length: count }, (_, i) => ({
     kind: 'stagebox' as const,
     id: stagebox.id,
     port: i,
     direction: 'in' as const,
     label: `In ${i + 1}`,
   }))
-  const outputs = Array.from({ length: stagebox.output_count }, (_, i) => ({
+  const outputs = Array.from({ length: count }, (_, i) => ({
     kind: 'stagebox' as const,
     id: stagebox.id,
     port: i,

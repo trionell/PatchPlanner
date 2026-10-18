@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { InputCable, InputChannel, InputDevice, InputSource, StageMulti, Stagebox } from '../types'
-import { derivedPortColor, derivedSourceColor, isCablelessEdge, type PortRef } from './inputGraph'
+import { derivedPortColor, derivedSourceColor, isCablelessEdge, resolvePortRef, type PortRef } from './inputGraph'
 
 const stageboxes: Stagebox[] = [
   { id: 1, event_id: 1, name: 'SB Stage L', model: '', input_count: 16, output_count: 8, connection_type: 'analog', position_x: 0, position_y: 0, input_position_x: 0, input_position_y: 0 },
@@ -184,5 +184,16 @@ describe('isCablelessEdge', () => {
   it('a Source or Device feeding a Channel directly is never cableless', () => {
     expect(isCablelessEdge('source', 'channel')).toBe(false)
     expect(isCablelessEdge('device', 'channel')).toBe(false)
+  })
+})
+
+// D8: the box above is 16 in / 8 out. Its mic jacks are its inputs, so the input
+// graph draws 16 of them — it used to draw 8, sized by the outputs.
+describe('a stagebox on the input graph', () => {
+  const context = { sources: [], channels: [], devices: [], stageboxes, stageMultis }
+  it('is sized by input_count, not output_count', () => {
+    expect(resolvePortRef('stagebox', 1, 15, 'in', context)?.label).toBe('In 16')
+    expect(resolvePortRef('stagebox', 1, 15, 'out', context)?.label).toBe('Out 16')
+    expect(resolvePortRef('stagebox', 1, 16, 'in', context)).toBeUndefined()
   })
 })

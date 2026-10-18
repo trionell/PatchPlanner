@@ -9,7 +9,14 @@ export const getAudioPatch = (eventId: number, signal?: AbortSignal) => get<Audi
 
 export const createStagebox = (eventId: number, data: Omit<Stagebox, 'id'>) =>
   request<Stagebox>(`/events/${eventId}/stageboxes`, { method: 'POST', body: JSON.stringify(data) })
-export const updateStagebox = (eventId: number, sbId: number, data: Omit<Stagebox, 'id'>) =>
+/**
+ * Only the fields that change. The server merges them onto the stored row, so a
+ * stale copy of the box can never write back a value someone else just changed
+ * (D8). Clearing the catalog item takes an explicit null.
+ */
+export type StageboxPatch = Partial<Omit<Stagebox, 'id' | 'event_id' | 'inventory_item_id'>> & { inventory_item_id?: number | null }
+
+export const updateStagebox = (eventId: number, sbId: number, data: StageboxPatch) =>
   request<Stagebox>(`/events/${eventId}/stageboxes/${sbId}`, { method: 'PATCH', body: JSON.stringify(data) })
 export const deleteStagebox = (eventId: number, sbId: number) =>
   request<void>(`/events/${eventId}/stageboxes/${sbId}`, { method: 'DELETE' })

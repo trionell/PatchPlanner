@@ -11,6 +11,7 @@ import {
   updateOutputDevice,
   updateConsole,
   updateStagebox,
+  type StageboxPatch,
   updateStageMulti,
 } from '../../api/audioPatch'
 import { listEventInventoryItems } from '../../api/inventory'
@@ -440,7 +441,8 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
         )}
         <RigDrawer
           audioItems={allAudioItems}
-          cables={[...outputCables, ...(audioQuery.data?.input_cables ?? [])]}
+          inputCables={audioQuery.data?.input_cables ?? []}
+          outputCables={outputCables}
           consoleSection={
             <ConsoleSection
               audioItems={allAudioItems}
@@ -506,7 +508,8 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
             stageboxes={stageboxes}
             stageMultis={stageMultis}
             audioItems={allAudioItems}
-            cables={[...outputCables, ...(audioQuery.data?.input_cables ?? [])]}
+            inputCables={audioQuery.data?.input_cables ?? []}
+            outputCables={outputCables}
             itemCount={consoles.length + stageboxes.length + stageMultis.length + outputDevices.length}
             readOnly={readOnly}
             consoleSection={
@@ -766,7 +769,7 @@ function OutputGraphCanvas({
     onSuccess: onChanged,
   })
   const moveStageboxMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Omit<Stagebox, 'id'> }) => updateStagebox(eventId, id, data),
+    mutationFn: ({ id, data }: { id: number; data: StageboxPatch }) => updateStagebox(eventId, id, data),
     onSuccess: onChanged,
   })
   const moveStageMultiMutation = useMutation({
@@ -1166,9 +1169,9 @@ function OutputGraphCanvas({
       return
     }
     if (kind === 'stagebox') {
-      const sb = stageboxes.find((s) => s.id === id)
-      if (!sb) return
-      moveStageboxMutation.mutate({ id, data: { ...sb, position_x: x, position_y: y } }, { onError })
+      // The position alone: a whole box copied from this render could write back
+      // a count the Rig drawer has just changed (D8).
+      moveStageboxMutation.mutate({ id, data: { position_x: x, position_y: y } }, { onError })
       return
     }
     if (kind === 'stage_multi') {

@@ -225,7 +225,7 @@ export function MobileChannelEditSheet({
           <Select value={port ?? ''} onChange={(e) => setPort(toOptionalNumber(e.target.value))} disabled={!selectedStagebox}>
             <option value="">—</option>
             {selectedStagebox &&
-              Array.from({ length: selectedStagebox.output_count }, (_, i) => (
+              Array.from({ length: selectedStagebox.input_count }, (_, i) => (
                 <option key={i} value={i}>In {i + 1}</option>
               ))}
           </Select>

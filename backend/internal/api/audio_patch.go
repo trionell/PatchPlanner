@@ -303,9 +303,17 @@ func (h AudioPatchHandler) updateStagebox(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
-	var payload domain.Stagebox
+	// Decoded onto the stored row, so a field the client leaves out keeps its
+	// value. A whole-row replace let a stale or partial body zero a count (D8);
+	// clearing the catalog item takes an explicit null.
+	payload := existing
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	payload.ID, payload.EventID = existing.ID, existing.EventID
+	if payload.InputCount < 0 || payload.OutputCount < 0 {
+		writeError(w, http.StatusBadRequest, "input_count and output_count must be 0 or more")
 		return
 	}
 	if !h.validItemRef(w, inventoryID, "inventory_item_id", payload.InventoryItemID) {

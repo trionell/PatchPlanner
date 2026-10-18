@@ -25,7 +25,7 @@ describe('boxUsage', () => {
       cable({ id: 1, to_kind: 'stagebox', to_id: 1, to_port: 2 }),
       cable({ id: 2, from_kind: 'stagebox', from_id: 1, from_port: 2, to_kind: 'channel', to_id: 1 }),
     ]
-    expect(boxUsage([stagebox], [], cables)).toEqual([{ name: 'SB1', used: 1, declared: 16 }])
+    expect(boxUsage([stagebox], [], cables, 'input')).toEqual([{ name: 'SB1', used: 1, declared: 32 }])
   })
 
   it('counts distinct jacks across both boxes', () => {
@@ -34,10 +34,19 @@ describe('boxUsage', () => {
       cable({ id: 2, to_kind: 'stagebox', to_id: 1, to_port: 1 }),
       cable({ id: 3, to_kind: 'stage_multi', to_id: 5, to_port: 7 }),
     ]
-    expect(boxUsage([stagebox], [multi], cables)).toEqual([
-      { name: 'SB1', used: 2, declared: 16 },
+    expect(boxUsage([stagebox], [multi], cables, 'input')).toEqual([
+      { name: 'SB1', used: 2, declared: 32 },
       { name: 'Multi A', used: 1, declared: 16 },
     ])
+  })
+})
+
+// D8: a box declares its inputs on the input graph and its outputs on the output
+// graph — the Rig's Inputs field used to size nothing.
+describe('boxUsage sides', () => {
+  it('declares input_count on the input graph and output_count on the output graph', () => {
+    expect(boxUsage([stagebox], [], [], 'input')[0].declared).toBe(32)
+    expect(boxUsage([stagebox], [], [], 'output')[0].declared).toBe(16)
   })
 })
 

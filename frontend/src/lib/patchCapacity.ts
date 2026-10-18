@@ -91,9 +91,11 @@ export function boxUsage(
   stageboxes: Stagebox[],
   stageMultis: StageMulti[],
   cables: (InputCable | OutputCable)[],
+  /** Which graph's cables these are: a box is sized by its inputs on one, its outputs on the other. */
+  side: 'input' | 'output',
 ): BoxUsage[] {
   return [
-    ...stageboxes.map((box) => ({ name: box.name, used: usedPorts('stagebox', box.id, cables), declared: box.output_count })),
+    ...stageboxes.map((box) => ({ name: box.name, used: usedPorts('stagebox', box.id, cables), declared: side === 'input' ? box.input_count : box.output_count })),
     ...stageMultis.map((multi) => ({ name: multi.name, used: usedPorts('stage_multi', multi.id, cables), declared: multi.channels })),
   ]
 }
@@ -177,7 +179,7 @@ export function inputPatchStatus(input: {
     deskless: input.deskless,
     rowCount: input.channels.length,
     consoleLabels: capacity.labels,
-    boxes: boxUsage(input.stageboxes, input.stageMultis, input.cables),
+    boxes: boxUsage(input.stageboxes, input.stageMultis, input.cables, 'input'),
     cablesPicked: cablesPicked(input.cables),
     gaps: input.gaps.map((channel) => `Ch ${channel.channel_number} ${channel.channel_name || ''} has no source`.replace('  ', ' ')),
     overCapacity: capacity.overCapacity,
@@ -210,7 +212,7 @@ export function outputPatchStatus(input: {
     deskless: input.deskless,
     rowCount: input.outputs.length,
     consoleLabels: capacity.labels,
-    boxes: boxUsage(input.stageboxes, input.stageMultis, input.cables),
+    boxes: boxUsage(input.stageboxes, input.stageMultis, input.cables, 'output'),
     cablesPicked: cablesPicked(input.cables),
     gaps: input.gaps.map((output) => `Out ${output.output_number} ${output.output_name || ''} is not patched`.replace('  ', ' ')),
     overCapacity: capacity.overCapacity,

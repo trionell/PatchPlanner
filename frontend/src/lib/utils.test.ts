@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatDMXRange, parseChannels, parseInOut, toOptionalNumber } from './utils'
+import { formatDMXRange, parseChannels, parseCount, parseInOut, toOptionalNumber } from './utils'
 
 describe('toOptionalNumber', () => {
   it('parses numeric strings', () => {
@@ -47,5 +47,20 @@ describe('parseChannels', () => {
   })
   it('returns null when nothing matches', () => {
     expect(parseChannels('Kabeltrumma')).toBeNull()
+  })
+})
+
+// D8: a blank count used to be saved as 0 — `Number('') || 0`.
+describe('parseCount', () => {
+  it('reads a whole count of 0 or more', () => {
+    expect(parseCount('18')).toBe(18)
+    expect(parseCount('0')).toBe(0)
+  })
+  it('refuses a blank or unreadable value rather than calling it 0', () => {
+    expect(parseCount('')).toBeNull()
+    expect(parseCount('  ')).toBeNull()
+    expect(parseCount('-1')).toBeNull()
+    expect(parseCount('1.5')).toBeNull()
+    expect(parseCount('abc')).toBeNull()
   })
 })

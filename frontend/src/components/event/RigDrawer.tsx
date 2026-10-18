@@ -12,11 +12,12 @@ interface RigDrawerProps {
   stageMultis: StageMulti[]
   audioItems: InventoryItem[]
   /**
-   * Both graphs' cables. A stagebox is used on the input side and the output
-   * side, so `used` on its card has to count jacks touched on either, or it would
-   * answer "is this box big enough?" with half the truth (Slice 24 FR-019).
+   * Both graphs' cables, kept apart. A stagebox is used on the input side and the
+   * output side, and each is sized by its own count — Inputs on one graph, Outputs
+   * on the other — so its card answers "is this box big enough?" per side (D8).
    */
-  cables: (InputCable | OutputCable)[]
+  inputCables: InputCable[]
+  outputCables: OutputCable[]
   /** The consoles section, rendered first — signal order starts at the desk. */
   consoleSection?: ReactNode
   /**
@@ -48,12 +49,14 @@ export function RigDrawer({
   stageboxes,
   stageMultis,
   audioItems,
-  cables,
+  inputCables,
+  outputCables,
   consoleSection,
   deviceSections,
   itemCount,
   readOnly = false,
 }: RigDrawerProps) {
+  const cables = [...inputCables, ...outputCables]
   return (
     <Drawer
       open={open}
@@ -64,7 +67,7 @@ export function RigDrawer({
       footer={<>Every row here is one line on the rental order · {itemCount} {itemCount === 1 ? 'item' : 'items'}</>}
     >
       {consoleSection}
-      <StageboxSection eventId={eventId} stageboxes={stageboxes} audioItems={audioItems} cables={cables} readOnly={readOnly} />
+      <StageboxSection eventId={eventId} stageboxes={stageboxes} audioItems={audioItems} inputCables={inputCables} outputCables={outputCables} readOnly={readOnly} />
       <StageMultiSection
         eventId={eventId}
         stageMultis={stageMultis}

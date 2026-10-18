@@ -58,3 +58,10 @@ export function legacyCableText(cableType: string, lengthM: number | undefined, 
 export function busTint(color?: string): { backgroundColor: string; color: string } | undefined {
   return color ? { backgroundColor: color, color: '#18181b' } : undefined
 }
+
+/** A whole count of 0 or more, or null for anything else — never a silent 0 (D8). */
+export function parseCount(text: string): number | null {
+  if (text.trim() === '') return null
+  const value = Number(text)
+  return Number.isInteger(value) && value >= 0 ? value : null
+}

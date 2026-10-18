@@ -277,14 +277,18 @@ func TestBuildInputGraphMirrorsTheCanvas(t *testing.T) {
 		t.Error("Lead Vox drawn as unpatched, but a cable reaches it")
 	}
 
-	// A stagebox is sized by OutputCount on both sides — the canvas's own
-	// convention, mirrored here so the two drawings agree.
+	// A stagebox is sized by one count on both sides — InputCount here, its mic
+	// jacks — the canvas's own convention, mirrored so the two drawings agree.
 	box, ok := graph.Node("stagebox:1")
 	if !ok {
 		t.Fatal("no stagebox node")
 	}
-	if len(box.Inputs) != 24 || len(box.Outputs) != 24 {
-		t.Errorf("stagebox ports = %d in / %d out, want 24/24", len(box.Inputs), len(box.Outputs))
+	if len(box.Inputs) != 32 || len(box.Outputs) != 32 {
+		t.Errorf("stagebox ports = %d in / %d out, want 32/32 (InputCount)", len(box.Inputs), len(box.Outputs))
+	}
+	// The output graph sizes the same box by its returns.
+	if outBox, ok := buildOutputGraph(data).Node("stagebox:1"); !ok || len(outBox.Inputs) != 24 {
+		t.Errorf("output graph stagebox = %+v, want 24 ports (OutputCount)", outBox.Inputs)
 	}
 
 	// The desk's local panel is its own pass-through node.

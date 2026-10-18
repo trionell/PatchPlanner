@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
-import { createStagebox, deleteStagebox, updateStagebox } from '../../api/audioPatch'
+import { createStagebox, deleteStagebox, updateStagebox, type StageboxPatch } from '../../api/audioPatch'
 import { usedPorts } from '../../lib/patchCapacity'
-import { itemLabel, parseInOut } from '../../lib/utils'
+import { itemLabel, parseCount, parseInOut } from '../../lib/utils'
 import type { InputCable, InventoryItem, OutputCable, Stagebox } from '../../types'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
@@ -17,8 +17,9 @@ interface StageboxSectionProps {
   eventId: number
   stageboxes: Stagebox[]
   audioItems: InventoryItem[]
-  /** Both graphs' cables, so `used` answers "is this box big enough?" honestly. */
-  cables: (InputCable | OutputCable)[]
+  /** Each graph's cables, so `used` answers "is this box big enough?" per side (D8). */
+  inputCables: InputCable[]
+  outputCables: OutputCable[]
   readOnly?: boolean
 }
 
@@ -31,7 +32,8 @@ interface StageboxSectionProps {
  * A box is one summary line until Edit is pressed. `used` is derived from the
  * patch across both graphs, never typed.
  */
-export function StageboxSection({ eventId, stageboxes, audioItems, cables, readOnly = false }: StageboxSectionProps) {
+export function StageboxSection({ eventId, stageboxes, audioItems, inputCables, outputCables, readOnly = false }: StageboxSectionProps) {
+  const cables = [...inputCables, ...outputCables]
   const queryClient = useQueryClient()
   const [editingId, setEditingId] = useState<number | null>(null)
   const [adding, setAdding] = useState(false)
@@ -53,7 +55,7 @@ export function StageboxSection({ eventId, stageboxes, audioItems, cables, readO
     },
   })
   const update = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Omit<Stagebox, 'id'> }) => updateStagebox(eventId, id, data),
+    mutationFn: ({ id, data }: { id: number; data: StageboxPatch }) => updateStagebox(eventId, id, data),
     onSuccess: invalidate,
   })
   const remove = useMutation({
@@ -93,7 +95,10 @@ export function StageboxSection({ eventId, stageboxes, audioItems, cables, readO
 
       {stageboxes.map((box) => {
         const editing = editingId === box.id && !readOnly
-        const used = usedPorts('stagebox', box.id, cables)
+        // Each side against its own count: the input graph draws Inputs jacks, the output graph Outputs.
+        const usedIn = usedPorts('stagebox', box.id, inputCables)
+        const usedOut = usedPorts('stagebox', box.id, outputCables)
+        const over = (box.input_count > 0 && usedIn > box.input_count) || (box.output_count > 0 && usedOut > box.output_count)
         const itemLabelFor = box.inventory_item_id
           ? audioItems.find((item) => item.id === box.inventory_item_id)
           : undefined
@@ -114,7 +119,7 @@ export function StageboxSection({ eventId, stageboxes, audioItems, cables, readO
               <Spec label="in" value={box.input_count || '—'} />
               <Spec label="out" value={box.output_count || '—'} />
               <Spec label="link" value={box.connection_type} />
-              <Spec label="used" value={`${used} of ${box.output_count || '—'}`} tone={box.output_count > 0 && used > box.output_count ? 'warning' : undefined} />
+              <Spec label="used" value={`${usedIn} in · ${usedOut} out`} tone={over ? 'warning' : undefined} />
             </GearSpecs>
 
             {editing && (
@@ -126,7 +131,7 @@ export function StageboxSection({ eventId, stageboxes, audioItems, cables, readO
                     placeholder="e.g. SB Stage L"
                     onBlur={(event) => {
                       const name = event.target.value.trim()
-                      if (name && name !== box.name) update.mutate({ id: box.id, data: { ...box, name } })
+                      if (name && name !== box.name) update.mutate({ id: box.id, data: { name } })
                     }}
                   />
                 </FieldStack>
@@ -140,8 +145,7 @@ export function StageboxSection({ eventId, stageboxes, audioItems, cables, readO
                       update.mutate({
                         id: box.id,
                         data: {
-                          ...box,
-                          inventory_item_id: event.target.value ? Number(event.target.value) : undefined,
+                          inventory_item_id: event.target.value ? Number(event.target.value) : null,
                           model: item?.name ?? box.model,
                           // Picking a model fills the counts it declares — the
                           // planner can still overwrite them, since a box's
@@ -161,31 +165,13 @@ export function StageboxSection({ eventId, stageboxes, audioItems, cables, readO
                   </Select>
                 </FieldStack>
                 <FieldStack label="Inputs" width="count">
-                  <Input
-                    size="sm"
-                    type="number"
-                    min={0}
-                    defaultValue={box.input_count}
-                    onBlur={(event) => {
-                      const value = Math.max(0, Number(event.target.value) || 0)
-                      if (value !== box.input_count) update.mutate({ id: box.id, data: { ...box, input_count: value } })
-                    }}
-                  />
+                  <CountField value={box.input_count} onSave={(input_count) => update.mutate({ id: box.id, data: { input_count } })} />
                 </FieldStack>
                 <FieldStack label="Outputs" width="count">
-                  <Input
-                    size="sm"
-                    type="number"
-                    min={0}
-                    defaultValue={box.output_count}
-                    onBlur={(event) => {
-                      const value = Math.max(0, Number(event.target.value) || 0)
-                      if (value !== box.output_count) update.mutate({ id: box.id, data: { ...box, output_count: value } })
-                    }}
-                  />
+                  <CountField value={box.output_count} onSave={(output_count) => update.mutate({ id: box.id, data: { output_count } })} />
                 </FieldStack>
                 <FieldStack label="Link" width="short">
-                  <Select size="sm" value={box.connection_type} onChange={(event) => update.mutate({ id: box.id, data: { ...box, connection_type: event.target.value } })}>
+                  <Select size="sm" value={box.connection_type} onChange={(event) => update.mutate({ id: box.id, data: { connection_type: event.target.value } })}>
                     {CONNECTION_TYPES.map((type) => (
                       <option key={type} value={type}>
                         {type}
@@ -306,5 +292,62 @@ export function StageboxSection({ eventId, stageboxes, audioItems, cables, readO
         })()}
     </ConfirmDialog>
     </>
+  )
+}
+
+/**
+ * A box's count, typed or stepped with the arrows. It holds its own text and
+ * saves on blur, on Enter, and when it unmounts mid-edit — Done or closing the
+ * drawer can remove it before any blur arrives. A blank or unreadable value
+ * saves nothing and puts the count back: some browsers report a bad number as
+ * '', and that used to be written as 0 (D8).
+ */
+function CountField({ value, onSave }: { value: number; onSave: (next: number) => void }) {
+  const [text, setText] = useState(String(value))
+  // The last count sent or stored: what a commit compares against, so 16 → 18 →
+  // 16 before the refetch lands still saves the 16.
+  const [sent, setSent] = useState(value)
+  // A saved or refetched count replaces the text (React's derived-state pattern).
+  const [shown, setShown] = useState(value)
+  if (shown !== value) {
+    setShown(value)
+    setSent(value)
+    setText(String(value))
+  }
+  const latest = useRef({ text, sent, onSave })
+  useEffect(() => {
+    latest.current = { text, sent, onSave }
+  })
+  useEffect(
+    () => () => {
+      const { text, sent, onSave } = latest.current
+      const next = parseCount(text)
+      if (next != null && next !== sent) onSave(next)
+    },
+    [],
+  )
+
+  const commit = () => {
+    const next = parseCount(text)
+    if (next == null) return setText(String(sent))
+    if (next !== sent) {
+      setSent(next)
+      onSave(next)
+    }
+  }
+  return (
+    <Input
+      size="sm"
+      type="number"
+      min={0}
+      step={1}
+      inputMode="numeric"
+      value={text}
+      onChange={(event) => setText(event.target.value)}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') commit()
+      }}
+    />
   )
 }

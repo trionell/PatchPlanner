@@ -130,7 +130,7 @@ export function resolvePortRef(
   if (kind === 'stagebox') {
     const stagebox = context.stageboxes.find((sb) => sb.id === id)
     if (!stagebox) return undefined
-    const { inputs, outputs } = stageboxPorts(stagebox)
+    const { inputs, outputs } = stageboxPorts(stagebox, stagebox.input_count)
     const found = (direction === 'in' ? inputs : outputs).find((p) => p.port === port)
     return found ? { ...found, kind } : undefined
   }

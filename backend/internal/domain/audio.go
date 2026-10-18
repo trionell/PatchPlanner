@@ -11,11 +11,12 @@ type Stagebox struct {
 	InventoryItemID *int64 `json:"inventory_item_id,omitempty"`
 	// PositionX/PositionY are this event's canvas placement in the
 	// output signal-flow graph's Processing zone (Slice 11 follow-up) —
-	// a stagebox is a full pass-through node there: its existing
-	// OutputCount sizes both an input side (a channel routes into a
-	// specific jack — pure console routing, never a physical cable, the
-	// mixer-to-stagebox network link itself is out of scope here) and
-	// its unchanged output side (a real cable onward to a device).
+	// a stagebox is a full pass-through node there: its OutputCount
+	// sizes both an input side (a channel routes into a specific jack —
+	// pure console routing, never a physical cable, the mixer-to-stagebox
+	// network link itself is out of scope here) and its output side (a
+	// real cable onward to a device). The input graph does the same with
+	// InputCount, the box's mic jacks.
 	PositionX float64 `json:"position_x"`
 	PositionY float64 `json:"position_y"`
 	// InputPositionX/InputPositionY are this same stagebox's separate

@@ -467,7 +467,8 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
         )}
         <RigDrawer
           audioItems={allAudioItems}
-          cables={[...cables, ...(audioQuery.data?.output_cables ?? [])]}
+          inputCables={cables}
+          outputCables={audioQuery.data?.output_cables ?? []}
           consoleSection={
             <ConsoleSection
               audioItems={allAudioItems}
@@ -561,7 +562,8 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
               stageboxes={stageboxes}
               stageMultis={stageMultis}
               audioItems={allAudioItems}
-              cables={[...cables, ...(audioQuery.data?.output_cables ?? [])]}
+              inputCables={cables}
+              outputCables={audioQuery.data?.output_cables ?? []}
               itemCount={consoles.length + stageboxes.length + stageMultis.length + devices.length}
               readOnly={readOnly}
               consoleSection={

@@ -23,8 +23,8 @@ import (
 //   - stageboxes, stage multis and devices at the positions they hold
 //
 // Ports follow lib/inputGraph.ts and lib/outputGraph.ts: a stagebox is sized by
-// OutputCount on *both* sides on either graph (domain.Stagebox's own note says
-// why), a stage multi by Channels, a stereo source or channel contributes two
+// one count on *both* sides — InputCount on the input graph, OutputCount on the
+// output graph (domain.Stagebox's own note says why) — a stage multi by Channels, a stereo source or channel contributes two
 // independent ports.
 
 // FlowSide is which column of a box a port sits in.
@@ -531,8 +531,12 @@ func passThroughNodes(data audioGraphData, patched map[portKey]bool, colors map[
 		} else {
 			node.X, node.Y = box.PositionX, box.PositionY
 		}
-		// OutputCount sizes both sides — domain.Stagebox's own note says why.
-		for i := 0; i < box.OutputCount; i++ {
+		// One count sizes both sides — domain.Stagebox's own note says why.
+		count := box.OutputCount
+		if input {
+			count = box.InputCount
+		}
+		for i := 0; i < count; i++ {
 			node.Inputs = append(node.Inputs, portAt(key, SideIn, i, fmt.Sprintf("In %d", i+1), patched, colors))
 			node.Outputs = append(node.Outputs, portAt(key, SideOut, i, fmt.Sprintf("Out %d", i+1), patched, colors))
 		}

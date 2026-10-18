@@ -2526,6 +2526,61 @@ this change must leave alone.
 its footprint is what makes a 6 m truss draw as a 6 m truss, and once the three
 dimensions move together there is nothing left for it to distort.
 
+### D8 — A stagebox's counts would not stay put, and Inputs sized nothing ✅ fixed 2026-10-18
+
+**Found:** 2026-10-18 by the user, testing Slice 49 on the `console-showfile-export`
+branch; recorded and fixed directly on the user's call ("Direct fix"). Two reports:
+both graphs drew a stagebox from its **Outputs** value alone, and an edited count
+saved only when typed in and followed straight away by **Done**. The spinner arrows
+did not stick, and clicking anywhere else first set the count to 0.
+
+**Cause.** There were three faults, and only the first is a design choice that went wrong.
+
+- `lib/outputGraph.ts` `stageboxPorts` sized both sides by `output_count`, and both
+  graphs called it. Slice 11 chose that for the *output* graph, and the input graph
+  (Slice 12) borrowed it. On the input graph a box's jacks are its mic inputs, so
+  Inputs drew nothing. The backend's copy in `service/audio_graph.go`
+  `passThroughNodes`, which the PDF uses, did the same.
+- `StageboxSection.tsx` held the counts in uncontrolled `defaultValue` inputs and
+  saved on blur with `Math.max(0, Number(value) || 0)`. A blank or bad number, which
+  some browsers report as `''`, was written as 0. A field removed before its blur
+  (Done, or closing the drawer) saved nothing.
+- Every save sent `{ ...box, field }` from that render, and `api/audio_patch.go`
+  `updateStagebox` decoded it into a fresh struct and replaced the whole row. A stale
+  copy wrote its old counts back, and so did the graph drags, which sent the same
+  spread. A field the body left out became zero.
+
+The 0 did not reproduce in headless Chromium: arrows, typing and clicking away all
+saved there. The user is likely on Firefox. The fix closes every route to the 0
+rather than the one it could watch.
+
+**Fixed:**
+
+- **Each graph uses its own count.** `stageboxPorts(box, count)` takes the count. The
+  input graph, its inspector and the phone's channel sheet pass `input_count`. The
+  output graph keeps `output_count`. `passThroughNodes` does the same, and
+  `boxUsage` takes the side.
+- **The Rig card's `used` is per side:** `3 in · 0 out`. `RigDrawer` now takes
+  `inputCables` and `outputCables` apart. Measured against one count, the merged
+  list would warn falsely once a box had more inputs than outputs.
+- **Counts are a controlled `CountField`.** It saves on blur, on Enter, and on unmount
+  mid-edit. A blank or unreadable value (`parseCount` returns `null`) saves nothing
+  and restores the count.
+- **A stagebox PATCH sends only what changed**, from the Rig and from both graph drags.
+  The server decodes onto the stored row, as `updateConsole` already did. Clearing
+  the catalog item is an explicit `null`. A negative count is a 400.
+
+**Verified:**
+
+- `TestStageboxPatchKeepsWhatItLeavesOut` fails on the old handler.
+- `inputGraph.test.ts` "is sized by input_count" fails with the old call.
+- `audio_graph_test.go` checks both graphs' sizes, and `parseCount` has its own tests.
+- In headless Chromium against a copy of the real DB, these all stored the right value,
+  and none stored 0: keyboard arrows then a click, arrows then Escape, typing then
+  closing the drawer, clearing the field, and Done. The Inputs graph drew 8 and 24
+  jacks for the DL154 and DL 151, the Outputs graph 16 and 16.
+- **Not run in Firefox,** where the 0 was seen.
+
 ### D1 — The legacy catalog can become permanently ownerless ✅ fixed 2026-07-30
 
 **Found:** 2026-07-29, during the Slice 35 field test. The report was a console
