@@ -11,7 +11,7 @@ The shape every data-dense tab converges on.
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
-│ Title   [Sheet|Flow]  [ search… ]  [Rig] [Buses]  ⟵⟶  [Print] [+ Row] │  bar
+│ Title   [Sheet|Flow]  [ search… ]  [Rig]  ⟵⟶  [Print] [+ Row]         │  bar
 ├───────────────────────────────────────────────────────────────┤
 │                                                               │
 │   the sheet, or the canvas                                    │  content
@@ -56,9 +56,18 @@ the instances, one desk at a time:
 - It opens on the first container in Rig order, is remembered per viewer and per
   event on the device — never on the event — and is shared by the event's tabs that
   are per container, so switching tab keeps the desk.
-- The primary action, the search and the strip act on the selected container. The
-  canvas is **not** filtered: Flow shows every desk.
+- The primary action, the search and the strip act on the selected container. A canvas
+  that draws the **connections between** containers is not filtered: the audio tabs' Flow
+  shows every desk. A canvas that draws **one container's inside** follows the selector —
+  Desk Routing's Flow (Slice 48, C1) — because no route there ever crosses to another desk.
 - Viewers have it: choosing what to read is not an edit (P7).
+
+**A panel of several tables shows one at a time** (Slice 48, C2). Desk Routing is the
+instance: an index row under the bar names each table with its fill (*Monitors 6/16*,
+*Buses 15/16* on all three of X32's bus tables) and underlines the chosen one —
+`border-b-2 border-amber-500`, **no trough**, because it chooses *what you are looking at*,
+like the event tabs and unlike the view toggle. The choice is remembered per viewer per event
+on the device. In a hand it is a `MobilePicker` in the bar's second row.
 
 **Toggling a view preserves state.** The selected row or node survives the switch,
 so Flow opens on the channel you were editing; search stays applied and dims
@@ -117,6 +126,13 @@ that wrap, confirm at `ml-auto`, delete kept apart from confirm.
   editor: the common case must not pay for the batch. Saving is one action and N
   calls; it does not stop at the first failure, and what failed stays in the
   editor so the confirm retries exactly the remainder.
+- **A grid edits one column at a time, the way a row opens** (Slice 48, C3). Where the
+  rows are sources and the columns are destinations — Desk Routing's tables — clicking a
+  column head opens it: its fields sit above the grid as a `GearForm`, its cells become
+  controls, and Save writes the fields and the routes together. One column at a time. A
+  membership is a **square**, never a circle (P5: a circle is a port). A cell the container
+  can never hold is **hatched with no control** — neither absent, which would misalign the
+  grid, nor disabled, which would read as *not yet*.
 - **A row that leaves the list says where it went** (Slice 47, B7). When saving moves
   the row out of the container being looked at, one line takes the editor's place
   above the rows — *Kick is now on Monitor · LV1 64, as 37.* — with one action to go
@@ -411,8 +427,9 @@ Losing the trough is the point. Page-level tabs select *what you are looking at*
 the trough belongs to an in-panel toggle selecting *how you are looking at one
 thing* (§1). Two controls that looked identical meant those two different things.
 
-`flex-wrap` because there are nine tabs: without the trough there is nothing to
-scroll inside, so they wrap.
+`flex-wrap` because there are ten tabs — Desk Routing joined between the two audio
+tabs in Slice 48 (C4): without the trough there is nothing to scroll inside, so they
+wrap. The phone's `SectionSwitcher` lists the same ten from `MOBILE_SECTIONS`.
 
 ### Event heading
 

@@ -76,7 +76,7 @@ describe('the desk selector', () => {
 describe('an X32 desk on the Inputs sheet', () => {
   const props = {
     eventId: 1,
-    sources: [], devices: [], stageboxes: [], stageMultis: [], cables: [], groups: [], dcas: [],
+    sources: [], devices: [], stageboxes: [], stageMultis: [], cables: [], mixes: [], routes: [],
     cableItems: [], itemLabelById: new Map<number, string>(),
     models: [M32],
   }

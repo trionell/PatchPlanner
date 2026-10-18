@@ -6,14 +6,14 @@ import { Sheet } from '../ui/Sheet'
 
 /**
  * Replaces the desktop `TabList`/`Tab` strip on phone-width viewports: one
- * control naming the current section, opening the list of nine.
+ * control naming the current section, opening the list of ten.
  *
  * It is `ui/Tabs`'s job in a different shape — *what you are looking at* — so it
  * takes no trough, and the accent marks the current section **in the open list**
  * rather than on the closed control: a control that is amber whether or not
  * anything is selected has spent the accent on furniture (P4).
  *
- * It lists sections and nothing else. It used to grade all nine
+ * It lists sections and nothing else. It used to grade all nine (ten since Slice 48)
  * `editable` / `read-only` / `viewer` from a fixed table — three words the
  * application does not otherwise use, describing the state of the *build*
  * rather than the state of the *show*, in a hue tokens.md §5 reserves for the

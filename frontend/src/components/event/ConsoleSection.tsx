@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
-import { createConsole, deleteConsole, switchConsoleModel, updateConsole } from '../../api/audioPatch'
+import { createConsole, deleteConsole, setRecorder, switchConsoleModel, updateConsole } from '../../api/audioPatch'
 import { useDeskModels } from '../../hooks/useDeskModels'
 import { poolCapacity, poolUsage, profileLine, suggestedModel } from '../../lib/deskStrips'
 import { itemLabel } from '../../lib/utils'
@@ -113,6 +113,10 @@ export function ConsoleSection({ eventId, consoles, channels, outputs, audioItem
       await invalidate()
     },
   })
+  const recorder = useMutation({
+    mutationFn: ({ desk, on, tracks }: { desk: Console; on: boolean; tracks?: number }) => setRecorder(eventId, desk.id, { recorder: on, recorder_tracks: tracks }),
+    onSuccess: invalidate,
+  })
   const previewSwitch = useMutation({
     mutationFn: ({ desk, model }: { desk: Console; model: string }) => switchConsoleModel(eventId, desk.id, { desk_model: model, apply: false }),
   })
@@ -221,6 +225,7 @@ export function ConsoleSection({ eventId, consoles, channels, outputs, audioItem
                   {model.aux_in > 0 && <Spec label="aux" value={`${auxUsed} / ${model.aux_in}`} tone={overAux ? 'warning' : undefined} />}
                   <Spec label="out" value={`${outputsUsed} · by sockets`} />
                   <Spec label="local" value={`${desk.local_input_count} in / ${desk.local_output_count} out`} />
+                  {desk.recorder && <Spec label="rec" value={`${model.engine === 'x32' ? 32 : 64} / ${model.engine === 'x32' ? 32 : 64} · ${model.engine === 'x32' ? 'card' : 'SoundGrid'}`} />}
                 </GearSpecs>
                 <GearSpecs>
                   <span className="text-[11px] text-zinc-500">
@@ -236,6 +241,7 @@ export function ConsoleSection({ eventId, consoles, channels, outputs, audioItem
                 <Spec label="out" value={desk.output_count || '—'} />
                 <Spec label="local" value={`${desk.local_input_count} in / ${desk.local_output_count} out`} />
                 <Spec label="used" value={`${deskChannels.length} in · ${outputsUsed} out`} tone={overIn || overOut ? 'warning' : undefined} />
+                {desk.recorder && <Spec label="rec" value={`${desk.recorder_tracks ?? 0} tracks`} />}
               </GearSpecs>
             )}
             {/* One meter, on the side that is fuller — two bars on one card read
@@ -265,6 +271,28 @@ export function ConsoleSection({ eventId, consoles, channels, outputs, audioItem
                   <p className="w-full rounded-md border border-amber-500/40 bg-amber-500/[0.05] px-3 py-2 text-xs text-amber-200">
                     The catalog item is an LV1. It does not say which licence; pick it from LV1 16, 32, 64 or 80.
                   </p>
+                )}
+                {/* Slice 48: one recorder per desk — the card on X32 · M32, SoundGrid on LV1, typed on Generic. */}
+                <FieldStack label="Recorder" width="short">
+                  <Select
+                    size="sm"
+                    value={desk.recorder ? 'yes' : 'no'}
+                    onChange={(event) => recorder.mutate({ desk, on: event.target.value === 'yes', tracks: desk.recorder_tracks })}
+                  >
+                    <option value="no">None</option>
+                    <option value="yes">{model.engine === 'x32' ? 'Card · 32' : model.engine === 'lv1' ? 'SoundGrid · 64' : 'Recorder'}</option>
+                  </Select>
+                </FieldStack>
+                {desk.recorder && !modelled && (
+                  <FieldStack label="Tracks" width="count">
+                    <Input
+                      size="sm"
+                      type="number"
+                      min={0}
+                      defaultValue={desk.recorder_tracks ?? 0}
+                      onBlur={(event) => recorder.mutate({ desk, on: true, tracks: Math.max(0, Number(event.target.value) || 0) })}
+                    />
+                  </FieldStack>
                 )}
                 <FieldStack label="Name" width="grow">
                   <Input
@@ -444,8 +472,8 @@ export function ConsoleSection({ eventId, consoles, channels, outputs, audioItem
         </GearForm>
       )}
 
-      {(addError || create.error || update.error || remove.error || previewSwitch.error) && (
-        <p className="text-xs text-red-400">{addError || (create.error ?? update.error ?? remove.error ?? previewSwitch.error)?.message}</p>
+      {(addError || create.error || update.error || remove.error || previewSwitch.error || recorder.error) && (
+        <p className="text-xs text-red-400">{addError || (create.error ?? update.error ?? remove.error ?? previewSwitch.error ?? recorder.error)?.message}</p>
       )}
     </DrawerSection>
 

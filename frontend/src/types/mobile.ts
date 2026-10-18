@@ -1,5 +1,5 @@
 export interface MobileSection {
-  section: 'overview' | 'audio-inputs' | 'audio-outputs' | 'lighting-rig' | 'stage-plots' | 'signal-flow' | 'equipment' | 'rentals' | 'settings'
+  section: 'overview' | 'audio-inputs' | 'desk-routing' | 'audio-outputs' | 'lighting-rig' | 'stage-plots' | 'signal-flow' | 'equipment' | 'rentals' | 'settings'
   label: string
 }
 
@@ -25,6 +25,7 @@ export interface MobileSection {
 export const MOBILE_SECTIONS: MobileSection[] = [
   { section: 'overview', label: 'Overview' },
   { section: 'audio-inputs', label: 'Audio Inputs' },
+  { section: 'desk-routing', label: 'Desk Routing' },
   { section: 'audio-outputs', label: 'Audio Outputs' },
   { section: 'lighting-rig', label: 'Lighting Rig' },
   { section: 'stage-plots', label: 'Stage Plots' },

@@ -27,35 +27,35 @@
 
 ## 4. Frontend — data
 
-- [ ] 4.1 Types and API functions for mixes, routes, recorder, Fed by; remove group/DCA types and calls
-- [ ] 4.2 `lib/deskRouting.ts`: rows and columns per table and engine from the served rules, hatched cells, pool fills, "plays nowhere" count, a channel's Routes summary; unit tests per engine
-- [ ] 4.3 `useRoutingTable(eventId)` (localStorage, try/catch)
+- [x] 4.1 Types and API functions for mixes, routes, recorder, Fed by; remove group/DCA types and calls
+- [x] 4.2 `lib/deskRouting.ts`: rows and columns per table and engine from the served rules, hatched cells, pool fills, "plays nowhere" count, a channel's Routes summary; unit tests per engine
+- [x] 4.3 `useRoutingTable(eventId)` (localStorage, try/catch)
 
 ## 5. Frontend — the Desk Routing tab
 
-- [ ] 5.1 Tenth tab `desk-routing` in `useEventTab` (fix the "same nine" comment), `EventDetail`, `types/mobile.ts` `MOBILE_SECTIONS`, between the audio tabs, with an order test (C4 into `patterns.md` §6/§7e, `components.md` §5)
-- [ ] 5.2 Panel bar: title, Sheet | Flow, desk selector (shared), search, + Mix (Sheet only); no-desk refusal with Open Rig
-- [ ] 5.3 `RoutingIndex` (C2 into `patterns.md` §1) with each table's pool fill
-- [ ] 5.4 `RoutingGrid` with squares, hatched inert cells, folded LV1 matrix channels with Show all (C3 into `patterns.md` §2)
-- [ ] 5.5 `MixColumnEditor`: open one column, fields above the grid, cells as controls, Save writes both; + Mix type picker; inline refusals naming the desk
-- [ ] 5.6 Tables: Mains (channels, then groups/buses as rows), Subgroups/Groups (LV1 triangle), Monitors, FX, Matrices, DCAs, Mute groups (channels and mixes), Recorder (`RecorderTable`, Record every preamp)
-- [ ] 5.7 Routing status strip: pool fills and "N mixes play nowhere"
-- [ ] 5.8 `DeskRoutingCanvas`: one desk, columns in signal order, LV1 depth layout, selection-only channel edges, 1.25 px internal and dashed SoundGrid edges, inspector rail with Open in Sheet (C1 into `patterns.md` §1 amending B6)
-- [ ] 5.9 Render tests: X32 shared bus fill on three tables, LV1 triangle hatching, no X32 channel rows in Matrices, viewer has no controls
+- [x] 5.1 Tenth tab `desk-routing` in `useEventTab` (fix the "same nine" comment), `EventDetail`, `types/mobile.ts` `MOBILE_SECTIONS`, between the audio tabs, with an order test (C4 into `patterns.md` §6/§7e, `components.md` §5)
+- [x] 5.2 Panel bar: title, Sheet | Flow, desk selector (shared), search, + Mix (Sheet only); no-desk refusal with Open Rig
+- [x] 5.3 `RoutingIndex` (C2 into `patterns.md` §1) with each table's pool fill
+- [x] 5.4 `RoutingGrid` with squares, hatched inert cells, folded LV1 matrix channels with Show all (C3 into `patterns.md` §2)
+- [x] 5.5 `MixColumnEditor`: open one column, fields above the grid, cells as controls, Save writes both; + Mix type picker; inline refusals naming the desk
+- [x] 5.6 Tables: Mains (channels, then groups/buses as rows), Subgroups/Groups (LV1 triangle), Monitors, FX, Matrices, DCAs, Mute groups (channels and mixes), Recorder (`RecorderTable`, Record every preamp)
+- [x] 5.7 Routing status strip: pool fills and "N mixes play nowhere"
+- [x] 5.8 `DeskRoutingCanvas`: one desk, columns in signal order, LV1 depth layout, selection-only channel edges, 1.25 px internal and dashed SoundGrid edges, inspector rail with Open in Sheet (C1 into `patterns.md` §1 amending B6)
+- [x] 5.9 Render tests: X32 shared bus fill on three tables, LV1 triangle hatching, no X32 channel rows in Matrices, viewer has no controls
 
 ## 6. Frontend — the other surfaces
 
-- [ ] 6.1 `InputSheet`: Routes column; editor Routes to / DCAs / Mute groups via `BusMultiSelect` on the channel's desk; monitor/FX sentence with Edit in Desk Routing; "Kick leaves N routes on FOH" before a desk change
-- [ ] 6.2 Delete `BusesDrawer`, `BusSection` (callers in `AudioInputsTab` only), `AudioPatchShell.onOpenBuses` and the phone's Groups & DCAs row; fix the `design/` lines that name them (C5)
-- [ ] 6.3 `OutputSheet`: Fed by before Type, editor field with side for stereo → mono; `MobileOutputEditSheet` likewise
-- [ ] 6.4 `ConsoleSection`: Recorder spec and declare control; track count read-only on real models
-- [ ] 6.5 `ModelSwitchDialog`: mix figures and mix lines
-- [ ] 6.6 `SignalFlowTab` bus pills and its Buses header from routes
-- [ ] 6.7 Phone: table picker in the bar, mixes as rows, bottom sheet of 44 px tick rows; `MobileChannelEditSheet` Routes
+- [x] 6.1 `InputSheet`: Routes column; editor Routes to / DCAs / Mute groups via `BusMultiSelect` on the channel's desk; monitor/FX sentence with Edit in Desk Routing; "Kick leaves N routes on FOH" before a desk change
+- [x] 6.2 Delete `BusesDrawer`, `BusSection` (callers in `AudioInputsTab` only), `AudioPatchShell.onOpenBuses` and the phone's Groups & DCAs row; fix the `design/` lines that name them (C5)
+- [x] 6.3 `OutputSheet`: Fed by before Type, editor field with side for stereo → mono; `MobileOutputEditSheet` likewise
+- [x] 6.4 `ConsoleSection`: Recorder spec and declare control; track count read-only on real models
+- [x] 6.5 `ModelSwitchDialog`: mix figures and mix lines
+- [x] 6.6 `SignalFlowTab` bus pills and its Buses header from routes
+- [x] 6.7 Phone: table picker in the bar, mixes as rows, bottom sheet of 44 px tick rows; `MobileChannelEditSheet` Routes
 
 ## 7. Close-out
 
-- [ ] 7.1 Frontend and backend gates (validator)
+- [x] 7.1 Frontend and backend gates (validator)
 - [ ] 7.2 Real data on a `/tmp` copy: the wedding's LR, groups and DCAs survive; Inputs, Desk Routing, the PDF and Signal Flow agree; a two-desk copy shows separate mixes
 - [ ] 7.3 `reviewer` against the specs and the mockup; fix findings
 - [ ] 7.4 ROADMAP Slice 48 record; archive before any merge (merge is the user's call)

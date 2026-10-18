@@ -17,8 +17,6 @@ interface AudioPatchShellProps {
   onSearchChange: (search: string) => void
   /** Opens the Rig drawer. Omitted for restricted roles; absent on no tab. */
   onOpenRig?: () => void
-  /** Opens the Buses drawer. Inputs tab only — outputs have no bus membership. */
-  onOpenBuses?: () => void
   /** Adds one row. Omitted for restricted roles. */
   onAdd?: () => void
   /** The desk selector (Slice 47, B6), after the view toggle; the Sheet only, since Flow shows every desk. */
@@ -59,7 +57,6 @@ export function AudioPatchShell({
   search,
   onSearchChange,
   onOpenRig,
-  onOpenBuses,
   onAdd,
   deskSelector,
   toolbarExtras,
@@ -102,12 +99,6 @@ export function AudioPatchShell({
                 Rig
               </Button>
             )}
-            {onOpenBuses && (
-              <Button size="xs" variant="outline" onClick={onOpenBuses}>
-                Buses
-              </Button>
-            )}
-
             {/* The zoom control, in Flow. It used to sit in a strip between the
                 toolbar and the canvas, which is the thing that broke the panel's
                 one-frame reading (Slice 25 FR-020). */}

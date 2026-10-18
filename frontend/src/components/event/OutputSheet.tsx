@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { deleteAudioOutput, deleteOutputCable, updateAudioOutput, updateOutputCable } from '../../api/audioPatch'
+import { deleteAudioOutput, deleteOutputCable, setFedBy, updateAudioOutput, updateOutputCable } from '../../api/audioPatch'
+import { fedByKey, fedByLabel, fedByOptions, fedBySource } from '../../lib/fedBy'
 import { deskModelOf } from '../../hooks/useDeskModels'
 import { deskLabel } from '../../lib/deskStrips'
 import { useReferenceData } from '../../hooks/useReferenceData'
@@ -11,7 +12,7 @@ import { matchesSearch } from '../../lib/patchSearch'
 import { vocabularyTint } from '../../lib/vocabularyTint'
 import { outputChainSegments, type ChainCellModel, type SegmentNode } from '../../lib/patchSheet'
 import type { OutputFlowContext } from '../../lib/signalFlow'
-import type { AudioPatchOutput, Console, DeskModel, InventoryItem, OutputCable, OutputDevice, StageMulti, Stagebox } from '../../types'
+import type { AudioPatchOutput, Console, DeskMix, DeskModel, DeskRoute, InputChannel, InventoryItem, OutputCable, OutputDevice, StageMulti, Stagebox } from '../../types'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { FieldStack } from '../ui/GearList'
@@ -26,7 +27,7 @@ import { PatchStatusRail } from './PatchStatusRail'
 import { RowEditor } from './RowEditor'
 
 // No Desk column: the sheet lists one desk at a time (Slice 47, B6).
-const COLUMNS = ['Out', 'Name', 'Type', 'W', 'Chain', 'Notes']
+const COLUMNS = ['Out', 'Name', 'Fed by', 'Type', 'W', 'Chain', 'Notes']
 
 interface OutputDraft {
   output_number: number
@@ -43,6 +44,8 @@ interface OutputDraft {
    * old desk back. One editor, one Save, no race.
    */
   console_id?: number
+  /** `mix:id:port`, `channel:id`, or '' — written as the output's one Fed by route (Slice 48). */
+  fed_by: string
 }
 
 interface OutputSheetProps {
@@ -75,6 +78,10 @@ interface OutputSheetProps {
   addRefusal?: SheetRefusal
   /** Bumped by every add: the next action clears the moved-row line (B7). */
   actionCount?: number
+  /** Every desk's mixes, routes and channels — Fed by's options and its current value (Slice 48). */
+  mixes: DeskMix[]
+  routes: DeskRoute[]
+  channels: InputChannel[]
 }
 
 /**
@@ -103,6 +110,9 @@ export function OutputSheet({
   onShowDesk,
   addRefusal,
   actionCount = 0,
+  mixes,
+  routes,
+  channels,
 }: OutputSheetProps) {
   const queryClient = useQueryClient()
   const { options } = useReferenceData(eventId)
@@ -135,6 +145,10 @@ export function OutputSheet({
       await invalidate()
     },
   })
+  const fedBy = useMutation({
+    mutationFn: ({ id, key }: { id: number; key: string }) => setFedBy(eventId, id, fedBySource(key)),
+    onSuccess: invalidate,
+  })
   const removeOutput = useMutation({ mutationFn: (id: number) => deleteAudioOutput(eventId, id), onSuccess: invalidate })
   const setCableItem = useMutation({
     mutationFn: ({ id, cableItemId }: { id: number; cableItemId?: number }) => updateOutputCable(eventId, id, cableItemId),
@@ -164,8 +178,14 @@ export function OutputSheet({
       color: output.color,
       notes: output.notes ?? '',
       console_id: output.console_id,
+      fed_by: fedByKey(routes, output.id),
     }),
-    persist: (output, draft) => saveOutput.mutate({ id: output.id, payload: { ...output, ...draft } }),
+    persist: (output, draft) => {
+      const { fed_by, ...fields } = draft
+      saveOutput.mutate({ id: output.id, payload: { ...output, ...fields } })
+      // Fed by is a route, saved beside the row; a desk change has already cleared it.
+      if (fed_by !== fedByKey(routes, output.id) && draft.console_id === output.console_id) fedBy.mutate({ id: output.id, key: fed_by })
+    },
   })
   const saveRow = () => {
     if (editor.draft && editor.draft.console_id == null && editor.openId != null) {
@@ -251,6 +271,7 @@ export function OutputSheet({
                     <TapeBar color={output.color} />
                     {output.output_name || <span className="text-zinc-500">unnamed</span>}
                   </SheetCell>
+                  <SheetCell className="whitespace-nowrap text-zinc-300">{fedByLabel(fedByKey(routes, output.id), mixes, channels)}</SheetCell>
                   <SheetCell>
                     <Pill className={vocabularyTint(output.output_type)}>{output.output_type}</Pill>
                   </SheetCell>
@@ -301,6 +322,18 @@ export function OutputSheet({
                             onChange={(event) => editor.setDraft({ ...editor.draft!, output_name: event.target.value })}
                           />
                         </FieldStack>
+                        {desk && editor.draft.console_id === output.console_id && (
+                          <FieldStack label="Fed by" width="default">
+                            <Select size="sm" value={editor.draft.fed_by} onChange={(event) => editor.setDraft({ ...editor.draft!, fed_by: event.target.value })}>
+                              <option value="">—</option>
+                              {fedByOptions(desk, mixes, channels, editor.draft.width).map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </Select>
+                          </FieldStack>
+                        )}
                         <FieldStack label="Type" width="short">
                           <Select
                             size="sm"
@@ -370,9 +403,9 @@ export function OutputSheet({
         onOpenRig={onOpenRig}
       />
 
-      {(saveOutput.error ?? removeOutput.error ?? setCableItem.error ?? removeCable.error) && (
+      {(saveOutput.error ?? fedBy.error ?? removeOutput.error ?? setCableItem.error ?? removeCable.error) && (
         <p className="px-3 pb-2 text-xs text-red-400">
-          {(saveOutput.error ?? removeOutput.error ?? setCableItem.error ?? removeCable.error)?.message}
+          {(saveOutput.error ?? fedBy.error ?? removeOutput.error ?? setCableItem.error ?? removeCable.error)?.message}
         </p>
       )}
 

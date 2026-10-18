@@ -1,4 +1,4 @@
-import type { AudioPatchOutput, AudioPatchResponse, BusRequest, Console, DeskMapping, DeskModel, InputCable, InputChannel, InputDevice, InputSource, MixerDCA, MixerGroup, OutputCable, OutputDevice, Stagebox, StageMulti } from '../types'
+import type { AudioPatchOutput, AudioPatchResponse, Console, DeskMapping, DeskMix, DeskModel, DeskRoute, InputCable, InputChannel, InputDevice, InputSource, MixKind, OutputCable, OutputDevice, Stagebox, StageMulti } from '../types'
 import { get, request } from './client'
 
 // Forwards TanStack Query's AbortSignal — this query is invalidated very
@@ -21,19 +21,24 @@ export const updateStageMulti = (eventId: number, smId: number, data: Omit<Stage
 export const deleteStageMulti = (eventId: number, smId: number) =>
   request<void>(`/events/${eventId}/stage-multis/${smId}`, { method: 'DELETE' })
 
-export const createGroup = (eventId: number, data: BusRequest) =>
-  request<MixerGroup>(`/events/${eventId}/groups`, { method: 'POST', body: JSON.stringify(data) })
-export const updateGroup = (eventId: number, groupId: number, data: BusRequest) =>
-  request<MixerGroup>(`/events/${eventId}/groups/${groupId}`, { method: 'PATCH', body: JSON.stringify(data) })
-export const deleteGroup = (eventId: number, groupId: number) =>
-  request<void>(`/events/${eventId}/groups/${groupId}`, { method: 'DELETE' })
-
-export const createDCA = (eventId: number, data: BusRequest) =>
-  request<MixerDCA>(`/events/${eventId}/dcas`, { method: 'POST', body: JSON.stringify(data) })
-export const updateDCA = (eventId: number, dcaId: number, data: BusRequest) =>
-  request<MixerDCA>(`/events/${eventId}/dcas/${dcaId}`, { method: 'PATCH', body: JSON.stringify(data) })
-export const deleteDCA = (eventId: number, dcaId: number) =>
-  request<void>(`/events/${eventId}/dcas/${dcaId}`, { method: 'DELETE' })
+// Desk routing (Slice 48): a desk's mixes, an output's Fed by, the recorder.
+export const createDeskMix = (eventId: number, consoleId: number, data: { kind: MixKind; width?: string; name?: string; color?: string }) =>
+  request<DeskMix>(`/events/${eventId}/consoles/${consoleId}/mixes`, { method: 'POST', body: JSON.stringify(data) })
+/** The column Save: fields and, when sent, every source that feeds the mix. */
+export const updateDeskMix = (
+  eventId: number,
+  mixId: number,
+  data: { slot?: number; name?: string; width?: string; color?: string; sources?: { kind: 'channel' | 'mix'; id: number; port?: number }[] },
+) => request<DeskMix>(`/events/${eventId}/mixes/${mixId}`, { method: 'PATCH', body: JSON.stringify(data) })
+export const deleteDeskMix = (eventId: number, mixId: number) => request<void>(`/events/${eventId}/mixes/${mixId}`, { method: 'DELETE' })
+export const setFedBy = (eventId: number, outputId: number, source: { src_kind: 'mix' | 'channel'; src_id: number; side?: 'L' | 'R' } | null) =>
+  request<void>(`/events/${eventId}/audio-outputs/${outputId}/fed-by`, { method: 'PUT', body: JSON.stringify(source) })
+export const setRecorder = (eventId: number, consoleId: number, data: { recorder: boolean; recorder_tracks?: number }) =>
+  request<Console>(`/events/${eventId}/consoles/${consoleId}/recorder`, { method: 'PUT', body: JSON.stringify(data) })
+export const setRecorderRoutes = (eventId: number, consoleId: number, routes: Omit<DeskRoute, 'id' | 'console_id'>[]) =>
+  request<void>(`/events/${eventId}/consoles/${consoleId}/recorder/routes`, { method: 'PUT', body: JSON.stringify(routes) })
+export const fillRecorder = (eventId: number, consoleId: number) =>
+  request<void>(`/events/${eventId}/consoles/${consoleId}/recorder/fill`, { method: 'POST' })
 
 export const createInputChannel = (eventId: number, data: Omit<InputChannel, 'id' | 'event_id'>) =>
   request<InputChannel>(`/events/${eventId}/input-channels`, { method: 'POST', body: JSON.stringify(data) })

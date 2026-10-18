@@ -94,8 +94,8 @@ export function MobileChannelEditSheet({
           strip_pool: hasAux ? pool : 'channel',
           channel_name: name,
           color,
-          group_ids: channel.group_ids,
-          dca_ids: channel.dca_ids,
+          // A desk change drops the old desk's routes on the server; otherwise they stay.
+          mix_ids: consoleId === channel.console_id ? channel.mix_ids : undefined,
           width: channel.width,
           mixer_behavior: channel.mixer_behavior,
           notes,

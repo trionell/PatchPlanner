@@ -10,7 +10,7 @@ import { buildInputChannelFlows, type InputChannelFlow } from '../../lib/inputSi
 import { matchesSearch } from '../../lib/patchSearch'
 import { buildOutputChannelFlows, type OutputChannelFlow } from '../../lib/signalFlow'
 import { busTint, itemLabel } from '../../lib/utils'
-import type { MixerDCA, MixerGroup } from '../../types'
+import type { DeskMix, DeskRoute } from '../../types'
 import { ExportPdfButton } from '../print/ExportPdfButton'
 import { PrintSheet } from '../print/PrintSheet'
 import { Input } from '../ui/Input'
@@ -83,8 +83,8 @@ export function SignalFlowTab({ eventId }: { eventId: number }) {
     [audioQuery.data, itemLabelById],
   )
 
-  const groups = audioQuery.data?.groups ?? []
-  const dcas = audioQuery.data?.dcas ?? []
+  const mixes = audioQuery.data?.mixes ?? []
+  const routes = audioQuery.data?.routes ?? []
 
   /** Search reaches every hop label, so "Radial" finds every channel through the DI. */
   const hopLabels = (flow: InputChannelFlow | OutputChannelFlow) =>
@@ -222,7 +222,7 @@ export function SignalFlowTab({ eventId }: { eventId: number }) {
                 <tr>
                   <SheetHeadCell className="w-11">Ch</SheetHeadCell>
                   <SheetHeadCell className="w-44">Name</SheetHeadCell>
-                  <SheetHeadCell className="w-48">Buses</SheetHeadCell>
+                  <SheetHeadCell className="w-48">Routes</SheetHeadCell>
                   <SheetHeadCell>Signal chain</SheetHeadCell>
                 </tr>
               </SheetHead>
@@ -237,7 +237,7 @@ export function SignalFlowTab({ eventId }: { eventId: number }) {
                     <NumCell>{flow.channelNumber}</NumCell>
                     <SheetCell className="whitespace-nowrap text-zinc-100">{flow.channelName || <Dash />}</SheetCell>
                     <SheetCell>
-                      <BusPills input={channels.find((channel) => channel.channel_number === flow.channelNumber)} groups={groups} dcas={dcas} />
+                      <BusPills input={channels.find((channel) => channel.channel_number === flow.channelNumber)} mixes={mixes} routes={routes} />
                     </SheetCell>
                     <SheetCell>
                       {flow.paths.map((path, pathIndex) => (
@@ -400,28 +400,17 @@ function MobileFlowRow({
  * card-header-sized chip on every row is what makes a sheet look like a form
  * (design/tokens.md §3). Same tint, from the bus's own colour, one size down.
  */
-function BusPills({
-  input,
-  groups,
-  dcas,
-}: {
-  input?: { group_ids?: number[]; dca_ids?: number[] }
-  groups: MixerGroup[]
-  dcas: MixerDCA[]
-}) {
-  const memberGroups = groups.filter((group) => input?.group_ids?.includes(group.id))
-  const memberDCAs = dcas.filter((dca) => input?.dca_ids?.includes(dca.id))
-  if (memberGroups.length === 0 && memberDCAs.length === 0) return <Dash />
+/** A channel's mains, groups and DCAs on its desk (Slice 48), as the Inputs sheet's Routes cell shows them. */
+function BusPills({ input, mixes, routes }: { input?: { id: number; console_id?: number }; mixes: DeskMix[]; routes: DeskRoute[] }) {
+  if (!input || input.console_id == null) return <Dash />
+  const reached = new Set(routes.filter((route) => route.src_kind === 'channel' && route.src_id === input.id && route.dst_kind === 'mix').map((route) => route.dst_id))
+  const shown = mixes.filter((mix) => reached.has(mix.id) && (mix.kind === 'main' || mix.kind === 'subgroup' || mix.kind === 'dca'))
+  if (shown.length === 0) return <Dash />
   return (
     <span className="flex flex-wrap items-center gap-1">
-      {memberGroups.map((group) => (
-        <Pill key={`g-${group.id}`} style={busTint(group.color)}>
-          {group.name}
-        </Pill>
-      ))}
-      {memberDCAs.map((dca) => (
-        <Pill key={`d-${dca.id}`} style={busTint(dca.color)}>
-          DCA {dca.name}
+      {shown.map((mix) => (
+        <Pill key={mix.id} style={busTint(mix.color)}>
+          {mix.kind === 'dca' ? `DCA ${mix.name}` : mix.name}
         </Pill>
       ))}
     </span>

@@ -152,28 +152,44 @@ export interface StageMulti {
   show_in_output_graph: boolean
 }
 
-/** A named mix bus of one event; LR is built-in (recolorable, never renamed/deleted). */
-export interface MixerGroup {
+export type MixKind = 'main' | 'subgroup' | 'monitor' | 'fx' | 'matrix' | 'dca' | 'mute'
+
+/**
+ * A mix, DCA or mute group on one desk (Slice 48), in a slot of its kind's pool:
+ * on X32 · M32 subgroups, monitors and FX share one pool of buses, so Bus 7 is
+ * slot 7 whichever kind it is. `console_id` is absent only for mixes migrated
+ * from an event that had no desk.
+ */
+export interface DeskMix {
   id: number
   event_id: number
+  console_id?: number
+  kind: MixKind
+  slot: number
+  width: 'mono' | 'stereo'
   name: string
-  is_builtin: boolean
-  /** channel_colors palette value (CSS color); absent = uncolored. */
   color?: string
 }
 
-/** A named DCA of one event. */
-export interface MixerDCA {
-  id: number
-  event_id: number
-  name: string
-  color?: string
-}
+export type PortKind = 'channel' | 'mix' | 'output' | 'recorder'
 
-/** POST/PATCH body for groups and DCAs. */
-export interface BusRequest {
-  name: string
-  color?: string
+/**
+ * One connection inside a desk, port to port (Slice 48 D1): membership
+ * (channel or mix → mix), Fed by (mix or direct out → output), record (preamp
+ * or mix side → recorder track) and playback (track → channel). A mix's port is
+ * its side (0 = L or mono, 1 = R); a recorder's id is its desk and its port the
+ * track.
+ */
+export interface DeskRoute {
+  id: number
+  console_id: number
+  src_kind: PortKind
+  src_id: number
+  src_port: number
+  dst_kind: PortKind
+  dst_id: number
+  dst_port: number
+  mode?: '' | 'soundcheck' | 'source'
 }
 
 /**
@@ -214,11 +230,11 @@ export interface InputChannel {
   /** channel_colors palette value; absent = uncolored. The only place color is stored — every upstream Source/port derives its color from this. */
   color?: string
   /**
-   * Full bus membership sets. Omitting group_ids on create makes the server
-   * route the channel to LR; an explicit array (even []) is stored verbatim.
+   * The channel's routes into the kinds its row edits — mains, subgroups, DCAs and
+   * mute groups on its own desk (Slice 48). Omitted on create, the channel joins its
+   * desk's Main LR; an explicit array, even [], is stored as sent.
    */
-  group_ids?: number[]
-  dca_ids?: number[]
+  mix_ids?: number[]
   /** 'mono' (default) or 'stereo' — display/console-numbering only; a stereo pair is two independent InputChannel rows, not one row with two ports. */
   width: 'mono' | 'stereo'
   /** Meaningful only when width is 'stereo'; console-number display only, never affects routing/counting. */
@@ -256,6 +272,9 @@ export interface DeskModel {
   name_length: number
   colours: number
   has_bus_modes: boolean
+  /** Per source kind (or `channel`), per destination kind: allowed, refused, or only to a higher slot. */
+  route_rules?: Record<string, Record<string, 'yes' | 'no' | 'forward'>>
+  main_slots?: { slot: number; name: string; width: 'mono' | 'stereo' }[]
 }
 
 export interface StripRefusal {
@@ -445,6 +464,9 @@ export interface Console {
   desk_model: string
   /** LV1 80's groups/monitors split; `''` on every other model. */
   bus_mode: '' | 'groups' | 'monitors'
+  /** Whether the desk carries a recorder (Slice 48), and its typed track count on Generic. */
+  recorder?: boolean
+  recorder_tracks?: number
   /**
    * The desk's bus rail on the output canvas (`position_*`) and its channel rail on the
    * input canvas (`input_position_*`) — a pair each, placed freely since Slice 37. Both
@@ -721,8 +743,6 @@ export interface FixtureMode {
 export interface AudioPatchResponse {
   stageboxes: Stagebox[]
   stage_multis: StageMulti[]
-  groups: MixerGroup[]
-  dcas: MixerDCA[]
   input_sources: InputSource[]
   input_channels: InputChannel[]
   input_devices: InputDevice[]
@@ -732,6 +752,9 @@ export interface AudioPatchResponse {
   output_cables: OutputCable[]
   /** The event's desks, each carrying its own position on both canvases. */
   consoles: Console[]
+  /** Every desk's mixes, DCAs and mute groups, and every route between their ports (Slice 48). */
+  mixes: DeskMix[]
+  routes: DeskRoute[]
 }
 
 export interface LightingRigResponse {

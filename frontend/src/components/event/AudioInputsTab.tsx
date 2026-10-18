@@ -5,6 +5,7 @@ import { listEventInventoryItems } from '../../api/inventory'
 import { listOwnedItems } from '../../api/owned'
 import { ApiError } from '../../api/client'
 import { useDeskModels } from '../../hooks/useDeskModels'
+import { useEventTab } from '../../hooks/useEventTab'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { useSelectedDesk } from '../../hooks/useSelectedDesk'
 import { deskLabel, isOver, orderChannels, poolCapacity, poolOf, poolUsage, stripLabel } from '../../lib/deskStrips'
@@ -22,14 +23,13 @@ import { Button } from '../ui/Button'
 import { MobilePicker } from '../mobile/MobilePicker'
 import type { SheetRefusal } from './RefusalNotice'
 import { MobileChannelEditSheet } from '../mobile/MobileChannelEditSheet'
-import { Boxes, Layers, Printer } from 'lucide-react'
+import { Boxes, Printer } from 'lucide-react'
 import { MobileEntityList } from '../mobile/MobileEntityList'
 import { MobileSegmented } from '../mobile/MobileSegmented'
 import { AudioPatchShell } from './AudioPatchShell'
 import { ZoomControl, ZOOM_MAX, ZOOM_STEP } from './graph/ZoomControl'
 import { stepZoomAdditive } from '../../lib/canvasFit'
 import type { InputFlowSelection } from './InputFlowInspector'
-import { BusesDrawer } from './BusesDrawer'
 import { ConsoleSection } from './ConsoleSection'
 import { InputDeviceSection } from './InputDeviceSection'
 import { InputGraphCanvas } from './InputGraphCanvas'
@@ -61,6 +61,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
   const ownedQuery = useQuery({ queryKey: ['owned-items'], queryFn: listOwnedItems })
 
   const isMobile = useIsMobile()
+  const { openTab: openEventTab } = useEventTab()
   const [editingChannelId, setEditingChannelId] = useState<number | 'new' | null>(null)
   const [view, setView] = usePatchView(eventId, 'inputs')
   const [search, setSearch] = useState('')
@@ -120,7 +121,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
   const stepDeskZoom = (delta: number) => setZoom((current) => stepZoomAdditive(current, delta, fitFloor, ZOOM_MAX))
   // Open the first time, and then only for as long as it has not been read.
   const patchingIsADeskJob = useInfoNote({ id: 'flow-desk-job', defaultOpen: true })
-  const [drawer, setDrawer] = useState<'rig' | 'buses' | null>(null)
+  const [drawer, setDrawer] = useState<'rig' | null>(null)
   // The phone's strip filter. The desktop's lives in `InputSheet`; the phone's
   // branch returns before that, so it holds its own (data-model.md §3).
   const [gapsOnly, setGapsOnly] = useState(false)
@@ -147,8 +148,8 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
   const stageMultis = audioQuery.data?.stage_multis ?? []
   const cables = audioQuery.data?.input_cables ?? []
   const consoles = audioQuery.data?.consoles ?? []
-  const groups = audioQuery.data?.groups ?? []
-  const dcas = audioQuery.data?.dcas ?? []
+  const mixes = audioQuery.data?.mixes ?? []
+  const routes = audioQuery.data?.routes ?? []
 
   /* One desk per list (Slice 47, B6); Flow still draws every desk. */
   const { models, modelOf } = useDeskModels()
@@ -314,12 +315,6 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
                     icon: <Boxes className="h-4 w-4" />,
                     onClick: () => setDrawer('rig'),
                   },
-                  {
-                    label: 'Groups & DCAs',
-                    hint: String(groups.length + dcas.length),
-                    icon: <Layers className="h-4 w-4" />,
-                    onClick: () => setDrawer('buses'),
-                  },
                 ]),
             { label: 'Print patch sheet', icon: <Printer className="h-4 w-4" />, onClick: () => window.print() },
           ]}
@@ -481,15 +476,6 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
           stageMultis={stageMultis}
           stageboxes={stageboxes}
         />
-        <BusesDrawer
-          channels={channels}
-          dcas={dcas}
-          eventId={eventId}
-          groups={groups}
-          onClose={() => setDrawer(null)}
-          open={drawer === 'buses'}
-          readOnly={readOnly}
-        />
       </div>
 
       </>
@@ -536,7 +522,6 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
         search={search}
         onSearchChange={setSearch}
         onOpenRig={readOnly ? undefined : () => setDrawer('rig')}
-        onOpenBuses={readOnly ? undefined : () => setDrawer('buses')}
         onAdd={readOnly || (deskSelection === 'none' && consoles.length > 0) ? undefined : addChannel}
         deskSelector={<DeskSelector entries={deskEntries} deskless={desklessChannels.length} selection={deskSelection} onSelect={setDeskSelection} />}
         toolbarExtras={
@@ -577,15 +562,6 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
                 <InputDeviceSection eventId={eventId} devices={devices} audioItems={allAudioItems} ownedItems={ownedItems} readOnly={readOnly} />
               }
             />
-            <BusesDrawer
-              open={drawer === 'buses'}
-              onClose={() => setDrawer(null)}
-              eventId={eventId}
-              groups={groups}
-              dcas={dcas}
-              channels={channels}
-              readOnly={readOnly}
-            />
           </>
         }
       >
@@ -607,8 +583,9 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
             stageboxes={stageboxes}
             stageMultis={stageMultis}
             cables={cables}
-            groups={groups}
-            dcas={dcas}
+            mixes={mixes}
+            routes={routes}
+            onEditRouting={() => openEventTab('desk-routing')}
             consoles={consoles}
             cableItems={cableItems}
             itemLabelById={itemLabelById}

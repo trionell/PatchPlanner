@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { createAudioOutput, createOutputCable, deleteOutputCable, updateAudioOutput } from '../../api/audioPatch'
+import { createAudioOutput, createOutputCable, deleteOutputCable, setFedBy, updateAudioOutput } from '../../api/audioPatch'
+import { fedByKey, fedByOptions, fedBySource } from '../../lib/fedBy'
 import { computeOutputRoutingSave, resolveOutputRouting, type OutputRouting } from '../../lib/mobileOutputList'
 import { deskModelOf } from '../../hooks/useDeskModels'
 import { deskLabel } from '../../lib/deskStrips'
 import { toOptionalNumber } from '../../lib/utils'
-import type { AudioPatchOutput, Console, DeskModel, OutputCable, Stagebox } from '../../types'
+import type { AudioPatchOutput, Console, DeskMix, DeskModel, DeskRoute, InputChannel, OutputCable, Stagebox } from '../../types'
 import { ColorSelect } from '../event/ColorSelect'
 import { Button } from '../ui/Button'
 import { FieldStack } from '../ui/GearList'
@@ -27,7 +28,14 @@ export function MobileOutputEditSheet({
   models,
   deskId,
   onMoved,
+  mixes = [],
+  routes = [],
+  channels = [],
 }: {
+  /** Fed by's options and value (Slice 48). */
+  mixes?: DeskMix[]
+  routes?: DeskRoute[]
+  channels?: InputChannel[]
   /** Called when a save moves the output to another desk, with B7's line. */
   onMoved?: (line: { text: string; deskId: number; deskName: string }) => void
   eventId: number
@@ -59,6 +67,9 @@ export function MobileOutputEditSheet({
   const [port, setPort] = useState<number | undefined>(currentRouting.port)
   const [error, setError] = useState<string | null>(null)
   const [consoleId, setConsoleId] = useState<number | undefined>(output ? output.console_id : deskId)
+  const initialFedBy = output ? fedByKey(routes, output.id) : ''
+  const [fedBy, setFedByKey] = useState(initialFedBy)
+  const fedByDesk = consoles.find((candidate) => candidate.id === consoleId)
   const [saving, setSaving] = useState(false)
 
   const selectedStagebox = stageboxes.find((sb) => sb.id === stageboxId)
@@ -106,6 +117,9 @@ export function MobileOutputEditSheet({
         for (const data of ops.cablesToCreate) await createOutputCable(eventId, data)
       }
 
+      if (output && consoleId === output.console_id && fedBy !== initialFedBy) {
+        await setFedBy(eventId, output.id, fedBySource(fedBy))
+      }
       const target = consoles.find((candidate) => candidate.id === consoleId)
       if (output && target && consoleId !== output.console_id) {
         onMoved?.({ text: `${name || 'The output'} is now on ${deskLabel(target, deskModelOf(models, target))}, as ${output.output_number}.`, deskId: target.id, deskName: target.name || 'that desk' })
@@ -150,6 +164,18 @@ export function MobileOutputEditSheet({
           ))}
         </Select>
       </FieldStack>
+      {output && fedByDesk && consoleId === output.console_id && (
+        <FieldStack label="Fed by" width="full">
+          <Select value={fedBy} onChange={(e) => setFedByKey(e.target.value)}>
+            <option value="">—</option>
+            {fedByOptions({ console: fedByDesk, model: deskModelOf(models, fedByDesk) }, mixes, channels, output.width).map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+        </FieldStack>
+      )}
       <FieldStack label="Tape" width="full">
         <ColorSelect eventId={eventId} value={color} onChange={setColor} />
       </FieldStack>

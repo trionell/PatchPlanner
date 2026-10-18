@@ -12,7 +12,8 @@ import { matchesSearch } from '../../lib/patchSearch'
 import { chainSourceNode, inputChainSegments, type ChainCellModel, type SegmentNode } from '../../lib/patchSheet'
 import type { InputFlowContext } from '../../lib/inputSignalFlow'
 import { busTint } from '../../lib/utils'
-import type { Console, DeskModel, InputCable, InputChannel, InputDevice, InputSource, InventoryItem, MixerDCA, MixerGroup, StageMulti, Stagebox, StripPool, StripRefusal } from '../../types'
+import type { Console, DeskMix, DeskModel, DeskRoute, InputCable, InputChannel, InputDevice, InputSource, InventoryItem, StageMulti, Stagebox, StripPool, StripRefusal } from '../../types'
+import { channelRoutes, mixLabel } from '../../lib/deskRouting'
 import { Button } from '../ui/Button'
 import { MicroLabel } from '../ui/Label'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
@@ -28,15 +29,15 @@ import { RefusalNotice, type SheetRefusal } from './RefusalNotice'
 import { PatchStatusRail } from './PatchStatusRail'
 import { RowEditor } from './RowEditor'
 
-const COLUMNS = ['Ch', 'Name', 'W', 'Chain', '48 V', 'Buses', 'Notes']
+const COLUMNS = ['Ch', 'Name', 'W', 'Chain', '48 V', 'Routes', 'Notes']
 
 interface ChannelDraft {
   channel_number: number
   channel_name: string
   width: InputChannel['width']
   color?: string
-  group_ids: number[]
-  dca_ids: number[]
+  /** The channel's mains, groups, DCAs and mute groups on its desk (Slice 48). */
+  mix_ids: number[]
   notes: string
   /**
    * Carried in the draft, not written by the Desk select's own mutation
@@ -57,8 +58,11 @@ interface InputSheetProps {
   stageboxes: Stagebox[]
   stageMultis: StageMulti[]
   cables: InputCable[]
-  groups: MixerGroup[]
-  dcas: MixerDCA[]
+  /** Every desk's mixes and routes; the sheet reads the listed desk's (Slice 48). */
+  mixes: DeskMix[]
+  routes: DeskRoute[]
+  /** Opens Desk Routing on a table — the editor's hand-off for monitor and FX sends. */
+  onEditRouting?: () => void
   consoles: Console[]
   cableItems: InventoryItem[]
   itemLabelById: Map<number, string>
@@ -100,8 +104,9 @@ export function InputSheet({
   stageboxes,
   stageMultis,
   cables,
-  groups,
-  dcas,
+  mixes,
+  routes,
+  onEditRouting,
   consoles,
   cableItems,
   itemLabelById,
@@ -181,8 +186,7 @@ export function InputSheet({
       channel_name: channel.channel_name ?? '',
       width: channel.width,
       color: channel.color,
-      group_ids: channel.group_ids ?? [],
-      dca_ids: channel.dca_ids ?? [],
+      mix_ids: channel.mix_ids ?? [],
       notes: channel.notes ?? '',
       console_id: channel.console_id,
       strip_pool: poolOf(channel),
@@ -197,8 +201,8 @@ export function InputSheet({
             channel_name: draft.channel_name,
             width: draft.width,
             color: draft.color,
-            group_ids: draft.group_ids,
-            dca_ids: draft.dca_ids,
+            // A desk change drops the old desk's routes on the server; the ids would be refused.
+            mix_ids: draft.console_id === channel.console_id ? draft.mix_ids : undefined,
             notes: draft.notes,
             console_id: draft.console_id,
             strip_pool: draft.strip_pool,
@@ -342,15 +346,7 @@ export function InputSheet({
                   </SheetCell>
                   <SheetCell>{phantom && <PhantomBar />}</SheetCell>
                   <SheetCell>
-                    <div className="flex flex-wrap gap-1">
-                      {[...(channel.group_ids ?? []).map((id) => groups.find((g) => g.id === id)), ...(channel.dca_ids ?? []).map((id) => dcas.find((d) => d.id === id))]
-                        .filter((bus): bus is MixerGroup => !!bus)
-                        .map((bus) => (
-                          <Pill key={`${bus.id}-${bus.name}`} style={busTint(bus.color)}>
-                            {bus.name}
-                          </Pill>
-                        ))}
-                    </div>
+                    <RoutesCell channel={channel} mixes={mixes} routes={routes} />
                   </SheetCell>
                   <SheetCell className="max-w-48 truncate text-zinc-500">{channel.notes}</SheetCell>
                 </SheetRow>
@@ -361,7 +357,19 @@ export function InputSheet({
                       <RowEditor
                         saveLabel="Save channel"
                         onSave={saveRow}
-                        notice={rowRefusal?.id === channel.id ? <RefusalNotice refusal={rowRefusal.refusal} /> : undefined}
+                        notice={
+                          <>
+                            {rowRefusal?.id === channel.id && <RefusalNotice refusal={rowRefusal.refusal} />}
+                            <EditorRouteNotes
+                              channel={channel}
+                              draftDesk={editor.draft.console_id}
+                              mixes={mixes}
+                              routes={routes}
+                              consoles={consoles}
+                              onEditRouting={onEditRouting}
+                            />
+                          </>
+                        }
                         onCancel={editor.close}
                         onDelete={() => setPendingChannel(channel)}
                         handoff={
@@ -400,20 +408,13 @@ export function InputSheet({
                         <FieldStack label="Tape" width="short">
                           <ColorSelect eventId={eventId} value={editor.draft.color} onChange={(color) => editor.setDraft({ ...editor.draft!, color })} />
                         </FieldStack>
-                        <FieldStack label="Groups" width="default">
-                          <BusMultiSelect
-                            selected={editor.draft.group_ids}
-                            options={groups}
-                            onChange={(ids) => editor.setDraft({ ...editor.draft!, group_ids: ids })}
+                        {editor.draft.console_id === channel.console_id && channel.console_id != null && (
+                          <ChannelMixFields
+                            mixes={mixes.filter((mix) => mix.console_id === channel.console_id)}
+                            selected={editor.draft.mix_ids}
+                            onChange={(ids) => editor.setDraft({ ...editor.draft!, mix_ids: ids })}
                           />
-                        </FieldStack>
-                        <FieldStack label="DCA" width="default">
-                          <BusMultiSelect
-                            selected={editor.draft.dca_ids}
-                            options={dcas}
-                            onChange={(ids) => editor.setDraft({ ...editor.draft!, dca_ids: ids })}
-                          />
-                        </FieldStack>
+                        )}
                         {(consoles.length > 1 || editor.draft.console_id == null) && (
                           /* Required, with no "No desk" option: a save cannot take a channel off its desk. */
                           <FieldStack label="Desk" width="default">
@@ -561,4 +562,92 @@ function phantomFor(chain: ChainCellModel, sources: InputSource[]): boolean {
     line.segments.filter((segment) => segment.node?.kind === 'source').map((segment) => segment.node!.id),
   )
   return sources.some((source) => ids.includes(source.id) && source.phantom_power)
+}
+
+/** The Routes cell: mains and groups, DCAs in brackets, then a count of the rest (Slice 48 §08). */
+function RoutesCell({ channel, mixes, routes }: { channel: InputChannel; mixes: DeskMix[]; routes: DeskRoute[] }) {
+  if (channel.console_id == null) return <span className="text-zinc-600">—</span>
+  const { chips, rest } = channelRoutes(channel, mixes, routes)
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {chips.map((mix) => (
+        <Pill key={mix.id} style={busTint(mix.color)}>
+          {mix.kind === 'dca' ? `(${mixLabel(mix)})` : mixLabel(mix)}
+        </Pill>
+      ))}
+      {rest && <span className="font-mono text-[10px] text-zinc-500">{rest}</span>}
+    </div>
+  )
+}
+
+/** The kinds a channel's row edits on its own desk: Routes to, DCAs, Mute groups. */
+function ChannelMixFields({ mixes, selected, onChange }: { mixes: DeskMix[]; selected: number[]; onChange: (ids: number[]) => void }) {
+  const field = (label: string, kinds: DeskMix['kind'][]) => {
+    const options = mixes.filter((mix) => kinds.includes(mix.kind)).map((mix) => ({ id: mix.id, name: mixLabel(mix), color: mix.color }))
+    const ids = new Set(options.map((option) => option.id))
+    if (options.length === 0) return null
+    return (
+      <FieldStack label={label} width="default">
+        <BusMultiSelect
+          selected={selected.filter((id) => ids.has(id))}
+          options={options}
+          onChange={(next) => onChange([...selected.filter((id) => !ids.has(id)), ...next])}
+        />
+      </FieldStack>
+    )
+  }
+  return (
+    <>
+      {field('Routes to', ['main', 'subgroup'])}
+      {field('DCAs', ['dca'])}
+      {field('Mute groups', ['mute'])}
+    </>
+  )
+}
+
+/**
+ * What the editor says about routes it does not edit: monitor and FX sends, with a
+ * hand-off to Desk Routing, and — before a desk change — what the move leaves behind.
+ */
+function EditorRouteNotes({
+  channel,
+  draftDesk,
+  mixes,
+  routes,
+  consoles,
+  onEditRouting,
+}: {
+  channel: InputChannel
+  draftDesk?: number
+  mixes: DeskMix[]
+  routes: DeskRoute[]
+  consoles: Console[]
+  onEditRouting?: () => void
+}) {
+  const feeds = routes.filter((route) => route.src_kind === 'channel' && route.src_id === channel.id)
+  const byId = new Map(mixes.map((mix) => [mix.id, mix]))
+  const sends = feeds.filter((route) => route.dst_kind === 'mix' && ['monitor', 'fx', 'matrix'].includes(byId.get(route.dst_id)?.kind ?? ''))
+  const leaving = channel.console_id != null && draftDesk !== channel.console_id
+  if (!leaving && sends.length === 0) return null
+  const from = consoles.find((desk) => desk.id === channel.console_id)
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+      {leaving ? (
+        <span className="text-amber-300">
+          {channel.channel_name || 'This channel'} leaves {feeds.length} {feeds.length === 1 ? 'route' : 'routes'} on {from?.name || 'its desk'}.
+        </span>
+      ) : (
+        <>
+          <span>
+            In {sends.length} monitor, FX or matrix {sends.length === 1 ? 'mix' : 'mixes'} — those are edited as columns.
+          </span>
+          {onEditRouting && (
+            <Button size="xs" variant="outline" onClick={onEditRouting}>
+              Edit in Desk Routing →
+            </Button>
+          )}
+        </>
+      )}
+    </div>
+  )
 }
