@@ -429,21 +429,21 @@ func outputDestinations(data audioGraphData) map[int64]outputEnd {
 	return ends
 }
 
-// busLabel is a channel's group and DCA membership in one cell. Groups print
-// upright and DCAs in brackets, so the two are told apart without colour.
+// busLabel is a channel's mains, groups and DCAs in one cell (Slice 48: its
+// routes on its own desk). Groups print upright and DCAs in brackets, so the
+// two are told apart without colour; mute groups are the desk's business.
 func busLabel(data audioGraphData, channel domain.InputChannel) string {
 	var groups, dcas []string
-	for _, id := range channel.GroupIDs {
-		for _, group := range data.groups {
-			if group.ID == id {
-				groups = append(groups, group.Name)
+	for _, id := range channel.MixIDs {
+		for _, mix := range data.mixes {
+			if mix.ID != id {
+				continue
 			}
-		}
-	}
-	for _, id := range channel.DCAIDs {
-		for _, dca := range data.dcas {
-			if dca.ID == id {
-				dcas = append(dcas, dca.Name)
+			switch mix.Kind {
+			case domain.MixMain, domain.MixSubgroup:
+				groups = append(groups, mix.Name)
+			case domain.MixDCA:
+				dcas = append(dcas, mix.Name)
 			}
 		}
 	}

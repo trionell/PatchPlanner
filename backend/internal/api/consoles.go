@@ -242,6 +242,20 @@ func (h AudioPatchHandler) eventConsole(w http.ResponseWriter, r *http.Request) 
 	return console, true
 }
 
+func consoleRoutes(db *sql.DB, console domain.Console) ([]domain.DeskRoute, error) {
+	all, err := dbstore.ListDeskRoutes(db, console.EventID)
+	if err != nil {
+		return nil, err
+	}
+	routes := make([]domain.DeskRoute, 0)
+	for _, route := range all {
+		if route.ConsoleID == console.ID {
+			routes = append(routes, route)
+		}
+	}
+	return routes, nil
+}
+
 func consoleSide(console domain.Console) service.DeskSide {
 	model, _ := domain.LookupDeskModel(console.DeskModel)
 	return service.DeskSide{
@@ -305,12 +319,33 @@ func (h AudioPatchHandler) switchConsoleModel(w http.ResponseWriter, r *http.Req
 		return
 	}
 	mapping := service.MapRows(rows, jacks, consoleSide(console), consoleSide(next))
+	mixes, err := dbstore.ConsoleMixes(h.DB, console.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	routes, err := consoleRoutes(h.DB, console)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	// Slice 48: the same preview says what happens to the desk's mixes, its
+	// routes, Fed by and the recorder, in the same words.
+	mixMapping := service.MapMixes(mixes, routes, consoleSide(console), consoleSide(next), console.Recorder, console.RecorderTracks)
+	next.RecorderTracks = mixMapping.RecorderTracks
+	mapping.Figures = append(mapping.Figures, mixMapping.Figures...)
+	mapping.Lines = append(mapping.Lines, mixMapping.Lines...)
 	result := struct {
-		Mapping service.Mapping `json:"mapping"`
-		Console domain.Console  `json:"console"`
-	}{mapping, next}
+		Mapping service.Mapping     `json:"mapping"`
+		Mixes   []service.MappedMix `json:"mixes"`
+		Console domain.Console      `json:"console"`
+	}{mapping, mixMapping.Mixes, next}
 	if payload.Apply {
-		if result.Console, err = dbstore.ApplyDeskSwitch(h.DB, next, placements(mapping.Rows)); err != nil {
+		placedMixes := make([]dbstore.MixPlacement, len(mixMapping.Mixes))
+		for i, mix := range mixMapping.Mixes {
+			placedMixes[i] = dbstore.MixPlacement{ID: mix.ID, Slot: mix.ToSlot, Width: mix.ToWidth, Name: mix.ToName}
+		}
+		if result.Console, err = dbstore.ApplyDeskSwitch(h.DB, next, placements(mapping.Rows), placedMixes); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}

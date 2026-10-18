@@ -11,7 +11,7 @@ const consoleColumns = `id, event_id, name, role, inventory_item_id, owned_item_
 	input_count, output_count, local_input_count, local_output_count,
 	position_x, position_y, input_position_x, input_position_y,
 	local_position_x, local_position_y, local_input_position_x, local_input_position_y,
-	desk_model, bus_mode`
+	desk_model, bus_mode, recorder, recorder_tracks`
 
 func scanConsole(row scanner) (domain.Console, error) {
 	var console domain.Console
@@ -20,7 +20,7 @@ func scanConsole(row scanner) (domain.Console, error) {
 		&console.InputCount, &console.OutputCount, &console.LocalInputCount, &console.LocalOutputCount,
 		&console.PositionX, &console.PositionY, &console.InputPositionX, &console.InputPositionY,
 		&console.LocalPositionX, &console.LocalPositionY, &console.LocalInputPositionX, &console.LocalInputPositionY,
-		&console.DeskModel, &console.BusMode); err != nil {
+		&console.DeskModel, &console.BusMode, &console.Recorder, &console.RecorderTracks); err != nil {
 		return domain.Console{}, err
 	}
 	if invID.Valid {
@@ -104,7 +104,15 @@ func CreateConsole(db *sql.DB, console domain.Console) (domain.Console, error) {
 		return domain.Console{}, fmt.Errorf("create console: %w", err)
 	}
 	id, _ := result.LastInsertId()
-	return GetConsole(db, id)
+	created, err := GetConsole(db, id)
+	if err != nil {
+		return domain.Console{}, err
+	}
+	// Every desk has its mains from the moment it exists (Slice 48 D3).
+	if err := EnsureDeskMains(db, created); err != nil {
+		return domain.Console{}, err
+	}
+	return created, nil
 }
 
 func UpdateConsole(db *sql.DB, id int64, console domain.Console) (domain.Console, error) {

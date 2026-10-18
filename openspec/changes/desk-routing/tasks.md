@@ -1,29 +1,29 @@
 ## 1. Backend — schema and migration
 
-- [ ] 1.1 `internal/domain`: `DeskMix`, `DeskRoute` (port-to-port, design D1); mix kinds, port kinds, play modes as validated enums; `Console.Recorder`, `RecorderTracks`
-- [ ] 1.2 Migration `055_desk_mixes` up (tables, columns, data move per design D2, Fed by as routes, drops) and down (rebuild event-level groups/DCAs)
-- [ ] 1.2a `CreateEvent` stops seeding `mixer_groups` and ensures its default desk's mains; a fresh database migrates to the top
-- [ ] 1.3 Migration test: one desk (wedding shape), two desks sharing a group, memberless group, no desk (mixes wait with `console_id` NULL), Fed by exact match; read back every membership
-- [ ] 1.4 `db/desk_mixes.go` replaces `db/buses.go`: list/create/update(with sources)/delete mixes and routes; channel, mix and output deletes clear every route naming them in the same transaction (test: no orphans, recorder and Fed by included)
+- [x] 1.1 `internal/domain`: `DeskMix`, `DeskRoute` (port-to-port, design D1); mix kinds, port kinds, play modes as validated enums; `Console.Recorder`, `RecorderTracks`
+- [x] 1.2 Migration `055_desk_mixes` up (tables, columns, data move per design D2, Fed by as routes, drops) and down (rebuild event-level groups/DCAs)
+- [x] 1.2a `CreateEvent` stops seeding `mixer_groups` and ensures its default desk's mains; a fresh database migrates to the top
+- [x] 1.3 Migration test: one desk (wedding shape), two desks sharing a group, memberless group, no desk (mixes wait with `console_id` NULL), Fed by exact match; read back every membership
+- [x] 1.4 `db/desk_mixes.go` replaces `db/buses.go`: list/create/update(with sources)/delete mixes and routes; channel, mix and output deletes clear every route naming them in the same transaction (test: no orphans, recorder and Fed by included)
 
 ## 2. Backend — rules
 
-- [ ] 2.1 `domain.PoolOf` and `RouteAllowed` per engine (design D4); exhaustive (engine, src, dst) table test, including LV1 feed-forward, no X32 bus → bus, no X32 channel → matrix, mixes → mute
-- [ ] 2.2 Slot allocation: first legal free slot, X32 odd–even pairs, LV1 consecutive stereo, LV1 groups one stereo slot, Generic unbounded; full/absent pool refusals with the X32 bus breakdown; tests
-- [ ] 2.3 Ensure mains per engine on `CreateConsole` and on switch (D3); mains undeletable; the first desk on an event adopts waiting mixes
-- [ ] 2.4 LV1 matrix 12-source limit; recorder track limit (32 X32 · M32, 64 LV1, typed Generic)
+- [x] 2.1 `domain.PoolOf` and `RouteAllowed` per engine (design D4); exhaustive (engine, src, dst) table test, including LV1 feed-forward, no X32 bus → bus, no X32 channel → matrix, mixes → mute
+- [x] 2.2 Slot allocation: first legal free slot, X32 odd–even pairs, LV1 consecutive stereo, LV1 groups one stereo slot, Generic unbounded; full/absent pool refusals with the X32 bus breakdown; tests
+- [x] 2.3 Ensure mains per engine on `CreateConsole` and on switch (D3); mains undeletable; the first desk on an event adopts waiting mixes
+- [x] 2.4 LV1 matrix 12-source limit; recorder track limit (32 X32 · M32, 64 LV1, typed Generic)
 - [ ] 2.5 Extend the profiles served by `GET /desk-models` with each engine's route matrix and pool membership
 
 ## 3. Backend — API
 
-- [ ] 3.1 Mix endpoints (design D5) with tests: add per type, full pool 409, PATCH writes fields + sources atomically, illegal source 400, delete main 409, viewer 403
-- [ ] 3.2 Channel create joins its desk's Main LR; `mix_ids` replaces `group_ids`/`dca_ids`; PATCH keeps monitor/FX/matrix routes; desk change drops old routes and joins the new Main LR; tests
-- [ ] 3.3 Output Fed by as a route: same desk, allowed kinds per engine (X32: LR, M/C, subgroup/monitor buses, matrices; LV1: mains, groups, Mon, matrices, direct outs; never FX), side for stereo → mono; viewer 403; tests
-- [ ] 3.4 Recorder endpoints: declare, tracks replace (routes to/from `recorder` ports), Record every preamp (fills free tracks in channel order, refuses when they don't fit); one playback per channel; side only for stereo mixes; viewer 403; tests
-- [ ] 3.5 `GET /audio-patch` returns mixes, routes, recorder tracks; remove `/groups`, `/dcas`
-- [ ] 3.6 `service/deskmap.go` `MapMixes` (design D6) in the switch preview and apply; table tests: LV1 64 → M32 (16 placed in type order, 8 over, group → group Left out and kept), M32 → LV1 (mono subgroup → stereo group Changed, M/C → C/Mono), round trip; Fed by a refused kind and an X32 direct out Left out and kept; recorder tracks past the new count Left out; recorder count from the model; verify by breaking the order rule
-- [ ] 3.7 `audio_pdf_sections.go` `busLabel` and `audio_graph.go` read routes; PDF tests updated
-- [ ] 3.8 Backend gates
+- [x] 3.1 Mix endpoints (design D5) with tests: add per type, full pool 409, PATCH writes fields + sources atomically, illegal source 400, delete main 409, viewer 403
+- [x] 3.2 Channel create joins its desk's Main LR; `mix_ids` replaces `group_ids`/`dca_ids`; PATCH keeps monitor/FX/matrix routes; desk change drops old routes and joins the new Main LR; tests
+- [x] 3.3 Output Fed by as a route: same desk, allowed kinds per engine (X32: LR, M/C, subgroup/monitor buses, matrices; LV1: mains, groups, Mon, matrices, direct outs; never FX), side for stereo → mono; viewer 403; tests
+- [x] 3.4 Recorder endpoints: declare, tracks replace (routes to/from `recorder` ports), Record every preamp (fills free tracks in channel order, refuses when they don't fit); one playback per channel; side only for stereo mixes; viewer 403; tests
+- [x] 3.5 `GET /audio-patch` returns mixes, routes, recorder tracks; remove `/groups`, `/dcas`
+- [x] 3.6 `service/deskmap.go` `MapMixes` (design D6) in the switch preview and apply; table tests: LV1 64 → M32 (16 placed in type order, 8 over, group → group Left out and kept), M32 → LV1 (mono subgroup → stereo group Changed, M/C → C/Mono), round trip; Fed by a refused kind and an X32 direct out Left out and kept; recorder tracks past the new count Left out; recorder count from the model; verify by breaking the order rule
+- [x] 3.7 `audio_pdf_sections.go` `busLabel` and `audio_graph.go` read routes; PDF tests updated
+- [x] 3.8 Backend gates
 
 ## 4. Frontend — data
 

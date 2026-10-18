@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -380,4 +381,270 @@ func PlaceRows(existing, incoming []domain.StripRow, to DeskSide) Mapping {
 		lines = append(lines, PreviewLine{Word: WordMoved, Text: fmt.Sprintf("%s to a free strip; the number is taken on %s.", count(len(moved), "channel moves", "channels move"), to.Model.Label), Items: moveItems(moved)})
 	}
 	return Mapping{Rows: mapped, Lines: lines}
+}
+
+// MappedMix is one mix before and after a model switch.
+type MappedMix struct {
+	ID        int64  `json:"id"`
+	Kind      string `json:"kind"`
+	Name      string `json:"name"`
+	ToName    string `json:"to_name"`
+	FromSlot  int    `json:"from_slot"`
+	ToSlot    int    `json:"to_slot"`
+	FromWidth string `json:"from_width"`
+	ToWidth   string `json:"to_width"`
+	Over      bool   `json:"over"`
+}
+
+// MixMapping is what a switch does to a desk's mixes, routes, Fed by and
+// recorder (Slice 48 D6), in the same words as the channel mapping.
+type MixMapping struct {
+	Mixes          []MappedMix   `json:"mixes"`
+	RecorderTracks int           `json:"recorder_tracks"`
+	Figures        []Figure      `json:"figures"`
+	Lines          []PreviewLine `json:"lines"`
+}
+
+func targetMixWidth(to domain.DeskModel, kind, width string) string {
+	switch {
+	case to.StereoForced(kind):
+		return "stereo"
+	case kind == domain.MixDCA || kind == domain.MixMute:
+		return "mono"
+	}
+	return width
+}
+
+func mixLabel(m MappedMix) string {
+	if m.Name != "" {
+		return m.Name
+	}
+	return fmt.Sprintf("%s %d", m.Kind, m.FromSlot)
+}
+
+// MapMixes maps a desk's mixes onto another model: mains by slot (renamed to
+// the new desk's names, kept and flagged over where it has no such main);
+// then subgroups, monitors, FX, matrices, DCAs and mute groups in that order,
+// each keeping its slot where legal and free, else the next legal one, else
+// past the end flagged over. Routes the new engine refuses — Fed by included —
+// are reported Left out and kept. Nothing is deleted.
+func MapMixes(mixes []domain.DeskMix, routes []domain.DeskRoute, from, to DeskSide, recorder bool, recorderTracks int) MixMapping {
+	target := to.Model
+	mains := map[int]domain.MainSlot{}
+	for _, main := range target.MainSlots() {
+		mains[main.Slot] = main
+	}
+	byID := map[int64]*MappedMix{}
+	var mapped []MappedMix
+	var placed []domain.DeskMix
+
+	for _, mix := range mixes {
+		if mix.Kind != domain.MixMain {
+			continue
+		}
+		m := MappedMix{ID: mix.ID, Kind: mix.Kind, Name: mix.Name, ToName: mix.Name, FromSlot: mix.Slot, ToSlot: mix.Slot, FromWidth: mix.Width, ToWidth: mix.Width}
+		if main, ok := mains[mix.Slot]; ok {
+			m.ToName, m.ToWidth = main.Name, main.Width
+		} else {
+			m.Over = true
+		}
+		mapped = append(mapped, m)
+	}
+	for _, kind := range domain.MixKindOrder {
+		var ofKind []domain.DeskMix
+		for _, mix := range mixes {
+			if mix.Kind == kind {
+				ofKind = append(ofKind, mix)
+			}
+		}
+		sort.SliceStable(ofKind, func(i, j int) bool { return ofKind[i].Slot < ofKind[j].Slot })
+		pool := target.PoolOf(kind)
+		for _, mix := range ofKind {
+			w := targetMixWidth(target, kind, mix.Width)
+			slot, over := mix.Slot, false
+			if !target.MixSlotFits(kind, w, slot, placed, 0) {
+				slot, over = 0, true
+				for s := mix.Slot + 1; s <= pool.Capacity; s++ {
+					if target.MixSlotFits(kind, w, s, placed, 0) {
+						slot, over = s, false
+						break
+					}
+				}
+				if over {
+					if s, ok := target.FirstFreeMixSlot(kind, w, placed); ok {
+						slot, over = s, false
+					}
+				}
+				if over {
+					// Past the end: after everything this pool holds, so two left-out
+					// mixes never share a number.
+					slot = max(mix.Slot, pool.Capacity+1)
+					for _, p := range placed {
+						if target.PoolOf(p.Kind).Name == pool.Name && p.Slot >= slot {
+							slot = p.Slot + target.MixSlotWidth(p.Kind, p.Width)
+						}
+					}
+				}
+			}
+			placed = append(placed, domain.DeskMix{ID: mix.ID, Kind: kind, Slot: slot, Width: w})
+			mapped = append(mapped, MappedMix{ID: mix.ID, Kind: kind, Name: mix.Name, ToName: mix.Name, FromSlot: mix.Slot, ToSlot: slot, FromWidth: mix.Width, ToWidth: w, Over: over})
+		}
+	}
+	for i := range mapped {
+		byID[mapped[i].ID] = &mapped[i]
+	}
+
+	result := MixMapping{Mixes: mapped, RecorderTracks: recorderTracks}
+	if n := target.RecorderTracks(); n > 0 {
+		result.RecorderTracks = n
+	}
+
+	var lines []PreviewLine
+	var over, moved, widened, renamed []string
+	for _, m := range mapped {
+		switch {
+		case m.Over:
+			over = append(over, mixLabel(m))
+		case m.Kind == domain.MixMain && m.ToName != m.Name:
+			renamed = append(renamed, fmt.Sprintf("%s → %s", m.Name, m.ToName))
+		case m.ToSlot != m.FromSlot:
+			moved = append(moved, fmt.Sprintf("%s %d → %d", mixLabel(m), m.FromSlot, m.ToSlot))
+		}
+		if !m.Over && m.FromWidth != m.ToWidth {
+			widened = append(widened, fmt.Sprintf("%s becomes %s", mixLabel(m), m.ToWidth))
+		}
+	}
+	if len(over) > 0 {
+		lines = append(lines, PreviewLine{Word: WordLeftOut, Text: fmt.Sprintf("%s past %s's pools; kept, flagged over.", count(len(over), "mix", "mixes"), target.Label), Items: over})
+	}
+
+	// Routes the new engine refuses stay, unused: a switch back makes them again.
+	var refused, fedBy []string
+	nameOf := func(kind string, id int64) string {
+		if kind == domain.PortMix {
+			if m, ok := byID[id]; ok {
+				return mixLabel(*m)
+			}
+		}
+		return fmt.Sprintf("%s %d", kind, id)
+	}
+	for _, route := range routes {
+		switch {
+		case route.DstKind == domain.PortMix:
+			dst, ok := byID[route.DstID]
+			if !ok {
+				continue
+			}
+			srcKind, srcSlot := domain.RouteFromChannel, 0
+			if route.SrcKind == domain.PortMix {
+				src, ok := byID[route.SrcID]
+				if !ok {
+					continue
+				}
+				srcKind, srcSlot = src.Kind, src.ToSlot
+			} else if route.SrcKind != domain.PortChannel {
+				continue
+			}
+			if err := target.RouteAllowed(srcKind, srcSlot, dst.Kind, dst.ToSlot); err != nil {
+				if route.SrcKind == domain.PortMix {
+					refused = append(refused, fmt.Sprintf("%s → %s", nameOf(route.SrcKind, route.SrcID), mixLabel(*dst)))
+				} else {
+					refused = append(refused, fmt.Sprintf("a channel → %s", mixLabel(*dst)))
+				}
+			}
+		case route.DstKind == domain.PortOutput:
+			if route.SrcKind == domain.PortChannel && !target.DirectOutAllowed() {
+				fedBy = append(fedBy, fmt.Sprintf("output %d from a channel's direct out", route.DstID))
+			}
+			if route.SrcKind == domain.PortMix {
+				if src, ok := byID[route.SrcID]; ok && !target.FedByAllowed(src.Kind) {
+					fedBy = append(fedBy, fmt.Sprintf("output %d from %s", route.DstID, mixLabel(*src)))
+				}
+			}
+		}
+	}
+	if len(refused) > 0 {
+		lines = append(lines, PreviewLine{Word: WordLeftOut, Text: fmt.Sprintf("%s %s cannot make; kept on Desk Routing, unused.", count(len(refused), "route", "routes"), target.Label), Items: refused})
+	}
+	if len(fedBy) > 0 {
+		lines = append(lines, PreviewLine{Word: WordLeftOut, Text: fmt.Sprintf("%s fed by something %s cannot send to an output.", count(len(fedBy), "output is", "outputs are"), target.Label), Items: fedBy})
+	}
+	if recorder && result.RecorderTracks > 0 {
+		var past []string
+		for _, route := range routes {
+			track := 0
+			if route.DstKind == domain.PortRecorder {
+				track = route.DstPort
+			} else if route.SrcKind == domain.PortRecorder {
+				track = route.SrcPort
+			}
+			if track > result.RecorderTracks {
+				past = append(past, fmt.Sprintf("track %d", track))
+			}
+		}
+		if len(past) > 0 {
+			lines = append(lines, PreviewLine{Word: WordLeftOut, Text: fmt.Sprintf("%s past %s's %d recorder tracks; kept.", count(len(past), "recorder route is", "recorder routes are"), target.Label, result.RecorderTracks), Items: past})
+		}
+	}
+	if len(widened) > 0 {
+		lines = append(lines, PreviewLine{Word: WordChanged, Text: fmt.Sprintf("%s change width on %s.", count(len(widened), "mix", "mixes"), target.Label), Items: widened})
+	}
+	if len(renamed) > 0 {
+		lines = append(lines, PreviewLine{Word: WordChanged, Text: fmt.Sprintf("The mains take %s's names.", target.Label), Items: renamed})
+	}
+	if len(moved) > 0 {
+		lines = append(lines, PreviewLine{Word: WordMoved, Text: fmt.Sprintf("%s to a slot %s has free.", count(len(moved), "mix moves", "mixes move"), target.Label), Items: moved})
+	}
+	result.Lines = lines
+	result.Figures = mixFigures(mixes, mapped, from, to)
+	return result
+}
+
+// mixFigures is one before/after line per pool of the new desk.
+func mixFigures(mixes []domain.DeskMix, mapped []MappedMix, from, to DeskSide) []Figure {
+	type pool struct {
+		label string
+		kinds []string
+	}
+	var pools []pool
+	if to.Model.Engine == domain.EngineX32 {
+		pools = []pool{{"Buses", []string{domain.MixSubgroup, domain.MixMonitor, domain.MixFX}}}
+	} else {
+		pools = []pool{{"Groups", []string{domain.MixSubgroup}}, {"Mon", []string{domain.MixMonitor}}, {"FX", []string{domain.MixFX}}}
+	}
+	pools = append(pools, pool{"Matrices", []string{domain.MixMatrix}}, pool{"DCAs", []string{domain.MixDCA}}, pool{"Mute groups", []string{domain.MixMute}})
+	capacity := func(model domain.DeskModel, kinds []string) int {
+		seen := map[string]bool{}
+		total := 0
+		for _, kind := range kinds {
+			p := model.PoolOf(kind)
+			if p.Unbounded {
+				return 0
+			}
+			if !seen[p.Name] {
+				seen[p.Name] = true
+				total += p.Capacity
+			}
+		}
+		return total
+	}
+	var figures []Figure
+	for _, p := range pools {
+		before, after := 0, 0
+		for _, mix := range mixes {
+			if slices.Contains(p.kinds, mix.Kind) {
+				before += from.Model.MixSlotWidth(mix.Kind, mix.Width)
+			}
+		}
+		for _, m := range mapped {
+			if slices.Contains(p.kinds, m.Kind) {
+				after += to.Model.MixSlotWidth(m.Kind, m.ToWidth)
+			}
+		}
+		if before == 0 && after == 0 {
+			continue
+		}
+		figures = append(figures, Figure{Label: p.label, Before: before, BeforeCap: capacity(from.Model, p.kinds), After: after, AfterCap: capacity(to.Model, p.kinds)})
+	}
+	return figures
 }

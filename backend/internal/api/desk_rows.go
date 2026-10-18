@@ -52,6 +52,22 @@ func (h AudioPatchHandler) placeChannel(w http.ResponseWriter, eventID int64, pa
 		return false
 	}
 	payload.ConsoleID = &desk.ID
+	// The row edits its own desk's mains, subgroups, DCAs and mute groups only.
+	if payload.MixIDs != nil && (existing == nil || existing.ConsoleID != nil && *existing.ConsoleID == desk.ID) {
+		mixes, err := dbstore.ConsoleMixes(h.DB, desk.ID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return false
+		}
+		for _, id := range payload.MixIDs {
+			if !slices.ContainsFunc(mixes, func(mix domain.DeskMix) bool {
+				return mix.ID == id && slices.Contains([]string{domain.MixMain, domain.MixSubgroup, domain.MixDCA, domain.MixMute}, mix.Kind)
+			}) {
+				writeError(w, http.StatusBadRequest, "mix_ids must be this desk's mains, groups, DCAs or mute groups")
+				return false
+			}
+		}
+	}
 	if payload.StripPool == "" {
 		payload.StripPool = domain.PoolChannel
 	}

@@ -154,9 +154,10 @@ type audioGraphData struct {
 	consoles    []domain.Console
 	inCables    []domain.InputCable
 	outCables   []domain.OutputCable
-	groups      []domain.MixerGroup
-	dcas        []domain.MixerDCA
-	itemLabel   map[int64]string
+	// mixes are every desk's mixes, DCAs and mute groups (Slice 48); a
+	// channel's MixIDs index into them.
+	mixes     []domain.DeskMix
+	itemLabel map[int64]string
 }
 
 // loadAudioGraphData fetches every row the document needs, once. The document
@@ -196,11 +197,8 @@ func loadAudioGraphData(database *sql.DB, eventID int64, inventoryID int64) (aud
 	if data.outCables, err = db.ListOutputCables(database, eventID); err != nil {
 		return data, fmt.Errorf("list output cables: %w", err)
 	}
-	if data.groups, err = db.ListMixerGroups(database, eventID); err != nil {
-		return data, fmt.Errorf("list groups: %w", err)
-	}
-	if data.dcas, err = db.ListMixerDCAs(database, eventID); err != nil {
-		return data, fmt.Errorf("list dcas: %w", err)
+	if data.mixes, err = db.ListDeskMixes(database, eventID); err != nil {
+		return data, err
 	}
 
 	data.itemLabel = map[int64]string{}

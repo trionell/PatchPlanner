@@ -54,24 +54,6 @@ type StageMulti struct {
 	ShowInOutputGraph bool `json:"show_in_output_graph"`
 }
 
-// MixerGroup is a named mix bus of one event. The built-in LR main group
-// exists on every event and can be recolored but never renamed or deleted.
-type MixerGroup struct {
-	ID        int64  `json:"id"`
-	EventID   int64  `json:"event_id"`
-	Name      string `json:"name"`
-	IsBuiltin bool   `json:"is_builtin"`
-	Color     string `json:"color,omitempty"`
-}
-
-// MixerDCA is a named DCA of one event.
-type MixerDCA struct {
-	ID      int64  `json:"id"`
-	EventID int64  `json:"event_id"`
-	Name    string `json:"name"`
-	Color   string `json:"color,omitempty"`
-}
-
 // Valid values for AudioPatchInput.Width / AudioPatchOutput.Width,
 // AudioPatchInput.MixerBehavior, and AudioPatchInput.SourceCabling. These are
 // Go-validated enums, not reference-data vocabularies: each value carries
@@ -264,12 +246,12 @@ type InputChannel struct {
 	ChannelNumber int    `json:"channel_number"`
 	ChannelName   string `json:"channel_name,omitempty"`
 	Color         string `json:"color,omitempty"`
-	// GroupIDs/DCAIDs are the channel's full bus membership sets. On create,
-	// a nil GroupIDs (field absent from JSON) means "no opinion" and the
-	// server routes the channel to the event's LR group; an explicit array —
-	// including [] — is stored verbatim. Updates always replace wholesale.
-	GroupIDs []int64 `json:"group_ids"`
-	DCAIDs   []int64 `json:"dca_ids"`
+	// MixIDs are the channel's routes into the kinds its row edits — mains,
+	// subgroups, DCAs and mute groups on its own desk (Slice 48). On create a
+	// nil MixIDs means "no opinion" and the channel joins its desk's Main LR;
+	// an explicit array, even [], is stored as sent. Monitor, FX and matrix
+	// membership is edited on Desk Routing and never touched by a channel save.
+	MixIDs []int64 `json:"mix_ids"`
 	// Width is "mono" or "stereo" (ValidWidths) — display/console-numbering
 	// only; a stereo pair is two independent InputChannel rows (Slice 9
 	// convention, unchanged), not one row with two ports.
@@ -417,6 +399,10 @@ type Console struct {
 	OutputCount      int    `json:"output_count"`
 	LocalInputCount  int    `json:"local_input_count"`
 	LocalOutputCount int    `json:"local_output_count"`
+	// Recorder is whether the desk carries one (Slice 48); RecorderTracks is
+	// its typed track count on Generic and is ignored on a real model.
+	Recorder       bool `json:"recorder"`
+	RecorderTracks int  `json:"recorder_tracks"`
 	// DeskModel is a key of DeskModels (Slice 47). Every console migrated by
 	// 054 is "generic", which is exactly the typed-count desk above; a real
 	// model derives the four counts and they are written here by the server.

@@ -92,7 +92,15 @@ type StripPlacement struct {
 // ApplyDeskSwitch writes a model switch in one transaction: the console's
 // model, bus mode and counts, and every channel's new number, pool and
 // stereo behaviour. Nothing is deleted.
-func ApplyDeskSwitch(db *sql.DB, console domain.Console, rows []StripPlacement) (domain.Console, error) {
+// MixPlacement is where a switch puts one mix.
+type MixPlacement struct {
+	ID    int64
+	Slot  int
+	Width string
+	Name  string
+}
+
+func ApplyDeskSwitch(db *sql.DB, console domain.Console, rows []StripPlacement, mixes []MixPlacement) (domain.Console, error) {
 	tx, err := db.Begin()
 	if err != nil {
 		return domain.Console{}, fmt.Errorf("apply desk switch: %w", err)
@@ -103,6 +111,18 @@ func ApplyDeskSwitch(db *sql.DB, console domain.Console, rows []StripPlacement) 
 		return domain.Console{}, fmt.Errorf("apply desk switch: %w", err)
 	}
 	if err := placeChannels(tx, &console.ID, rows); err != nil {
+		return domain.Console{}, err
+	}
+	for _, mix := range mixes {
+		if _, err := tx.Exec(`UPDATE desk_mixes SET slot = ?, width = ?, name = ? WHERE id = ?`, mix.Slot, mix.Width, mix.Name, mix.ID); err != nil {
+			return domain.Console{}, fmt.Errorf("place mix %d: %w", mix.ID, err)
+		}
+	}
+	if _, err := tx.Exec(`UPDATE event_consoles SET recorder_tracks = ? WHERE id = ?`, console.RecorderTracks, console.ID); err != nil {
+		return domain.Console{}, fmt.Errorf("apply desk switch: %w", err)
+	}
+	// The new model's mains: a switch to an LV1 gains C and Mono, say.
+	if err := ensureDeskMains(tx, console); err != nil {
 		return domain.Console{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -121,6 +141,18 @@ func PlaceOnDesk(db *sql.DB, eventID, consoleID int64, channels []StripPlacement
 	defer tx.Rollback()
 	if err := placeChannels(tx, &consoleID, channels); err != nil {
 		return err
+	}
+	// A channel put on a desk joins its Main LR, as a new one does (Slice 48).
+	if len(channels) > 0 {
+		lr, err := MainLRID(tx, consoleID)
+		if err != nil {
+			return err
+		}
+		for _, row := range channels {
+			if err := insertRoute(tx, eventID, &consoleID, domain.DeskRoute{SrcKind: domain.PortChannel, SrcID: row.ID, DstKind: domain.PortMix, DstID: lr}); err != nil {
+				return err
+			}
+		}
 	}
 	for _, id := range outputIDs {
 		if _, err := tx.Exec(`UPDATE audio_patch_outputs SET console_id = ? WHERE id = ? AND event_id = ? AND console_id IS NULL`, consoleID, id, eventID); err != nil {
