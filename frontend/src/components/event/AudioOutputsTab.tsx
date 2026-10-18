@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Boxes, Printer, Unplug } from 'lucide-react'
+import { Boxes, Download, Printer, Unplug } from 'lucide-react'
 import {
   createAudioOutput,
   createOutputCable,
@@ -61,6 +61,7 @@ import { PortRow as SharedPortRow, SplitPortRow, type PortWiring } from './graph
 import { ZoomControl, ZOOM_MAX, ZOOM_STEP } from './graph/ZoomControl'
 import { stepZoomAdditive } from '../../lib/canvasFit'
 import { ConsoleSection } from './ConsoleSection'
+import { ConsoleExportDialog } from './ConsoleExportDialog'
 import { DeskSelector } from './DeskSelector'
 import { DesklessNote } from './DesklessNote'
 import { MobilePicker } from '../mobile/MobilePicker'
@@ -184,6 +185,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
   const listedOutputs = selectedConsole ? outputs.filter((output) => output.console_id === selectedConsole.id) : desklessOutputs
   const deskEntries = consoles.map((desk) => ({ desk, label: `${deskLabel(desk, modelOf(desk))} ${outputs.filter((output) => output.console_id === desk.id).length} out` }))
   const [addRefusal, setAddRefusal] = useState<SheetRefusal | undefined>()
+  const [exportOpen, setExportOpen] = useState(false)
   const [actionCount, setActionCount] = useState(0)
   const [movedLine, setMovedLine] = useState<{ text: string; deskId: number; deskName: string } | null>(null)
   const setDeskSelection = (next: typeof deskSelection) => {
@@ -308,6 +310,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
                   },
                 ]),
             { label: 'Print patch sheet', icon: <Printer className="h-4 w-4" />, onClick: () => window.print() },
+            ...(selectedDesk ? [{ label: 'Export to console', icon: <Download className="h-4 w-4" />, onClick: () => setExportOpen(true) }] : []),
           ]}
           /* Two views, one frame — identical to Audio Inputs by decision, not by
              coincidence: a phone branch built at one call site and copied to the second
@@ -424,6 +427,17 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
         )}
 
         {/* The same tree the desk renders, at phone geometry. No drawer file edited. */}
+        {selectedDesk && (
+          <ConsoleExportDialog
+            open={exportOpen}
+            onClose={() => setExportOpen(false)}
+            eventId={eventId}
+            desk={selectedDesk}
+            deskCount={consoles.length}
+            readOnly={readOnly}
+            onOpenRig={readOnly ? undefined : () => { setExportOpen(false); setRigOpen(true) }}
+          />
+        )}
         <RigDrawer
           audioItems={allAudioItems}
           cables={[...outputCables, ...(audioQuery.data?.input_cables ?? [])]}
@@ -469,6 +483,9 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
         onSearchChange={setSearch}
         onOpenRig={readOnly ? undefined : () => setRigOpen(true)}
         onAdd={readOnly || (deskSelection === 'none' && consoles.length > 0) ? undefined : addOutputRow}
+        exportDesk={selectedDesk}
+        deskCount={consoles.length}
+        readOnly={readOnly}
         deskSelector={<DeskSelector entries={deskEntries} deskless={desklessOutputs.length} selection={deskSelection} onSelect={setDeskSelection} />}
         toolbarExtras={
           view === 'flow' ? (

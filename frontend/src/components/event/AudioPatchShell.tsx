@@ -1,5 +1,7 @@
-import type { ReactNode } from 'react'
-import { LayoutGrid, Plus, Search, Table2 } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
+import { Download, LayoutGrid, Plus, Search, Table2 } from 'lucide-react'
+import type { SelectedDesk } from '../../lib/patchCapacity'
+import { ConsoleExportDialog } from './ConsoleExportDialog'
 import type { PatchTab, PatchView } from '../../hooks/usePatchView'
 import { audioExportPdfUrl } from '../../api/audio'
 import { ExportPdfButton } from '../print/ExportPdfButton'
@@ -19,6 +21,10 @@ interface AudioPatchShellProps {
   onOpenRig?: () => void
   /** Adds one row. Omitted for restricted roles. */
   onAdd?: () => void
+  /** The desk Export to console writes (Slice 49): the selected one. Absent on No desk. */
+  exportDesk?: SelectedDesk
+  deskCount?: number
+  readOnly?: boolean
   /** The desk selector (Slice 47, B6), after the view toggle; the Sheet only, since Flow shows every desk. */
   deskSelector?: ReactNode
   /** Extra toolbar controls, right of the search box — the canvas zoom in Flow. */
@@ -58,12 +64,16 @@ export function AudioPatchShell({
   onSearchChange,
   onOpenRig,
   onAdd,
+  exportDesk,
+  deskCount = 1,
+  readOnly = false,
   deskSelector,
   toolbarExtras,
   children,
   drawers,
 }: AudioPatchShellProps) {
   const nouns = NOUNS[tab]
+  const [exporting, setExporting] = useState(false)
 
   return (
     <div className="print:hidden">
@@ -107,6 +117,12 @@ export function AudioPatchShell({
             <span className="flex-1" />
 
             <ExportPdfButton href={audioExportPdfUrl(eventId)} />
+            {/* Every role may export, as with the PDF (Slice 49). */}
+            {exportDesk && (
+              <Button size="sm" variant="secondary" onClick={() => setExporting(true)}>
+                <Download className="mr-2 h-4 w-4" />Export to console
+              </Button>
+            )}
             {onAdd && (
               <Button size="xs" onClick={onAdd}>
                 <Plus className="mr-1.5 h-3.5 w-3.5" />{nouns.add}
@@ -118,6 +134,24 @@ export function AudioPatchShell({
         {children}
       </PatchPanel>
       {drawers}
+      {exportDesk && (
+        <ConsoleExportDialog
+          open={exporting}
+          onClose={() => setExporting(false)}
+          eventId={eventId}
+          desk={exportDesk}
+          deskCount={deskCount}
+          readOnly={readOnly}
+          onOpenRig={
+            onOpenRig
+              ? () => {
+                  setExporting(false)
+                  onOpenRig()
+                }
+              : undefined
+          }
+        />
+      )}
     </div>
   )
 }

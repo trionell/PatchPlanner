@@ -37,13 +37,13 @@
 
 ## 6. Frontend
 
-- [ ] 6.1 Export to console button beside Export PDF in `AudioPatchShell`; phone overflow row
-- [ ] 6.2 The dialog (`ui/Dialog` with footer): desk statement (name · model, file · version, "1 of 2" note), Generic state with Open Rig / viewer sentence
-- [ ] 6.3 Port rows per engine; remembered per viewer per event × desk × engine (localStorage, try/catch)
-- [ ] 6.4 Figures and preview lines from the server (A3/B1 box), Checking … while in flight, inline error disables the primary
-- [ ] 6.5 Download by navigation; primary "Download scene" / "Download session"
-- [ ] 6.6 Phone: the same dialog at 44 px targets
-- [ ] 6.7 Render tests: Generic state per role, port rows per engine, preview lines; frontend gates
+- [x] 6.1 Export to console button beside Export PDF in `AudioPatchShell`; phone overflow row
+- [x] 6.2 The dialog (`ui/Dialog` with footer): desk statement (name · model, file · version, "1 of 2" note), Generic state with Open Rig / viewer sentence
+- [x] 6.3 Port rows per engine; remembered per viewer per event × desk × engine (localStorage, try/catch)
+- [x] 6.4 Figures and preview lines from the server (A3/B1 box), Checking … while in flight, inline error disables the primary
+- [x] 6.5 Download by navigation; primary "Download scene" / "Download session"
+- [x] 6.6 Phone: the same dialog at 44 px targets
+- [x] 6.7 Render tests: Generic state per role, port rows per engine, preview lines; frontend gates
 
 ## 7. Close-out
 

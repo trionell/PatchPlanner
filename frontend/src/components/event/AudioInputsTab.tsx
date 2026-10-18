@@ -16,6 +16,7 @@ import { inputPatchStatus } from '../../lib/patchCapacity'
 import { itemLabel } from '../../lib/utils'
 import type { SegmentNode } from '../../lib/patchSheet'
 import type { InputChannel, InventoryItem, OwnedItem, StripPool, StripRefusal } from '../../types'
+import { ConsoleExportDialog } from './ConsoleExportDialog'
 import { DeskSelector } from './DeskSelector'
 import { DesklessNote } from './DesklessNote'
 import { RefusalNotice } from './RefusalNotice'
@@ -23,7 +24,7 @@ import { Button } from '../ui/Button'
 import { MobilePicker } from '../mobile/MobilePicker'
 import type { SheetRefusal } from './RefusalNotice'
 import { MobileChannelEditSheet } from '../mobile/MobileChannelEditSheet'
-import { Boxes, Printer } from 'lucide-react'
+import { Boxes, Download, Printer } from 'lucide-react'
 import { MobileEntityList } from '../mobile/MobileEntityList'
 import { MobileSegmented } from '../mobile/MobileSegmented'
 import { AudioPatchShell } from './AudioPatchShell'
@@ -165,6 +166,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
     return { desk, label: `${deskLabel(desk, model)} ${capacity > 0 ? `${used}/${capacity}` : used}` }
   })
   const [addRefusal, setAddRefusal] = useState<SheetRefusal | undefined>()
+  const [exportOpen, setExportOpen] = useState(false)
   const [actionCount, setActionCount] = useState(0)
   /* B7 on the phone: the sheet closes on save, so the line is the tab's. */
   const [movedLine, setMovedLine] = useState<{ text: string; deskId: number; deskName: string } | null>(null)
@@ -317,6 +319,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
                   },
                 ]),
             { label: 'Print patch sheet', icon: <Printer className="h-4 w-4" />, onClick: () => window.print() },
+            ...(selectedDesk ? [{ label: 'Export to console', icon: <Download className="h-4 w-4" />, onClick: () => setExportOpen(true) }] : []),
           ]}
           /*
             Two views, one frame (patterns.md §7b, Slice 36 R10). Both controls change
@@ -451,6 +454,17 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
         {/* Not redrawn for the phone: `ui/Drawer` is `ui/Sheet` below 768px, so these
             are the same component trees the desk renders, at `h-10` and 44px. No drawer
             file was edited to get here (audit.md M5). */}
+        {selectedDesk && (
+          <ConsoleExportDialog
+            open={exportOpen}
+            onClose={() => setExportOpen(false)}
+            eventId={eventId}
+            desk={selectedDesk}
+            deskCount={consoles.length}
+            readOnly={readOnly}
+            onOpenRig={readOnly ? undefined : () => { setExportOpen(false); setDrawer('rig') }}
+          />
+        )}
         <RigDrawer
           audioItems={allAudioItems}
           cables={[...cables, ...(audioQuery.data?.output_cables ?? [])]}
@@ -523,6 +537,9 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
         onSearchChange={setSearch}
         onOpenRig={readOnly ? undefined : () => setDrawer('rig')}
         onAdd={readOnly || (deskSelection === 'none' && consoles.length > 0) ? undefined : addChannel}
+        exportDesk={selectedDesk}
+        deskCount={consoles.length}
+        readOnly={readOnly}
         deskSelector={<DeskSelector entries={deskEntries} deskless={desklessChannels.length} selection={deskSelection} onSelect={setDeskSelection} />}
         toolbarExtras={
           view === 'flow' ? (
