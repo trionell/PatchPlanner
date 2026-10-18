@@ -55,35 +55,45 @@ were what the single-desk default would have written on the next save anyway).
 When a console is created or switched to a real model, the server writes the profile's strips to
 `input_count`, local jacks to `local_*_count`, and `output_count = 0` (undeclared: never warns).
 Every existing reader — the jack panels, `ConsoleLocalPortCounts`, the PDF — keeps working
-unchanged. `updateConsole` overwrites typed counts from the profile on a real model (spec: typed
+unchanged. A switch from a real model **to Generic** keeps the derived values as the console's typed
+counts (the desk still holds what it held) and lists "counts become typed" under Changed; the
+local-port 409 then applies to later edits as on any Generic desk. `updateConsole` overwrites typed counts from the profile on a real model (spec: typed
 counts are ignored) and skips the local-port 409 for it, since only a switch changes them.
 `desk_model` is **not** writable through PATCH; `bus_mode` is.
 
 ### D4. One mapping function previews and applies
 
-`service/deskmap.go`: `MapRows(rows []StripRow, target DeskModel) Mapping` is pure; it returns per row
+`service/deskmap.go`: `MapRows(rows []StripRow, jacks LocalUse, from, target DeskModel) Mapping` is pure.
+`LocalUse` lists the local input and output jacks that carry a cable (with the row each feeds), so
+jacks past the target's local counts become Left out lines. It returns per row
 `{id, fromNumber, fromPool, toNumber, toPool, over}` plus the Left out / Changed / Moved /
 Fits again lines and the before/after figures. Two endpoints call it:
 
 - `POST /events/{id}/consoles/{cid}/switch` `{desk_model, bus_mode, apply}` — maps the desk's
   channels to the target model.
-- `POST /events/{id}/consoles/{cid}/place` `{kind: "channels"|"outputs", ids, apply}` — maps
+- `POST /events/{id}/consoles/{cid}/place` `{channel_ids?, output_ids?, apply}` — maps
   deskless rows *onto* the desk alongside the rows already there (existing rows never move).
 
 Without `apply` they return the preview; with it they run the same mapping in one transaction and
-return the result. The client opens the Dialog only when the preview has a Left out or Moved line;
-otherwise it sends `apply` at once (empty desk, or placing without conflict). *Alternative:* a client
+return the result. The client opens the Dialog whenever the preview has **any** line (Left out,
+Changed, Moved or Fits again); it sends `apply` at once only when the preview has none (an empty
+desk, or placing rows that all keep their numbers). *Alternative:* a client
 mapping for the preview plus a server one for the apply — the two would disagree (P6).
 
 **Algorithm.** Rows sorted by (pool, number, id). Cursor per pool starts at 1. For each row:
 `n = max(row.number, cursor)`; on x32 a stereo row bumps an even `n` to the next odd; width is 2 for
 x32 stereo, else 1. If `n + width − 1 ≤ capacity`, place it and advance the cursor; otherwise it is
-left out: `n = max(row.number, lastPlacedEnd + 1)`, flagged over. Pool changes: x32 → lv1/generic
-appends aux rows after the last channel row; anything → x32 keeps rows in `channel`. `mixer_behavior`
+moved up to the next legal strip after the row above it if that fits (review, 2026-10-18:
+a desk with room must not leave a row out), and only otherwise kept at
+`max(row.number, lastPlacedEnd + 1)`, flagged over. The status strip is over whenever any row
+is over, even when the total fits. Pool changes: x32 → lv1/generic
+appends aux rows after the last channel row; a non-x32 desk switched to x32 puts every row in
+`channel`; x32 → x32 keeps each row's pool. `mixer_behavior`
 is set to `linked_channels` on x32 and `stereo_channel` on lv1; generic leaves it. "Fits again" is a
 row that was over before and is placed after. "Changed: names" uses `NameLength` (12 on x32; LV1 has
 none). For `place`, existing rows on the desk are fixed occupants and the cursor rule is replaced by
-"own number if free, else lowest free, else past the end".
+"own number if free, else lowest free, else past the end". Outputs are placed only when named,
+and channels only when named or when nothing is (review, 2026-10-18).
 
 ### D5. Strip checks on channel create and update
 
@@ -92,7 +102,9 @@ channel. Refusals are **409** with `{error, fix?: {number, pool}}` so the inline
 "Use 5–6". A row whose number, width, pool and desk are unchanged is not checked (an over row stays
 editable). Generic is never checked. Outputs carry no strip check (no output cap, user 2026-10-18).
 
-Create with `channel_number = 0` asks the server for the suggested number (spec), so the client no
+Create with `channel_number = 0` asks the server for the suggested number (spec); when the pool has
+no legal strip left the create is a 409 with `domain.FullRefusal`'s text ("FOH · M32's 32 channels are
+taken. Free a channel, or move one to the aux section from its editor."). So the client no
 longer computes it; `channelNumberLabel` / `suggestNextChannelNumber` are deleted and replaced by
 `lib/deskStrips.ts` (labels, strip widths, usage per pool, `isOver`), which reads the served profile.
 
@@ -125,7 +137,12 @@ The jack panels draw `max(count, highest patched port + 1)` jacks; those past th
 over flag (B2). `validInputCable`/`validOutputCable` keep refusing a *new* cable past the count, so
 the only way onto them is a cable that was there before the switch.
 
-### D10. design/ edits
+### D10. The phone shares the sheet's pieces
+
+The phone's list renders the same derived rows (sections, over flag, No desk list and its note,
+the moved-row line) through `MobileEntityList`; only the containers differ. Each is a task in §8.
+
+### D11. design/ edits
 
 Land with the code that first uses them, in one commit each: A1 + A2 (Dialog footer and phone close
 target) with the switch dialog; A3 + B1 + B2 with the preview and the over flag; B3 with the console

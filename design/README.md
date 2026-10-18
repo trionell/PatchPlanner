@@ -2,7 +2,7 @@
 
 The target visual language for the whole application, taken from the surface that
 currently gets it right: the audio Inputs and Outputs tabs — their Sheet and Flow
-views, and the Rig and Buses drawers.
+views, and the Rig drawer (the Buses drawer it named was replaced by Desk Routing in Slice 48).
 
 These documents exist because the frontend has drifted. Slices 23–26 built a
 deliberate, documented language for the audio patch surface while the other seven

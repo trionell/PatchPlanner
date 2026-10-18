@@ -31,7 +31,9 @@ refused inline, naming the desk.
 
 A playback track SHALL feed at most one channel on the same desk, either as **soundcheck** (it replaces that
 channel's preamp when virtual soundcheck is on) or as **source** (the channel's input, e.g. walk-in
-music).
+music). A channel SHALL be fed by at most one playback track. A track recording a stereo mix SHALL name
+its side; a mono mix has none. Record and playback SHALL be stored as routes to and from the
+recorder's track ports.
 
 #### Scenario: Virtual soundcheck
 

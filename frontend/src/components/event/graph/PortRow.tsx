@@ -100,6 +100,7 @@ export function SplitPortRow({
   label,
   wiring,
   dimmed,
+  over,
 }: {
   inPort: GraphPort
   outPort: GraphPort
@@ -107,6 +108,8 @@ export function SplitPortRow({
   label: string
   wiring: PortWiring
   dimmed?: boolean
+  /** A jack past its desk's count, kept from before a model switch (B2): red, with the word. */
+  over?: boolean
 }) {
   // The two sides of one jack carry the same run, so either side's colour is the
   // jack's colour; the in side is the one that is always present.
@@ -118,7 +121,10 @@ export function SplitPortRow({
     >
       <span className="flex min-w-0 items-center gap-1.5">
         <Dot port={inPort} wiring={wiring} />
-        <span className="truncate">{label}</span>
+        <span className={over ? 'truncate text-red-400' : 'truncate'}>
+          {label}
+          {over && <span className="ml-1 font-mono text-[10px]">over</span>}
+        </span>
       </span>
       <Dot port={outPort} wiring={wiring} />
     </div>

@@ -3,9 +3,9 @@ import { useCallback, useState } from 'react'
 export type PatchView = 'sheet' | 'flow'
 export type PatchTab = 'inputs' | 'outputs'
 
-const storageKey = (eventId: number, tab: PatchTab) => `patchplanner.patchView.${eventId}.${tab}`
+const storageKey = (eventId: number, tab: PatchTab | 'routing') => `patchplanner.patchView.${eventId}.${tab}`
 
-function read(eventId: number, tab: PatchTab): PatchView {
+function read(eventId: number, tab: PatchTab | 'routing'): PatchView {
   try {
     return window.localStorage.getItem(storageKey(eventId, tab)) === 'flow' ? 'flow' : 'sheet'
   } catch {
@@ -22,7 +22,7 @@ function read(eventId: number, tab: PatchTab): PatchView {
  * (research.md R12). The search term and the selection are *not* persisted —
  * a stale filter on return would read as data loss.
  */
-export function usePatchView(eventId: number, tab: PatchTab): [PatchView, (view: PatchView) => void] {
+export function usePatchView(eventId: number, tab: PatchTab | 'routing'): [PatchView, (view: PatchView) => void] {
   const [view, setViewState] = useState<PatchView>(() => read(eventId, tab))
 
   const setView = useCallback(

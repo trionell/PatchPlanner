@@ -21,6 +21,7 @@ import { useSearchParams } from 'react-router-dom'
 export const EVENT_TABS = [
   'overview',
   'audio-inputs',
+  'desk-routing',
   'audio-outputs',
   'lighting-rig',
   'stage-plots',
@@ -57,7 +58,7 @@ export function useEventTab() {
     phone (Slice 35 field test).
 
     The desktop selection is `?tab=`; the phone's is `?section=`, and it predates it.
-    They carry the same vocabulary — `EVENT_TABS` and `MOBILE_SECTIONS` are the same nine
+    They carry the same vocabulary — `EVENT_TABS` and `MOBILE_SECTIONS` are the same ten
     strings — but nothing kept them in step, so every hand-off built since Wave 3 changed
     the URL and left the phone on the section it was already showing: *See on rental
     order*, Overview's readiness rows, `onOpenPlot`, `onOpenEquipment`. The URL moved and

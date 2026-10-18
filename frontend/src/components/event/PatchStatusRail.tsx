@@ -12,6 +12,8 @@ interface PatchStatusRailProps {
   gapsOnly?: boolean
   /** Opens the Rig drawer, where an over-capacity patch is actually fixed. */
   onOpenRig?: () => void
+  /** Selects the No desk list; the strip then ends with "N on no desk ›" in amber (B4). */
+  onShowDeskless?: () => void
 }
 
 /**
@@ -37,7 +39,7 @@ const STRIP_TINT = {
  * from a badge floating in a second box below it. The mockup shows the strip in the
  * Sheet view only, which is why it belongs to the sheet and not to the panel.
  */
-export function PatchStatusRail({ status, noun, onShowGaps, gapsOnly, onOpenRig }: PatchStatusRailProps) {
+export function PatchStatusRail({ status, noun, onShowGaps, gapsOnly, onOpenRig, onShowDeskless }: PatchStatusRailProps) {
   const state = patchStatusState(status)
 
   return (
@@ -94,6 +96,15 @@ export function PatchStatusRail({ status, noun, onShowGaps, gapsOnly, onOpenRig 
           {status.gaps.length > 1 && <span className="text-zinc-500">+{status.gaps.length - 1} more</span>}
         </>
       )}
+
+      {(status.deskless ?? 0) > 0 &&
+        (onShowDeskless ? (
+          <button type="button" className="font-mono tabular-nums text-amber-300 hover:text-amber-200" onClick={onShowDeskless}>
+            {status.deskless} on no desk ›
+          </button>
+        ) : (
+          <span className="font-mono tabular-nums text-amber-300">{status.deskless} on no desk</span>
+        ))}
     </StatusStrip>
   )
 }

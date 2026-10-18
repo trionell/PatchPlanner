@@ -35,37 +35,53 @@ socket or block allocation (Slice 49), recorder transport.
 ### D1. Schema — migration `055_desk_mixes`
 
 ```
-desk_mixes      (id, event_id, console_id NULL → event_consoles ON DELETE CASCADE,
-                 kind  main|subgroup|monitor|fx|matrix|dca|mute,
-                 slot INTEGER,        -- 1-based within the kind's pool; mains: 1 LR, 2 M/C | C, 3 Mono
-                 width mono|stereo, name, color)
-desk_routes     (src_kind channel|mix, src_id, dst_mix_id → desk_mixes ON DELETE CASCADE,
-                 PRIMARY KEY (src_kind, src_id, dst_mix_id))
-desk_recorder_tracks (console_id → event_consoles ON DELETE CASCADE, track INTEGER,
-                 rec_kind ''|preamp|mix, rec_channel_id NULL, rec_mix_id NULL, rec_side ''|L|R,
-                 play_channel_id NULL, play_mode ''|soundcheck|source,
-                 PRIMARY KEY (console_id, track))
-event_consoles  + recorder INTEGER NOT NULL DEFAULT 0, + recorder_tracks INTEGER NOT NULL DEFAULT 0
-audio_patch_outputs + fed_by_mix_id NULL (SET NULL), fed_by_channel_id NULL (SET NULL),
-                      fed_by_side TEXT NOT NULL DEFAULT ''
+desk_mixes  (id, event_id, console_id NULL → event_consoles ON DELETE CASCADE,
+             kind main|subgroup|monitor|fx|matrix|dca|mute,
+             slot INTEGER,   -- 1-based in the kind's pool; mains: 1 LR, 2 M/C | C, 3 Mono
+             width mono|stereo, name, color)
+desk_routes (id, console_id → event_consoles ON DELETE CASCADE,
+             src_kind channel|mix|recorder, src_id, src_port,
+             dst_kind mix|output|recorder|channel, dst_id, dst_port,
+             mode ''|soundcheck|source,
+             UNIQUE (src_kind, src_id, src_port, dst_kind, dst_id, dst_port))
+event_consoles + recorder INTEGER NOT NULL DEFAULT 0, + recorder_tracks INTEGER NOT NULL DEFAULT 0
 ```
 
-`console_id` is NULL only for mixes migrated from an event with no desk; the first `CreateConsole`
-on that event adopts them (spec: they wait). A channel's routes are deleted with the channel
-(`DeleteInputChannel` clears `desk_routes` where `src_kind = 'channel'`, since there is no FK on a
-polymorphic source). Pools are per engine (X32's subgroup/monitor/fx share one); uniqueness of a
-slot is checked in Go, not by an index, because the pool depends on the model.
+**Every desk connection is a route between two ports** (constitution Principle I — analysis
+2026-10-18 replaced the first draft's flat `fed_by_*` and `rec_*`/`play_*` columns). A port is
+`(kind, id, port)`, the convention the audio graphs already use:
 
-*Alternative:* a table per kind — six near-identical tables and six route tables; one table keyed
-by kind is what the tables and the export both iterate.
+| Connection | src | dst |
+|---|---|---|
+| Membership (channel or mix in a mix, DCA, mute) | `channel:id:0` or `mix:id:0` | `mix:id:0` |
+| Fed by | `mix:id:side` (0 = L or mono, 1 = R) or `channel:id:0` (LV1 direct out) | `output:id:0` |
+| Record track N | `channel:id:0` (its preamp) or `mix:id:side` | `recorder:console:N` |
+| Playback track N | `recorder:console:N` | `channel:id:0`, `mode` soundcheck/source |
+
+`channel` ids are `input_channels` (renamed from `audio_patch_inputs` in 029). Because ids are
+polymorphic there are no FKs on them: deleting a channel, a mix or an output clears every route
+naming it in the same transaction, and `DeleteConsole` cascades. A test deletes each and checks no
+route is left. Over is derived, never stored: a mix is over when `slot + width − 1 > capacity`, a
+track when `N > recorder_tracks`.
+
+`console_id` on a mix is NULL only for mixes migrated from an event with no desk; the first desk
+created on that event adopts them. A channel on no desk has no routes (its Routes cell is "—").
+
+*Alternative:* a table per connection kind — four tables the export and the canvas would each have
+to union; one route table is what both traverse.
 
 ### D2. Migration of today's buses
 
-In SQL, per event: create Main LR (and, by Generic default, M/C, C, Mono are created lazily — see
-D3) on every desk; copy each non-builtin group as `subgroup` and each DCA as `dca`, per desk that
+In SQL, per event (memberships live in `audio_input_groups` / `audio_input_dcas`, whose
+`input_id` references `input_channels` since 029): create Main LR on every desk (C and Mono are
+ensured lazily, D3); copy each non-builtin group as `subgroup` and each DCA as `dca`, per desk that
 holds a member (first desk for memberless), slots in id order; route each member channel to its
-desk's copy; route every subgroup to its desk's Main LR; LR members → Main LR. Fed by: exact,
-case-insensitive name match on the output's desk. Then drop `audio_input_groups`,
+desk's copy; route every subgroup to its desk's Main LR; LR members → Main LR. Fed by: a route
+`mix → output` on an exact, case-insensitive name match on the output's desk. Migrated mixes are
+mono (every desk is Generic, where width costs nothing). `CreateEvent` stops seeding the LR group
+and ensures its default desk's mains. The Go-side legacy conversion that writes the old tables runs
+pinned at version 25, before 055, so dropping them is safe; a test migrates a fresh database to the
+top. Then drop `audio_input_groups`,
 `audio_input_dcas`, `mixer_groups`, `mixer_dcas`. The down migration rebuilds event-level groups
 and DCAs from the mixes (merging same-named copies) and drops the new tables. A migration test
 covers one desk, two desks with a shared group, and no desk.
@@ -85,17 +101,19 @@ UI hatches cells from the same rules rather than re-deriving them. Unit tests en
 
 ### D5. API
 
-- `GET /audio-patch` gains `mixes`, `routes`, `recorder_tracks`; loses `groups`, `dcas`.
+- `GET /audio-patch` gains `mixes` and `routes`; loses `groups`, `dcas`.
 - `POST /consoles/{cid}/mixes` `{kind, width, name, color}` → first legal free slot (409 with the
   pool breakdown when full). `PATCH /mixes/{id}` `{slot?, name, width, color, sources: [{kind, id}]}`
   writes fields and sources in one transaction (the column Save). `DELETE /mixes/{id}` (mains 409).
 - Channel `POST/PATCH` replace `group_ids`/`dca_ids` with `mix_ids` (mains, subgroups/groups, DCAs,
   mutes on its desk). A PATCH leaves monitor/FX/matrix routes untouched. A desk change drops the
   old desk's routes and joins the new Main LR (spec).
-- Output `PATCH` gains `fed_by_mix_id`, `fed_by_channel_id`, `fed_by_side`, checked against the
-  output's desk and engine.
+- `PUT /audio-outputs/{id}/fed-by` `{src_kind: mix|channel, src_id, side}` (or `null`) replaces the
+  output's one Fed by route, checked against the output's desk and engine; `GET /audio-patch`
+  returns it among the routes.
 - `PUT /consoles/{cid}/recorder` `{recorder, recorder_tracks (Generic only)}`;
-  `PUT /consoles/{cid}/recorder/tracks` full replace; `POST …/recorder/fill` = Record every preamp.
+  `PUT /consoles/{cid}/recorder/tracks` replaces every route to and from the recorder's ports;
+  `POST …/recorder/fill` = Record every preamp.
 - The event-level `/groups` and `/dcas` routes are removed.
 
 ### D6. The switch maps mixes
@@ -103,7 +121,10 @@ UI hatches cells from the same rules rather than re-deriving them. Unit tests en
 `service/deskmap.go` gains `MapMixes(mixes, routes, target)` beside Slice 47's `MapRows`; the
 switch endpoint returns and applies both. Order: subgroups, monitors, FX (sharing X32's bus pool),
 then matrices, DCAs, mutes; each keeps its slot if legal and free, else next legal, else past the
-end flagged `over`. Routes the target engine refuses are reported as Left out and **kept**;
+end flagged `over`. Routes the target engine refuses — including Fed by from a kind it cannot send to an output and
+an X32 direct out — are reported as Left out and **kept**; recorder tracks past the target's count
+are Left out and kept; a switch to a real model sets `recorder_tracks` from the model, and to
+Generic keeps the count as typed;
 `RouteAllowed` is applied when routes are *used* (tables hatch them, the export skips them), not
 when stored. A desk's mains are re-ensured for the target.
 

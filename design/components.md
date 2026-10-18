@@ -95,6 +95,13 @@ to read than the sections it replaced.
 | `FieldStack` | Label above control — a `MicroLabel`, and a real `<label>` wrapping the control. Widths `default` `w-40` · `grow` · `count` `w-20` · `short` `w-28` · `full` `w-full`. Never a fixed column track — that is what compressed these into unusability in the first place. `full` is the phone's, added in Wave 6a: `grow`'s `flex-1` grows the *height* inside the `flex-col` a bottom sheet stacks its fields in. |
 | `FormActions` | `ml-auto`: confirm, and a labelled delete kept apart from it. |
 
+**A derived count is a `Spec`, never a field** (Slice 47, B3). When a count can be
+read from something already declared — a desk's model — the card shows it as a
+`Spec` and the form shows it in a read-only block naming its source (*from M32R*). A
+count is a `FieldStack width="count"` only where nothing declares it: a Generic
+desk. The Consoles section is the first instance; a stagebox model would be the
+second.
+
 ### `event/graph/` — the canvas
 
 | Export | Notes |
@@ -352,6 +359,13 @@ gave it `Escape` and an internal scroll at the sheet's own `max-h-[85svh]`, both
 things `Drawer` already had, so a tall overlay behaves the same way whichever
 anchor it has.
 
+**A `Dialog` may pin a footer** (Slice 47, A1): `footer` renders `flex-none
+border-t border-zinc-800` below the body that scrolls, as `ui/Sheet`'s does, so the
+action stays on screen however long the body grows — a model switch's preview with
+five lines put its button below the fold on a short laptop screen. Callers without
+one are unchanged: their buttons stay the body's last child. Its close target is
+44 px in a hand ([tokens.md](tokens.md) §7, A2).
+
 The rule, stated once so it stops being decided per call site. **It turns on what
 the overlay is _for_, not on what it contains:**
 
@@ -458,7 +472,7 @@ set of values.
 | Export | What it is |
 |---|---|
 | `MobileNav` | The bottom bar that replaces the sidebar: three destinations and a **More** overflow, which is a `Sheet`. `h-14`, **stated**, because `Layout`'s body padding derives from it. Active is `text-amber-400` with no fill — the sidebar's restraint, which has no left edge to use here. Carries the safe-area inset. |
-| `SectionSwitcher` | The phone's tab strip: one control naming the current section, opening a `Sheet` listing the nine. It is the phone's form of `ui/Tabs`, so it says *what you are looking at* and takes no trough (§4, `ui/Tabs`). The current section is marked in the **open list** by the sidebar's own 2 px amber left edge, never on the closed control. It lists sections and nothing else — the capability badge it used to render was deleted in Wave 6a ([audit.md](audit.md) M7). |
+| `SectionSwitcher` | The phone's tab strip: one control naming the current section, opening a `Sheet` listing the ten. It is the phone's form of `ui/Tabs`, so it says *what you are looking at* and takes no trough (§4, `ui/Tabs`). The current section is marked in the **open list** by the sidebar's own 2 px amber left edge, never on the closed control. It lists sections and nothing else — the capability badge it used to render was deleted in Wave 6a ([audit.md](audit.md) M7). |
 | `MobileEntityList` | A `MobilePanel` over `MobileEntityRow` — one component for channels, outputs and fixtures, because all three differ only in what `number`, `subtitle` and `color` mean. It takes the surface's `title` and its `strip`, and derives no verdict and applies no filter: the caller owns both, exactly as its desktop sheet does. **`children` replace the rows**, which is how the audio tabs' Flow view is drawn instead of listed: it is the same set of things either way, so it is one panel and not two — two would remount the bar on every toggle, closing the search row and losing the overflow sheet's state. Its search is **controlled where the surface owns a query** and its own otherwise; both audio tabs already held one for their desktop branch, so lifting it removed a second query for one search rather than adding a prop. |
 | `MobileSegmented` | *Which of these two or three am I looking at*, when they all fit: the stage plot's **Top · Front · Side**, the audio tabs' **Sheet │ Flow**. `MobilePicker`'s sibling for the case with few enough answers to show at once, and like it a §7b *changes what you are looking at* — so it stays visible in the bar. Extracted at its second caller, the rule `ui/PanelRail` was made to follow. The selection is amber-filled, which is the second place the accent marks **position** rather than action, legible for `MobileNav`'s reason: two or three slots and nothing else nearby is amber. |
 | `CondensedListRow` | One row in a `MobilePanel`: leading tape edge, title, subtitle, trailing slot. Its `accentColor` draws the derived colour as a 3 px edge and a tint at `1a` — the sheet's tape bar in the geometry a phone row has. **`min-h-[44px]` with `leading-tight` is the stated value and the padding derives from it** ([tokens.md](tokens.md) §7); both lines truncate; no border, radius or ground of its own. |
@@ -624,3 +638,12 @@ question is how `NodeShell` ended up with two copies.
 - Pure derivations go in `lib/` (`patchSheet.ts`, `outputInspector.ts`,
   `patchCapacity.ts`), not inside components, so they are testable without
   rendering.
+
+### Slice 48 removals (C5)
+
+`event/BusesDrawer` and `event/BusSection` are deleted: groups and DCAs belong to a desk
+now and are edited as columns on Desk Routing (patterns.md §2, C3), so the Rig bar's
+*Buses* button and the phone's *Groups & DCAs* overflow row went with them.
+`BusMultiSelect` stays — the Inputs row editor still uses it, fed the channel's own desk's
+mains, groups, DCAs and mute groups. The console card's recorder is a `Spec`, never a typed
+count, on a real model (§`ui/GearList`, B3).

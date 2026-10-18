@@ -5,6 +5,7 @@ import { getEvent } from '../api/events'
 import { formatEventDates } from '../lib/dashboard'
 import { AudioInputsTab } from '../components/event/AudioInputsTab'
 import { AudioOutputsTab } from '../components/event/AudioOutputsTab'
+import { DeskRoutingTab } from '../components/event/DeskRoutingTab'
 import { EquipmentTab } from '../components/event/EquipmentTab'
 import { LightingTab } from '../components/event/LightingTab'
 import { OverviewTab } from '../components/event/OverviewTab'
@@ -27,6 +28,8 @@ function renderSection(section: MobileSection['section'], eventId: number, readO
       return <OverviewTab eventId={eventId} readOnly={readOnly} />
     case 'audio-inputs':
       return <AudioInputsTab eventId={eventId} readOnly={readOnly} />
+    case 'desk-routing':
+      return <DeskRoutingTab eventId={eventId} readOnly={readOnly} />
     case 'audio-outputs':
       return <AudioOutputsTab eventId={eventId} readOnly={readOnly} />
     case 'lighting-rig':
@@ -137,6 +140,7 @@ export function EventDetailPage() {
         <TabList className="print:hidden">
           <Tab value="overview">Overview</Tab>
           <Tab value="audio-inputs">Audio Inputs</Tab>
+          <Tab value="desk-routing">Desk Routing</Tab>
           <Tab value="audio-outputs">Audio Outputs</Tab>
           <Tab value="lighting-rig">Lighting Rig</Tab>
           <Tab value="stage-plots">Stage Plots</Tab>
@@ -148,6 +152,7 @@ export function EventDetailPage() {
 
         <TabPanel value="overview"><OverviewTab eventId={eventId} readOnly={readOnly} /></TabPanel>
         <TabPanel value="audio-inputs"><AudioInputsTab eventId={eventId} readOnly={readOnly} /></TabPanel>
+        <TabPanel value="desk-routing"><DeskRoutingTab eventId={eventId} readOnly={readOnly} /></TabPanel>
         <TabPanel value="audio-outputs"><AudioOutputsTab eventId={eventId} readOnly={readOnly} /></TabPanel>
         <TabPanel value="lighting-rig"><LightingTab eventId={eventId} readOnly={readOnly} /></TabPanel>
         <TabPanel value="stage-plots"><StagePlotTab eventId={eventId} readOnly={readOnly} /></TabPanel>

@@ -109,12 +109,12 @@ export function devicePorts(device: OutputDevice): { inputs: PortRef[]; outputs:
  * desk's own routing, never a cable) and a real cable leaves the out side.
  * The stagebox's shape on this graph, mirrored.
  */
-export function consoleLocalPorts(desk: Console): { inputs: PortRef[]; outputs: PortRef[] } {
+export function consoleLocalPorts(desk: Console, count: number = desk.local_output_count): { inputs: PortRef[]; outputs: PortRef[] } {
   // Distinct labels per side (Slice 24) — the mirror of the input graph's. An
   // output arrives from the desk on the in side; the real cable leaves the out
   // side, which keeps the "local out" wording the sheets already use.
   const make = (direction: 'in' | 'out', prefix: string) =>
-    Array.from({ length: desk.local_output_count }, (_, i) => ({
+    Array.from({ length: count }, (_, i) => ({
       kind: 'console_local' as const,
       id: desk.id,
       port: i,
@@ -396,4 +396,18 @@ export function isStageMultiVisibleInOutputGraph(stageMulti: StageMulti, cables:
       (cable.from_kind === 'stage_multi' && cable.from_id === stageMulti.id) ||
       (cable.to_kind === 'stage_multi' && cable.to_id === stageMulti.id),
   )
+}
+
+/**
+ * How many jacks the desk's panel draws: its count, or more when a cable is
+ * still on a jack a model switch took away (Slice 47 D9). Those are kept and
+ * drawn flagged over; no new cable can reach one, the server refuses it.
+ */
+export function localJackCount(desk: Console, cables: { from_kind: string; from_id: number; from_port: number; to_kind: string; to_id: number; to_port: number }[]): number {
+  let highest = -1
+  for (const cable of cables) {
+    if (cable.from_kind === 'console_local' && cable.from_id === desk.id) highest = Math.max(highest, cable.from_port)
+    if (cable.to_kind === 'console_local' && cable.to_id === desk.id) highest = Math.max(highest, cable.to_port)
+  }
+  return Math.max(desk.local_output_count, highest + 1)
 }

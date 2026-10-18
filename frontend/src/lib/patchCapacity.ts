@@ -1,4 +1,5 @@
-import type { Console, InputCable, OutputCable, StageMulti, Stagebox } from '../types'
+import type { Console, DeskModel, InputCable, InputChannel, OutputCable, StageMulti, Stagebox } from '../types'
+import { deskLabel, isOver, poolCapacity, poolUsage } from './deskStrips'
 
 /** One box's declared size against what the patch actually uses. */
 export interface BoxUsage {
@@ -19,6 +20,43 @@ export interface PatchStatus {
   gaps: string[]
   /** Non-empty when a desk's declared count is exceeded (research.md R15). */
   overCapacity: string[]
+  /** Rows on no desk (Slice 47); the strip ends with their count, which selects them. */
+  deskless?: number
+}
+
+/** The desk a sheet is showing, with its model (Slice 47). */
+export interface SelectedDesk {
+  console: Console
+  model: DeskModel
+}
+
+/**
+ * One desk's strip fragment and over lines, counted in strips (Slice 47):
+ * "FOH · M32 Live · 30/32 ch · 4/8 aux". An X32 stereo row is two strips, an
+ * LV1 one; today's row count would let 32 rows with four stereo channels pass
+ * as 32 of 32. Generic keeps today's wording and its 0-means-undeclared rule.
+ */
+export function deskInputCapacity(desk: SelectedDesk, channels: InputChannel[]): { label: string; overCapacity: string[] } {
+  const name = deskLabel(desk.console, desk.model)
+  const used = poolUsage(desk.model, channels, 'channel')
+  const capacity = poolCapacity(desk.model, desk.console, 'channel')
+  const parts = [capacity > 0 ? `${used}/${capacity} ch` : `${used} ch`]
+  const overCapacity: string[] = []
+  const over = overCapacityLine(name, used, capacity, 'channel')
+  if (over) overCapacity.push(over)
+  if (desk.model.aux_in > 0) {
+    const aux = poolUsage(desk.model, channels, 'aux')
+    parts.push(`${aux}/${desk.model.aux_in} aux`)
+    const auxOver = overCapacityLine(name, aux, desk.model.aux_in, 'aux input')
+    if (auxOver) overCapacity.push(auxOver)
+  }
+  // A row past its pool's end puts the strip in the over state even when the total
+  // fits — the desk has room, but not where that row is (B2).
+  const overRows = channels.filter((channel) => isOver(desk.model, desk.console, channel))
+  if (overCapacity.length === 0 && overRows.length > 0) {
+    overCapacity.push(`${overRows.length} ${overRows.length === 1 ? 'channel is' : 'channels are'} past the end of ${name} — give ${overRows.length === 1 ? 'it' : 'them'} a free strip`)
+  }
+  return { label: `${name} · ${parts.join(' · ')}`, overCapacity }
 }
 
 export type PatchStatusState = 'complete' | 'gaps' | 'over'
@@ -116,7 +154,10 @@ export function consoleCapacity(
  * assembly and the wording, which is the part that drifts.
  */
 export function inputPatchStatus(input: {
-  channels: { console_id?: number }[]
+  channels: InputChannel[]
+  /** When set, `channels` are that desk's and the strip states only it (B6). */
+  desk?: SelectedDesk
+  deskless?: number
   /** The channels the chain says have no source, in row order. */
   gaps: { channel_number: number; channel_name?: string }[]
   consoles: Console[]
@@ -124,13 +165,16 @@ export function inputPatchStatus(input: {
   stageMultis: StageMulti[]
   cables: InputCable[]
 }): PatchStatus {
-  const capacity = consoleCapacity(
-    input.consoles,
-    (desk) => input.channels.filter((channel) => channel.console_id === desk.id).length,
-    (desk) => desk.input_count,
-    'channel',
-  )
+  const capacity = input.desk
+    ? (({ label, overCapacity }) => ({ labels: [label], overCapacity }))(deskInputCapacity(input.desk, input.channels))
+    : consoleCapacity(
+        input.consoles,
+        (desk) => input.channels.filter((channel) => channel.console_id === desk.id).length,
+        (desk) => desk.input_count,
+        'channel',
+      )
   return {
+    deskless: input.deskless,
     rowCount: input.channels.length,
     consoleLabels: capacity.labels,
     boxes: boxUsage(input.stageboxes, input.stageMultis, input.cables),
@@ -142,6 +186,9 @@ export function inputPatchStatus(input: {
 
 export function outputPatchStatus(input: {
   outputs: { console_id?: number }[]
+  /** When set, `outputs` are that desk's: no model caps outputs, so it is named and counted only. */
+  desk?: SelectedDesk
+  deskless?: number
   /** The outputs the chain says are not patched, in row order. */
   gaps: { output_number: number; output_name?: string }[]
   consoles: Console[]
@@ -149,13 +196,18 @@ export function outputPatchStatus(input: {
   stageMultis: StageMulti[]
   cables: OutputCable[]
 }): PatchStatus {
-  const capacity = consoleCapacity(
-    input.consoles,
-    (desk) => input.outputs.filter((output) => output.console_id === desk.id).length,
-    (desk) => desk.output_count,
-    'output',
-  )
+  const capacity = input.desk
+    ? input.desk.model.engine === 'generic'
+      ? consoleCapacity([input.desk.console], () => input.outputs.length, (desk) => desk.output_count, 'output')
+      : { labels: [`${deskLabel(input.desk.console, input.desk.model)} · ${input.outputs.length} out`], overCapacity: [] }
+    : consoleCapacity(
+        input.consoles,
+        (desk) => input.outputs.filter((output) => output.console_id === desk.id).length,
+        (desk) => desk.output_count,
+        'output',
+      )
   return {
+    deskless: input.deskless,
     rowCount: input.outputs.length,
     consoleLabels: capacity.labels,
     boxes: boxUsage(input.stageboxes, input.stageMultis, input.cables),

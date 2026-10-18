@@ -166,7 +166,7 @@ func DeleteStageMulti(db *sql.DB, id int64) error {
 	return tx.Commit()
 }
 
-const inputChannelColumns = `id, event_id, channel_number, COALESCE(channel_name, ''), COALESCE(color, ''), width, mixer_behavior, COALESCE(notes, ''), console_id`
+const inputChannelColumns = `id, event_id, channel_number, COALESCE(channel_name, ''), COALESCE(color, ''), width, mixer_behavior, COALESCE(notes, ''), console_id, strip_pool`
 
 func ListInputChannels(db *sql.DB, eventID int64) ([]domain.InputChannel, error) {
 	rows, err := db.Query(`SELECT `+inputChannelColumns+` FROM input_channels WHERE event_id = ? ORDER BY channel_number ASC, id ASC`, eventID)
@@ -185,17 +185,12 @@ func ListInputChannels(db *sql.DB, eventID int64) ([]domain.InputChannel, error)
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	groupsByInput, err := loadInputGroupIDs(db, eventID)
-	if err != nil {
-		return nil, err
-	}
-	dcasByInput, err := loadInputDCAIDs(db, eventID)
+	mixesByChannel, err := ChannelMixIDs(db, eventID)
 	if err != nil {
 		return nil, err
 	}
 	for i := range items {
-		items[i].GroupIDs = nonNilIDs(groupsByInput[items[i].ID])
-		items[i].DCAIDs = nonNilIDs(dcasByInput[items[i].ID])
+		items[i].MixIDs = nonNilIDs(mixesByChannel[items[i].ID])
 	}
 	return items, nil
 }
@@ -206,12 +201,11 @@ func GetInputChannel(db *sql.DB, id int64) (domain.InputChannel, error) {
 	if err != nil {
 		return domain.InputChannel{}, err
 	}
-	if channel.GroupIDs, err = listOneInputBusIDs(db, `SELECT group_id FROM audio_input_groups WHERE input_id = ? ORDER BY group_id`, id); err != nil {
+	mixes, err := ChannelMixIDs(db, channel.EventID)
+	if err != nil {
 		return domain.InputChannel{}, err
 	}
-	if channel.DCAIDs, err = listOneInputBusIDs(db, `SELECT dca_id FROM audio_input_dcas WHERE input_id = ? ORDER BY dca_id`, id); err != nil {
-		return domain.InputChannel{}, err
-	}
+	channel.MixIDs = nonNilIDs(mixes[id])
 	return channel, nil
 }
 
@@ -230,28 +224,28 @@ func CreateInputChannel(db *sql.DB, channel domain.InputChannel) (domain.InputCh
 			consoleID = defaultID
 		}
 	}
-	result, err := tx.Exec(`INSERT INTO input_channels (event_id, channel_number, channel_name, color, width, mixer_behavior, notes, console_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		channel.EventID, channel.ChannelNumber, nullString(channel.ChannelName), nullString(channel.Color), channel.Width, channel.MixerBehavior, nullString(channel.Notes), nullInt64(consoleID))
+	result, err := tx.Exec(`INSERT INTO input_channels (event_id, channel_number, channel_name, color, width, mixer_behavior, notes, console_id, strip_pool) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		channel.EventID, channel.ChannelNumber, nullString(channel.ChannelName), nullString(channel.Color), channel.Width, channel.MixerBehavior, nullString(channel.Notes), nullInt64(consoleID), stripPoolOrChannel(channel.StripPool))
 	if err != nil {
 		return domain.InputChannel{}, fmt.Errorf("create input channel: %w", err)
 	}
 	id, _ := result.LastInsertId()
 
-	// Nil GroupIDs means the payload had no opinion: new channels default to
-	// the event's built-in LR group. An explicit array (even empty) is kept.
-	groupIDs := channel.GroupIDs
-	if groupIDs == nil {
-		lr, err := lrGroupID(tx, channel.EventID)
-		if err != nil {
+	// Nil MixIDs means the payload had no opinion: a new channel joins its
+	// desk's Main LR (Slice 48, user 2026-10-18). A channel on no desk has no
+	// routes at all.
+	if consoleID != nil {
+		mixIDs := channel.MixIDs
+		if mixIDs == nil {
+			lr, err := MainLRID(tx, *consoleID)
+			if err != nil {
+				return domain.InputChannel{}, err
+			}
+			mixIDs = []int64{lr}
+		}
+		if err := replaceChannelMixes(tx, channel.EventID, consoleID, id, mixIDs); err != nil {
 			return domain.InputChannel{}, err
 		}
-		groupIDs = []int64{lr}
-	}
-	if err := replaceInputGroups(tx, id, groupIDs); err != nil {
-		return domain.InputChannel{}, err
-	}
-	if err := replaceInputDCAs(tx, id, channel.DCAIDs); err != nil {
-		return domain.InputChannel{}, err
 	}
 	if err := tx.Commit(); err != nil {
 		return domain.InputChannel{}, fmt.Errorf("create input channel: %w", err)
@@ -294,6 +288,12 @@ func consoleIDForUpdate(db *sql.DB, table string, rowID int64, sent *int64) *int
 
 func UpdateInputChannel(db *sql.DB, id int64, channel domain.InputChannel) (domain.InputChannel, error) {
 	consoleID := consoleIDForUpdate(db, "input_channels", id, channel.ConsoleID)
+	before, err := GetInputChannel(db, id)
+	if err != nil {
+		return domain.InputChannel{}, err
+	}
+	previousConsole := before.ConsoleID
+	channel.EventID = before.EventID
 
 	tx, err := db.Begin()
 	if err != nil {
@@ -301,18 +301,35 @@ func UpdateInputChannel(db *sql.DB, id int64, channel domain.InputChannel) (doma
 	}
 	defer tx.Rollback()
 
-	_, err = tx.Exec(`UPDATE input_channels SET channel_number = ?, channel_name = ?, color = ?, width = ?, mixer_behavior = ?, notes = ?, console_id = ? WHERE id = ?`,
-		channel.ChannelNumber, nullString(channel.ChannelName), nullString(channel.Color), channel.Width, channel.MixerBehavior, nullString(channel.Notes), nullInt64(consoleID), id)
+	_, err = tx.Exec(`UPDATE input_channels SET channel_number = ?, channel_name = ?, color = ?, width = ?, mixer_behavior = ?, notes = ?, console_id = ?, strip_pool = ? WHERE id = ?`,
+		channel.ChannelNumber, nullString(channel.ChannelName), nullString(channel.Color), channel.Width, channel.MixerBehavior, nullString(channel.Notes), nullInt64(consoleID), stripPoolOrChannel(channel.StripPool), id)
 	if err != nil {
 		return domain.InputChannel{}, fmt.Errorf("update input channel: %w", err)
 	}
-	// Updates replace the membership sets wholesale (nil clears too — the
-	// row's full state travels with every PATCH, like all other fields).
-	if err := replaceInputGroups(tx, id, channel.GroupIDs); err != nil {
-		return domain.InputChannel{}, err
-	}
-	if err := replaceInputDCAs(tx, id, channel.DCAIDs); err != nil {
-		return domain.InputChannel{}, err
+	// A channel that changes desk leaves every route on the old one — they
+	// were that desk's mixes — and joins the new desk's Main LR. Otherwise the
+	// kinds its row edits are replaced as sent (nil clears too: the row's full
+	// state travels with every PATCH).
+	switch {
+	case consoleID == nil:
+		if err := clearPortRoutes(tx, domain.PortChannel, id); err != nil {
+			return domain.InputChannel{}, err
+		}
+	case previousConsole == nil || *previousConsole != *consoleID:
+		if err := clearPortRoutes(tx, domain.PortChannel, id); err != nil {
+			return domain.InputChannel{}, err
+		}
+		lr, err := MainLRID(tx, *consoleID)
+		if err != nil {
+			return domain.InputChannel{}, err
+		}
+		if err := replaceChannelMixes(tx, channel.EventID, consoleID, id, []int64{lr}); err != nil {
+			return domain.InputChannel{}, err
+		}
+	default:
+		if err := replaceChannelMixes(tx, channel.EventID, consoleID, id, channel.MixIDs); err != nil {
+			return domain.InputChannel{}, err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return domain.InputChannel{}, fmt.Errorf("update input channel: %w", err)
@@ -333,6 +350,9 @@ func DeleteInputChannel(db *sql.DB, id int64) error {
 	if _, err := tx.Exec(`DELETE FROM input_cables WHERE to_kind = 'channel' AND to_id = ?`, id); err != nil {
 		return fmt.Errorf("clear input channel cables: %w", err)
 	}
+	if err := clearPortRoutes(tx, domain.PortChannel, id); err != nil {
+		return err
+	}
 	if err := clearStagePlotLinksTo(tx, "input_channel", id); err != nil {
 		return err
 	}
@@ -345,7 +365,7 @@ func DeleteInputChannel(db *sql.DB, id int64) error {
 func scanInputChannel(row scanner) (domain.InputChannel, error) {
 	var item domain.InputChannel
 	var consoleID sql.NullInt64
-	if err := row.Scan(&item.ID, &item.EventID, &item.ChannelNumber, &item.ChannelName, &item.Color, &item.Width, &item.MixerBehavior, &item.Notes, &consoleID); err != nil {
+	if err := row.Scan(&item.ID, &item.EventID, &item.ChannelNumber, &item.ChannelName, &item.Color, &item.Width, &item.MixerBehavior, &item.Notes, &consoleID, &item.StripPool); err != nil {
 		return domain.InputChannel{}, fmt.Errorf("scan input channel: %w", err)
 	}
 	if consoleID.Valid {
@@ -399,7 +419,17 @@ func CreateAudioPatchOutput(db *sql.DB, output domain.AudioPatchOutput) (domain.
 
 func UpdateAudioPatchOutput(db *sql.DB, id int64, output domain.AudioPatchOutput) (domain.AudioPatchOutput, error) {
 	consoleID := consoleIDForUpdate(db, "audio_patch_outputs", id, output.ConsoleID)
-	_, err := db.Exec(`UPDATE audio_patch_outputs SET output_number = ?, output_name = ?, output_type = ?, color = ?, width = ?, notes = ?, console_id = ? WHERE id = ?`,
+	// An output that changes desk loses its Fed by: it named the old desk's mix.
+	before, err := GetAudioPatchOutput(db, id)
+	if err != nil {
+		return domain.AudioPatchOutput{}, err
+	}
+	if before.ConsoleID == nil || consoleID == nil || *before.ConsoleID != *consoleID {
+		if _, err := db.Exec(`DELETE FROM desk_routes WHERE dst_kind = 'output' AND dst_id = ?`, id); err != nil {
+			return domain.AudioPatchOutput{}, fmt.Errorf("clear fed by: %w", err)
+		}
+	}
+	_, err = db.Exec(`UPDATE audio_patch_outputs SET output_number = ?, output_name = ?, output_type = ?, color = ?, width = ?, notes = ?, console_id = ? WHERE id = ?`,
 		output.OutputNumber, nullString(output.OutputName), output.OutputType, nullString(output.Color), output.Width, nullString(output.Notes), nullInt64(consoleID), id)
 	if err != nil {
 		return domain.AudioPatchOutput{}, fmt.Errorf("update audio output: %w", err)
@@ -408,6 +438,10 @@ func UpdateAudioPatchOutput(db *sql.DB, id int64, output domain.AudioPatchOutput
 }
 
 func DeleteAudioPatchOutput(db *sql.DB, id int64) error {
+	// Its Fed by is a route naming it, which has no foreign key to cascade.
+	if err := clearPortRoutes(db, domain.PortOutput, id); err != nil {
+		return err
+	}
 	_, err := db.Exec(`DELETE FROM audio_patch_outputs WHERE id = ?`, id)
 	if err != nil {
 		return fmt.Errorf("delete audio output: %w", err)
@@ -948,4 +982,11 @@ func scanAudioOutput(row scanner) (domain.AudioPatchOutput, error) {
 		item.ConsoleID = &consoleID.Int64
 	}
 	return item, nil
+}
+
+func stripPoolOrChannel(pool string) string {
+	if pool == "" {
+		return domain.PoolChannel
+	}
+	return pool
 }

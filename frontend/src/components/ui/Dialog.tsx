@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { X } from 'lucide-react'
 import { useEscapeToClose } from '../../hooks/useEscapeToClose'
 import { cn } from '../../lib/utils'
 
@@ -7,6 +8,12 @@ interface DialogProps {
   onClose: () => void
   title: string
   children: ReactNode
+  /**
+   * Pinned below the body that scrolls (design/components.md §ui/Dialog, A1), so
+   * the action stays on screen however long the body is. Callers without one are
+   * unchanged: their buttons are the body's last child.
+   */
+  footer?: ReactNode
   className?: string
 }
 
@@ -24,7 +31,7 @@ interface DialogProps {
  * way whichever anchor it has. A dialog taller than the viewport used to
  * overflow off both ends with no way to reach either.
  */
-export function Dialog({ open, onClose, title, children, className }: DialogProps) {
+export function Dialog({ open, onClose, title, children, footer, className }: DialogProps) {
   useEscapeToClose(open, onClose)
 
   if (!open) return null
@@ -40,11 +47,18 @@ export function Dialog({ open, onClose, title, children, className }: DialogProp
       >
         <div className="flex flex-none items-center justify-between border-b border-zinc-800 px-5 py-4">
           <h3 className="text-lg font-semibold text-zinc-100">{title}</h3>
-          <button className="text-zinc-400 hover:text-zinc-100" onClick={onClose} type="button">
-            ×
+          {/* 44 px on a phone, as the Sheet's close is (A2): it is the control pressed to back out. */}
+          <button
+            aria-label="Close"
+            className="-mr-3 flex h-11 w-11 flex-none items-center justify-center rounded-md text-zinc-400 transition-colors hover:text-zinc-100 md:-mr-2 md:h-8 md:w-8"
+            onClick={onClose}
+            type="button"
+          >
+            <X className="h-5 w-5 md:h-4 md:w-4" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        {footer && <div className="flex flex-none flex-wrap items-center justify-end gap-2 border-t border-zinc-800 px-5 py-3">{footer}</div>}
       </div>
     </div>
   )

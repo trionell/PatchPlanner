@@ -99,7 +99,7 @@ func TestInputChannelIndependentOfSource(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("GET audio-patch: status %d body %s", status, raw)
 	}
-	patch := decodeJSON[busPatchResponse](t, raw)
+	patch := decodeJSON[audioPatchResponse](t, raw)
 	if len(patch.InputChannels) != 1 || patch.InputChannels[0].ChannelName != "Lead Vocal" || patch.InputChannels[0].Color != "#3b82f6" {
 		t.Errorf("channel not updated: %+v", patch.InputChannels)
 	}

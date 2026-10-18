@@ -38,8 +38,8 @@ function emptyPatch(overrides: Partial<AudioPatchResponse> = {}): AudioPatchResp
   return {
     stageboxes: [],
     stage_multis: [],
-    groups: [],
-    dcas: [],
+    mixes: [],
+    routes: [],
     input_sources: [],
     input_channels: [],
     input_devices: [],

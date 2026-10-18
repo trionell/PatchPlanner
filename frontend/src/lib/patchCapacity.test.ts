@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Console, InputCable, StageMulti, Stagebox } from '../types'
+import type { Console, InputCable, InputChannel, StageMulti, Stagebox } from '../types'
 import { boxUsage, cablesPicked, inputPatchStatus, outputPatchStatus, overCapacityLine, patchStatusState, type PatchStatus } from './patchCapacity'
 
 const stagebox: Stagebox = { id: 1, event_id: 1, name: 'SB1', model: '', input_count: 32, output_count: 16, connection_type: 'dante', position_x: 0, position_y: 0, input_position_x: 0, input_position_y: 0 }
@@ -91,7 +91,7 @@ describe('inputPatchStatus / outputPatchStatus', () => {
 
   it('words an input gap the way the strip has always worded it', () => {
     const status = inputPatchStatus({
-      channels: [{ console_id: 1 }, { console_id: 1 }],
+      channels: [{ console_id: 1 }, { console_id: 1 }] as InputChannel[],
       gaps: [{ channel_number: 16, channel_name: 'Playback L/R' }],
       consoles: [desk],
       stageboxes: [],
@@ -105,7 +105,7 @@ describe('inputPatchStatus / outputPatchStatus', () => {
 
   it('collapses the double space an unnamed channel used to leave', () => {
     const status = inputPatchStatus({
-      channels: [{}],
+      channels: [{}] as InputChannel[],
       gaps: [{ channel_number: 4 }],
       consoles: [],
       stageboxes: [],
@@ -131,7 +131,7 @@ describe('inputPatchStatus / outputPatchStatus', () => {
   it('reports a desk the patch has outgrown', () => {
     const small = { ...desk, input_count: 1 }
     const status = inputPatchStatus({
-      channels: [{ console_id: 1 }, { console_id: 1 }],
+      channels: [{ console_id: 1 }, { console_id: 1 }] as InputChannel[],
       gaps: [],
       consoles: [small],
       stageboxes: [],

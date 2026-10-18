@@ -10,7 +10,8 @@ import (
 const consoleColumns = `id, event_id, name, role, inventory_item_id, owned_item_id,
 	input_count, output_count, local_input_count, local_output_count,
 	position_x, position_y, input_position_x, input_position_y,
-	local_position_x, local_position_y, local_input_position_x, local_input_position_y`
+	local_position_x, local_position_y, local_input_position_x, local_input_position_y,
+	desk_model, bus_mode, recorder, recorder_tracks`
 
 func scanConsole(row scanner) (domain.Console, error) {
 	var console domain.Console
@@ -18,7 +19,8 @@ func scanConsole(row scanner) (domain.Console, error) {
 	if err := row.Scan(&console.ID, &console.EventID, &console.Name, &console.Role, &invID, &ownedID,
 		&console.InputCount, &console.OutputCount, &console.LocalInputCount, &console.LocalOutputCount,
 		&console.PositionX, &console.PositionY, &console.InputPositionX, &console.InputPositionY,
-		&console.LocalPositionX, &console.LocalPositionY, &console.LocalInputPositionX, &console.LocalInputPositionY); err != nil {
+		&console.LocalPositionX, &console.LocalPositionY, &console.LocalInputPositionX, &console.LocalInputPositionY,
+		&console.DeskModel, &console.BusMode, &console.Recorder, &console.RecorderTracks); err != nil {
 		return domain.Console{}, err
 	}
 	if invID.Valid {
@@ -90,28 +92,40 @@ func CreateConsole(db *sql.DB, console domain.Console) (domain.Console, error) {
 	result, err := db.Exec(`INSERT INTO event_consoles
 		(event_id, name, role, inventory_item_id, owned_item_id, input_count, output_count, local_input_count, local_output_count,
 		 position_x, position_y, input_position_x, input_position_y,
-		 local_position_x, local_position_y, local_input_position_x, local_input_position_y)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 local_position_x, local_position_y, local_input_position_x, local_input_position_y,
+		 desk_model, bus_mode)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		console.EventID, console.Name, console.Role, nullInt64(console.InventoryItemID), nullInt64(console.OwnedItemID),
 		console.InputCount, console.OutputCount, console.LocalInputCount, console.LocalOutputCount,
 		console.PositionX, console.PositionY, console.InputPositionX, console.InputPositionY,
-		console.LocalPositionX, console.LocalPositionY, console.LocalInputPositionX, console.LocalInputPositionY)
+		console.LocalPositionX, console.LocalPositionY, console.LocalInputPositionX, console.LocalInputPositionY,
+		deskModelOrGeneric(console.DeskModel), console.BusMode)
 	if err != nil {
 		return domain.Console{}, fmt.Errorf("create console: %w", err)
 	}
 	id, _ := result.LastInsertId()
-	return GetConsole(db, id)
+	created, err := GetConsole(db, id)
+	if err != nil {
+		return domain.Console{}, err
+	}
+	// Every desk has its mains from the moment it exists (Slice 48 D3).
+	if err := EnsureDeskMains(db, created); err != nil {
+		return domain.Console{}, err
+	}
+	return created, nil
 }
 
 func UpdateConsole(db *sql.DB, id int64, console domain.Console) (domain.Console, error) {
 	_, err := db.Exec(`UPDATE event_consoles SET name = ?, role = ?, inventory_item_id = ?, owned_item_id = ?,
 		input_count = ?, output_count = ?, local_input_count = ?, local_output_count = ?,
 		position_x = ?, position_y = ?, input_position_x = ?, input_position_y = ?,
-		local_position_x = ?, local_position_y = ?, local_input_position_x = ?, local_input_position_y = ? WHERE id = ?`,
+		local_position_x = ?, local_position_y = ?, local_input_position_x = ?, local_input_position_y = ?,
+		desk_model = ?, bus_mode = ? WHERE id = ?`,
 		console.Name, console.Role, nullInt64(console.InventoryItemID), nullInt64(console.OwnedItemID),
 		console.InputCount, console.OutputCount, console.LocalInputCount, console.LocalOutputCount,
 		console.PositionX, console.PositionY, console.InputPositionX, console.InputPositionY,
-		console.LocalPositionX, console.LocalPositionY, console.LocalInputPositionX, console.LocalInputPositionY, id)
+		console.LocalPositionX, console.LocalPositionY, console.LocalInputPositionX, console.LocalInputPositionY,
+		deskModelOrGeneric(console.DeskModel), console.BusMode, id)
 	if err != nil {
 		return domain.Console{}, fmt.Errorf("update console: %w", err)
 	}
@@ -233,4 +247,13 @@ func DefaultConsoleID(db *sql.DB, eventID int64) (*int64, error) {
 		return nil, nil
 	}
 	return &id, nil
+}
+
+// deskModelOrGeneric keeps a caller that predates Slice 47 — a test fixture,
+// CreateEvent's console — from writing an empty model.
+func deskModelOrGeneric(key string) string {
+	if key == "" {
+		return domain.DeskModelGeneric
+	}
+	return key
 }

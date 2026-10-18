@@ -21,6 +21,7 @@ func NewRouter(db *sql.DB, auth AuthConfig) http.Handler {
 		InventoriesHandler{DB: db}.Register(r)
 		ReferenceTemplateHandler{DB: db}.Register(r)
 		PricingHandler{DB: db}.Register(r)
+		r.Get("/desk-models", listDeskModels)
 
 		r.Route("/inventories/{inventoryID}", func(ir chi.Router) {
 			ir.Use(middleware.RequireInventoryOwner(db))

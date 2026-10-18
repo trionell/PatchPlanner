@@ -1,16 +1,32 @@
 export const API_BASE = '/api/v1'
 const BASE = API_BASE
 
+/**
+ * A failed request. `body` keeps the server's JSON so a refusal can carry more
+ * than its sentence — a strip refusal's one-click fix (Slice 47).
+ */
+export class ApiError extends Error {
+  status: number
+  body: unknown
+  constructor(message: string, status: number, body: unknown) {
+    super(message)
+    this.status = status
+    this.body = body
+  }
+}
+
 async function parseResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     let message = `Request failed with status ${response.status}`
+    let body: unknown
     try {
-      const data = (await response.json()) as { error?: string }
+      body = await response.json()
+      const data = body as { error?: string }
       if (data.error) message = data.error
     } catch {
       // no-op
     }
-    throw new Error(message)
+    throw new ApiError(message, response.status, body)
   }
   if (response.status === 204) {
     return undefined as T

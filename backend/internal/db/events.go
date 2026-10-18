@@ -158,10 +158,6 @@ func CreateEvent(db *sql.DB, event domain.Event, ownerUserID, inventoryID int64)
 	if err != nil {
 		return domain.Event{}, fmt.Errorf("event last insert id: %w", err)
 	}
-	// Every event carries the built-in LR main group from birth.
-	if _, err := tx.Exec(`INSERT INTO mixer_groups (event_id, name, is_builtin) VALUES (?, 'LR', 1)`, id); err != nil {
-		return domain.Event{}, fmt.Errorf("seed LR group: %w", err)
-	}
 	// And one console, unnamed with no item and no declared capacity (Slice
 	// 23) — the same state migration 042 backfilled onto every existing
 	// event, so the new-event and migrated-event paths are identical. It adds
@@ -171,9 +167,15 @@ func CreateEvent(db *sql.DB, event domain.Event, ownerUserID, inventoryID int64)
 	// The rail positions are named rather than left to the schema's zeroes: since
 	// Slice 37 both canvases draw a rail where its columns say, and (0, 0) is on top of
 	// the node beside it. Same constants CreateConsole falls back to.
-	if _, err := tx.Exec(`INSERT INTO event_consoles (event_id, name, role, position_x, position_y, input_position_x, input_position_y)
-		VALUES (?, '', 'foh', ?, ?, ?, ?)`, id, busRailDefaultX, railDefaultY, channelRailDefaultX, railDefaultY); err != nil {
+	seeded, err := tx.Exec(`INSERT INTO event_consoles (event_id, name, role, position_x, position_y, input_position_x, input_position_y)
+		VALUES (?, '', 'foh', ?, ?, ?, ?)`, id, busRailDefaultX, railDefaultY, channelRailDefaultX, railDefaultY)
+	if err != nil {
 		return domain.Event{}, fmt.Errorf("seed console: %w", err)
+	}
+	// With its mains, as every desk has from birth (Slice 48 D3).
+	consoleID, _ := seeded.LastInsertId()
+	if err := ensureDeskMains(tx, domain.Console{ID: consoleID, EventID: id, DeskModel: domain.DeskModelGeneric}); err != nil {
+		return domain.Event{}, err
 	}
 	// The event's vocabulary starts as a one-time snapshot of the
 	// creator's current personal template — a flat copy with no
