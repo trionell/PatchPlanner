@@ -192,8 +192,10 @@ func TestPlaceRows(t *testing.T) {
 		t.Errorf("free placing has lines: %+v", free.Lines)
 	}
 	taken := PlaceRows(existing, []domain.StripRow{ch(50, 5, "mono", "Z")}, to)
-	if r := rowByID(t, taken, 50); r.ToNumber != 6 {
-		t.Errorf("Z on %d, want 6", r.ToNumber)
+	existingGap := append(monoRun(2, 5), ch(9, 9, "mono", "x"))
+	taken = PlaceRows(existingGap, []domain.StripRow{ch(50, 5, "mono", "Z")}, to)
+	if r := rowByID(t, taken, 50); r.ToNumber != 1 {
+		t.Errorf("Z on %d, want the lowest free strip, 1", r.ToNumber)
 	}
 	if line(taken, WordMoved, "1 channel moves") == nil {
 		t.Errorf("no Moved line: %+v", taken.Lines)
@@ -205,5 +207,18 @@ func TestPlaceRows(t *testing.T) {
 	aux := PlaceRows(nil, []domain.StripRow{{ID: 7, Number: 2, Width: "mono", Pool: domain.PoolAux, Name: "A"}}, side(t, "m32", 0))
 	if r := rowByID(t, aux, 7); r.ToPool != domain.PoolChannel {
 		t.Errorf("placing put a row on aux: %+v", r)
+	}
+}
+
+// A row past the end moves up into room after the row above it rather than
+// being left out of a desk with space for it.
+func TestMapRowsCompactsIntoRoom(t *testing.T) {
+	rows := []domain.StripRow{ch(1, 1, "mono", "A"), ch(2, 2, "mono", "B"), ch(3, 40, "mono", "C")}
+	m := MapRows(rows, LocalUse{}, side(t, "generic", 48), side(t, "x32", 0))
+	if r := rowByID(t, m, 3); r.Over || r.ToNumber != 3 {
+		t.Errorf("C = %+v, want strip 3", r)
+	}
+	if line(m, WordLeftOut, "") != nil {
+		t.Errorf("Left out on a desk with room: %+v", m.Lines)
 	}
 }

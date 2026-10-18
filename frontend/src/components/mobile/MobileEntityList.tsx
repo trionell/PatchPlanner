@@ -1,6 +1,8 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Pencil, Plus } from 'lucide-react'
 import { MobilePanel, type PanelAction } from '../ui/MobilePanel'
+import { Button } from '../ui/Button'
+import { MicroLabel } from '../ui/Label'
 import { CondensedListRow } from './CondensedListRow'
 
 export interface MobileEntityRow {
@@ -10,6 +12,21 @@ export interface MobileEntityRow {
   name: string
   subtitle: string
   color?: string
+  /** Which section the row is listed in, when the list has sections (Slice 47: X32 Channels / Aux in). */
+  section?: string
+  /** Past its pool's end: the number in red with the word *over* (B2). */
+  over?: boolean
+  /** On no desk: the number in grey, unchecked (B4). */
+  muted?: boolean
+}
+
+/** A run of rows under a heading with its own count, and its own add where it has one. */
+export interface MobileListSection {
+  key: string
+  label: string
+  fill: string
+  empty: string
+  action?: { label: string; onClick: () => void }
 }
 
 /**
@@ -45,12 +62,15 @@ export function MobileEntityList({
   search,
   onSearch,
   notice,
+  sections,
   children,
 }: {
   /** The surface's name, repeated in the bar (patterns.md §1) — or, for a per-desk list, the desk picker (B6). */
   title: ReactNode
   /** Above the rows: a refusal, the moved-row line, the No desk note (Slice 47). */
   notice?: ReactNode
+  /** Rows listed in these sections, in this order; rows name theirs in `section`. */
+  sections?: MobileListSection[]
   items: MobileEntityRow[]
   onSelect: (id: number) => void
   onAdd?: () => void
@@ -138,12 +158,31 @@ export function MobileEntityList({
       {children ?? (
         <>
       {notice && <div className="space-y-2 px-3 py-2.5">{notice}</div>}
-      {visible.map((item) => (
+      {(sections ?? [undefined]).map((section) => {
+        const rows = section ? visible.filter((item) => item.section === section.key) : visible
+        return (
+          <div key={section?.key ?? 'all'}>
+            {section && (
+              <div className="flex min-h-11 items-center gap-2 border-b border-zinc-800/60 px-3">
+                <MicroLabel>{section.label}</MicroLabel>
+                <span className="font-mono text-[10px] tabular-nums text-zinc-500">{section.fill}</span>
+                {section.action && !readOnly && (
+                  <Button variant="outline" className="ml-auto h-11 px-3 text-sm" onClick={section.action.onClick}>
+                    {section.action.label}
+                  </Button>
+                )}
+              </div>
+            )}
+            {section && rows.length === 0 && <p className="px-3 py-2.5 text-sm text-zinc-500">{section.empty}</p>}
+            {rows.map((item) => (
         <CondensedListRow
           key={item.id}
           title={
             <>
-              <span className="mr-1.5 font-mono text-xs tabular-nums text-amber-400">{item.number}</span>
+              <span className={`mr-1.5 font-mono text-xs tabular-nums ${item.over ? 'text-red-400' : item.muted ? 'text-zinc-500' : 'text-amber-400'}`}>
+                {item.number}
+                {item.over && <span className="ml-1 text-[10px]">over</span>}
+              </span>
               {item.name}
             </>
           }
@@ -168,6 +207,9 @@ export function MobileEntityList({
           trailing={!readOnly && <Pencil className="h-4 w-4 text-zinc-500" />}
         />
       ))}
+          </div>
+        )
+      })}
       {visible.length === 0 && (
         <p className="px-3 py-3 text-sm text-zinc-500">
           {items.length > 0 ? 'No matches.' : filtered ? 'Nothing left to fix — tap the strip to show everything.' : emptyLabel}

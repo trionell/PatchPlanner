@@ -79,7 +79,7 @@ export function MobileOutputEditSheet({
           width: output.width,
           notes,
           // See MobileChannelEditSheet: carry the desk rather than clearing it.
-          console_id: output.console_id,
+          console_id: consoleId,
         })
       } else {
         const nextNumber = Math.max(0, ...outputs.filter((o) => o.console_id === consoleId).map((o) => o.output_number)) + 1

@@ -50,6 +50,15 @@ describe('strip counting', () => {
     expect(status.consoleLabels).toEqual(['FOH · M32 Live · 3/32 ch · 1/8 aux'])
     expect(status.deskless).toBe(2)
   })
+
+  it('goes over when a row is past the end even though the total fits', () => {
+    const status = inputPatchStatus({
+      channels: [ch(1), ch(40)],
+      desk: { console: desk, model: M32 },
+      gaps: [], consoles: [desk], stageboxes: [], stageMultis: [], cables: [],
+    })
+    expect(status.overCapacity[0]).toContain('1 channel is past the end of FOH · M32 Live')
+  })
 })
 
 describe('resolveDeskSelection', () => {

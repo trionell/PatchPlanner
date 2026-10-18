@@ -76,5 +76,5 @@
 
 - [x] 9.1 `cd frontend && npx tsc -b && npx eslint src && npx vitest run && npx vite build` and the backend gates (validator)
 - [x] 9.2 Real data (API-level on a scratchpad copy; no browser walk — sign-in needs Google): copy `backend/patchplanner.db` to `/tmp`, `PATCHPLANNER_DB=…`, switch the wedding's M23R to M32R and check the preview and result in the browser; a two-desk event lists one desk at a time
-- [ ] 9.3 `reviewer` against the specs and the mockup; fix what it finds
+- [x] 9.3 `reviewer` against the specs and the mockup; fix what it finds
 - [ ] 9.4 Record Slice 47 in `ROADMAP.md` (with 48 and 49 depending on it); archive the change before any merge (merge is the user's call)

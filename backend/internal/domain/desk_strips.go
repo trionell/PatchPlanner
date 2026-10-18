@@ -241,3 +241,9 @@ type LocalUse struct {
 	Inputs  []JackUse
 	Outputs []JackUse
 }
+
+// LowestFreeStrip is the lowest legal free strip for a row of this width in a
+// pool, or false when the pool has none.
+func LowestFreeStrip(model DeskModel, pool, width, mixerBehavior string, others []StripRow) (int, bool) {
+	return lowestFree(model, model.PoolCapacity(pool, 0), model.StripWidth(width, mixerBehavior), occupancy(model, pool, others, 0), 1)
+}

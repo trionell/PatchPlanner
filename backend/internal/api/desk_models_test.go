@@ -5,6 +5,9 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/trionell/patchplanner/internal/db"
 
 	"github.com/trionell/patchplanner/internal/domain"
 	"github.com/trionell/patchplanner/internal/service"
@@ -177,8 +180,16 @@ func TestStripChecksOnAnM32(t *testing.T) {
 func TestOverRowStaysEditable(t *testing.T) {
 	f, desk := newDeskFixture(t)
 	f.switchTo(desk, "lv1_64", true)
+	for n := 1; n <= 32; n++ {
+		f.mustAddChannel(map[string]any{"channel_number": n})
+	}
 	far := f.mustAddChannel(map[string]any{"channel_number": 40, "channel_name": "Ambience"})
 	f.switchTo(desk, "m32", true)
+	for _, channel := range f.channelList() {
+		if channel.ID == far.ID {
+			far = channel
+		}
+	}
 
 	far.ChannelName = "Ambience L"
 	status, raw := doJSON(t, http.MethodPatch, fmt.Sprintf("%s/%d", f.channels, far.ID), far)
@@ -254,15 +265,94 @@ func TestPlaceDesklessRows(t *testing.T) {
 	preview := decodeJSON[struct {
 		Mapping service.Mapping `json:"mapping"`
 	}](t, raw).Mapping
-	if len(preview.Rows) != 1 || preview.Rows[0].ToNumber != 6 || len(preview.Lines) == 0 || preview.Lines[0].Word != service.WordMoved {
+	if len(preview.Rows) != 1 || preview.Rows[0].ToNumber != 1 || len(preview.Lines) == 0 || preview.Lines[0].Word != service.WordMoved {
 		t.Fatalf("place preview = %+v", preview)
 	}
 	if status, raw = doJSON(t, http.MethodPost, placeURL, map[string]any{"apply": true}); status != http.StatusOK {
 		t.Fatalf("place: %d %s", status, raw)
 	}
 	for _, channel := range f.channelList() {
-		if channel.ID == kick.ID && (channel.ConsoleID == nil || *channel.ConsoleID != first.ID || channel.ChannelNumber != 6) {
+		if channel.ID == kick.ID && (channel.ConsoleID == nil || *channel.ConsoleID != first.ID || channel.ChannelNumber != 1) {
 			t.Errorf("Kick after placing = %+v", channel)
+		}
+	}
+}
+
+// Placing outputs never takes the deskless channels with it.
+func TestPlaceOutputsLeavesChannels(t *testing.T) {
+	f, first := newDeskFixture(t)
+	status, raw := doJSON(t, http.MethodPost, f.consoles, map[string]any{"name": "Mon", "desk_model": "generic"})
+	if status != http.StatusCreated {
+		t.Fatalf("POST console: %d %s", status, raw)
+	}
+	second := decodeJSON[domain.Console](t, raw)
+	kick := f.mustAddChannel(map[string]any{"channel_number": 3, "channel_name": "Kick", "console_id": second.ID})
+	outputs := fmt.Sprintf("%s/events/%d/audio-outputs", f.base, f.eventID)
+	status, raw = doJSON(t, http.MethodPost, outputs, map[string]any{"output_number": 1, "output_type": "foh", "console_id": second.ID})
+	if status != http.StatusCreated {
+		t.Fatalf("POST output: %d %s", status, raw)
+	}
+	out := decodeJSON[domain.AudioPatchOutput](t, raw)
+	if status, raw := doJSON(t, http.MethodDelete, fmt.Sprintf("%s/%d", f.consoles, second.ID), nil); status != http.StatusOK {
+		t.Fatalf("delete desk: %d %s", status, raw)
+	}
+	if status, raw := doJSON(t, http.MethodPost, fmt.Sprintf("%s/%d/place", f.consoles, first.ID), map[string]any{"output_ids": []int64{out.ID}, "apply": true}); status != http.StatusOK {
+		t.Fatalf("place outputs: %d %s", status, raw)
+	}
+	for _, channel := range f.channelList() {
+		if channel.ID == kick.ID && channel.ConsoleID != nil {
+			t.Errorf("placing an output moved Kick onto desk %d", *channel.ConsoleID)
+		}
+	}
+}
+
+func TestBusModePatch(t *testing.T) {
+	f, desk := newDeskFixture(t)
+	f.switchTo(desk, "lv1_80", true)
+	status, raw := doJSON(t, http.MethodPatch, fmt.Sprintf("%s/%d", f.consoles, desk.ID), map[string]any{"bus_mode": "monitors"})
+	if status != http.StatusOK || decodeJSON[domain.Console](t, raw).BusMode != "monitors" {
+		t.Errorf("bus mode on an LV1 80: %d %s", status, raw)
+	}
+	f.switchTo(desk, "lv1_64", true)
+	if status, raw := doJSON(t, http.MethodPatch, fmt.Sprintf("%s/%d", f.consoles, desk.ID), map[string]any{"bus_mode": "groups"}); status != http.StatusBadRequest {
+		t.Errorf("bus mode on an LV1 64: %d %s, want 400", status, raw)
+	}
+}
+
+// A viewer never meets the switch: the middleware refuses its writes.
+func TestViewerCannotSwitchOrPlace(t *testing.T) {
+	server, database := newTestServer(t)
+	eventID := seedEvent(t, server.URL)
+	owner, err := db.UpsertUserByGoogleSub(database, "test-google-sub", "test@example.com", "Test User", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	viewer, err := db.UpsertUserByGoogleSub(database, "viewer-sub", "viewer@example.com", "Viewer", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.UpsertEventMembership(database, eventID, viewer.ID, "viewer", owner.ID); err != nil {
+		t.Fatal(err)
+	}
+	token, err := db.CreateSession(database, viewer.ID, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := clientForSession(t, server.URL, token)
+	consoles, err := db.ListConsoles(database, eventID)
+	if err != nil || len(consoles) == 0 {
+		t.Fatalf("consoles: %v", err)
+	}
+	for _, action := range []string{"switch", "place"} {
+		request, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/events/%d/consoles/%d/%s", server.URL, eventID, consoles[0].ID, action), jsonBody(t, map[string]any{"desk_model": "m32"}))
+		request.Header.Set("Content-Type", "application/json")
+		response, err := client.Do(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = response.Body.Close()
+		if response.StatusCode != http.StatusForbidden {
+			t.Errorf("viewer %s: %d, want 403", action, response.StatusCode)
 		}
 	}
 }

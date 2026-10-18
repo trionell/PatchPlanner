@@ -33,7 +33,10 @@ export function MobileChannelEditSheet({
   consoles,
   models,
   deskId,
+  onMoved,
 }: {
+  /** Called when a save moves the channel to another desk, with B7's line. */
+  onMoved?: (line: { text: string; deskId: number; deskName: string }) => void
   eventId: number
   consoles: Console[]
   models: DeskModel[]
@@ -120,6 +123,9 @@ export function MobileChannelEditSheet({
         for (const data of ops.cablesToCreate) await createInputCable(eventId, data)
       }
 
+      if (channel && desk && consoleId !== channel.console_id) {
+        onMoved?.({ text: `${name || 'The channel'} is now on ${deskLabel(desk, deskModelOf(models, desk))}.`, deskId: desk.id, deskName: desk.name || 'that desk' })
+      }
       await queryClient.invalidateQueries({ queryKey: ['audio-patch', eventId] })
       await queryClient.invalidateQueries({ queryKey: ['rental-summary', eventId] })
       await onSaved()
@@ -163,6 +169,7 @@ export function MobileChannelEditSheet({
             >
               Use {fix.pool === 'aux' ? 'Aux ' : ''}
               {fix.number}
+              {(channel?.width === 'stereo' && desk && deskModelOf(models, desk).engine === 'x32') ? `–${fix.number + 1}` : ''}
             </Button>
           )}
         </div>

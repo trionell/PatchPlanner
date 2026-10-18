@@ -83,13 +83,17 @@ mapping for the preview plus a server one for the apply — the two would disagr
 **Algorithm.** Rows sorted by (pool, number, id). Cursor per pool starts at 1. For each row:
 `n = max(row.number, cursor)`; on x32 a stereo row bumps an even `n` to the next odd; width is 2 for
 x32 stereo, else 1. If `n + width − 1 ≤ capacity`, place it and advance the cursor; otherwise it is
-left out: `n = max(row.number, lastPlacedEnd + 1)`, flagged over. Pool changes: x32 → lv1/generic
+moved up to the next legal strip after the row above it if that fits (review, 2026-10-18:
+a desk with room must not leave a row out), and only otherwise kept at
+`max(row.number, lastPlacedEnd + 1)`, flagged over. The status strip is over whenever any row
+is over, even when the total fits. Pool changes: x32 → lv1/generic
 appends aux rows after the last channel row; a non-x32 desk switched to x32 puts every row in
 `channel`; x32 → x32 keeps each row's pool. `mixer_behavior`
 is set to `linked_channels` on x32 and `stereo_channel` on lv1; generic leaves it. "Fits again" is a
 row that was over before and is placed after. "Changed: names" uses `NameLength` (12 on x32; LV1 has
 none). For `place`, existing rows on the desk are fixed occupants and the cursor rule is replaced by
-"own number if free, else lowest free, else past the end".
+"own number if free, else lowest free, else past the end". Outputs are placed only when named,
+and channels only when named or when nothing is (review, 2026-10-18).
 
 ### D5. Strip checks on channel create and update
 

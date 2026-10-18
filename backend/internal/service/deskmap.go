@@ -128,11 +128,21 @@ func MapRows(rows []domain.StripRow, jacks LocalUse, from, to DeskSide) Mapping 
 		if pool != row.Pool {
 			number = cursor[pool]
 		}
-		n := max(number, cursor[pool])
-		if to.Model.Engine == domain.EngineX32 && w == 2 && n%2 == 0 {
-			n++
+		bump := func(n int) int {
+			if to.Model.Engine == domain.EngineX32 && w == 2 && n%2 == 0 {
+				return n + 1
+			}
+			return n
 		}
+		n := bump(max(number, cursor[pool]))
 		capacity := to.capacity(pool)
+		// A row past the last strip is not left out while there is room after the
+		// row above it: it moves up into the next free strip, keeping the order.
+		if capacity > 0 && n+w-1 > capacity {
+			if up := bump(cursor[pool]); up+w-1 <= capacity {
+				n = up
+			}
+		}
 		over := capacity > 0 && n+w-1 > capacity
 		cursor[pool] = n + w
 
@@ -336,8 +346,8 @@ func PlaceRows(existing, incoming []domain.StripRow, to DeskSide) Mapping {
 		if to.Model.Engine == domain.EngineGeneric {
 			// Generic checks nothing: the row keeps its number.
 		} else if refusal := domain.CheckStrip("", to.Model, candidate, occupants); refusal != nil {
-			if fix := refusal.Fix; fix != nil {
-				n = fix.Number
+			if free, ok := domain.LowestFreeStrip(to.Model, domain.PoolChannel, candidate.Width, mb, occupants); ok {
+				n = free
 			} else {
 				n = max(row.Number, highest+1, capacity+1)
 				over = true

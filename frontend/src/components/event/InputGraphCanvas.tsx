@@ -1588,8 +1588,9 @@ function LocalJackNode({ x, y, desk, cables, pendingPort, onPortClick, onPortPoi
           key={inPort.port}
           inPort={inPort}
           outPort={outputs[index]}
+          label={String(inPort.port + 1)}
           // Past the model's count: kept from before a switch, and said so (B2).
-          label={inPort.port < desk.local_input_count ? String(inPort.port + 1) : `${inPort.port + 1} over`}
+          over={inPort.port >= desk.local_input_count}
           wiring={wiring}
         />
       ))}

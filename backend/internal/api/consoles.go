@@ -345,8 +345,12 @@ func (h AudioPatchHandler) placeOnConsole(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	// Channels move only when asked for, or when nothing at all was named: an
+	// outputs-only placing must not take the deskless channels with it.
 	incoming := deskless
-	if len(payload.ChannelIDs) > 0 {
+	if len(payload.ChannelIDs) == 0 && len(payload.OutputIDs) > 0 {
+		incoming = nil
+	} else if len(payload.ChannelIDs) > 0 {
 		incoming = incoming[:0:0]
 		for _, row := range deskless {
 			if slices.Contains(payload.ChannelIDs, row.ID) {

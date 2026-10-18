@@ -79,6 +79,8 @@ interface InputSheetProps {
   onAddAux?: () => void
   /** What + Channel / + Aux was refused with, inline above the rows. */
   addRefusal?: SheetRefusal
+  /** Bumped by every add: the next action clears the moved-row line (B7). */
+  actionCount?: number
 }
 
 /**
@@ -114,6 +116,7 @@ export function InputSheet({
   onShowDesk,
   onAddAux,
   addRefusal,
+  actionCount = 0,
 }: InputSheetProps) {
   const queryClient = useQueryClient()
   const [gapsOnly, setGapsOnly] = useState(false)
@@ -124,6 +127,11 @@ export function InputSheet({
   const [rowRefusal, setRowRefusal] = useState<{ id: number; refusal: SheetRefusal } | null>(null)
   /* B7: one line where a row that left this list went; the next action clears it. */
   const [moved, setMoved] = useState<{ text: string; deskId: number; deskName: string } | null>(null)
+  const [seenActions, setSeenActions] = useState(actionCount)
+  if (seenActions !== actionCount) {
+    setSeenActions(actionCount)
+    setMoved(null)
+  }
   const deskless = !desk
   const modelOf = (target: Pick<Console, 'desk_model' | 'bus_mode'>) => deskModelOf(models, target)
 
@@ -211,7 +219,7 @@ export function InputSheet({
                 message: error.message,
                 fix: fix
                   ? {
-                      label: `Use ${fix.pool === 'aux' ? 'Aux ' : ''}${fix.number}`,
+                      label: `Use ${fixLabel(fix, draft, (() => { const target = consoles.find((candidate) => candidate.id === draft.console_id); return target ? modelOf(target) : undefined })())}`,
                       apply: () => editor.setDraft({ ...draft, channel_number: fix.number, strip_pool: fix.pool }),
                     }
                   : undefined,
@@ -289,7 +297,7 @@ export function InputSheet({
             <tr>{COLUMNS.map((column) => <SheetHeadCell key={column}>{column}</SheetHeadCell>)}</tr>
           </SheetHead>
           <SheetBody>
-            {sectionsOf(visible, desk).map((section) => (
+            {sectionsOf(visible, channels, desk).map((section) => (
               <Fragment key={section.pool}>
                 {section.heading && (
                   <SheetRow className="hover:bg-transparent">
@@ -303,7 +311,7 @@ export function InputSheet({
                           </Button>
                         )}
                       </div>
-                      {section.rows.length === 0 && <p className="pt-1 text-xs text-zinc-500">No aux inputs used.</p>}
+                      {section.pool === 'aux' && section.rows.length === 0 && <p className="pt-1 text-xs text-zinc-500">No aux inputs used.</p>}
                     </SheetCell>
                   </SheetRow>
                 )}
@@ -529,10 +537,17 @@ interface SheetSection<Row> {
   rows: Row[]
 }
 
+/** "5–6" for a stereo pair on X32 · M32, "Aux 3" on aux: the strip the fix puts the row on. */
+function fixLabel(fix: { number: number; pool: StripPool }, draft: { width: InputChannel['width'] }, model?: DeskModel) {
+  const pair = draft.width === 'stereo' && model?.engine === 'x32'
+  const number = pair ? `${fix.number}–${fix.number + 1}` : `${fix.number}`
+  return fix.pool === 'aux' ? `Aux ${number}` : number
+}
+
 /** X32 · M32 lists Channels then Aux in, each with its own count; every other desk is one run. */
-function sectionsOf<Row extends { channel: InputChannel }>(rows: Row[], desk?: SelectedDesk): SheetSection<Row>[] {
+function sectionsOf<Row extends { channel: InputChannel }>(rows: Row[], channels: InputChannel[], desk?: SelectedDesk): SheetSection<Row>[] {
+  // The counts are the desk's, not the search's: a filter narrows the rows, never the fill.
   if (!desk || desk.model.aux_in === 0) return [{ pool: 'channel', rows }]
-  const channels = rows.map((row) => row.channel)
   const fill = (pool: StripPool) => `${poolUsage(desk.model, channels.filter((c) => poolOf(c) === pool), pool)}/${poolCapacity(desk.model, desk.console, pool)}`
   return [
     { pool: 'channel', heading: 'Channels', fill: fill('channel'), rows: rows.filter((row) => poolOf(row.channel) === 'channel') },

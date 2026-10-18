@@ -7,7 +7,7 @@ import { ApiError } from '../../api/client'
 import { useDeskModels } from '../../hooks/useDeskModels'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { useSelectedDesk } from '../../hooks/useSelectedDesk'
-import { deskLabel, isOver, orderChannels, poolCapacity, poolUsage, stripLabel } from '../../lib/deskStrips'
+import { deskLabel, isOver, orderChannels, poolCapacity, poolOf, poolUsage, stripLabel } from '../../lib/deskStrips'
 import type { SelectedDesk } from '../../lib/patchCapacity'
 import { usePatchView } from '../../hooks/usePatchView'
 import { buildMobileChannelList } from '../../lib/mobileChannelList'
@@ -18,6 +18,7 @@ import type { InputChannel, InventoryItem, OwnedItem, StripPool, StripRefusal } 
 import { DeskSelector } from './DeskSelector'
 import { DesklessNote } from './DesklessNote'
 import { RefusalNotice } from './RefusalNotice'
+import { Button } from '../ui/Button'
 import { MobilePicker } from '../mobile/MobilePicker'
 import type { SheetRefusal } from './RefusalNotice'
 import { MobileChannelEditSheet } from '../mobile/MobileChannelEditSheet'
@@ -163,9 +164,13 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
     return { desk, label: `${deskLabel(desk, model)} ${capacity > 0 ? `${used}/${capacity}` : used}` }
   })
   const [addRefusal, setAddRefusal] = useState<SheetRefusal | undefined>()
+  const [actionCount, setActionCount] = useState(0)
+  /* B7 on the phone: the sheet closes on save, so the line is the tab's. */
+  const [movedLine, setMovedLine] = useState<{ text: string; deskId: number; deskName: string } | null>(null)
   // A refusal belongs to the desk it was raised on.
   const setDeskSelection = (next: typeof deskSelection) => {
     setAddRefusal(undefined)
+    setMovedLine(null)
     selectDesk(next)
   }
 
@@ -174,16 +179,44 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
     [allAudioItems, cableItems, standItems, micItems],
   )
 
+  /* + Channel adds to the selected desk, with no question, at the number the server
+     suggests; a full pool is refused there, in words that name the desk. */
+  const addToDesk = (pool: StripPool) => {
+    setAddRefusal(undefined)
+    setActionCount((n) => n + 1)
+    if (!selectedConsole) {
+      setAddRefusal({ message: 'A channel is added to a desk, and this event has none yet. Add the desk in Rig first.', fix: readOnly ? undefined : { label: 'Open Rig', apply: () => setDrawer('rig') } })
+      return
+    }
+    addChannelMutation.mutate(
+      { channel_number: 0, width: 'mono', mixer_behavior: 'stereo_channel', console_id: selectedConsole.id, strip_pool: pool },
+      { onError: (error) => setAddRefusal({ message: error instanceof ApiError ? ((error.body as StripRefusal | undefined)?.error ?? error.message) : error.message }) },
+    )
+  }
+  const addChannel = () => addToDesk('channel')
+
   if (isMobile) {
     const listed = buildMobileChannelList(orderChannels(listedChannels), { sources, devices, stageboxes, stageMultis, cables, itemLabelById })
     const byId = new Map(listedChannels.map((channel) => [channel.id, channel]))
     /* The number reads as the desk prints it, aux and over included (B2); grey on No desk. */
     const numberOf = (id: number, fallback: number) => {
       const channel = byId.get(id)
-      if (!channel || !selectedDesk) return fallback
-      const label = stripLabel(selectedDesk.model, channel)
-      return isOver(selectedDesk.model, selectedDesk.console, channel) ? `${label} over` : label
+      return channel && selectedDesk ? stripLabel(selectedDesk.model, channel) : fallback
     }
+    const overOf = (id: number) => {
+      const channel = byId.get(id)
+      return !!channel && !!selectedDesk && isOver(selectedDesk.model, selectedDesk.console, channel)
+    }
+    const sections =
+      selectedDesk && selectedDesk.model.aux_in > 0
+        ? (['channel', 'aux'] as const).map((pool) => ({
+            key: pool,
+            label: pool === 'channel' ? 'Channels' : 'Aux in',
+            fill: `${poolUsage(selectedDesk.model, listedChannels, pool)}/${poolCapacity(selectedDesk.model, selectedDesk.console, pool)}`,
+            empty: pool === 'aux' ? 'No aux inputs used.' : 'No channels yet.',
+            action: pool === 'aux' && !readOnly ? { label: '+ Aux', onClick: () => addToDesk('aux') } : undefined,
+          }))
+        : undefined
     const deskOptions = [
       ...deskEntries.map((entry) => ({ id: entry.desk.id, label: deskLabel(entry.desk, modelOf(entry.desk)), hint: entry.label.split(' ').at(-1) })),
       ...(desklessChannels.length > 0 ? [{ id: 'none' as const, label: 'No desk', hint: String(desklessChannels.length) }] : []),
@@ -207,6 +240,9 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
       .map((item) => ({
         id: item.id,
         number: numberOf(item.id, item.channelNumber),
+        over: overOf(item.id),
+        muted: !selectedDesk,
+        section: poolOf(byId.get(item.id) ?? { strip_pool: 'channel' }),
         name: item.name,
         subtitle: `${item.sourceLabel} · ${item.routingLabel}`,
         color: item.color,
@@ -230,10 +266,19 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
       <div className="flex min-h-0 flex-1 flex-col print:hidden">
         <MobileEntityList
           title={title}
+          sections={view === 'sheet' ? sections : undefined}
           notice={
-            (addRefusal || !selectedDesk) && view === 'sheet' ? (
+            (addRefusal || movedLine || !selectedDesk) && view === 'sheet' ? (
               <>
                 {addRefusal && <RefusalNotice refusal={addRefusal} />}
+                {movedLine && (
+                  <p className="flex flex-wrap items-center gap-2 text-sm text-zinc-300">
+                    {movedLine.text}
+                    <Button variant="outline" className="h-11 px-3 text-sm" onClick={() => setDeskSelection(movedLine.deskId)}>
+                      Show {movedLine.deskName}
+                    </Button>
+                  </p>
+                )}
                 {!selectedDesk && (
                   <DesklessNote
                     eventId={eventId}
@@ -323,7 +368,10 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
           }
           items={items}
           filtered={gapsOnly}
-          onSelect={setEditingChannelId}
+          onSelect={(id) => {
+            setMovedLine(null)
+            setEditingChannelId(id)
+          }}
           /* No primary action in Flow (Slice 36 FR-022): `＋` adds a **row**, Flow has no
              rows, and a channel added where it cannot be cabled reaches nothing until
              someone is at a desk. The Sheet view is one tap away and has the control. */
@@ -332,7 +380,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
               ? undefined
               : () => {
                   if (!selectedConsole) {
-                    setAddRefusal({ message: 'A channel is added to a desk, and this event has none yet. Add the desk in Rig first.' })
+                    setAddRefusal({ message: 'A channel is added to a desk, and this event has none yet. Add the desk in Rig first.', fix: readOnly ? undefined : { label: 'Open Rig', apply: () => setDrawer('rig') } })
                     return
                   }
                   setEditingChannelId('new')
@@ -394,6 +442,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
             consoles={consoles}
             models={models}
             deskId={selectedConsole?.id}
+            onMoved={setMovedLine}
             readOnly={readOnly}
             channel={editingChannel}
             sources={sources}
@@ -476,20 +525,6 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
     setView('flow')
   }
 
-  /* + Channel adds to the selected desk, with no question, at the number the server
-     suggests; a full pool is refused there, in words that name the desk. */
-  const addToDesk = (pool: StripPool) => {
-    setAddRefusal(undefined)
-    if (!selectedConsole) {
-      setAddRefusal({ message: 'A channel is added to a desk, and this event has none yet. Add the desk in Rig first.', fix: readOnly ? undefined : { label: 'Open Rig', apply: () => setDrawer('rig') } })
-      return
-    }
-    addChannelMutation.mutate(
-      { channel_number: 0, width: 'mono', mixer_behavior: 'stereo_channel', console_id: selectedConsole.id, strip_pool: pool },
-      { onError: (error) => setAddRefusal({ message: error instanceof ApiError ? ((error.body as StripRefusal | undefined)?.error ?? error.message) : error.message }) },
-    )
-  }
-  const addChannel = () => addToDesk('channel')
 
   return (
     <>
@@ -502,7 +537,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
         onSearchChange={setSearch}
         onOpenRig={readOnly ? undefined : () => setDrawer('rig')}
         onOpenBuses={readOnly ? undefined : () => setDrawer('buses')}
-        onAdd={readOnly || deskSelection === 'none' ? undefined : addChannel}
+        onAdd={readOnly || (deskSelection === 'none' && consoles.length > 0) ? undefined : addChannel}
         deskSelector={<DeskSelector entries={deskEntries} deskless={desklessChannels.length} selection={deskSelection} onSelect={setDeskSelection} />}
         toolbarExtras={
           view === 'flow' ? (
@@ -556,6 +591,8 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
       >
         {view === 'sheet' ? (
           <InputSheet
+            key={String(deskSelection)}
+            actionCount={actionCount}
             eventId={eventId}
             channels={listedChannels}
             desk={selectedDesk}

@@ -342,7 +342,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
               ? undefined
               : () => {
                   if (!selectedConsole) {
-                    setAddRefusal({ message: 'An output comes off a desk, and this event has none yet. Add the desk in Rig first.' })
+                    setAddRefusal({ message: 'An output comes off a desk, and this event has none yet. Add the desk in Rig first.', fix: readOnly ? undefined : { label: 'Open Rig', apply: () => setRigOpen(true) } })
                     return
                   }
                   setEditingOutputId('new')
@@ -449,7 +449,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
         search={search}
         onSearchChange={setSearch}
         onOpenRig={readOnly ? undefined : () => setRigOpen(true)}
-        onAdd={readOnly || deskSelection === 'none' ? undefined : addOutputRow}
+        onAdd={readOnly || (deskSelection === 'none' && consoles.length > 0) ? undefined : addOutputRow}
         deskSelector={<DeskSelector entries={deskEntries} deskless={desklessOutputs.length} selection={deskSelection} onSelect={setDeskSelection} />}
         toolbarExtras={
           view === 'flow' ? (
@@ -495,6 +495,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
       >
         {view === 'sheet' ? (
           <OutputSheet
+            key={String(deskSelection)}
             eventId={eventId}
             outputs={listedOutputs}
             desk={selectedDesk}
@@ -1776,8 +1777,9 @@ function LocalJackNode({ x, y, desk, cables, pendingPort, onPortClick, onPortPoi
           key={inPort.port}
           inPort={inPort}
           outPort={outputs[index]}
+          label={String(inPort.port + 1)}
           // Past the model's count: kept from before a switch, and said so (B2).
-          label={inPort.port < desk.local_output_count ? String(inPort.port + 1) : `${inPort.port + 1} over`}
+          over={inPort.port >= desk.local_output_count}
           wiring={wiring}
         />
       ))}

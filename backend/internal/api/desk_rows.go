@@ -60,6 +60,10 @@ func (h AudioPatchHandler) placeChannel(w http.ResponseWriter, eventID int64, pa
 		return false
 	}
 	model, _ := domain.LookupDeskModel(desk.DeskModel)
+	// Only X32 · M32 has aux; anywhere else a row sent to aux would be counted nowhere.
+	if model.AuxIn == 0 {
+		payload.StripPool = domain.PoolChannel
+	}
 	if forced := model.ForcedMixerBehavior(); forced != "" {
 		payload.MixerBehavior = forced
 	}

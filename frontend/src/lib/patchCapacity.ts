@@ -1,5 +1,5 @@
 import type { Console, DeskModel, InputCable, InputChannel, OutputCable, StageMulti, Stagebox } from '../types'
-import { deskLabel, poolCapacity, poolUsage } from './deskStrips'
+import { deskLabel, isOver, poolCapacity, poolUsage } from './deskStrips'
 
 /** One box's declared size against what the patch actually uses. */
 export interface BoxUsage {
@@ -49,6 +49,12 @@ export function deskInputCapacity(desk: SelectedDesk, channels: InputChannel[]):
     parts.push(`${aux}/${desk.model.aux_in} aux`)
     const auxOver = overCapacityLine(name, aux, desk.model.aux_in, 'aux input')
     if (auxOver) overCapacity.push(auxOver)
+  }
+  // A row past its pool's end puts the strip in the over state even when the total
+  // fits — the desk has room, but not where that row is (B2).
+  const overRows = channels.filter((channel) => isOver(desk.model, desk.console, channel))
+  if (overCapacity.length === 0 && overRows.length > 0) {
+    overCapacity.push(`${overRows.length} ${overRows.length === 1 ? 'channel is' : 'channels are'} past the end of ${name} — give ${overRows.length === 1 ? 'it' : 'them'} a free strip`)
   }
   return { label: `${name} · ${parts.join(' · ')}`, overCapacity }
 }
