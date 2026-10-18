@@ -48,3 +48,25 @@ export function deskLabel(desk: Pick<Console, 'name'>, model: DeskModel): string
   const name = desk.name || 'Console'
   return model.engine === 'generic' ? name : `${name} · ${model.label}`
 }
+
+/** The profile line under a modelled desk's specs (Slice 47 §01). */
+export function profileLine(model: DeskModel): string {
+  const stereo = model.engine === 'x32' ? 'stereo = linked pair' : 'stereo = one strip'
+  if (model.engine === 'x32') return `${model.buses} buses · ${model.matrix} mtx · ${model.dca} DCA · ${model.mute} mute · ${stereo}`
+  const groups = model.groups > 0 ? `${model.groups} groups · ${model.mon} mon · ` : ''
+  return `${groups}${model.fx_aux} fx · ${model.matrix} mtx · ${model.dca} DCA · ${model.mute} mute · ${stereo}`
+}
+
+/**
+ * The model a catalog or owned item names, if it names one unambiguously —
+ * the longest label found in the name, so "Midas M32R Live" is an M32R Live.
+ * An LV1 item says only its family; its licence is not in the name.
+ */
+export function suggestedModel(itemName: string, models: DeskModel[]): { model?: DeskModel; lv1: boolean } {
+  const name = ` ${itemName.toLowerCase()} `
+  const named = models
+    .filter((model) => model.engine === 'x32' && new RegExp(`[^a-z0-9]${model.label.toLowerCase().replace(/ /g, '\\s*')}[^a-z0-9]`).test(name))
+    .sort((a, b) => b.label.length - a.label.length)[0]
+  if (named) return { model: named, lv1: false }
+  return { lv1: /lv1|emotion/i.test(itemName) }
+}

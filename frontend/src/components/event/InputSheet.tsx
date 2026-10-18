@@ -1,6 +1,11 @@
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useMemo, useState, type ReactNode } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { deleteInputCable, deleteInputChannel, updateInputCable, updateInputChannel } from '../../api/audioPatch'
+import { deleteInputCable, deleteInputChannel, placeOnConsole, updateInputCable, updateInputChannel } from '../../api/audioPatch'
+import { ApiError } from '../../api/client'
+import { deskModelOf } from '../../hooks/useDeskModels'
+import { previewHasLines } from '../../lib/deskPreview'
+import { deskLabel, isOver, orderChannels, poolCapacity, poolOf, poolUsage, stripLabel } from '../../lib/deskStrips'
+import type { SelectedDesk } from '../../lib/patchCapacity'
 import { useRowEditor } from '../../hooks/useRowEditor'
 import { isCablelessEdge } from '../../lib/inputGraph'
 import { inputPatchStatus, type PatchStatus } from '../../lib/patchCapacity'
@@ -8,7 +13,9 @@ import { matchesSearch } from '../../lib/patchSearch'
 import { chainSourceNode, inputChainSegments, type ChainCellModel, type SegmentNode } from '../../lib/patchSheet'
 import type { InputFlowContext } from '../../lib/inputSignalFlow'
 import { busTint } from '../../lib/utils'
-import type { Console, InputCable, InputChannel, InputDevice, InputSource, InventoryItem, MixerDCA, MixerGroup, StageMulti, Stagebox } from '../../types'
+import type { Console, DeskMapping, DeskModel, InputCable, InputChannel, InputDevice, InputSource, InventoryItem, MixerDCA, MixerGroup, StageMulti, Stagebox, StripPool, StripRefusal } from '../../types'
+import { Button } from '../ui/Button'
+import { MicroLabel } from '../ui/Label'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { FieldStack } from '../ui/GearList'
 import { Input } from '../ui/Input'
@@ -17,6 +24,8 @@ import { NumCell, PhantomBar, Pill, SheetBody, SheetCell, SheetHead, SheetHeadCe
 import { BusMultiSelect } from './BusMultiSelect'
 import { ChainCell, type HopCable } from './ChainCell'
 import { ColorSelect } from './ColorSelect'
+import { DeskMappingDialog } from './DeskMappingDialog'
+import { RefusalNotice, type SheetRefusal } from './RefusalNotice'
 import { PatchStatusRail } from './PatchStatusRail'
 import { RowEditor } from './RowEditor'
 
@@ -38,6 +47,7 @@ interface ChannelDraft {
    * for Save is what made the two fight each other.
    */
   console_id?: number
+  strip_pool: StripPool
 }
 
 interface InputSheetProps {
@@ -58,6 +68,18 @@ interface InputSheetProps {
   onEditInFlow?: (node: SegmentNode) => void
   onOpenRig?: () => void
   readOnly?: boolean
+  /** The desk this list is (Slice 47, B6); absent on the No desk list and on an event with no desk. */
+  desk?: SelectedDesk
+  models: DeskModel[]
+  /** Rows on no desk across the event, for the strip's amber count. */
+  desklessCount?: number
+  onSelectDeskless?: () => void
+  /** Shows another desk's list — the moved-row line's action (B7). */
+  onShowDesk?: (deskId: number) => void
+  /** + Aux, in the aux heading. Absent for restricted roles. */
+  onAddAux?: () => void
+  /** What + Channel / + Aux was refused with, inline above the rows. */
+  addRefusal?: SheetRefusal
 }
 
 /**
@@ -86,12 +108,26 @@ export function InputSheet({
   onEditInFlow,
   onOpenRig,
   readOnly = false,
+  desk,
+  models,
+  desklessCount = 0,
+  onSelectDeskless,
+  onShowDesk,
+  onAddAux,
+  addRefusal,
 }: InputSheetProps) {
   const queryClient = useQueryClient()
   const [gapsOnly, setGapsOnly] = useState(false)
   /* The channel, never a boolean — the sheet is a list of near-identical numbered
      rows, which is exactly the case a boolean gets wrong. */
   const [pendingChannel, setPendingChannel] = useState<InputChannel | null>(null)
+  /* A save the server refused, held beside the reopened editor with its fix. */
+  const [rowRefusal, setRowRefusal] = useState<{ id: number; refusal: SheetRefusal } | null>(null)
+  /* B7: one line where a row that left this list went; the next action clears it. */
+  const [moved, setMoved] = useState<{ text: string; deskId: number; deskName: string } | null>(null)
+  const [placing, setPlacing] = useState<{ deskId: number; mapping: DeskMapping | null } | null>(null)
+  const deskless = !desk
+  const modelOf = (target: Pick<Console, 'desk_model' | 'bus_mode'>) => deskModelOf(models, target)
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['audio-patch', eventId] })
@@ -99,8 +135,34 @@ export function InputSheet({
   }
   const updateChannel = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Omit<InputChannel, 'id' | 'event_id'> }) => updateInputChannel(eventId, id, data),
-    onSuccess: invalidate,
+    onSuccess: async (saved) => {
+      if (desk && saved.console_id !== desk.console.id) {
+        const target = consoles.find((candidate) => candidate.id === saved.console_id)
+        if (target) {
+          const name = deskLabel(target, modelOf(target))
+          setMoved({ text: `${saved.channel_name || 'The channel'} is now on ${name}, as ${stripLabel(modelOf(target), saved)}.`, deskId: target.id, deskName: target.name || 'that desk' })
+        }
+      }
+      await invalidate()
+    },
   })
+  const placeRows = useMutation({
+    mutationFn: ({ deskId, apply }: { deskId: number; apply: boolean }) => placeOnConsole(eventId, deskId, { apply }),
+  })
+
+  /* Put on <desk>: previewed only when something would move or land over (B4). */
+  const putOn = async (deskId: number) => {
+    setPlacing({ deskId, mapping: null })
+    const preview = await placeRows.mutateAsync({ deskId, apply: false }).catch(() => null)
+    if (!preview) return setPlacing(null)
+    if (!previewHasLines(preview.mapping)) {
+      await placeRows.mutateAsync({ deskId, apply: true })
+      setPlacing(null)
+      await invalidate()
+      return
+    }
+    setPlacing({ deskId, mapping: preview.mapping })
+  }
   const removeChannel = useMutation({ mutationFn: (id: number) => deleteInputChannel(eventId, id), onSuccess: invalidate })
   const setCableItem = useMutation({
     mutationFn: ({ id, cableItemId }: { id: number; cableItemId?: number }) => updateInputCable(eventId, id, cableItemId),
@@ -108,7 +170,7 @@ export function InputSheet({
   })
   const removeCable = useMutation({ mutationFn: (id: number) => deleteInputCable(eventId, id), onSuccess: invalidate })
 
-  const ordered = useMemo(() => [...channels].sort((a, b) => a.channel_number - b.channel_number), [channels])
+  const ordered = useMemo(() => orderChannels(channels), [channels])
   const context: InputFlowContext = { sources, channels, devices, stageboxes, stageMultis, cables, itemLabelById, consoles }
 
   /** One chain model per channel, plus what the row needs derived from it. */
@@ -134,26 +196,70 @@ export function InputSheet({
       dca_ids: channel.dca_ids ?? [],
       notes: channel.notes ?? '',
       console_id: channel.console_id,
+      strip_pool: poolOf(channel),
     }),
-    persist: (channel, draft) =>
-      updateChannel.mutate({
-        id: channel.id,
-        data: {
-          channel_number: draft.channel_number,
-          channel_name: draft.channel_name,
-          width: draft.width,
-          color: draft.color,
-          group_ids: draft.group_ids,
-          dca_ids: draft.dca_ids,
-          notes: draft.notes,
-          console_id: draft.console_id,
-          mixer_behavior: channel.mixer_behavior,
+    persist: (channel, draft) => {
+      setRowRefusal(null)
+      updateChannel.mutate(
+        {
+          id: channel.id,
+          data: {
+            channel_number: draft.channel_number,
+            channel_name: draft.channel_name,
+            width: draft.width,
+            color: draft.color,
+            group_ids: draft.group_ids,
+            dca_ids: draft.dca_ids,
+            notes: draft.notes,
+            console_id: draft.console_id,
+            strip_pool: draft.strip_pool,
+            mixer_behavior: channel.mixer_behavior,
+          },
         },
-      }),
+        {
+          // A refused save reopens the row with what was typed, the refusal and its fix
+          // beside it — the editor closed optimistically, and the planner's work must not.
+          onError: (error) => {
+            const body = error instanceof ApiError ? (error.body as StripRefusal | undefined) : undefined
+            const fix = body?.fix
+            editor.openRow(channel)
+            editor.setDraft(draft)
+            setRowRefusal({
+              id: channel.id,
+              refusal: {
+                message: error.message,
+                fix: fix
+                  ? {
+                      label: `Use ${fix.pool === 'aux' ? 'Aux ' : ''}${fix.number}`,
+                      apply: () => editor.setDraft({ ...draft, channel_number: fix.number, strip_pool: fix.pool }),
+                    }
+                  : undefined,
+              },
+            })
+          },
+        },
+      )
+    },
   })
+
+  /* A row with no desk cannot be saved without one (decided in review). */
+  const saveRow = () => {
+    if (editor.draft && editor.draft.console_id == null && editor.openId != null) {
+      setRowRefusal({ id: editor.openId, refusal: { message: 'Pick the desk this channel is on.' } })
+      return
+    }
+    editor.save()
+  }
+  const openRow = (channel: InputChannel) => {
+    setMoved(null)
+    setRowRefusal(null)
+    editor.openRow(channel)
+  }
 
   const status: PatchStatus = inputPatchStatus({
     channels,
+    desk,
+    deskless: desklessCount,
     gaps: rows.filter((row) => row.chain.hasGap).map((row) => row.channel),
     consoles,
     stageboxes,
@@ -176,21 +282,73 @@ export function InputSheet({
 
   return (
     <>
+      {addRefusal && (
+        <div className="mx-3 mt-3">
+          <RefusalNotice refusal={addRefusal} />
+        </div>
+      )}
+      {moved && (
+        <p className="mx-3 mt-3 flex flex-wrap items-center gap-2 text-xs text-zinc-300">
+          {moved.text}
+          {onShowDesk && (
+            <Button size="xs" variant="outline" onClick={() => { setMoved(null); onShowDesk(moved.deskId) }}>
+              Show {moved.deskName}
+            </Button>
+          )}
+        </p>
+      )}
+      {deskless && channels.length > 0 && (
+        /* B4: a fact about the plan, not an error in it — amber, in the gaps tint. */
+        <div className="mx-3 mt-3 flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/[0.05] px-3 py-2 text-xs text-amber-200">
+          {consoles.length === 0
+            ? 'These channels are on no desk. Add the desk in Rig first.'
+            : `${channels.length === 1 ? 'This channel is' : `These ${channels.length} channels are`} on no desk, and nothing checks ${channels.length === 1 ? 'it' : 'them'} until ${channels.length === 1 ? 'it is' : 'they are'} put on one.`}
+          {!readOnly &&
+            consoles.map((target) => (
+              <Button key={target.id} size="xs" variant="outline" disabled={placeRows.isPending} onClick={() => void putOn(target.id)}>
+                Put on {target.name || 'Console'}
+              </Button>
+            ))}
+          {!readOnly && consoles.length === 0 && onOpenRig && (
+            <Button size="xs" variant="outline" onClick={onOpenRig}>
+              Open Rig
+            </Button>
+          )}
+        </div>
+      )}
       <div className="overflow-x-auto">
         <SheetTable>
           <SheetHead>
             <tr>{COLUMNS.map((column) => <SheetHeadCell key={column}>{column}</SheetHeadCell>)}</tr>
           </SheetHead>
           <SheetBody>
-            {visible.map(({ channel, chain, phantom }, index) => (
+            {sectionsOf(visible, desk).map((section) => (
+              <Fragment key={section.pool}>
+                {section.heading && (
+                  <SheetRow className="hover:bg-transparent">
+                    <SheetCell colSpan={COLUMNS.length} className="pt-3">
+                      <div className="flex items-center gap-2">
+                        <MicroLabel>{section.heading}</MicroLabel>
+                        <span className="font-mono text-[10px] tabular-nums text-zinc-500">{section.fill}</span>
+                        {section.pool === 'aux' && onAddAux && (
+                          <Button size="xs" variant="outline" className="ml-auto" onClick={() => { setMoved(null); onAddAux() }}>
+                            + Aux
+                          </Button>
+                        )}
+                      </div>
+                      {section.rows.length === 0 && <p className="pt-1 text-xs text-zinc-500">No aux inputs used.</p>}
+                    </SheetCell>
+                  </SheetRow>
+                )}
+            {section.rows.map(({ channel, chain, phantom }, index) => (
               <Fragment key={channel.id}>
                 <SheetRow
                   striped={index % 2 === 1}
                   open={editor.openId === channel.id}
                   className={readOnly ? undefined : 'cursor-pointer'}
-                  onClick={readOnly ? undefined : () => editor.openRow(channel)}
+                  onClick={readOnly ? undefined : () => openRow(channel)}
                 >
-                  <NumCell>{channel.channel_number}</NumCell>
+                  <NumberCell channel={channel} desk={desk} />
                   <SheetCell className="whitespace-nowrap text-zinc-100">
                     <TapeBar color={channel.color} />
                     {channel.channel_name || <span className="text-zinc-500">unnamed</span>}
@@ -227,7 +385,8 @@ export function InputSheet({
                     <SheetCell colSpan={COLUMNS.length} className="bg-amber-500/[0.04] pt-0">
                       <RowEditor
                         saveLabel="Save channel"
-                        onSave={editor.save}
+                        onSave={saveRow}
+                        notice={rowRefusal?.id === channel.id ? <RefusalNotice refusal={rowRefusal.refusal} /> : undefined}
                         onCancel={editor.close}
                         onDelete={() => setPendingChannel(channel)}
                         handoff={
@@ -280,24 +439,46 @@ export function InputSheet({
                             onChange={(ids) => editor.setDraft({ ...editor.draft!, dca_ids: ids })}
                           />
                         </FieldStack>
-                        {consoles.length > 1 && (
+                        {(consoles.length > 1 || editor.draft.console_id == null) && (
+                          /* Required, with no "No desk" option: a save cannot take a channel off its desk. */
                           <FieldStack label="Desk" width="default">
                             <Select
                               size="sm"
                               value={editor.draft.console_id ?? ''}
-                              onChange={(event) =>
-                                editor.setDraft({ ...editor.draft!, console_id: event.target.value ? Number(event.target.value) : undefined })
-                              }
+                              onChange={(event) => {
+                                const target = consoles.find((candidate) => candidate.id === Number(event.target.value))
+                                editor.setDraft({
+                                  ...editor.draft!,
+                                  console_id: target?.id,
+                                  strip_pool: target && modelOf(target).aux_in > 0 ? editor.draft!.strip_pool : 'channel',
+                                })
+                              }}
                             >
-                              <option value="">No desk</option>
-                              {consoles.map((desk) => (
-                                <option key={desk.id} value={desk.id}>
-                                  {desk.name || 'Console'}
+                              {editor.draft.console_id == null && <option value="">Pick a desk…</option>}
+                              {consoles.map((option) => (
+                                <option key={option.id} value={option.id}>
+                                  {deskLabel(option, modelOf(option))}
                                 </option>
                               ))}
                             </Select>
                           </FieldStack>
                         )}
+                        {(() => {
+                          const target = consoles.find((candidate) => candidate.id === editor.draft!.console_id)
+                          if (!target || modelOf(target).aux_in === 0) return null
+                          return (
+                            <FieldStack label="Strip" width="short">
+                              <Select
+                                size="sm"
+                                value={editor.draft.strip_pool}
+                                onChange={(event) => editor.setDraft({ ...editor.draft!, strip_pool: event.target.value as StripPool })}
+                              >
+                                <option value="channel">Channel</option>
+                                <option value="aux">Aux in</option>
+                              </Select>
+                            </FieldStack>
+                          )
+                        })()}
                         <FieldStack label="Notes" width="grow">
                           <Input size="sm" value={editor.draft.notes} onChange={(event) => editor.setDraft({ ...editor.draft!, notes: event.target.value })} />
                         </FieldStack>
@@ -305,6 +486,8 @@ export function InputSheet({
                     </SheetCell>
                   </SheetRow>
                 )}
+              </Fragment>
+            ))}
               </Fragment>
             ))}
           </SheetBody>
@@ -317,6 +500,7 @@ export function InputSheet({
       </div>
 
       <PatchStatusRail
+        onShowDeskless={desklessCount > 0 && !deskless ? onSelectDeskless : undefined}
         status={status}
         noun="channel"
         onShowGaps={status.gaps.length > 0 || gapsOnly ? () => setGapsOnly((only) => !only) : undefined}
@@ -352,8 +536,56 @@ export function InputSheet({
           </>
         )}
       </ConfirmDialog>
+
+      <DeskMappingDialog
+        open={placing?.mapping != null}
+        title={`Put on ${consoles.find((candidate) => candidate.id === placing?.deskId)?.name || 'desk'}`}
+        confirmLabel={`Put ${channels.length} on ${consoles.find((candidate) => candidate.id === placing?.deskId)?.name || 'desk'}`}
+        mapping={placing?.mapping ?? null}
+        pending={placeRows.isPending}
+        error={placeRows.error?.message}
+        onCancel={() => setPlacing(null)}
+        onConfirm={async () => {
+          if (!placing) return
+          await placeRows.mutateAsync({ deskId: placing.deskId, apply: true })
+          setPlacing(null)
+          await invalidate()
+        }}
+      />
     </>
   )
+}
+
+/** The number cell: the model's label, grey on No desk, red with "over" past the pool (B2). */
+function NumberCell({ channel, desk }: { channel: InputChannel; desk?: SelectedDesk }) {
+  if (!desk) return <NumCell className="text-zinc-500">{channel.channel_number}</NumCell>
+  const label = stripLabel(desk.model, channel)
+  if (isOver(desk.model, desk.console, channel)) {
+    return (
+      <NumCell className="whitespace-nowrap text-red-400">
+        {label} <span className="font-mono text-[10px]">over</span>
+      </NumCell>
+    )
+  }
+  return <NumCell className="whitespace-nowrap">{label}</NumCell>
+}
+
+interface SheetSection<Row> {
+  pool: StripPool
+  heading?: ReactNode
+  fill?: string
+  rows: Row[]
+}
+
+/** X32 · M32 lists Channels then Aux in, each with its own count; every other desk is one run. */
+function sectionsOf<Row extends { channel: InputChannel }>(rows: Row[], desk?: SelectedDesk): SheetSection<Row>[] {
+  if (!desk || desk.model.aux_in === 0) return [{ pool: 'channel', rows }]
+  const channels = rows.map((row) => row.channel)
+  const fill = (pool: StripPool) => `${poolUsage(desk.model, channels.filter((c) => poolOf(c) === pool), pool)}/${poolCapacity(desk.model, desk.console, pool)}`
+  return [
+    { pool: 'channel', heading: 'Channels', fill: fill('channel'), rows: rows.filter((row) => poolOf(row.channel) === 'channel') },
+    { pool: 'aux', heading: 'Aux in', fill: fill('aux'), rows: rows.filter((row) => poolOf(row.channel) === 'aux') },
+  ]
 }
 
 /** Whether any Source feeding this channel has phantom power switched on. */

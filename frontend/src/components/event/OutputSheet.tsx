@@ -1,31 +1,31 @@
 import { Fragment, useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { deleteAudioOutput, deleteOutputCable, updateAudioOutput, updateOutputCable } from '../../api/audioPatch'
+import { deleteAudioOutput, deleteOutputCable, placeOnConsole, updateAudioOutput, updateOutputCable } from '../../api/audioPatch'
+import { deskModelOf } from '../../hooks/useDeskModels'
+import { deskLabel } from '../../lib/deskStrips'
 import { useReferenceData } from '../../hooks/useReferenceData'
 import { useRowEditor } from '../../hooks/useRowEditor'
 import { isCablelessToKind } from '../../lib/outputGraph'
-import { outputPatchStatus, type PatchStatus } from '../../lib/patchCapacity'
+import { outputPatchStatus, type PatchStatus, type SelectedDesk } from '../../lib/patchCapacity'
 import { matchesSearch } from '../../lib/patchSearch'
 import { vocabularyTint } from '../../lib/vocabularyTint'
 import { outputChainSegments, type ChainCellModel, type SegmentNode } from '../../lib/patchSheet'
 import type { OutputFlowContext } from '../../lib/signalFlow'
-import type { AudioPatchOutput, Console, InventoryItem, OutputCable, OutputDevice, StageMulti, Stagebox } from '../../types'
+import type { AudioPatchOutput, Console, DeskModel, InventoryItem, OutputCable, OutputDevice, StageMulti, Stagebox } from '../../types'
+import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { FieldStack } from '../ui/GearList'
 import { Input } from '../ui/Input'
-import { MicroLabel } from '../ui/Label'
 import { Select } from '../ui/Select'
 import { NumCell, Pill, SheetBody, SheetCell, SheetHead, SheetHeadCell, SheetRow, SheetTable, TapeBar } from '../ui/SheetTable'
 import { ChainCell, type HopCable } from './ChainCell'
 import { ColorSelect } from './ColorSelect'
+import { RefusalNotice, type SheetRefusal } from './RefusalNotice'
 import { PatchStatusRail } from './PatchStatusRail'
 import { RowEditor } from './RowEditor'
 
-// The Desk column appears only when the event has more than one console — with
-// one desk there is nothing to disambiguate, and a column of identical values is
-// the kind of clutter this slice exists to remove (FR-021).
+// No Desk column: the sheet lists one desk at a time (Slice 47, B6).
 const COLUMNS = ['Out', 'Name', 'Type', 'W', 'Chain', 'Notes']
-const columnsFor = (multiDesk: boolean) => (multiDesk ? ['Out', 'Name', 'Desk', 'Type', 'W', 'Chain', 'Notes'] : COLUMNS)
 
 interface OutputDraft {
   output_number: number
@@ -65,6 +65,13 @@ interface OutputSheetProps {
   onEditOutputInFlow?: (output: AudioPatchOutput) => void
   onOpenRig?: () => void
   readOnly?: boolean
+  /** The desk this list is (B6); absent on the No desk list. */
+  desk?: SelectedDesk
+  models: DeskModel[]
+  desklessCount?: number
+  onSelectDeskless?: () => void
+  onShowDesk?: (deskId: number) => void
+  addRefusal?: SheetRefusal
 }
 
 /**
@@ -86,6 +93,12 @@ export function OutputSheet({
   onEditOutputInFlow,
   onOpenRig,
   readOnly = false,
+  desk,
+  models,
+  desklessCount = 0,
+  onSelectDeskless,
+  onShowDesk,
+  addRefusal,
 }: OutputSheetProps) {
   const queryClient = useQueryClient()
   const { options } = useReferenceData(eventId)
@@ -95,8 +108,26 @@ export function OutputSheet({
     await queryClient.invalidateQueries({ queryKey: ['audio-patch', eventId] })
     await queryClient.invalidateQueries({ queryKey: ['rental-summary', eventId] })
   }
+  const [moved, setMoved] = useState<{ text: string; deskId: number; deskName: string } | null>(null)
+  const [rowRefusal, setRowRefusal] = useState<{ id: number; message: string } | null>(null)
   const saveOutput = useMutation({
     mutationFn: ({ id, payload }: { id: number; payload: Omit<AudioPatchOutput, 'id'> }) => updateAudioOutput(eventId, id, payload),
+    onSuccess: async (saved) => {
+      if (desk && saved.console_id !== desk.console.id) {
+        const target = consoles.find((candidate) => candidate.id === saved.console_id)
+        if (target) {
+          setMoved({
+            text: `${saved.output_name || 'The output'} is now on ${deskLabel(target, deskModelOf(models, target))}, as ${saved.output_number}.`,
+            deskId: target.id,
+            deskName: target.name || 'that desk',
+          })
+        }
+      }
+      await invalidate()
+    },
+  })
+  const placeOutputs = useMutation({
+    mutationFn: (deskId: number) => placeOnConsole(eventId, deskId, { output_ids: outputs.map((output) => output.id), apply: true }),
     onSuccess: invalidate,
   })
   const removeOutput = useMutation({ mutationFn: (id: number) => deleteAudioOutput(eventId, id), onSuccess: invalidate })
@@ -131,9 +162,24 @@ export function OutputSheet({
     }),
     persist: (output, draft) => saveOutput.mutate({ id: output.id, payload: { ...output, ...draft } }),
   })
+  const saveRow = () => {
+    if (editor.draft && editor.draft.console_id == null && editor.openId != null) {
+      setRowRefusal({ id: editor.openId, message: 'Pick the desk this output is on.' })
+      return
+    }
+    setRowRefusal(null)
+    editor.save()
+  }
+  const openRow = (output: AudioPatchOutput) => {
+    setMoved(null)
+    setRowRefusal(null)
+    editor.openRow(output)
+  }
 
   const status: PatchStatus = outputPatchStatus({
     outputs,
+    desk,
+    deskless: desklessCount,
     gaps: rows.filter((row) => row.chain.hasGap).map((row) => row.output),
     consoles,
     stageboxes,
@@ -154,27 +200,42 @@ export function OutputSheet({
     return { id: cable.id, cableItemId: cable.cable_item_id, cableless: isCablelessToKind(cable.to_kind) }
   }
 
-  const multiDesk = consoles.length > 1
-  const columns = columnsFor(multiDesk)
-  const deskLabel = (output: AudioPatchOutput) => consoleName(output) ?? 'no desk'
-  const [deskFilter, setDeskFilter] = useState<number | null>(null)
+  const columns = COLUMNS
   /* The output, never a boolean — a list of near-identical numbered rows. */
   const [pendingOutput, setPendingOutput] = useState<AudioPatchOutput | null>(null)
-  const shown = multiDesk && deskFilter != null ? visible.filter((row) => row.output.console_id === deskFilter) : visible
+  const shown = visible
 
   return (
     <>
-      {multiDesk && (
-        <div className="flex items-center gap-2 border-b border-zinc-800 px-3 py-1.5 text-[11px] text-zinc-500">
-          <MicroLabel>Desk</MicroLabel>
-          <Select size="sm" className="w-auto" value={deskFilter ?? ''} onChange={(event) => setDeskFilter(event.target.value ? Number(event.target.value) : null)}>
-            <option value="">All desks</option>
-            {consoles.map((desk) => (
-              <option key={desk.id} value={desk.id}>
-                {desk.name || 'Console'}
-              </option>
+      {addRefusal && (
+        <div className="mx-3 mt-3">
+          <RefusalNotice refusal={addRefusal} />
+        </div>
+      )}
+      {moved && (
+        <p className="mx-3 mt-3 flex flex-wrap items-center gap-2 text-xs text-zinc-300">
+          {moved.text}
+          {onShowDesk && (
+            <Button size="xs" variant="outline" onClick={() => { setMoved(null); onShowDesk(moved.deskId) }}>
+              Show {moved.deskName}
+            </Button>
+          )}
+        </p>
+      )}
+      {!desk && outputs.length > 0 && (
+        <div className="mx-3 mt-3 flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/[0.05] px-3 py-2 text-xs text-amber-200">
+          {outputs.length === 1 ? 'This output is' : `These ${outputs.length} outputs are`} on no desk.
+          {!readOnly &&
+            consoles.map((target) => (
+              <Button key={target.id} size="xs" variant="outline" disabled={placeOutputs.isPending} onClick={() => placeOutputs.mutate(target.id)}>
+                Put on {target.name || 'Console'}
+              </Button>
             ))}
-          </Select>
+          {!readOnly && consoles.length === 0 && onOpenRig && (
+            <Button size="xs" variant="outline" onClick={onOpenRig}>
+              Open Rig
+            </Button>
+          )}
         </div>
       )}
       <div className="overflow-x-auto">
@@ -189,14 +250,13 @@ export function OutputSheet({
                   striped={index % 2 === 1}
                   open={editor.openId === output.id}
                   className={readOnly ? undefined : 'cursor-pointer'}
-                  onClick={readOnly ? undefined : () => editor.openRow(output)}
+                  onClick={readOnly ? undefined : () => openRow(output)}
                 >
-                  <NumCell>{output.output_number}</NumCell>
+                  <NumCell className={desk ? undefined : 'text-zinc-500'}>{output.output_number}</NumCell>
                   <SheetCell className="whitespace-nowrap text-zinc-100">
                     <TapeBar color={output.color} />
                     {output.output_name || <span className="text-zinc-500">unnamed</span>}
                   </SheetCell>
-                  {multiDesk && <SheetCell className="text-zinc-400">{deskLabel(output)}</SheetCell>}
                   <SheetCell>
                     <Pill className={vocabularyTint(output.output_type)}>{output.output_type}</Pill>
                   </SheetCell>
@@ -220,7 +280,8 @@ export function OutputSheet({
                     <SheetCell colSpan={columns.length} className="bg-amber-500/[0.04] pt-0">
                       <RowEditor
                         saveLabel="Save output"
-                        onSave={editor.save}
+                        onSave={saveRow}
+                        notice={rowRefusal?.id === output.id ? <RefusalNotice refusal={{ message: rowRefusal.message }} /> : undefined}
                         onCancel={editor.close}
                         onDelete={() => setPendingOutput(output)}
                         handoff={
@@ -272,19 +333,17 @@ export function OutputSheet({
                         <FieldStack label="Tape" width="short">
                           <ColorSelect eventId={eventId} value={editor.draft.color} onChange={(color) => editor.setDraft({ ...editor.draft!, color })} />
                         </FieldStack>
-                        {multiDesk && (
+                        {(consoles.length > 1 || editor.draft.console_id == null) && (
                           <FieldStack label="Desk" width="default">
                             <Select
                               size="sm"
                               value={editor.draft.console_id ?? ''}
-                              onChange={(event) =>
-                                editor.setDraft({ ...editor.draft!, console_id: event.target.value ? Number(event.target.value) : undefined })
-                              }
+                              onChange={(event) => editor.setDraft({ ...editor.draft!, console_id: event.target.value ? Number(event.target.value) : undefined })}
                             >
-                              <option value="">No desk</option>
-                              {consoles.map((desk) => (
-                                <option key={desk.id} value={desk.id}>
-                                  {desk.name || 'Console'}
+                              {editor.draft.console_id == null && <option value="">Pick a desk…</option>}
+                              {consoles.map((option) => (
+                                <option key={option.id} value={option.id}>
+                                  {deskLabel(option, deskModelOf(models, option))}
                                 </option>
                               ))}
                             </Select>
@@ -309,6 +368,7 @@ export function OutputSheet({
       </div>
 
       <PatchStatusRail
+        onShowDeskless={desklessCount > 0 && desk ? onSelectDeskless : undefined}
         status={status}
         noun="output"
         onShowGaps={status.gaps.length > 0 || gapsOnly ? () => setGapsOnly((only) => !only) : undefined}
