@@ -2565,7 +2565,7 @@ from a stagebox.
 - **Whether an aux socket may feed an ordinary channel.** The X32's user-in routing
   allows it.
 
-**Fixed** on `d9-aux-sockets` as the OpenSpec change `d9-aux-sockets`. It is a full change
+**Fixed** on `d9-aux-sockets` as the OpenSpec change `d9-aux-sockets`, archived as `openspec/changes/archive/2026-10-21-d9-aux-sockets`. It is a full change
 rather than a defect fix: it reaches 20-odd files and adds a node to the canvas. The design was
 approved from its mockup on 2026-10-21, with the canvas badge changed to LOCAL AUX. `design/` is
 untouched.
