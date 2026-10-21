@@ -11,7 +11,7 @@ import { Sheet } from './Sheet'
  * that does nothing is a control that lies.
  */
 export interface PanelAction {
-  /** What the row says. Sentence case, an active verb: "Open Rig", "Print patch sheet". */
+  /** What the row says. Sentence case, an active verb: "Open Rig", "Export PDF". */
   label: string
   /** Drawn, never a target — the row is the target. */
   icon?: ReactNode

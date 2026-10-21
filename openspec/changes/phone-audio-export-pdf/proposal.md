@@ -32,3 +32,7 @@ None.
 - `frontend/src/components/event/AudioOutputsTab.tsx`: the phone overflow list.
 - No backend, API, migration or `design/` change. `design/patterns.md` §7h already asks
   each phone surface to reach the export it has.
+
+**Constitution Check.** No principle is deviated from. No data, API or schema changes. The
+phone menus reuse the existing download URL (V, Pragmatic Simplicity), keep `useIsMobile()`
+and the panel's 44px menu rows, and add no component.

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Boxes, Download, Printer, Unplug } from 'lucide-react'
+import { Boxes, Download, FileDown, Unplug } from 'lucide-react'
+import { audioExportPdfUrl } from '../../api/audio'
 import {
   createAudioOutput,
   createOutputCable,
@@ -298,7 +299,8 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
             ) : undefined
           }
           /* The rig, in the hand (audit.md M5) — `ui/Drawer` has had a phone form since
-             6a and this branch simply returned before reaching it. Print is M11. */
+             6a and this branch simply returned before reaching it. The export is the audio
+             PDF, as on desktop: this tab has no print sheet since Slice 40 (§7h). */
           overflow={[
             ...(readOnly
               ? []
@@ -310,7 +312,7 @@ export function AudioOutputsTab({ eventId, readOnly = false }: { eventId: number
                     onClick: () => setRigOpen(true),
                   },
                 ]),
-            { label: 'Print patch sheet', icon: <Printer className="h-4 w-4" />, onClick: () => window.print() },
+            { label: 'Export PDF', icon: <FileDown className="h-4 w-4" />, onClick: () => window.location.assign(audioExportPdfUrl(eventId)) },
             ...(selectedDesk ? [{ label: 'Export to console', icon: <Download className="h-4 w-4" />, onClick: () => setExportOpen(true) }] : []),
           ]}
           /* Two views, one frame — identical to Audio Inputs by decision, not by

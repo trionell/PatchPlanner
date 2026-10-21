@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createInputChannel, getAudioPatch } from '../../api/audioPatch'
+import { audioExportPdfUrl } from '../../api/audio'
 import { listEventInventoryItems } from '../../api/inventory'
 import { listOwnedItems } from '../../api/owned'
 import { ApiError } from '../../api/client'
@@ -24,7 +25,7 @@ import { Button } from '../ui/Button'
 import { MobilePicker } from '../mobile/MobilePicker'
 import type { SheetRefusal } from './RefusalNotice'
 import { MobileChannelEditSheet } from '../mobile/MobileChannelEditSheet'
-import { Boxes, Download, Printer } from 'lucide-react'
+import { Boxes, Download, FileDown } from 'lucide-react'
 import { MobileEntityList } from '../mobile/MobileEntityList'
 import { MobileSegmented } from '../mobile/MobileSegmented'
 import { AudioPatchShell } from './AudioPatchShell'
@@ -318,7 +319,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
                     onClick: () => setDrawer('rig'),
                   },
                 ]),
-            { label: 'Print patch sheet', icon: <Printer className="h-4 w-4" />, onClick: () => window.print() },
+            { label: 'Export PDF', icon: <FileDown className="h-4 w-4" />, onClick: () => window.location.assign(audioExportPdfUrl(eventId)) },
             ...(selectedDesk ? [{ label: 'Export to console', icon: <Download className="h-4 w-4" />, onClick: () => setExportOpen(true) }] : []),
           ]}
           /*
