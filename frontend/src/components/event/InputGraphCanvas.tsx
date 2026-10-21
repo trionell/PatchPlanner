@@ -15,6 +15,8 @@ import {
 import {
   cableAtPort,
   channelPorts,
+  auxJackCount,
+  consoleAuxPorts,
   consoleLocalPorts,
   localJackCount,
   derivedPortColor,
@@ -315,6 +317,12 @@ export function InputGraphCanvas({
       updateConsole(eventId, id, { local_input_position_x: x, local_input_position_y: y }),
     onSuccess: onChanged,
   })
+  // The aux socket node stores its own pair too (D9).
+  const moveConsoleAuxMutation = useMutation({
+    mutationFn: ({ id, x, y }: { id: number; x: number; y: number }) =>
+      updateConsole(eventId, id, { aux_input_position_x: x, aux_input_position_y: y }),
+    onSuccess: onChanged,
+  })
   const registerPort = (key: string) => (el: HTMLElement | null) => {
     if (el) portEls.current.set(key, el)
     else portEls.current.delete(key)
@@ -365,6 +373,17 @@ export function InputGraphCanvas({
           id: desk.id,
           x: jackOverride?.x ?? desk.local_input_position_x,
           y: jackOverride?.y ?? desk.local_input_position_y,
+        })
+      }
+      // Its rear aux in sockets are a third node (D9), placed by the server just
+      // below the local panel until first moved. No sockets, no node.
+      if (auxJackCount(desk, cables) > 0) {
+        const auxOverride = positions.get(`console_aux:${desk.id}`)
+        nodes.push({
+          kind: 'console_aux',
+          id: desk.id,
+          x: auxOverride?.x ?? desk.aux_input_position_x,
+          y: auxOverride?.y ?? desk.aux_input_position_y,
         })
       }
     }
@@ -513,6 +532,10 @@ export function InputGraphCanvas({
           const deskFor = consoles.find((candidate) => candidate.id === node.id)
           return !!deskFor && matchesSearch(search, deskFor.name, 'local')
         }
+        case 'console_aux': {
+          const deskFor = consoles.find((candidate) => candidate.id === node.id)
+          return !!deskFor && matchesSearch(search, deskFor.name, 'aux')
+        }
         default: {
           // A desk's own channel rail, or the box holding channels with no desk. It
           // matches when any channel on it does — the rows are inside the node, so the
@@ -650,6 +673,10 @@ export function InputGraphCanvas({
     }
     if (kind === 'console_local') {
       moveConsoleJacksMutation.mutate({ id, x, y }, { onError })
+      return
+    }
+    if (kind === 'console_aux') {
+      moveConsoleAuxMutation.mutate({ id, x, y }, { onError })
       return
     }
     if (kind === 'stagebox') {
@@ -997,6 +1024,28 @@ export function InputGraphCanvas({
                     onDragStart={spatial ? (e) => startNodeDrag('console_local', desk.id, e) : undefined}
                     selected={selection?.kind === 'console_local' && selection.id === desk.id}
                     onSelect={onTap(() => onSelectionChange({ kind: 'console_local', id: desk.id }))}
+                    dimmed={!matchesNode(node)}
+                  />
+                )
+              }
+              if (node.kind === 'console_aux') {
+                const desk = consoles.find((c) => c.id === node.id)
+                if (!desk) return null
+                return (
+                  <AuxJackNode
+                    key={`aux-${desk.id}`}
+                    x={node.x - origin.x}
+                    y={node.y - origin.y}
+                    desk={desk}
+                    cables={cables}
+                    pendingPort={pendingPort}
+                    onPortClick={handlePortClick}
+                    onPortPointerDown={handlePortPointerDown}
+                    registerPort={registerPort}
+                    colorContext={colorContext}
+                    onDragStart={spatial ? (e) => startNodeDrag('console_aux', desk.id, e) : undefined}
+                    selected={selection?.kind === 'console_aux' && selection.id === desk.id}
+                    onSelect={onTap(() => onSelectionChange({ kind: 'console_aux', id: desk.id }))}
                     dimmed={!matchesNode(node)}
                   />
                 )
@@ -1592,6 +1641,45 @@ function LocalJackNode({ x, y, desk, cables, pendingPort, onPortClick, onPortPoi
           label={String(inPort.port + 1)}
           // Past the model's count: kept from before a switch, and said so (B2).
           over={inPort.port >= desk.local_input_count}
+          wiring={wiring}
+        />
+      ))}
+    </NodeShell>
+  )
+}
+
+/**
+ * A desk's rear aux in sockets (D9) — LocalJackNode's shape, its own node so
+ * neither count takes in the other. Badged LOCAL AUX: they are the desk's own
+ * sockets, not a box on stage (user, 2026-10-21).
+ */
+export function AuxJackNode({ x, y, desk, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, onDragStart, colorContext, dimmed, selected, onSelect }: {
+  x: number
+  y: number
+  desk: Console
+  cables: InputCable[]
+  pendingPort: PortRef | null
+  onPortClick: (port: PortRef) => void
+  onPortPointerDown: (port: PortRef, e: ReactPointerEvent) => void
+  registerPort: (key: string) => (el: HTMLElement | null) => void
+  colorContext: ColorContext
+  onDragStart?: (e: ReactPointerEvent) => void
+  dimmed?: boolean
+  selected?: boolean
+  onSelect?: () => void
+}) {
+  const { inputs, outputs } = consoleAuxPorts(desk, auxJackCount(desk, cables))
+  const wiring = wiringFor(cables, pendingPort, colorContext, onPortClick, onPortPointerDown, registerPort)
+  return (
+    <NodeShell x={x} y={y} title={desk.name || 'Console'} badge="LOCAL AUX" onDragStart={onDragStart} dimmed={dimmed} selected={selected} onSelect={onSelect}>
+      {inputs.map((inPort, index) => (
+        <SplitPortRow
+          key={inPort.port}
+          inPort={inPort}
+          outPort={outputs[index]}
+          label={String(inPort.port + 1)}
+          // Past the model's sockets: kept from before a switch, and said so.
+          over={inPort.port >= desk.aux_socket_count}
           wiring={wiring}
         />
       ))}

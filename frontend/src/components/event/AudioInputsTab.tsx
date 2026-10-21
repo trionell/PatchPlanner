@@ -513,6 +513,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
       case 'stage_multi':
       case 'device':
       case 'console_local':
+      case 'console_aux':
         return { kind: node.kind, id: node.id }
       default:
         return null

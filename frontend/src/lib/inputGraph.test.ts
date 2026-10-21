@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { InputCable, InputChannel, InputDevice, InputSource, StageMulti, Stagebox } from '../types'
-import { derivedPortColor, derivedSourceColor, isCablelessEdge, resolvePortRef, type PortRef } from './inputGraph'
+import type { Console, InputCable, InputChannel, InputDevice, InputSource, StageMulti, Stagebox } from '../types'
+import { auxJackCount, consoleAuxPorts, consoleLocalPorts, derivedPortColor, derivedSourceColor, isCablelessEdge, nodeKindLabel, portsConnectable, resolvePortRef, type PortRef } from './inputGraph'
 
 const stageboxes: Stagebox[] = [
   { id: 1, event_id: 1, name: 'SB Stage L', model: '', input_count: 16, output_count: 8, connection_type: 'analog', position_x: 0, position_y: 0, input_position_x: 0, input_position_y: 0 },
@@ -195,5 +195,48 @@ describe('a stagebox on the input graph', () => {
     expect(resolvePortRef('stagebox', 1, 15, 'in', context)?.label).toBe('In 16')
     expect(resolvePortRef('stagebox', 1, 15, 'out', context)?.label).toBe('Out 16')
     expect(resolvePortRef('stagebox', 1, 16, 'in', context)).toBeUndefined()
+  })
+})
+
+describe('aux sockets (D9)', () => {
+  const x32: Console = {
+    id: 3, event_id: 1, name: 'FOH', role: 'foh', input_count: 32, output_count: 16,
+    local_input_count: 32, local_output_count: 16, position_x: 0, position_y: 0, input_position_x: 0, input_position_y: 0,
+    local_position_x: 260, local_position_y: 320, local_input_position_x: 260, local_input_position_y: 320,
+    aux_socket_count: 6, aux_input_position_x: 260, aux_input_position_y: 960, desk_model: 'x32', bus_mode: '',
+  }
+
+  it('draws one pass-through pair per socket, labelled apart from the local jacks', () => {
+    const { inputs, outputs } = consoleAuxPorts(x32)
+    expect(inputs.map((p) => p.label)).toEqual(['Aux in 1', 'Aux in 2', 'Aux in 3', 'Aux in 4', 'Aux in 5', 'Aux in 6'])
+    expect(outputs[2]).toMatchObject({ kind: 'console_aux', id: 3, port: 2, direction: 'out', label: 'Aux to desk 3' })
+    expect(consoleLocalPorts(x32).inputs).toHaveLength(32)
+    expect(nodeKindLabel('console_aux')).toBe('Aux socket')
+  })
+
+  it('is cableless into a channel and connectable both ways', () => {
+    expect(isCablelessEdge('console_aux', 'channel')).toBe(true)
+    expect(isCablelessEdge('source', 'console_aux')).toBe(false)
+    const [auxIn] = consoleAuxPorts(x32).inputs
+    const [auxOut] = consoleAuxPorts(x32).outputs
+    const sourceOut: PortRef = { kind: 'source', id: 1, port: 0, direction: 'out', label: 'Playback L' }
+    const channelIn: PortRef = { kind: 'channel', id: 1, port: 0, direction: 'in', label: 'Host mic RX' }
+    expect(portsConnectable(sourceOut, auxIn)).toBe(true)
+    expect(portsConnectable(auxOut, channelIn)).toBe(true)
+  })
+
+  it('resolves a socket back to its port, and nothing on a model without sockets', () => {
+    const context = { sources: [], channels: [], devices: [], stageboxes, stageMultis, consoles: [x32, { ...x32, id: 4, aux_socket_count: 0 }] }
+    expect(resolvePortRef('console_aux', 3, 5, 'in', context)?.label).toBe('Aux in 6')
+    expect(resolvePortRef('console_aux', 3, 6, 'in', context)).toBeUndefined()
+    expect(resolvePortRef('console_aux', 4, 0, 'in', context)).toBeUndefined()
+  })
+
+  it('keeps drawing a socket a model switch took away while a cable is on it', () => {
+    const core = { ...x32, aux_socket_count: 0 }
+    expect(auxJackCount(core, [])).toBe(0)
+    expect(auxJackCount(core, [cable({ to_kind: 'console_aux', to_id: 3, to_port: 1 })])).toBe(2)
+    // Local jack cables never size the aux node.
+    expect(auxJackCount(core, [cable({ to_kind: 'console_local', to_id: 3, to_port: 9 })])).toBe(0)
   })
 })

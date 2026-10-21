@@ -87,8 +87,11 @@ function walkBackwardFromPort(port: PortRef, context: InputFlowContext): { hops:
       : isCablelessEdge(cable.from_kind, cable.to_kind)
         ? 'built-in'
         : undefined
+    // A desk's own jack reads as its back panel names it (`FOH aux in 3`); the
+    // hop on from it is always desk routing, so "built-in" would say nothing.
+    const jack = cable.from_kind === 'console_local' ? 'local in' : cable.from_kind === 'console_aux' ? 'aux in' : undefined
     hops.unshift({
-      label: `${originName}${cableLabel ? ` — ${cableLabel}` : ''}`,
+      label: jack ? `${originName} ${jack} ${cable.from_port + 1}` : `${originName}${cableLabel ? ` — ${cableLabel}` : ''}`,
       kind: cable.from_kind === 'source' ? 'source' : cable.from_kind === 'device' ? 'device' : cable.from_kind === 'stage_multi' ? 'multi' : 'stagebox',
       missing: false,
       node: { kind: cable.from_kind, id: cable.from_id, port: cable.from_port },

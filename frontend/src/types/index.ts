@@ -258,6 +258,8 @@ export interface DeskModel {
   stereo: 'linked' | 'strip' | 'asis'
   strips: number
   aux_in: number
+  /** The rear aux in sockets (D9): 6 on an X32 · M32 with a jack panel, else 0. */
+  aux_sockets: number
   local_in: number
   local_out: number
   buses: number
@@ -356,10 +358,10 @@ export interface InputDevice {
 export interface InputCable {
   id: number
   event_id: number
-  from_kind: 'source' | 'stagebox' | 'stage_multi' | 'device' | 'console_local'
+  from_kind: 'source' | 'stagebox' | 'stage_multi' | 'device' | 'console_local' | 'console_aux'
   from_id: number
   from_port: number
-  to_kind: 'stagebox' | 'stage_multi' | 'device' | 'channel' | 'console_local'
+  to_kind: 'stagebox' | 'stage_multi' | 'device' | 'channel' | 'console_local' | 'console_aux'
   to_id: number
   to_port: number
   cable_item_id?: number
@@ -486,6 +488,14 @@ export interface Console {
   local_position_y: number
   local_input_position_x: number
   local_input_position_y: number
+  /**
+   * The rear aux in sockets (D9) — a count read from the desk's model, never typed,
+   * and their own node on the input canvas. A node never placed is served just below
+   * the local panel.
+   */
+  aux_socket_count: number
+  aux_input_position_x: number
+  aux_input_position_y: number
 }
 
 export interface LightingRig {

@@ -150,11 +150,12 @@ function inputSegmentsForHops(hops: InputFlowHop[], context: InputFlowContext): 
       // carries the signal is visible in Flow, not useful on a sheet line.
       return [{ label: nodeNameFor(node, context), kind: 'device', missing: false, node, cableId: hop.cableId, detail }]
     }
-    if (hop.node.kind === 'console_local') {
+    if (hop.node.kind === 'console_local' || hop.node.kind === 'console_aux') {
       // Straight into the desk's own preamp — the run that had to be faked
-      // through a stagebox before the desk existed.
+      // through a stagebox before the desk existed — or its rear aux in (D9).
       const desk = context.consoles?.find((desk) => desk.id === hop.node!.id)
-      const name = desk?.name ? `${desk.name} local in` : 'local in'
+      const jack = hop.node.kind === 'console_aux' ? 'aux in' : 'local in'
+      const name = desk?.name ? `${desk.name} ${jack}` : jack
       return [{ label: jackLabel(name, hop.node.port), kind: 'desk', missing: false, node, cableId: hop.cableId, detail }]
     }
     return [

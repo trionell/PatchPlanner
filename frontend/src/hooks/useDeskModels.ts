@@ -22,6 +22,6 @@ export function deskModelOf(models: DeskModel[], desk: Pick<Console, 'desk_model
 /** What a desk is before the list arrives: exactly today's typed-count desk. */
 export const GENERIC: DeskModel = {
   key: 'generic', family: 'Generic', label: 'Generic', engine: 'generic', stereo: 'asis',
-  strips: 0, aux_in: 0, local_in: 0, local_out: 0, buses: 0, groups: 0, mon: 0, fx_aux: 0, matrix: 0,
+  strips: 0, aux_in: 0, aux_sockets: 0, local_in: 0, local_out: 0, buses: 0, groups: 0, mon: 0, fx_aux: 0, matrix: 0,
   dca: 0, mute: 0, fx_returns: 0, mains: '', name_length: 0, colours: 0, has_bus_modes: false,
 }

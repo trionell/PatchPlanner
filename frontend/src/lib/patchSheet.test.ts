@@ -111,7 +111,7 @@ describe('inputChainSegments', () => {
     const desk: Console = {
       id: 3, event_id: 1, name: 'FOH · SD10', role: 'foh', input_count: 96, output_count: 48,
       local_input_count: 8, local_output_count: 8, position_x: 0, position_y: 0, input_position_x: 0, input_position_y: 0,
-      local_position_x: 260, local_position_y: 320, local_input_position_x: 260, local_input_position_y: 320, desk_model: 'generic', bus_mode: '',
+      local_position_x: 260, local_position_y: 320, local_input_position_x: 260, local_input_position_y: 320, aux_socket_count: 0, aux_input_position_x: 260, aux_input_position_y: 900, desk_model: 'generic', bus_mode: '',
     }
     const talkback = channel({ channel_number: 15, channel_name: 'Talkback' })
     const cables = [
@@ -120,6 +120,23 @@ describe('inputChainSegments', () => {
     ]
     const model = inputChainSegments(talkback, inputContext({ channels: [talkback], cables, consoles: [desk] }))
     expect(labels(model.lines[0].segments)).toEqual(['Sennheiser e906', 'FOH · SD10 local in 1', 'ch 15'])
+    expect(model.hasGap).toBe(false)
+  })
+
+  it('reads a run into a rear aux socket as the desk names it (D9)', () => {
+    const desk: Console = {
+      id: 3, event_id: 1, name: 'FOH', role: 'foh', input_count: 32, output_count: 16,
+      local_input_count: 32, local_output_count: 16, position_x: 0, position_y: 0, input_position_x: 0, input_position_y: 0,
+      local_position_x: 260, local_position_y: 320, local_input_position_x: 260, local_input_position_y: 320, aux_socket_count: 6, aux_input_position_x: 260, aux_input_position_y: 960, desk_model: 'x32', bus_mode: '',
+    }
+    const host = channel({ channel_number: 20, channel_name: 'Host mic RX' })
+    const cables = [
+      cable({ id: 1, to_kind: 'console_aux', to_id: 3, to_port: 2, cable_item_id: 7 }),
+      cable({ id: 2, from_kind: 'console_aux', from_id: 3, from_port: 2, to_kind: 'channel', to_id: 1, to_port: 0 }),
+    ]
+    const model = inputChainSegments(host, inputContext({ channels: [host], cables, consoles: [desk] }))
+    expect(labels(model.lines[0].segments)).toEqual(['Sennheiser e906', 'FOH aux in 3', 'ch 20'])
+    expect(model.lines[0].segments[1].kind).toBe('desk')
     expect(model.hasGap).toBe(false)
   })
 
@@ -228,7 +245,7 @@ describe('chainSourceNode', () => {
     const desk: Console = {
       id: 3, event_id: 1, name: 'FOH · SD10', role: 'foh', input_count: 96, output_count: 48,
       local_input_count: 8, local_output_count: 8, position_x: 0, position_y: 0, input_position_x: 0, input_position_y: 0,
-      local_position_x: 260, local_position_y: 320, local_input_position_x: 260, local_input_position_y: 320, desk_model: 'generic', bus_mode: '',
+      local_position_x: 260, local_position_y: 320, local_input_position_x: 260, local_input_position_y: 320, aux_socket_count: 0, aux_input_position_x: 260, aux_input_position_y: 900, desk_model: 'generic', bus_mode: '',
     }
     const talkback = channel({ channel_number: 15, channel_name: 'Talkback' })
     const cables = [

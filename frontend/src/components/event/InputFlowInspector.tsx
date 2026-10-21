@@ -319,6 +319,11 @@ function describe(
         heading: 'Local jacks',
         title: `${context.consoles.find((desk) => desk.id === selection.id)?.name || 'Console'} · local jacks`,
       }
+    case 'console_aux':
+      return {
+        heading: 'Aux sockets',
+        title: `${context.consoles.find((desk) => desk.id === selection.id)?.name || 'Console'} · aux sockets`,
+      }
     default:
       // A `channel` node: a desk's own channel rail, or the box holding rows that
       // belong to no desk (id 0).

@@ -59,10 +59,26 @@ export function buildMobileChannelList(channels: InputChannel[], context: ListCo
     })
 }
 
-/** A channel's current routing, resolved to editable IDs (not just display labels) — covers the two on-site-common shapes: source→stagebox→channel, and a direct source→channel cable. Devices/stage-multis in the chain stay a desktop-only edit (research.md R3's documented scope). */
+/**
+ * The panels a cable lands on before a channel, as the phone edits them: a
+ * stagebox, or a desk's own local jacks or rear aux sockets (D9). All three are
+ * the same pass-through — a cable into jack N, a hop from jack N to the channel.
+ */
+export type JackPanelKind = 'stagebox' | 'console_local' | 'console_aux'
+export interface JackPanel {
+  kind: JackPanelKind
+  id: number
+}
+const JACK_PANEL_KINDS: readonly string[] = ['stagebox', 'console_local', 'console_aux']
+
+function isJackPanel(kind: string): kind is JackPanelKind {
+  return JACK_PANEL_KINDS.includes(kind)
+}
+
+/** A channel's current routing, resolved to editable IDs (not just display labels) — covers the two on-site-common shapes: source→panel→channel, and a direct source→channel cable. Devices/stage-multis in the chain stay a desktop-only edit (research.md R3's documented scope). */
 export interface ChannelRouting {
-  stageboxId?: number
-  /** 0-indexed stagebox input port. */
+  panel?: JackPanel
+  /** 0-indexed jack on the panel. */
   port?: number
   sourceId?: number
 }
@@ -70,12 +86,12 @@ export interface ChannelRouting {
 export function resolveChannelRouting(channelId: number, cables: InputCable[], channelPort = 0): ChannelRouting {
   const toChannel = cables.find((c) => c.to_kind === 'channel' && c.to_id === channelId && c.to_port === channelPort)
   if (!toChannel) return {}
-  if (toChannel.from_kind === 'stagebox') {
-    const stageboxId = toChannel.from_id
+  if (isJackPanel(toChannel.from_kind)) {
+    const panel = { kind: toChannel.from_kind, id: toChannel.from_id }
     const port = toChannel.from_port
-    const toStagebox = cables.find((c) => c.to_kind === 'stagebox' && c.to_id === stageboxId && c.to_port === port)
-    const sourceId = toStagebox?.from_kind === 'source' ? toStagebox.from_id : undefined
-    return { stageboxId, port, sourceId }
+    const toPanel = cables.find((c) => c.to_kind === panel.kind && c.to_id === panel.id && c.to_port === port)
+    const sourceId = toPanel?.from_kind === 'source' ? toPanel.from_id : undefined
+    return { panel, port, sourceId }
   }
   if (toChannel.from_kind === 'source') {
     return { sourceId: toChannel.from_id }
@@ -94,28 +110,29 @@ export function computeRoutingSave(channelId: number, cables: InputCable[], desi
   const cablesToCreate: RoutingSaveOps['cablesToCreate'] = []
   const currentToChannel = cables.find((c) => c.to_kind === 'channel' && c.to_id === channelId && c.to_port === channelPort)
 
-  if (desired.stageboxId != null && desired.port != null) {
-    const stageboxPortChanged =
-      !currentToChannel || currentToChannel.from_kind !== 'stagebox' || currentToChannel.from_id !== desired.stageboxId || currentToChannel.from_port !== desired.port
-    if (stageboxPortChanged) {
+  const panel = desired.panel
+  if (panel && desired.port != null) {
+    const jackChanged =
+      !currentToChannel || currentToChannel.from_kind !== panel.kind || currentToChannel.from_id !== panel.id || currentToChannel.from_port !== desired.port
+    if (jackChanged) {
       if (currentToChannel) {
         cablesToDelete.push(currentToChannel.id)
-        // Moving off a stagebox port orphans whatever fed *that* port (a
-        // physical unplug) — remove it too, or the vacated port keeps
-        // showing a source that's no longer actually feeding anything.
-        if (currentToChannel.from_kind === 'stagebox') {
-          const oldPortFeed = cables.find((c) => c.to_kind === 'stagebox' && c.to_id === currentToChannel.from_id && c.to_port === currentToChannel.from_port)
-          if (oldPortFeed) cablesToDelete.push(oldPortFeed.id)
+        // Moving off a jack orphans whatever fed *that* jack (a physical
+        // unplug) — remove it too, or the vacated jack keeps showing a
+        // source that's no longer actually feeding anything.
+        if (isJackPanel(currentToChannel.from_kind)) {
+          const oldFeed = cables.find((c) => c.to_kind === currentToChannel.from_kind && c.to_id === currentToChannel.from_id && c.to_port === currentToChannel.from_port)
+          if (oldFeed) cablesToDelete.push(oldFeed.id)
         }
       }
-      cablesToCreate.push({ from_kind: 'stagebox', from_id: desired.stageboxId, from_port: desired.port, to_kind: 'channel', to_id: channelId, to_port: channelPort })
+      cablesToCreate.push({ from_kind: panel.kind, from_id: panel.id, from_port: desired.port, to_kind: 'channel', to_id: channelId, to_port: channelPort })
     }
     if (desired.sourceId != null) {
-      const currentToStagebox = cables.find((c) => c.to_kind === 'stagebox' && c.to_id === desired.stageboxId && c.to_port === desired.port)
-      const sourceMatches = currentToStagebox?.from_kind === 'source' && currentToStagebox.from_id === desired.sourceId
+      const currentToPanel = cables.find((c) => c.to_kind === panel.kind && c.to_id === panel.id && c.to_port === desired.port)
+      const sourceMatches = currentToPanel?.from_kind === 'source' && currentToPanel.from_id === desired.sourceId
       if (!sourceMatches) {
-        if (currentToStagebox && !cablesToDelete.includes(currentToStagebox.id)) cablesToDelete.push(currentToStagebox.id)
-        cablesToCreate.push({ from_kind: 'source', from_id: desired.sourceId, from_port: 0, to_kind: 'stagebox', to_id: desired.stageboxId, to_port: desired.port })
+        if (currentToPanel && !cablesToDelete.includes(currentToPanel.id)) cablesToDelete.push(currentToPanel.id)
+        cablesToCreate.push({ from_kind: 'source', from_id: desired.sourceId, from_port: 0, to_kind: panel.kind, to_id: panel.id, to_port: desired.port })
       }
     }
     return { cablesToDelete, cablesToCreate }

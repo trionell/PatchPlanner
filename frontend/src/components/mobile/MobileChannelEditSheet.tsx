@@ -4,7 +4,8 @@ import { createInputCable, createInputChannel, deleteInputCable, updateInputChan
 import { ApiError } from '../../api/client'
 import { deskModelOf } from '../../hooks/useDeskModels'
 import { deskLabel, stripLabel } from '../../lib/deskStrips'
-import { computeRoutingSave, resolveChannelRouting, type ChannelRouting } from '../../lib/mobileChannelList'
+import { auxJackCount, localJackCount } from '../../lib/inputGraph'
+import { computeRoutingSave, resolveChannelRouting, type ChannelRouting, type JackPanel, type JackPanelKind } from '../../lib/mobileChannelList'
 import { toOptionalNumber } from '../../lib/utils'
 import type { Console, DeskModel, InputCable, InputChannel, InputSource, Stagebox, StripPool, StripRefusal } from '../../types'
 import { ColorSelect } from '../event/ColorSelect'
@@ -16,8 +17,9 @@ import { Sheet } from '../ui/Sheet'
 
 /**
  * On-site edit form for one audio input channel — name, color, notes, and
- * a simplified "which stagebox input / which source" routing view over
- * the input-cable graph (research.md R3). Also handles adding a new
+ * a simplified "which jack / which source" routing view over the input-cable
+ * graph (research.md R3): a stagebox input, or a desk's own local jack or rear
+ * aux socket (D9). Also handles adding a new
  * channel when `channel` is omitted. A device- or stage-multi-in-the-
  * chain routing stays a desktop-only edit, per the same research note.
  */
@@ -62,7 +64,7 @@ export function MobileChannelEditSheet({
   const [name, setName] = useState(channel?.channel_name ?? '')
   const [color, setColor] = useState(channel?.color)
   const [notes, setNotes] = useState(channel?.notes ?? '')
-  const [stageboxId, setStageboxId] = useState<number | undefined>(currentRouting.stageboxId)
+  const [panel, setPanel] = useState<JackPanel | undefined>(currentRouting.panel)
   const [port, setPort] = useState<number | undefined>(currentRouting.port)
   const [sourceId, setSourceId] = useState<number | undefined>(currentRouting.sourceId)
   const [error, setError] = useState<string | null>(null)
@@ -75,7 +77,16 @@ export function MobileChannelEditSheet({
   const hasAux = desk ? deskModelOf(models, desk).aux_in > 0 : false
   const [saving, setSaving] = useState(false)
 
-  const selectedStagebox = stageboxes.find((sb) => sb.id === stageboxId)
+  // The chosen panel's jacks, labelled as the Jack field lists them.
+  const jackCount = (() => {
+    if (!panel) return 0
+    if (panel.kind === 'stagebox') return stageboxes.find((sb) => sb.id === panel.id)?.input_count ?? 0
+    const deskFor = consoles.find((candidate) => candidate.id === panel.id)
+    if (!deskFor) return 0
+    return panel.kind === 'console_local' ? localJackCount(deskFor, cables) : auxJackCount(deskFor, cables)
+  })()
+  const jackPrefix = panel?.kind === 'console_local' ? 'Local' : panel?.kind === 'console_aux' ? 'Aux' : 'In'
+  const panelValue = panel ? `${panel.kind}:${panel.id}` : ''
 
   async function handleSave() {
     setError(null)
@@ -118,7 +129,7 @@ export function MobileChannelEditSheet({
       }
 
       if (channelId != null) {
-        const desired: ChannelRouting = { stageboxId, port, sourceId }
+        const desired: ChannelRouting = { panel, port, sourceId }
         const ops = computeRoutingSave(channelId, cables, desired)
         for (const id of ops.cablesToDelete) await deleteInputCable(eventId, id)
         for (const data of ops.cablesToCreate) await createInputCable(eventId, data)
@@ -204,30 +215,42 @@ export function MobileChannelEditSheet({
       <FieldStack label="Tape" width="full">
         <ColorSelect eventId={eventId} value={color} onChange={setColor} />
       </FieldStack>
-      {/* Two side by side only where they are one idea: a stagebox and the
-          socket on it are one route (tokens.md §7). Everything else stacks. */}
+      {/* Two side by side only where they are one idea: a panel and the jack
+          on it are one route (tokens.md §7). Everything else stacks. Stageboxes
+          first, then each desk's own sockets grouped under it (D9). */}
       <div className="flex gap-2.5">
-        <FieldStack label="Stagebox" width="grow">
+        <FieldStack label="Into" width="grow">
           <Select
-            value={stageboxId ?? ''}
+            value={panelValue}
             onChange={(e) => {
-              setStageboxId(toOptionalNumber(e.target.value))
+              const [kind, id] = e.target.value.split(':')
+              setPanel(kind ? { kind: kind as JackPanelKind, id: Number(id) } : undefined)
               setPort(undefined)
             }}
           >
             <option value="">— none —</option>
             {stageboxes.map((sb) => (
-              <option key={sb.id} value={sb.id}>{sb.name}</option>
+              <option key={sb.id} value={`stagebox:${sb.id}`}>{sb.name}</option>
             ))}
+            {consoles
+              .filter((option) => option.local_input_count > 0 || option.aux_socket_count > 0)
+              .map((option) => {
+                const name = option.name || 'Console'
+                return (
+                  <optgroup key={option.id} label={name}>
+                    {option.local_input_count > 0 && <option value={`console_local:${option.id}`}>{name} local in</option>}
+                    {option.aux_socket_count > 0 && <option value={`console_aux:${option.id}`}>{name} aux in</option>}
+                  </optgroup>
+                )
+              })}
           </Select>
         </FieldStack>
-        <FieldStack label="In" width="short">
-          <Select value={port ?? ''} onChange={(e) => setPort(toOptionalNumber(e.target.value))} disabled={!selectedStagebox}>
+        <FieldStack label="Jack" width="short">
+          <Select value={port ?? ''} onChange={(e) => setPort(toOptionalNumber(e.target.value))} disabled={jackCount === 0}>
             <option value="">—</option>
-            {selectedStagebox &&
-              Array.from({ length: selectedStagebox.input_count }, (_, i) => (
-                <option key={i} value={i}>In {i + 1}</option>
-              ))}
+            {Array.from({ length: jackCount }, (_, i) => (
+              <option key={i} value={i}>{jackPrefix} {i + 1}</option>
+            ))}
           </Select>
         </FieldStack>
       </div>

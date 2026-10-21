@@ -68,7 +68,7 @@ function Arrow() {
 }
 
 function Hop({ hop }: { hop: ChainHop }) {
-  const desk = hop.node?.kind === 'console_local'
+  const desk = hop.node?.kind === 'console_local' || hop.node?.kind === 'console_aux'
   const tone = hop.missing ? 'text-amber-400 font-medium' : desk ? 'text-amber-300' : 'text-zinc-300'
   return (
     <span className={`inline-flex items-center gap-1 whitespace-nowrap ${tone}`}>

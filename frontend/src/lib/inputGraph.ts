@@ -80,6 +80,23 @@ export function consoleLocalPorts(desk: Console, count: number = desk.local_inpu
 }
 
 /**
+ * A desk's rear aux in sockets (D9): the same pass-through pair as a local jack,
+ * a port kind of its own so no local count takes them in. Only an X32 · M32 with
+ * a jack panel has any; `aux_socket_count` comes from its model.
+ */
+export function consoleAuxPorts(desk: Console, count: number = desk.aux_socket_count): { inputs: PortRef[]; outputs: PortRef[] } {
+  const make = (direction: 'in' | 'out', prefix: string) =>
+    Array.from({ length: count }, (_, i) => ({
+      kind: 'console_aux' as const,
+      id: desk.id,
+      port: i,
+      direction,
+      label: `${prefix} ${i + 1}`,
+    }))
+  return { inputs: make('in', 'Aux in'), outputs: make('out', 'Aux to desk') }
+}
+
+/**
  * A node's zone: Source always source-role; Channel always destination-role;
  * everything the signal passes *through* — stagebox, stage multi, device, and
  * since Slice 24 the desk's own jack panel — is processing-role. Never a stored
@@ -147,6 +164,12 @@ export function resolvePortRef(
     const { inputs, outputs } = consoleLocalPorts(desk)
     return (direction === 'in' ? inputs : outputs).find((p) => p.port === port)
   }
+  if (kind === 'console_aux') {
+    const desk = context.consoles?.find((c) => c.id === id)
+    if (!desk) return undefined
+    const { inputs, outputs } = consoleAuxPorts(desk)
+    return (direction === 'in' ? inputs : outputs).find((p) => p.port === port)
+  }
   const device = context.devices.find((d) => d.id === id)
   if (!device) return undefined
   const { inputs, outputs } = devicePorts(device)
@@ -202,6 +225,7 @@ export function nodeKindLabel(kind: PortRef['kind']): string {
     case 'device': return 'Device'
     case 'channel': return 'Channel'
     case 'console_local': return 'Console jack'
+    case 'console_aux': return 'Aux socket'
   }
 }
 
@@ -220,7 +244,8 @@ export function nodeName(kind: PortRef['kind'], id: number, context: ResolveCont
       return context.stageMultis.find((sm) => sm.id === id)?.name ?? `#${id}`
     case 'device':
       return context.devices.find((d) => d.id === id)?.name ?? `#${id}`
-    case 'console_local': {
+    case 'console_local':
+    case 'console_aux': {
       const desk = context.consoles?.find((c) => c.id === id)
       return desk ? desk.name || 'Console' : `#${id}`
     }
@@ -243,7 +268,7 @@ export function isCablelessEdge(fromKind: PortRef['kind'], toKind: PortRef['kind
   // A desk's local jack behaves exactly as a stagebox does: the cable into
   // the jack is real and billable, the hop from that jack to a channel is the
   // desk's own routing (Slice 23).
-  if (fromKind === 'console_local' && toKind === 'channel') return true
+  if ((fromKind === 'console_local' || fromKind === 'console_aux') && toKind === 'channel') return true
   return fromKind === 'stagebox' && toKind === 'channel'
 }
 
@@ -258,8 +283,8 @@ export function portsConnectable(a: PortRef, b: PortRef): boolean {
   if (a.direction === b.direction) return false
   const outPort = a.direction === 'out' ? a : b
   const inPort = a.direction === 'out' ? b : a
-  const validFromKinds: PortRef['kind'][] = ['source', 'stagebox', 'stage_multi', 'device', 'console_local']
-  const validToKinds: PortRef['kind'][] = ['stagebox', 'stage_multi', 'device', 'channel', 'console_local']
+  const validFromKinds: PortRef['kind'][] = ['source', 'stagebox', 'stage_multi', 'device', 'console_local', 'console_aux']
+  const validToKinds: PortRef['kind'][] = ['stagebox', 'stage_multi', 'device', 'channel', 'console_local', 'console_aux']
   return validFromKinds.includes(outPort.kind) && validToKinds.includes(inPort.kind)
 }
 
@@ -355,4 +380,14 @@ export function localJackCount(desk: Console, cables: { from_kind: string; from_
     if (cable.to_kind === 'console_local' && cable.to_id === desk.id) highest = Math.max(highest, cable.to_port)
   }
   return Math.max(desk.local_input_count, highest + 1)
+}
+
+/** How many aux sockets the desk's aux node draws — `localJackCount`'s rule for the sockets. */
+export function auxJackCount(desk: Console, cables: { from_kind: string; from_id: number; from_port: number; to_kind: string; to_id: number; to_port: number }[]): number {
+  let highest = -1
+  for (const cable of cables) {
+    if (cable.from_kind === 'console_aux' && cable.from_id === desk.id) highest = Math.max(highest, cable.from_port)
+    if (cable.to_kind === 'console_aux' && cable.to_id === desk.id) highest = Math.max(highest, cable.to_port)
+  }
+  return Math.max(desk.aux_socket_count, highest + 1)
 }
