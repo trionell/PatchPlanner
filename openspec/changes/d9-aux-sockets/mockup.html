@@ -1,9 +1,19 @@
 <!--
   PatchPlanner — defect D9, OpenSpec change `d9-aux-sockets`.
   An X32 · M32's rear aux in sockets, patchable on the Inputs graph.
-  Design mockup, revision 2. FOR APPROVAL, before the proposal is written.
+  Design mockup, revision 3. FOR APPROVAL, before the proposal is written.
   Nothing here is approved. The reviewer is the user, and only a turn from
   the user counts.
+
+  WHAT CHANGED IN REVISION 3 — one new section, §10, appended after §09;
+  nothing above it moved. Option (b) has shipped and aux strips already
+  sort below the channels on the canvas rail and the printed rail. The user
+  asked for "a divider and header" between them. §10 draws the DESK node
+  before and after, a desk with no aux strips, the printed rail, and the
+  exact design/ text to approve (components.md §2, tokens.md §3,
+  graph/tokens.ts). New CSS is a fifteenth block, ADDITIONS FOR D9 ·
+  REVISION 3. Finding: the DESK footer's count and its `over` alarm include
+  aux strips today (R3-4).
 
   WHAT CHANGED IN REVISION 2 — one visual change: the canvas AUX node's
   badge reads LOCAL AUX (§02, every state). The printed box (§05) stays
@@ -2015,11 +2025,35 @@
     .d9-cvs { height: 480px; }
   }
 </style>
+<style>
+  /* ==================================================================
+     ADDITIONS FOR D9 · REVISION 3 — the desk rail's run heading (§10):
+     static DESK nodes before and after, and the printed rail. Nothing
+     above is restyled. The heading row is the canvas's 18 px port pitch
+     with tokens.md §7's "MicroLabel + a border-zinc-800 rule".
+     ================================================================== */
+  .d9-rails { display: flex; flex-wrap: wrap; gap: 28px 40px; align-items: flex-start; padding: 20px; font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.45; }
+  .d9-rails *, .d9-rails *::before, .d9-rails *::after { box-sizing: border-box; }
+  .d9-rail { display: flex; flex-direction: column; gap: 8px; }
+  .d9-rail .d9-node { position: relative; }
+  .d9-rail .d9-hd { cursor: default; }
+  .d9-rail__cap { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--z500); }
+  /* the desk rail's heading: exactly one pitch, the rule inside it */
+  .d9-run--rail { margin-top: 0; }
+  .d9-run--rail s { color: var(--z500); font-variant-numeric: tabular-nums; }
+  .d9-ft--alarm { color: var(--rd400); }
+  .d9-paper--rail { max-width: 860px; }
+  .d9-paper--rail svg { min-width: 640px; }
+  .d9-paper--rail .box { stroke-width: 0.45; }
+  .d9-paper--rail .rule { stroke-width: 0.25; }
+  .d9-paper--rail .wire { stroke-width: 0.3; }
+  .d9-paper .rule-ft { stroke: var(--d9-hair); stroke-width: 0.25; }
+</style>
 
 <div class="wrap">
 
   <header class="head">
-    <span class="head__eyebrow">OpenSpec change · d9-aux-sockets · defect D9 · revision 2 · for approval</span>
+    <span class="head__eyebrow">OpenSpec change · d9-aux-sockets · defect D9 · revision 3 · for approval</span>
     <h1>An X32's aux in sockets are jacks, and they get a box of their&nbsp;own</h1>
     <p class="head__lede">
       On an X32 or M32 the Inputs graph draws the desk's local mic inputs and stops. The six rear aux in
@@ -2344,6 +2378,119 @@
     <div class="ask"><h3>Aux sockets after a model switch</h3><p>Switching FOH from X32 to X32 Core leaves cables on sockets the new model lacks. Assumed: the same B2 handling local jacks get. The cables are kept, the rows are drawn red with <em>over</em> against the aux count only, and the switch preview lists them as it lists local jacks.</p></div>
     <div class="ask"><h3>Two meanings of “aux in” on one sheet</h3><p>For Playback the sheet reads <em>Strip: Aux in</em> and <em>Into: FOH aux in · Aux 1</em>. The first is the strip pool, the second the socket. The desk itself uses both names. Assumed: keep both, because the desk prefix separates them. The alternative renames the pool option <em>Aux strip</em>.</p></div>
     <div class="ask"><h3>The printed badge</h3><p>Paper prints the local box as JACKS while the canvas says LOCAL. Drawn: LOCAL AUX on the canvas, AUX on paper. Assumed: JACKS is left alone here.</p></div>
+  </section>
+
+
+  <!-- ============================================================ 10 -->
+  <section id="s10">
+    <div class="sec__hd">
+      <span class="sec__no">10 · the desk rail · revision 3 · drawn</span>
+      <h2>The aux strips sit under their own heading on the desk rail, because the desk keeps them as a separate bank</h2>
+    </div>
+    <div class="prose">
+      <p>The DESK node already lists the aux strips after the channels, since <code>orderChannels</code> started sorting by pool. Nothing marks where the channels stop. On FOH, <em>Host mic RX</em> on channel 20 is followed directly by <em>Playback L</em> on Aux 1, so the rail reads as if the two were neighbours on the desk.</p>
+      <p><b>Proposed:</b> a heading row between the two runs. It is the rule §03 wrote for option (a), adapted to the desk rail. The row is one port pitch tall (18&nbsp;px), with a <code>border-zinc-800</code> rule along its top edge. The name <b>Aux in</b> is in <code>MICRO_LABEL</code>, and the aux pool's fill sits at the right edge in 10&nbsp;px mono zinc-500: <em>3/8</em>, counted in strips, because Playback is stereo and takes Aux 1–2. That is the construction the desktop Sheet already uses for this split (<code>InputSheet</code> <code>sectionsOf</code>: <code>MicroLabel</code> “Aux in” plus the same 10&nbsp;px mono fill), and the one <code>tokens.md</code> §7 names: <em>a MicroLabel and a border-zinc-800 rule</em>. The heading is not a port. It has no dot, and it cannot be selected or dragged.</p>
+      <p><b>The heading text is “Aux in”, not “Aux”,</b> because the desktop Sheet's section, the phone list's section and the phone sheet's Strip option all call this run <em>Aux in</em>. The rail should not invent a fourth name. <b>A desk with no aux strips shows no heading:</b> no LV1, no Generic, and no X32 that uses none. An empty run draws nothing, so the rail looks exactly as it does today. If a desk has aux strips and no channels, the heading still opens the aux run, so the rows are never mistaken for channels.</p>
+      <p><b>The footer changes, and so does what it warns on.</b> Today it shows <code>channels.length / input_count in · local M</code>, and <code>over</code> fires when <code>channels.length &gt; input_count</code>. Aux strips are inside that <code>channels.length</code>, so they are counted against the 32 channel strips. An X32 with all 32 channels and any aux strip goes red, though the desk is not over. Proposed: the footer counts the channel run only (<em>3 / 32 in · local 32</em>) and <code>over</code> uses the same count. The aux run's fill is in its heading.</p>
+    </div>
+    <div class="spec">
+      <div class="spec__frame"><div class="d9-rails"><div class="d9-rail"><div class="d9-node d9-node--desk"><div class="d9-hd"><span>FOH</span><span class="d9-bdg">DESK</span></div><div class="d9-body"><div class="d9-row d9-row--l" style="color:#38bdf8"><span class="d9-dot d9-dot--on" style="--c:#38bdf8"></span><span>Kick</span></div><div class="d9-row d9-row--l" style="color:#38bdf8"><span class="d9-dot d9-dot--on" style="--c:#38bdf8"></span><span>Snare</span></div><div class="d9-row d9-row--l" style="color:#c084fc"><span class="d9-dot d9-dot--on" style="--c:#c084fc"></span><span>Host mic RX</span></div><div class="d9-row d9-row--l" style="color:#2dd4bf"><span class="d9-dot d9-dot--on" style="--c:#2dd4bf"></span><span>Playback L</span></div><div class="d9-row d9-row--l" style="color:#2dd4bf"><span class="d9-dot d9-dot--on" style="--c:#2dd4bf"></span><span>Playback R</span></div><div class="d9-row d9-row--l" style="color:#a3e635"><span class="d9-dot d9-dot--on" style="--c:#a3e635"></span><span>Laptop</span></div></div><div class="d9-ft">5 / 32 in · local 32</div></div><span class="d9-rail__cap"><b>Today</b> · FOH · X32</span></div><div class="d9-rail"><div class="d9-node d9-node--desk"><div class="d9-hd"><span>FOH</span><span class="d9-bdg">DESK</span></div><div class="d9-body"><div class="d9-row d9-row--l" style="color:#38bdf8"><span class="d9-dot d9-dot--on" style="--c:#38bdf8"></span><span>Kick</span></div><div class="d9-row d9-row--l" style="color:#38bdf8"><span class="d9-dot d9-dot--on" style="--c:#38bdf8"></span><span>Snare</span></div><div class="d9-row d9-row--l" style="color:#c084fc"><span class="d9-dot d9-dot--on" style="--c:#c084fc"></span><span>Host mic RX</span></div><div class="d9-run d9-run--rail"><b>Aux in</b><s>3/8</s></div><div class="d9-row d9-row--l" style="color:#2dd4bf"><span class="d9-dot d9-dot--on" style="--c:#2dd4bf"></span><span>Playback L</span></div><div class="d9-row d9-row--l" style="color:#2dd4bf"><span class="d9-dot d9-dot--on" style="--c:#2dd4bf"></span><span>Playback R</span></div><div class="d9-row d9-row--l" style="color:#a3e635"><span class="d9-dot d9-dot--on" style="--c:#a3e635"></span><span>Laptop</span></div></div><div class="d9-ft">3 / 32 in · local 32</div></div><span class="d9-rail__cap"><b>Proposed</b> · FOH · X32</span></div><div class="d9-rail"><div class="d9-node d9-node--desk"><div class="d9-hd"><span>Monitor</span><span class="d9-bdg">DESK</span></div><div class="d9-body"><div class="d9-row d9-row--l" style="color:#38bdf8"><span class="d9-dot d9-dot--on" style="--c:#38bdf8"></span><span>Kick</span></div><div class="d9-row d9-row--l" style="color:#38bdf8"><span class="d9-dot d9-dot--on" style="--c:#38bdf8"></span><span>Snare</span></div><div class="d9-row d9-row--l" style="color:#fb7185"><span class="d9-dot d9-dot--on" style="--c:#fb7185"></span><span>Vox</span></div></div><div class="d9-ft">3 / 24 in · local 16</div></div><span class="d9-rail__cap"><b>Proposed</b> · Monitor · Generic · unchanged</span></div></div></div>
+      <span class="spec__cap"><b>The DESK node</b> · today, proposed, and a desk with no aux strips · built to NODE_* and PORT_ROW, no new size</span>
+    </div>
+    <div class="prose">
+      <p><b>The phone has no rail and changes nothing.</b> Its list already splits <em>Channels</em> and <em>Aux in</em> on any desk whose model has an aux pool. Each section has a fill, and the aux section has <em>+ Aux</em> and its own empty-state line (§04's first phone; <code>AudioInputsTab</code> <code>sections</code>). The phone keeps an empty aux section and the rail does not, because the section carries the add control and the rail has none.</p>
+      <p><b>Paper.</b> <code>flow_layout.go</code> sizes a box as <code>nodeHeaderMM 5.0 + Rows() × portRowMM 4.0 + nodeFooterMM 3.0</code>, all multiplied by <code>shrink</code>. <code>NodeBox.PortY(i)</code> places jack <em>i</em> at <code>header + i × rowHeight + rowHeight/2</code>, and every edge and lane in <code>flow_route.go</code> reads its height from <code>PortY</code>. So a heading row costs exactly <b>one row: 4.0&nbsp;mm × shrink of box height</b>. Every jack at or after the aux run's first index moves down by one <code>rowHeight</code>. A <code>FlowNode</code> that knows where its second run starts (say <code>RunStart</code>, <code>RunLabel</code>, <code>RunFill</code>) has <code>Rows()</code> count one more, and <code>PortY</code> adds one row past <code>RunStart</code>. Then the edges, lane allocation and the collinearity check follow without change. <code>drawFlowNode</code> draws the heading the way it draws the footer: a hairline in the footer's grey, and <em>AUX IN</em> and <em>3/8</em> at <code>nodeFooterPt</code> 5.6. The printed footer <em>N / input_count patched</em> counts channel-run jacks only, on the same reasoning as the canvas.</p>
+    </div>
+    <div class="spec">
+      <div class="d9-paper d9-paper--rail">
+        <svg viewBox="0 0 172 46" role="img" aria-label="The printed FOH desk rail before and after: after, a hairline and the heading AUX IN 3/8 sit between Host mic RX and Playback L, and the aux cables land one row lower">
+          <text x="24" y="2.6" font-size="2" class="ink2">today</text>
+          <text x="112" y="2.6" font-size="2" class="ink2">proposed</text>
+          <rect class="box" x="24" y="4" width="52" height="32"/>
+          <line class="rule" x1="24" y1="9" x2="76" y2="9"/>
+          <text x="25" y="7.4" font-size="2.26" font-weight="bold" class="ink">FOH</text>
+          <text x="75" y="7.4" font-size="2.0" class="ink2" text-anchor="end">DESK</text>
+          <circle class="jack on" cx="25.4" cy="11" r="0.7"/>
+          <text x="26.8" y="11.75" font-size="2.12" class="ink">Kick</text>
+          <circle class="jack on" cx="25.4" cy="15" r="0.7"/>
+          <text x="26.8" y="15.75" font-size="2.12" class="ink">Snare</text>
+          <circle class="jack on" cx="25.4" cy="19" r="0.7"/>
+          <text x="26.8" y="19.75" font-size="2.12" class="ink">Host mic RX</text>
+          <circle class="jack on" cx="25.4" cy="23" r="0.7"/>
+          <text x="26.8" y="23.75" font-size="2.12" class="ink">Playback L</text>
+          <circle class="jack on" cx="25.4" cy="27" r="0.7"/>
+          <text x="26.8" y="27.75" font-size="2.12" class="ink">Playback R</text>
+          <circle class="jack on" cx="25.4" cy="31" r="0.7"/>
+          <text x="26.8" y="31.75" font-size="2.12" class="ink">Laptop</text>
+          <line class="rule-ft" x1="24" y1="33" x2="76" y2="33"/>
+          <text x="25" y="35.2" font-size="1.98" class="ink2">6 / 32 patched</text>
+          <path class="wire" d="M8 11 H24"/>
+          <polygon class="ink" points="24,11 22.6,10.3 22.6,11.7"/>
+          <path class="wire" d="M8 15 H24"/>
+          <polygon class="ink" points="24,15 22.6,14.3 22.6,15.7"/>
+          <path class="wire" d="M8 19 H24"/>
+          <polygon class="ink" points="24,19 22.6,18.3 22.6,19.7"/>
+          <path class="wire" d="M8 23 H24"/>
+          <polygon class="ink" points="24,23 22.6,22.3 22.6,23.7"/>
+          <path class="wire" d="M8 27 H24"/>
+          <polygon class="ink" points="24,27 22.6,26.3 22.6,27.7"/>
+          <path class="wire" d="M8 31 H24"/>
+          <polygon class="ink" points="24,31 22.6,30.3 22.6,31.7"/>
+          <rect class="box" x="112" y="4" width="52" height="36"/>
+          <line class="rule" x1="112" y1="9" x2="164" y2="9"/>
+          <text x="113" y="7.4" font-size="2.26" font-weight="bold" class="ink">FOH</text>
+          <text x="163" y="7.4" font-size="2.0" class="ink2" text-anchor="end">DESK</text>
+          <circle class="jack on" cx="113.4" cy="11" r="0.7"/>
+          <text x="114.8" y="11.75" font-size="2.12" class="ink">Kick</text>
+          <circle class="jack on" cx="113.4" cy="15" r="0.7"/>
+          <text x="114.8" y="15.75" font-size="2.12" class="ink">Snare</text>
+          <circle class="jack on" cx="113.4" cy="19" r="0.7"/>
+          <text x="114.8" y="19.75" font-size="2.12" class="ink">Host mic RX</text>
+          <line class="rule-ft" x1="112" y1="21" x2="164" y2="21"/>
+          <text x="113" y="23.7" font-size="1.98" class="ink2" letter-spacing="0.3">AUX IN</text>
+          <text x="163" y="23.7" font-size="1.98" class="ink2" text-anchor="end">3/8</text>
+          <circle class="jack on" cx="113.4" cy="27" r="0.7"/>
+          <text x="114.8" y="27.75" font-size="2.12" class="ink">Playback L</text>
+          <circle class="jack on" cx="113.4" cy="31" r="0.7"/>
+          <text x="114.8" y="31.75" font-size="2.12" class="ink">Playback R</text>
+          <circle class="jack on" cx="113.4" cy="35" r="0.7"/>
+          <text x="114.8" y="35.75" font-size="2.12" class="ink">Laptop</text>
+          <line class="rule-ft" x1="112" y1="37" x2="164" y2="37"/>
+          <text x="113" y="39.2" font-size="1.98" class="ink2">3 / 32 patched</text>
+          <path class="wire" d="M96 11 H112"/>
+          <polygon class="ink" points="112,11 110.6,10.3 110.6,11.7"/>
+          <path class="wire" d="M96 15 H112"/>
+          <polygon class="ink" points="112,15 110.6,14.3 110.6,15.7"/>
+          <path class="wire" d="M96 19 H112"/>
+          <polygon class="ink" points="112,19 110.6,18.3 110.6,19.7"/>
+          <path class="wire" d="M96 27 H112"/>
+          <polygon class="ink" points="112,27 110.6,26.3 110.6,27.7"/>
+          <path class="wire" d="M96 31 H112"/>
+          <polygon class="ink" points="112,31 110.6,30.3 110.6,31.7"/>
+          <path class="wire" d="M96 35 H112"/>
+          <polygon class="ink" points="112,35 110.6,34.3 110.6,35.7"/>
+        </svg>
+      </div>
+      <span class="spec__cap"><b>The printed rail</b> · FOH · today, then proposed · the aux cables land one row lower</span>
+    </div>
+    <div class="led">
+      <div class="led__row"><div class="led__k">R3-1 · heading</div><div class="led__v">On the Inputs canvas, a DESK node with at least one aux strip shows a heading row between its last channel and its first aux strip. The row is 18&nbsp;px tall with a <code>border-t border-zinc-800</code> rule, <b>Aux in</b> in <code>MICRO_LABEL</code>, and the aux pool's fill (<code>poolUsage/poolCapacity</code> in strips, e.g. <em>3/8</em>) flush right in 10&nbsp;px mono zinc-500.</div></div>
+      <div class="led__row"><div class="led__k">R3-2 · none</div><div class="led__v">A DESK node with no aux strips shows no heading, whatever the model. A desk with aux strips and no channels shows the heading above its first aux strip.</div></div>
+      <div class="led__row"><div class="led__k">R3-3 · not a port</div><div class="led__v">The heading has no dot and cannot be selected or dragged. Under a search it dims only when every row in its run is dimmed.</div></div>
+      <div class="led__row"><div class="led__k">R3-4 · footer</div><div class="led__v">The DESK footer reads <em>C / input_count in · local M</em>, where C counts only channels outside the aux pool. Its <code>over</code> alarm uses the same C. Aux strips are never counted against <code>input_count</code>.</div></div>
+      <div class="led__row"><div class="led__k">R3-5 · paper</div><div class="led__v">The printed desk rail draws the same heading row: a hairline in the footer's grey, <em>AUX IN</em> left and the fill right at <code>nodeFooterPt</code>. It adds one <code>portRowMM</code> to the box's height and moves every later jack down one row; edges follow from <code>PortY</code>. The printed footer <em>N / input_count patched</em> counts channel-run jacks only.</div></div>
+      <div class="led__row"><div class="led__k">R3-6 · phone</div><div class="led__v">No change. The phone list's Channels / Aux in sections already make the split.</div></div>
+    </div>
+    <div class="d9-rule">
+      <span><b>The design/ text this asks you to approve</b>. It is not written to <code>design/</code> by this mockup.</span>
+      <span><b><code>design/components.md</code> §2</b>, appended to the <code>PortRow / SplitPortRow</code> row:</span>
+      <span><em>“<b>A node may divide its ports into runs</b>, only where the thing it draws keeps them apart. The desk rail's channels and aux strips are the first case. A run after the main one opens with a heading row one port pitch tall (18&nbsp;px): a <code>border-t border-zinc-800</code> rule, the run's name in <code>MICRO_LABEL</code>, and its fill flush right in 10&nbsp;px mono zinc-500 (<code>NODE_RUN</code>, <code>NODE_RUN_FILL</code>). It is the Sheet's section heading at the canvas's pitch, and it carries the same name and fill. The heading is not a port: it has no dot, and it cannot be selected or dragged. An empty run draws no heading, so a node with one run looks as it always has. The footer counts the main run only. On paper the heading costs one row (<code>portRowMM</code>) in the footer's type and hairline, and every later jack moves down one row.”</em></span>
+      <span><b><code>design/tokens.md</code> §3, Fixed geometry</b>, a row after <em>Port row height</em>:</span>
+      <span><em>“| Run heading row | <code>18px</code> | One port pitch, so dividing a node into runs does not break the rack's pitch. |”</em></span>
+      <span><b><code>graph/tokens.ts</code></b>, next to <code>PORT_ROW</code>:</span>
+      <span><code>export const NODE_RUN = 'flex h-[18px] items-center gap-1.5 border-t border-zinc-800 px-1.5'</code><br><code>export const NODE_RUN_FILL = 'ml-auto font-mono text-[10px] tabular-nums text-zinc-500'</code></span>
+      <span>Every value already exists: 18&nbsp;px is <code>tokens.md</code> §3's port row height, <code>border-zinc-800</code> is <code>NODE_HEADER</code>'s and <code>NODE_FOOTER</code>'s rule, <code>MICRO_LABEL</code> is <code>tokens.md</code>'s micro-label, and the fill classes are <code>InputSheet</code>'s section fill. <code>px-1.5</code> and <code>gap-1.5</code> are <code>PORT_ROW</code>'s.</span>
+    </div>
   </section>
 
 </div>

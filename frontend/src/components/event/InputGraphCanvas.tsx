@@ -35,10 +35,11 @@ import { fitScale } from '../../lib/canvasFit'
 import { firstMatch, focusOffset } from '../../lib/canvasFocus'
 import { originShift, planeExtent, planeOrigin } from '../../lib/canvasPlane'
 import { stageboxPorts, stageMultiPorts } from '../../lib/outputGraph'
-import { orderChannels } from '../../lib/deskStrips'
+import { orderChannels, poolCapacity, poolOf, poolUsage } from '../../lib/deskStrips'
+import { deskModelOf, useDeskModels } from '../../hooks/useDeskModels'
 import { matchesSearch } from '../../lib/patchSearch'
 import { itemLabel } from '../../lib/utils'
-import type { Console, InputCable, InputChannel, InputDevice, InputSource, InventoryItem, StageMulti, Stagebox } from '../../types'
+import type { Console, DeskModel, InputCable, InputChannel, InputDevice, InputSource, InventoryItem, StageMulti, Stagebox } from '../../types'
 import { FlowInspector, type InputFlowSelection } from './InputFlowInspector'
 import { NodeShell as SharedNodeShell } from './graph/NodeShell'
 import { PortDot as SharedPortDot } from './graph/PortDot'
@@ -46,6 +47,8 @@ import { PortRow as SharedPortRow, SplitPortRow, type PortWiring } from './graph
 import {
   MICRO_LABEL,
   NODE_BORDER,
+  NODE_RUN,
+  NODE_RUN_FILL,
   NODE_CHROME,
   PHANTOM_BAR,
   PHANTOM_BAR_OFF,
@@ -338,6 +341,7 @@ export function InputGraphCanvas({
     return source.connector_type
   }
 
+  const { models } = useDeskModels()
   const orphanChannels = useMemo(() => channels.filter((channel) => channel.console_id == null), [channels])
 
   const layout = useMemo<NodeLayout[]>(() => {
@@ -1062,6 +1066,7 @@ export function InputGraphCanvas({
                     x={node.x - origin.x}
                     y={node.y - origin.y}
                     desk={desk}
+                    model={deskModelOf(models, desk)}
                     channels={channels.filter((channel) => channel.console_id === desk.id)}
                     cables={cables}
                     pendingPort={pendingPort}
@@ -1553,10 +1558,12 @@ function ChannelsNode({ x, y, channels, cables, pendingPort, onPortClick, onPort
  * and never leave it — so since Slice 24 they are their own node
  * (`LocalJackNode`).
  */
-function ConsoleNode({ x, y, desk, channels, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext, onDragStart, search = '' , selected, onSelect }: {
+export function ConsoleNode({ x, y, desk, model, channels, cables, pendingPort, onPortClick, onPortPointerDown, registerPort, colorContext, onDragStart, search = '' , selected, onSelect }: {
   x: number
   y: number
   desk: Console
+  /** For the aux run's fill; Generic while the model list loads. */
+  model: DeskModel
   channels: InputChannel[]
   cables: InputCable[]
   pendingPort: PortRef | null
@@ -1569,12 +1576,20 @@ function ConsoleNode({ x, y, desk, channels, cables, pendingPort, onPortClick, o
   selected?: boolean
   onSelect?: () => void
 }) {
-  // Aux strips after the channels, as the desk itself keeps them (user, 2026-10-21).
-  const ports = orderChannels(channels).flatMap((channel) => channelPorts(channel))
+  // Aux strips are a run of their own below the channels, as the desk and the
+  // Sheet keep them (user, 2026-10-21; components.md §2, a node's runs).
+  const ordered = orderChannels(channels)
+  const main = ordered.filter((channel) => poolOf(channel) !== 'aux')
+  const aux = ordered.filter((channel) => poolOf(channel) === 'aux')
   const dimmedIds = new Set(
     channels.filter((channel) => !matchesSearch(search, channel.channel_number, channel.channel_name, channel.notes)).map((channel) => channel.id),
   )
-  const over = desk.input_count > 0 && channels.length > desk.input_count
+  // The footer counts the main run only: aux strips are their own pool, never the inputs.
+  const over = desk.input_count > 0 && main.length > desk.input_count
+  const rows = (run: InputChannel[]) =>
+    run.flatMap((channel) => channelPorts(channel)).map((port) => (
+      <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" colorContext={colorContext} dimmed={dimmedIds.has(port.id)} />
+    ))
 
   return (
     <NodeShell
@@ -1588,16 +1603,23 @@ function ConsoleNode({ x, y, desk, channels, cables, pendingPort, onPortClick, o
       footerAlarm={over}
       footer={
         <>
-          {channels.length}
+          {main.length}
           {desk.input_count > 0 ? ` / ${desk.input_count}` : ''} in
           {desk.local_input_count > 0 ? ` · local ${desk.local_input_count}` : ''}
         </>
       }
     >
-      {ports.map((port) => (
-        <PortRow key={portKey(port.kind, port.id, port.port, 'in')} label={port.label} port={port} cables={cables} pendingPort={pendingPort} onPortClick={onPortClick} onPortPointerDown={onPortPointerDown} registerPort={registerPort} align="left" colorContext={colorContext} dimmed={dimmedIds.has(port.id)} />
-      ))}
-      {ports.length === 0 && <p className="px-1.5 text-[11px] text-zinc-600">No channels on this desk yet</p>}
+      {rows(main)}
+      {aux.length > 0 && (
+        <div className={`${NODE_RUN} ${aux.every((channel) => dimmedIds.has(channel.id)) ? 'opacity-30' : ''}`}>
+          <span className={MICRO_LABEL}>Aux in</span>
+          <span className={NODE_RUN_FILL}>
+            {poolUsage(model, channels, 'aux')}/{poolCapacity(model, desk, 'aux')}
+          </span>
+        </div>
+      )}
+      {rows(aux)}
+      {channels.length === 0 && <p className="px-1.5 text-[11px] text-zinc-600">No channels on this desk yet</p>}
     </NodeShell>
   )
 }

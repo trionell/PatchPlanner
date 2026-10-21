@@ -39,6 +39,13 @@ export const NODE_FOOTER = 'border-t border-zinc-800 px-1.5 pb-1 pt-0.5 font-mon
 
 /** One port row. Fixed height is what makes a column of ports read as a rack. */
 export const PORT_ROW = 'flex h-[18px] items-center gap-1.5 px-1.5 text-[11px]'
+/**
+ * A run heading inside a node (components.md §2): one port pitch tall, so the rack's
+ * pitch holds. The Sheet's section heading at the canvas's pitch — MICRO_LABEL name,
+ * fill flush right. Not a port: no dot, never a target.
+ */
+export const NODE_RUN = 'flex h-[18px] items-center gap-1.5 border-t border-zinc-800 px-1.5'
+export const NODE_RUN_FILL = 'ml-auto font-mono text-[10px] tabular-nums text-zinc-500'
 export const PORT_ROW_TEXT = 'text-zinc-300'
 
 // No truncation limit here, deliberately. The mockup ends a long port list with a

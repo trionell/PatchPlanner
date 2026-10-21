@@ -135,8 +135,26 @@ func drawFlowNode(pdf *fpdf.Fpdf, tr func(string) string, box NodeBox, offsetX, 
 	pdf.SetTextColor(17, 17, 17)
 	labelWidth := box.W/2 - 4*shrink
 
+	if run := box.Node.Run; run != nil {
+		// The run heading: the footer's hairline and type, one row tall.
+		runY := y + header + float64(run.Start)*rowHeight
+		pdf.SetLineWidth(boxLineWidth)
+		pdf.SetDrawColor(170, 170, 170)
+		pdf.Line(x, runY, x+box.W, runY)
+		pdf.SetFont("Helvetica", "", nodeFooterPt*shrink)
+		pdf.SetTextColor(110, 110, 110)
+		width := box.W - 2*shrink
+		pdf.SetXY(x+shrink, runY)
+		pdf.CellFormat(width, rowHeight, tr(strings.ToUpper(run.Label)), "", 0, "L", false, 0, "")
+		pdf.SetXY(x+shrink, runY)
+		pdf.CellFormat(width, rowHeight, tr(run.Fill), "", 0, "R", false, 0, "")
+		pdf.SetDrawColor(17, 17, 17)
+		pdf.SetTextColor(17, 17, 17)
+		pdf.SetFont("Helvetica", "", portLabelPt*shrink)
+	}
+
 	for index := 0; index < box.Node.Rows(); index++ {
-		rowY := y + header + float64(index)*rowHeight
+		rowY := y + header + float64(box.Node.rowOf(index))*rowHeight
 		if index < len(box.Node.Inputs) {
 			port := box.Node.Inputs[index]
 			drawJack(pdf, x+1.4*shrink, rowY+rowHeight/2, port, shrink)

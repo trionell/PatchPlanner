@@ -117,3 +117,28 @@ unchanged.
 
 - **WHEN** the audio PDF is printed for an event whose X32 desk has Aux in 1–3 patched
 - **THEN** the input graph holds a node "FOH aux" with the footer "6 aux sockets - 3 used"
+
+### Requirement: A desk rail keeps its aux strips as a run under a heading
+
+On the Inputs canvas and the printed input graph, a desk's channel rail SHALL list its channels by
+number, then its aux strips by number. When the desk has at least one aux strip, a heading row
+reading **Aux in** with the aux pool's fill (strips used / aux capacity) SHALL sit between the last
+channel and the first aux strip. The heading SHALL not be a port. On the canvas it SHALL dim only
+when every aux row is dimmed. A desk with no aux strips SHALL show no heading. The rail's footer and
+its over-capacity alarm SHALL count only the channels outside the aux pool. On paper the heading
+SHALL take one row, and every later jack SHALL sit one row lower, with its cable still landing on it.
+
+#### Scenario: An X32 rail with aux strips
+
+- **WHEN** an X32 desk has Kick (1), Snare (2), a stereo aux strip Playback (Aux 1–2) and Laptop (Aux 3)
+- **THEN** the rail reads Kick, Snare, an Aux in heading with 3/8, Playback L, Playback R, Laptop
+
+#### Scenario: Aux strips raise no capacity alarm
+
+- **WHEN** a desk typed for 2 inputs has 2 channels and 2 aux strips
+- **THEN** its footer reads 2 / 2 in and is not flagged over
+
+#### Scenario: No aux strips
+
+- **WHEN** a desk has channels only
+- **THEN** its rail shows no heading

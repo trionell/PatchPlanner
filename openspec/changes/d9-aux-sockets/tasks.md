@@ -52,3 +52,10 @@
 - [x] 9.2 Verify against a copy of the real DB in /tmp: migration applies, a console reads its aux count and resolved position
 - [x] 9.3 Independent review against the specs
 - [x] 9.4 ROADMAP.md: D9 marked ✅ with the Fixed note (decisions, unverified socket counts, the phone gap found and closed); drop it from What remains
+
+## 10. The desk rail's aux run (revision 3)
+
+- [x] 10.1 `design/components.md` §2 and `tokens.md` §3: the runs rule; `graph/tokens.ts` `NODE_RUN`, `NODE_RUN_FILL`
+- [x] 10.2 Canvas `ConsoleNode`: channels, then an Aux in heading with the fill, then aux strips; footer and alarm count channels only
+- [x] 10.3 Paper: `FlowNode.Run`, `drawnRows`, `PortY`, the heading drawn; footer counts the main run
+- [x] 10.4 Tests: `ConsoleNode.test.tsx`; `TestDeskRailPutsAuxStripsLast` covers the run, footer and row positions; a printed page checked by eye

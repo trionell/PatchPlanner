@@ -90,6 +90,15 @@ which has 0. The local-jack loop skips Generic; the aux check does not.
 
 **D8 · Delete.** `DeleteConsole` clears `console_aux` cables alongside `console_local` cables.
 
+**D9 · Aux strips are a run on the desk rail** (user, 2026-10-21, after the first build; mockup
+revision 3, §10). Both rails sort channels first, then aux strips, and a heading row (**Aux in** plus
+the pool fill) divides them. This is the first node divided into runs, so it adds the rule to
+`design/components.md` §2 (`PortRow` row), a row to `tokens.md` §3, and `NODE_RUN` /
+`NODE_RUN_FILL` to `graph/tokens.ts`. On paper `FlowNode.Run` marks where the run starts; `Rows()`
+stays the jack count, which the routing loops rely on, while `drawnRows()` and `PortY` add the
+heading's row. The footers and the canvas over alarm count the main run only. Before this they
+counted aux strips against `input_count`, so an X32 with 32 channels and any aux strip showed red.
+
 ## Risks / Trade-offs
 
 - [Socket counts are retailer figures] → recorded as unverified in ROADMAP's Fixed note. Correcting

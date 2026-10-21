@@ -2591,9 +2591,11 @@ untouched.
   a result, phone rows on a local jack now read `FOH local in 5`, where they used to read
   `FOH — built-in`.
 
-- **Aux strips sit below the channels on a desk rail** (user, 2026-10-21), on the canvas and on
-  paper. Both rails used to sort by number alone, so Aux 1 sat next to Ch 1. The rows are only
-  reordered; no heading was added, because that would be the new `design/` rule the mockup avoided.
+- **Aux strips are a run under an "Aux in" heading on a desk rail** (user, 2026-10-21), on the
+  canvas and on paper. Both rails used to sort by number alone, so Aux 1 sat next to Ch 1. This is
+  the first node divided into runs, so the rule is now in `design/components.md` §2 and
+  `tokens.md` §3, approved from mockup revision 3. The rail's footer and its over-capacity alarm
+  now count channels only. Before, an X32 with 32 channels and any aux strip showed red.
 
 **Verified:** backend and frontend gates and golangci-lint are green. Migration 056 applies to a
 copy of the real database, where both M32R desks read 6 sockets. The review's three export

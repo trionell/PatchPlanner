@@ -87,6 +87,7 @@ are structural rather than typographic:
 | | Value | Why fixed |
 |---|---|---|
 | Port row height | `18px` | A column of ports only reads as a rack if the pitch is constant. |
+| Run heading row | `18px` | One port pitch, so dividing a node into runs does not break the rack's pitch. |
 | Source rail row | `20px` **per port** | Computed, never a class. A stereo source is two slots tall; two competing height utilities in one class string resolve to whichever Tailwind emits last, which is how the stereo rows once shipped at mono height with their dots overlapping. |
 | Inspector label column | `44px` | Fits every label either inspector uses. A label that does not fit is a label to shorten — widening this moves every control on both rails. |
 | Inspector rail width | `w-60`, `shrink-0` | The canvas gives up space; the rail does not compress. |

@@ -2,6 +2,7 @@ package service
 
 import (
 	"database/sql"
+	"math"
 	"strings"
 	"testing"
 
@@ -559,5 +560,26 @@ func TestDeskRailPutsAuxStripsLast(t *testing.T) {
 	}
 	if len(graph.Edges) != 1 || rail.Inputs[graph.Edges[0].To.Port].Label != "Playback" {
 		t.Errorf("the cable to the aux strip lands on row %d", graph.Edges[0].To.Port)
+	}
+	// The aux strips are a run under a heading, and the footer counts the main run.
+	if rail.Run == nil || rail.Run.Start != 2 || rail.Run.Label != "Aux in" || rail.Run.Fill != "1/8" {
+		t.Errorf("run = %+v, want Aux in at 2 with 1/8", rail.Run)
+	}
+	if rail.Footer != "0 / 0 patched" {
+		t.Errorf("footer = %q counts the aux run", rail.Footer)
+	}
+	// On paper the heading costs one row: Playback sits two rows below Snare,
+	// and the box is a row taller than its jacks.
+	box := NodeBox{Node: rail, W: nodeWidthMM}
+	if gap := box.PortY(2) - box.PortY(1); math.Abs(gap-2*portRowMM) > 1e-9 {
+		t.Errorf("Snare → Playback = %v mm, want %v", gap, 2*portRowMM)
+	}
+	if _, h := nodeSize(rail, 1); math.Abs(h-(nodeHeaderMM+4*portRowMM+nodeFooterMM)) > 1e-9 {
+		t.Errorf("box height = %v, want room for 3 jacks and a heading", h)
+	}
+	// A desk with no aux strips has no run.
+	data.channels = data.channels[1:]
+	if plain, _ := buildInputGraph(data).Node("channel:1"); plain.Run != nil {
+		t.Errorf("a rail with no aux strips has a run: %+v", plain.Run)
 	}
 }

@@ -63,6 +63,33 @@ type FlowNode struct {
 	Outputs []FlowPort
 	// Footer states the box's capacity, e.g. "32 in / 24 out - 8 used".
 	Footer string
+	// Run, when set, opens a second run of rows at jack RunStart under a heading
+	// row: the desk rail's aux strips (components.md §2, a node's runs). The
+	// heading takes one row, so every jack from RunStart on sits a row lower.
+	Run *FlowRun
+}
+
+// FlowRun is a run heading: its name and its fill, e.g. "Aux in", "3/8".
+type FlowRun struct {
+	Start int
+	Label string
+	Fill  string
+}
+
+// drawnRows is the box's height in rows: its jacks, and a run heading if any.
+func (n FlowNode) drawnRows() int {
+	if n.Run != nil {
+		return n.Rows() + 1
+	}
+	return n.Rows()
+}
+
+// rowOf is the drawn row a jack sits on, below the run heading when past it.
+func (n FlowNode) rowOf(index int) int {
+	if n.Run != nil && index >= n.Run.Start {
+		return index + 1
+	}
+	return index
 }
 
 // FlowEndpoint identifies one end of a cable.
@@ -122,6 +149,7 @@ func (n FlowNode) PortCount(side FlowSide) int {
 
 // Rows is the number of port rows the box is drawn with — the taller of its two
 // sides, since the sides are drawn beside each other.
+// Rows is how many jack rows the box has, not counting a run heading.
 func (n FlowNode) Rows() int {
 	if len(n.Inputs) > len(n.Outputs) {
 		return len(n.Inputs)
@@ -290,7 +318,17 @@ func buildInputGraph(data audioGraphData) FlowGraph {
 			Y:     y,
 			Desk:  true,
 		}
+		// Aux strips are a run of their own under a heading (components.md §2):
+		// sortDeskOrder has put them last, so the run starts at the first.
+		model, _ := domain.LookupDeskModel(desk.DeskModel)
+		auxStrips := 0
 		for _, channel := range deskChannels {
+			if channel.StripPool == domain.PoolAux {
+				if node.Run == nil {
+					node.Run = &FlowRun{Start: len(node.Inputs), Label: "Aux in"}
+				}
+				auxStrips += model.StripWidth(channel.Width, channel.MixerBehavior)
+			}
 			for _, port := range channelPortLabels(channel) {
 				key := portKey{"channel:" + itoa(channel.ID), SideIn, port.index}
 				node.Inputs = append(node.Inputs, FlowPort{
@@ -300,7 +338,13 @@ func buildInputGraph(data audioGraphData) FlowGraph {
 				})
 			}
 		}
-		node.Footer = fmt.Sprintf("%d / %d patched", countPatched(node.Inputs), desk.InputCount)
+		// The footer counts the main run only: aux strips are not the desk's inputs.
+		mainRun := node.Inputs
+		if node.Run != nil {
+			mainRun = node.Inputs[:node.Run.Start]
+			node.Run.Fill = fmt.Sprintf("%d/%d", auxStrips, model.AuxIn)
+		}
+		node.Footer = fmt.Sprintf("%d / %d patched", countPatched(mainRun), desk.InputCount)
 		// A desk with no channels on it is not drawn. Every event is born with
 		// an unnamed placeholder desk, and drawing its rail put an empty box
 		// on every graph — the canvas keeps it because it is somewhere to

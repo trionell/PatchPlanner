@@ -45,7 +45,7 @@ type NodeBox struct {
 
 // PortY is the centre height of one jack on this box, in millimetres.
 func (b NodeBox) PortY(index int) float64 {
-	return b.Y + b.header() + float64(index)*b.rowHeight() + b.rowHeight()/2
+	return b.Y + b.header() + float64(b.Node.rowOf(index))*b.rowHeight() + b.rowHeight()/2
 }
 
 // PortX is the edge of the box a jack on this side sits on. A cable leaves the
@@ -195,7 +195,7 @@ func (l FlowLayout) Box(key string) (NodeBox, bool) {
 // nodeSize is a box's paper size at a given shrink factor. A node with no
 // footer text does not pay for one.
 func nodeSize(node FlowNode, shrink float64) (float64, float64) {
-	height := nodeHeaderMM + float64(node.Rows())*portRowMM
+	height := nodeHeaderMM + float64(node.drawnRows())*portRowMM
 	if node.Footer != "" {
 		height += nodeFooterMM
 	}
