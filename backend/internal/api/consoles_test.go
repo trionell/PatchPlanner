@@ -349,10 +349,9 @@ func TestConsoleAuxSockets(t *testing.T) {
 	if desk.AuxSocketCount != 6 || core.AuxSocketCount != 0 {
 		t.Fatalf("aux_socket_count = %d / %d, want 6 / 0", desk.AuxSocketCount, core.AuxSocketCount)
 	}
-	// Never placed: just below the local panel, left edges aligned.
-	if desk.AuxInputPositionX != desk.LocalInputPositionX || desk.AuxInputPositionY <= desk.LocalInputPositionY {
-		t.Errorf("aux position (%v, %v) is not below the local panel (%v, %v)",
-			desk.AuxInputPositionX, desk.AuxInputPositionY, desk.LocalInputPositionX, desk.LocalInputPositionY)
+	// Never placed: 24 px below the local panel's 32 drawn rows, left edges aligned.
+	if want := desk.LocalInputPositionY + 36 + 18*32 + 24; desk.AuxInputPositionX != desk.LocalInputPositionX || desk.AuxInputPositionY != want {
+		t.Errorf("aux position (%v, %v), want (%v, %v)", desk.AuxInputPositionX, desk.AuxInputPositionY, desk.LocalInputPositionX, want)
 	}
 
 	source := decodeJSON[domain.InputSource](t, post(sourcesURL, map[string]any{"name": "Host mic RX", "kind": "line", "connector_type": "trs", "width": "mono"}))

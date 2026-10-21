@@ -51,7 +51,8 @@ drawn and flagged over, the same rule `localJackCount` applies.
 `aux_input_position_x` and `aux_input_position_y`, both `REAL NULL`. A NULL means never placed. On
 read, the server resolves a NULL to LOCAL's input position plus LOCAL's drawn height plus 24 px. If
 the desk has no local inputs, it resolves to LOCAL's default position. LOCAL's drawn height is
-`NODE_HEADER + NODE_BODY padding + 18 px × local jack count`, a Go constant that mirrors
+`NODE_HEADER + NODE_BODY padding + 18 px × rows`, where rows is the local count or the highest
+kept local cable + 1, as the canvas draws it, a Go constant that mirrors
 `graph/tokens.ts`. The canvas and the PDF read the one resolved value (`patterns.md` §8a). A drag
 writes both columns. Any console update writes back the resolved value it was served, which pins the
 node where it is drawn. That is accepted: the node does not jump. *Alternative:* resolve on the
@@ -67,10 +68,15 @@ port?, sourceId?}`. `resolveChannelRouting` and `computeRoutingSave` treat the t
 the same two edges, and the same "vacated jack loses its feed" cleanup. Into is a `<select>` with the
 stageboxes ungrouped first, then one `<optgroup>` per desk that has local inputs or aux sockets.
 Slice 47's grouped model select is the precedent. Option values are encoded `kind:id`. Jack sizes
-from the panel: `input_count`, `localJackCount`, or the aux count.
+from the panel: `input_count`, `localJackCount`, or `auxJackCount`. A panel the model lacks is still
+listed while the open channel is on it, so a cable kept after a switch reads as patched. The phone
+list gets the desks too, so a jack row reads `FOH aux in 3`; local jacks read `FOH local in 5`, where
+they used to read `FOH — built-in`.
 
 **D6 · Export.** In `console_export.go`, `resolve` maps `console_aux` on the exported desk to
-`DeskPort{Socket: "aux", Index: port}` on X32 · M32. Other desks and engines return nil. In
+`DeskPort{Socket: "aux", Index: port}` on X32 · M32. Other desks and engines return nil, and so does a port at or past the model's socket
+count (a cable kept after a switch), which gets its own Left out line. The 48 V figure skips a strip
+on an aux socket, because no headamp is written for it. In
 `x32.go`, `inputCode` maps `aux` to `161 + Index`, and `headampIndex` returns −1 for it. An aux strip
 whose input is on the `aux` socket sets `/auxin/NN/config` field 4 to `33 + Index`, and its stereo
 partner sets it from `InputR`. An aux strip with any other input keeps the template source and the
@@ -90,8 +96,8 @@ which has 0. The local-jack loop skips Generic; the aux check does not.
   one is a one-line model change.
 - [The resolved default position freezes on any console update] → accepted. The node stays where it
   was drawn, which is what the user saw.
-- [The phone sheet's routing logic is rewritten] → the existing stagebox and direct-source tests stay
-  and must pass unchanged, and local and aux cases are added beside them.
+- [The phone sheet's routing logic is rewritten] → the existing stagebox and direct-source tests stay,
+  with only the routing shape updated to `panel`, and local and aux cases are added beside them.
 
 ## Migration Plan
 

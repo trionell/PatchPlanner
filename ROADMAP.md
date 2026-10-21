@@ -3,14 +3,13 @@
 ## What remains
 
 **Slices 0–43 and 46–49 are delivered.** This file is a per-slice record written
-after delivery; everything below this section is history. Two defects are open: D7 and D9.
+after delivery; everything below this section is history. One defect is open: D7.
 Slice 46 — the stage plot icon set redrawn by hand — is on
 `redraw-stage-plot-icons` and awaiting the user's decision to merge.
 
 | | |
 |---|---|
 | **D7** — Resizing an element leaves the third dimension behind | open |
-| **D9** — An X32 · M32's aux input sockets cannot be patched in the graph | open |
 
 The table is empty because the roadmap is **asking**, not because the tool is
 finished. Slices 40 and 41 — the audio plan and the stage plot as generated
@@ -2524,7 +2523,7 @@ this change must leave alone.
 its footprint is what makes a 6 m truss draw as a 6 m truss, and once the three
 dimensions move together there is nothing left for it to distort.
 
-### D9 — An X32 · M32's aux input sockets cannot be patched in the graph
+### D9 — An X32 · M32's aux input sockets cannot be patched in the graph ✅ fixed 2026-10-21
 
 **Found:** 2026-10-18 by the user, testing Slice 49's M32 export, and recorded on the
 user's call. On an X32 or M32 profile the desk's **local** panel in the Inputs graph
@@ -2565,6 +2564,36 @@ from a stagebox.
   defect or a slice.
 - **Whether an aux socket may feed an ordinary channel.** The X32's user-in routing
   allows it.
+
+**Fixed** on `d9-aux-sockets` as the OpenSpec change `d9-aux-sockets`. It is a full change
+rather than a defect fix: it reaches 20-odd files and adds a node to the canvas. The design was
+approved from its mockup on 2026-10-21, with the canvas badge changed to LOCAL AUX. `design/` is
+untouched.
+
+- **A port kind of its own, `console_aux`** (user, 2026-10-21). The brief's "a migration and a new
+  kind" was half wrong: the cable tables constrain no kind, so the kind needed no migration. The
+  one migration, 056, is the new node's position.
+- **Sockets per model:** 6 on every X32 · M32 with a jack panel, 0 on Core, M32C, LV1 and Generic.
+  They are derived from the model and served as `aux_socket_count`. **Unverified:** the counts
+  come from retailer spec sheets (Rack, Compact, M32R) and an input total (Producer), not the
+  manuals. Every X32 routing table stops at Aux 6.
+- **An aux socket feeds any channel** (user, 2026-10-21): an aux strip or an ordinary channel.
+- **The canvas:** a LOCAL AUX node of its own, beside LOCAL, rather than a run of rows inside it.
+  That needed no new rule in `design/`, and search lands on it. Until first moved, its position
+  is served 24 px below LOCAL's drawn rows.
+- **The export:** an aux strip on socket *k* gets `/auxin/NN/config` source 32 + *k*. An ordinary
+  channel gets user-in 160 + *k* (Maillot v4.06). A stagebox-fed aux strip is still noticed and
+  not written. A socket kept past a switch is listed under Left out, and the 48 V figure skips
+  aux sockets.
+- **The phone could not pick a local jack at all.** `resolveChannelRouting` only knew
+  stageboxes, so this brief's "the phone's channel sheet draws the same panel" was wrong. Its
+  routing pair is now **Into + Jack**, covering stageboxes, local jacks and aux sockets alike. As
+  a result, phone rows on a local jack now read `FOH local in 5`, where they used to read
+  `FOH — built-in`.
+
+**Verified:** backend and frontend gates and golangci-lint are green. Migration 056 applies to a
+copy of the real database, where both M32R desks read 6 sockets. The review's three export
+findings each fail on the old code. **Not yet tried in a browser or on a handset.**
 
 ### D8 — A stagebox's counts would not stay put, and Inputs sized nothing ✅ fixed 2026-10-18
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { InputCable, InputChannel, InputSource, OutputCable } from '../types'
+import type { Console, InputCable, InputChannel, InputSource, OutputCable } from '../types'
 import { buildMobileChannelList, computeRoutingSave, resolveChannelRouting } from './mobileChannelList'
 import { buildMobileOutputList, computeOutputRoutingSave, resolveOutputRouting } from './mobileOutputList'
 
@@ -152,5 +152,27 @@ describe('buildMobileOutputList · hasGap', () => {
     // chain's own "Direct to output", which is exactly why the flag exists rather
     // than a display-string test (research.md R7).
     expect(row.hasGap).toBe(true)
+  })
+})
+
+describe('buildMobileChannelList · desk jacks (D9)', () => {
+  const foh = { id: 3, event_id: 1, name: 'FOH', local_input_count: 32, aux_socket_count: 6 } as Console
+  const ch = { id: 1, event_id: 1, channel_number: 20, channel_name: 'Host mic RX', width: 'mono', mixer_behavior: 'linked_channels' } as InputChannel
+  const src = { id: 9, event_id: 1, name: 'Host mic RX', kind: 'line', connector_type: 'trs', width: 'mono' } as InputSource
+  const list = (kind: 'console_local' | 'console_aux', port: number) =>
+    buildMobileChannelList([ch], {
+      sources: [src], devices: [], stageboxes: [], stageMultis: [], itemLabelById: new Map(), consoles: [foh],
+      cables: [
+        inputCable({ id: 1, from_kind: 'source', from_id: 9, to_kind: kind, to_id: 3, to_port: port }),
+        inputCable({ id: 2, from_kind: kind, from_id: 3, from_port: port, to_kind: 'channel', to_id: 1, to_port: 0 }),
+      ],
+    })[0]
+
+  it('names an aux socket as the desk does', () => {
+    expect(list('console_aux', 2).routingLabel).toBe('FOH aux in 3')
+  })
+
+  it('names a local jack the same way', () => {
+    expect(list('console_local', 4).routingLabel).toBe('FOH local in 5')
   })
 })

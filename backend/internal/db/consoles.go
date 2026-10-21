@@ -11,23 +11,27 @@ const consoleColumns = `id, event_id, name, role, inventory_item_id, owned_item_
 	input_count, output_count, local_input_count, local_output_count,
 	position_x, position_y, input_position_x, input_position_y,
 	local_position_x, local_position_y, local_input_position_x, local_input_position_y,
-	desk_model, bus_mode, recorder, recorder_tracks, aux_input_position_x, aux_input_position_y`
+	desk_model, bus_mode, recorder, recorder_tracks, aux_input_position_x, aux_input_position_y,
+	(SELECT COALESCE(MAX(port) + 1, 0) FROM (
+		SELECT to_port AS port FROM input_cables WHERE to_kind = 'console_local' AND to_id = event_consoles.id
+		UNION ALL SELECT from_port FROM input_cables WHERE from_kind = 'console_local' AND from_id = event_consoles.id))`
 
 func scanConsole(row scanner) (domain.Console, error) {
 	var console domain.Console
 	var invID, ownedID sql.NullInt64
 	var auxX, auxY sql.NullFloat64
+	var keptLocal int
 	if err := row.Scan(&console.ID, &console.EventID, &console.Name, &console.Role, &invID, &ownedID,
 		&console.InputCount, &console.OutputCount, &console.LocalInputCount, &console.LocalOutputCount,
 		&console.PositionX, &console.PositionY, &console.InputPositionX, &console.InputPositionY,
 		&console.LocalPositionX, &console.LocalPositionY, &console.LocalInputPositionX, &console.LocalInputPositionY,
-		&console.DeskModel, &console.BusMode, &console.Recorder, &console.RecorderTracks, &auxX, &auxY); err != nil {
+		&console.DeskModel, &console.BusMode, &console.Recorder, &console.RecorderTracks, &auxX, &auxY, &keptLocal); err != nil {
 		return domain.Console{}, err
 	}
 	if model, ok := domain.LookupDeskModel(console.DeskModel); ok {
 		console.AuxSocketCount = model.AuxSockets
 	}
-	console.AuxInputPositionX, console.AuxInputPositionY = auxPanelPosition(console, auxX, auxY)
+	console.AuxInputPositionX, console.AuxInputPositionY = auxPanelPosition(console, max(console.LocalInputCount, keptLocal), auxX, auxY)
 	if invID.Valid {
 		console.InventoryItemID = &invID.Int64
 	}
@@ -88,14 +92,16 @@ const (
 // auxPanelPosition is where the aux socket node sits: its stored pair, or —
 // never placed — just below the local panel, left edges aligned (D9 D3). One
 // answer on the server, so the canvas and the printed graph cannot differ.
-func auxPanelPosition(console domain.Console, x, y sql.NullFloat64) (float64, float64) {
+// localRows is what the canvas draws: the count, or more while a cable is kept
+// on a jack a switch took away.
+func auxPanelPosition(console domain.Console, localRows int, x, y sql.NullFloat64) (float64, float64) {
 	if x.Valid && y.Valid {
 		return x.Float64, y.Float64
 	}
-	if console.LocalInputCount == 0 {
+	if localRows == 0 {
 		return localPanelDefaultX, localPanelDefaultY
 	}
-	return console.LocalInputPositionX, console.LocalInputPositionY + panelChromePx + portRowPx*float64(console.LocalInputCount) + auxPanelGapPx
+	return console.LocalInputPositionX, console.LocalInputPositionY + panelChromePx + portRowPx*float64(localRows) + auxPanelGapPx
 }
 
 func CreateConsole(db *sql.DB, console domain.Console) (domain.Console, error) {

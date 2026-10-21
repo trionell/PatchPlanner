@@ -111,7 +111,7 @@ func (s ExportService) BuildConsoleExport(eventID, consoleID int64, ports Export
 	// the dialog states them rather than offering a choice (Slice 49 review). An LV1
 	// Classic's local jacks default to an LV1 Classic in the first slot no box takes.
 	socketSize := map[string]int{"local": 32, "a": 48, "b": 48, "card": 32}
-	var pastSocket []string
+	var pastSocket, pastAux []string
 	resolve := func(kind string, id int64, port int) *consolefile.DeskPort {
 		key := ""
 		switch kind {
@@ -126,6 +126,12 @@ func (s ExportService) BuildConsoleExport(eventID, consoleID int64, ports Export
 			// The desk's own aux in sockets: fixed, never mapped, and only an X32 ·
 			// M32 has them (D9).
 			if id != console.ID || model.Engine != domain.EngineX32 {
+				return nil
+			}
+			// A cable kept on a socket the model lacks (after a switch) has no
+			// user-in code to land on.
+			if port >= model.AuxSockets {
+				pastAux = append(pastAux, fmt.Sprintf("%s aux in %d", console.Name, port+1))
 				return nil
 			}
 			return &consolefile.DeskPort{Socket: "aux", Index: port}
@@ -195,7 +201,9 @@ func (s ExportService) BuildConsoleExport(eventID, consoleID int64, ports Export
 		} else {
 			stripCount++
 		}
-		if strip.Phantom && strip.Input != nil {
+		// An aux socket has no preamp, so no 48 V is written for it and the
+		// figure must not count it.
+		if strip.Phantom && strip.Input != nil && strip.Input.Socket != "aux" {
 			phantomCount++
 		}
 		show.Strips = append(show.Strips, strip)
@@ -324,6 +332,9 @@ func (s ExportService) BuildConsoleExport(eventID, consoleID int64, ports Export
 		if err != nil {
 			return ConsoleExport{}, err
 		}
+	}
+	if len(pastAux) > 0 {
+		notices = append(notices, consolefile.Notice{Word: consolefile.LeftOut, Text: fmt.Sprintf("%d aux sockets past %s's %d; the cables are kept, not written.", len(pastAux), model.Label, model.AuxSockets), Items: pastAux})
 	}
 	if len(pastSocket) > 0 {
 		notices = append(notices, consolefile.Notice{Word: consolefile.LeftOut, Text: fmt.Sprintf("%d box ports past the end of their socket; move the box's first port.", len(pastSocket)), Items: pastSocket})

@@ -232,17 +232,21 @@ export function MobileChannelEditSheet({
             {stageboxes.map((sb) => (
               <option key={sb.id} value={`stagebox:${sb.id}`}>{sb.name}</option>
             ))}
-            {consoles
-              .filter((option) => option.local_input_count > 0 || option.aux_socket_count > 0)
-              .map((option) => {
-                const name = option.name || 'Console'
-                return (
-                  <optgroup key={option.id} label={name}>
-                    {option.local_input_count > 0 && <option value={`console_local:${option.id}`}>{name} local in</option>}
-                    {option.aux_socket_count > 0 && <option value={`console_aux:${option.id}`}>{name} aux in</option>}
-                  </optgroup>
-                )
-              })}
+            {consoles.map((option) => {
+              const name = option.name || 'Console'
+              // A panel the model lacks is still listed while this channel is on it
+              // (kept after a switch), so the field shows what is patched.
+              const kept = (kind: JackPanelKind) => currentRouting.panel?.kind === kind && currentRouting.panel.id === option.id
+              const local = option.local_input_count > 0 || kept('console_local')
+              const aux = option.aux_socket_count > 0 || kept('console_aux')
+              if (!local && !aux) return null
+              return (
+                <optgroup key={option.id} label={name}>
+                  {local && <option value={`console_local:${option.id}`}>{name} local in</option>}
+                  {aux && <option value={`console_aux:${option.id}`}>{name} aux in</option>}
+                </optgroup>
+              )
+            })}
           </Select>
         </FieldStack>
         <FieldStack label="Jack" width="short">

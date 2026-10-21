@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/trionell/patchplanner/internal/db"
+	"github.com/trionell/patchplanner/internal/domain"
 )
 
 func exportURL(f *deskFixture, consoleID int64, ports string, preview bool) string {
@@ -167,6 +168,58 @@ func TestConsoleExportAuxSocket(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("no user-in line in %d bytes", len(body))
+	}
+}
+
+// D9 review: an aux socket writes no 48 V, so the figure does not count it; and a
+// socket kept past a switch to a model without them is left out, not written.
+func TestConsoleExportAuxSocketPhantomAndPastSockets(t *testing.T) {
+	server, database := newTestServer(t)
+	eventID := seedEvent(t, server.URL)
+	mic := seedItem(t, database, "Shure SM58", 4, 150)
+	f := &deskFixture{t: t, base: server.URL, eventID: eventID,
+		channels: fmt.Sprintf("%s/events/%d/input-channels", server.URL, eventID),
+		consoles: fmt.Sprintf("%s/events/%d/consoles", server.URL, eventID)}
+	desk := f.desks()[0]
+	f.switchTo(desk, "m32", true)
+	status, raw := doJSON(t, http.MethodPost, fmt.Sprintf("%s/events/%d/input-sources", server.URL, eventID), map[string]any{
+		"name": "Condenser", "kind": "mic", "mic_item_id": mic, "connector_type": "xlr", "width": "mono", "phantom_power": true,
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("source: %d %s", status, raw)
+	}
+	source := decodeJSON[domain.InputSource](t, raw)
+	ch := f.mustAddChannel(map[string]any{"channel_number": 1, "channel_name": "Condenser"})
+	cables := fmt.Sprintf("%s/events/%d/input-cables", server.URL, eventID)
+	for _, body := range []map[string]any{
+		{"from_kind": "source", "from_id": source.ID, "from_port": 0, "to_kind": "console_aux", "to_id": desk.ID, "to_port": 1},
+		{"from_kind": "console_aux", "from_id": desk.ID, "from_port": 1, "to_kind": "channel", "to_id": ch.ID, "to_port": 0},
+	} {
+		if status, raw := doJSON(t, http.MethodPost, cables, body); status != http.StatusCreated {
+			t.Fatalf("cable %v: %d %s", body, status, raw)
+		}
+	}
+
+	status, raw = doJSON(t, http.MethodGet, exportURL(f, desk.ID, "", true), nil)
+	if status != http.StatusOK || !strings.Contains(string(raw), `{"label":"48 V","value":"0"}`) {
+		t.Errorf("48 V figure counts an aux socket: %d %s", status, raw)
+	}
+
+	f.switchTo(desk, "x32core", true)
+	status, raw = doJSON(t, http.MethodGet, exportURL(f, desk.ID, "", true), nil)
+	if status != http.StatusOK || !strings.Contains(string(raw), "aux sockets past X32 Core") || !strings.Contains(string(raw), "aux in 2") {
+		t.Errorf("past-socket line missing: %d %s", status, raw)
+	}
+	response, err := httpClient.Get(exportURL(f, desk.ID, "", false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = response.Body.Close() }()
+	body, _ := io.ReadAll(response.Body)
+	for _, line := range strings.Split(string(body), "\n") {
+		if strings.HasPrefix(line, "/config/userrout/in ") && strings.Fields(line)[1] != "0" {
+			t.Errorf("a socket X32 Core lacks was written: %s", line)
+		}
 	}
 }
 

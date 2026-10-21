@@ -73,4 +73,14 @@ describe('MobileChannelEditSheet · Into + Jack', () => {
     expect(html).toMatch(/<option value="console_local:3" selected="">FOH local in<\/option>/)
     expect(html).toMatch(/<option value="4" selected="">Local 5<\/option>/)
   })
+
+  it('still shows a socket a switch took away while the channel is on it', () => {
+    const html = render([
+      { id: 1, event_id: 1, from_kind: 'source', from_id: 9, from_port: 0, to_kind: 'console_aux', to_id: 4, to_port: 1 },
+      { id: 2, event_id: 1, from_kind: 'console_aux', from_id: 4, from_port: 1, to_kind: 'channel', to_id: 1, to_port: 0 },
+    ])
+    expect(html).toMatch(/<option value="console_aux:4" selected="">Mon aux in<\/option>/)
+    expect(html).toMatch(/<option value="1" selected="">Aux 2<\/option>/)
+    expect(html).not.toContain('Mon local in')
+  })
 })

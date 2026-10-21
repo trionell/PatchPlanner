@@ -199,7 +199,7 @@ export function AudioInputsTab({ eventId, readOnly = false }: { eventId: number;
   const addChannel = () => addToDesk('channel')
 
   if (isMobile) {
-    const listed = buildMobileChannelList(orderChannels(listedChannels), { sources, devices, stageboxes, stageMultis, cables, itemLabelById })
+    const listed = buildMobileChannelList(orderChannels(listedChannels), { sources, devices, stageboxes, stageMultis, cables, itemLabelById, consoles })
     const byId = new Map(listedChannels.map((channel) => [channel.id, channel]))
     /* The number reads as the desk prints it, aux and over included (B2); grey on No desk. */
     const numberOf = (id: number, fallback: number) => {

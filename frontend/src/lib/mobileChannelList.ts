@@ -1,6 +1,6 @@
 import { buildInputChannelFlows } from './inputSignalFlow'
 import { inputChainSegments } from './patchSheet'
-import type { InputCable, InputChannel, InputDevice, InputSource, StageMulti, Stagebox } from '../types'
+import type { Console, InputCable, InputChannel, InputDevice, InputSource, StageMulti, Stagebox } from '../types'
 
 /** One row in the mobile Audio Inputs/Outputs list — read projection only, never a new query (data-model.md). */
 export interface MobileChannelListItem {
@@ -35,6 +35,8 @@ interface ListContext {
   stageMultis: StageMulti[]
   cables: InputCable[]
   itemLabelById: Map<number, string>
+  /** For a desk jack's name on the row (`FOH aux in 3`), D9. */
+  consoles?: Console[]
 }
 
 /** Builds the mobile channel list from the same audio-patch data the desktop tab already fetches. */
