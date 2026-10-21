@@ -1,0 +1,2621 @@
+<!--
+  PatchPlanner — defect D9, OpenSpec change `d9-aux-sockets`.
+  An X32 · M32's rear aux in sockets, patchable on the Inputs graph.
+  Design mockup, revision 2. FOR APPROVAL, before the proposal is written.
+  Nothing here is approved. The reviewer is the user, and only a turn from
+  the user counts.
+
+  WHAT CHANGED IN REVISION 2 — one visual change: the canvas AUX node's
+  badge reads LOCAL AUX (§02, every state). The printed box (§05) stays
+  badged AUX. Decision 2, §02's prose, the search line and the printed-badge
+  question are reworded to match. Nothing else moved.
+  The user's answers to revision 1's questions, for the record (not an
+  approval): option (b); the phone sheet gets local jacks and aux sockets
+  (Into + Jack) as drawn; B2 handling after a switch to a model without
+  sockets; both label sets kept; nothing shown for models without sockets.
+
+  THE DEFECT (ROADMAP.md, D9): on an X32 or M32 the desk's LOCAL node on the
+  Inputs graph (`LocalJackNode`, InputGraphCanvas.tsx) draws one
+  SplitPortRow per local mic input and nothing else. The rear aux in
+  sockets have no jacks, so a source plugged into them cannot be patched,
+  and an aux strip's input can only come from a stagebox.
+
+  ALREADY DECIDED BY THE USER (binding, not re-argued here):
+    · Every X32 · M32 model with local jacks (X32, Compact, Producer, Rack,
+      M32, M32 Live, M32R, M32R Live) has 6 aux in sockets. X32 Core, M32C,
+      every LV1 and Generic have none. Aux strips 7–8 are USB-fed and get
+      no sockets.
+    · Storage is a new port kind `console_aux`, separate from
+      `console_local`. Aux sockets never count against the local inputs:
+      usage counts and the `over` marking stay local-only.
+    · An aux socket may feed any channel, an aux strip or an ordinary one.
+    · The cable-side label is `Aux in 1…6`.
+
+  DECIDED HERE, for the reviewer to accept or overturn:
+    · The aux sockets are a node of their own, badge LOCAL AUX, beside the LOCAL
+      node — option (b). Option (a), a run inside the LOCAL node, is drawn
+      too, with the design/ rule it would need (§02, §03).
+    · The desk-side label is `Aux to desk 1…6`; a chain hop reads
+      `FOH aux in 3` (§02, §04).
+    · The phone's channel sheet gains the desk's two panels as entries of
+      its first routing field, grouped under the desk and kept apart (§04).
+    · Paper prints an AUX box from the same stored position (§05).
+    · A model without aux sockets draws nothing new and says nothing (§06).
+
+  THE EVIDENCE, checked against the code (no database was opened):
+    · `consoleLocalPorts` (lib/inputGraph.ts) makes `console_local` ports
+      sized by `local_input_count` alone; `localJackCount` widens it only
+      for cables a model switch left behind (the B2 `over` rows).
+    · The LOCAL node has its own stored position since migration 043
+      (`local_input_position_x/_y`); search matches it on the desk's name or
+      the word "local", and the window follows a search to a NODE.
+    · `service/audio_graph.go` builds the PDF's copy: title "<desk> local",
+      badge JACKS, rows "Local in N" / "To desk N", footer
+      "32 local jacks - N used". `flow_draw.go` draws a box as header, one
+      row per jack, footer; it has no notion of a run inside a box.
+    · FINDING: the phone's channel sheet (`MobileChannelEditSheet`) offers
+      no local jack today. Its routing pair is Stagebox + In, and
+      `resolveChannelRouting` returns nothing for a channel fed through
+      `console_local`, so such a channel opens with both fields blank.
+      The brief assumed the sheet already offered local jacks; it does not.
+      §04 draws both panels added, and the question is in §09.
+    · The phone's list already splits an X32's strips into "Channels" and
+      "Aux in" sections (Slice 47). That is the strip pool, not the socket.
+
+  WHAT IS LIVE:
+    · §02 — the Inputs canvas for FOH (X32). Switch Today / (a) / (b); drag
+      any box by its header; click a header to select it; type in the
+      search field ("aux", "local", "host") and watch where the window goes.
+    · Everything else is drawn.
+
+  The file is an HTML *fragment*: the Artifact publisher wraps it in
+  doctype/head/body, so there are deliberately no <html>, <head> or <body> tags.
+
+  Specimen CSS is inherited from openspec/changes/archive/2026-10-18-desk-
+  routing/mockup.html (Slice 48, revision 2), which chains back through
+  desk-models, console-showfile-export, the item picker, plot-measurements
+  and specs/039 … 028 to design/design-language.html. Its thirteen style
+  blocks are carried forward VERBATIM; nothing inherited is restyled. Every
+  new rule is in the fourteenth block, ADDITIONS FOR D9 · AUX-SOCKETS. It
+  uses the zinc and amber tokens of the desk-models block, plus four paper
+  tokens of its own; tape colours are data, applied inline as hex.
+-->
+
+<title>Aux in sockets</title>
+<style>
+  /* ==================================================================
+     DOCUMENT CHROME — theme-aware, tokens only.
+     ================================================================== */
+  :root {
+    --ground: #f2f2f4;
+    --raised: #ffffff;
+    --sunken: #e8e8ec;
+    --rule: #d7d7de;
+    --rule-soft: #e4e4ea;
+    --ink: #16171b;
+    --ink-2: #43444d;
+    --muted: #6c6d78;
+    --faint: #90919c;
+    --amber: #b45309;
+    --keep: #0e7490;
+    --drop: #9f1239;
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --measure: 68ch;
+    --wrap: 1180px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0a0b0d; --raised: #14151a; --sunken: #101014;
+      --rule: #26272e; --rule-soft: #1d1e24;
+      --ink: #f2f2f4; --ink-2: #b6b7c0; --muted: #8b8c96; --faint: #62636d;
+      --amber: #f59e0b; --keep: #22d3ee; --drop: #fb7185;
+    }
+  }
+
+  :root[data-theme="light"] {
+    --ground: #f2f2f4; --raised: #ffffff; --sunken: #e8e8ec;
+    --rule: #d7d7de; --rule-soft: #e4e4ea;
+    --ink: #16171b; --ink-2: #43444d; --muted: #6c6d78; --faint: #90919c;
+    --amber: #b45309; --keep: #0e7490; --drop: #9f1239;
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0a0b0d; --raised: #14151a; --sunken: #101014;
+    --rule: #26272e; --rule-soft: #1d1e24;
+    --ink: #f2f2f4; --ink-2: #b6b7c0; --muted: #8b8c96; --faint: #62636d;
+    --amber: #f59e0b; --keep: #22d3ee; --drop: #fb7185;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px 110px; }
+
+  h1, h2, h3 { margin: 0; font-family: var(--mono); font-weight: 500; }
+  h1 {
+    font-size: clamp(28px, 4.4vw, 46px);
+    line-height: 1.04; letter-spacing: -0.035em; text-wrap: balance;
+  }
+  h2 { font-size: clamp(19px, 2.3vw, 25px); letter-spacing: -0.02em; text-wrap: balance; }
+  h3 { font-size: 14px; letter-spacing: 0.02em; color: var(--ink-2); }
+
+  p { margin: 0; max-width: var(--measure); }
+  a { color: inherit; }
+
+  .head {
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 68px 0 30px; border-bottom: 1px solid var(--rule);
+  }
+  .head__eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--amber);
+  }
+  .head__lede { font-size: 18px; color: var(--ink-2); line-height: 1.5; }
+
+  section { display: flex; flex-direction: column; gap: 22px; padding: 56px 0 0; }
+  .sec__no {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  .sec__hd { display: flex; flex-direction: column; gap: 8px; }
+  .prose { display: flex; flex-direction: column; gap: 13px; color: var(--ink-2); font-size: 15.5px; }
+  .prose strong { color: var(--ink); font-weight: 600; }
+  .prose code, .k {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  .spec { display: flex; flex-direction: column; gap: 9px; }
+  .spec__frame {
+    overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px;
+    background: #09090b; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  }
+  .spec__cap {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-left: 2px;
+  }
+  .spec__cap b { color: var(--ink-2); font-weight: 500; }
+
+  .led { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .led__row {
+    display: grid; grid-template-columns: 148px minmax(0, 1fr);
+    gap: 18px; padding: 15px 2px; border-bottom: 1px solid var(--rule-soft);
+    align-items: start;
+  }
+  .led__k {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint); padding-top: 3px;
+  }
+  .led__v { font-size: 15px; color: var(--ink-2); line-height: 1.5; }
+  .led__v b { color: var(--ink); font-weight: 600; }
+  .led__v em { font-style: normal; color: var(--faint); }
+  .led__v code, .led__v .k {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--sunken); border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  .tag {
+    display: inline-block; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase; padding: 1px 6px;
+    border-radius: 4px; vertical-align: 2px; margin-left: 7px;
+  }
+  .tag--keep { color: var(--keep); border: 1px solid currentColor; }
+  .tag--drop { color: var(--drop); border: 1px solid currentColor; }
+  .tag--new { color: var(--amber); border: 1px solid currentColor; }
+
+  .ask {
+    border: 1px solid var(--rule); border-left: 3px solid var(--amber);
+    border-radius: 0 8px 8px 0; padding: 16px 18px; background: var(--raised);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .ask h3 { color: var(--ink); }
+  .ask p { font-size: 15px; color: var(--ink-2); max-width: none; }
+
+  .tbl { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  .tbl th {
+    text-align: left; font-family: var(--mono); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint);
+    padding: 8px 12px 8px 2px; border-bottom: 1px solid var(--rule);
+  }
+  .tbl td {
+    padding: 11px 12px 11px 2px; border-bottom: 1px solid var(--rule-soft);
+    color: var(--ink-2); vertical-align: top;
+  }
+  .tbl td b { color: var(--ink); font-weight: 600; }
+  .tbl td .k { white-space: nowrap; }
+  .tbl td em { font-style: normal; color: var(--faint); }
+
+  @media (max-width: 720px) {
+    .led__row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  }
+
+  /* ==================================================================
+     SPECIMENS — the app's own faces and values.
+     ================================================================== */
+  .app {
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px; line-height: 1.45;
+    color: #f4f4f5; background: #09090b;
+    padding: 16px; min-width: 1040px;
+  }
+  .app--tight { padding: 16px; min-width: 0; }
+  .app *, .app *::before, .app *::after { box-sizing: border-box; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 28px; padding: 0 10px; border: 1px solid transparent; border-radius: 6px;
+    font-size: 12px; font-weight: 500; white-space: nowrap; font-family: inherit;
+  }
+  .btn--primary { background: #f59e0b; border-color: #f59e0b; color: #09090b; }
+  .btn--outline { background: #18181b; border-color: #3f3f46; color: #f4f4f5; }
+  .btn--ghost { background: transparent; color: #f4f4f5; }
+  .btn--sm { height: 24px; padding: 0 8px; font-size: 11px; }
+  .btn--md { height: 40px; padding: 0 16px; font-size: 14px; }
+  .btn--danger-ghost { background: transparent; color: #f87171; }
+  .seg { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; }
+
+  .fld {
+    height: 32px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b;
+    display: inline-flex; align-items: center; padding: 0 8px;
+    font-size: 12px; color: #e4e4e7; min-width: 0;
+  }
+  .fld--md { height: 40px; font-size: 14px; padding: 0 12px; }
+  .fld--ph { color: #71717a; }
+  .fld--sel::after { content: "▾"; margin-left: auto; padding-left: 8px; color: #71717a; font-size: 10px; }
+  .fld--foc { border-color: #f59e0b; }
+
+  .lbl {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #71717a; font-weight: 500;
+  }
+  .lbl--nav { font-family: inherit; font-size: 14px; letter-spacing: 0; text-transform: none; color: #d4d4d8; font-weight: 400; }
+
+  .pill {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 1px 6px; font-size: 10px; font-weight: 500; white-space: nowrap;
+  }
+  .t-drum { background: rgba(56, 189, 248, 0.15); color: #7dd3fc; }
+  .t-ok   { background: rgba(52, 211, 153, 0.15); color: #6ee7b7; }
+  .t-warn { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
+  .t-err  { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+  .t-def  { background: #3f3f46; color: #f4f4f5; }
+  .t-sky  { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .p48 { display: inline-block; width: 8px; height: 3px; border-radius: 2px; background: #ef4444; box-shadow: 0 0 5px rgba(239, 68, 68, 0.65); vertical-align: 2px; }
+  .tape { display: inline-block; width: 3px; height: 14px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+
+  .badge {
+    display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 2px 10px; font-size: 12px; font-weight: 500; white-space: nowrap;
+  }
+
+  /* the desktop drawer, for the side-by-side in §06 */
+  .dstack { position: relative; min-height: 400px; overflow: hidden; }
+  .scrim { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.7); }
+  .sd {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 420px;
+    background: #18181b; border-left: 1px solid #3f3f46;
+    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.5);
+    display: flex; flex-direction: column;
+  }
+  .sd__hd { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 14px 20px; border-bottom: 1px solid #27272a; }
+  .sd__ti { font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .sd__sub { font-size: 12px; color: #71717a; margin-top: 2px; }
+  .sd__x { color: #a1a1aa; font-size: 15px; line-height: 1.2; }
+  .sd__body { padding: 16px 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+  .sd__ft { margin-top: auto; padding: 12px 20px; border-top: 1px solid #27272a; font-size: 12px; color: #71717a; }
+  .sd__ft b { color: #a1a1aa; font-weight: 500; }
+  .dsec { display: flex; flex-direction: column; gap: 6px; }
+  .dsec__hd { display: flex; align-items: center; gap: 8px; }
+  .dsec__ct { font-family: var(--mono); font-size: 10px; color: #52525b; }
+  .gear {
+    border: 1px solid #27272a; border-radius: 6px; background: #18181b;
+    padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .gear__top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+  .gear__nm { font-size: 14px; font-weight: 500; color: #f4f4f5; }
+  .gear__ac { margin-left: auto; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; color: #a1a1aa; }
+  .gear__sp { display: flex; flex-wrap: wrap; gap: 2px 12px; font-family: var(--mono); font-size: 10px; color: #71717a; }
+  .gear__sp b { color: #d4d4d8; font-weight: 400; }
+  .insp__box { border: 1px solid #27272a; border-radius: 5px; background: rgba(9, 9, 11, 0.6); padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+  .insp__lg { display: flex; align-items: center; gap: 8px; font-size: 10px; color: #a1a1aa; }
+
+  /* ==================================================================
+     THE PHONE — lifted verbatim from design/design-language.html §8.
+     True 375 px width, 14 px base, 44 px targets.
+     ================================================================== */
+  .phones { display: flex; flex-wrap: wrap; gap: 22px; }
+  .phone { display: flex; flex-direction: column; gap: 9px; width: 375px; }
+  .phone__frame {
+    width: 375px; height: 690px; flex: none;
+    border: 1px solid #3f3f46; border-radius: 22px; background: #09090b;
+    overflow: hidden; position: relative;
+    display: flex; flex-direction: column;
+    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    font-size: 14px; line-height: 1.45; color: #f4f4f5;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  }
+  .phone__frame * { box-sizing: border-box; }
+  .phone__cap { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .phone__cap b { color: var(--ink-2); font-weight: 500; }
+  .phone__cap--bad b { color: var(--drop); }
+
+  .m-hd { display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 56px; padding: 0 16px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-hd__ti { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; min-width: 0; }
+  .m-hd__ic { width: 26px; height: 26px; border-radius: 6px; background: rgba(245, 158, 11, 0.15); color: #fbbf24; display: grid; place-items: center; flex: none; font-size: 13px; }
+  .m-hd__av { width: 28px; height: 28px; border-radius: 999px; background: #27272a; flex: none; }
+  .m-bd { flex: 1; overflow: hidden; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .m-nav { display: flex; height: 56px; border-top: 1px solid #27272a; background: #09090b; flex: none; }
+  .m-nav__i { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; color: #a1a1aa; }
+  .m-nav__i.on { color: #fbbf24; }
+  .m-nav__g { font-size: 18px; line-height: 1; }
+
+  .m-pan { border: 1px solid #3f3f46; border-radius: 12px; background: rgba(9, 9, 11, 0.4); overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+  .m-pan--fill { flex: 1; }
+  .m-pan__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-pan__ti { font-size: 14px; font-weight: 600; color: #f4f4f5; margin-right: auto; }
+  .m-pan__ic { width: 36px; height: 36px; border-radius: 6px; border: 1px solid #3f3f46; background: #18181b; display: grid; place-items: center; color: #a1a1aa; font-size: 14px; flex: none; }
+  .m-pan__ic--pri { background: #f59e0b; border-color: #f59e0b; color: #09090b; font-size: 17px; }
+  .m-pan__rows { flex: 1; min-height: 0; overflow: hidden; }
+
+  .m-row { display: flex; align-items: stretch; min-height: 44px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-row__e { width: 3px; flex: none; }
+  .m-row__c { flex: 1; min-width: 0; padding: 5px 12px; display: flex; flex-direction: column; justify-content: center; }
+  .m-row__t { font-size: 14px; font-weight: 500; line-height: 1.3; color: #f4f4f5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-row__s { font-size: 12px; line-height: 1.3; color: #a1a1aa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-row__n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #fbbf24; margin-right: 7px; }
+
+  .m-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 12px; padding: 10px 12px; border-top: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); font-size: 12px; color: #a1a1aa; flex: none; }
+  .m-strip .mono { color: #e4e4e7; }
+
+  .m-sw { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 44px; padding: 0 12px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; flex: none; }
+  .m-sw__t { font-size: 14px; font-weight: 600; }
+  .m-sw--old { border-color: rgba(245, 158, 11, 0.6); }
+
+  /* -- ui/Sheet, the phone's sibling of the drawer -- */
+  .m-sheet { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.8); display: flex; align-items: flex-end; }
+  .m-sheet--noscrim { background: transparent; pointer-events: none; }
+  .m-sheet__p { width: 100%; max-height: 85%; overflow: hidden; border-top: 1px solid #3f3f46; border-radius: 12px 12px 0 0; background: #18181b; display: flex; flex-direction: column; }
+  .m-sheet__hd { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-sheet__ti { font-size: 18px; font-weight: 600; }
+  .m-sheet__sub { font-size: 12px; color: #71717a; margin-top: 2px; }
+  .m-sheet__x { margin-left: auto; width: 44px; height: 44px; margin-right: -10px; display: grid; place-items: center; color: #a1a1aa; font-size: 18px; flex: none; }
+  .m-sheet__bd { padding: 16px; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+  .m-sheet__ft { display: flex; align-items: center; gap: 10px; padding: 12px 16px 20px; border-top: 1px solid #27272a; flex: none; }
+  .m-fld { display: flex; flex-direction: column; gap: 5px; }
+  .m-insp { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; align-items: center; }
+
+  .m-jump { display: flex; flex-direction: column; }
+  .m-jump__i { display: flex; align-items: center; gap: 11px; min-height: 52px; padding: 0 14px 0 12px; border-left: 2px solid transparent; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-jump__i.on { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.06); }
+  .m-jump__n { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; letter-spacing: 0.14em; color: #52525b; width: 16px; flex: none; }
+  .m-jump__i.on .m-jump__n { color: #f59e0b; }
+  .m-jump__l { font-size: 14px; color: #d4d4d8; flex: 1; min-width: 0; }
+  .m-jump__i.on .m-jump__l { color: #fcd34d; font-weight: 600; }
+  .m-jump__c { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 11px; color: #71717a; flex: none; }
+
+  .m-cvs { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #09090b; }
+  .cvs__band { position: absolute; top: 0; bottom: 0; }
+  .node { position: absolute; border: 1px solid #3f3f46; border-radius: 7px; background: #1f2028; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); overflow: hidden; }
+  .node__hd { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-bottom: 1px solid #27272a; font-size: 11px; font-weight: 600; color: #fafafa; }
+  .node__bdg { margin-left: auto; font-family: var(--mono); font-size: 9px; background: #27272a; border-radius: 3px; padding: 0 3px; color: #a1a1aa; }
+  .node__body { padding: 3px 0; }
+  .node__ft { padding: 3px 6px; border-top: 1px solid #27272a; font-family: var(--mono); font-size: 9px; color: #71717a; }
+  .prow { display: flex; align-items: center; gap: 6px; height: 18px; padding: 0 6px; font-size: 11px; color: #d4d4d8; }
+  .port { width: 7px; height: 7px; border-radius: 50%; border: 1px solid #71717a; background: #27272a; flex: none; }
+  .port--c { border-color: var(--c); background: color-mix(in srgb, var(--c) 75%, transparent); }
+  .srail { position: absolute; border: 1px solid #3f3f46; border-radius: 7px; background: #1f2028; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); overflow: hidden; }
+  .srail__hd { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 6px; border-bottom: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); }
+  .srail__hd b { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; font-weight: 500; }
+  .srail__hd span { font-family: var(--mono); font-size: 10px; color: #52525b; margin-left: auto; }
+  .srow { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 6px 0 0; border-bottom: 1px solid rgba(39, 39, 42, 0.6); font-size: 11px; color: #d4d4d8; }
+  .srow--sel { background: rgba(245, 158, 11, 0.1); }
+  .srow__tape { width: 3px; align-self: stretch; flex: none; }
+  .srow__nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 4px; }
+  .srow__md { font-family: var(--mono); font-size: 10px; color: #71717a; flex: none; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6a — the centred dialog as it stands today, the
+     virtual keyboard, the anatomy diagram, the safe area.
+     ================================================================== */
+
+  /* the centred dialog, at ui/Dialog's real values, inside a 375 px frame */
+  .m-dlg { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.8); display: flex; align-items: center; justify-content: center; padding: 0 16px; }
+  .m-dlg__p { width: 100%; border: 1px solid #3f3f46; border-radius: 12px; background: #18181b; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6); }
+  .m-dlg__hd { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #27272a; }
+  .m-dlg__ti { font-size: 18px; font-weight: 600; }
+  .m-dlg__x { color: #a1a1aa; font-size: 16px; }
+  .m-dlg__bd { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+  /* the two things that make it not a sheet: it is centred, and it does not
+     scroll — so anything past the frame is simply gone. */
+  .m-dlg--clip { overflow: hidden; }
+  .m-cut { position: absolute; left: 0; right: 0; height: 1px; background: repeating-linear-gradient(90deg, #f87171 0 6px, transparent 6px 12px); }
+  .m-cut__l {
+    position: absolute; right: 6px; transform: translateY(-100%);
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: #f87171; padding-bottom: 2px;
+  }
+
+  /* the virtual keyboard, drawn because it is half the finding */
+  .m-kbd { position: absolute; inset-inline: 0; bottom: 0; height: 268px; background: #1c1c1e; border-top: 1px solid #3f3f46; padding: 8px 4px 26px; display: flex; flex-direction: column; gap: 8px; }
+  .m-kbd__r { display: flex; gap: 5px; justify-content: center; flex: 1; }
+  .m-kbd__k { flex: 1; max-width: 32px; border-radius: 5px; background: #48484a; box-shadow: 0 1px 0 rgba(0,0,0,0.4); }
+  .m-kbd__k--w { max-width: 120px; }
+  .m-kbd__k--sp { max-width: 170px; }
+  .m-kbd__home { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 134px; height: 5px; border-radius: 3px; background: #f4f4f5; opacity: 0.85; }
+
+  /* the anatomy diagram — labelled parts down the right of a real sheet */
+  .anat { display: grid; grid-template-columns: 375px minmax(0, 1fr); gap: 26px; align-items: start; }
+  @media (max-width: 860px) { .anat { grid-template-columns: minmax(0, 1fr); } }
+  .anat__parts { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .anat__p { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--rule-soft); align-items: start; }
+  .anat__n { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); padding-top: 3px; }
+  .anat__v { font-size: 14.5px; color: var(--ink-2); line-height: 1.5; }
+  .anat__v b { color: var(--ink); font-weight: 600; }
+  .anat__v .k { font-size: 0.85em; }
+  .anat__v .cls { display: block; font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-top: 4px; word-break: break-word; }
+
+  /* the marker that pins a specimen part to its row in the anatomy list */
+  .mk {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; border-radius: 999px; flex: none;
+    background: #f59e0b; color: #09090b;
+    font-family: var(--mono); font-size: 9px; font-weight: 700;
+  }
+  .mk--doc { background: var(--amber); color: var(--ground); }
+  .mk--abs { position: absolute; z-index: 5; }
+
+  /* safe area, drawn */
+  .safe { position: absolute; inset-inline: 0; bottom: 0; height: 22px; background: repeating-linear-gradient(45deg, rgba(245,158,11,0.16) 0 5px, transparent 5px 10px); border-top: 1px dashed rgba(245,158,11,0.45); }
+  .safe__l { position: absolute; right: 8px; top: 3px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: #fbbf24; }
+
+  /* two-up comparison of one decision */
+  .vs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  @media (max-width: 860px) { .vs { grid-template-columns: minmax(0, 1fr); } }
+  .vs__c { display: flex; flex-direction: column; gap: 9px; }
+  .vs__hd { display: flex; align-items: baseline; gap: 9px; }
+  .vs__hd b { font-size: 15px; color: var(--ink); }
+  .vs__hd span { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+  .vs__note { font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+  .vs__note b { color: var(--ink-2); font-weight: 600; }
+
+  /* the thumb, drawn where the argument is about reach */
+  .thumb { position: absolute; border-radius: 999px; border: 1px dashed rgba(248, 113, 113, 0.55); background: rgba(248, 113, 113, 0.07); pointer-events: none; }
+  .thumb__l { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: #f87171; white-space: nowrap; }
+
+  .files { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); }
+  .file { display: grid; grid-template-columns: 22px minmax(0, 260px) minmax(0, 1fr); gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--rule-soft); align-items: baseline; }
+  .file__s { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  .file__s--new { color: var(--amber); }
+  .file__s--del { color: var(--drop); }
+  .file__n { font-family: var(--mono); font-size: 13px; color: var(--ink); word-break: break-word; }
+  .file__w { font-size: 14px; color: var(--ink-2); line-height: 1.5; }
+  .file__w b { color: var(--ink); font-weight: 600; }
+
+  .code {
+    border: 1px solid var(--rule); border-radius: 8px; background: var(--sunken);
+    padding: 14px 16px; overflow-x: auto;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.65; color: var(--ink-2);
+    white-space: pre;
+  }
+  .code b { color: var(--ink); font-weight: 600; }
+  .code i { font-style: normal; color: var(--faint); }
+  .code u { text-decoration: none; color: var(--amber); }
+
+  .empty { padding: 34px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6b — the list as it ships today, the target
+     overlay, the bar's second row, the strip as its own control.
+     ================================================================== */
+
+  /* today: the row as a free-standing card on the page ground, at the real
+     values — px-2.5 py-1.5, 13px over 11px, its own border and bg-zinc-900 */
+  .m-card {
+    display: flex; align-items: center; gap: 8px;
+    border: 1px solid #27272a; border-radius: 6px; background: #18181b;
+    padding: 6px 10px;
+  }
+  .m-card + .m-card { margin-top: 4px; }
+  .m-card__c { flex: 1; min-width: 0; }
+  .m-card__t { font-size: 13px; font-weight: 500; line-height: 1.25; color: #f4f4f5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-card__s { font-size: 11px; line-height: 1.25; color: #a1a1aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-card__x { flex: none; color: #52525b; font-size: 12px; }
+  /* the h-9 search field and the h-9 w-9 add button, drawn at their real size */
+  .m-srch { display: flex; align-items: center; gap: 8px; flex: none; }
+  .m-srch__f { flex: 1; height: 36px; display: flex; align-items: center; gap: 7px; padding: 0 10px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; font-size: 14px; color: #71717a; }
+  .m-srch__b { width: 36px; height: 36px; border-radius: 6px; background: #f59e0b; color: #09090b; display: grid; place-items: center; font-size: 16px; flex: none; }
+
+  /* a control drawn with its true target bounds called out */
+  .tgt { position: relative; }
+  .tgt::after {
+    content: ""; position: absolute; inset: 50% auto auto 50%;
+    width: var(--tw); height: var(--th); transform: translate(-50%, -50%);
+    border: 1px dashed var(--tc); border-radius: 7px; pointer-events: none;
+  }
+  .tgt--bad { --tc: rgba(248, 113, 113, 0.75); }
+  .tgt--ok { --tc: rgba(52, 211, 153, 0.7); }
+  .szl { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .szl--bad { color: #f87171; }
+  .szl--ok { color: #34d399; }
+
+  /* the bar's second row, when search is open */
+  .m-pan__ic--44 { width: 44px; height: 44px; font-size: 16px; }
+  .m-pan__ic--44.m-pan__ic--pri { font-size: 20px; }
+  .m-pan__sr { display: flex; align-items: center; gap: 8px; padding: 0 12px 8px; border-bottom: 1px solid #27272a; flex: none; }
+  .m-pan__sr .fld { flex: 1; }
+
+  /* a heading over a run of rows, inside the frame */
+  .m-hdr { display: flex; align-items: center; gap: 9px; padding: 9px 12px 5px; background: rgba(9, 9, 11, 0.35); }
+  .m-hdr b { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; }
+  .m-hdr i { font-style: normal; flex: 1; height: 1px; background: #27272a; }
+  .m-hdr--today b { color: #f59e0b; }
+  .m-hdr--today i { background: rgba(245, 158, 11, 0.45); }
+
+  /* the strip when it is the control that filters what it reports */
+  .m-strip__go { margin-left: auto; display: flex; align-items: center; gap: 5px; flex: none; color: #fcd34d; font-size: 12px; }
+  .m-strip--on { border-top-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.09); }
+
+  /* the row arithmetic, drawn as a stacked bar */
+  .stack { display: flex; flex-direction: column; width: 190px; flex: none; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em; }
+  .stack__b { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 7px; color: var(--muted); border-bottom: 1px solid var(--rule-soft); background: var(--sunken); }
+  .stack__b--rows { background: rgba(245, 158, 11, 0.12); color: var(--amber); }
+  .stack__b--chrome { background: transparent; }
+  .stacks { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+  .stacks__c { display: flex; flex-direction: column; gap: 8px; }
+  .stacks__t { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .stacks__t b { color: var(--ink-2); font-weight: 500; }
+
+  .empty { padding: 34px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+</style>
+<style>
+  /* ==================================================================
+     ADDITIONS FOR WAVE 6c — the figures grid, the ribbon in the hand,
+     the bar's overflow, the withheld-gesture sentence, the plot canvas.
+     ================================================================== */
+
+  /* Overview's numbers band, at 375 px. Hairlines, never cards: five tiles
+     separated the way rows are separated, so the band is part of the frame.
+     The countdown spans, because it is the one figure that is about NOW. */
+  .m-figs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-fig { padding: 10px 12px 11px; border-top: 1px solid rgba(39, 39, 42, 0.6); border-left: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-fig:nth-child(odd) { border-left: 0; }
+  .m-fig--span { grid-column: 1 / -1; border-top: 0; padding-top: 12px; padding-bottom: 13px; }
+  .m-fig__v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 26px; line-height: 1.05; color: #f4f4f5; }
+  .m-fig--span .m-fig__v { font-size: 34px; }
+  .m-fig__v i { font-style: normal; font-size: 0.5em; color: #71717a; margin-left: 3px; }
+  .m-fig__v u { text-decoration: none; color: #52525b; }
+  .m-fig__l { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; margin-top: 7px; display: block; }
+
+  /* the rig ribbon: the flow canvas one row high, and on a phone it pans.
+     Drawn clipped at the right edge, because that is what it does. */
+  .m-rib { padding: 9px 0 10px 12px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-rib__l { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; display: block; margin-bottom: 7px; }
+  .m-rib__t { display: flex; align-items: center; gap: 0; overflow: hidden; }
+  .m-rib__n { flex: none; border: 1px solid #3f3f46; border-radius: 5px; background: #1f2028; padding: 4px 8px; text-align: center; min-width: 58px; }
+  .m-rib__n b { display: block; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 400; line-height: 1.2; color: #f4f4f5; }
+  .m-rib__n s { display: block; text-decoration: none; font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: #71717a; margin-top: 2px; }
+  .m-rib__n--desk { border-color: rgba(245, 158, 11, 0.5); background: rgba(245, 158, 11, 0.08); }
+  .m-rib__w { flex: none; width: 14px; height: 1px; background: #3f3f46; }
+  .m-rib__m { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-right: 12px; }
+  .m-rib__bar { flex: 1; height: 5px; border-radius: 3px; background: #27272a; overflow: hidden; }
+  .m-rib__bar i { display: block; height: 100%; background: #34d399; }
+  .m-rib__mv { font-family: var(--mono); font-size: 10px; color: #a1a1aa; flex: none; }
+
+  /* readiness, as rows: the phone's index of the show. Trailing pill, leading
+     edge in the verdict's own tone, and the tap opens that section. */
+  .m-rd { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px 0 0; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-rd__e { width: 3px; align-self: stretch; flex: none; }
+  .m-rd__a { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #d4d4d8; padding-left: 9px; width: 88px; flex: none; }
+  .m-rd__f { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: #71717a; flex: 1; min-width: 0; }
+  .m-rd__c { flex: none; color: #52525b; font-size: 13px; }
+
+  /* a quiet last row: the desktop card's meta footer */
+  .m-meta { display: flex; flex-wrap: wrap; gap: 3px 14px; padding: 9px 12px 10px; font-size: 12px; color: #71717a; }
+
+  /* the event's name, in the shell's own header — the one place on the phone
+     that is on screen in all nine sections and never scrolls */
+  .m-hd__nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+  /* the switcher row: the back target and the section switcher, one 44 px row,
+     because the block they replace was 48 px of a 490 px panel */
+  .m-swr { display: flex; align-items: center; gap: 8px; flex: none; }
+  .m-swr .m-sw { flex: 1; min-width: 0; }
+  .m-back { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; color: #a1a1aa; font-size: 16px; }
+
+  /* the event, stated once at the top of its own section */
+  .m-sub { padding: 9px 12px 10px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); font-size: 12px; color: #a1a1aa; }
+  .m-sub b { color: #d4d4d8; font-weight: 500; }
+  .m-sub s { text-decoration: none; color: #71717a; }
+
+  /* a bar control that names a selection and opens a sheet — the rail, and the
+     plot picker, collapsed to a target. It stays in the bar because it changes
+     WHAT YOU ARE LOOKING AT. */
+  .m-pick { display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 10px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; font-size: 13px; color: #f4f4f5; flex: none; max-width: 112px; }
+  .m-pick b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-pick s { text-decoration: none; color: #a1a1aa; flex: none; font-size: 11px; }
+
+  /* a segmented view toggle at a 44 px target — the plot's Top/Front/Side */
+  .m-seg { display: flex; height: 44px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; overflow: hidden; flex: none; }
+  .m-seg span { display: grid; place-items: center; min-width: 46px; padding: 0 8px; font-size: 13px; color: #a1a1aa; border-left: 1px solid #27272a; }
+  .m-seg span:first-child { border-left: 0; }
+  .m-seg span.on { background: #f59e0b; color: #09090b; font-weight: 500; }
+
+  /* the sentence that names a withheld gesture. Not a banner, not a dialog,
+     not a disabled control — it sits where the editor would be. */
+  .m-said { display: flex; gap: 9px; padding: 11px 12px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); background: rgba(9, 9, 11, 0.35); }
+  .m-said__i { flex: none; color: #71717a; font-size: 13px; line-height: 1.5; }
+  .m-said__t { font-size: 12.5px; line-height: 1.5; color: #a1a1aa; }
+  .m-said__t b { color: #d4d4d8; font-weight: 500; }
+
+  /* the stage plot canvas, in the frame */
+  .m-plot { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #09090b; }
+  .m-plot__g { position: absolute; inset: 0; background-image: linear-gradient(rgba(63,63,70,0.28) 1px, transparent 1px), linear-gradient(90deg, rgba(63,63,70,0.28) 1px, transparent 1px); background-size: 34px 34px; }
+  .m-el { position: absolute; border: 1px solid #52525b; border-radius: 4px; background: #27272a; display: grid; place-items: center; font-size: 10px; color: #d4d4d8; text-align: center; padding: 2px; }
+  .m-el--sel { border-color: #f59e0b; background: rgba(245, 158, 11, 0.16); color: #fcd34d; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25); }
+  .m-el--truss { border-color: #38bdf8; background: rgba(56, 189, 248, 0.1); color: #7dd3fc; }
+
+  /* the overflow sheet's rows — SectionSwitcher's shape, one labelled action each */
+  .m-act { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 4px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-act:last-child { border-bottom: 0; }
+  .m-act__i { width: 22px; flex: none; text-align: center; color: #a1a1aa; font-size: 14px; }
+  .m-act__l { font-size: 14px; color: #f4f4f5; flex: 1; min-width: 0; }
+  .m-act__h { font-size: 12px; color: #71717a; flex: none; }
+
+  /* the bar-width arithmetic, drawn as a ruler */
+  .rule { display: flex; align-items: stretch; width: 375px; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; font-family: var(--mono); font-size: 9px; letter-spacing: 0.04em; }
+  .rule__s { display: grid; place-items: center; min-height: 30px; border-left: 1px solid var(--rule-soft); color: var(--muted); background: var(--sunken); text-align: center; padding: 0 1px; }
+  .rule__s:first-child { border-left: 0; }
+  .rule__s--t { background: rgba(245, 158, 11, 0.14); color: var(--amber); }
+  .rule__s--o { background: rgba(159, 18, 57, 0.14); color: var(--drop); }
+  .rule__s--g { background: transparent; }
+  .rulel { display: flex; align-items: baseline; gap: 10px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+  .rulel b { color: var(--ink-2); font-weight: 500; }
+  .rulel u { text-decoration: none; color: var(--drop); }
+
+  /* a rule stated once, in a box, because it is the thing that stops nine
+     call sites making nine judgements */
+  .law { border: 1px solid var(--rule); border-left: 3px solid var(--amber); border-radius: 0 8px 8px 0; background: var(--raised); padding: 16px 18px; display: flex; flex-direction: column; gap: 9px; }
+  .law__h { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); }
+  .law__t { font-size: 16.5px; line-height: 1.45; color: var(--ink); }
+  .law__t b { font-weight: 600; }
+  .law__n { font-size: 14px; line-height: 1.55; color: var(--muted); }
+  .law__n b { color: var(--ink-2); font-weight: 600; }
+
+  /* two columns of examples under a rule */
+  .split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 26px; }
+  @media (max-width: 720px) { .split { grid-template-columns: minmax(0, 1fr); } }
+  .split__c { display: flex; flex-direction: column; gap: 7px; padding-top: 4px; }
+  .split__h { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); padding-bottom: 6px; border-bottom: 1px solid var(--rule); }
+  .split__i { display: flex; gap: 9px; font-size: 14px; color: var(--ink-2); line-height: 1.5; }
+  .split__i b { color: var(--ink); font-weight: 600; }
+  .split__i em { font-style: normal; color: var(--faint); }
+</style>
+
+<style>
+  /* ==================================================================
+     ADDITIONS FOR SLICE 37 — the coordinate space drawn three times, the
+     plane, and the evidence tables.
+     ================================================================== */
+
+  .spaces { display: grid; gap: 14px; }
+  .space { border: 1px solid var(--rule); border-radius: 8px; background: var(--raised); overflow: hidden; }
+  .space__hd { display: flex; align-items: baseline; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--rule-soft); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); }
+  .space__hd b { color: var(--ink); font-weight: 600; letter-spacing: 0.08em; }
+  .space__hd s { margin-left: auto; text-decoration: none; color: var(--faint); letter-spacing: 0.06em; }
+  /* the band diagram: regions drawn to scale against a 2200-wide plane */
+  .band { position: relative; height: 46px; background: var(--sunken); }
+  .band__z { position: absolute; top: 0; bottom: 0; }
+  .band__z--rail { background: rgba(180, 83, 9, 0.16); border-left: 1px solid rgba(180, 83, 9, 0.5); border-right: 1px solid rgba(180, 83, 9, 0.5); }
+  .band__z--rig { background: rgba(14, 116, 144, 0.14); }
+  .band__z--dead { background: repeating-linear-gradient(135deg, transparent 0 5px, rgba(159, 18, 57, 0.16) 5px 10px); }
+  .band__l { position: absolute; top: 5px; left: 5px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); white-space: nowrap; }
+  .band__w { position: absolute; bottom: 5px; left: 5px; font-family: var(--mono); font-size: 10px; font-variant-numeric: tabular-nums; color: var(--muted); }
+  /* one 200 px node, same scale, so its width reads against the lane */
+  .band__n { position: absolute; top: 13px; height: 20px; border: 1px solid var(--amber); border-radius: 3px; background: rgba(180, 83, 9, 0.22); }
+
+  .ev { width: 100%; border-collapse: collapse; font-size: 14px; margin: 4px 0 8px; }
+  .ev th { text-align: left; font-family: var(--mono); font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--faint); font-weight: 500; padding: 0 12px 7px 0; border-bottom: 1px solid var(--rule); }
+  .ev td { padding: 7px 12px 7px 0; border-bottom: 1px solid var(--rule-soft); color: var(--ink-2); vertical-align: baseline; }
+  .ev td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ev td.bad { color: var(--drop); font-weight: 600; }
+  .ev tr.ok td { color: var(--muted); }
+  .ev caption { caption-side: bottom; padding-top: 10px; font-size: 13.5px; color: var(--muted); text-align: left; line-height: 1.6; }
+  .ev-wrap { overflow-x: auto; }
+
+  /* the plane specimen */
+  .plane { position: relative; overflow: auto; background: #09090b; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-x pan-y; }
+  .plane__box { position: relative; }
+  .plane__c { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+  .plane__hint { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 3; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: #52525b; background: rgba(9, 9, 11, 0.86); border: 1px solid #27272a; border-radius: 999px; padding: 3px 9px; pointer-events: none; }
+  .zbar { display: flex; align-items: center; gap: 2px; padding: 7px 8px; border-top: 1px solid #27272a; background: #0c0c0e; }
+  .zbar button { width: 40px; height: 40px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; color: #a1a1aa; font-size: 16px; display: grid; place-items: center; padding: 0; font-family: inherit; cursor: pointer; }
+  .zbar .zv { width: 66px; height: 40px; border: 0; background: transparent; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: #d4d4d8; cursor: pointer; }
+  .zbar .zv s { display: block; text-decoration: none; font-size: 8.5px; letter-spacing: 0.13em; text-transform: uppercase; color: #52525b; }
+  .zbar em { margin-left: auto; font-style: normal; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: #3f3f46; }
+
+  /* a decision recorded as a strike-through of the alternative (from 6d) */
+  .verdict { display: grid; grid-template-columns: 152px minmax(0, 1fr); gap: 14px 18px; align-items: baseline; }
+  .verdict__k { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); }
+  .verdict__v { font-size: 15px; color: var(--ink-2); line-height: 1.55; }
+  .verdict__v b { color: var(--ink); font-weight: 600; }
+  .verdict__v u { text-decoration: line-through; text-decoration-color: var(--drop); color: var(--faint); }
+  @media (max-width: 720px) { .verdict { grid-template-columns: minmax(0, 1fr); gap: 4px 0; } }
+</style>
+<style>
+  /* ==================================================================
+     ADDITIONS FOR SLICE 38 — the narrow drawer, a person as a card, the
+     info note that is live, and the event's two attachment rows.
+     ================================================================== */
+
+  /* ui/Drawer at `narrow` — max-w-md, 448 px, against the Rig's max-w-3xl */
+  .sd--narrow { width: 448px; }
+  .sd__hdc { min-width: 0; flex: 1; }
+  .sd__tir { display: flex; align-items: center; gap: 8px; }
+
+  /* ui/Dialog on a desk: centred at every width. Drawn twice — once as what
+     Manage access is today (max-w-2xl), once as the confirm (max-w-md). */
+  .ddlg { position: absolute; inset: 0; display: grid; place-items: center; padding: 0 24px; background: rgba(9, 9, 11, 0.7); }
+  .ddlg__p { width: 100%; max-width: 672px; border: 1px solid #3f3f46; border-radius: 12px; background: #18181b; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); }
+  .ddlg__p--md { max-width: 448px; }
+  .ddlg__hd { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid #27272a; }
+  .ddlg__ti { font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .ddlg__x { color: #a1a1aa; font-size: 16px; }
+  .ddlg__bd { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+  .ddlg__s { font-size: 14px; line-height: 1.55; color: #a1a1aa; }
+  .ddlg__s b { color: #e4e4e7; font-weight: 600; }
+  .ddlg__ft { display: flex; justify-content: flex-end; gap: 8px; }
+
+  /* A person, as a GearCard. Identity first; controls after it — on one line at
+     448 px, on their own line at 375 px, where 44 px is what sets the height. */
+  .who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .who__av { width: 24px; height: 24px; border-radius: 999px; flex: none; }
+  .who__av--mono { display: grid; place-items: center; font-family: var(--mono); font-size: 9px; letter-spacing: 0.04em; color: #d4d4d8; background: #27272a; border: 1px solid #3f3f46; }
+  .who__nm { font-size: 14px; font-weight: 500; color: #f4f4f5; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .who__sp { font-family: var(--mono); font-size: 10px; color: #71717a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .who__pad { margin-left: auto; display: flex; align-items: center; gap: 8px; flex: none; }
+  .who__ctl { display: flex; align-items: center; gap: 8px; }
+  .who__ctl .fld { flex: 1; min-width: 0; }
+  /* the remove target: a Button ghost xs on a desk (h-7 around a 14 px icon),
+     44 px in the hand around a 16 px one (tokens.md §7, amendment 1) */
+  .who__rm { width: 34px; height: 28px; border-radius: 6px; display: grid; place-items: center; color: #a1a1aa; flex: none; }
+  .who__rm--44 { width: 44px; height: 44px; }
+  .who__rm svg { display: block; }
+
+  /* the info note — the `i` rides in a row that already exists, so a closed note
+     costs no space; the sentence opens where the sentence belongs. LIVE. */
+  .itog { border: 0; background: transparent; padding: 8px; margin: -8px; color: #71717a; font-family: inherit; line-height: 1; cursor: pointer; flex: none; }
+  .itog[aria-expanded="true"] { color: #fbbf24; }
+  .itog i { font-style: normal; display: grid; place-items: center; width: 16px; height: 16px; border: 1px solid currentColor; border-radius: 999px; font-family: var(--mono); font-size: 10px; }
+  .inote { font-size: 12px; line-height: 1.6; color: #a1a1aa; }
+  .inote[hidden] { display: none; }
+  .inote p + p { margin-top: 7px; }
+  .inote b { color: #e4e4e7; font-weight: 600; }
+
+  /* the state that stands where the picker was when there is nobody left */
+  .exh { font-size: 12px; line-height: 1.6; color: #71717a; }
+  .exh--ph { font-size: 14px; }
+
+  /* the event's attachment rows on a desk — the shape the catalog row has had
+     since D4, with a second instance beside it */
+  .ocard { border: 1px solid #3f3f46; border-radius: 8px; background: #18181b; overflow: hidden; }
+  .ohd { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 20px; }
+  .ohd h4 { margin: 0; font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .ohd p { margin: 2px 0 0; font-size: 14px; color: #a1a1aa; }
+  .orow { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 20px; border-top: 1px solid #27272a; }
+  .orow--new { background: rgba(245, 158, 11, 0.05); }
+  .orow__l { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #71717a; width: 72px; flex: none; }
+  .orow__c { flex: 1; min-width: 0; }
+  .orow__t { font-size: 14px; color: #f4f4f5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .orow__s { font-size: 12px; color: #71717a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ometa { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 10px 20px; border-top: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); font-size: 12px; color: #71717a; }
+  .ometa u { text-decoration: line-through; text-decoration-color: #fb7185; color: #52525b; }
+
+  /* the event header, drawn so a control leaving it can be seen leaving */
+  .ehd { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding-bottom: 14px; }
+  .ehd h4 { margin: 0; font-size: 18px; font-weight: 600; color: #f4f4f5; }
+  .ehd p { margin: 2px 0 0; font-size: 14px; color: #a1a1aa; }
+  .ehd__r { display: flex; align-items: center; gap: 16px; }
+  .ehd__lk { font-size: 14px; color: #fbbf24; }
+  .gone { position: relative; opacity: 0.4; }
+  .gone::after { content: ""; position: absolute; left: -3px; right: -3px; top: 50%; height: 1px; background: #fb7185; }
+
+  /* a desk specimen and a phone specimen, argued as one thing */
+  .pair { display: grid; grid-template-columns: minmax(0, 1fr) 375px; gap: 24px; align-items: start; }
+  @media (max-width: 1020px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+  .pair__c { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+
+  /* the surface a drawer opens over, drawn faintly — a drawer accompanies */
+  .behind { display: flex; flex-direction: column; gap: 12px; opacity: 0.9; }
+  .behind__b { height: 10px; border-radius: 3px; background: #27272a; }
+</style>
+<style>
+  /* ==================================================================
+     ADDITIONS FOR SLICE 39 — the wide drawer, the flush construction,
+     the truss band with its two runs of rows, and the plot canvas a
+     drawer opens over. Nothing above this block has been restyled.
+     ================================================================== */
+
+  /* ui/Drawer at `wide` — max-w-3xl, 768 px, against Slice 38's max-w-md */
+  .sd--wide { width: 768px; }
+  /* `flush`: the body gives up its px-5 py-4 and its gap-5, at BOTH widths */
+  .sd__body--flush { padding: 0; gap: 0; flex: 1; }
+  .m-sheet__bd--flush { padding: 0; gap: 0; }
+
+  /* one truss = one block of the single construction. Not a card: it has no
+     radius, no ground of its own and no inset — the rule between two trusses is
+     the same rule that separates two rows, one shade stronger. */
+  .tblk { border-top: 1px solid #3f3f46; }
+  .tblk:first-child { border-top: 0; }
+  .tblk__hd { padding: 9px 20px 10px; background: rgba(9, 9, 11, 0.45); border-bottom: 1px solid #27272a; display: flex; flex-direction: column; gap: 7px; }
+  .tblk__r { display: flex; align-items: center; gap: 10px; }
+  .tblk__nm { font-size: 14px; font-weight: 500; color: #f4f4f5; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tblk__len { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: #a1a1aa; flex: none; }
+  .tblk__u { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #a1a1aa; flex: none; }
+  .tblk__sp { display: flex; flex-wrap: wrap; gap: 2px 12px; font-family: var(--mono); font-size: 10px; color: #71717a; }
+  .tblk__sp b { color: #d4d4d8; font-weight: 400; }
+  .tblk__geo { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #71717a; }
+  .tblk__geo .lbl { flex: none; }
+
+  /* a MicroLabel heading over a run of rows, full width — tokens.md §7's last
+     table row, in a construction that owns no padding */
+  .tband { display: flex; align-items: center; gap: 9px; padding: 9px 20px 5px; }
+  .tband b { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; }
+  .tband s { text-decoration: none; font-family: var(--mono); font-size: 10px; color: #52525b; }
+  .tband i { font-style: normal; flex: 1; height: 1px; background: #27272a; }
+
+  /* the row. Full-bleed, hairline-separated, no border of its own. */
+  .trow { display: flex; align-items: center; gap: 10px; min-height: 30px; padding: 3px 20px; border-bottom: 1px solid rgba(39, 39, 42, 0.7); font-size: 12px; color: #d4d4d8; }
+  .trow:last-child { border-bottom: 0; }
+  .trow__c { min-width: 0; flex: 1; }
+  .trow__nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .trow__sp { font-family: var(--mono); font-size: 10px; color: #71717a; }
+  .trow__sp--warn { color: #fcd34d; }
+  .trow__v { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #a1a1aa; flex: none; }
+  .trow__fid { font-family: var(--mono); font-size: 10px; color: #52525b; }
+  /* the destructive icon target: a Button ghost xs on the desk (h-7 around an
+     h-4 icon), never the bare h-3.5 glyph it is today */
+  .trow__x { width: 28px; height: 28px; border-radius: 6px; display: grid; place-items: center; color: #71717a; flex: none; }
+  .trow__x svg { display: block; }
+  .trow--empty { color: #52525b; font-style: normal; min-height: 34px; }
+
+  /* the desk's own add rows, inside the construction rather than in a box */
+  .tform { display: flex; align-items: center; gap: 8px; padding: 7px 20px 9px; border-bottom: 1px solid rgba(39, 39, 42, 0.7); }
+  .tform--last { border-bottom: 0; }
+  .tnew { padding: 10px 20px 14px; display: flex; align-items: center; gap: 8px; }
+
+  /* the same rows in the hand: 44 px, two lines, nothing tappable in them */
+  .trow--ph { min-height: 44px; padding: 6px 12px; gap: 8px; font-size: 14px; color: #f4f4f5; }
+  .trow--ph .trow__sp { font-size: 12px; }
+  .trow--ph .trow__v { font-size: 12px; }
+  .tband--ph { padding: 9px 12px 5px; }
+  .tblk__hd--ph { padding: 10px 12px 11px; }
+
+  /* the plot canvas the drawer opens over — a drawer ACCOMPANIES, so the thing
+     it accompanies has to be in the picture */
+  .dcvs { position: absolute; inset: 0; background: #09090b; overflow: hidden; }
+  .dcvs__g { position: absolute; inset: 0; background-image: linear-gradient(rgba(63,63,70,0.22) 1px, transparent 1px), linear-gradient(90deg, rgba(63,63,70,0.22) 1px, transparent 1px); background-size: 40px 40px; }
+  .dcvs__bar { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-bottom: 1px solid #27272a; background: #0c0c0e; }
+  .d-el { position: absolute; border: 1px solid #52525b; border-radius: 4px; background: #27272a; display: grid; place-items: center; font-size: 11px; color: #d4d4d8; text-align: center; padding: 2px; }
+  /* a truss, as the canvas draws it: a bar with three lanes and a marker per
+     hung fixture. 7 px markers — drawing, not targeting (P9). */
+  .tbar { position: absolute; height: 16px; border: 1px solid #38bdf8; border-radius: 3px; background: rgba(56, 189, 248, 0.12); }
+  .tbar__l { position: absolute; left: 0; top: -14px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: #7dd3fc; white-space: nowrap; }
+  .fx { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: #fbbf24; box-shadow: 0 0 4px rgba(251, 191, 36, 0.6); }
+
+  /* a decision recorded per action, with the reason in the row */
+  .peract { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  .peract th { text-align: left; font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); padding: 0 14px 8px 0; border-bottom: 1px solid var(--rule); }
+  .peract td { padding: 11px 14px 11px 0; border-bottom: 1px solid var(--rule-soft); color: var(--ink-2); vertical-align: top; line-height: 1.5; }
+  .peract td b { color: var(--ink); font-weight: 600; }
+  .peract td.y { color: var(--drop); font-weight: 600; white-space: nowrap; }
+  .peract td.n { color: var(--muted); white-space: nowrap; }
+
+  /* the phone bar, drawn as three rows of arithmetic */
+  .rules { display: flex; flex-direction: column; gap: 6px; }
+
+  /* the desk-job sentence is a real InfoPanel in the panel, so it has to be
+     able to close — its own `display: flex` outranks the UA's [hidden] rule */
+  .m-said[hidden] { display: none; }
+</style>
+<style>
+  /* ==================================================================
+     ADDITIONS FOR THE MEASUREMENTS SLICE — the canvas specimen frame,
+     the palette column and the inspector rail beside it, the anchor
+     legend, the tool-armed hint strip, and the A4 sheet. Nothing above
+     this block has been restyled.
+     ================================================================== */
+
+  /* the plot canvas as a specimen: the app's ground, the app's bar, and an
+     SVG whose user unit is one centimetre. Every stroke inside it is written
+     `n / zoom`, exactly as StagePlotCanvas.tsx writes it. */
+  .cvs { display: flex; flex-direction: column; background: #09090b; }
+  .cvs__bar { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-bottom: 1px solid #27272a; background: #0c0c0e; flex: none; }
+  .cvs__bar .lbl { flex: none; }
+  .cvs__sp { flex: 1; }
+  .cvs__z { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 11px; color: #71717a; flex: none; }
+  .cvs__svg { display: block; }
+  .cvs__svg text { user-select: none; }
+
+  /* the armed-tool hint: one sentence in the bar's own trough, naming the
+     mode, the next pick and the way out. Not a banner and not a dialog. */
+  .arm { display: flex; align-items: center; gap: 9px; padding: 6px 12px; border-bottom: 1px solid #27272a; background: rgba(245, 158, 11, 0.08); flex: none; }
+  .arm b { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #fbbf24; flex: none; }
+  .arm span { font-size: 12px; color: #d4d4d8; }
+  .arm s { text-decoration: none; margin-left: auto; font-size: 11px; color: #71717a; flex: none; }
+
+  /* the palette column — w-44, bordered on the edge it shares with the canvas */
+  .pal { width: 176px; flex: none; border-right: 1px solid #27272a; padding: 10px; display: flex; flex-direction: column; gap: 14px; background: #09090b; }
+  .pal__sec { display: flex; flex-direction: column; gap: 6px; }
+  .pal__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .pal__i { display: flex; flex-direction: column; align-items: center; gap: 4px; border: 1px solid #27272a; border-radius: 6px; padding: 8px 4px; font-size: 11px; line-height: 1.15; color: #a1a1aa; text-align: center; }
+  .pal__i svg { display: block; width: 24px; height: 24px; color: #d4d4d8; }
+  /* the first palette entry that arms rather than places: it stays lit while
+     the mode is on, so the canvas's crosshair always has a source on screen. */
+  .pal__i--on { border-color: #f59e0b; background: rgba(245, 158, 11, 0.12); color: #fcd34d; }
+  .pal__i--on svg { color: #fcd34d; }
+
+  /* the inspector rail — w-60 shrink-0, bordered on the edge it shares */
+  .irail { width: 240px; flex: none; border-left: 1px solid #27272a; background: #09090b; display: flex; flex-direction: column; }
+  .irail__hd { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); }
+  .irail__hd b { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; }
+  .irail__hd s { text-decoration: none; margin-left: auto; color: #52525b; font-size: 12px; }
+  .irail__bd { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+  .irail__ft { margin-top: auto; padding: 8px 10px; border-top: 1px solid #27272a; display: flex; gap: 6px; }
+  .irow { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 8px; align-items: center; }
+  .irow > label { font-size: 12px; color: #a1a1aa; }
+  .irow__v { display: flex; gap: 6px; min-width: 0; }
+  /* a derived value is STATED, never typed into (P6). It gets the ink of a
+     value you are reading, not the border of a control you may edit. */
+  .ival { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 14px; color: #f4f4f5; }
+  .ival u { text-decoration: none; font-size: 11px; color: #71717a; margin-left: 3px; }
+  /* Both facts about an end, stacked, inside the 136 px the rail's 76 px
+     label column leaves. Nothing here is a control: re-anchoring is a drag
+     of that end's grip on the canvas, where the anchors are. */
+  .iend { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.25; }
+  .iend__t { font-size: 12px; color: #d4d4d8; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .iend__s { font-size: 11px; color: #71717a; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ibtn { width: 28px; height: 28px; flex: none; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; color: #a1a1aa; display: grid; place-items: center; font-size: 12px; }
+  .irow--top { align-items: start; }
+
+  /* the anchor legend — the CAD marker set, drawn once and named */
+  .anch { display: grid; grid-template-columns: repeat(auto-fit, minmax(212px, 1fr)); gap: 0 22px; border-top: 1px solid var(--rule); }
+  .anch__r { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 12px; align-items: start; padding: 11px 2px; border-bottom: 1px solid var(--rule-soft); }
+  .anch__g { width: 34px; height: 22px; background: #09090b; border-radius: 3px; display: grid; place-items: center; }
+  .anch__g svg { display: block; }
+  .anch__n { font-size: 14px; color: var(--ink); font-weight: 600; }
+  .anch__d { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+  /* the live readout under an interactive specimen */
+  .rdo { display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-top: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); font-size: 12px; color: #a1a1aa; min-height: 32px; }
+  .rdo b { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #71717a; flex: none; }
+  .rdo em { font-style: normal; color: #f4f4f5; }
+  .rdo i { font-style: normal; color: #818cf8; }
+
+  /* a sheet: true 297 × 210 proportion, floating over the document ground.
+     Carried from the Slice 41 mockup, which is not in this CSS chain. */
+  .sheet { background: #ffffff; border-radius: 1px; overflow: hidden; box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.3); }
+  .sheet svg { display: block; width: 100%; height: auto; }
+
+  .cols { display: flex; align-items: stretch; }
+  .cols .cvs { flex: 1; min-width: 0; }
+</style>
+<style>
+  /* ==================================================================
+     ADDITIONS FOR THE ITEM PICKER — the Equipment panel and its sheet,
+     the row editor strip, the record field, the picker's rail and rows,
+     a native <select> popup drawn open, and the iOS wheel.
+     Nothing above this block has been changed.
+     ================================================================== */
+
+  /* -- the work panel and the equipment sheet, at ui/PatchPanel's own values:
+        bar `border-b border-zinc-800 px-3 py-2.5`, content with no padding,
+        rows `px-2 py-1 text-xs`, head `bg-zinc-950/60 px-2 py-1.5` -- */
+  .eqpan { border: 1px solid #3f3f46; border-radius: 12px; background: rgba(9, 9, 11, 0.4); overflow: hidden; }
+  .eqpan__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #27272a; }
+  .eqpan__ti { font-size: 14px; font-weight: 600; color: #f4f4f5; }
+  .eqpan__sp { flex: 1; }
+
+  .eqt { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .eqt th {
+    text-align: left; font-family: var(--mono); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.14em; text-transform: uppercase; color: #71717a;
+    background: rgba(9, 9, 11, 0.6); border-bottom: 1px solid #27272a;
+    padding: 6px 8px; white-space: nowrap;
+  }
+  .eqt td { padding: 4px 8px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); color: #e4e4e7; vertical-align: middle; }
+  .eqt tr.str td { background: rgba(255, 255, 255, 0.014); }
+  .eqt td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #a1a1aa; }
+  .eqt td.q { color: #71717a; }
+  .eqt td.nm { color: #fafafa; white-space: nowrap; }
+  .eqt .dash { color: #52525b; }
+  .eqt tr.add td { background: rgba(245, 158, 11, 0.04); padding: 8px; }
+
+  /* -- event/RowEditor: `-mx-1`, the amber left edge, fields that WRAP, actions
+        pushed out of the field flow at `ml-auto`, the keys line beneath -- */
+  .eqed { display: flex; flex-direction: column; gap: 8px; }
+  .eqed__strip {
+    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px;
+    border-left: 2px solid #f59e0b; border-radius: 0 6px 6px 0;
+    background: rgba(245, 158, 11, 0.05); padding: 10px 12px;
+  }
+  .eqed__f { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .eqed__f--short { width: 112px; flex: none; }
+  .eqed__f--count { width: 80px; flex: none; }
+  .eqed__f--grow { flex: 1; min-width: 160px; } /* FieldStack `grow` is `min-w-40 flex-1` */
+  .eqed__acts { display: flex; align-items: flex-end; gap: 8px; margin-left: auto; }
+  .eqed__keys { padding-left: 12px; font-size: 11px; color: #71717a; }
+  .eqed__keys kbd {
+    font-family: var(--mono); font-size: 10px; border: 1px solid #3f3f46;
+    border-radius: 3px; padding: 0 4px; color: #a1a1aa; background: #18181b;
+  }
+  .eqed__keys .lbl { margin-right: 8px; }
+
+  /* -- the record field. `ui/Button variant="outline"` geometry, left-aligned,
+        naming a RECORD rather than holding a value. h-8 on the desk, h-10 in
+        the hand — the same two heights every other control here takes. -- */
+  .itf {
+    display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0;
+    height: 32px; padding: 0 8px; border: 1px solid #3f3f46; border-radius: 6px;
+    background: #18181b; font-family: inherit; font-size: 12px; color: #f4f4f5;
+    text-align: left; cursor: pointer;
+  }
+  .itf--md { height: 40px; padding: 0 12px; font-size: 14px; }
+  .itf--empty { color: #71717a; }
+  .itf__t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .itf__t u { text-decoration: none; color: #a1a1aa; }
+  .itf__t s { text-decoration: none; color: #71717a; }
+  .itf__ic { flex: none; color: #71717a; display: grid; place-items: center; }
+  .itf__ic svg { display: block; }
+  .itf:focus-visible { outline: none; border-color: #f59e0b; }
+
+  /* -- the picker's own construction: ui/PanelRail (w-56, border-r, p-1.5,
+        gap-px) beside a sticky filter row and the rows themselves -- */
+  .pk { display: flex; align-items: stretch; height: 100%; }
+  /* the flush body, as a picker holds it: it may shrink, and only the rows move */
+  .sd__body--pk { padding: 0; gap: 0; flex: 1; min-height: 0; overflow: hidden; }
+  .m-sheet__bd--pk { padding: 0; gap: 0; flex: 1; min-height: 0; overflow-y: auto; }
+  .pk__scroll { flex: 1; min-height: 0; overflow-y: auto; }
+  .pk__rail { width: 224px; flex: none; display: flex; flex-direction: column; gap: 1px; padding: 6px; border-right: 1px solid #27272a; overflow-y: auto; }
+  .pk__r {
+    display: flex; align-items: center; gap: 8px; border-radius: 6px;
+    padding: 4px 8px; font-size: 12px; color: #d4d4d8; text-align: left;
+    background: transparent; border: 0; font-family: inherit; cursor: pointer; width: 100%;
+  }
+  .pk__r span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pk__r--on { background: rgba(245, 158, 11, 0.1); color: #fcd34d; }
+  .pk__q { flex: none; font-size: 11px; color: #52525b; }
+  .pk__c { margin-left: auto; flex: none; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; color: #71717a; }
+
+  .pk__main { display: flex; min-width: 0; flex: 1; flex-direction: column; }
+  .pk__bar {
+    position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-bottom: 1px solid #27272a; background: rgba(9, 9, 11, 0.6);
+  }
+  .pk__bar .fld { flex: 1; }
+  .pk__cnt { flex: none; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 11px; color: #71717a; }
+
+  .pk__tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .pk__tbl th {
+    text-align: left; font-family: var(--mono); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.14em; text-transform: uppercase; color: #71717a;
+    background: rgba(9, 9, 11, 0.6); border-bottom: 1px solid #27272a; padding: 6px 8px;
+  }
+  .pk__tbl td { padding: 5px 8px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); vertical-align: middle; }
+  .pk__tbl tr { cursor: pointer; }
+  .pk__tbl tr.str td { background: rgba(255, 255, 255, 0.014); }
+  .pk__tbl tr:hover td { background: rgba(39, 39, 42, 0.4); }
+  .pk__nm { color: #fafafa; white-space: nowrap; border-left: 2px solid transparent; padding-left: 6px !important; }
+  .pk__ds { color: #a1a1aa; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pk__ds em { font-style: normal; color: #52525b; }
+  .pk__st { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #a1a1aa; text-align: right; width: 60px; }
+  .pk__tbl tr.on td { background: rgba(245, 158, 11, 0.04); }
+  .pk__tbl tr.on .pk__nm { border-left-color: #f59e0b; color: #fcd34d; }
+  .pk__none { padding: 26px 14px; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+  .pk__none p { font-size: 13px; color: #a1a1aa; max-width: none; }
+  .pk__none p b { color: #e4e4e7; font-weight: 600; }
+
+  .dstack--tall { min-height: 560px; }
+  .dstack--xtall { min-height: 620px; }
+
+  /* -- variant B: a native popup drawn open. It is drawn and not built,
+        because the OS owns this list and the design language cannot reach it:
+        no micro-label, no token, no truncation the app controls. -- */
+  .ns { position: relative; }
+  .ns__pop {
+    position: absolute; top: 34px; left: 0; z-index: 4; width: 420px;
+    border: 1px solid #7a7a80; border-radius: 6px; background: #2b2b30;
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55); overflow: hidden;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 13px;
+  }
+  .ns__grp { padding: 5px 10px 3px; font-size: 12px; font-style: italic; font-weight: 700; color: #d4d4d8; background: #35353b; }
+  .ns__opt { padding: 3px 10px 3px 22px; color: #f4f4f5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ns__opt--on { background: #3b82f6; }
+  .ns__more { padding: 5px 10px; color: #a1a1aa; font-style: italic; }
+
+  /* a real <select>, at ui/Select's own values, so the popup is the browser's */
+  .livesel {
+    height: 32px; padding: 0 6px; border: 1px solid #3f3f46; border-radius: 6px;
+    background: #18181b; color: #e4e4e7; font-family: inherit; font-size: 12px;
+    min-width: 0; max-width: 100%;
+  }
+  .livesel--md { height: 40px; font-size: 14px; padding: 0 10px; }
+  .livesel:focus { outline: none; border-color: #f59e0b; }
+
+  /* the iOS wheel, drawn: the phone's rendering of the same <select> */
+  .whl { background: #1c1c1e; border-top: 1px solid #3f3f46; padding: 0 0 26px; position: absolute; inset-inline: 0; bottom: 0; }
+  .whl__ct { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; border-bottom: 1px solid #3f3f46; background: #2c2c2e; font-size: 15px; }
+  .whl__ct b { color: #0a84ff; font-weight: 600; }
+  .whl__ct s { text-decoration: none; color: #0a84ff; }
+  .whl__l { position: relative; height: 214px; overflow: hidden; }
+  .whl__r { height: 34px; display: flex; align-items: center; padding: 0 18px; font-size: 16px; color: #8e8e93; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .whl__r--g { font-size: 13px; font-weight: 700; color: #c7c7cc; height: 26px; }
+  .whl__r--on { color: #f4f4f5; }
+  .whl__sel { position: absolute; left: 0; right: 0; top: 90px; height: 34px; background: rgba(120, 120, 128, 0.24); border-radius: 8px; pointer-events: none; }
+  .whl__cut { position: absolute; right: 10px; top: 92px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: #ff453a; }
+
+  /* the phone picker's sticky bar — one row more than D4's, and §07 says why */
+  .m-pkbar { position: sticky; top: 0; z-index: 2; background: #18181b; border-bottom: 1px solid #27272a; flex: none; }
+  .m-pkbar__r1 { display: flex; align-items: center; gap: 8px; padding: 0 12px; height: 44px; }
+  .m-pkbar__ti { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: #f4f4f5; min-width: 0; background: none; border: 0; font-family: inherit; padding: 0; cursor: pointer; }
+  .m-pkbar__ti s { text-decoration: none; color: #a1a1aa; font-size: 12px; }
+  .m-pkbar__c { margin-left: auto; flex: none; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: #71717a; }
+  .m-pkbar__r2 { padding: 0 12px 8px; }
+  .m-pkrow { display: flex; align-items: stretch; min-height: 44px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); background: none; border-left: 0; border-right: 0; border-top: 0; width: 100%; text-align: left; font-family: inherit; cursor: pointer; padding: 0; }
+  .m-pkrow__e { width: 3px; flex: none; background: transparent; }
+  .m-pkrow.on .m-pkrow__e { background: #f59e0b; }
+  .m-pkrow__c { flex: 1; min-width: 0; padding: 5px 12px; display: flex; flex-direction: column; justify-content: center; }
+  .m-pkrow__t { font-size: 14px; font-weight: 500; line-height: 1.3; color: #f4f4f5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-pkrow.on .m-pkrow__t { color: #fcd34d; }
+  .m-pkrow__s { font-size: 12px; line-height: 1.3; color: #a1a1aa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* the two-variant scorecard */
+  .card2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 26px; }
+  @media (max-width: 900px) { .card2 { grid-template-columns: minmax(0, 1fr); gap: 26px; } }
+  .card2__h { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); padding-bottom: 8px; border-bottom: 1px solid var(--rule); }
+  .card2__l { display: flex; flex-direction: column; gap: 0; }
+  .card2__i { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 10px; padding: 11px 2px; border-bottom: 1px solid var(--rule-soft); font-size: 14.5px; color: var(--ink-2); line-height: 1.5; }
+  .card2__i b { color: var(--ink); font-weight: 600; }
+  .card2__m { font-family: var(--mono); font-size: 12px; line-height: 1.5; }
+  .card2__m--y { color: var(--keep); }
+  .card2__m--n { color: var(--drop); }
+  .card2__m--o { color: var(--faint); }
+
+  /* one live specimen's own reset for the buttons inside it */
+  .app button { font-family: inherit; }
+</style>
+
+<style>
+  /* ==================================================================
+     ADDITIONS FOR REVISION 2 — the tick, the already-added state, the
+     drawer's selection footer, the batch block in the editor and its
+     phone form, and the inline error. Nothing above is changed.
+     ================================================================== */
+
+  /* the tick. A filled square with a mark differs from an empty one in SHAPE
+     as well as in hue, which is P5 — the state does not ride on amber alone. */
+  .tick {
+    width: 16px; height: 16px; flex: none; border: 1px solid #52525b;
+    border-radius: 3px; background: #18181b; display: grid; place-items: center;
+  }
+  .tick--on { border-color: #f59e0b; background: #f59e0b; }
+  .tick--on::after { content: "✓"; font-size: 11px; line-height: 1; color: #09090b; font-weight: 700; }
+  .pk__tickcell { width: 30px; padding-left: 10px !important; }
+
+  /* a row the event already has. The tick is ABSENT, not disabled (P7), and
+     the trailing cell states the fact instead of offering the control. */
+  .pk__tbl tr.done { cursor: default; }
+  .pk__tbl tr.done:hover td { background: transparent; }
+  .pk__tbl tr.done .pk__nm { color: #a1a1aa; }
+  .pk__done { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; color: #71717a; white-space: nowrap; }
+  .pk__done b { color: #a1a1aa; font-weight: 500; }
+
+  /* the drawer's footer, once anything is ticked. `ui/Drawer`'s own frame,
+     with the statement at the left and the primary at `ml-auto`. */
+  .pk__ft { display: flex; align-items: center; gap: 14px; }
+  .pk__ft span { min-width: 0; }
+  .pk__ft .btn { margin-left: auto; flex: none; }
+
+  /* the batch: one full-width child of the editor's own flow, so the confirm
+     wraps below it — the wrapping the editor already relies on. */
+  .batch { width: 100%; border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 6px; overflow: hidden; }
+  .batch__hd, .batch__r { display: grid; grid-template-columns: minmax(0, 1fr) 68px 68px 28px; gap: 10px; align-items: center; padding: 0 8px; }
+  .batch__hd { height: 24px; background: rgba(9, 9, 11, 0.4); border-bottom: 1px solid rgba(39, 39, 42, 0.8); }
+  .batch__hd .lbl { text-align: left; }
+  .batch__hd .lbl.r { text-align: center; }
+  .batch__r { min-height: 40px; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .batch__r:last-child { border-bottom: 0; }
+  .batch__nm { min-width: 0; font-size: 12px; color: #fafafa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .batch__nm s { text-decoration: none; color: #71717a; }
+  .batch__x { width: 24px; height: 24px; border: 0; background: transparent; color: #52525b; border-radius: 4px; display: grid; place-items: center; font-size: 13px; cursor: pointer; }
+  .batch__x:hover { color: #f87171; }
+  .batch .fld { width: 100%; justify-content: flex-end; }
+  .batch__none { padding: 10px; font-size: 12px; color: #71717a; }
+
+  /* the same batch, in a hand: the name left, the editable numbers at the
+     right edge — `ui/Drawer`'s own rule, which says it is the same at both
+     widths and is the reason this is not a phone-only composition. */
+  .m-batch { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .m-batch:last-child { border-bottom: 0; }
+  .m-batch__c { flex: 1; min-width: 0; }
+  .m-batch__t { font-size: 14px; font-weight: 500; line-height: 1.3; color: #f4f4f5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-batch__s { font-size: 12px; line-height: 1.3; color: #a1a1aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-batch__q { display: flex; gap: 8px; flex: none; }
+  .m-batch__f { display: flex; flex-direction: column; gap: 3px; align-items: center; }
+  .m-batch__f .fld { width: 56px; justify-content: center; }
+
+  /* the phone picker row's trailing slot: one affordance, or one state */
+  .m-pkrow__tr { flex: none; width: 44px; display: grid; place-items: center; }
+  .m-pkrow__st { flex: none; padding-right: 12px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; color: #71717a; align-self: center; }
+
+  /* the inline error block, at tokens.md §5's own values */
+  .err { border: 1px solid #991b1b; border-radius: 6px; background: rgba(69, 10, 10, 0.5); padding: 8px 10px; font-size: 12px; color: #fca5a5; }
+  .err b { color: #fecaca; font-weight: 600; }
+  .err--md { padding: 10px 12px; font-size: 14px; border-radius: 6px; }
+
+  /* the ranking table in §10 */
+  .rank { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  .rank th { text-align: left; font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); padding: 0 14px 8px 0; border-bottom: 1px solid var(--rule); }
+  .rank td { padding: 10px 14px 10px 0; border-bottom: 1px solid var(--rule-soft); color: var(--ink-2); vertical-align: top; line-height: 1.5; }
+  .rank td b { color: var(--ink); font-weight: 600; }
+  .rank td.pos { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--amber); white-space: nowrap; }
+  .rank tr.out td { color: var(--muted); }
+  .rank tr.out td.pos { color: var(--drop); }
+</style>
+<style>
+  /* ==================================================================
+     ADDITIONS FOR SLICE 47 — the audio panel's bar with two exports, the
+     dialog with a pinned footer, the format rows, the port rows, the
+     preview and its warnings, and the document's scenario switches.
+     ================================================================== */
+
+  /* document chrome: the scenario switches above a live specimen */
+  .ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; }
+  .ctl__k { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); margin-right: 8px; }
+  .ctl__g { display: inline-flex; align-items: center; }
+  .ctl__b { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+  .ctl__b button {
+    font-family: var(--sans); font-size: 13px; padding: 5px 11px; cursor: pointer;
+    background: var(--raised); color: var(--ink-2); border: 0; border-left: 1px solid var(--rule);
+  }
+  .ctl__b button:first-child { border-left: 0; }
+  .ctl__b button[aria-pressed="true"] { background: var(--ink); color: var(--ground); }
+  .ctl__b button:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
+
+  /* ui/PatchPanel — rounded-xl border-zinc-700 bg-zinc-950/40, bar px-3 py-2.5 gap-2 */
+  .xpan { border: 1px solid #3f3f46; border-radius: 12px; background: rgba(9, 9, 11, 0.4); overflow: hidden; }
+  .xpan__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #27272a; }
+  .xpan__ti { font-size: 14px; font-weight: 600; color: #f4f4f5; margin-right: 4px; }
+  .xpan__sp { flex: 1; }
+  .xtog { display: inline-flex; padding: 2px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; }
+  .xtog span { display: inline-flex; align-items: center; height: 24px; padding: 0 8px; font-size: 12px; border-radius: 6px; color: #f4f4f5; }
+  .xtog span.on { background: #f59e0b; color: #09090b; font-weight: 500; }
+  /* Button secondary sm — ExportPdfButton's built size, h-8 px-3 text-sm */
+  .btn--sec { height: 32px; padding: 0 12px; font-size: 14px; background: #3f3f46; border-color: #3f3f46; color: #f4f4f5; }
+  .btn svg { display: block; flex: none; }
+  .xnew { outline: 1px dashed var(--amber); outline-offset: 4px; }
+  .xrow { display: grid; grid-template-columns: 3px 34px 150px 130px minmax(0, 1fr) 90px; align-items: center; gap: 0 8px; height: 26px; padding-right: 12px; font-size: 12px; color: #e4e4e7; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .xrow:nth-child(even) { background: rgba(255, 255, 255, 0.014); }
+  .xrow__e { align-self: stretch; }
+  .xrow__n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: #a1a1aa; text-align: right; }
+  .xrow__m { color: #71717a; font-family: var(--mono); font-size: 11px; }
+  .xstrip { display: flex; gap: 14px; padding: 8px 12px; border-top: 1px solid #27272a; background: rgba(9, 9, 11, 0.6); font-size: 11px; color: #a1a1aa; }
+  .xstrip .mono { color: #e4e4e7; }
+
+  /* ReadOnlyBanner — amber-900/50 rule, amber-950/30 ground, amber-300 ink */
+  .xro { display: flex; align-items: center; gap: 8px; border: 1px solid rgba(120, 53, 15, 0.5); background: rgba(69, 26, 3, 0.3); color: #fcd34d; border-radius: 6px; padding: 10px 16px; font-size: 14px; }
+  .xro--ph { font-size: 12px; padding: 8px 12px; line-height: 1.4; }
+
+  /* the stage a desktop dialog is drawn on: the panel behind, the scrim, the
+     dialog in flow so the specimen grows with it */
+  .xstage { position: relative; padding: 48px 24px; display: grid; place-items: center; min-height: 560px; overflow: hidden; }
+  .xstage__behind { position: absolute; inset: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .xstage__scrim { position: absolute; inset: 0; background: rgba(9, 9, 11, 0.8); }
+
+  /* ui/Dialog at max-w-md, with the footer pinned below a scrolling body */
+  .xdlg { position: relative; width: 100%; max-width: 448px; border: 1px solid #3f3f46; border-radius: 12px; background: #18181b; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); display: flex; flex-direction: column; text-align: left; font-size: 14px; color: #f4f4f5; }
+  .xdlg .ddlg__hd { flex: none; }
+  .xdlg__bd { flex: 1; min-height: 0; overflow-y: auto; scrollbar-color: #3f3f46 transparent; scrollbar-width: thin; display: flex; flex-direction: column; gap: 20px; padding: 16px 20px; }
+  .xdlg__ft { flex: none; display: flex; align-items: center; gap: 8px; padding: 12px 20px; border-top: 1px solid #27272a; }
+  .xdlg__fn { margin-right: auto; min-width: 0; font-family: var(--mono); font-size: 12px; color: #71717a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .xdlg__x44 { width: 44px; height: 44px; margin: -10px -12px -10px 0; display: grid; place-items: center; color: #a1a1aa; font-size: 18px; flex: none; }
+
+  /* a field at the navigation tier: FieldLabel over an md control */
+  .xf { display: flex; flex-direction: column; gap: 4px; }
+  .xsel { width: 100%; height: 40px; padding: 0 10px; border: 1px solid #3f3f46; border-radius: 6px; background: #18181b; color: #f4f4f5; font: inherit; font-size: 14px; }
+  .xsel:focus { outline: none; border-color: #f59e0b; }
+  .xsel--unset { color: #71717a; }
+  .xsel option { color: #f4f4f5; background: #18181b; }
+  .xsel option:disabled { color: #52525b; }
+
+  /* choose one of two, each with its qualifier: MobilePicker's row and the
+     sidebar's 2 px amber edge, at 52 px on both widths */
+  .xopt { display: flex; flex-direction: column; border: 1px solid #3f3f46; border-radius: 6px; overflow: hidden; background: #18181b; }
+  .xopt__i { display: flex; flex-direction: column; justify-content: center; min-height: 52px; padding: 0 12px 0 10px; border: 0; border-left: 2px solid transparent; border-bottom: 1px solid rgba(39, 39, 42, 0.6); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .xopt__i:last-child { border-bottom: 0; }
+  .xopt__i.on { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.06); }
+  .xopt__i:focus-visible { outline: 2px solid #f59e0b; outline-offset: -2px; }
+  .xopt__t { font-size: 14px; font-weight: 500; color: #d4d4d8; line-height: 1.3; }
+  .xopt__i.on .xopt__t { color: #fcd34d; font-weight: 600; }
+  .xopt__s { font-size: 12px; color: #71717a; line-height: 1.3; }
+
+  /* a run of rows under a navigation-tier section heading */
+  .xsec { display: flex; flex-direction: column; gap: 8px; }
+  .xsec__hd { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; color: #f4f4f5; }
+  .xsec__help { font-size: 12px; line-height: 1.5; color: #a1a1aa; }
+  .xmap { display: grid; grid-template-columns: minmax(0, 1fr) 172px; gap: 12px; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .xmap:last-child { border-bottom: 0; }
+  .xmap__t { font-size: 14px; color: #f4f4f5; line-height: 1.3; }
+  .xmap__s { font-size: 12px; color: #71717a; line-height: 1.3; }
+  .xmap__s .mono { color: #a1a1aa; }
+  .xmap__fix { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: #a1a1aa; padding-left: 11px; }
+
+  /* what the file will hold: a note box of figures */
+  .xsum { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; padding: 10px 12px; border: 1px solid #27272a; border-radius: 5px; background: rgba(9, 9, 11, 0.6); }
+  .xsum__v { display: flex; align-items: center; gap: 6px; white-space: nowrap; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 14px; color: #f4f4f5; }
+  .xsum__v small { font-size: 12px; color: #71717a; }
+  .xsum__l { font-size: 12px; color: #71717a; line-height: 1.3; }
+
+  /* the losses: tinted by the worst of them, each led by its word (P4) */
+  .xwarn { display: flex; flex-direction: column; padding: 2px 12px; border: 1px solid; border-radius: 5px; }
+  .xwarn--red { border-color: rgba(248, 113, 113, 0.4); background: rgba(239, 68, 68, 0.05); }
+  .xwarn--amb { border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.05); }
+  .xw { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 10px; padding: 7px 0; border-bottom: 1px solid rgba(39, 39, 42, 0.6); font-size: 12px; line-height: 1.5; color: #d4d4d8; }
+  .xw:last-child { border-bottom: 0; }
+  .xw__k { font-weight: 600; }
+  .xw__k--red { color: #f87171; }
+  .xw__k--amb { color: #fcd34d; }
+  .xw b { color: #f4f4f5; font-weight: 500; }
+  .xw .tape { height: 10px; margin: 0 3px 0 0; vertical-align: -1px; }
+  .xok { font-size: 12px; color: #a1a1aa; }
+  .xempty { font-size: 14px; line-height: 1.55; color: #a1a1aa; }
+  .xempty b { color: #e4e4e7; font-weight: 600; }
+
+  /* the same dialog at 375 px: centred, scrolling inside 85 %, 44 px close */
+  .m-dlg--x { padding: 0 16px; }
+  .xdlg--ph { max-height: 85%; max-width: none; }
+  .xdlg--ph .ddlg__hd { padding: 10px 12px 10px 16px; }
+  .xdlg--ph .xdlg__bd { padding: 16px; gap: 18px; }
+  .xdlg--ph .xmap { grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 8px 0; }
+  .xdlg--ph .xdlg__ft { flex-wrap: wrap; padding: 12px 16px; }
+  .xdlg--ph .xdlg__fn { flex-basis: 100%; }
+  .xdlg--ph .xdlg__ft .btn--primary { flex: 1; }
+
+  /* revision 2: a port row's pickers stack (In over Out, Slot over Device) */
+  .xmap__ctl { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .xsum { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 10px; }
+  /* the bus assignment: read-only, folded, mono where it lines up */
+  .xbus { border: 1px solid #27272a; border-radius: 5px; background: rgba(9, 9, 11, 0.6); }
+  .xbus summary { cursor: pointer; padding: 8px 12px; font-size: 12px; color: #a1a1aa; }
+  .xbus summary:focus-visible { outline: 2px solid #f59e0b; outline-offset: -2px; }
+  .xbus[open] summary { border-bottom: 1px solid #27272a; }
+  .xbus__l { display: flex; flex-direction: column; padding: 4px 12px; }
+  .xbus__r { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 3px 0; font-size: 12px; color: #d4d4d8; border-bottom: 1px solid rgba(39, 39, 42, 0.6); }
+  .xbus__r:last-child { border-bottom: 0; }
+  .xbus__n { color: #71717a; text-align: right; font-size: 11px; }
+  .xbus__nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .xbus__nm small { color: #71717a; font-size: 11px; }
+  .xbus__t { color: #e4e4e7; font-size: 11px; }
+  .xbus__t--lost { color: #f87171; }
+
+  /* the phone page an overlay is raised over */
+  .xph-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #27272a; flex: none; }
+</style>
+<style>
+  /* ==================================================================
+     ADDITIONS FOR SLICE 47 · DESK-MODELS — the console card with its
+     model and profile lines, the GearForm with a grouped model select,
+     the catalog hint, the Inputs sheet with model-aware numbers and
+     over-capacity rows, the full-desk error, the switch Dialog with its
+     folded move list, and the three phones. Nothing above is restyled.
+
+     The app is dark at every theme, so its zinc ramp is stated once here
+     as tokens and never redefined for light or dark: the specimens are
+     pictures of the app, and the document chrome around them is what
+     follows the viewer's theme.
+     ================================================================== */
+  :root {
+    --z950: #09090b; --z900: #18181b; --z850: #1f2028; --z800: #27272a; --z700: #3f3f46;
+    --z600: #52525b; --z500: #71717a; --z400: #a1a1aa; --z300: #d4d4d8; --z200: #e4e4e7;
+    --z100: #f4f4f5; --z50: #fafafa;
+    --am500: #f59e0b; --am400: #fbbf24; --am300: #fcd34d;
+    --rd500: #ef4444; --rd400: #f87171; --rd300: #fca5a5; --rd200: #fecaca; --rd800: #991b1b; --rd950-50: rgba(69, 10, 10, 0.5);
+    --am-rule-35: rgba(245, 158, 11, 0.35); --am-ground-03: rgba(245, 158, 11, 0.03); --white-02: rgba(255, 255, 255, 0.02); --panel-ground: rgba(9, 9, 11, 0.4);
+    --cy300: #67e8f9; --em300: #6ee7b7; --in300: #a5b4fc; --tape-neutral: #3f3f46;
+    --cy-g: rgba(6, 182, 212, 0.15); --em-g: rgba(16, 185, 129, 0.15); --in-g: rgba(99, 102, 241, 0.15);
+    --row-rule: rgba(39, 39, 42, 0.6);
+    --am-tint: rgba(245, 158, 11, 0.05);
+    --am-tint-sel: rgba(245, 158, 11, 0.04);
+    --am-rule: rgba(245, 158, 11, 0.4);
+    --rd-tint: rgba(239, 68, 68, 0.05);
+    --rd-rule: rgba(248, 113, 113, 0.4);
+    --well: rgba(9, 9, 11, 0.6);
+    --scrim: rgba(9, 9, 11, 0.8);
+  }
+
+  /* a drawer stage that grows with its contents rather than clipping them */
+  .dm-stage { position: relative; display: flex; justify-content: flex-end; min-height: 660px; }
+  .dm-stage__behind { position: absolute; inset: 16px 790px 16px 16px; display: flex; flex-direction: column; gap: 10px; opacity: 0.9; }
+  .dm-stage .scrim { position: absolute; inset: 0; }
+  .dm-stage .sd { position: relative; top: auto; right: auto; bottom: auto; min-height: 660px; }
+  .dm-stage .sd__body { overflow: visible; }
+  .dm-dlghost { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; background: var(--scrim); z-index: 3; }
+  .dm-dlghost[hidden] { display: none; }
+
+  /* the console card: GearCard accent — amber-tinted, the desk the rig hangs off */
+  .gear--acc { border-color: var(--am-rule-35); background: var(--am-ground-03); }
+  .gear__it { font-size: 12px; color: var(--z500); }
+  .gear__sp .w { color: var(--rd400); }
+  .gear__sp .w b { color: var(--rd300); }
+  .gear__sp--pro { color: var(--z500); }
+  .gear__sp--pro b { color: var(--z400); }
+  .meter { height: 3px; border-radius: 2px; background: var(--z800); overflow: hidden; }
+  .meter i { display: block; height: 100%; background: var(--am500); }
+  .meter i.over { background: var(--rd400); }
+
+  /* GearForm: border-l-2 amber-500, amber/0.04 ground, fields wrap */
+  .gform { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; border-left: 2px solid var(--am500); border-radius: 0 6px 6px 0; background: var(--am-tint-sel); padding: 8px 10px; }
+  .gfs { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .gfs--short { width: 112px; }
+  .gfs--count { width: 80px; }
+  .gfs--def { width: 160px; }
+  .gfs--grow { flex: 1; min-width: 160px; }
+  .gfs--full { width: 100%; }
+  .gfa { margin-left: auto; display: flex; gap: 8px; align-items: flex-end; }
+  .gin, .gsel { height: 32px; border: 1px solid var(--z700); border-radius: 6px; background: var(--z900); color: var(--z100); font: inherit; font-size: 12px; padding: 0 8px; width: 100%; min-width: 0; }
+  .gsel { padding: 0 6px; }
+  .gin:focus, .gsel:focus { outline: none; border-color: var(--am500); }
+  .gsel option, .gsel optgroup { background: var(--z900); color: var(--z100); }
+  .gin[readonly] { color: var(--z500); }
+  .gin.bad { border-color: var(--rd400); }
+  .app button.btn, .phone__frame button.btn { cursor: pointer; font-family: inherit; }
+  .app button.btn:focus-visible, .phone__frame button:focus-visible, .app select:focus-visible { outline: 2px solid var(--am500); outline-offset: 1px; }
+  .btn--red { color: var(--rd400); }
+  .btn--xs { height: 28px; padding: 0 10px; font-size: 12px; }
+
+  /* the profile, read-only, inside the form: what the model brings */
+  .prof { width: 100%; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; border: 1px solid var(--z800); border-radius: 6px; overflow: hidden; background: var(--z800); }
+  .prof__c { background: var(--z950); padding: 6px 8px; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .prof__v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: var(--z200); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .prof__k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--z500); }
+  .prof__note { grid-column: 1 / -1; background: var(--z950); padding: 6px 8px; font-size: 11px; line-height: 1.5; color: var(--z500); }
+  .prof__note b { color: var(--z300); font-weight: 500; }
+
+  /* the catalog hint — a suggestion, amber and a word, with its one action */
+  .hint { width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; border: 1px solid var(--am-rule); background: var(--am-tint); border-radius: 6px; padding: 6px 10px; font-size: 12px; line-height: 1.5; color: var(--z300); }
+  .hint b { color: var(--am300); font-weight: 600; }
+  .hint .btn { margin-left: auto; }
+
+  /* the sheet: the panel, the editor, the number cell that knows its desk */
+  .dm-pan { border: 1px solid var(--z700); border-radius: 12px; background: var(--panel-ground); overflow: hidden; min-width: 0; }
+  .dm-pan__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--z800); }
+  .dm-pan__ti { font-size: 14px; font-weight: 600; color: var(--z100); }
+  .dm-pan__desk { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--z500); }
+  .dm-pan__sp { flex: 1; }
+  .dm-pan__err { padding: 8px 12px 0; }
+  .dm-t { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .dm-t th { text-align: left; font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--z500); background: var(--well); border-bottom: 1px solid var(--z800); padding: 6px 8px; white-space: nowrap; }
+  .dm-t td { padding: 0 8px; height: 26px; border-bottom: 1px solid var(--row-rule); color: var(--z200); white-space: nowrap; }
+  .dm-t td.e { width: 3px; padding: 0; }
+  .dm-t td.e i { display: block; width: 3px; height: 26px; }
+  .dm-t td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--z400); width: 52px; }
+  .dm-t td.w { font-family: var(--mono); color: var(--z500); width: 20px; }
+  .dm-t td.nm { color: var(--z50); overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+  .dm-t td.src { font-family: var(--mono); font-size: 11px; color: var(--z400); }
+  .dm-t td.src.lost { color: var(--rd400); }
+  .dm-t tbody tr { cursor: pointer; }
+  .dm-t tbody tr:hover td { background: var(--white-02); }
+  .dm-t tr.open td { background: var(--am-tint-sel); border-bottom: 0; }
+  .dm-t tr.ed td { background: var(--am-tint-sel); padding: 0 8px 10px; height: auto; white-space: normal; cursor: default; }
+  .dm-t tr.over td.n { color: var(--rd400); }
+  .dm-t tr.over td.nm { color: var(--z400); }
+  .ovw { font-family: var(--mono); font-size: 10px; color: var(--rd400); margin-left: 6px; letter-spacing: 0.06em; }
+  .dm-strip { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 8px 12px; border-top: 1px solid var(--z800); background: var(--well); font-size: 11px; color: var(--z400); }
+  .dm-strip .mono { color: var(--z200); }
+  .dm-strip--over { border-top-color: var(--rd-rule); background: var(--rd-tint); }
+  .dm-strip__k { color: var(--rd400); font-weight: 600; }
+  .dm-strip__line { flex-basis: 100%; color: var(--z300); }
+  .dm-scroll { max-height: 420px; overflow-y: auto; scrollbar-color: var(--z700) transparent; scrollbar-width: thin; }
+  .dm-err { border: 1px solid var(--rd800); border-radius: 6px; background: var(--rd950-50); padding: 8px 10px; font-size: 12px; line-height: 1.5; color: var(--rd300); display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+  .dm-err b { color: var(--rd200); font-weight: 600; }
+  .dm-err .btn { margin-left: auto; }
+  .dm-ferr { width: 100%; }
+  .dm-note { width: 100%; font-size: 11px; line-height: 1.5; color: var(--z500); }
+  .dm-note b { color: var(--z300); font-weight: 500; }
+  .dm-sheets { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+
+  /* the switch Dialog: the capacity before and after, the losses, the moves */
+  .cmp { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 0 12px; align-items: baseline; padding: 6px 12px; border: 1px solid var(--z800); border-radius: 5px; background: var(--well); font-size: 12px; }
+  .cmp > span { padding: 3px 0; border-bottom: 1px solid var(--row-rule); }
+  .cmp > span:nth-last-child(-n+4) { border-bottom: 0; }
+  .cmp__h { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--z500); }
+  .cmp__k { color: var(--z400); }
+  .cmp__v { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--z200); text-align: right; white-space: nowrap; }
+  .cmp__v.bad { color: var(--rd400); }
+  .cmp__ar { color: var(--z600); }
+  .cmp__m { color: var(--z500); }
+  .xw__k--neu { color: var(--z300); }
+  .xw .mono { font-size: 11px; color: var(--z300); }
+  .mv { border: 1px solid var(--z800); border-radius: 5px; background: var(--well); }
+  .mv summary { cursor: pointer; padding: 8px 12px; font-size: 12px; color: var(--z400); }
+  .mv summary:focus-visible { outline: 2px solid var(--am500); outline-offset: -2px; }
+  .mv[open] summary { border-bottom: 1px solid var(--z800); }
+  .mv__l { display: flex; flex-direction: column; padding: 4px 12px; max-height: 220px; overflow-y: auto; }
+  .mv__r { display: grid; grid-template-columns: minmax(0, 1fr) 48px 14px 48px; gap: 6px; align-items: baseline; padding: 3px 0; font-size: 12px; color: var(--z300); border-bottom: 1px solid var(--row-rule); }
+  .mv__r:last-child { border-bottom: 0; }
+  .mv__r .mono { text-align: right; font-size: 11px; color: var(--z400); }
+  .mv__r .mono.to { color: var(--am300); text-align: left; }
+  .mv__r .mono.to.over { color: var(--rd400); }
+  .mv__r .ar { color: var(--z600); text-align: center; }
+  .mv__nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kept { font-size: 12px; line-height: 1.5; color: var(--z400); }
+  .kept b { color: var(--z200); font-weight: 500; }
+  .dm-dlg__sub { font-size: 12px; color: var(--z500); margin-top: 2px; }
+  .dm-dlg__sub .mono { color: var(--z300); }
+  .xdlg .xdlg__bd { max-height: 560px; }
+  .dm-dlgspec { padding: 32px 24px; display: grid; place-items: center; background: var(--z950); }
+
+  /* the specimens' own controls, document chrome */
+  .ctl select { font-family: var(--sans); font-size: 13px; padding: 5px 8px; border: 1px solid var(--rule); border-radius: 6px; background: var(--raised); color: var(--ink-2); }
+  .ctl select:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
+  .ctl__reset { font-family: var(--sans); font-size: 13px; padding: 5px 11px; border: 1px solid var(--rule); border-radius: 6px; background: var(--raised); color: var(--ink-2); cursor: pointer; }
+  .ctl__reset:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
+  .said { font-family: var(--mono); font-size: 12px; color: var(--ink-2); min-height: 1.6em; }
+  .said b { color: var(--ink); font-weight: 600; }
+
+  /* the profile table, document chrome */
+  .ptbl-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px; background: var(--raised); }
+  .ptbl { border-collapse: collapse; font-size: 13px; min-width: 980px; width: 100%; }
+  .ptbl th, .ptbl td { padding: 7px 10px; border-bottom: 1px solid var(--rule-soft); text-align: left; vertical-align: top; white-space: nowrap; }
+  .ptbl thead th { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); border-bottom: 1px solid var(--rule); background: var(--sunken); }
+  .ptbl tbody th { font-weight: 600; color: var(--ink); }
+  .ptbl td { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-2); }
+  .ptbl tr.fam td, .ptbl tr.fam th { background: var(--sunken); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+  .ptbl .same { color: var(--faint); }
+  .uv { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.08em; color: var(--amber); border: 1px solid currentColor; border-radius: 3px; padding: 0 3px; margin-left: 4px; vertical-align: 1px; }
+
+  /* the amendments, drawn: a before and an after on one row */
+  .amd { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+  .amd__c { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .amd__h { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .amd__h b { color: var(--ink-2); font-weight: 500; }
+
+  /* phones: the Rig sheet's card at h-10, a field naming a choice */
+  .m-gcard { border: 1px solid var(--am-rule-35); border-radius: 6px; background: var(--am-ground-03); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+  .m-gcard__top { display: flex; align-items: center; gap: 8px; min-height: 44px; margin: -8px 0; }
+  .m-gcard__nm { font-size: 14px; font-weight: 500; color: var(--z100); }
+  .m-gcard__ed { margin-left: auto; height: 44px; padding: 0 12px; margin-right: -8px; display: grid; place-items: center; font-size: 14px; color: var(--z100); }
+  .m-form { display: flex; flex-direction: column; gap: 10px; border-left: 2px solid var(--am500); border-radius: 0 6px 6px 0; background: var(--am-tint-sel); padding: 10px 12px; }
+  .m-sel { height: 40px; border: 1px solid var(--z700); border-radius: 6px; background: var(--z900); display: flex; align-items: center; gap: 8px; padding: 0 12px; font-size: 14px; color: var(--z100); min-width: 0; }
+  .m-sel span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-sel::after { content: "▾"; margin-left: auto; color: var(--z500); font-size: 10px; }
+  .m-sel--txt::after { content: none; }
+  .m-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+  .m-bd--scroll { overflow-y: auto; }
+  .prof--ph { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .m-row.over .m-row__n { color: var(--rd400); }
+  .m-row .ovw { font-size: 10px; }
+  .m-err { margin: 8px 12px 0; }
+
+  /* a 375 px phone does not fit a 400 px page inside the gutter: it scrolls in its row */
+  @media (max-width: 440px) { .phones { flex-wrap: nowrap; overflow-x: auto; } }
+  @media (max-width: 900px) {
+    .dm-sheets, .amd { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>
+<style>
+  /* ==================================================================
+     ADDITIONS FOR SLICE 47 · DESK-MODELS · REVISION 2 — the Desk cell,
+     the row on no desk, the note that puts rows on a desk, the gap row
+     in a shortened sheet, and the revision box. Nothing above is
+     restyled. Every value is a token from the block above, and the
+     no-desk state takes tokens.md §5's "gaps" alert tint, because a
+     channel on no desk is a fact about the plan, not an error in it.
+     ================================================================== */
+  .dm-t td.dk { color: var(--z400); width: 96px; }
+  .nodesk { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; color: var(--am300); }
+  .dm-t tr.unas td.n { color: var(--z500); }
+  .dm-t tr.gap td { height: 22px; color: var(--z600); font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; background: var(--well); cursor: default; }
+  .dm-t tr.newrow td { background: var(--am-tint-sel); border-bottom: 0; color: var(--am300); font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; cursor: default; }
+  .dm-unas { border: 1px solid var(--am-rule); border-radius: 6px; background: var(--am-tint); padding: 8px 10px; font-size: 12px; line-height: 1.5; color: var(--z300); display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+  .dm-unas b { color: var(--am300); font-weight: 600; }
+  .dm-unas > span:first-child { margin-right: auto; }
+  .dm-strip--gaps { border-top-color: var(--am-rule); background: var(--am-tint); }
+  .dm-strip__g { color: var(--am300); font-weight: 600; }
+  .gsel.bad { border-color: var(--rd400); }
+  .dm-s4 { position: relative; }
+  .dm-s4 .dm-dlghost { z-index: 4; }
+  /* a move can now read "Aux 1–2 → 30": the move list's number columns widen */
+  .mv__r { grid-template-columns: minmax(0, 1fr) 60px 14px 60px; }
+
+  /* the phone: the no-desk note at 44 px, the desk choice as MobilePicker rows */
+  .m-unas { margin: 8px 12px 0; border: 1px solid var(--am-rule); border-radius: 6px; background: var(--am-tint); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; line-height: 1.5; color: var(--z300); }
+  .m-unas b { color: var(--am300); font-weight: 600; }
+  .m-unas__a { display: flex; gap: 8px; }
+  .m-unas__a span { flex: 1; height: 44px; display: grid; place-items: center; border: 1px solid var(--z700); border-radius: 6px; background: var(--z900); font-size: 14px; color: var(--z100); }
+  .m-row__s .nodesk { font-size: 11px; }
+
+  /* the revision box under the header */
+  .rev { border: 1px solid var(--rule); border-left: 3px solid var(--amber); border-radius: 0 8px 8px 0; background: var(--raised); padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; margin-top: 26px; }
+  .rev__h { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); }
+  .rev ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 15px; line-height: 1.5; color: var(--ink-2); }
+  .rev li b { color: var(--ink); font-weight: 600; }
+  .done { color: var(--keep); }
+</style>
+<style>
+  /* ==================================================================
+     ADDITIONS FOR SLICE 47 · DESK-MODELS · REVISION 3 — the desk
+     selector (the view toggle's trough, live), the section heading with
+     its own add, the line a moved row leaves, the strip's link to the
+     deskless rows, and the phone's picker title. Nothing above is
+     restyled; tokens from the revision 1 block only.
+     ================================================================== */
+  /* patterns.md §1's trough: border zinc-700, zinc-900 ground, p-0.5; the
+     selected entry is the view toggle's own amber fill */
+  .dsel { display: inline-flex; padding: 2px; border: 1px solid var(--z700); border-radius: 6px; background: var(--z900); gap: 2px; }
+  .dsel__i { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--z100); font: inherit; font-size: 12px; white-space: nowrap; cursor: pointer; }
+  .dsel__i.on { background: var(--am500); color: var(--z950); font-weight: 500; }
+  .dsel__f { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; color: var(--z500); }
+  .dsel__i.on .dsel__f { color: var(--z800); }
+  .dsel__i--none { color: var(--am300); }
+  .dsel__i--none.on { color: var(--z950); }
+  .dsel__i:focus-visible { outline: 2px solid var(--am500); outline-offset: 1px; }
+  span.dsel__i { cursor: default; }
+
+  /* tokens.md §7: a MicroLabel heading over a run of rows, with its count,
+     and on the aux run its own + Aux */
+  .dm-t tr.sec td { padding: 0; height: auto; border-bottom: 0; background: transparent; cursor: default; }
+  .dm-t tr.sec:hover td { background: transparent; }
+  .dm-sec { display: flex; align-items: center; gap: 9px; min-height: 30px; padding: 6px 8px 4px; }
+  .dm-sec b { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--z400); }
+  .dm-sec s { text-decoration: none; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; color: var(--z500); }
+  .dm-sec i { font-style: normal; flex: 1; height: 1px; background: var(--z800); }
+
+  /* B7: the line a moved row leaves, in the place the Error block goes */
+  .dm-moved { border: 1px solid var(--z800); border-radius: 6px; background: var(--well); padding: 8px 10px; font-size: 12px; line-height: 1.5; color: var(--z300); display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+  .dm-moved b { color: var(--z100); font-weight: 600; }
+  .dm-moved > span:first-child { margin-right: auto; }
+
+  /* the strip's link to the deskless rows: PatchStatusRail's own control size */
+  .dm-strip__go { margin-left: auto; height: 24px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--am300); font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; }
+  .dm-strip__go:focus-visible { outline: 2px solid var(--am500); outline-offset: 1px; }
+
+  /* the phone: the picker as the panel's title, the 44 px aux heading */
+  .m-ptitle { display: flex; align-items: center; gap: 6px; min-height: 44px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-ptitle s { text-decoration: none; color: var(--z400); font-size: 12px; font-weight: 400; }
+  .m-sec { align-items: center; min-height: 30px; }
+  .m-sec s { text-decoration: none; font-family: var(--mono); font-size: 10px; color: var(--z500); }
+  .m-sec__add { height: 44px; padding: 0 14px; display: grid; place-items: center; border: 1px solid var(--z700); border-radius: 6px; background: var(--z900); font-size: 14px; color: var(--z100); margin: 2px 0; }
+  .m-pkrow__t--none { color: var(--am300) !important; }
+</style>
+<style>
+  /* ==================================================================
+     ADDITIONS FOR SLICE 48 · DESK-ROUTING — the tab strip with its tenth
+     tab, the table index under the bar, the routing grid (a mix is a
+     column, a source is a row), the open column and its editor, the cell
+     the desk cannot route, the canvas of one desk with its rail, the Fed
+     by cell, the recorder's tracks, the pool diagrams, and the phones.
+     Nothing above is restyled. Tokens from the desk-models block only;
+     bus and tape colours arrive inline as data.
+     ================================================================== */
+  :root {
+    --white-18: rgba(255, 255, 255, 0.18);
+    --node-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    --am-desk-55: rgba(245, 158, 11, 0.55);
+    --am-sel-10: rgba(245, 158, 11, 0.1);
+    --or-g: rgba(249, 115, 22, 0.15); --or300: #fdba74; --rd-g: rgba(239, 68, 68, 0.15);
+  }
+
+  /* the event tab strip, ui/Tabs: no trough, the current tab underlined */
+  .tabs { display: flex; flex-wrap: wrap; gap: 2px 4px; border-bottom: 1px solid var(--z800); padding: 0 4px; }
+  .tabs span { padding: 8px 10px; font-size: 14px; color: var(--z400); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+  .tabs span.on { color: var(--z100); border-bottom-color: var(--am500); }
+  .tabs span.new { color: var(--am300); }
+  .tabs span.new::after { content: "new"; font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; margin-left: 6px; color: var(--am400); vertical-align: 1px; }
+
+  /* the table index: one row under the bar, one entry per table, each with
+     its pool fill. It says what you are looking at, so no trough (ui/Tabs) */
+  .rx { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0 2px; padding: 0 8px; border-bottom: 1px solid var(--z800); background: var(--well); }
+  .rx__i { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 8px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--z400); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
+  .rx__i.on { color: var(--z100); border-bottom-color: var(--am500); }
+  .rx__i s { text-decoration: none; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; color: var(--z500); }
+  .rx__i s.full { color: var(--z300); }
+  .rx__i s.over { color: var(--rd400); }
+  .rx__i:focus-visible { outline: 2px solid var(--am500); outline-offset: -2px; }
+  span.rx__i { cursor: default; }
+
+  /* the routing grid: dm-t's rows, with one 60 px column per mix */
+  .rg-wrap { overflow-x: auto; scrollbar-color: var(--z700) transparent; scrollbar-width: thin; }
+  .rg { width: auto; min-width: 100%; }
+  .rg th.mx { width: 68px; min-width: 68px; max-width: 68px; padding: 0; vertical-align: bottom; text-transform: none; letter-spacing: 0; }
+  .rg th.fill { width: 100%; }
+  .rg td.nm { width: 168px; min-width: 168px; max-width: 168px; }
+  .pool__s i b { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--mono); font-size: 9px; font-weight: 600; color: var(--z950); }
+  .mxh { display: flex; flex-direction: column; align-items: stretch; gap: 1px; width: 100%; padding: 0 4px 5px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: inherit; font: inherit; text-align: center; cursor: pointer; }
+  span.mxh { cursor: default; }
+  .mxh:focus-visible { outline: 2px solid var(--am500); outline-offset: -2px; }
+  .mxh__t { display: block; height: 3px; border-radius: 2px; margin: 0 2px 4px; }
+  .mxh__s { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; letter-spacing: 0.04em; color: var(--z400); white-space: nowrap; }
+  .mxh__n { font-family: var(--sans); font-size: 11px; font-weight: 500; color: var(--z200); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mxh__w { font-family: var(--mono); font-size: 9px; color: var(--z600); letter-spacing: 0.06em; }
+  th.mx.open { background: var(--am-tint-sel); }
+  th.mx.open .mxh { border-bottom-color: var(--am500); }
+  th.mx.open .mxh__s { color: var(--am300); }
+  th.mx.over .mxh__s { color: var(--rd400); }
+  .rg td.c { width: 68px; min-width: 68px; max-width: 68px; padding: 0; text-align: center; }
+  .rg td.c.open { background: var(--am-tint-sel); }
+  .rg tr:hover td.c.open { background: var(--am-tint-sel); }
+  .rg td.c button { display: grid; place-items: center; width: 100%; height: 26px; border: 0; background: transparent; cursor: pointer; padding: 0; }
+  .rg td.c button:focus-visible { outline: 2px solid var(--am500); outline-offset: -2px; }
+  .rg td.c button:hover .rt--off { border-color: var(--z400); }
+  /* a route is a square — never a circle, which is a port (P5) */
+  .rt { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: middle; }
+  .rt--on { background: var(--c, var(--z300)); box-shadow: inset 0 0 0 1px var(--white-18); }
+  .rt--off { border: 1px solid var(--z700); }
+  .rt--kept { background: transparent; border: 1px dashed var(--rd400); }
+  /* C3 — a route the desk cannot make: no control, no square, a hatch */
+  .rg td.c.na { background-image: repeating-linear-gradient(135deg, transparent 0 4px, var(--row-rule) 4px 5px); cursor: default; }
+  .rg tbody tr.mxrow td.nm { color: var(--z200); }
+  .rg tbody tr.mxrow td.n { color: var(--z500); }
+  .rg tbody tr { cursor: default; }
+  .rg tbody tr:hover td { background: transparent; }
+  .rg tr.cnt td { height: 24px; background: var(--well); font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; color: var(--z500); border-bottom: 0; }
+  .rg tr.cnt td.c.full { color: var(--z300); }
+  .rg tr.cnt td.c.open { background: var(--am-tint-sel); }
+  .rg tr.feeds td { height: 24px; font-size: 10px; color: var(--z500); border-bottom: 0; background: var(--well); }
+  .rg tr.feeds td.c { font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 3px; }
+  .rg tr.feeds td.c.none { color: var(--am300); }
+  .rg-empty { padding: 22px 16px; font-size: 12px; line-height: 1.6; color: var(--z400); display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .rg-empty b { color: var(--z200); font-weight: 500; }
+  .rg-note { padding: 8px 12px; font-size: 11px; line-height: 1.5; color: var(--z500); border-bottom: 1px solid var(--z800); }
+  .rg-note b { color: var(--z300); font-weight: 500; }
+  .rg-more { border: 0; background: transparent; color: var(--am300); font: inherit; font-size: 11px; cursor: pointer; padding: 0; }
+  .rg-more:focus-visible { outline: 2px solid var(--am500); outline-offset: 1px; }
+
+  /* the column's editor: a GearForm above the grid, spanning it */
+  .rg-ed { padding: 8px 12px 10px; border-bottom: 1px solid var(--z800); background: var(--am-tint-sel); }
+  .rg-ed .gform { background: transparent; }
+  .chk { display: inline-flex; align-items: center; gap: 6px; height: 32px; font-size: 12px; color: var(--z200); white-space: nowrap; }
+  .chk input { accent-color: var(--am500); width: 14px; height: 14px; margin: 0; }
+  .chk--ro { color: var(--z500); }
+  .gfs--slot { width: 104px; }
+  .gfs--w { width: 92px; }
+  .gfs--kind { width: 132px; }
+  .swatches { display: flex; gap: 4px; height: 32px; align-items: center; }
+  .swatch { width: 18px; height: 18px; border-radius: 4px; border: 1px solid transparent; cursor: pointer; padding: 0; }
+  .swatch.on { border-color: var(--z100); box-shadow: 0 0 0 1px var(--z950) inset; }
+  .swatch:focus-visible { outline: 2px solid var(--am500); outline-offset: 1px; }
+  .ro-line { font-size: 11px; color: var(--z500); line-height: 1.5; width: 100%; }
+  .ro-line b { color: var(--z300); font-weight: 500; }
+
+  /* the canvas of one desk, with its InspectorRail */
+  .rc { display: flex; min-height: 0; border-top: 0; }
+  .rc__plane { position: relative; flex: 1; min-width: 0; height: 600px; overflow: auto; background: var(--z950); scrollbar-color: var(--z700) transparent; scrollbar-width: thin; }
+  .rc__box { position: relative; }
+  .rc__box svg { position: absolute; inset: 0; overflow: visible; }
+  .rc__col { position: absolute; font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--z600); white-space: nowrap; }
+  .rn { position: absolute; height: 24px; display: flex; align-items: center; gap: 6px; padding: 0 8px 0 0; border: 1px solid var(--z700); border-radius: 7px; background: var(--z850); box-shadow: var(--node-shadow); font: inherit; font-size: 11px; color: var(--z100); text-align: left; cursor: pointer; overflow: visible; }
+  .rn:focus-visible { outline: 2px solid var(--am500); outline-offset: 1px; }
+  .rn__t { width: 3px; align-self: stretch; border-radius: 7px 0 0 7px; flex: none; }
+  .rn__s { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10px; color: var(--z400); flex: none; }
+  .rn__n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rn__c { font-family: var(--mono); font-size: 9px; color: var(--z500); flex: none; }
+  .rn .port { position: absolute; top: 50%; margin-top: -4px; }
+  .rn .port--in { left: -4px; }
+  .rn .port--out { right: -4px; }
+  .rn.sel { border-color: var(--am500); background: var(--am-tint); box-shadow: 0 0 0 2px var(--am-rule-35); }
+  .rn.dim { opacity: 0.38; }
+  .rn.out { border-style: solid; background: var(--z900); }
+  .rn.desk { border-color: var(--am-desk-55); }
+  .rn.overn .rn__s { color: var(--rd400); }
+  .rsr { position: absolute; border: 1px solid var(--z700); border-radius: 7px; background: var(--z850); overflow: hidden; box-shadow: var(--node-shadow); }
+  .rsr__hd { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 6px; border-bottom: 1px solid var(--z800); background: var(--well); font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--z400); }
+  .rsr__hd s { text-decoration: none; margin-left: auto; color: var(--z600); letter-spacing: 0.04em; }
+  .rsr__r { display: flex; align-items: center; gap: 6px; width: 100%; height: 20px; padding: 0 10px 0 0; border: 0; border-bottom: 1px solid var(--row-rule); background: transparent; font: inherit; font-size: 11px; color: var(--z300); text-align: left; cursor: pointer; position: relative; }
+  .rsr__r:focus-visible { outline: 2px solid var(--am500); outline-offset: -2px; }
+  .rsr__r.sel { background: var(--am-sel-10); color: var(--z100); }
+  .rsr__r.dim { color: var(--z600); }
+  .rsr__r .srow__tape { width: 3px; align-self: stretch; }
+  .rsr__r .port { position: absolute; right: -4px; top: 50%; margin-top: -4px; }
+  .rsr__n { font-family: var(--mono); font-size: 10px; color: var(--z500); width: 30px; flex: none; }
+  .rsr__nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rbundle { position: absolute; font-family: var(--mono); font-size: 9px; color: var(--z500); white-space: nowrap; }
+  .rr { width: 240px; flex: none; border-left: 1px solid var(--z800); background: var(--z900); padding: 12px; display: flex; flex-direction: column; gap: 10px; font-size: 12px; color: var(--z300); height: 600px; overflow-y: auto; }
+  .rr__h { display: flex; align-items: center; gap: 8px; }
+  .rr__ti { font-size: 14px; font-weight: 600; color: var(--z100); }
+  .rr__k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--z500); }
+  .rr__l { display: flex; flex-direction: column; border-top: 1px solid var(--z800); }
+  .rr__l span { display: flex; align-items: center; gap: 6px; padding: 3px 0; border-bottom: 1px solid var(--row-rule); font-size: 11px; color: var(--z300); }
+  .rr__l span i { width: 3px; height: 12px; border-radius: 2px; flex: none; }
+  .rr__l span em { font-style: normal; margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--z500); }
+  .rr__p { font-size: 11px; line-height: 1.55; color: var(--z500); }
+  .rr__p b { color: var(--z300); font-weight: 500; }
+  .rc-leg { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 8px 12px; border-top: 1px solid var(--z800); background: var(--well); font-size: 11px; color: var(--z500); }
+  .rc-leg svg { vertical-align: middle; margin-right: 5px; }
+
+  /* the Fed by cell on Outputs, and the side of a stereo mix on a mono jack */
+  .fed { font-family: var(--mono); font-size: 11px; color: var(--z300); white-space: nowrap; }
+  .fed s { text-decoration: none; color: var(--z500); margin-left: 4px; font-family: var(--sans); }
+  .fed--none { color: var(--z600); }
+  .fed--kept { color: var(--rd400); }
+  .dm-t td.ty { width: 74px; }
+
+  /* the Inputs sheet's Routes cell */
+  .rts { display: inline-flex; flex-wrap: nowrap; gap: 3px; align-items: center; }
+  .rts .pill { font-size: 10px; }
+  .rts__more { font-family: var(--mono); font-size: 10px; color: var(--z500); }
+
+  /* the recorder's track rows */
+  .rec td.n { width: 46px; }
+  .rec td.src { width: 220px; }
+  .rec .kind { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; color: var(--z500); margin-left: 6px; }
+  .rec .play { color: var(--z300); }
+  .rec .play s { text-decoration: none; font-family: var(--mono); font-size: 10px; color: var(--z500); margin-left: 6px; }
+
+  /* the pool diagrams: one strip of slots per pool, drawn at the desk's count */
+  .pools { display: flex; flex-direction: column; gap: 10px; }
+  .pool { display: grid; grid-template-columns: 94px minmax(0, 1fr) 56px; gap: 10px; align-items: center; }
+  .pool__k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--z400); }
+  .pool__s { display: flex; gap: 2px; min-width: 0; }
+  .pool__s i { flex: 1; min-width: 0; height: 18px; border-radius: 3px; background: var(--z800); position: relative; }
+  .pool__s i.pair-l { border-radius: 3px 0 0 3px; margin-right: -2px; }
+  .pool__s i.pair-r { border-radius: 0 3px 3px 0; }
+  .pool__s i.on { background: var(--c); opacity: 0.85; }
+  .pool__v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 11px; color: var(--z300); text-align: right; }
+  .pool__leg { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11px; color: var(--z400); }
+  .pool__leg i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  .eng { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+  .eng__c { border: 1px solid var(--z800); border-radius: 10px; background: var(--z950); padding: 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .eng__h { font-size: 14px; font-weight: 600; color: var(--z100); }
+  .eng__h s { text-decoration: none; font-weight: 400; font-size: 12px; color: var(--z500); margin-left: 6px; }
+  .eng__p { font-size: 12px; line-height: 1.55; color: var(--z400); }
+  .eng__p b { color: var(--z200); font-weight: 500; }
+
+  /* the phone: the table picker in the bar's second row, the mix rows, the
+     membership sheet's 44 px tick rows */
+  .m-tpick { display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 12px; border: 1px solid var(--z700); border-radius: 6px; background: var(--z900); font-size: 14px; color: var(--z100); flex: 1; min-width: 0; }
+  .m-tpick s { text-decoration: none; font-family: var(--mono); font-size: 11px; color: var(--z500); margin-left: auto; }
+  .m-tpick::after { content: "▾"; color: var(--z500); font-size: 10px; }
+  .m-tick { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px 0 0; border-bottom: 1px solid var(--row-rule); }
+  .m-tick__e { width: 3px; align-self: stretch; flex: none; }
+  .m-tick__n { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: var(--am400); width: 36px; flex: none; padding-left: 9px; }
+  .m-tick__t { flex: 1; min-width: 0; font-size: 14px; color: var(--z100); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-tick__b { width: 44px; height: 44px; display: grid; place-items: center; flex: none; }
+  .m-tick__b .rt { width: 16px; height: 16px; border-radius: 3px; }
+
+  @media (max-width: 900px) { .eng { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 640px) { .pool { grid-template-columns: 70px minmax(0, 1fr) 46px; } }
+</style>
+
+<style>
+  /* ==================================================================
+     ADDITIONS FOR D9 · AUX-SOCKETS — the canvas specimen built to
+     graph/tokens.ts (NodeShell, SplitPortRow, PortDot, the Sources rail),
+     the run heading option (a) would need, the phone's routing pair with
+     its grouped picker, and a crop of the printed graph. Nothing above is
+     restyled. Canvas values are the built ones: 18 px port pitch, 11 px
+     rows, 10 px mono badge, 7 px dot, 7 px radius. Paper is white at every
+     theme, as a printed sheet is.
+     ================================================================== */
+  :root {
+    --d9-ring: rgba(245, 158, 11, 0.3);
+    --d9-paper: #ffffff; --d9-ink: #111111; --d9-ink-2: #6e6e6e; --d9-hair: #aaaaaa;
+  }
+
+  /* the canvas: a fixed window over a plane, as the desk's Flow view is */
+  .d9-cvs { position: relative; height: 560px; overflow: auto; background: var(--z950); border-radius: 9px; scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { .d9-cvs { scroll-behavior: auto; } }
+  .d9-plane { position: relative; min-width: 100%; font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--z100); line-height: 1.45; }
+  .d9-plane *, .d9-plane *::before, .d9-plane *::after { box-sizing: border-box; }
+  .d9-wires { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+
+  /* NodeShell: NODE_CHROME + NODE_BORDER, desk amber/55, selected amber + ring-2 */
+  .d9-node { position: absolute; width: 200px; border: 1px solid var(--z700); border-radius: 7px; background: var(--z850); box-shadow: var(--node-shadow); transition: opacity 0.15s; }
+  .d9-node--desk { border-color: var(--am-desk-55); }
+  .d9-node--sel { border-color: var(--am500); box-shadow: 0 0 0 2px var(--d9-ring), var(--node-shadow); }
+  .d9-node--dim { opacity: 0.3; }
+  .d9-node--new { outline: 1px dashed var(--z600); outline-offset: 5px; }
+  /* NODE_HEADER: px-1.5 py-1, 11 px semibold; NODE_BADGE: 10 px mono, rounded 3 px */
+  .d9-hd { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-bottom: 1px solid var(--z800); border-radius: 7px 7px 0 0; font-size: 11px; font-weight: 600; color: var(--z100); cursor: grab; touch-action: none; user-select: none; }
+  .d9-hd:active { cursor: grabbing; }
+  .d9-hd:focus-visible { outline: 2px solid var(--am500); outline-offset: -2px; }
+  .d9-bdg { margin-left: auto; flex: none; border-radius: 3px; background: var(--z800); padding: 0 4px; font-family: var(--mono); font-size: 10px; font-weight: 400; color: var(--z400); }
+  .d9-body { padding: 4px 0; }
+  .d9-ft { border-top: 1px solid var(--z800); padding: 2px 6px 4px; font-family: var(--mono); font-size: 10px; color: var(--z500); }
+
+  /* PORT_ROW: h-[18px], px-1.5, gap-1.5, 11 px, zinc-300 or the run's colour */
+  .d9-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; height: 18px; padding: 0 6px; font-size: 11px; color: var(--z300); white-space: nowrap; }
+  .d9-row > span { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .d9-row--l { justify-content: flex-start; }
+  /* PortDot: 7 px, hollow zinc-500 on zinc-800; coloured = the run's colour at b3 */
+  .d9-dot { width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--z500); background: var(--z800); flex: none; }
+  .d9-dot--on { border-color: var(--c); background: color-mix(in srgb, var(--c) 70%, transparent); }
+
+  /* option (a) only: the run heading a node would need — one port pitch, MICRO_LABEL */
+  .d9-run { display: flex; align-items: center; gap: 6px; height: 18px; margin-top: 4px; padding: 0 6px; border-top: 1px solid var(--z800); }
+  .d9-run b { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--z500); }
+  .d9-run s { text-decoration: none; margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--z600); }
+
+  /* the Sources rail: a 20 px header in MICRO_LABEL, 20 px slots, full-height tape */
+  .d9-shd { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 6px; border-bottom: 1px solid var(--z800); background: var(--well); border-radius: 7px 7px 0 0; cursor: grab; touch-action: none; user-select: none; }
+  .d9-shd b { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--z400); }
+  .d9-shd s { text-decoration: none; margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--z600); }
+  .d9-src { display: flex; align-items: center; gap: 6px; padding-right: 6px; border-bottom: 1px solid var(--row-rule); font-size: 11px; color: var(--z300); transition: opacity 0.15s; }
+  .d9-src:last-child { border-bottom: 0; }
+  .d9-src--dim { opacity: 0.3; }
+  .d9-src__tape { width: 3px; align-self: stretch; flex: none; }
+  .d9-src__nm { flex: 1; min-width: 0; padding-left: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .d9-src__md { flex: none; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: 10px; color: var(--z500); }
+  .d9-p48 { width: 8px; height: 3px; border-radius: 2px; flex: none; background: var(--z700); }
+  .d9-p48--on { background: var(--rd500); box-shadow: 0 0 5px rgba(239, 68, 68, 0.65); }
+  .d9-src__ports { display: flex; flex-direction: column; flex: none; }
+  .d9-src__ports > span { display: flex; align-items: center; justify-content: flex-end; gap: 4px; height: 20px; font-family: var(--mono); font-size: 9px; color: var(--z600); }
+
+  /* controls above the canvas */
+  .d9-q { font-family: var(--sans); font-size: 13px; padding: 5px 9px; width: 190px; max-width: 100%; border: 1px solid var(--rule); border-radius: 6px; background: var(--raised); color: var(--ink); }
+  .d9-q:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
+  .d9-said { font-size: 14px; color: var(--ink-2); min-height: 1.5em; max-width: var(--measure); }
+  .d9-said b { color: var(--ink); font-weight: 600; }
+
+  /* the comparison table */
+  .d9-cmp-wrap { overflow-x: auto; }
+  .d9-cmp { min-width: 720px; }
+  .d9-cmp td:first-child { width: 170px; }
+  .d9-win { color: var(--keep); font-weight: 600; }
+  .d9-rule { border: 1px dashed var(--rule); border-radius: 8px; padding: 14px 16px; background: var(--raised); font-size: 14.5px; color: var(--ink-2); display: flex; flex-direction: column; gap: 8px; }
+  .d9-rule b { color: var(--ink); }
+
+  /* the phone: the panel's bar, a sheet over the list, the native picker */
+  .d9-seg { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--z700); border-radius: 6px; background: var(--z900); }
+  .d9-seg span { height: 36px; padding: 0 10px; display: grid; place-items: center; border-radius: 4px; font-size: 13px; color: var(--z400); }
+  .d9-seg span.on { background: var(--z800); color: var(--z100); }
+  .d9-pair { display: flex; gap: 10px; }
+  .d9-pair > .m-fld:first-child { flex: 1; min-width: 0; }
+  .d9-pair > .m-fld:last-child { width: 112px; flex: none; }
+  .d9-new { position: relative; }
+  .d9-new::before { content: ""; position: absolute; left: -9px; top: 0; bottom: 0; width: 2px; border-radius: 2px; background: var(--z500); }
+  .d9-pick { position: absolute; inset: 0; background: var(--scrim); display: grid; place-items: center; padding: 24px; }
+  .d9-pick__p { width: 100%; border: 1px solid var(--z700); border-radius: 12px; background: var(--z900); overflow: hidden; }
+  .d9-pick__g { padding: 12px 16px 6px; font-size: 12px; font-weight: 600; color: var(--z500); }
+  .d9-pick__o { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 16px; font-size: 15px; color: var(--z100); border-bottom: 1px solid var(--row-rule); }
+  .d9-pick__o:last-child { border-bottom: 0; }
+  .d9-pick__o i { font-style: normal; margin-left: auto; color: var(--am400); }
+  .d9-pick__o.d9-in { padding-left: 28px; }
+
+  /* paper */
+  .d9-paper { background: var(--d9-paper); border-radius: 2px; box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.3); overflow-x: auto; }
+  .d9-paper svg { min-width: 760px; }
+  .d9-paper svg { display: block; width: 100%; height: auto; }
+  .d9-paper .ink { fill: var(--d9-ink); }
+  .d9-paper .ink2 { fill: var(--d9-ink-2); }
+  .d9-paper .box { fill: var(--d9-paper); stroke: var(--d9-ink); stroke-width: 0.6; }
+  .d9-paper .rule { stroke: var(--d9-ink); stroke-width: 0.4; }
+  .d9-paper .hair { stroke: var(--d9-hair); stroke-width: 0.4; }
+  .d9-paper .wire { fill: none; stroke: var(--d9-ink); stroke-width: 0.5; }
+  .d9-paper .jack { stroke: var(--d9-ink); stroke-width: 0.5; fill: var(--d9-paper); }
+  .d9-paper .jack.on { fill: var(--d9-ink); }
+  .d9-paper .cut { fill: url(#d9-cut); }
+  .d9-paper text { font-family: Helvetica, Arial, sans-serif; }
+
+  @media (max-width: 640px) {
+    .d9-cvs { height: 480px; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="head">
+    <span class="head__eyebrow">OpenSpec change · d9-aux-sockets · defect D9 · revision 2 · for approval</span>
+    <h1>An X32's aux in sockets are jacks, and they get a box of their&nbsp;own</h1>
+    <p class="head__lede">
+      On an X32 or M32 the Inputs graph draws the desk's local mic inputs and stops. The six rear aux in
+      sockets are missing, so playback plugged into them, or a radio receiver on a line input, cannot be
+      patched. This change adds them as a second panel of the desk: a box on the canvas, two fields on the
+      phone and a box on the printed graph. It never touches the local count.
+    </p>
+  </header>
+
+  <!-- ============================================================ 01 -->
+  <section id="s01">
+    <div class="sec__hd">
+      <span class="sec__no">01 · today · read from the code</span>
+      <h2>A source plugged into an X32's aux in has nowhere to land, because the desk's panel stops at Local in 32</h2>
+    </div>
+    <div class="prose">
+      <p>The LOCAL box is sized by <code>local_input_count</code> alone. On FOH, an X32, that is 32 rows. The Playback pair and the host's radio receiver sit on the rear aux in sockets in real life. In the graph their only route to the Playback aux strip or to channel 24 is through a stagebox, which is not where they are plugged in.</p>
+      <p>Choose <b>Today</b> in <a href="#s02">§02</a> to see it: Playback and Host mic RX are hollow on both ends. The export has the same gap. It leaves every aux strip on the rear sockets because the graph cannot say anything else.</p>
+    </div>
+  </section>
+
+  <!-- ============================================================ 02 -->
+  <section id="s02">
+    <div class="sec__hd">
+      <span class="sec__no">02 · the canvas · live</span>
+      <h2>The aux sockets are a box of their own, because the canvas finds, selects and remembers boxes, not parts of one</h2>
+    </div>
+    <div class="prose">
+      <p><b>Recommended: (b).</b> A second pass-through box beside LOCAL, titled with the desk's name, badge <b>LOCAL AUX</b>, six rows numbered 1–6. It is built like LOCAL and a stagebox: one <code>SplitPortRow</code> per socket, the cable lands on the left as <em>Aux in N</em>, and the desk's own hop leaves on the right as <em>Aux to desk N</em>. The hop is drawn dashed, as LOCAL's is, and may reach any channel or aux strip. No footer, because LOCAL has none.</p>
+      <p>Until someone drags it, the AUX box sits 24&nbsp;px under LOCAL with their left edges aligned. After that it keeps its own stored position, as LOCAL has since migration 043.</p>
+      <p>Try it: type <b>aux</b> in the search field under each option. In (b) the window moves to the AUX box. In (a) it moves to the LOCAL box, because a search lands on a box and not on a row, and the aux rows are about 600&nbsp;px below that box's header.</p>
+    </div>
+    <div class="ctl" id="s02-ctl">
+      <span class="ctl__g"><span class="ctl__k">Option</span>
+        <span class="ctl__b" role="group" aria-label="Option">
+          <button type="button" data-mode="today" aria-pressed="false">Today</button>
+          <button type="button" data-mode="a" aria-pressed="false">(a) one box, two runs</button>
+          <button type="button" data-mode="b" aria-pressed="true">(b) a box of its own</button>
+        </span>
+      </span>
+      <span class="ctl__g"><label class="ctl__k" for="d9-q">Find</label><input id="d9-q" class="d9-q" type="search" placeholder="Find a box or a channel…" autocomplete="off"></span>
+      <button type="button" class="ctl__reset" id="d9-reset">Reset layout</button>
+    </div>
+    <div class="spec">
+      <div class="spec__frame"><div class="d9-cvs" id="d9-cvs"><div class="d9-plane" id="d9-plane"></div></div></div>
+      <span class="spec__cap" id="d9-cap"></span>
+    </div>
+    <p class="d9-said" id="d9-said" aria-live="polite"></p>
+  </section>
+
+  <!-- ============================================================ 03 -->
+  <section id="s03">
+    <div class="sec__hd">
+      <span class="sec__no">03 · the two options weighed</span>
+      <h2>Inside the local box the aux sockets would need a rule design/ does not have, and a search would still not reach them</h2>
+    </div>
+    <div class="prose">
+      <p>Both options draw the same rows. They differ in what the canvas treats as a unit. Every action on the canvas works on a whole node: dragging, selecting into the inspector, search with the window following it, the stored position, the printed box. <code>components.md</code> §2 describes a node as <em>header, ports, footer</em>, with the ports at a fixed pitch. Option (b) fits that description as written. Option (a) needs an amendment.</p>
+    </div>
+    <div class="d9-cmp-wrap"><table class="tbl d9-cmp">
+      <thead><tr><th></th><th>(a) a run inside LOCAL</th><th>(b) an AUX box beside it</th></tr></thead>
+      <tbody>
+        <tr><td><b>design/</b></td><td>Needs a new rule: a node may divide its ports into named runs (below)</td><td class="d9-win">No new rule. A pass-through box is a node, as a stagebox is</td></tr>
+        <tr><td><b>Search</b></td><td>“aux” finds LOCAL and brings its header into view. The aux rows are ~600&nbsp;px lower, out of a 560&nbsp;px window</td><td class="d9-win">“aux” finds the AUX box and brings it into view</td></tr>
+        <tr><td><b>Inspector</b></td><td>Selecting LOCAL lists 38 rows: 32 local, then 6 aux</td><td class="d9-win">Its own selection, titled <em>FOH · aux sockets</em>, with six rows</td></tr>
+        <tr><td><b>Position</b></td><td class="d9-win">Nothing new is stored</td><td>Two new columns on the desk, with the default placement under LOCAL</td></tr>
+        <tr><td><b>Paper</b></td><td><code>flow_draw.go</code> needs a run heading inside a box, plus a second footer or a combined one</td><td class="d9-win">A second <code>FlowNode</code>, drawn by the code that draws every other box</td></tr>
+        <tr><td><b>Port kind</b></td><td>The first node that holds two port kinds</td><td class="d9-win">One kind per node: <code>console_aux:&lt;desk&gt;</code>, as <code>console_local:&lt;desk&gt;</code> is</td></tr>
+        <tr><td><b>The desk itself</b></td><td class="d9-win">One rear panel, one box</td><td>Two boxes for one rear panel. The shared title, <em>FOH</em>, and the default placement under LOCAL keep them together</td></tr>
+      </tbody>
+    </table></div>
+    <div class="d9-rule">
+      <span><b>The rule option (a) would add</b> to <code>design/components.md</code> §2, under <code>PortRow / SplitPortRow</code>, with one token in <code>graph/tokens.ts</code>. It is not proposed:</span>
+      <span><em>A node may divide its ports into named runs. A run after the first opens with a heading row one port pitch tall (18&nbsp;px), with a <code>border-t zinc-800</code> rule, its name in <code>MICRO_LABEL</code> at zinc-500 and its count at the right edge in 10&nbsp;px mono zinc-600. A run's rows are numbered from 1. A node's footer counts its first run only. <code>NODE_RUN</code> in <code>tokens.ts</code>.</em></span>
+      <span>This rule leaves the search, inspector and paper rows of the table unchanged, and each would need a decision of its own. Option (b) needs no rule, so <b>(b) is recommended</b>.</span>
+    </div>
+  </section>
+
+  <!-- ============================================================ 04 -->
+  <section id="s04">
+    <div class="sec__hd">
+      <span class="sec__no">04 · the phone · drawn</span>
+      <h2>On a phone the sheet's first routing field picks the panel, so the aux sockets are their own entry and never jacks 33 to 38</h2>
+    </div>
+    <div class="prose">
+      <p><b>Today the phone offers no local jack at all.</b> <code>MobileChannelEditSheet</code>'s routing pair is <em>Stagebox</em> + <em>In</em>. A channel fed through a local jack opens with both fields blank, because <code>resolveChannelRouting</code> reads only stagebox and direct-source routes. So the aux sockets cannot be added “beside the local inputs” on the phone, because the local inputs are not on it.</p>
+      <p>Drawn: the pair keeps its shape. <code>patterns.md</code> §7d already allows two fields side by side when they are one idea, as a stagebox and its input number are. The first field is renamed <b>Into</b> and lists every panel a cable can land on. Stageboxes come first. Then a group under the desk's name holds two separate entries, <b>FOH local in</b> and <b>FOH aux in</b>. The second field, <b>Jack</b>, lists that panel's own jacks: <em>In 1…</em>, <em>Local 1…32</em> or <em>Aux 1…6</em>. Saving writes the same two edges a stagebox route writes: source → socket, and socket → channel.</p>
+      <p>The list row needs no new component. Its subtitle is the chain's last hop, so it reads <em>FOH aux in 3</em>, the way a local route reads <em>FOH local in 16</em>. On the phone canvas the AUX box appears as it does on a desk. Tapping it opens its rows in the sheet, and patching stays a desk job (<code>patterns.md</code> §7g).</p>
+    </div>
+    <div class="phones">
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd"><div class="m-hd__ti"><span class="m-hd__ic">♪</span>Sommarfest i parken</div><span class="m-hd__av"></span></div>
+          <div class="m-bd">
+            <div class="m-sw"><span class="m-sw__t">Audio Inputs</span><span style="color:var(--z500)">▾</span></div>
+            <div class="m-pan m-pan--fill">
+              <div class="m-pan__bar"><span class="m-pan__ti">Audio Inputs</span><span class="d9-seg"><span class="on">Sheet</span><span>Flow</span></span><span class="m-pan__ic">⋯</span><span class="m-pan__ic m-pan__ic--pri">+</span></div>
+              <div class="m-pan__rows">
+                <div class="dm-sec m-sec"><b>Channels</b><s>19/32</s><i></i></div>
+                <div class="m-row"><span class="m-row__e" style="background:#818cf8"></span><div class="m-row__c"><span class="m-row__t"><span class="m-row__n">11</span>Bass DI</span><span class="m-row__s">Bass DI · FOH local in 11</span></div></div>
+                <div class="m-row"><span class="m-row__e" style="background:#f472b6"></span><div class="m-row__c"><span class="m-row__t"><span class="m-row__n">14–15</span>Keys</span><span class="m-row__s">Keys · FOH local in 14–15</span></div></div>
+                <div class="m-row"><span class="m-row__e" style="background:#fb7185"></span><div class="m-row__c"><span class="m-row__t"><span class="m-row__n">16</span>Vox 1</span><span class="m-row__s">Vox 1 · FOH local in 16</span></div></div>
+                <div class="m-row"><span class="m-row__e" style="background:#fb7185"></span><div class="m-row__c"><span class="m-row__t"><span class="m-row__n">17</span>Vox 2</span><span class="m-row__s">Vox 2 · FOH local in 17</span></div></div>
+                <div class="m-row"><span class="m-row__e" style="background:#fb7185"></span><div class="m-row__c"><span class="m-row__t"><span class="m-row__n">18</span>Vox 3</span><span class="m-row__s">Vox 3 · FOH local in 18</span></div></div>
+                <div class="m-row"><span class="m-row__e" style="background:#c084fc"></span><div class="m-row__c"><span class="m-row__t"><span class="m-row__n">24</span>Host mic RX</span><span class="m-row__s">Host mic RX · FOH aux in 3</span></div></div>
+                <div class="dm-sec m-sec"><b>Aux in</b><s>2/8</s><i></i></div>
+                <div class="m-row"><span class="m-row__e" style="background:#2dd4bf"></span><div class="m-row__c"><span class="m-row__t"><span class="m-row__n">Aux 1–2</span>Playback</span><span class="m-row__s">Playback · FOH aux in 1–2</span></div></div>
+              </div>
+              <div class="m-strip"><span><span class="mono">19</span> channels</span><span><span class="mono">0</span> gaps</span></div>
+            </div>
+          </div>
+          <div class="m-nav"><span class="m-nav__i"><span class="m-nav__g">◫</span>Overview</span><span class="m-nav__i on"><span class="m-nav__g">♪</span>Audio</span><span class="m-nav__i"><span class="m-nav__g">✦</span>Light</span><span class="m-nav__i"><span class="m-nav__g">▤</span>Plot</span></div>
+        </div>
+        <span class="phone__cap"><b>The list</b> · the last hop names the panel</span>
+      </div>
+
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd"><div class="m-hd__ti"><span class="m-hd__ic">♪</span>Sommarfest i parken</div><span class="m-hd__av"></span></div>
+          <div class="m-bd" style="opacity:.5"><div class="m-sw"><span class="m-sw__t">Audio Inputs</span></div></div>
+          <div class="m-sheet">
+            <div class="m-sheet__p" style="max-height:88%">
+              <div class="m-sheet__hd"><div><div class="m-sheet__ti">Channel 24</div></div><span class="m-sheet__x">✕</span></div>
+              <div class="m-sheet__bd">
+                <div class="m-fld"><span class="lbl">Channel</span><div class="m-sel m-sel--txt"><span>Host mic RX</span></div></div>
+                <div class="d9-pair"><div class="m-fld"><span class="lbl">Desk</span><div class="m-sel"><span>FOH · X32</span></div></div><div class="m-fld"><span class="lbl">Strip</span><div class="m-sel"><span>Channel</span></div></div></div>
+                <div class="m-fld"><span class="lbl">Tape</span><div class="m-sel"><span class="tape" style="background:#c084fc"></span><span>Host</span></div></div>
+                <div class="d9-pair d9-new"><div class="m-fld"><span class="lbl">Into</span><div class="m-sel"><span>FOH aux in</span></div></div><div class="m-fld"><span class="lbl">Jack</span><div class="m-sel"><span>Aux 3</span></div></div></div>
+                <div class="m-fld"><span class="lbl">Source</span><div class="m-sel"><span>Host mic RX</span></div></div>
+                <div class="m-fld"><span class="lbl">Notes</span><div class="m-sel m-sel--txt"><span style="color:var(--z500)">&nbsp;</span></div></div>
+              </div>
+              <div class="m-sheet__ft"><span class="btn btn--primary btn--md" style="width:100%">Save channel</span></div>
+            </div>
+          </div>
+        </div>
+        <span class="phone__cap"><b>The sheet</b> · Into + Jack, one idea, side by side</span>
+      </div>
+
+      <div class="phone">
+        <div class="phone__frame">
+          <div class="m-hd"><div class="m-hd__ti"><span class="m-hd__ic">♪</span>Sommarfest i parken</div><span class="m-hd__av"></span></div>
+          <div class="m-bd"></div>
+          <div class="m-sheet">
+            <div class="m-sheet__p" style="max-height:88%">
+              <div class="m-sheet__hd"><div><div class="m-sheet__ti">Channel 24</div></div><span class="m-sheet__x">✕</span></div>
+              <div class="m-sheet__bd">
+                <div class="m-fld"><span class="lbl">Channel</span><div class="m-sel m-sel--txt"><span>Host mic RX</span></div></div>
+                <div class="d9-pair"><div class="m-fld"><span class="lbl">Desk</span><div class="m-sel"><span>FOH · X32</span></div></div><div class="m-fld"><span class="lbl">Strip</span><div class="m-sel"><span>Channel</span></div></div></div>
+                <div class="m-fld"><span class="lbl">Tape</span><div class="m-sel"><span class="tape" style="background:#c084fc"></span><span>Host</span></div></div>
+                <div class="d9-pair d9-new"><div class="m-fld"><span class="lbl">Into</span><div class="m-sel"><span>FOH aux in</span></div></div><div class="m-fld"><span class="lbl">Jack</span><div class="m-sel"><span>Aux 3</span></div></div></div>
+                <div class="m-fld"><span class="lbl">Source</span><div class="m-sel"><span>Host mic RX</span></div></div>
+                <div class="m-fld"><span class="lbl">Notes</span><div class="m-sel m-sel--txt"><span style="color:var(--z500)">&nbsp;</span></div></div>
+              </div>
+              <div class="m-sheet__ft"><span class="btn btn--primary btn--md" style="width:100%">Save channel</span></div>
+            </div>
+          </div>
+          <div class="d9-pick">
+            <div class="d9-pick__p" role="listbox" aria-label="Into">
+              <div class="d9-pick__o">— none —</div>
+              <div class="d9-pick__g">Stageboxes</div>
+              <div class="d9-pick__o d9-in">Stage L</div>
+              <div class="d9-pick__g">FOH</div>
+              <div class="d9-pick__o d9-in">FOH local in</div>
+              <div class="d9-pick__o d9-in">FOH aux in<i>✓</i></div>
+            </div>
+          </div>
+        </div>
+        <span class="phone__cap"><b>Into, open</b> · the platform's own picker, drawn plainly · one group per desk</span>
+      </div>
+    </div>
+    <div class="prose"><p>The groups are <code>&lt;optgroup&gt;</code>s, which Slice 47's grouped model select already uses. A desk with no local jacks and no aux sockets has no group. On Generic, LV1, X32 Core and M32C, <em>aux in</em> never appears.</p></div>
+  </section>
+
+  <!-- ============================================================ 05 -->
+  <section id="s05">
+    <div class="sec__hd">
+      <span class="sec__no">05 · paper · drawn</span>
+      <h2>On paper the aux box prints where the canvas put it, under its own badge and with its own count</h2>
+    </div>
+    <div class="prose">
+      <p><code>buildInputGraph</code> gains a second <code>FlowNode</code> after the local one: title <em>FOH aux</em>, badge <b>AUX</b>, rows <em>Aux in N</em> / <em>Aux to desk N</em>, footer <em>6 aux sockets - 3 used</em>. It is placed at the AUX box's stored position (<code>patterns.md</code> §8a: paper is a second rendering of one model). The local footer keeps counting local jacks only. Wires follow R1–R7 unchanged.</p>
+    </div>
+    <div class="spec">
+      <div class="d9-paper">
+        <svg viewBox="6 0 260 86" role="img" aria-label="Detail of the printed input graph: the FOH aux box under the FOH local box, wired from Playback L, Playback R and Host mic RX to the desk">
+          <defs>
+            <linearGradient id="d9-cut" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--d9-paper);stop-opacity:1"/><stop offset="1" style="stop-color:var(--d9-paper);stop-opacity:0"/></linearGradient>
+          </defs>
+
+          <!-- sources, cropped -->
+          <rect class="box" x="10" y="-10" width="56" height="67.6"/>
+          <g font-size="2.7" class="ink">
+            <text x="12" y="43.2">Vox 3</text><text x="12" y="47.6">Playback L</text><text x="12" y="52">Playback R</text><text x="12" y="56.4">Host mic RX</text>
+          </g>
+          <circle class="jack on" cx="64.6" cy="42.2" r="0.8"/><circle class="jack on" cx="64.6" cy="46.6" r="0.8"/><circle class="jack on" cx="64.6" cy="51" r="0.8"/><circle class="jack on" cx="64.6" cy="55.4" r="0.8"/>
+
+          <!-- FOH local, cropped: rows 27–32 and its footer -->
+          <rect class="box" x="104" y="-10" width="60" height="46.8"/>
+          <g font-size="2.7" class="ink">
+            <text x="106.6" y="9.2">Local in 27</text><text x="106.6" y="13.6">Local in 28</text><text x="106.6" y="18">Local in 29</text><text x="106.6" y="22.4">Local in 30</text><text x="106.6" y="26.8">Local in 31</text><text x="106.6" y="31.2">Local in 32</text>
+          </g>
+          <g font-size="2.7" class="ink" text-anchor="end">
+            <text x="160.6" y="9.2">To desk 27</text><text x="160.6" y="13.6">To desk 28</text><text x="160.6" y="18">To desk 29</text><text x="160.6" y="22.4">To desk 30</text><text x="160.6" y="26.8">To desk 31</text><text x="160.6" y="31.2">To desk 32</text>
+          </g>
+          <g><circle class="jack" cx="105.4" cy="8.2" r="0.8"/><circle class="jack" cx="105.4" cy="12.6" r="0.8"/><circle class="jack" cx="105.4" cy="17" r="0.8"/><circle class="jack" cx="105.4" cy="21.4" r="0.8"/><circle class="jack" cx="105.4" cy="25.8" r="0.8"/><circle class="jack" cx="105.4" cy="30.2" r="0.8"/>
+             <circle class="jack" cx="162.6" cy="8.2" r="0.8"/><circle class="jack" cx="162.6" cy="12.6" r="0.8"/><circle class="jack" cx="162.6" cy="17" r="0.8"/><circle class="jack" cx="162.6" cy="21.4" r="0.8"/><circle class="jack" cx="162.6" cy="25.8" r="0.8"/><circle class="jack" cx="162.6" cy="30.2" r="0.8"/></g>
+          <line class="hair" x1="104" y1="32.4" x2="164" y2="32.4"/>
+          <text x="105" y="35.6" font-size="2.3" class="ink2">32 local jacks - 18 used</text>
+
+          <!-- FOH aux, whole -->
+          <rect class="box" x="104" y="46" width="60" height="36.3"/>
+          <line class="rule" x1="104" y1="51.5" x2="164" y2="51.5"/>
+          <text x="105" y="49.8" font-size="3" font-weight="bold" class="ink">FOH aux</text>
+          <text x="163" y="49.8" font-size="2.4" class="ink2" text-anchor="end">AUX</text>
+          <g font-size="2.7" class="ink">
+            <text x="106.6" y="54.7">Aux in 1</text><text x="106.6" y="59.1">Aux in 2</text><text x="106.6" y="63.5">Aux in 3</text><text x="106.6" y="67.9">Aux in 4</text><text x="106.6" y="72.3">Aux in 5</text><text x="106.6" y="76.7">Aux in 6</text>
+          </g>
+          <g font-size="2.7" class="ink" text-anchor="end">
+            <text x="160.6" y="54.7">Aux to desk 1</text><text x="160.6" y="59.1">Aux to desk 2</text><text x="160.6" y="63.5">Aux to desk 3</text><text x="160.6" y="67.9">Aux to desk 4</text><text x="160.6" y="72.3">Aux to desk 5</text><text x="160.6" y="76.7">Aux to desk 6</text>
+          </g>
+          <g><circle class="jack on" cx="105.4" cy="53.7" r="0.8"/><circle class="jack on" cx="105.4" cy="58.1" r="0.8"/><circle class="jack on" cx="105.4" cy="62.5" r="0.8"/><circle class="jack" cx="105.4" cy="66.9" r="0.8"/><circle class="jack" cx="105.4" cy="71.3" r="0.8"/><circle class="jack" cx="105.4" cy="75.7" r="0.8"/>
+             <circle class="jack on" cx="162.6" cy="53.7" r="0.8"/><circle class="jack on" cx="162.6" cy="58.1" r="0.8"/><circle class="jack on" cx="162.6" cy="62.5" r="0.8"/><circle class="jack" cx="162.6" cy="66.9" r="0.8"/><circle class="jack" cx="162.6" cy="71.3" r="0.8"/><circle class="jack" cx="162.6" cy="75.7" r="0.8"/></g>
+          <line class="hair" x1="104" y1="77.9" x2="164" y2="77.9"/>
+          <text x="105" y="81.1" font-size="2.3" class="ink2">6 aux sockets - 3 used</text>
+
+          <!-- FOH desk rail, cropped -->
+          <rect class="box" x="200" y="-10" width="60" height="72" style="stroke-width:1"/>
+          <g font-size="2.7" class="ink">
+            <text x="202.6" y="43.2">Vox 3</text><text x="202.6" y="47.6">Host mic RX</text><text x="202.6" y="52">Playback L</text><text x="202.6" y="56.4">Playback R</text>
+          </g>
+          <circle class="jack on" cx="201.4" cy="42.2" r="0.8"/><circle class="jack on" cx="201.4" cy="46.6" r="0.8"/><circle class="jack on" cx="201.4" cy="51" r="0.8"/><circle class="jack on" cx="201.4" cy="55.4" r="0.8"/>
+          <line class="hair" x1="200" y1="57.6" x2="260" y2="57.6"/>
+          <text x="201" y="60.8" font-size="2.3" class="ink2">21 / 32 patched</text>
+
+          <!-- wires: orthogonal, one lane each, crossings plain (patterns.md §8a) -->
+          <path class="wire" d="M66 42.2 H74 V0"/>
+          <path class="wire" d="M66 46.6 H92 V53.7 H104"/>
+          <path class="wire" d="M66 51 H86 V58.1 H104"/>
+          <path class="wire" d="M66 55.4 H80 V62.5 H104"/>
+          <path class="wire" d="M164 53.7 H176 V51 H200"/>
+          <path class="wire" d="M164 58.1 H182 V55.4 H200"/>
+          <path class="wire" d="M164 62.5 H194 V46.6 H200"/>
+          <path class="wire" d="M170 0 V42.2 H200"/>
+          <g class="ink">
+            <polygon points="104,53.7 102.4,52.9 102.4,54.5"/><polygon points="104,58.1 102.4,57.3 102.4,58.9"/><polygon points="104,62.5 102.4,61.7 102.4,63.3"/>
+            <polygon points="200,51 198.4,50.2 198.4,51.8"/><polygon points="200,55.4 198.4,54.6 198.4,56.2"/><polygon points="200,46.6 198.4,45.8 198.4,47.4"/><polygon points="200,42.2 198.4,41.4 198.4,43"/>
+          </g>
+          <rect class="cut" x="0" y="0" width="270" height="9"/>
+        </svg>
+      </div>
+      <span class="spec__cap"><b>A detail of the input graph page</b> · the local box cropped to rows 27–32 · cables above the crop run on to Local in 18 and Vox 3's channel</span>
+    </div>
+  </section>
+
+  <!-- ============================================================ 06 -->
+  <section id="s06">
+    <div class="sec__hd">
+      <span class="sec__no">06 · models without sockets</span>
+      <h2>A desk with no aux sockets draws no aux box and says nothing, as a desk with no local jacks already does</h2>
+    </div>
+    <div class="prose">
+      <p>The count comes from the desk model and is never typed in. Where it is 0, nothing new is drawn on the canvas, the phone or paper, and no note is added. An absent panel is how the canvas already shows a desk with no local jacks (Slice 24: no jacks declared, no node). A sentence saying “this desk has no aux sockets” would be about the hardware, not about the patch. It would appear on every LV1 and Generic event, where nobody expects aux sockets.</p>
+    </div>
+    <div class="d9-cmp-wrap"><table class="tbl d9-cmp">
+      <thead><tr><th>Model</th><th>Local in</th><th>Aux in sockets</th><th>What the Inputs graph draws for the desk</th></tr></thead>
+      <tbody>
+        <tr><td><b>X32 · M32 · M32 Live</b></td><td class="mono">32</td><td class="mono">6</td><td>DESK, LOCAL (32), AUX (6)</td></tr>
+        <tr><td><b>X32 Compact · Producer · Rack · M32R · M32R Live</b></td><td class="mono">16</td><td class="mono">6</td><td>DESK, LOCAL (16), AUX (6)</td></tr>
+        <tr><td><b>X32 Core · M32C</b></td><td class="mono">0</td><td class="mono">0</td><td>DESK only. Unchanged, silent</td></tr>
+        <tr><td><b>LV1, every licence</b></td><td class="mono">0</td><td class="mono">0</td><td>DESK only. Unchanged, silent</td></tr>
+        <tr><td><b>Generic</b></td><td><em>as typed</em></td><td class="mono">0</td><td>DESK, and LOCAL when a count is typed. Unchanged, silent</td></tr>
+      </tbody>
+    </table></div>
+    <div class="prose"><p>Aux strips 7–8 have no socket on any model, because USB feeds them. They are still strips in the <em>Aux in</em> pool and can still be fed from a stagebox, as today.</p></div>
+  </section>
+
+  <!-- ============================================================ 07 -->
+  <section id="s07">
+    <div class="sec__hd">
+      <span class="sec__no">07 · decisions · for the proposal</span>
+      <h2>What approving this mockup commits the change to</h2>
+    </div>
+    <div class="led">
+      <div class="led__row"><div class="led__k">1 · count</div><div class="led__v">Each desk model declares its aux in socket count: 6 on X32, X32 Compact, Producer, Rack, M32, M32 Live, M32R and M32R Live; 0 on X32 Core, M32C, every LV1 and Generic. It is never typed.</div></div>
+      <div class="led__row"><div class="led__k">2 · the box</div><div class="led__v">On the Inputs canvas, a desk whose model has aux sockets shows a separate pass-through node: title the desk's name, badge <b>LOCAL AUX</b>, one split row per socket numbered 1–6, no footer, drawn with the existing <code>NodeShell</code> and <code>SplitPortRow</code>.</div></div>
+      <div class="led__row"><div class="led__k">3 · labels</div><div class="led__v">The cable side of socket N is <b>Aux in N</b>. The desk side is <b>Aux to desk N</b>. A chain hop through it reads <b>&lt;desk&gt; aux in N</b>, for example <em>FOH aux in 3</em>, on the sheet, the phone list and the inspector.</div></div>
+      <div class="led__row"><div class="led__k">4 · edges</div><div class="led__v">A cable may land on an aux socket from any source or pass-through that can reach a local jack. The socket's desk side may reach any channel or aux strip on the same desk. That hop is cableless and drawn dashed, as a local jack's is.</div></div>
+      <div class="led__row"><div class="led__k">5 · position</div><div class="led__v">The AUX node has its own stored position. Until it is first moved it sits 24&nbsp;px below the LOCAL node, left edges aligned, or at LOCAL's default position when the desk has no local jacks. The canvas and the printed graph read the same stored position.</div></div>
+      <div class="led__row"><div class="led__k">6 · find &amp; select</div><div class="led__v">The AUX node is selectable on its own and opens the inspector titled <em>&lt;desk&gt; · aux sockets</em>. Search matches it on the desk's name or the word “aux”, and the window follows a search to it.</div></div>
+      <div class="led__row"><div class="led__k">7 · counts</div><div class="led__v">Aux sockets are never counted in the desk's local jack count, its local usage or its <code>over</code> marking. The LOCAL node and its printed footer are unchanged.</div></div>
+      <div class="led__row"><div class="led__k">8 · phone</div><div class="led__v">The phone channel sheet's routing pair becomes <b>Into</b> + <b>Jack</b>. Into lists stageboxes, then for each desk with jacks a group named for the desk holding <em>&lt;desk&gt; local in</em> and <em>&lt;desk&gt; aux in</em> as separate entries. Jack lists the chosen panel's jacks: <em>In N</em>, <em>Local N</em>, <em>Aux N</em>. A channel already fed through either panel opens with both fields filled.</div></div>
+      <div class="led__row"><div class="led__k">9 · paper</div><div class="led__v">The audio PDF's input graph prints a node titled <em>&lt;desk&gt; aux</em>, badge AUX, rows <em>Aux in N</em> / <em>Aux to desk N</em>, footer <em>6 aux sockets - N used</em>, whenever the desk's model has aux sockets.</div></div>
+      <div class="led__row"><div class="led__k">10 · no sockets</div><div class="led__v">A model with 0 aux sockets shows no AUX node, no Into entry and no printed box, and adds no note anywhere.</div></div>
+      <div class="led__row"><div class="led__k">design/</div><div class="led__v">No amendment is needed for (b). The node, the split row, the dashed hop, the grouped select and the side-by-side pair are all existing rules. Option (a) would need the one rule quoted in <a href="#s03">§03</a>.</div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 08 -->
+  <section id="s08">
+    <div class="sec__hd">
+      <span class="sec__no">08 · scope</span>
+      <h2>What this deliberately does not do</h2>
+    </div>
+    <div class="led">
+      <div class="led__row"><div class="led__k">no USB sockets</div><div class="led__v">Aux strips 7–8 get no jacks. USB playback is not modelled as a source panel.</div></div>
+      <div class="led__row"><div class="led__k">no Outputs change</div><div class="led__v">The Outputs graph's local outputs, and any aux out or monitor out on the rear panel, are untouched.</div></div>
+      <div class="led__row"><div class="led__k">no typed count</div><div class="led__v">Generic gets no aux socket field in the Rig drawer, and the console card states no aux count. A Generic desk that has aux sockets patches them as local jacks, as it does today.</div></div>
+      <div class="led__row"><div class="led__k">no phone patching</div><div class="led__v">The phone canvas still does not draw cables. The phone edits a channel's route through the sheet only.</div></div>
+      <div class="led__row"><div class="led__k">no export UI</div><div class="led__v">The X32 file writing a patched socket as the aux strip's source, or as user-in 161–166 for an ordinary channel, belongs to the proposal. Nothing in the export dialog changes.</div></div>
+      <div class="led__row"><div class="led__k">no merged panel</div><div class="led__v">The two panels are never one 38-row list on any surface, and aux sockets are never numbered after the locals.</div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 09 -->
+  <section id="s09">
+    <div class="sec__hd">
+      <span class="sec__no">09 · open questions</span>
+      <h2>What the reviewer has to settle that a drawing cannot</h2>
+    </div>
+    <div class="ask"><h3>(a) or (b)</h3><p>Recommended: (b), a box of its own (§02, §03). Option (a) keeps one box per rear panel, at the cost of a new design/ rule and a search that stops 600&nbsp;px short.</p></div>
+    <div class="ask"><h3>The phone gains local jacks too</h3><p>Today the phone sheet cannot pick a local jack. Adding only aux sockets would leave the far more common local route unpickable next to it. Drawn: both panels, in one change. The alternative keeps D9 to aux only and adds no <em>Into</em> group on the phone. Assumed: both. That also means a channel fed through a local jack stops opening blank.</p></div>
+    <div class="ask"><h3>Aux sockets after a model switch</h3><p>Switching FOH from X32 to X32 Core leaves cables on sockets the new model lacks. Assumed: the same B2 handling local jacks get. The cables are kept, the rows are drawn red with <em>over</em> against the aux count only, and the switch preview lists them as it lists local jacks.</p></div>
+    <div class="ask"><h3>Two meanings of “aux in” on one sheet</h3><p>For Playback the sheet reads <em>Strip: Aux in</em> and <em>Into: FOH aux in · Aux 1</em>. The first is the strip pool, the second the socket. The desk itself uses both names. Assumed: keep both, because the desk prefix separates them. The alternative renames the pool option <em>Aux strip</em>.</p></div>
+    <div class="ask"><h3>The printed badge</h3><p>Paper prints the local box as JACKS while the canvas says LOCAL. Drawn: LOCAL AUX on the canvas, AUX on paper. Assumed: JACKS is left alone here.</p></div>
+  </section>
+
+</div>
+<script>
+(() => {
+  /* -------------------------------------------------------------
+     FOH, an X32: 32 local inputs, 6 aux in sockets. Tape colours are
+     data (tokens.md §5), so they arrive here as hex, never as tokens.
+     ------------------------------------------------------------- */
+  const TAPE = { drums: '#38bdf8', bass: '#818cf8', gtr: '#34d399', keys: '#f472b6', vox: '#fb7185', pb: '#2dd4bf', host: '#c084fc' };
+  const SOURCES = [
+    { id: 'kin', name: 'Kick In', mic: 'Beta 91A', tape: 'drums' },
+    { id: 'kout', name: 'Kick Out', mic: 'D112', tape: 'drums' },
+    { id: 'snt', name: 'Snare top', mic: 'SM57', tape: 'drums' },
+    { id: 'snb', name: 'Snare btm', mic: 'SM57', tape: 'drums' },
+    { id: 'hh', name: 'Hi-hat', mic: 'SM81', p48: true, tape: 'drums' },
+    { id: 't1', name: 'Tom 1', mic: 'e604', tape: 'drums' },
+    { id: 't2', name: 'Tom 2', mic: 'e604', tape: 'drums' },
+    { id: 'ft', name: 'Floor tom', mic: 'e604', tape: 'drums' },
+    { id: 'ohl', name: 'OH L', mic: 'KM184', p48: true, tape: 'drums' },
+    { id: 'ohr', name: 'OH R', mic: 'KM184', p48: true, tape: 'drums' },
+    { id: 'bass', name: 'Bass DI', mic: 'DI', p48: true, tape: 'bass' },
+    { id: 'g1', name: 'Gtr 1', mic: 'e906', tape: 'gtr' },
+    { id: 'g2', name: 'Gtr 2', mic: 'e906', tape: 'gtr' },
+    { id: 'keys', name: 'Keys', mic: 'DI', p48: true, stereo: true, tape: 'keys' },
+    { id: 'v1', name: 'Vox 1', mic: 'Beta 58', tape: 'vox' },
+    { id: 'v2', name: 'Vox 2', mic: 'Beta 58', tape: 'vox' },
+    { id: 'v3', name: 'Vox 3', mic: 'Beta 58', tape: 'vox' },
+    { id: 'pb', name: 'Playback', mic: 'line', stereo: true, tape: 'pb' },
+    { id: 'host', name: 'Host mic RX', mic: 'ULXD4', tape: 'host' },
+  ];
+  // Desk ports in the DESK node's order: channels, then the aux strip.
+  const DESK = [];
+  SOURCES.forEach((s) => {
+    if (s.stereo) { DESK.push({ id: `ch-${s.id}-0`, label: `${s.name} L`, tape: s.tape }); DESK.push({ id: `ch-${s.id}-1`, label: `${s.name} R`, tape: s.tape }); }
+    else DESK.push({ id: `ch-${s.id}-0`, label: s.name, tape: s.tape });
+  });
+  // Playback is the aux strip: it goes last, as the pool orders it.
+  const pbPorts = DESK.filter((p) => p.id.startsWith('ch-pb-'));
+  const deskPorts = DESK.filter((p) => !p.id.startsWith('ch-pb-')).concat(pbPorts);
+
+  // Local in 1–18: every source but Playback and the host's receiver.
+  const LOCAL_FEEDS = [];
+  SOURCES.forEach((s) => {
+    if (s.id === 'pb' || s.id === 'host') return;
+    (s.stereo ? [0, 1] : [0]).forEach((p) => LOCAL_FEEDS.push({ src: `src-${s.id}-${p}`, ch: `ch-${s.id}-${p}`, tape: s.tape }));
+  });
+  const AUX_FEEDS = [
+    { src: 'src-pb-0', ch: 'ch-pb-0', tape: 'pb' },
+    { src: 'src-pb-1', ch: 'ch-pb-1', tape: 'pb' },
+    { src: 'src-host-0', ch: 'ch-host-0', tape: 'host' },
+  ];
+
+  function edges(mode) {
+    const out = [];
+    LOCAL_FEEDS.forEach((f, i) => {
+      out.push({ from: f.src, to: `loc-in-${i}`, tape: f.tape, hop: false });
+      out.push({ from: `loc-out-${i}`, to: f.ch, tape: f.tape, hop: true });
+    });
+    if (mode !== 'today') AUX_FEEDS.forEach((f, i) => {
+      out.push({ from: f.src, to: `aux-in-${i}`, tape: f.tape, hop: false });
+      out.push({ from: `aux-out-${i}`, to: f.ch, tape: f.tape, hop: true });
+    });
+    return out;
+  }
+
+  /* ------------------------------------------------------------- state */
+  const DEFAULTS = { src: { x: 16, y: 16 }, local: { x: 290, y: 16 }, aux: null, desk: { x: 590, y: 16 } };
+  const S = { mode: 'b', q: '', sel: null, pos: {} };
+  function resetPos() { S.pos = JSON.parse(JSON.stringify(DEFAULTS)); }
+  resetPos();
+
+  const plane = document.getElementById('d9-plane');
+  const cvs = document.getElementById('d9-cvs');
+  const said = document.getElementById('d9-said');
+  const cap = document.getElementById('d9-cap');
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  /* ------------------------------------------------------------- render */
+  function dot(id, color) {
+    return `<span class="d9-dot${color ? ' d9-dot--on' : ''}" data-p="${id}"${color ? ` style="--c:${color}"` : ''}></span>`;
+  }
+  function splitRow(prefix, i, label, colorOf) {
+    const c = colorOf(`${prefix}-in-${i}`) || colorOf(`${prefix}-out-${i}`);
+    return `<div class="d9-row"${c ? ` style="color:${c}"` : ''}><span>${dot(`${prefix}-in-${i}`, colorOf(`${prefix}-in-${i}`))}<span>${label}</span></span>${dot(`${prefix}-out-${i}`, colorOf(`${prefix}-out-${i}`))}</div>`;
+  }
+  function shell(key, title, badge, body, { footer, desk } = {}) {
+    const cls = ['d9-node'];
+    if (desk) cls.push('d9-node--desk');
+    if (S.sel === key) cls.push('d9-node--sel');
+    if (key === 'aux') cls.push('d9-node--new');
+    return `<div class="${cls.join(' ')}" data-node="${key}"><div class="d9-hd" data-drag="${key}" tabindex="0" role="button" aria-label="${esc(title)} ${badge}, drag to move, Enter to select"><span>${esc(title)}</span><span class="d9-bdg">${badge}</span></div><div class="d9-body">${body}</div>${footer ? `<div class="d9-ft">${footer}</div>` : ''}</div>`;
+  }
+
+  function render() {
+    const E = edges(S.mode);
+    const colors = new Map();
+    E.forEach((e) => { colors.set(e.from, TAPE[e.tape]); colors.set(e.to, TAPE[e.tape]); });
+    const colorOf = (id) => colors.get(id);
+    const q = S.q.trim().toLowerCase();
+    const hit = (...terms) => !q || terms.some((t) => t.toLowerCase().includes(q));
+
+    // Sources rail: rows dim one by one, as SourcesNode does.
+    const srcRows = SOURCES.map((s) => {
+      const ports = s.stereo ? [0, 1] : [0];
+      const tape = colorOf(`src-${s.id}-0`);
+      return `<div class="d9-src${hit(s.name, s.mic) ? '' : ' d9-src--dim'}" style="height:${ports.length * 20}px"><span class="d9-src__tape" style="background:${tape || 'var(--tape-neutral)'}"></span><span class="d9-src__nm"${tape ? '' : ' style="color:var(--z400)"'}>${esc(s.name)}</span><span class="d9-src__md">${esc(s.mic)}</span><span class="d9-p48${s.p48 ? ' d9-p48--on' : ''}"></span><span class="d9-src__ports">${ports.map((p) => `<span>${s.stereo ? (p ? 'R' : 'L') : ''}${dot(`src-${s.id}-${p}`, colorOf(`src-${s.id}-${p}`))}</span>`).join('')}</span></div>`;
+    }).join('');
+    const srcNode = `<div class="d9-node${S.sel === 'src' ? ' d9-node--sel' : ''}" data-node="src"><div class="d9-shd" data-drag="src"><b>Sources</b><s>${SOURCES.length}</s></div><div>${srcRows}</div></div>`;
+
+    let localBody = '';
+    for (let i = 0; i < 32; i++) localBody += splitRow('loc', i, String(i + 1), colorOf);
+    if (S.mode === 'a') {
+      localBody += `<div class="d9-run" data-run="aux"><b>Aux in</b><s>6</s></div>`;
+      for (let i = 0; i < 6; i++) localBody += splitRow('aux', i, String(i + 1), colorOf);
+    }
+    const localMatch = S.mode === 'a' ? hit('FOH', 'local', 'aux') : hit('FOH', 'local');
+    const nodes = [];
+    nodes.push({ key: 'src', html: srcNode, dim: false });
+    nodes.push({ key: 'local', html: shell('local', 'FOH', 'LOCAL', localBody), dim: !localMatch });
+    if (S.mode === 'b') {
+      let auxBody = '';
+      for (let i = 0; i < 6; i++) auxBody += splitRow('aux', i, String(i + 1), colorOf);
+      nodes.push({ key: 'aux', html: shell('aux', 'FOH', 'LOCAL AUX', auxBody), dim: !hit('FOH', 'aux') });
+    }
+    const deskBody = deskPorts.map((p) => `<div class="d9-row d9-row--l"${colorOf(p.id) ? ` style="color:${colorOf(p.id)}"` : ''}>${dot(p.id, colorOf(p.id))}<span>${esc(p.label)}</span></div>`).join('');
+    nodes.push({ key: 'desk', html: shell('desk', 'FOH', 'DESK', deskBody, { footer: '19 / 32 in · local 32', desk: true }), dim: !deskPorts.some((p) => hit(p.label)) && !hit('FOH') });
+
+    plane.innerHTML = `<svg class="d9-wires" id="d9-wires" aria-hidden="true"></svg>` + nodes.map((n) => n.html).join('');
+    nodes.forEach((n) => {
+      const el = plane.querySelector(`[data-node="${n.key}"]`);
+      if (n.dim) el.classList.add('d9-node--dim');
+    });
+    place();
+    wires(E);
+    caption();
+  }
+
+  function place() {
+    const local = plane.querySelector('[data-node="local"]');
+    const lp = S.pos.local;
+    Object.entries(S.pos).forEach(([key, p]) => {
+      const el = plane.querySelector(`[data-node="${key}"]`);
+      if (!el) return;
+      let at = p;
+      // Until it is dragged, AUX sits 24 px under LOCAL, left edges aligned (decision 5).
+      if (key === 'aux' && !p) at = { x: lp.x, y: lp.y + local.offsetHeight + 24 };
+      el.style.left = `${at.x}px`;
+      el.style.top = `${at.y}px`;
+    });
+    let w = 0, h = 0;
+    plane.querySelectorAll('[data-node]').forEach((el) => {
+      w = Math.max(w, el.offsetLeft + el.offsetWidth);
+      h = Math.max(h, el.offsetTop + el.offsetHeight);
+    });
+    plane.style.width = `${w + 40}px`;
+    plane.style.height = `${h + 40}px`;
+  }
+
+  function wires(E) {
+    const svg = document.getElementById('d9-wires');
+    const pr = plane.getBoundingClientRect();
+    svg.setAttribute('width', plane.offsetWidth);
+    svg.setAttribute('height', plane.offsetHeight);
+    const centre = (id) => {
+      const el = plane.querySelector(`[data-p="${id}"]`);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width / 2 - pr.left, y: r.top + r.height / 2 - pr.top };
+    };
+    // A run's colour is the channel it reaches; dash is the medium (patterns.md §4).
+    svg.innerHTML = E.map((e) => {
+      const a = centre(e.from), b = centre(e.to);
+      if (!a || !b) return '';
+      const dx = Math.max(60, Math.abs(b.x - a.x) / 2);
+      return `<path d="M ${a.x} ${a.y} C ${a.x + dx} ${a.y}, ${b.x - dx} ${b.y}, ${b.x} ${b.y}" fill="none" stroke="${TAPE[e.tape]}" stroke-width="2"${e.hop ? ' stroke-dasharray="7 3"' : ''}/>`;
+    }).join('');
+  }
+
+  const CAPS = {
+    today: '<b>Today</b> · FOH · X32 · the LOCAL box ends at 32 · Playback and Host mic RX reach nothing',
+    a: '<b>Option (a)</b> · the aux sockets as a second run inside LOCAL, under a heading row · not recommended',
+    b: '<b>Option (b)</b> · the AUX box, dashed outline marks it new here only · recommended',
+  };
+  function caption() { cap.innerHTML = CAPS[S.mode]; }
+
+  function describeSel() {
+    const k = S.sel;
+    if (!k) return '';
+    const rail = {
+      src: '<b>Sources</b>: the rail.',
+      desk: 'The inspector opens on <b>Desk · FOH</b>.',
+      local: S.mode === 'a'
+        ? 'The inspector opens on <b>Local jacks · FOH · local jacks</b> and lists 38 rows: 32 local, then 6 aux. The aux rows cannot be selected apart from the local ones.'
+        : 'The inspector opens on <b>Local jacks · FOH · local jacks</b>, 32 rows.',
+      aux: 'The inspector opens on <b>Aux sockets · FOH · aux sockets</b>: six rows, three patched (Playback L, Playback R, Host mic RX).',
+    };
+    return rail[k] || '';
+  }
+
+  /* ------------------------------------------------------------- search: the window follows */
+  function follow() {
+    const q = S.q.trim().toLowerCase();
+    const auxQ = !!q && ('aux'.startsWith(q) || q.includes('aux'));
+    if (!q) { said.innerHTML = describeSel(); return; }
+    const order = ['local', 'aux', 'desk'];
+    const target = order.map((k) => plane.querySelector(`[data-node="${k}"]`)).find((el) => el && !el.classList.contains('d9-node--dim'));
+    if (!target) { said.innerHTML = `Nothing on the canvas matches “${esc(S.q)}”.`; return; }
+    cvs.scrollTo({ top: Math.max(0, target.offsetTop - 16), left: Math.max(0, target.offsetLeft - 16) });
+    const key = target.dataset.node;
+    const run = plane.querySelector('[data-run="aux"]');
+    if (key === 'local' && run && auxQ) {
+      const below = run.offsetTop;
+      said.innerHTML = `“${esc(S.q)}” finds <b>FOH · LOCAL</b>, so the window goes to that box's header. Its aux run starts <b>${below} px</b> further down, outside this ${cvs.clientHeight} px window.`;
+    } else if (key === 'aux') {
+      said.innerHTML = `“${esc(S.q)}” finds <b>FOH · LOCAL AUX</b>, and the window goes to it.`;
+    } else {
+      said.innerHTML = `“${esc(S.q)}” finds <b>FOH · ${target.querySelector('.d9-bdg').textContent}</b>.`;
+    }
+  }
+
+  /* ------------------------------------------------------------- drag, select */
+  let drag = null;
+  plane.addEventListener('pointerdown', (ev) => {
+    const h = ev.target.closest('[data-drag]');
+    if (!h) return;
+    const key = h.dataset.drag;
+    const el = plane.querySelector(`[data-node="${key}"]`);
+    drag = { key, el, sx: ev.clientX, sy: ev.clientY, ox: el.offsetLeft, oy: el.offsetTop, moved: false };
+    h.setPointerCapture(ev.pointerId);
+  });
+  plane.addEventListener('pointermove', (ev) => {
+    if (!drag) return;
+    const dx = ev.clientX - drag.sx, dy = ev.clientY - drag.sy;
+    if (!drag.moved && Math.hypot(dx, dy) < 3) return;
+    drag.moved = true;
+    S.pos[drag.key] = { x: Math.max(0, drag.ox + dx), y: Math.max(0, drag.oy + dy) };
+    place();
+    wires(edges(S.mode));
+  });
+  plane.addEventListener('pointerup', () => {
+    if (!drag) return;
+    if (!drag.moved) { S.sel = S.sel === drag.key ? null : drag.key; render(); said.innerHTML = describeSel(); }
+    drag = null;
+  });
+  plane.addEventListener('keydown', (ev) => {
+    const h = ev.target.closest('[data-drag]');
+    if (!h || (ev.key !== 'Enter' && ev.key !== ' ')) return;
+    ev.preventDefault();
+    const key = h.dataset.drag;
+    S.sel = S.sel === key ? null : key;
+    render();
+    said.innerHTML = describeSel();
+    const again = plane.querySelector(`[data-drag="${key}"]`);
+    if (again) again.focus();
+  });
+
+  /* ------------------------------------------------------------- controls */
+  document.querySelectorAll('#s02-ctl [data-mode]').forEach((b) => b.addEventListener('click', () => {
+    S.mode = b.dataset.mode;
+    if (S.sel === 'aux' && S.mode !== 'b') S.sel = null;
+    document.querySelectorAll('#s02-ctl [data-mode]').forEach((o) => o.setAttribute('aria-pressed', String(o === b)));
+    render();
+    follow();
+  }));
+  const qEl = document.getElementById('d9-q');
+  qEl.addEventListener('input', () => { S.q = qEl.value; render(); follow(); });
+  document.getElementById('d9-reset').addEventListener('click', () => { resetPos(); render(); cvs.scrollTo({ top: 0, left: 0 }); });
+
+  render();
+  // Fonts settle after first paint; redraw the wires once they have.
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { place(); wires(edges(S.mode)); });
+  window.addEventListener('resize', () => wires(edges(S.mode)));
+})();
+</script>
