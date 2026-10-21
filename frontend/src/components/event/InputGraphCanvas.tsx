@@ -35,6 +35,7 @@ import { fitScale } from '../../lib/canvasFit'
 import { firstMatch, focusOffset } from '../../lib/canvasFocus'
 import { originShift, planeExtent, planeOrigin } from '../../lib/canvasPlane'
 import { stageboxPorts, stageMultiPorts } from '../../lib/outputGraph'
+import { orderChannels } from '../../lib/deskStrips'
 import { matchesSearch } from '../../lib/patchSearch'
 import { itemLabel } from '../../lib/utils'
 import type { Console, InputCable, InputChannel, InputDevice, InputSource, InventoryItem, StageMulti, Stagebox } from '../../types'
@@ -1568,7 +1569,8 @@ function ConsoleNode({ x, y, desk, channels, cables, pendingPort, onPortClick, o
   selected?: boolean
   onSelect?: () => void
 }) {
-  const ports = channels.flatMap((channel) => channelPorts(channel))
+  // Aux strips after the channels, as the desk itself keeps them (user, 2026-10-21).
+  const ports = orderChannels(channels).flatMap((channel) => channelPorts(channel))
   const dimmedIds = new Set(
     channels.filter((channel) => !matchesSearch(search, channel.channel_number, channel.channel_name, channel.notes)).map((channel) => channel.id),
   )

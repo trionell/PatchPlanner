@@ -2591,6 +2591,10 @@ untouched.
   a result, phone rows on a local jack now read `FOH local in 5`, where they used to read
   `FOH — built-in`.
 
+- **Aux strips sit below the channels on a desk rail** (user, 2026-10-21), on the canvas and on
+  paper. Both rails used to sort by number alone, so Aux 1 sat next to Ch 1. The rows are only
+  reordered; no heading was added, because that would be the new `design/` rule the mockup avoided.
+
 **Verified:** backend and frontend gates and golangci-lint are green. Migration 056 applies to a
 copy of the real database, where both M32R desks read 6 sockets. The review's three export
 findings each fail on the old code. **Not yet tried in a browser or on a handset.**

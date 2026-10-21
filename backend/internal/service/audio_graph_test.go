@@ -2,6 +2,7 @@ package service
 
 import (
 	"database/sql"
+	"strings"
 	"testing"
 
 	"github.com/trionell/patchplanner/internal/db"
@@ -527,5 +528,36 @@ func TestBuildInputGraphPrintsAuxSockets(t *testing.T) {
 	}
 	if len(graph.Edges) != 3 {
 		t.Errorf("edges = %d, want 3", len(graph.Edges))
+	}
+}
+
+// Aux strips sit below the channels on a desk rail, and a cable still lands on
+// its own strip's row (user, 2026-10-21).
+func TestDeskRailPutsAuxStripsLast(t *testing.T) {
+	desk := int64(1)
+	data := audioGraphData{
+		sources:  []domain.InputSource{{ID: 1, Name: "Playback", Width: "mono"}},
+		consoles: []domain.Console{{ID: 1, Name: "FOH", DeskModel: "x32"}},
+		channels: []domain.InputChannel{
+			{ID: 10, ConsoleID: &desk, ChannelNumber: 1, ChannelName: "Playback", StripPool: domain.PoolAux, Width: "mono"},
+			{ID: 11, ConsoleID: &desk, ChannelNumber: 2, ChannelName: "Snare", StripPool: domain.PoolChannel, Width: "mono"},
+			{ID: 12, ConsoleID: &desk, ChannelNumber: 1, ChannelName: "Kick", StripPool: domain.PoolChannel, Width: "mono"},
+		},
+		inCables: []domain.InputCable{{FromKind: "source", FromID: 1, ToKind: "channel", ToID: 10, ToPort: 0}},
+	}
+	graph := buildInputGraph(data)
+	rail, ok := graph.Node("channel:1")
+	if !ok {
+		t.Fatal("no FOH rail")
+	}
+	var labels []string
+	for _, port := range rail.Inputs {
+		labels = append(labels, port.Label)
+	}
+	if strings.Join(labels, ",") != "Kick,Snare,Playback" {
+		t.Fatalf("rail rows = %v, want Kick,Snare,Playback", labels)
+	}
+	if len(graph.Edges) != 1 || rail.Inputs[graph.Edges[0].To.Port].Label != "Playback" {
+		t.Errorf("the cable to the aux strip lands on row %d", graph.Edges[0].To.Port)
 	}
 }

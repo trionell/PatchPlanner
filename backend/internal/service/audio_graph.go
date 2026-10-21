@@ -772,7 +772,7 @@ func channelPortOffsets(channels []domain.InputChannel) map[int64]int {
 		byDesk[desk] = append(byDesk[desk], channel)
 	}
 	for _, group := range byDesk {
-		sort.SliceStable(group, func(i, j int) bool { return group[i].ChannelNumber < group[j].ChannelNumber })
+		sortDeskOrder(group)
 		offset := 0
 		for _, channel := range group {
 			offsets[channel.ID] = offset
@@ -816,8 +816,22 @@ func channelsOfDesk(channels []domain.InputChannel, desk *int64) []domain.InputC
 			picked = append(picked, channel)
 		}
 	}
-	sort.SliceStable(picked, func(i, j int) bool { return picked[i].ChannelNumber < picked[j].ChannelNumber })
+	sortDeskOrder(picked)
 	return picked
+}
+
+// sortDeskOrder is a desk rail's row order: channels by number, then aux strips by
+// number — the desk keeps them apart, so Aux 1 is not Ch 1's neighbour (user,
+// 2026-10-21). The rail and its edge offsets both use it, so they cannot disagree;
+// lib/deskStrips orderChannels is the canvas's copy.
+func sortDeskOrder(channels []domain.InputChannel) {
+	sort.SliceStable(channels, func(i, j int) bool {
+		ai, aj := channels[i].StripPool == domain.PoolAux, channels[j].StripPool == domain.PoolAux
+		if ai != aj {
+			return aj
+		}
+		return channels[i].ChannelNumber < channels[j].ChannelNumber
+	})
 }
 
 func countPatched(ports []FlowPort) int {
