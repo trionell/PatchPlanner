@@ -236,10 +236,11 @@ type JackUse struct {
 	Label string
 }
 
-// LocalUse is a desk's patched local jacks.
+// LocalUse is a desk's patched local jacks, and its patched aux sockets.
 type LocalUse struct {
 	Inputs  []JackUse
 	Outputs []JackUse
+	Aux     []JackUse
 }
 
 // LowestFreeStrip is the lowest legal free strip for a row of this width in a

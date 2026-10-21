@@ -82,7 +82,7 @@ type Track struct {
 // dialog's port map: for X32 · M32 a socket group and a 0-based index on it; for
 // LV1 an I/O bank and slot, the device port, and the device's model.
 type DeskPort struct {
-	Socket string // x32: local | a | b | card; lv1: device
+	Socket string // x32: local | a | b | card | aux; lv1: device
 	Index  int
 	Bank   int
 	Slot   int

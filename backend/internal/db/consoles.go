@@ -11,18 +11,23 @@ const consoleColumns = `id, event_id, name, role, inventory_item_id, owned_item_
 	input_count, output_count, local_input_count, local_output_count,
 	position_x, position_y, input_position_x, input_position_y,
 	local_position_x, local_position_y, local_input_position_x, local_input_position_y,
-	desk_model, bus_mode, recorder, recorder_tracks`
+	desk_model, bus_mode, recorder, recorder_tracks, aux_input_position_x, aux_input_position_y`
 
 func scanConsole(row scanner) (domain.Console, error) {
 	var console domain.Console
 	var invID, ownedID sql.NullInt64
+	var auxX, auxY sql.NullFloat64
 	if err := row.Scan(&console.ID, &console.EventID, &console.Name, &console.Role, &invID, &ownedID,
 		&console.InputCount, &console.OutputCount, &console.LocalInputCount, &console.LocalOutputCount,
 		&console.PositionX, &console.PositionY, &console.InputPositionX, &console.InputPositionY,
 		&console.LocalPositionX, &console.LocalPositionY, &console.LocalInputPositionX, &console.LocalInputPositionY,
-		&console.DeskModel, &console.BusMode, &console.Recorder, &console.RecorderTracks); err != nil {
+		&console.DeskModel, &console.BusMode, &console.Recorder, &console.RecorderTracks, &auxX, &auxY); err != nil {
 		return domain.Console{}, err
 	}
+	if model, ok := domain.LookupDeskModel(console.DeskModel); ok {
+		console.AuxSocketCount = model.AuxSockets
+	}
+	console.AuxInputPositionX, console.AuxInputPositionY = auxPanelPosition(console, auxX, auxY)
 	if invID.Valid {
 		console.InventoryItemID = &invID.Int64
 	}
@@ -72,6 +77,27 @@ const (
 	railDefaultY        = 24.0
 )
 
+// The local panel's drawn height on the input canvas, mirroring graph/tokens.ts:
+// NODE_HEADER and NODE_BODY's padding and the borders, then one PORT_ROW per jack.
+const (
+	panelChromePx = 36.0
+	portRowPx     = 18.0
+	auxPanelGapPx = 24.0
+)
+
+// auxPanelPosition is where the aux socket node sits: its stored pair, or —
+// never placed — just below the local panel, left edges aligned (D9 D3). One
+// answer on the server, so the canvas and the printed graph cannot differ.
+func auxPanelPosition(console domain.Console, x, y sql.NullFloat64) (float64, float64) {
+	if x.Valid && y.Valid {
+		return x.Float64, y.Float64
+	}
+	if console.LocalInputCount == 0 {
+		return localPanelDefaultX, localPanelDefaultY
+	}
+	return console.LocalInputPositionX, console.LocalInputPositionY + panelChromePx + portRowPx*float64(console.LocalInputCount) + auxPanelGapPx
+}
+
 func CreateConsole(db *sql.DB, console domain.Console) (domain.Console, error) {
 	// A create never means "put it at the origin": the canvas clamps the
 	// processing lane away from x = 0, so an all-zero pair is an unset pair.
@@ -120,11 +146,13 @@ func UpdateConsole(db *sql.DB, id int64, console domain.Console) (domain.Console
 		input_count = ?, output_count = ?, local_input_count = ?, local_output_count = ?,
 		position_x = ?, position_y = ?, input_position_x = ?, input_position_y = ?,
 		local_position_x = ?, local_position_y = ?, local_input_position_x = ?, local_input_position_y = ?,
+		aux_input_position_x = ?, aux_input_position_y = ?,
 		desk_model = ?, bus_mode = ? WHERE id = ?`,
 		console.Name, console.Role, nullInt64(console.InventoryItemID), nullInt64(console.OwnedItemID),
 		console.InputCount, console.OutputCount, console.LocalInputCount, console.LocalOutputCount,
 		console.PositionX, console.PositionY, console.InputPositionX, console.InputPositionY,
 		console.LocalPositionX, console.LocalPositionY, console.LocalInputPositionX, console.LocalInputPositionY,
+		console.AuxInputPositionX, console.AuxInputPositionY,
 		deskModelOrGeneric(console.DeskModel), console.BusMode, id)
 	if err != nil {
 		return domain.Console{}, fmt.Errorf("update console: %w", err)
@@ -133,7 +161,7 @@ func UpdateConsole(db *sql.DB, id int64, console domain.Console) (domain.Console
 }
 
 // DeleteConsole removes the desk and clears every cable landing on its local
-// jacks, in one transaction, returning how many it cleared — the same shape
+// jacks or aux sockets, in one transaction, returning how many it cleared — the same shape
 // as DeleteStagebox. The channels and outputs planned on it are deliberately
 // *not* deleted: their console_id nulls out via ON DELETE SET NULL, because
 // removing a desk from the plan must never remove the patch.
@@ -146,7 +174,7 @@ func DeleteConsole(db *sql.DB, id int64) (int, error) {
 
 	cleared := 0
 	for _, table := range []string{"input_cables", "output_cables"} {
-		result, err := tx.Exec(`DELETE FROM `+table+` WHERE (from_kind = 'console_local' AND from_id = ?) OR (to_kind = 'console_local' AND to_id = ?)`, id, id)
+		result, err := tx.Exec(`DELETE FROM `+table+` WHERE (from_kind IN ('console_local', 'console_aux') AND from_id = ?) OR (to_kind IN ('console_local', 'console_aux') AND to_id = ?)`, id, id)
 		if err != nil {
 			return 0, fmt.Errorf("clear %s console references: %w", table, err)
 		}
@@ -230,6 +258,17 @@ func ConsoleLocalPortCounts(db *sql.DB, id int64) (inputs, outputs int, err erro
 		return 0, 0, fmt.Errorf("console local port counts: %w", err)
 	}
 	return inputs, outputs, nil
+}
+
+// ConsoleAuxSocketCount is how many aux in sockets the desk's model has, for
+// validating a console_aux cable endpoint. Read from the model, never stored.
+func ConsoleAuxSocketCount(db *sql.DB, id int64) (int, error) {
+	var key string
+	if err := db.QueryRow(`SELECT desk_model FROM event_consoles WHERE id = ?`, id).Scan(&key); err != nil {
+		return 0, fmt.Errorf("console aux socket count: %w", err)
+	}
+	model, _ := domain.LookupDeskModel(key)
+	return model.AuxSockets, nil
 }
 
 // DefaultConsoleID is the console a new channel or output belongs to when the

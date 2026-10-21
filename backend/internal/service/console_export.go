@@ -122,6 +122,13 @@ func (s ExportService) BuildConsoleExport(eventID, consoleID int64, ports Export
 				return nil
 			}
 			key = "local"
+		case "console_aux":
+			// The desk's own aux in sockets: fixed, never mapped, and only an X32 ·
+			// M32 has them (D9).
+			if id != console.ID || model.Engine != domain.EngineX32 {
+				return nil
+			}
+			return &consolefile.DeskPort{Socket: "aux", Index: port}
 		default:
 			return nil
 		}

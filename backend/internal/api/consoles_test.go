@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	dbstore "github.com/trionell/patchplanner/internal/db"
 	"github.com/trionell/patchplanner/internal/domain"
 )
 
@@ -320,5 +321,104 @@ func TestConsoleLocalOutJack(t *testing.T) {
 	})
 	if status != http.StatusCreated {
 		t.Fatalf("POST local jack to recorder: status %d body %s", status, raw)
+	}
+}
+
+// TestConsoleAuxSockets is D9: an X32's rear aux in sockets are a port kind of
+// their own, sized by the model, and kept out of the local jack counts.
+func TestConsoleAuxSockets(t *testing.T) {
+	server, database := newTestServer(t)
+	eventID := seedEvent(t, server.URL)
+	cableItem := seedItem(t, database, "Jack-jack 3 m", 10, 20)
+
+	consolesURL := fmt.Sprintf("%s/events/%d/consoles", server.URL, eventID)
+	sourcesURL := fmt.Sprintf("%s/events/%d/input-sources", server.URL, eventID)
+	channelsURL := fmt.Sprintf("%s/events/%d/input-channels", server.URL, eventID)
+	cablesURL := fmt.Sprintf("%s/events/%d/input-cables", server.URL, eventID)
+
+	post := func(url string, body map[string]any) []byte {
+		t.Helper()
+		status, raw := doJSON(t, http.MethodPost, url, body)
+		if status != http.StatusCreated {
+			t.Fatalf("POST %s %v: status %d body %s", url, body, status, raw)
+		}
+		return raw
+	}
+	desk := decodeJSON[domain.Console](t, post(consolesURL, map[string]any{"name": "FOH", "role": "foh", "desk_model": "m32"}))
+	core := decodeJSON[domain.Console](t, post(consolesURL, map[string]any{"name": "Core", "role": "monitor", "desk_model": "x32core"}))
+	if desk.AuxSocketCount != 6 || core.AuxSocketCount != 0 {
+		t.Fatalf("aux_socket_count = %d / %d, want 6 / 0", desk.AuxSocketCount, core.AuxSocketCount)
+	}
+	// Never placed: just below the local panel, left edges aligned.
+	if desk.AuxInputPositionX != desk.LocalInputPositionX || desk.AuxInputPositionY <= desk.LocalInputPositionY {
+		t.Errorf("aux position (%v, %v) is not below the local panel (%v, %v)",
+			desk.AuxInputPositionX, desk.AuxInputPositionY, desk.LocalInputPositionX, desk.LocalInputPositionY)
+	}
+
+	source := decodeJSON[domain.InputSource](t, post(sourcesURL, map[string]any{"name": "Host mic RX", "kind": "line", "connector_type": "trs", "width": "mono"}))
+	channel := decodeJSON[domain.InputChannel](t, post(channelsURL, map[string]any{"channel_number": 20, "channel_name": "Host mic RX", "console_id": desk.ID}))
+	auxStrip := decodeJSON[domain.InputChannel](t, post(channelsURL, map[string]any{"channel_number": 1, "channel_name": "Playback", "console_id": desk.ID, "strip_pool": "aux"}))
+
+	post(cablesURL, map[string]any{
+		"from_kind": "source", "from_id": source.ID, "from_port": 0,
+		"to_kind": "console_aux", "to_id": desk.ID, "to_port": 2, "cable_item_id": cableItem,
+	})
+	// Into an ordinary channel and into an aux strip; both hops are desk routing.
+	for _, target := range []domain.InputChannel{channel, auxStrip} {
+		port := 2
+		if target.ID == auxStrip.ID {
+			port = 0
+		}
+		hop := decodeJSON[domain.InputCable](t, post(cablesURL, map[string]any{
+			"from_kind": "console_aux", "from_id": desk.ID, "from_port": port,
+			"to_kind": "channel", "to_id": target.ID, "to_port": 0,
+		}))
+		if hop.CableItemID != nil {
+			t.Error("the aux-socket-to-channel hop carries a cable item")
+		}
+	}
+
+	refused := []struct {
+		name string
+		body map[string]any
+	}{
+		{"a cable item on the hop", map[string]any{"from_kind": "console_aux", "from_id": desk.ID, "from_port": 3, "to_kind": "channel", "to_id": channel.ID, "to_port": 0, "cable_item_id": cableItem}},
+		{"Aux in 7 on an M32", map[string]any{"from_kind": "source", "from_id": source.ID, "from_port": 0, "to_kind": "console_aux", "to_id": desk.ID, "to_port": 6}},
+		{"any socket on X32 Core", map[string]any{"from_kind": "source", "from_id": source.ID, "from_port": 0, "to_kind": "console_aux", "to_id": core.ID, "to_port": 0}},
+	}
+	for _, c := range refused {
+		if status, raw := doJSON(t, http.MethodPost, cablesURL, c.body); status != http.StatusBadRequest {
+			t.Errorf("%s: status %d body %s, want 400", c.name, status, raw)
+		}
+	}
+
+	// Aux sockets are not local jacks.
+	usage, err := dbstore.GetConsoleUsage(database, desk.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if usage.LocalInputsUsed != 0 {
+		t.Errorf("local inputs used = %d, want 0", usage.LocalInputsUsed)
+	}
+
+	// A drag stores the pair, and it is read back as stored.
+	consoleURL := fmt.Sprintf("%s/%d", consolesURL, desk.ID)
+	status, raw := doJSON(t, http.MethodPatch, consoleURL, map[string]any{"aux_input_position_x": 700, "aux_input_position_y": 40})
+	if status != http.StatusOK {
+		t.Fatalf("PATCH aux position: status %d body %s", status, raw)
+	}
+	if moved := decodeJSON[domain.Console](t, raw); moved.AuxInputPositionX != 700 || moved.AuxInputPositionY != 40 {
+		t.Errorf("aux position after PATCH = (%v, %v), want (700, 40)", moved.AuxInputPositionX, moved.AuxInputPositionY)
+	}
+
+	// Deleting the desk clears its aux cables too: the cable in and two hops out.
+	status, raw = doJSON(t, http.MethodDelete, consoleURL, nil)
+	if status != http.StatusOK {
+		t.Fatalf("DELETE console: status %d body %s", status, raw)
+	}
+	if cleared := decodeJSON[struct {
+		ClearedCables int `json:"cleared_cables"`
+	}](t, raw).ClearedCables; cleared != 3 {
+		t.Errorf("cleared_cables = %d, want 3", cleared)
 	}
 }

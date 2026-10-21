@@ -107,8 +107,11 @@ var (
 	// input jack N and a cableless hop carries it from that jack to a
 	// channel — the talkback-straight-into-the-desk run, which before
 	// Slice 23 had to be faked through a stagebox.
-	ValidInputCableFromKinds = []string{"source", "stagebox", "stage_multi", "device", "console_local"}
-	ValidInputCableToKinds   = []string{"stagebox", "stage_multi", "device", "channel", "console_local"}
+	// console_aux is an X32 · M32's rear aux in sockets (D9): the same
+	// pass-through as a local jack, kept a kind of its own so no count of the
+	// local jacks can take them in.
+	ValidInputCableFromKinds = []string{"source", "stagebox", "stage_multi", "device", "console_local", "console_aux"}
+	ValidInputCableToKinds   = []string{"stagebox", "stage_multi", "device", "channel", "console_local", "console_aux"}
 	// ValidConsoleRoles is Console.Role (Slice 23) — which desk this is at
 	// a glance, nothing more. Go-validated rather than a reference
 	// vocabulary (research.md R7): no planning, aggregation or validation
@@ -427,4 +430,10 @@ type Console struct {
 	LocalPositionY      float64 `json:"local_position_y"`
 	LocalInputPositionX float64 `json:"local_input_position_x"`
 	LocalInputPositionY float64 `json:"local_input_position_y"`
+	// AuxSocketCount is the model's aux in sockets, read from it and never
+	// stored (D9). AuxInputPositionX/Y place their node on the input canvas;
+	// one never placed is served just below the local panel.
+	AuxSocketCount    int     `json:"aux_socket_count"`
+	AuxInputPositionX float64 `json:"aux_input_position_x"`
+	AuxInputPositionY float64 `json:"aux_input_position_y"`
 }

@@ -35,7 +35,7 @@ func stripRows(db *sql.DB, where string, arg int64) ([]domain.StripRow, error) {
 	return out, rows.Err()
 }
 
-// DeskLocalUse lists the desk's local jacks that carry a cable on either side,
+// DeskLocalUse lists the desk's local jacks and aux sockets that carry a cable on either side,
 // each labelled by the channel or output it serves where there is one.
 func DeskLocalUse(db *sql.DB, consoleID int64) (domain.LocalUse, error) {
 	var use domain.LocalUse
@@ -60,6 +60,18 @@ func DeskLocalUse(db *sql.DB, consoleID int64) (domain.LocalUse, error) {
 			LIMIT 1), 'unpatched')
 		FROM (SELECT to_port AS port FROM output_cables WHERE to_kind = 'console_local' AND to_id = ?1
 		      UNION SELECT from_port FROM output_cables WHERE from_kind = 'console_local' AND from_id = ?1) p
+		ORDER BY p.port`, consoleID)
+	if err != nil {
+		return use, err
+	}
+	use.Aux, err = jackUse(db, `
+		SELECT p.port, COALESCE((
+			SELECT COALESCE(NULLIF(c.channel_name, ''), 'Ch ' || c.channel_number)
+			FROM input_cables k JOIN input_channels c ON c.id = k.to_id
+			WHERE k.from_kind = 'console_aux' AND k.from_id = ?1 AND k.from_port = p.port AND k.to_kind = 'channel'
+			LIMIT 1), 'unpatched')
+		FROM (SELECT to_port AS port FROM input_cables WHERE to_kind = 'console_aux' AND to_id = ?1
+		      UNION SELECT from_port FROM input_cables WHERE from_kind = 'console_aux' AND from_id = ?1) p
 		ORDER BY p.port`, consoleID)
 	return use, err
 }

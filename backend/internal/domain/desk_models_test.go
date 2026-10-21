@@ -66,3 +66,23 @@ func TestBusModes(t *testing.T) {
 		t.Error("LV1 64 has no bus mode")
 	}
 }
+
+// Aux sockets per model, from specs/console-aux-sockets (D9).
+func TestDeskModelAuxSockets(t *testing.T) {
+	want := map[string]int{
+		"x32": 6, "x32c": 6, "x32p": 6, "x32r": 6, "m32": 6, "m32l": 6, "m32r": 6, "m32rl": 6,
+		"x32core": 0, "m32c": 0,
+		"lv1_16": 0, "lv1_32": 0, "lv1_64": 0, "lv1_80": 0, "lv1c_64": 0, "lv1c_80": 0,
+		DeskModelGeneric: 0,
+	}
+	for _, m := range DeskModels {
+		n, ok := want[m.Key]
+		if !ok {
+			t.Errorf("%s: no expected aux socket count", m.Key)
+			continue
+		}
+		if m.AuxSockets != n {
+			t.Errorf("%s: aux sockets = %d, want %d", m.Key, m.AuxSockets, n)
+		}
+	}
+}

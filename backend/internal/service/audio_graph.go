@@ -341,6 +341,25 @@ func buildInputGraph(data audioGraphData) FlowGraph {
 			local.Footer = fmt.Sprintf("%d local jacks - %d used", desk.LocalInputCount, countPatched(local.Inputs))
 			graph.Nodes = append(graph.Nodes, local)
 		}
+
+		// The rear aux in sockets are a third node, kept apart from the local
+		// jacks so neither count takes in the other (D9). No sockets, no node.
+		if desk.AuxSocketCount > 0 {
+			key := "console_aux:" + itoa(desk.ID)
+			aux := FlowNode{
+				Key:   key,
+				Title: desk.Name + " aux",
+				Badge: "AUX",
+				X:     desk.AuxInputPositionX,
+				Y:     desk.AuxInputPositionY,
+			}
+			for i := 0; i < desk.AuxSocketCount; i++ {
+				aux.Inputs = append(aux.Inputs, portAt(key, SideIn, i, fmt.Sprintf("Aux in %d", i+1), patched, colors))
+				aux.Outputs = append(aux.Outputs, portAt(key, SideOut, i, fmt.Sprintf("Aux to desk %d", i+1), patched, colors))
+			}
+			aux.Footer = fmt.Sprintf("%d aux sockets - %d used", desk.AuxSocketCount, countPatched(aux.Inputs))
+			graph.Nodes = append(graph.Nodes, aux)
+		}
 	}
 
 	orphans := channelsOfDesk(data.channels, nil)

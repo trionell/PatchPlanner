@@ -917,7 +917,7 @@ func isCablelessInputEdge(fromKind, toKind string) bool {
 	// A console's local jack behaves exactly as a stagebox does here: the cable
 	// into the jack is real and billable, the hop from that jack to a channel is
 	// the desk's own routing (Slice 23, research.md R3).
-	if fromKind == "console_local" && toKind == "channel" {
+	if (fromKind == "console_local" || fromKind == "console_aux") && toKind == "channel" {
 		return true
 	}
 	return fromKind == "stagebox" && toKind == "channel"
@@ -928,11 +928,11 @@ func isCablelessInputEdge(fromKind, toKind string) bool {
 // (data-model.md's InputCable validation rules, research.md R2/R5).
 func (h AudioPatchHandler) validInputCable(w http.ResponseWriter, eventID int64, cable domain.InputCable) bool {
 	if !slices.Contains(domain.ValidInputCableFromKinds, cable.FromKind) {
-		writeError(w, http.StatusBadRequest, "from_kind must be one of: source, stagebox, stage_multi, device, console_local")
+		writeError(w, http.StatusBadRequest, "from_kind must be one of: source, stagebox, stage_multi, device, console_local, console_aux")
 		return false
 	}
 	if !slices.Contains(domain.ValidInputCableToKinds, cable.ToKind) {
-		writeError(w, http.StatusBadRequest, "to_kind must be one of: stagebox, stage_multi, device, channel, console_local")
+		writeError(w, http.StatusBadRequest, "to_kind must be one of: stagebox, stage_multi, device, channel, console_local, console_aux")
 		return false
 	}
 	fromCount, ok := h.inputNodeOutputPortCount(w, eventID, cable.FromKind, cable.FromID)
@@ -1047,6 +1047,19 @@ func (h AudioPatchHandler) inputNodeOutputPortCount(w http.ResponseWriter, event
 			return 0, false
 		}
 		return inputs, true
+	case "console_aux":
+		// An aux socket is sized by the desk's model alone, one port per
+		// socket on both sides, as a local jack is (D9).
+		if !h.itemBelongsToEvent("event_consoles", eventID, id) {
+			writeError(w, http.StatusBadRequest, "from_id references a console of another event")
+			return 0, false
+		}
+		count, err := dbstore.ConsoleAuxSocketCount(h.DB, id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return 0, false
+		}
+		return count, true
 	}
 	writeError(w, http.StatusBadRequest, "unknown from_kind")
 	return 0, false
@@ -1113,6 +1126,17 @@ func (h AudioPatchHandler) inputNodeInputPortCount(w http.ResponseWriter, eventI
 			return 0, false
 		}
 		return inputs, true
+	case "console_aux":
+		if !h.itemBelongsToEvent("event_consoles", eventID, id) {
+			writeError(w, http.StatusBadRequest, "to_id references a console of another event")
+			return 0, false
+		}
+		count, err := dbstore.ConsoleAuxSocketCount(h.DB, id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return 0, false
+		}
+		return count, true
 	}
 	writeError(w, http.StatusBadRequest, "unknown to_kind")
 	return 0, false

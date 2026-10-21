@@ -48,10 +48,13 @@ type DeskModel struct {
 	Engine string `json:"engine"`
 	Stereo string `json:"stereo"`
 
-	Strips   int `json:"strips"`
-	AuxIn    int `json:"aux_in"`
-	LocalIn  int `json:"local_in"`
-	LocalOut int `json:"local_out"`
+	Strips int `json:"strips"`
+	// AuxIn is the aux strip pool; AuxSockets the rear aux in jacks that can
+	// feed it or any channel (D9). Strips 7–8 are USB-fed and have no socket.
+	AuxIn      int `json:"aux_in"`
+	AuxSockets int `json:"aux_sockets"`
+	LocalIn    int `json:"local_in"`
+	LocalOut   int `json:"local_out"`
 
 	// Mix pools, stored and shown here; checked by Slice 48. X32 · M32 spends
 	// its Buses on subgroups, monitors and FX alike; LV1 has a pool per type.
@@ -81,9 +84,15 @@ var BusModePools = map[string]struct{ Groups, Mon int }{
 }
 
 func x32(key, family, label string, localIn, localOut int) DeskModel {
+	// Every model with a jack panel has aux in 1–6; Core and M32C have no
+	// analogue I/O. Retailer spec sheets, not the manuals (D9).
+	auxSockets := 0
+	if localIn > 0 {
+		auxSockets = 6
+	}
 	return DeskModel{
 		Key: key, Family: family, Label: label, Engine: EngineX32, Stereo: StereoLinked,
-		Strips: 32, AuxIn: 8, LocalIn: localIn, LocalOut: localOut,
+		Strips: 32, AuxIn: 8, AuxSockets: auxSockets, LocalIn: localIn, LocalOut: localOut,
 		Buses: 16, Matrix: 6, DCA: 8, Mute: 6, FXRet: 8, Mains: "LR + M/C",
 		NameLength: 12, Colours: 8,
 	}

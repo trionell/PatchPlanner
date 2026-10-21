@@ -490,3 +490,42 @@ func TestEmptyEventStillBuildsGraphs(t *testing.T) {
 		t.Error("empty event's input graph does not report itself empty")
 	}
 }
+
+// D9: the rear aux sockets print as their own node at the canvas's position,
+// counted apart from the local jacks; a model without sockets prints none.
+func TestBuildInputGraphPrintsAuxSockets(t *testing.T) {
+	foh := domain.Console{ID: 1, Name: "FOH", DeskModel: "x32", LocalInputCount: 32, AuxSocketCount: 6, AuxInputPositionX: 260, AuxInputPositionY: 960}
+	core := domain.Console{ID: 2, Name: "Core", DeskModel: "x32core", AuxSocketCount: 0}
+	data := audioGraphData{
+		sources:  []domain.InputSource{{ID: 1, Name: "Playback", Width: "stereo"}, {ID: 2, Name: "Host mic RX", Width: "mono"}},
+		consoles: []domain.Console{foh, core},
+		inCables: []domain.InputCable{
+			{FromKind: "source", FromID: 1, FromPort: 0, ToKind: "console_aux", ToID: 1, ToPort: 0},
+			{FromKind: "source", FromID: 1, FromPort: 1, ToKind: "console_aux", ToID: 1, ToPort: 1},
+			{FromKind: "source", FromID: 2, FromPort: 0, ToKind: "console_aux", ToID: 1, ToPort: 2},
+		},
+	}
+	graph := buildInputGraph(data)
+	aux, ok := graph.Node("console_aux:1")
+	if !ok {
+		t.Fatal("no aux node for the X32")
+	}
+	if aux.Title != "FOH aux" || aux.Badge != "AUX" || aux.X != 260 || aux.Y != 960 {
+		t.Errorf("aux node = %q %q at (%v,%v)", aux.Title, aux.Badge, aux.X, aux.Y)
+	}
+	if len(aux.Inputs) != 6 || aux.Inputs[2].Label != "Aux in 3" || aux.Outputs[2].Label != "Aux to desk 3" {
+		t.Errorf("aux rows = %+v / %+v", aux.Inputs, aux.Outputs)
+	}
+	if aux.Footer != "6 aux sockets - 3 used" {
+		t.Errorf("footer = %q", aux.Footer)
+	}
+	if local, ok := graph.Node("console_local:1"); !ok || local.Footer != "32 local jacks - 0 used" {
+		t.Errorf("local node = %+v, want its footer to count local jacks only", local)
+	}
+	if _, ok := graph.Node("console_aux:2"); ok {
+		t.Error("X32 Core printed an aux node")
+	}
+	if len(graph.Edges) != 3 {
+		t.Errorf("edges = %d, want 3", len(graph.Edges))
+	}
+}

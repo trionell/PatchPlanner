@@ -141,6 +141,35 @@ func TestConsoleExportResolvesStageboxPorts(t *testing.T) {
 	}
 }
 
+// D9: an aux socket needs no mapping. It reaches the scene as user in 161–166
+// for an ordinary channel.
+func TestConsoleExportAuxSocket(t *testing.T) {
+	f, desk := newDeskFixture(t)
+	f.switchTo(desk, "m32", true)
+	host := f.mustAddChannel(map[string]any{"channel_number": 1, "channel_name": "Host mic RX"})
+	if status, raw := doJSON(t, http.MethodPost, fmt.Sprintf("%s/events/%d/input-cables", f.base, f.eventID), map[string]any{"from_kind": "console_aux", "from_id": desk.ID, "from_port": 2, "to_kind": "channel", "to_id": host.ID, "to_port": 0}); status != http.StatusCreated {
+		t.Fatalf("cable: %d %s", status, raw)
+	}
+	response, err := httpClient.Get(exportURL(f, desk.ID, "", false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = response.Body.Close() }()
+	body, _ := io.ReadAll(response.Body)
+	found := false
+	for _, line := range strings.Split(string(body), "\n") {
+		if strings.HasPrefix(line, "/config/userrout/in ") {
+			found = true
+			if got := strings.Fields(line)[1]; got != "163" {
+				t.Errorf("user in 1 = %s, want 163 (Aux In 3)", got)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("no user-in line in %d bytes", len(body))
+	}
+}
+
 // Someone with no access to the event gets nothing, not even the preview.
 func TestConsoleExportStranger(t *testing.T) {
 	server, database := newTestServer(t)

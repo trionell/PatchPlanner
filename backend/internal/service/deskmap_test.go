@@ -332,3 +332,40 @@ func TestMapMixesKeepsSlotOrder(t *testing.T) {
 		t.Errorf("monitors on %d and %d, want 2 (next free) and 3 (kept)", b.ToSlot, c.ToSlot)
 	}
 }
+
+// D9: aux sockets a new model lacks are kept, listed and counted apart from the
+// local jacks.
+func TestMapRowsAuxSocketsOntoX32Core(t *testing.T) {
+	jacks := LocalUse{Aux: []JackUse{{Port: 0, Label: "Playback"}, {Port: 2, Label: "Host mic RX"}}}
+	m := MapRows([]domain.StripRow{ch(1, 1, "mono", "Kick")}, jacks, side(t, "x32", 0), side(t, "x32core", 0))
+	l := line(m, WordLeftOut, "2 aux sockets past X32 Core's 0 aux sockets")
+	if l == nil || len(l.Items) != 2 || l.Items[0] != "1 · Playback" || l.Items[1] != "3 · Host mic RX" {
+		t.Fatalf("aux line = %+v, lines %+v", l, m.Lines)
+	}
+	var aux *Figure
+	for i, f := range m.Figures {
+		if f.Label == "Aux sockets" {
+			aux = &m.Figures[i]
+		}
+	}
+	if aux == nil || aux.Before != 2 || aux.BeforeCap != 6 || aux.After != 2 || aux.AfterCap != 0 {
+		t.Errorf("aux figure = %+v", aux)
+	}
+	if line(m, WordLeftOut, "local input") != nil {
+		t.Errorf("aux sockets were reported as local inputs: %+v", m.Lines)
+	}
+}
+
+func TestMapRowsAuxSocketsBetweenFullPanels(t *testing.T) {
+	jacks := LocalUse{Aux: []JackUse{{Port: 5, Label: "Spare"}}}
+	m := MapRows([]domain.StripRow{ch(1, 1, "mono", "Kick")}, jacks, side(t, "x32", 0), side(t, "x32r", 0))
+	if l := line(m, WordLeftOut, "aux socket"); l != nil {
+		t.Errorf("X32 → X32 Rack left out an aux socket: %+v", l)
+	}
+	// Neither LV1 has sockets, so no aux socket figure.
+	for _, f := range MapRows(nil, LocalUse{}, side(t, "lv1_64", 0), side(t, "lv1_32", 0)).Figures {
+		if f.Label == "Aux sockets" {
+			t.Errorf("LV1 → LV1 shows an aux socket figure")
+		}
+	}
+}

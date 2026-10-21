@@ -377,6 +377,7 @@ func outputDestinations(data audioGraphData) map[int64]outputEnd {
 	}
 	for _, desk := range data.consoles {
 		boxName["console_local:"+itoa(desk.ID)] = desk.Name + " local"
+		boxName["console_aux:"+itoa(desk.ID)] = desk.Name + " aux"
 	}
 
 	var walk func(node string, port int, via string, guard map[portKey]bool) (outputEnd, bool)

@@ -206,3 +206,44 @@ func TestX32LocalOutPast16RewritesNothing(t *testing.T) {
 		t.Errorf("no Left out line: %+v", notices)
 	}
 }
+
+// D9: the rear aux sockets. An aux strip on a socket takes it as its source;
+// an ordinary channel on one takes user-in 161–166; a socket has no headamp.
+func TestX32AuxSockets(t *testing.T) {
+	show := x32Fixture()
+	show.Strips = []Strip{
+		{ID: 1, Aux: true, Number: 1, Stereo: true, Name: "Playback", Input: &DeskPort{Socket: "aux", Index: 2}, InputR: &DeskPort{Socket: "aux", Index: 3}},
+		{ID: 2, Number: 20, Name: "Host mic RX", Input: &DeskPort{Socket: "aux", Index: 2}, Phantom: true},
+		{ID: 3, Aux: true, Number: 3, Name: "Laptop", Input: &DeskPort{Socket: "a", Index: 0}},
+	}
+	show.Routes, show.Tracks, show.Outputs = nil, nil, nil
+	sc, notices := written(t, show)
+	if got := sc.field("/auxin/01/config", 4); got != "35" {
+		t.Errorf("aux 1 source = %s, want 35 (Aux 3)", got)
+	}
+	if got := sc.field("/auxin/02/config", 4); got != "36" {
+		t.Errorf("aux 2 source = %s, want 36 (Aux 4)", got)
+	}
+	// The stagebox-fed aux strip keeps the template's own socket.
+	if got := sc.field("/auxin/03/config", 4); got != "35" {
+		t.Errorf("aux 3 source = %s, want the template's 35", got)
+	}
+	userIn := strings.Fields(sc.lines[sc.at["/config/userrout/in"]])[1:]
+	if userIn[19] != "163" {
+		t.Errorf("user in 20 = %s, want 163 (Aux In 3)", userIn[19])
+	}
+	for _, line := range sc.lines {
+		if strings.HasPrefix(line, "/headamp/") && strings.Contains(line, " ON") {
+			t.Errorf("48 V written for an aux socket: %s", line)
+		}
+	}
+	var kept *Notice
+	for i, n := range notices {
+		if n.Word == Changed && strings.Contains(n.Text, "not on an aux socket") {
+			kept = &notices[i]
+		}
+	}
+	if kept == nil || len(kept.Items) != 1 || kept.Items[0] != "Laptop" {
+		t.Errorf("kept notice = %+v, notices %+v", kept, notices)
+	}
+}

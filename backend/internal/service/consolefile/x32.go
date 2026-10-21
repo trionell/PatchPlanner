@@ -186,6 +186,8 @@ func inputCode(port *DeskPort) int {
 		return 81 + port.Index
 	case "card":
 		return 129 + port.Index
+	case "aux":
+		return 161 + port.Index
 	}
 	return 0
 }
@@ -346,8 +348,23 @@ func WriteX32(show Show) ([]byte, []Notice) {
 			n.add(NoInput, "%d strips have no input patched.", strip.Name)
 		}
 		if strip.Aux {
-			if strip.Input != nil {
-				n.add(Changed, "%d aux inputs keep the rear aux sockets; their stagebox patch is not written.", strip.Name)
+			// An aux strip's source is field 4 of its config: 33–38 are the rear
+			// aux sockets 1–6. Anything else would need the routing block's AUX
+			// slots, shared with user in, so it stays on the template's socket.
+			kept := false
+			for side, port := range []*DeskPort{strip.Input, strip.InputR} {
+				if side == 1 && !strip.Stereo {
+					break
+				}
+				switch {
+				case port != nil && port.Socket == "aux":
+					sc.set(fmt.Sprintf("/auxin/%02d/config", strip.Number+side), map[int]string{4: strconv.Itoa(33 + port.Index)})
+				case port != nil:
+					kept = true
+				}
+			}
+			if kept {
+				n.add(Changed, "%d aux inputs not on an aux socket keep their own rear socket; their patch is not written.", strip.Name)
 			}
 			continue
 		}

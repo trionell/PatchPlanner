@@ -189,6 +189,9 @@ func switchFigures(rows []MappedRow, jacks LocalUse, from, to DeskSide) []Figure
 		Figure{Label: "Local in", Before: len(jacks.Inputs), BeforeCap: from.LocalIn, After: len(jacks.Inputs), AfterCap: to.LocalIn},
 		Figure{Label: "Local out", Before: len(jacks.Outputs), BeforeCap: from.LocalOut, After: len(jacks.Outputs), AfterCap: to.LocalOut},
 	)
+	if from.Model.AuxSockets > 0 || to.Model.AuxSockets > 0 {
+		figures = append(figures, Figure{Label: "Aux sockets", Before: len(jacks.Aux), BeforeCap: from.Model.AuxSockets, After: len(jacks.Aux), AfterCap: to.Model.AuxSockets})
+	}
 	return figures
 }
 
@@ -266,6 +269,22 @@ func switchLines(rows []MappedRow, source []domain.StripRow, jacks LocalUse, fro
 				Items: past,
 			})
 		}
+	}
+
+	// Aux sockets come from the model on every engine, Generic's 0 included, so
+	// unlike the local jacks above this is checked on a switch to Generic too.
+	var pastAux []string
+	for _, jack := range jacks.Aux {
+		if jack.Port >= to.Model.AuxSockets {
+			pastAux = append(pastAux, fmt.Sprintf("%d · %s", jack.Port+1, jack.Label))
+		}
+	}
+	if len(pastAux) > 0 {
+		lines = append(lines, PreviewLine{
+			Word:  WordLeftOut,
+			Text:  fmt.Sprintf("%s past %s's %d aux sockets. The cables are kept, flagged over.", count(len(pastAux), "aux socket", "aux sockets"), target, to.Model.AuxSockets),
+			Items: pastAux,
+		})
 	}
 
 	if len(toPairs) > 0 {
